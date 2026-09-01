@@ -1,8 +1,10 @@
 import ChangeLog from '../changelog/connector-kudu.md';
 
-# Kudu
+# Kudu Sink Connector
 
-> Kudu sink connector
+`Sink: Kudu`
+
+Writes SeaTunnel rows to Apache Kudu tables. Each row kind is mapped to a Kudu write operation — `INSERT` rows append, `UPDATE_AFTER` rows upsert, and `DELETE` rows delete by primary key. Rows can be routed to a single target table or to multiple tables using placeholders in `table_name`.
 
 ## Support Kudu Version
 
@@ -16,6 +18,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
@@ -39,21 +42,21 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 |                   Name                    |  Type  | Required |                    Default                     |                                                                 Description                                                                 |
 |-------------------------------------------|--------|----------|------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------|
-| kudu_masters                              | String | Yes      | -                                              | Kudu master address. Separated by ',',such as '192.168.88.110:7051'.                                                                        |
-| table_name                                | String | No       | Upstream table name                            | The name of the Kudu table. If this option is omitted, SeaTunnel uses the upstream table name. In multi-table jobs, placeholders such as `${database_name}`, `${schema_name}`, and `${table_name}` can be used. |
-| client_worker_count                       | Int    | No       | 2 * Runtime.getRuntime().availableProcessors() | Kudu worker count. Default value is twice the current number of cpu cores.                                                                  |
-| client_default_operation_timeout_ms       | Long   | No       | 30000                                          | Kudu normal operation time out.                                                                                                             |
-| client_default_admin_operation_timeout_ms | Long   | No       | 30000                                          | Kudu admin operation time out.                                                                                                              |
-| enable_kerberos                           | Bool   | No       | false                                          | Kerberos principal enable.                                                                                                                  |
-| kerberos_principal                        | String | Yes, when `enable_kerberos = true` | -                                              | Kerberos principal used by the Kudu client. The keytab must be available on every worker node.                                  |
-| kerberos_keytab                           | String | Yes, when `enable_kerberos = true` | -                                              | Kerberos keytab path used by the Kudu client. The file must be available on every worker node.                                  |
-| kerberos_krb5conf                         | String | No       | -                                              | Kerberos krb5 conf. Note that all zeta nodes require have this file.                                                                        |
-| save_mode                                 | String | No       | APPEND                                         | Storage mode. Supported values are `append` and `overwrite`. In `overwrite` mode, insert rows are written as Kudu upserts.                                                                                             |
-| session_flush_mode                        | String | No       | AUTO_FLUSH_SYNC                                | Kudu flush mode. Supported values are `AUTO_FLUSH_SYNC`, `AUTO_FLUSH_BACKGROUND`, and `MANUAL_FLUSH`.                                                                                                   |
-| batch_size                                | Int    | No       | 1024                                           | Required only when `session_flush_mode` is `AUTO_FLUSH_BACKGROUND` or `MANUAL_FLUSH`. The writer flushes after this many append, upsert, or delete records. |
-| buffer_flush_interval                     | Int    | No       | 10000                                          | Required only when `session_flush_mode = AUTO_FLUSH_BACKGROUND`. The asynchronous writer flush interval, in milliseconds.                                                             |
-| ignore_not_found                          | Bool   | No       | false                                          | If true, ignore all not found rows.                                                                                                         |
-| ignore_not_duplicate                      | Bool   | No       | false                                          | If true, ignore all duplicate rows.                                                                                                          |
+| kudu_masters                              | String | Yes      | -                                              | Comma-separated list of Kudu master addresses, for example `192.168.88.110:7051`.                                                                        |
+| table_name                                | String | No       | Upstream table name                            | Name of the Kudu table to write to. When omitted, SeaTunnel uses the table id carried by the upstream row. In multi-table jobs, placeholders such as `${database_name}`, `${schema_name}`, and `${table_name}` are substituted with the row's table id. |
+| client_worker_count                       | Int    | No       | 2 * Runtime.getRuntime().availableProcessors() | Number of Kudu client workers. Default value is twice the number of CPU cores available to the JVM.                                                                  |
+| client_default_operation_timeout_ms       | Long   | No       | 30000                                          | Default Kudu operation timeout in milliseconds.                                                                                                             |
+| client_default_admin_operation_timeout_ms | Long   | No       | 30000                                          | Default Kudu admin operation timeout in milliseconds.                                                                                                              |
+| enable_kerberos                           | Bool   | No       | false                                          | Whether to enable Kerberos authentication for the Kudu client.                                                                                                                  |
+| kerberos_principal                        | String | Conditional (when `enable_kerberos = true`) | -                                              | Kerberos principal used by the Kudu client. The keytab must be available on every worker node.                                  |
+| kerberos_keytab                           | String | Conditional (when `enable_kerberos = true`) | -                                              | Kerberos keytab path used by the Kudu client. The file must be available on every worker node.                                  |
+| kerberos_krb5conf                         | String | No       | -                                              | Kerberos `krb5.conf` path. Required on every Zeta node that runs the connector.                                                                        |
+| save_mode                                 | String | No       | append                                         | Write mode. Supported values are `append` and `overwrite`. In `overwrite` mode, insert rows are written as Kudu upserts and existing rows are replaced.                                                                                             |
+| session_flush_mode                        | String | No       | AUTO_FLUSH_SYNC                                | Kudu session flush mode. Supported values are `AUTO_FLUSH_SYNC`, `AUTO_FLUSH_BACKGROUND`, and `MANUAL_FLUSH`.                                                                                                   |
+| batch_size                                | Int    | No (required for async flush modes) | 1024                                           | Required only when `session_flush_mode` is `AUTO_FLUSH_BACKGROUND` or `MANUAL_FLUSH`. The writer flushes after this many append, upsert, or delete records. |
+| buffer_flush_interval                     | Int    | No (required for AUTO_FLUSH_BACKGROUND) | 10000                                          | Required only when `session_flush_mode = AUTO_FLUSH_BACKGROUND`. The asynchronous writer flush interval, in milliseconds.                                                             |
+| ignore_not_found                          | Bool   | No       | false                                          | When `true`, ignore "row not found" errors during updates and deletes — useful when rows may have been deleted out of band.                                                                                                         |
+| ignore_not_duplicate                      | Bool   | No       | false                                          | When `true`, ignore "row already present" errors during inserts — useful when rows are idempotent and may already exist.                                                                                                          |
 | multi_table_sink_replica                  | Int    | No       | 1                                              | Number of sink writer replicas for each table in a multi-table job.                                                                          |
 | common-options                            |        | No       | -                                              | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                            |
 
@@ -61,7 +64,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 - `table_name` is optional. If it is not set, the sink writes to the table name carried by the upstream row.
 - For multi-table jobs, use placeholders in `table_name` to route rows to different Kudu tables.
-- CDC rows are supported: insert records are appended, update records are written as upserts, and delete records are deleted by key.
+- CDC rows are supported: `INSERT` records are appended, `UPDATE_AFTER` records are written as upserts, and `DELETE` records are deleted by key.
 - `batch_size` is required only for `AUTO_FLUSH_BACKGROUND` or `MANUAL_FLUSH`. `buffer_flush_interval`
   is required only for `AUTO_FLUSH_BACKGROUND`.
 - When `enable_kerberos = true`, both `kerberos_principal` and `kerberos_keytab` are required.

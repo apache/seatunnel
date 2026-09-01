@@ -1,18 +1,16 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Vertica
+# Vertica 目标连接器
 
-> JDBC Vertica Sink 连接器
+`Sink: Vertica` (via the JDBC plugin)
+
+通过 JDBC 连接器向 Vertica 数据库写入数据。Vertica 只需将 JDBC 插件的 `driver` 设置为 `com.vertica.jdbc.Driver`，`url` 配置为 `jdbc:vertica://` 地址。同时支持批处理和流处理模式，并且支持并发写入。**默认不启用精确一次**：Vertica 在 JDBC 公共附录中并没有官方的 XA 数据源，因此请保持 `is_exactly_once = false`，除非你的 Vertica 驱动确实暴露了兼容的 XA `DataSource`。
 
 ## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
-
-## 描述
-
-通过 JDBC 写入数据。支持批处理和流处理模式，支持并发写入，支持精确一次语义（使用 XA 事务保证）。
 
 ## 使用依赖
 

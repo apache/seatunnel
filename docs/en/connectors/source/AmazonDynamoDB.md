@@ -1,18 +1,12 @@
 import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
-# AmazonDynamoDB
+# AmazonDynamoDB Source Connector
 
-> Amazon DynamoDB source connector
+`Source: AmazonDynamoDB`
 
-## Description
+Read existing items from an Amazon DynamoDB table by issuing DynamoDB scan requests. The connector is a batch source; DynamoDB does not expose field types the way a relational database does, so the SeaTunnel schema must be configured explicitly. This source reads the current table data with scan requests. It does **not** subscribe to DynamoDB Streams or CDC change events.
 
-The Amazon DynamoDB source connector reads existing items from an Amazon DynamoDB table by using DynamoDB scan requests.
-
-The connector is a batch source. DynamoDB does not expose field types in the same way as a relational database, so the SeaTunnel schema must be configured explicitly.
-
-This source reads the current table data with scan requests. It does not read DynamoDB Streams or CDC change events.
-
-## Supported Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -27,19 +21,19 @@ This source reads the current table data with scan requests. It does not read Dy
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Source Options
 
-| name                  | type   | required | default value | description                                      |
+| Name                  | Type   | Required | Default Value | Description                                      |
 |-----------------------|--------|----------|---------------|--------------------------------------------------|
-| url                   | string | yes      | -             | DynamoDB endpoint URL.                           |
-| region                | string | yes      | -             | AWS region of the DynamoDB service.              |
-| access_key_id         | string | yes      | -             | AWS access key ID.                               |
-| secret_access_key     | string | yes      | -             | AWS secret access key.                           |
-| table                 | string | yes      | -             | DynamoDB table name to scan.                     |
-| schema                | config | yes      | -             | SeaTunnel fields to read from DynamoDB items.    |
-| scan_item_limit       | int    | no       | 1             | Maximum items returned by each scan request.     |
-| parallel_scan_threads | int    | no       | 2             | Number of logical segments for parallel scan.    |
-| common-options        | object | no       | -             | Source plugin common parameters.                 |
+| url                   | String | Yes      | -             | DynamoDB endpoint URL. For local testing, use `http://127.0.0.1:8000`. |
+| region                | String | Yes      | -             | AWS region of the DynamoDB service, for example `us-east-1`. |
+| access_key_id         | String | Yes      | -             | AWS access key ID.                               |
+| secret_access_key     | String | Yes      | -             | AWS secret access key.                           |
+| table                 | String | Yes      | -             | DynamoDB table name to scan.                     |
+| schema                | config | Yes      | -             | SeaTunnel fields to read from DynamoDB items.    |
+| scan_item_limit       | Int    | No       | 1             | Maximum items returned by each scan request.     |
+| parallel_scan_threads | Int    | No       | 2             | Number of logical segments for parallel scan.    |
+| common-options        | object | No       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md). |
 
 ### url [string]
 

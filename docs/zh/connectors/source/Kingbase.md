@@ -1,8 +1,10 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Kingbase
+# Kingbase 源连接器
 
-> JDBC Kingbase 源连接器
+`Source: Kingbase` (via the JDBC plugin)
+
+通过 JDBC 连接器从 KingbaseES 数据库读取数据。Kingbase 只需将 JDBC 插件的 `driver` 设置为 `com.kingbase8.Driver`，`url` 配置为 `jdbc:kingbase8://` 地址，连接器就会按通用 JDBC 源的方式处理并行扫描、谓词下推和列投影——`partition_column`、`partition_num`、`table_list` 等参数行为完全一致；SQL 过滤和投影会直接减少数据库实际返回的行数。
 
 ## 支持连接器版本
 
@@ -22,10 +24,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
-
-## 描述
-
-通过 JDBC 读取外部数据源数据。
 
 ## 支持的数据源信息
 

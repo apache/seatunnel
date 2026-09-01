@@ -1,8 +1,10 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Kingbase
+# Kingbase Source Connector
 
-> JDBC Kingbase Source Connector
+`Source: Kingbase` (via the JDBC plugin)
+
+Read data from a KingbaseES database through the JDBC connector. Kingbase is configured by setting the JDBC plugin's `driver` to `com.kingbase8.Driver` and `url` to a `jdbc:kingbase8://` URL. The connector handles parallel scans, predicate push-down, and projection the same way as the generic JDBC source, so all `partition_column`, `partition_num`, and `table_list` options behave identically. SQL filters and projection reduce the rows returned from the database.
 
 ## Support Connector Version
 
@@ -22,10 +24,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
-
-## Description
-
-Read external data source data through JDBC.
 
 ## Supported DataSource Info
 

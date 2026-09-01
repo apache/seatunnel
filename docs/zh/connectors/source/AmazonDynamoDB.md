@@ -1,12 +1,10 @@
 import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
-# AmazonDynamoDB
+# AmazonDynamoDB 源连接器
 
-> Amazon DynamoDB 源连接器
+`Source: AmazonDynamoDB`
 
-## 描述
-
-Amazon DynamoDB 源连接器通过 DynamoDB scan 请求读取已有表中的数据。
+通过 DynamoDB scan 请求读取已有表中的数据。连接器属于批处理 Source；DynamoDB 与关系型数据库不同，不会自动暴露字段类型，因此必须显式配置 SeaTunnel schema。它只读取表的当前数据快照，**不**消费 DynamoDB Streams，也不读取 CDC 变更事件。
 
 该连接器是批处理源。DynamoDB 不像关系型数据库那样提供完整字段类型信息，所以必须在 SeaTunnel 中显式配置 schema。
 

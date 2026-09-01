@@ -1,12 +1,10 @@
 import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
-# AmazonDynamoDB
+# AmazonDynamoDB 目标连接器
 
-> Amazon DynamoDB 写入连接器
+`Sink: AmazonDynamoDB`
 
-## 描述
-
-Amazon DynamoDB 写入连接器用于将 SeaTunnel 数据行写入 DynamoDB 表。
+将 SeaTunnel 行写入 DynamoDB 表。目标表必须已经存在，连接器不会自动建表或创建键结构。连接器通过 batch write 请求将每一行作为 DynamoDB item 写入，因此既支持单表写入（在 `table` 里配置目标表），也支持多表写入——当上游行带有 table id 时，每一行会被路由到对应表。
 
 目标表必须提前创建。连接器会把每一行写成一个 DynamoDB item，并使用批量写入请求。它支持单表写入，也支持上游数据行携带表名时的多表写入。
 

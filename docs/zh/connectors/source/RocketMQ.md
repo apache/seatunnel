@@ -1,8 +1,10 @@
 import ChangeLog from '../changelog/connector-rocketmq.md';
 
-# RocketMQ
+# RocketMQ 源连接器
 
-> RocketMQ 源连接器
+`Source: RocketMQ`
+
+从 Apache RocketMQ topic 读取消息。连接器既可以用一套 schema 读取一个或多个 topic，也可以通过 `tables_configs` 读取多张不同结构的表。
 
 ## 支持的 Apache RocketMQ 版本
 
@@ -23,10 +25,6 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
-
-## 描述
-
-从 Apache RocketMQ topic 读取消息。连接器既可以用一套 schema 读取一个或多个 topic，也可以通过 `tables_configs` 读取多张不同结构的表。
 
 ## 源参数
 

@@ -1,14 +1,16 @@
 import ChangeLog from '../changelog/connector-rocketmq.md';
 
-# RocketMQ
+# RocketMQ Sink Connector
 
-> RocketMQ sink connector
+`Sink: RocketMQ`
+
+Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and text message bodies, optional message tags, synchronous sending, partition key fields, and transactional messages when `exactly.once = true`.
 
 ## Support Apache RocketMQ Version
 
 - 4.9.0 or newer
 
-## Support These Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -16,33 +18,33 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-## Description
-
-Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and text message bodies, optional message tags, synchronous sending, partition key fields, and transactional messages when `exactly.once = true`.
+Each upstream row is serialized into a single RocketMQ message. The sink does not branch on row kind, so `INSERT`, `UPDATE_AFTER`, and `DELETE` rows are all sent with the configured format and field delimiter; no tombstone/empty-body handling is performed today.
 
 ## Sink Options
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| topic | String | yes | - | RocketMQ topic name. |
-| name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
-| acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
-| access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
-| secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
-| producer.group | String | no | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
-| tag | String | no | - | RocketMQ message tag written with each message. |
-| partition.key.fields | List | no | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
-| format | String | no | json | Message format. Supported values are `json` and `text`. |
-| field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
-| producer.send.sync | Boolean | no | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
-| exactly.once | Boolean | no | false | Whether to send transactional messages for exactly-once delivery. |
-| max.message.size | int | no | 4194304 | Maximum message body size in bytes. |
-| send.message.timeout | int | no | 3000 | Send timeout in milliseconds. |
-| common-options | config | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
+| topic | String | Yes | - | RocketMQ topic name. |
+| name.srv.addr | String | Yes | - | RocketMQ NameServer address, for example `localhost:9876`. |
+| acl.enabled | Boolean | No | false | Whether to enable RocketMQ ACL authentication. |
+| access.key | String | No | - | Access key. Required when `acl.enabled` is `true`. |
+| secret.key | String | No | - | Secret key. Required when `acl.enabled` is `true`. |
+| producer.group | String | No | SeaTunnel-Producer-Group | RocketMQ producer group ID. |
+| tag | String | No | - | RocketMQ message tag written with each message. |
+| partition.key.fields | List | No | - | Field names serialized as the RocketMQ message key. Every listed field must exist in the upstream schema. |
+| format | String | No | json | Message format. Supported values are `json` and `text`. |
+| field.delimiter | String | No | `,` | Field delimiter used when `format = text`. |
+| producer.send.sync | Boolean | No | false | Whether to send messages synchronously. When `false`, messages are sent asynchronously. |
+| exactly.once | Boolean | No | false | Whether to send transactional messages for exactly-once delivery. |
+| max.message.size | Int | No | 4194304 | Maximum message body size in bytes. |
+| send.message.timeout | Int | No | 3000 | Send timeout in milliseconds. |
+| common-options | config | No | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Option Notes
 
