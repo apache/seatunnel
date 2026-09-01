@@ -18,11 +18,17 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.client;
 
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import org.junit.jupiter.api.Test;
 
 import com.rabbitmq.client.Channel;
 
+import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -55,5 +61,23 @@ class RabbitmqClientTest {
 
         verify(channel).queueDeclare("new-queue", true, false, false, null);
         verify(channel, never()).queueDeclarePassive("new-queue");
+    }
+
+    @Test
+    void explainsPassiveQueueDeclarationFailure() throws Exception {
+        Channel channel = mock(Channel.class);
+        RabbitmqConfig config = mock(RabbitmqConfig.class);
+        when(config.isPassive()).thenReturn(true);
+        doThrow(new IOException("queue not found"))
+                .when(channel)
+                .queueDeclarePassive("missing-queue");
+
+        RabbitmqConnectorException exception =
+                assertThrows(
+                        RabbitmqConnectorException.class,
+                        () -> RabbitmqClient.declareQueue(channel, config, "missing-queue"));
+
+        assertTrue(exception.getMessage().contains("missing-queue"));
+        assertTrue(exception.getMessage().contains("passive=false"));
     }
 }
