@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -79,6 +80,33 @@ public class JobMasterMasterFailoverResourceTest
 
         try {
             Assertions.assertTrue(restored.preApplyResources());
+        } finally {
+            resourceManager.releaseResources(jobId + 1, blockerSlots).join();
+            releasePersistedSlots(resourceManager, original, jobId);
+        }
+    }
+
+    @Test
+    void testSubPlanRestoreClearsFailoverSlotReuseFlag() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-sub-plan").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        JobMaster original = newJobMaster(jobId, jobImmutableInformationData);
+        original.init(System.currentTimeMillis(), false);
+        Assertions.assertTrue(original.preApplyResources());
+        persistPreAppliedSlots(original);
+
+        List<SlotProfile> blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
+        JobMaster restored = newJobMaster(jobId, jobImmutableInformationData);
+        restored.init(System.currentTimeMillis(), true);
+        SubPlan subPlan = restored.getPhysicalPlan().getPipelineList().get(0);
+
+        try {
+            Assertions.assertTrue(restored.preApplyResources(subPlan));
+            Assertions.assertFalse(
+                    ReflectionUtils.getField(restored, "masterFailoverRestore")
+                            .map(Boolean.class::cast)
+                            .orElseThrow(IllegalStateException::new));
         } finally {
             resourceManager.releaseResources(jobId + 1, blockerSlots).join();
             releasePersistedSlots(resourceManager, original, jobId);

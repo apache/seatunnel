@@ -599,8 +599,10 @@ public class JobMaster {
             } else {
                 // Adequate resources, pass on resources to the plan
                 physicalPlan.setPreApplyResourceFutures(preApplyResourceFutures);
-                masterFailoverRestore = false;
             }
+            // Retained slots are valid only for the first successful allocation after failover.
+            // A later pipeline retry must obtain a fresh allocation instead of reusing them.
+            masterFailoverRestore = false;
         } else {
             // Release the resource that has been applied
             try {
