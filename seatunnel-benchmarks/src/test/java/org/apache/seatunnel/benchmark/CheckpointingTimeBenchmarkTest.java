@@ -23,10 +23,14 @@ import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Threads;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CheckpointingTimeBenchmarkTest {
 
@@ -49,5 +53,20 @@ class CheckpointingTimeBenchmarkTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () -> SeaTunnelCheckpointEnvironmentContext.MemorySize.parse("1tb"));
+    }
+
+    @Test
+    void shouldRenderCheckpointJobConfig() {
+        CheckpointingTimeBenchmarkPipeline pipeline = new CheckpointingTimeBenchmarkPipeline();
+        pipeline.recordSize = "1kb";
+        Path resultPath = Paths.get("target", "checkpoint-results").toAbsolutePath();
+
+        String jobConfig = pipeline.createCheckpointJobConfig(resultPath);
+
+        assertTrue(jobConfig.contains("payload_size = 1024"));
+        assertTrue(jobConfig.contains("rate_per_second = 10000"));
+        assertTrue(jobConfig.contains("parallelism = 4"));
+        assertTrue(jobConfig.contains("result_path = \"" + resultPath + "\""));
+        assertFalse(jobConfig.contains("{{"));
     }
 }

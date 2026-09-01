@@ -38,6 +38,9 @@ final class CheckpointBenchmarkTrigger {
     @SuppressWarnings("unchecked")
     static PassiveCompletableFuture<CompletedCheckpoint> trigger(
             CheckpointCoordinator coordinator) {
+        // This bridge bypasses the coordinator trigger lock, so callers must keep periodic
+        // checkpoints effectively disabled and use a single JMH thread to prevent concurrent
+        // checkpoint triggers.
         CompletableFuture<PendingCheckpoint> pendingCheckpoint =
                 (CompletableFuture<PendingCheckpoint>)
                         ReflectionUtils.invoke(

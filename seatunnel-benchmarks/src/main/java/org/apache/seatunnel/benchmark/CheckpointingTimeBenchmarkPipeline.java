@@ -83,8 +83,10 @@ public class CheckpointingTimeBenchmarkPipeline {
         this.environment = environment;
         try {
             Path jobConfigFile = environment.getClusterHome().resolve("checkpoint-benchmark.conf");
+            Path resultPath = environment.getClusterHome().resolve("checkpoint-results");
             Files.write(
-                    jobConfigFile, createCheckpointJobConfig().getBytes(StandardCharsets.UTF_8));
+                    jobConfigFile,
+                    createCheckpointJobConfig(resultPath).getBytes(StandardCharsets.UTF_8));
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName("checkpoint-benchmark-" + UUID.randomUUID());
             ClientJobExecutionEnvironment executionEnvironment =
@@ -152,7 +154,7 @@ public class CheckpointingTimeBenchmarkPipeline {
         throw new IllegalStateException("Timed out waiting for benchmark checkpoint to complete");
     }
 
-    String createCheckpointJobConfig() {
+    String createCheckpointJobConfig(Path resultPath) {
         return renderTemplate(
                 JOB_TEMPLATE,
                 "payload_size",
@@ -162,7 +164,7 @@ public class CheckpointingTimeBenchmarkPipeline {
                 "pipeline_parallelism",
                 PIPELINE_PARALLELISM,
                 "result_path",
-                environment.getClusterHome().resolve("checkpoint-results").toAbsolutePath());
+                resultPath.toAbsolutePath());
     }
 
     private void waitUntilRunning() throws InterruptedException {
