@@ -31,9 +31,6 @@ import org.openjdk.jmh.annotations.TearDown;
 
 import com.hazelcast.map.IMap;
 
-import java.util.HashMap;
-import java.util.Map;
-
 /** Full running-job metadata recovery from the production FileMapStore. */
 @State(Scope.Thread)
 public class IMapJobRecoveryBenchmarkWorkload {
@@ -63,11 +60,11 @@ public class IMapJobRecoveryBenchmarkWorkload {
                             .getMap(Constant.IMAP_RUNNING_JOB_INFO);
             runningJobInfoMap.delete(fixtureJob.getJobId());
 
-            Map<Long, JobInfo> persistedJobs = new HashMap<>(runningJobCount);
+            // Keep fixture generation single-threaded. IMap.putAll fans entries out across
+            // partition threads, while the file-backed WAL currently uses a single producer.
             for (int index = 0; index < runningJobCount; index++) {
-                persistedJobs.put(RECOVERY_KEY_BASE + index, runningJobInfo);
+                runningJobInfoMap.put(RECOVERY_KEY_BASE + index, runningJobInfo);
             }
-            runningJobInfoMap.putAll(persistedJobs);
             runningJobInfoMap.evictAll();
         } catch (Exception setupFailure) {
             closeFixtureAfterFailedSetup(setupFailure);
