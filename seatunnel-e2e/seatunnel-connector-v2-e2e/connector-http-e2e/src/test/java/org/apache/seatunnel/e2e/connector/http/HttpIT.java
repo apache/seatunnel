@@ -317,8 +317,8 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult11.getExitCode());
 
         // http shopify
-        Container.ExecResult execResult23 = container.executeJob("/shopify_json_to_assert.conf");
-        Assertions.assertEquals(0, execResult23.getExitCode());
+        Container.ExecResult execResult24 = container.executeJob("/shopify_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult24.getExitCode());
 
         // http httpMultiLine
         Container.ExecResult execResult12 =
