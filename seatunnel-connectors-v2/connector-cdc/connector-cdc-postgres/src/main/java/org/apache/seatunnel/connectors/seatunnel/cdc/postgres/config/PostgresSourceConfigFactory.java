@@ -38,7 +38,6 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
-
     private String decodingPluginName =
             PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue();
 
