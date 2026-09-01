@@ -119,7 +119,7 @@ Write data to OceanBase through JDBC. The sink supports batch and streaming jobs
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your mysql. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 
-```hocon
+```
 # Defining the runtime environment
 env {
   parallelism = 1
@@ -160,13 +160,13 @@ sink {
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
-```hocon
+```
 
 ### Generate Sink SQL
 
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
 
-```hocon
+```
 sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:2883/test"
@@ -180,11 +180,11 @@ sink {
         table = test_table
     }
 }
-```hocon
+```
 
 ### Generated SQL With Save Mode
 
-```hocon
+```
 sink {
   jdbc {
     url = "jdbc:oceanbase://localhost:2883/test"
@@ -200,13 +200,13 @@ sink {
     data_save_mode = "APPEND_DATA"
   }
 }
-```hocon
+```
 
 ### CDC(Change Data Capture) Event
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
-```hocon
+```
 sink {
     jdbc {
         url = "jdbc:oceanbase://localhost:3306/test"
@@ -221,11 +221,11 @@ sink {
         primary_keys = ["id","name"]
     }
 }
-```hocon
+```
 
 ### Oracle-Compatible Mode
 
-```hocon
+```
 sink {
   jdbc {
     url = "jdbc:oceanbase://localhost:2883/TESTUSER"
@@ -236,13 +236,13 @@ sink {
     query = "INSERT INTO SINK_TABLE (ID, NAME, CREATE_TIME) VALUES (?, ?, ?)"
   }
 }
-```hocon
+```
 
 ### Multiple Table Write
 
 Use placeholders in `table` when rows from upstream carry table identity.
 
-```hocon
+```
 sink {
   jdbc {
     url = "jdbc:oceanbase://localhost:2883/test"
@@ -257,7 +257,7 @@ sink {
     multi_table_sink_replica = 2
   }
 }
-```hocon
+```
 
 ### EXACTLY_ONCE With XA Transactions
 
@@ -287,7 +287,7 @@ sink {
     batch_size = 1000
   }
 }
-```hocon
+```
 
 ### Timer Flush + Batch Combined
 
@@ -309,7 +309,7 @@ sink {
     batch_interval_ms = 5000
   }
 }
-```hocon
+```
 
 ## Changelog
 

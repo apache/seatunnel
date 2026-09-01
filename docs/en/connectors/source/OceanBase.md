@@ -125,7 +125,7 @@ Read OceanBase data through JDBC. OceanBase can run in MySQL-compatible mode or 
 
 ### Simple
 
-```hocon
+```
 env {
   parallelism = 2
   job.mode = "BATCH"
@@ -150,13 +150,13 @@ transform {
 sink {
     Console {}
 }
-```hocon
+```
 
 ### Parallel
 
 > Read your query table in parallel with the shard field you configured and the shard data. You can do this if you want to read the whole table
 
-```hocon
+```
 env {
   parallelism = 10
   job.mode = "BATCH"
@@ -178,13 +178,13 @@ source {
 sink {
   Console {}
 }
-```hocon
+```
 
 ### Parallel Boundary
 
 > It is more efficient to read your data source according to the upper and lower boundaries you configured
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -201,13 +201,13 @@ source {
     partition_upper_bound = 500
   }
 }
-```hocon
+```
 
 ### Table Path
 
 Use `table_path` when you want SeaTunnel to discover table metadata and split the table automatically.
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -219,11 +219,11 @@ source {
     split.size = 8096
   }
 }
-```hocon
+```
 
 ### Oracle-Compatible Mode
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -234,11 +234,11 @@ source {
     query = "SELECT ID, NAME, CREATE_TIME FROM SOURCE"
   }
 }
-```hocon
+```
 
 ### Multiple Table Read
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -257,7 +257,7 @@ source {
     where_condition = "where id > 100"
   }
 }
-```hocon
+```
 
 ### Per-Table Query Override
 
@@ -283,7 +283,7 @@ source {
     ]
   }
 }
-```hocon
+```
 
 ### Regex Table Path
 
@@ -303,7 +303,7 @@ source {
     partition_num = 8
   }
 }
-```hocon
+```
 
 ### Streaming With `STREAMING` and Incremental Column
 
@@ -330,7 +330,7 @@ source {
     partition_num = 16
   }
 }
-```hocon
+```
 
 ## Changelog
 

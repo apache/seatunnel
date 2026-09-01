@@ -162,7 +162,7 @@ sink {
       }
   }
 }
-```hocon
+```
 
 ### 使用 Kafka Headers
 
@@ -205,7 +205,7 @@ sink {
       }
   }
 }
-```hocon
+```
 
 ### AWS MSK SASL/SCRAM
 
@@ -225,7 +225,7 @@ sink {
       }
   }
 }
-```hocon
+```
 
 ### AWS MSK IAM
 
@@ -241,7 +241,7 @@ sink {
     "kafka-cluster:AlterCluster",
     "kafka-cluster:DescribeCluster"
 ],
-```hocon
+```
 
 接收器配置
 
@@ -260,7 +260,7 @@ sink {
       }
   }
 }
-```hocon
+```
 
 ### Kerberos 认证示例
 
@@ -283,7 +283,7 @@ sink {
       }
    }
 }
-```hocon
+```
 
 
 ### Protobuf配置
@@ -336,7 +336,7 @@ sink {
               """
   }
 }
-```hocon
+```
 
 ### format
 如果需要写入Kafka原生的信息，可以参考下面的配置。
@@ -350,7 +350,7 @@ sink {
       format = "NATIVE"
   }
 }
-```hocon
+```
 
 输入参数要求如下:
 ```json
@@ -365,7 +365,7 @@ sink {
   "timestampType": "CREATE_TIME",
   "value": "dGVzdF9ieXRlc19kYXRh"
 }
-```hocon
+```
 Note：key/value 需要 byte[]类型.
 
 ### 流式 EXACTLY_ONCE 与 Checkpoint 协同
@@ -409,7 +409,7 @@ sink {
     partition_key_fields = ["order_id"]
   }
 }
-```hocon
+```
 
 注意：每个作业都必须使用唯一的 `transaction_prefix`。Kafka 通过 transactional id 区分事务，跨作业复用相同前缀会导致事务冲突。
 
@@ -434,7 +434,7 @@ sink {
     format = "NATIVE"
   }
 }
-```hocon
+```
 
 注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。这种情况下请谨慎配置 `kafka_headers_fields`，因为 headers 已经编码在行内。
 
@@ -469,7 +469,7 @@ sink {
     }
   }
 }
-```hocon
+```
 
 确保 Kafka Broker 开启了事务支持，且 `transaction.timeout.ms` 与 checkpoint 间隔相匹配。
 
@@ -498,7 +498,7 @@ sink {
       principal="user@REALM.COM";"""
   }
 }
-```hocon
+```
 
 ### Kafka Sink 支持哪些消息格式？
 

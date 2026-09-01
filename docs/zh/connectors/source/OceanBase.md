@@ -125,7 +125,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单
 
-```hocon
+```
 env {
   parallelism = 2
   job.mode = "BATCH"
@@ -150,13 +150,13 @@ transform {
 sink {
     Console {}
 }
-```hocon
+```
 
 ### 并行
 
 > 使用您配置的分片字段和分片数据并行读取查询表。如果您想读取整个表，可以这样做
 
-```hocon
+```
 env {
   parallelism = 10
   job.mode = "BATCH"
@@ -178,13 +178,13 @@ source {
 sink {
   Console {}
 }
-```hocon
+```
 
 ### 并行边界
 
 > 根据您配置的上下边界读取数据源更高效
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -201,13 +201,13 @@ source {
     partition_upper_bound = 500
   }
 }
-```hocon
+```
 
 ### 表路径读取
 
 希望 SeaTunnel 自动发现表结构并进行分片时，可以使用 `table_path`。
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -219,11 +219,11 @@ source {
     split.size = 8096
   }
 }
-```hocon
+```
 
 ### Oracle 兼容模式
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -234,11 +234,11 @@ source {
     query = "SELECT ID, NAME, CREATE_TIME FROM SOURCE"
   }
 }
-```hocon
+```
 
 ### 多表读取
 
-```hocon
+```
 source {
   Jdbc {
     driver = "com.oceanbase.jdbc.Driver"
@@ -257,7 +257,7 @@ source {
     where_condition = "where id > 100"
   }
 }
-```hocon
+```
 
 ### 单表自定义 SQL
 
@@ -283,7 +283,7 @@ source {
     ]
   }
 }
-```hocon
+```
 
 ### 表名正则匹配
 
@@ -303,7 +303,7 @@ source {
     partition_num = 8
   }
 }
-```hocon
+```
 
 ### 流式增量区间读取
 
@@ -330,7 +330,7 @@ source {
     partition_num = 16
   }
 }
-```hocon
+```
 
 ## 变更日志
 

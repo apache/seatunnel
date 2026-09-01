@@ -184,7 +184,7 @@ How many splits do we need to split into, only support positive integer. default
 
 > This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
-```hocon
+```
 # Defining the runtime environment
 env {
   parallelism = 4
@@ -208,13 +208,13 @@ transform {
 sink {
     Console {}
 }
-```hocon
+```
 
 ### parallel by partition_column
 
 > Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
 
-```hocon
+```
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -240,13 +240,13 @@ source {
 sink {
   Console {}
 }
-```hocon
+```
 
 ### parallel by Primary Key or Unique Index
 
 > Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
 
-```hocon
+```
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -267,13 +267,13 @@ source {
 sink {
   Console {}
 }
-```hocon
+```
 
 ### Parallel Boundary
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
-```hocon
+```
 source {
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -291,7 +291,7 @@ source {
         partition_num = 10
     }
 }
-```hocon
+```
 
 ### Multiple table read
 
@@ -329,7 +329,7 @@ source {
 sink {
   Console {}
 }
-```hocon
+```
 
 ### Streaming With Incremental ID Range
 
@@ -355,7 +355,7 @@ source {
     partition_num = 16
   }
 }
-```hocon
+```
 
 ### Use TNS Connection String
 
@@ -375,7 +375,7 @@ source {
     split.size = 10000
   }
 }
-```hocon
+```
 
 ### Row Filtering With `where_condition`
 
@@ -393,7 +393,7 @@ source {
     split.size = 10000
   }
 }
-```hocon
+```
 
 ## Changelog
 
