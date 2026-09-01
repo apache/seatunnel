@@ -408,10 +408,10 @@ public class ConfigShadeTest {
         Config input =
                 ConfigFactory.parseString(
                         "source { FakeSource { plugin_output = \"fake\" } }\n"
-                                + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\" "
-                                + "username = \"u\" password = \"p\" "
+                                + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\", "
+                                + "username = \"u\", password = \"p\", "
                                 + "multi-table_config { primary_keys { "
-                                + "\"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"] "
+                                + "\"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"], "
                                 + "\"^t_tyuen_txn_.*$\" = [\"id_txn_ctrl\", \"DATA_SOURCE\"] "
                                 + "} } } }");
 
