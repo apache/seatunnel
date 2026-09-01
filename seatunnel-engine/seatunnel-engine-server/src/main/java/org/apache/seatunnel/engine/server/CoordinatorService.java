@@ -225,6 +225,13 @@ public class CoordinatorService {
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
 
+    /**
+     * True when this coordinator has restored running jobs after taking over as the active master.
+     * Graceful-removal markers are retained for their TTL in that generation because restored jobs
+     * enter the pending scheduler before their PhysicalVertex instances inspect the marker.
+     */
+    private volatile boolean restoringRunningJobsFromMasterSwitch;
+
     private final boolean isWaitStrategy;
 
     private final ScheduleStrategy scheduleStrategy;
@@ -520,6 +527,7 @@ public class CoordinatorService {
 
     private void initCoordinatorService() {
         coordinatorServiceCleared.set(false);
+        restoringRunningJobsFromMasterSwitch = false;
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         runningJobStateIMap =
@@ -955,6 +963,7 @@ public class CoordinatorService {
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
         }
+        restoringRunningJobsFromMasterSwitch = true;
         // waiting have worker registered
         while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
             try {
@@ -2012,6 +2021,17 @@ public class CoordinatorService {
                         <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS;
     }
 
+    /**
+     * Clears a marker only after initial recovery completes and when this coordinator did not take
+     * over running jobs. A recovered job is first queued, then scheduled asynchronously, so it can
+     * inspect the marker after the recovery future completes.
+     */
+    @VisibleForTesting
+    static boolean canClearGracefulMemberRemovalMarker(
+            Long markedAt, boolean jobRestoreInProgress, boolean restoringRunningJobs) {
+        return markedAt != null && !jobRestoreInProgress && !restoringRunningJobs;
+    }
+
     /** Reads the marker without clearing it so a failover can still reclassify the same event. */
     private Long getGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
         if (gracefulMemberRemovalIMap == null) {
@@ -2049,7 +2069,11 @@ public class CoordinatorService {
                                                 gracefulMemberRemoval);
                                     });
                 });
-        if (markedAt != null) {
+        boolean jobRestoreInProgress =
+                restoreAllJobFromMasterNodeSwitchFuture != null
+                        && !restoreAllJobFromMasterNodeSwitchFuture.isDone();
+        if (canClearGracefulMemberRemovalMarker(
+                markedAt, jobRestoreInProgress, restoringRunningJobsFromMasterSwitch)) {
             clearGracefulMemberRemovalMarker(lostAddress);
         }
     }

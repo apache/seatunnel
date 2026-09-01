@@ -68,7 +68,7 @@ spec:
           {{- if .Values.master.command }}
           command: {{ .Values.master.command }}
           {{- else }}
-          command: ["/bin/sh","-c","/opt/seatunnel/bin/seatunnel-cluster.sh -r master"]
+          command: ["/opt/seatunnel/bin/seatunnel-cluster.sh", "-r", "master"]
           {{- end }}
           {{- if .Values.master.resources }}
           resources:
@@ -93,4 +93,3 @@ spec:
         - name: seatunnel-configs
           configMap:
             name: {{ include "seatunnel.configMapName" . }}
-

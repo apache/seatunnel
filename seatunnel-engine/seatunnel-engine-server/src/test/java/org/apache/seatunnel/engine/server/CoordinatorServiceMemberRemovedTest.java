@@ -66,4 +66,17 @@ class CoordinatorServiceMemberRemovedTest {
                         now + Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS + 1, now));
         Assertions.assertFalse(CoordinatorService.isGracefulMemberRemovalMarkerValid(null, now));
     }
+
+    /** Ensures master failover retains the marker until its TTL rather than racing scheduling. */
+    @Test
+    void shouldRetainGracefulMemberRemovalMarkerDuringMasterSwitchRecovery() {
+        Assertions.assertFalse(
+                CoordinatorService.canClearGracefulMemberRemovalMarker(1L, true, false));
+        Assertions.assertFalse(
+                CoordinatorService.canClearGracefulMemberRemovalMarker(1L, false, true));
+        Assertions.assertTrue(
+                CoordinatorService.canClearGracefulMemberRemovalMarker(1L, false, false));
+        Assertions.assertFalse(
+                CoordinatorService.canClearGracefulMemberRemovalMarker(null, false, false));
+    }
 }

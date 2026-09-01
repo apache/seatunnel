@@ -17,8 +17,13 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import com.hazelcast.cluster.Address;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicReference;
@@ -80,6 +85,39 @@ public class PhysicalVertexTest {
         PhysicalVertex.recordFailureClassification(slot, "genuine task failure", false);
         Assertions.assertEquals("genuine task failure", slot.get().getErrorMessage());
         Assertions.assertFalse(slot.get().isGracefulMemberRemovalFailure());
+    }
+
+    /**
+     * A master failover restores task state before its member-removed callback can run. A fresh
+     * marker must therefore classify the discovered missing worker as graceful in that path too.
+     */
+    @Test
+    public void shouldClassifyMissingWorkerDuringMasterFailoverAsGraceful() throws Exception {
+        AtomicReference<PhysicalVertex.FailureClassification> slot = new AtomicReference<>();
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
+        Address lostAddress = new Address("127.0.0.1", 5801);
+        long nowMillis = 100_000L;
+
+        PhysicalVertex.recordMemberRemovedFailure(
+                slot, taskGroupLocation, lostAddress, nowMillis, nowMillis);
+
+        Assertions.assertEquals(
+                "The taskGroup("
+                        + taskGroupLocation
+                        + ") deployed node("
+                        + lostAddress
+                        + ") offline",
+                slot.get().getErrorMessage());
+        Assertions.assertTrue(slot.get().isGracefulMemberRemovalFailure());
+
+        AtomicReference<PhysicalVertex.FailureClassification> staleSlot = new AtomicReference<>();
+        PhysicalVertex.recordMemberRemovedFailure(
+                staleSlot,
+                taskGroupLocation,
+                lostAddress,
+                nowMillis - Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS - 1,
+                nowMillis);
+        Assertions.assertFalse(staleSlot.get().isGracefulMemberRemovalFailure());
     }
 
     /**

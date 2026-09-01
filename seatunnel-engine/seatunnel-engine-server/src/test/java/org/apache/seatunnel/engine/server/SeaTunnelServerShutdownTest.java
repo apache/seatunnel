@@ -22,17 +22,21 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.LifecycleService;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -42,50 +46,58 @@ import static org.mockito.Mockito.when;
 /** Covers graceful member-removal marker writes around the Hazelcast shutdown lifecycle. */
 class SeaTunnelServerShutdownTest {
 
-    /**
-     * Verifies the marker is published from Hazelcast's graceful shutdown hook before map access is
-     * torn down.
-     */
+    /** Verifies that the JVM hook writes the marker before asking Hazelcast to shut down. */
     @Test
-    void shouldMarkGracefulMemberRemovalOnGracefulShutdownHook() throws Exception {
+    void shouldMarkGracefulMemberRemovalBeforeHazelcastShutdown() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
         HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
+        LifecycleService lifecycleService = mock(LifecycleService.class);
         IMap<Address, Long> gracefulMemberRemovalIMap = mock(IMap.class);
         Address address = new Address("127.0.0.1", 5801);
         when(nodeEngine.getThisAddress()).thenReturn(address);
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(hazelcastInstance.getLifecycleService()).thenReturn(lifecycleService);
+        when(lifecycleService.isRunning()).thenReturn(true);
         when(hazelcastInstance.<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
 
         SeaTunnelServer seaTunnelServer = createServer(nodeEngine);
 
-        seaTunnelServer.onShutdown(30, TimeUnit.SECONDS);
+        invokeShutdownHook(seaTunnelServer);
 
-        verify(gracefulMemberRemovalIMap)
+        InOrder shutdownOrder = inOrder(gracefulMemberRemovalIMap, lifecycleService);
+        shutdownOrder
+                .verify(gracefulMemberRemovalIMap)
                 .put(
                         eq(address),
                         anyLong(),
                         eq(Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS),
                         eq(TimeUnit.MILLISECONDS));
+        shutdownOrder.verify(lifecycleService).shutdown();
         verify(gracefulMemberRemovalIMap, never()).remove(address);
     }
 
-    /** Ensures ManagedService.shutdown no longer tries to publish the graceful marker too late. */
+    /** Ensures an inactive Hazelcast instance is not asked to shut down again from the JVM hook. */
+    @Test
+    void shouldNotMarkGracefulMemberRemovalWhenHazelcastIsAlreadyInactive() throws Exception {
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+        HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
+        LifecycleService lifecycleService = mock(LifecycleService.class);
+        when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(hazelcastInstance.getLifecycleService()).thenReturn(lifecycleService);
+
+        invokeShutdownHook(createServer(nodeEngine));
+
+        verify(lifecycleService).isRunning();
+        verify(lifecycleService, never()).shutdown();
+    }
+
+    /** Managed service cleanup never attempts a late marker write after Hazelcast turns passive. */
     @Test
     void shouldNotMarkGracefulMemberRemovalDuringManagedServiceShutdown() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
 
         createServer(nodeEngine).shutdown(false);
-
-        verifyNoInteractions(nodeEngine);
-    }
-
-    /** Forced termination still skips the graceful-shutdown marker path entirely. */
-    @Test
-    void shouldNotMarkGracefulMemberRemovalOnForcedShutdown() throws Exception {
-        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
-
-        createServer(nodeEngine).shutdown(true);
 
         verifyNoInteractions(nodeEngine);
     }
@@ -101,5 +113,11 @@ class SeaTunnelServerShutdownTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static void invokeShutdownHook(SeaTunnelServer seaTunnelServer) throws Exception {
+        Method method = SeaTunnelServer.class.getDeclaredMethod("shutdownFromJvmHook");
+        method.setAccessible(true);
+        method.invoke(seaTunnelServer);
     }
 }

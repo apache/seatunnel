@@ -153,8 +153,13 @@ logical maps are persisted:
 | `finished-job-metrics` | Final metrics snapshot after job termination |
 
 SeaTunnel Engine also creates a short-lived internal map named `engine_gracefulMemberRemoval`.
-Each worker writes its own address into that map before an intentional shutdown, and the
-coordinator removes the marker after classifying the corresponding `memberRemoved` event.
+The supplied Hazelcast server configurations disable Hazelcast's built-in JVM shutdown hook with
+`hazelcast.shutdownhook.enabled: false`. SeaTunnel's replacement hook writes each server member's address
+into this map while the Hazelcast instance is still active, then starts graceful member removal.
+After classifying the corresponding `memberRemoved` event, a stable coordinator removes the marker.
+During active-master failover, the marker remains until its TTL expires so asynchronous job recovery
+can classify the restored task correctly.
+Custom Hazelcast configurations must retain that setting to preserve this behavior.
 
 - If the marker is present and still valid, the resulting `deployed node offline` task failure is
   logged at `WARN`.

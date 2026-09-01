@@ -108,6 +108,21 @@ public class SeaTunnelClusterScriptTest {
                 "SeaTunnel home JVM options should be appended before later JVM options");
     }
 
+    /**
+     * Verifies that a foreground server replaces the launcher shell, allowing container runtimes to
+     * deliver SIGTERM directly to the JVM shutdown hook.
+     */
+    @Test
+    public void testClusterScriptExecsForegroundServer() throws Exception {
+        String script =
+                new String(Files.readAllBytes(locateClusterScript()), StandardCharsets.UTF_8)
+                        .replace("\r\n", "\n");
+
+        Assertions.assertTrue(
+                script.contains("exec java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}"),
+                "foreground startup should replace the launcher shell with the server JVM");
+    }
+
     private List<String> runClusterScript(Path appDirectory, Path seaTunnelHome) throws Exception {
         Path capturedArguments = temporaryDirectory.resolve("java-args.txt");
         Path fakeJavaDirectory = createFakeJava(capturedArguments);

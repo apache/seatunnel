@@ -232,6 +232,12 @@ public class PhysicalVertex {
                         "The node:{} running the taskGroup {} no longer exists, return false.",
                         worker.toString(),
                         taskGroupLocation);
+                recordMemberRemovedFailure(
+                        failureClassificationByPhysicalVertex,
+                        taskGroupLocation,
+                        worker,
+                        getGracefulMemberRemovalMarker(worker),
+                        System.currentTimeMillis());
                 return false;
             }
             InvocationFuture<Object> invoke =
@@ -253,6 +259,23 @@ public class PhysicalVertex {
             }
         }
         return false;
+    }
+
+    /**
+     * Reads the one-time graceful-removal marker while restoring a task whose worker has already
+     * left the cluster. This recovery path may run before the new master receives its membership
+     * callback, so it must preserve the same classification as the callback path.
+     */
+    private Long getGracefulMemberRemovalMarker(Address lostAddress) {
+        try {
+            return nodeEngine
+                    .getHazelcastInstance()
+                    .<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL)
+                    .get(lostAddress);
+        } catch (Exception e) {
+            log.debug("Unable to read graceful member-removal marker for {}", lostAddress, e);
+            return null;
+        }
     }
 
     private SlotProfile getOwnedSlotProfilesByTaskGroup(
@@ -711,6 +734,28 @@ public class PhysicalVertex {
         }
         failureClassificationSlot.compareAndSet(
                 null, new FailureClassification(errorMessage, gracefulMemberRemovalFailure));
+    }
+
+    /**
+     * Records the same structured member-removal failure emitted after a membership callback. It is
+     * also used by the master failover recovery path, where a task can be found on a worker that
+     * has already left before the callback is processed.
+     */
+    @VisibleForTesting
+    static void recordMemberRemovedFailure(
+            AtomicReference<FailureClassification> failureClassificationSlot,
+            TaskGroupLocation taskGroupLocation,
+            Address lostAddress,
+            Long markedAt,
+            long nowMillis) {
+        recordFailureClassification(
+                failureClassificationSlot,
+                String.format(
+                        "The taskGroup(%s) deployed node(%s) offline",
+                        taskGroupLocation, lostAddress),
+                markedAt != null
+                        && Math.abs(nowMillis - markedAt)
+                                <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS);
     }
 
     /**
