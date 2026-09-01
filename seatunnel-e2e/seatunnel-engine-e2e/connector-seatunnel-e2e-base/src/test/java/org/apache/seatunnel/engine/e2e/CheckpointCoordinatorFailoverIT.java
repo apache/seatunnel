@@ -77,9 +77,9 @@ public class CheckpointCoordinatorFailoverIT {
 
     /**
      * Total starting (source) subtasks compiled from {@link #CLOSE_HANDSHAKE_TEMPLATE_CONF}: two
-     * independent FakeSource operators (table_fast, table_slow), each at env.parallelism = 2.
-     * Used to detect a partial close handshake: some, but not all, of these subtasks have reported
-     * ready to close.
+     * independent FakeSource operators (table_fast, table_slow), each at env.parallelism = 2. Used
+     * to detect a partial close handshake: some, but not all, of these subtasks have reported ready
+     * to close.
      */
     private static final int CLOSE_HANDSHAKE_STARTING_SUBTASKS = 4;
 
@@ -516,9 +516,7 @@ public class CheckpointCoordinatorFailoverIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 int readyCount =
                                         getReadyToCloseCount(
-                                                        finalMaster1ForPoll,
-                                                        jobId,
-                                                        firstPipelineId)
+                                                        finalMaster1ForPoll, jobId, firstPipelineId)
                                                 + getReadyToCloseCount(
                                                         finalMaster1ForPoll,
                                                         jobId,
