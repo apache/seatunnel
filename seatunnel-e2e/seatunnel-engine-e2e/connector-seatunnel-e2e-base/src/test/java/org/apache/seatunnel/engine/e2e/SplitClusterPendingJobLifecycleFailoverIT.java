@@ -383,7 +383,10 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                     engineClient.createJobClient().getJobProxy(pendingJobId);
             assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.PENDING, 60);
 
-            engineClient.createJobClient().getJobProxy(holderJob.getJobId()).cancelJob();
+            ClientJobProxy holderJobAfterFlapping =
+                    engineClient.createJobClient().getJobProxy(holderJob.getJobId());
+            holderJobAfterFlapping.cancelJob();
+            assertEventuallyCanceled(holderJobAfterFlapping);
             assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.FINISHED, 180);
 
             Long finalLineCount =
