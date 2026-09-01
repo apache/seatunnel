@@ -17,16 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.azure.queue.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.AuthenticationType;
+import org.apache.seatunnel.connectors.seatunnel.azure.queue.client.AzureQueueClientFactory;
 import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.AzureQueueSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.MessageEncoding;
 import org.apache.seatunnel.connectors.seatunnel.azure.queue.exception.AzureQueueConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.azure.queue.exception.AzureQueueConnectorException;
 
-import com.azure.storage.common.StorageSharedKeyCredential;
 import com.azure.storage.queue.QueueAsyncClient;
-import com.azure.storage.queue.QueueClientBuilder;
-import com.azure.storage.queue.QueueMessageEncoding;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -40,31 +36,8 @@ class AzureQueueStorageSender implements AzureQueueSender {
 
     static AzureQueueSender create(AzureQueueSinkConfig config) {
         try {
-            QueueClientBuilder builder =
-                    new QueueClientBuilder()
-                            .queueName(config.getQueueName())
-                            .messageEncoding(toAzureEncoding(config.getMessageEncoding()));
-
-            AuthenticationType authenticationType = config.getAuthenticationType();
-            switch (authenticationType) {
-                case CONNECTION_STRING:
-                    builder.connectionString(config.getConnectionString());
-                    break;
-                case SHARED_KEY:
-                    builder.endpoint(config.getEndpoint())
-                            .credential(
-                                    new StorageSharedKeyCredential(
-                                            config.getAccountName(), config.getAccountKey()));
-                    break;
-                case SAS_TOKEN:
-                    builder.endpoint(config.getEndpoint())
-                            .sasToken(normalizeSasToken(config.getSasToken()));
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Unsupported authentication type: " + authenticationType);
-            }
-            return new AzureQueueStorageSender(builder.buildAsyncClient());
+            return new AzureQueueStorageSender(
+                    AzureQueueClientFactory.builder(config).buildAsyncClient());
         } catch (Exception e) {
             throw new AzureQueueConnectorException(
                     AzureQueueConnectorErrorCode.CONNECTION_FAILED,
@@ -82,15 +55,5 @@ class AzureQueueStorageSender implements AzureQueueSender {
     @Override
     public void close() {
         // QueueAsyncClient has no close contract; its Reactor resources are process-wide.
-    }
-
-    private static QueueMessageEncoding toAzureEncoding(MessageEncoding messageEncoding) {
-        return messageEncoding == MessageEncoding.BASE64
-                ? QueueMessageEncoding.BASE64
-                : QueueMessageEncoding.NONE;
-    }
-
-    private static String normalizeSasToken(String sasToken) {
-        return sasToken.startsWith("?") ? sasToken.substring(1) : sasToken;
     }
 }

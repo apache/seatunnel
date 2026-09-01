@@ -25,6 +25,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
 import org.junit.jupiter.api.AfterAll;
@@ -105,25 +106,12 @@ public class Db2CDCIT extends TestSuiteBase implements TestResource {
                     .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
                     .acceptLicense();
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/ibm/db2/jcc/db2jcc/db2jcc4/db2jcc-db2jcc4.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/DB2-CDC/lib "
-                                        + "/tmp/seatunnel/plugins/Jdbc/lib && "
-                                        + "wget --no-check-certificate -O "
-                                        + "/tmp/seatunnel/plugins/DB2-CDC/lib/db2jcc.jar "
-                                        + driverUrl()
-                                        + " && cp /tmp/seatunnel/plugins/DB2-CDC/lib/db2jcc.jar "
-                                        + "/tmp/seatunnel/plugins/Jdbc/lib/db2jcc.jar");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                DependencyJar driver = DependencyJar.ofClassName("com.ibm.db2.jcc.DB2Driver");
+                driver.copyTo(container, "/tmp/seatunnel/plugins/DB2-CDC/lib", "db2jcc.jar");
+                driver.copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib", "db2jcc.jar");
             };
 
     @Override
