@@ -106,6 +106,7 @@ connector-web3j
 connector-milvus
 connector-activemq
 connector-prometheus
+connector-deeplake
 connector-sls
 connector-qdrant
 connector-typesense

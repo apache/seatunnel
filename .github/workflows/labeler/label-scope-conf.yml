@@ -99,6 +99,11 @@ salesforce:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
+deeplake:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-deeplake/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(deeplake)/**'
 cdc:
   - all:
       - changed-files:
