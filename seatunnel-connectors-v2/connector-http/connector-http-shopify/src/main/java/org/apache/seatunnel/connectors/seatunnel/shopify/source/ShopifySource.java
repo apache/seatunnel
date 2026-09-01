@@ -35,8 +35,9 @@ import lombok.extern.slf4j.Slf4j;
  * Reads a Shopify Admin REST API resource — orders, products, customers — into SeaTunnel rows.
  *
  * <p>A thin wrapper over {@link HttpSource}: the only behaviour it adds is authentication, through
- * {@link ShopifySourceParameter}, which puts the configured token in {@code X-Shopify-Access-Token}.
- * Everything else — schema, format, retries — comes from the HTTP source unchanged.
+ * {@link ShopifySourceParameter}, which puts the configured token in {@code
+ * X-Shopify-Access-Token}. Everything else — schema, format, retries — comes from the HTTP source
+ * unchanged.
  */
 public class ShopifySource extends HttpSource {
     private final ShopifySourceParameter shopifySourceParameter = new ShopifySourceParameter();

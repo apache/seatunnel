@@ -32,9 +32,9 @@ import java.io.Serializable;
 
 @AutoService(Factory.class)
 /**
- * Registers {@code Shopify} as a source, discovered through {@code @AutoService} and
- * {@code plugin-mapping.properties}. The option rule is the HTTP source's plus a required
- * {@code access_token}.
+ * Registers {@code Shopify} as a source, discovered through {@code @AutoService} and {@code
+ * plugin-mapping.properties}. The option rule is the HTTP source's plus a required {@code
+ * access_token}.
  */
 public class ShopifySourceFactory extends HttpSourceFactory {
     @Override
