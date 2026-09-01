@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
+import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
 import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
 import org.apache.seatunnel.engine.client.job.ClientJobProxy;
@@ -42,10 +44,17 @@ import org.awaitility.Awaitility;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -256,6 +265,149 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         }
     }
 
+    /**
+     * Regression test for the duplicate pending-job dispatch bug fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/11653">#11653</a> ("[Fix][Zeta] Avoid
+     * duplicate pending job scheduling after failover"). That fix introduced a monotonic scheduling
+     * epoch so a scheduler thread from a stale master generation cannot dispatch a pending job that
+     * a newer generation has already claimed, and made {@code clearCoordinatorService}
+     * unconditionally drop interrupted pending jobs from the local queue so a later flap-back
+     * cannot re-dispatch a poisoned {@code JobMaster}. The fix already ships with unit-level
+     * coverage of the epoch/lock mechanism in isolation ({@code CoordinatorServiceTest}); this test
+     * proves the same invariant holds through the real multi-node integration path: a real client
+     * submission, real Hazelcast membership changes, and real resource contention.
+     *
+     * <p>{@code ScheduleStrategy.WAIT} (set by {@link #configurePendingLifecycleTest}) sleeps a
+     * fixed 3 seconds between resource re-checks in {@code CoordinatorService#pendingJobSchedule},
+     * which gives this test a wide, deterministic window to land repeated master failovers while
+     * the pending job is actively being re-evaluated, instead of chasing a microsecond-scale race.
+     *
+     * <p>The contested job is a small bounded batch job rather than the streaming holder template,
+     * so it reaches FINISHED with an exactly countable output: if it were ever dispatched twice as
+     * two independent {@code JobMaster} instances, the sink would end up with double the expected
+     * rows instead of exactly {@code testRowNumber * testParallelism}.
+     */
+    @Test
+    public void testPendingJobNotDuplicatedAcrossRepeatedMasterFailover() throws Exception {
+        String testCaseName = "pendingJobNotDuplicatedAcrossRepeatedMasterFailover";
+        String testClusterName =
+                "SplitClusterPendingJobLifecycleFailoverIT_"
+                        + "testPendingJobNotDuplicatedAcrossRepeatedMasterFailover";
+        long testRowNumber = 20;
+        int testParallelism = 1;
+        int flapRounds = 4;
+
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        List<HazelcastInstanceImpl> masterNodes = new ArrayList<>();
+
+        try {
+            SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+            SeaTunnelConfig masterNode2Config = getSeaTunnelConfig(testClusterName);
+            SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+            configurePendingLifecycleTest(masterNode1Config);
+            configurePendingLifecycleTest(masterNode2Config);
+            configurePendingLifecycleTest(workerNodeConfig);
+
+            masterNodes.add(
+                    SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config));
+            masterNodes.add(
+                    SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config));
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalWorkerNode = workerNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalWorkerNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            ClientJobProxy holderJob =
+                    submitJob(
+                            engineClient,
+                            masterNode1Config,
+                            "pending_job_duplicate_dispatch_holder",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            assertJobStatusWithTimeout(holderJob, JobStatus.RUNNING, 120);
+
+            ImmutablePair<String, String> contestedJobResources =
+                    createBatchTestResources(testCaseName, testRowNumber, testParallelism);
+            ClientJobProxy pendingJob =
+                    submitJob(
+                            engineClient,
+                            masterNode1Config,
+                            "pending_job_duplicate_dispatch_contested",
+                            contestedJobResources.getRight());
+            long pendingJobId = pendingJob.getJobId();
+            assertJobStatusWithTimeout(pendingJob, JobStatus.PENDING, 120);
+
+            HazelcastInstanceImpl currentActive =
+                    waitAndFindActiveMaster(masterNodes.get(0), masterNodes.get(1));
+            HazelcastInstanceImpl currentStandby =
+                    currentActive == masterNodes.get(0) ? masterNodes.get(1) : masterNodes.get(0);
+
+            for (int round = 0; round < flapRounds; round++) {
+                currentActive.shutdown();
+                HazelcastInstanceImpl newActive = currentStandby;
+                awaitCoordinatorActive(newActive, 30);
+
+                SeaTunnelConfig replacementConfig = getSeaTunnelConfig(testClusterName);
+                configurePendingLifecycleTest(replacementConfig);
+                HazelcastInstanceImpl replacement =
+                        SeaTunnelServerStarter.createMasterHazelcastInstance(replacementConfig);
+                masterNodes.add(replacement);
+
+                HazelcastInstanceImpl finalNewActive = newActive;
+                Awaitility.await()
+                        .atMost(30, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () ->
+                                        Assertions.assertEquals(
+                                                3,
+                                                finalNewActive.getCluster().getMembers().size()));
+
+                currentActive = newActive;
+                currentStandby = replacement;
+            }
+
+            // The job must have survived every epoch transition above as a single, still-pending
+            // entry before resources are freed, ruling out both the "silently lost" and the
+            // "already running under a stale generation" pre-fix failure modes.
+            ClientJobProxy pendingJobAfterFlapping =
+                    engineClient.createJobClient().getJobProxy(pendingJobId);
+            assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.PENDING, 60);
+
+            engineClient.createJobClient().getJobProxy(holderJob.getJobId()).cancelJob();
+            assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.FINISHED, 180);
+
+            Long finalLineCount =
+                    FileUtils.getFileLineNumberFromDir(contestedJobResources.getLeft());
+            Assertions.assertEquals(
+                    testRowNumber * testParallelism,
+                    finalLineCount,
+                    "Contested job output must equal exactly one dispatch's worth of rows; a "
+                            + "duplicate dispatch across the master flaps above would double it");
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+            for (HazelcastInstanceImpl masterNode : masterNodes) {
+                if (masterNode.getLifecycleService().isRunning()) {
+                    masterNode.shutdown();
+                }
+            }
+        }
+    }
+
     @NotNull private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
@@ -400,6 +552,52 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             return masterNode2;
         }
         return null;
+    }
+
+    /** Waits until a standby master has taken over coordinator activity after a failover. */
+    private static void awaitCoordinatorActive(
+            HazelcastInstanceImpl masterNode, long timeoutSeconds) {
+        Awaitility.await()
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(masterNode.getLifecycleService().isRunning());
+                            Assertions.assertTrue(
+                                    isCoordinatorActive(masterNode),
+                                    "Standby master should become active after failover");
+                        });
+    }
+
+    /**
+     * Renders a small bounded batch job from {@code cluster_batch_fake_to_localfile_template.conf}
+     * so the resulting output is exactly countable once the job reaches FINISHED. Mirrors {@code
+     * ClusterFaultToleranceIT#createTestResources}; kept local since it is only needed by the
+     * duplicate-dispatch regression test in this class.
+     *
+     * @return pair of (sink output directory, generated job config file path)
+     */
+    private static ImmutablePair<String, String> createBatchTestResources(
+            String testCaseName, long rowNumber, int parallelism) throws IOException {
+        Map<String, String> valueMap = new HashMap<>();
+        valueMap.put("dynamic_test_case_name", testCaseName);
+        valueMap.put("dynamic_job_mode", JobMode.BATCH.toString());
+        valueMap.put("dynamic_test_row_num_per_parallelism", String.valueOf(rowNumber));
+        valueMap.put("dynamic_test_parallelism", String.valueOf(parallelism));
+
+        String targetDir = ("/tmp/hive/warehouse/" + testCaseName).replace("/", File.separator);
+        FileUtils.createNewDir(targetDir);
+
+        String targetConfigFilePath =
+                File.separator
+                        + "tmp"
+                        + File.separator
+                        + "test_conf"
+                        + File.separator
+                        + testCaseName
+                        + ".conf";
+        TestUtils.createTestConfigFileFromTemplate(
+                "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
+        return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 
     private static boolean isCoordinatorActive(HazelcastInstanceImpl masterNode) {
