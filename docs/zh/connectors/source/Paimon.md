@@ -284,7 +284,7 @@ source {
 ```hocon
 env {
   parallelism = 1
-  job.mode = "Streaming"
+  job.mode = "STREAMING"
 }
 
 source {
