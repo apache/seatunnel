@@ -83,6 +83,10 @@ public class DorisErrorIT extends AbstractDorisIT {
                 result.getStderr().contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getCode()));
         Assertions.assertTrue(
                 result.getStderr()
+                        .contains(
+                                "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad"));
+        Assertions.assertTrue(
+                result.getStderr()
                         .contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getDescription()));
         log.info("doris error log: \n" + result.getStderr());
         super.container.start();
