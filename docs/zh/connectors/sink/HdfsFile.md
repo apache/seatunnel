@@ -320,6 +320,24 @@ HdfsFile {
 </configuration>
 ```
 
+### 写入启用 Kerberos 的 HA HDFS 集群
+
+向启用 Kerberos 的 HA HDFS 集群写入时，除了 nameservice URI，还需要提供 Kerberos principal/keytab。连接器复用 Hadoop 工具链的同一套身份认证，因此 principal 必须拥有目标目录的写权限。
+
+```hocon
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/landing/events"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+    kerberos_principal = "sink@EXAMPLE.COM"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+`kerberos_principal` 与 `krb5_path` 仅被转发给 Hadoop FileSystem 客户端，连接器自身不会执行 `kinit`；所以 keytab 必须已经能被每个 worker 节点发现（通常通过 `KRB5CCNAME` 或定时 `kinit`），或经由标准的 Hadoop 认证工具注入到同一 JVM 中。遇到集群级认证问题时，请先在 worker 日志里查看 `LoginException` / `KrbException`——这些通常是凭据问题，而不是连接器本身的 bug。
 
 ## 变更日志
 

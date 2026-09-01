@@ -227,6 +227,8 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.11.0 - http://commons.apache.org/proper/commons-io/)
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.5 - http://commons.apache.org/proper/commons-lang/)
      (The Apache Software License, Version 2.0) Commons Pool (commons-pool:commons-pool:1.6 - http://commons.apache.org/pool/)
+     (The Apache Software License, Version 2.0) Apache Commons Pool (org.apache.commons:commons-pool2:2.2 - https://commons.apache.org/proper/commons-pool/)
+     (Apache-2.0) NebulaGraph Java Client (com.vesoft:client:3.8.4 - https://github.com/vesoft-inc/nebula-java)
      (Apache License, Version 2.0) config (com.typesafe:config:1.3.3 - https://github.com/lightbend/config)
      (The Apache Software License, Version 2.0) Flink : Formats : Avro (org.apache.flink:flink-avro:1.13.6 - https://flink.apache.org/flink-formats/flink-avro)
      (The Apache Software License, Version 2.0) Flink : Formats : Csv (org.apache.flink:flink-csv:1.13.6 - https://flink.apache.org/flink-formats/flink-csv)
@@ -338,7 +340,10 @@ The text of each license is the standard Apache 2.0 license.
      (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - OpenTelemetry (io.prometheus:simpleclient_tracer_otel:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_otel/0.16.0)
      (The Apache Software License, Version 2.0) Prometheus Java Span Context Supplier - OpenTelemetry Agent (io.prometheus:simpleclient_tracer_otel_agent:0.16.0 - https://mvnrepository.com/artifact/io.prometheus/simpleclient_tracer_otel_agent/0.16.0)
      (Apache-2.0) hugegraph-client (org.apache.hugegraph:hugegraph-client:1.5.0 - https://github.com/apache/incubator-hugegraph-toolchain/tree/master/hugegraph-client)
-     (Apache-2.0) hugegraph-common (org.apache.hugegraph:hugegraph-common:1.5.0 - https://github.com/apache/incubator-hugegraph-commons/tree/master/hugegraph-common)
+      (Apache-2.0) hugegraph-common (org.apache.hugegraph:hugegraph-common:1.5.0 - https://github.com/apache/incubator-hugegraph-commons/tree/master/hugegraph-common)
+      (Apache-2.0) jnats (io.nats:jnats:2.24.0 - https://github.com/nats-io/nats.java)
+      (Apache-2.0) jspecify (org.jspecify:jspecify:1.0.0 - https://github.com/jspecify/jspecify)
+
 
 ========================================================================
 MOZILLA PUBLIC LICENSE License
@@ -403,7 +408,25 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) jcl-over-slf4j (org.slf4j:jcl-over-slf4j:1.7.25 - http://www.slf4j.org)
      (MIT License) animal-sniffer-annotations (org.codehaus.mojo:animal-sniffer-annotations:1.17 - https://mvnrepository.com/artifact/org.codehaus.mojo/animal-sniffer-annotations/1.17)
      (MIT License) checker-qual (org.checkerframework:checker-qual:3.10.0 - https://mvnrepository.com/)
-     (MIT License) oshi-core (com.github.oshi:oshi-core:6.6.5 - https://github.com/oshi/oshi)
+      (MIT License) oshi-core (com.github.oshi:oshi-core:6.6.5 - https://github.com/oshi/oshi)
+      (MIT License) Bouncy Castle Provider (LTS Distribution) (org.bouncycastle:bcprov-lts8on:2.73.9 - https://www.bouncycastle.org/lts-java)
+     (MIT License) Azure Core (com.azure:azure-core:1.58.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure Netty HTTP Client (com.azure:azure-core-http-netty:1.16.5 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure JSON (com.azure:azure-json:1.5.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure Storage Common (com.azure:azure-storage-common:12.34.0 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure Queue Storage (com.azure:azure-storage-queue:12.30.0 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure XML (com.azure:azure-xml:1.2.1 - https://github.com/Azure/azure-sdk-for-java)
+
+
+========================================================================
+MIT-0 License
+========================================================================
+
+The following component is provided under the MIT-0 License.
+The text of the license is included at licenses/LICENSE-reactive-streams.txt.
+
+     (MIT-0 License) reactive-streams (org.reactivestreams:reactive-streams:1.0.4 - https://github.com/reactive-streams/reactive-streams-jvm)
+
 
 ========================================================================
 EPL-1.0 and Apache-2.0 licenses

@@ -259,6 +259,79 @@ source {
 }
 ```
 
+### 单表自定义 SQL
+
+当 `table_list` 中的多张表需要不同的 SQL 过滤或投影时，可以在每个条目上单独设置 `query`，让 SeaTunnel 直接按这条 SQL 读取，跳过表元数据查找。
+
+```hocon
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_list = [
+      {
+        table_path = "test.orders"
+        query = "select id, amount, status from orders where status = 'PAID'"
+      },
+      {
+        table_path = "test.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
+}
+```
+
+### 表名正则匹配
+
+当 OceanBase 租户中存在大量结构相似的表（例如按时间分区的 `orders_2024_q1`、`orders_2024_q2` ...），设置 `use_regex = true` 并在 `table_path` 中传入正则表达式。SeaTunnel 会枚举匹配的表，并按 `partition_num` 进行并行读取。
+
+```hocon
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_path = "test.orders_2024_q[1-4]"
+    use_regex = true
+    partition_column = "id"
+    partition_num = 8
+  }
+}
+```
+
+### 流式增量区间读取
+
+OceanBase Source 本质上是一个批连接器。设置 `job.mode = "STREAMING"` 只用于开启 checkpoint 以便在失败时恢复作业；source 本身仍然是有界的，每次作业只会读取一次配置好的 `[partition_lower_bound, partition_upper_bound)` 区间。如需周期性地拉取新增数据，必须在外部重新提交作业（例如按计划滑动区间窗口），或改用 OceanBase CDC 做持续变更捕获。
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    query = "select * from orders where id >= ? and id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />

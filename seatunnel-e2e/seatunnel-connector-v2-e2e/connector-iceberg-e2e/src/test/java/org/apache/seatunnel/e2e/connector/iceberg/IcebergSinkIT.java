@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
 
+import com.github.luben.zstd.Zstd;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -62,16 +64,11 @@ public class IcebergSinkIT extends TestSuiteBase {
 
     private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-sink/";
 
-    private String zstdUrl() {
-        return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                // TODO: remove this after fix the issue of encountering a failure to create the
-                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
-                // Manually create iceberg metadata and data directory in container
+                // Iceberg's Hadoop catalog cannot reliably create the mounted warehouse's
+                // metadata and data directories from the job containers.
                 container.execInContainer(
                         "sh",
                         "-c",
@@ -84,11 +81,8 @@ public class IcebergSinkIT extends TestSuiteBase {
                                 + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777  " + CATALOG_DIR);
 
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && wget "
-                                + zstdUrl());
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     @TestTemplate
