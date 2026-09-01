@@ -50,6 +50,7 @@ connector-file-sftp
 connector-file-obs
 connector-file-bos
 connector-fluss
+connector-firebase
 connector-google-sheets
 connector-google-firestore
 connector-google-pubsub
