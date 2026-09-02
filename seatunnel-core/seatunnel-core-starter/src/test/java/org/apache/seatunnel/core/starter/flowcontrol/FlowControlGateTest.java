@@ -34,6 +34,24 @@ public class FlowControlGateTest {
     private static final int rowSize = 181;
 
     @Test
+    public void testRowWhoseFieldsAreAllNull() {
+        FlowControlGate flowControlGate = FlowControlGate.create(FlowControlStrategy.ofBytes(100));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {null, null});
+
+        Assertions.assertEquals(0, row.getBytesSize());
+        Assertions.assertDoesNotThrow(() -> flowControlGate.audit(row));
+    }
+
+    @Test
+    public void testRowWhoseFieldsAreAllEmptyStrings() {
+        FlowControlGate flowControlGate = FlowControlGate.create(FlowControlStrategy.ofBytes(100));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"", ""});
+
+        Assertions.assertEquals(0, row.getBytesSize());
+        Assertions.assertDoesNotThrow(() -> flowControlGate.audit(row));
+    }
+
+    @Test
     public void testWithBytes() {
         Clock clock = Clock.systemDefaultZone();
         FlowControlGate flowControlGate = FlowControlGate.create(FlowControlStrategy.ofBytes(100));
