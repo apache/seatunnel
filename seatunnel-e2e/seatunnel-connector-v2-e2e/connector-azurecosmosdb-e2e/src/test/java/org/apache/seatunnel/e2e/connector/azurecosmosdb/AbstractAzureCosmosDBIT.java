@@ -32,6 +32,7 @@ import org.apache.seatunnel.connectors.seatunnel.azurecosmosdb.source.AzureCosmo
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.slf4j.Logger;
@@ -54,6 +55,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements TestResource {
 
@@ -84,13 +86,13 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
                         .endpointDiscoveryEnabled(false)
                         .gatewayMode()
                         .buildClient();
-        seedContainer(BASIC_CONTAINER, item("1", "alpha", 10), item("2", "beta", 20));
-        seedContainer(
+        seedContainerWhenReady(BASIC_CONTAINER, item("1", "alpha", 10), item("2", "beta", 20));
+        seedContainerWhenReady(
                 FILTER_CONTAINER,
                 item("1", "low-score", 5),
                 item("2", "high-score", 30),
                 item("3", "higher-score", 40));
-        seedContainer(
+        seedContainerWhenReady(
                 PAGINATION_CONTAINER,
                 item("1", "page-one", 10),
                 item("2", "page-two", 20),
@@ -219,6 +221,24 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
         }
         System.setProperty("javax.net.ssl.trustStore", trustStore.toAbsolutePath().toString());
         System.setProperty("javax.net.ssl.trustStorePassword", TRUST_STORE_PASSWORD);
+    }
+
+    /**
+     * Retries idempotent seeding until the emulator accepts data-plane requests.
+     *
+     * <p>The emulator's container health endpoint can be available before its database service
+     * finishes accepting collection creation requests.
+     *
+     * @param containerName container to initialize
+     * @param items rows to persist in the container
+     */
+    @SafeVarargs
+    private final void seedContainerWhenReady(String containerName, Map<String, Object>... items) {
+        Awaitility.await()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(() -> seedContainer(containerName, items));
     }
 
     @SafeVarargs
