@@ -179,6 +179,11 @@ azure-queue-storage:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-azure-queue-storage/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azure-queue-storage)/**'
+azure-event-hubs:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-azure-event-hubs/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azure-event-hubs)/**'
 google-sheets:
   - all:
       - changed-files:

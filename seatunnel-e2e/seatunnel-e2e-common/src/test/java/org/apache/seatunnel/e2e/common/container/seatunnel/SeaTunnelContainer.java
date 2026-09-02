@@ -527,14 +527,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         couchbaseE2eActive = false;
     }
 
-    /** Enables Reactor thread exemptions while the Azure Queue Storage E2E test is active. */
-    public static void enableAzureQueueReactorThreadExemption() {
-        azureQueueE2eActive = true;
+    /** Enables Reactor thread exemptions while an Azure SDK E2E test is active. */
+    public static void enableAzureSdkReactorThreadExemption() {
+        azureSdkReactorE2eCount.incrementAndGet();
     }
 
-    /** Disables Reactor thread exemptions after the Azure Queue Storage E2E test completes. */
-    public static void disableAzureQueueReactorThreadExemption() {
-        azureQueueE2eActive = false;
+    /** Disables Reactor thread exemptions after an Azure SDK E2E test completes. */
+    public static void disableAzureSdkReactorThreadExemption() {
+        azureSdkReactorE2eCount.updateAndGet(count -> Math.max(0, count - 1));
     }
 
     /**
@@ -548,8 +548,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
      */
     static volatile boolean couchbaseE2eActive = false;
 
-    /** {@code true} while the Azure Queue Storage E2E test is active. */
-    static volatile boolean azureQueueE2eActive = false;
+    /** Number of active Azure SDK E2E lifecycles. */
+    static final AtomicInteger azureSdkReactorE2eCount = new AtomicInteger();
 
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
@@ -582,10 +582,10 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
             return true;
         }
-        // Azure Queue's shaded Reactor Netty threads are unique to this connector. The
-        // boundedElastic evictor name is shared by all Reactor users, so exempt it only while the
-        // Azure Queue E2E test is active.
-        if (isAzureQueueReactorThreadExempt(threadName)) {
+        // Azure Queue's shaded Reactor Netty threads are unique to that connector. Azure Core AMQP
+        // also owns a JVM-static receiver pump and initializes Reactor's global schedulers. Scope
+        // the shared thread names to Azure SDK E2E lifecycles so unrelated leaks remain visible.
+        if (isAzureSdkReactorThreadExempt(threadName)) {
             return true;
         }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
@@ -626,9 +626,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
     }
 
-    static boolean isAzureQueueReactorThreadExempt(String threadName) {
+    static boolean isAzureSdkReactorThreadExempt(String threadName) {
         return threadName.startsWith("org.apache.seatunnel.shade.azure.queue.reactor-http-nio-")
-                || (threadName.startsWith("boundedElastic-evictor-") && azureQueueE2eActive);
+                || (azureSdkReactorE2eCount.get() > 0
+                        && (threadName.matches("receiverPump-\\d+")
+                                || threadName.matches("boundedElastic-\\d+")
+                                || threadName.matches("boundedElastic-evictor-\\d+")
+                                || threadName.matches("parallel-\\d+")));
     }
 
     @Override

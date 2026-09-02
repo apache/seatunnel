@@ -102,6 +102,27 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testConfigDesensitizationMasksConnectionStrings() {
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put(
+                "connection_string",
+                "Endpoint=sb://example/;SharedAccessKeyName=name;SharedAccessKey=secret;");
+        source.put("event_hub_name", "events");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+
+        Assertions.assertEquals("******", desensitizedSource.get("connection_string"));
+        Assertions.assertEquals("events", desensitizedSource.get("event_hub_name"));
+    }
+
+    @Test
     public void testConfigDesensitizationMasksS3CredentialOptions() {
         Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
         accessKeyConfig.put("key", "access-key");
