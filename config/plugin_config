@@ -20,6 +20,7 @@
 # corresponding to the module in the user Config, helping SeaTunnel to load the correct Jar package.
 # Don't modify the delimiter " -- ", just select the plugin you need
 --connectors-v2--
+connector-amazondocumentdb
 connector-amazondynamodb
 connector-azurecosmosdb
 connector-assert
