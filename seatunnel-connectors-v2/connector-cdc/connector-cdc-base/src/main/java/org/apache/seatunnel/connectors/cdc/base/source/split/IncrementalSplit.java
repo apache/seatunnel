@@ -152,12 +152,22 @@ public class IncrementalSplit extends SourceSplitBase {
     public IncrementalSplit pruneTables(
             Collection<TableId> capturedTables, Function<TablePath, TableId> tableIdConverter) {
         Set<TableId> capturedTableSet = new HashSet<>(capturedTables);
+        // Guard tableIds/completedSnapshotSplitInfos the same way checkpointTables and
+        // historyTableChanges are guarded below: the 7-arg constructor accepts null for every
+        // field here, so a restored split with a null list must be pruned to an empty list
+        // instead of throwing an NPE during checkpoint recovery.
         List<TableId> filteredTableIds =
-                tableIds.stream().filter(capturedTableSet::contains).collect(Collectors.toList());
+                tableIds == null
+                        ? new ArrayList<>()
+                        : tableIds.stream()
+                                .filter(capturedTableSet::contains)
+                                .collect(Collectors.toList());
         List<CompletedSnapshotSplitInfo> filteredCompletedSnapshotSplitInfos =
-                completedSnapshotSplitInfos.stream()
-                        .filter(info -> capturedTableSet.contains(info.getTableId()))
-                        .collect(Collectors.toList());
+                completedSnapshotSplitInfos == null
+                        ? new ArrayList<>()
+                        : completedSnapshotSplitInfos.stream()
+                                .filter(info -> capturedTableSet.contains(info.getTableId()))
+                                .collect(Collectors.toList());
         List<CatalogTable> filteredCheckpointTables =
                 checkpointTables == null
                         ? null

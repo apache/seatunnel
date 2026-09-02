@@ -137,6 +137,25 @@ public class IncrementalSplitTest {
                 pruned.getCheckpointTables().get(0).getTablePath());
     }
 
+    /**
+     * Verifies pruneTables tolerates a null tableIds/completedSnapshotSplitInfos the same way it
+     * already tolerates null checkpointTables/historyTableChanges, instead of throwing an NPE
+     * during checkpoint recovery.
+     */
+    @Test
+    public void testPruneTablesToleratesNullTableIdsAndCompletedSnapshotSplitInfos() {
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-null-state", null, null, null, null, null, null);
+
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Collections.singletonList(KEPT_TABLE), DEFAULT_TABLE_ID_CONVERTER);
+
+        Assertions.assertTrue(pruned.getTableIds().isEmpty());
+        Assertions.assertTrue(pruned.getCompletedSnapshotSplitInfos().isEmpty());
+    }
+
     @SuppressWarnings("deprecation")
     private static IncrementalSplit legacyCheckpointSplit() {
         IncrementalSplit split =
