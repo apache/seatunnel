@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.azurecosmosdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.HashUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -140,6 +141,6 @@ public class AzureCosmosDBSourceSplitEnumerator
     }
 
     private static int getSplitOwner(Integer splitId, int numReaders) {
-        return (splitId.hashCode() & Integer.MAX_VALUE) % numReaders;
+        return HashUtils.bucketIndex(splitId, numReaders);
     }
 }
