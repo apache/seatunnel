@@ -110,7 +110,8 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### batch_interval_ms [Int]
 
-`batch_interval_ms` The maximum interval, in milliseconds, between two flushes to Hudi.
+`batch_interval_ms` is retained for compatibility. To schedule time-based flushes on Zeta, configure
+`sink.flush.interval` in the job `env` block.
 
 ### batch_size [Int]
 
@@ -158,6 +159,23 @@ Choose how to handle existing data before the synchronization task starts.
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+
+## Timer Flush
+
+Timer flush is an engine-level feature supported only by Zeta. Configure `sink.flush.interval` in the job `env` block
+to write pending Hudi records even when `batch_size` has not been reached. Spark and Flink do not inject `FlushSignal`
+records and therefore do not trigger this scheduled flush.
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+Hudi timer flush reuses the connector's synchronized batch flush and the Hudi client's auto-commit behavior. The Hudi
+sink does not provide a 2PC exactly-once writer, so timer flush provides at-least-once delivery. Retries can create
+additional commits. With `INSERT`, generated record keys can also produce duplicate rows after recovery; `UPSERT` with
+stable `record_key_fields` limits duplicate logical records.
 
 ## Examples
 

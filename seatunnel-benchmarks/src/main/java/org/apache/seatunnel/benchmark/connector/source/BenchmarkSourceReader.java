@@ -115,7 +115,9 @@ public final class BenchmarkSourceReader
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {}
+    public void notifyCheckpointComplete(long checkpointId) {
+        // The synthetic source has no external offsets to commit after coordinator completion.
+    }
 
     static long scheduledMillis(BenchmarkSourceSplit split, long sequence) {
         if (split.getRatePerSecond() == 0) {
