@@ -412,7 +412,9 @@ When `table-operations.enabled = true`:
   even if `schema-changes.enabled = false`. Structural `ALTER TABLE` events are sent downstream only
   when `schema-changes.enabled = true`.
 - Currently only the **Zeta** engine and **JDBC** sink apply the event. The sink flushes in-flight
-  rows, then executes `TRUNCATE TABLE`. Flink and Spark fail fast. A non-JDBC sink also fails fast
+  rows, then executes `TRUNCATE TABLE`. The JDBC sink must keep `exactly_once = false` (the default).
+  `is_exactly_once = true` (XA) fail-fasts: `TRUNCATE` is DDL and cannot join a prepared XA
+  transaction. Flink and Spark fail fast. A non-JDBC sink also fails fast
   instead of silently dropping the truncate.
 - Restore is at-least-once: a replayed `TRUNCATE` is idempotent. After restore, later `INSERT`s
   continue against the same table schema.
@@ -687,8 +689,8 @@ schema evolution contract already documented on this page and in the
 documented support covers `add column`, `drop column`, `rename column`, and `modify column`.
 
 `TRUNCATE TABLE` is a separate table-operation event. Enable `table-operations.enabled = true`
-(default `false`). It is not part of `schema-changes.*`. Currently only Zeta + JDBC sink apply it;
-see [Table operation events](#table-operation-events).
+(default `false`). It is not part of `schema-changes.*`. Currently only Zeta + JDBC sink apply it,
+and the JDBC sink must use `exactly_once = false`; see [Table operation events](#table-operation-events).
 
 ### How do I avoid `server-id` conflicts when running multiple CDC jobs?
 

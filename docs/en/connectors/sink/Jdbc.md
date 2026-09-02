@@ -975,7 +975,9 @@ Use `table = "${table_name}"` and `database = "${schema_name}"` as placeholders.
 Yes, on the Zeta engine. Enable `table-operations.enabled = true` on the MySQL-CDC source. JDBC Sink
 flushes buffered rows for the target table, then executes `TRUNCATE TABLE` against the physical sink
 table. The table schema is unchanged, so the writer is not rebuilt. This is independent of schema
-evolution (`schema-changes.*`). Flink and Spark do not apply table-operation events.
+evolution (`schema-changes.*`). The JDBC sink must keep `exactly_once = false` (the default);
+`is_exactly_once = true` is not supported for table operations and fails fast. Flink and Spark do
+not apply table-operation events.
 
 ### Why is my JDBC driver not found?
 

@@ -71,6 +71,9 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     /**
      * Flushes buffered rows, then executes a table operation such as {@code TRUNCATE TABLE}. The
      * table schema is unchanged, so the JDBC writer is not rebuilt.
+     *
+     * <p>Exactly-once (XA) writers override this and fail fast: TRUNCATE is DDL and cannot join a
+     * prepared XA transaction.
      */
     @Override
     public void applyTableOperation(TableOperationEvent event) throws IOException {

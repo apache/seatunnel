@@ -965,7 +965,7 @@ sink {
 
 ### JDBC Sink 是否会执行 MySQL-CDC 的 `TRUNCATE TABLE`？
 
-会，但仅限 Zeta 引擎。在 MySQL-CDC source 上设置 `table-operations.enabled = true`。JDBC Sink 会先刷出该表的缓冲行，再对物理 sink 表执行 `TRUNCATE TABLE`。表结构不变，因此不会重建 writer。该能力与 schema evolution（`schema-changes.*`）相互独立。Flink / Spark 不会执行表操作事件。
+会，但仅限 Zeta 引擎。在 MySQL-CDC source 上设置 `table-operations.enabled = true`。JDBC Sink 会先刷出该表的缓冲行，再对物理 sink 表执行 `TRUNCATE TABLE`。表结构不变，因此不会重建 writer。该能力与 schema evolution（`schema-changes.*`）相互独立。JDBC sink 必须保持 `exactly_once = false`（默认）；`is_exactly_once = true` 不支持表操作，会直接失败。Flink / Spark 不会执行表操作事件。
 
 ### 为什么提示 JDBC 驱动未找到？
 

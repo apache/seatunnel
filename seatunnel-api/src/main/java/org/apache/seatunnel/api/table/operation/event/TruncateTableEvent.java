@@ -34,7 +34,12 @@ public class TruncateTableEvent implements TableOperationEvent {
 
     private final TableIdentifier tableIdentifier;
     private long createdTime = System.currentTimeMillis();
+    /**
+     * Filled by {@link org.apache.seatunnel.api.event.EventListener} when the event is reported
+     * (same path as {@code SchemaChangeEvent}), not by the CDC resolver.
+     */
     @Setter private String jobId;
+
     @Setter private String statement;
     @Setter private String sourceDialectName;
 

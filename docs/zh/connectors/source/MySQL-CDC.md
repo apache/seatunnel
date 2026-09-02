@@ -406,7 +406,9 @@ source {
 
 - 即使 `schema-changes.enabled = false`，也会打开 Debezium 的 schema-history 捕获，以便从 binlog 看到这条 DDL。
   结构类 `ALTER TABLE` 仍只在 `schema-changes.enabled = true` 时下行。
-- 当前仅 **Zeta** 引擎和 **JDBC** sink 会执行该事件。Sink 先刷出缓冲行，再执行 `TRUNCATE TABLE`。Flink / Spark
+- 当前仅 **Zeta** 引擎和 **JDBC** sink 会执行该事件。Sink 先刷出缓冲行，再执行 `TRUNCATE TABLE`。
+  JDBC sink 必须保持 `exactly_once = false`（默认值）。`is_exactly_once = true`（XA）会 fail-fast：
+  `TRUNCATE` 是 DDL，不能加入已 prepare 的 XA 事务。Flink / Spark
   会直接失败。非 JDBC sink 同样 fail-fast，不会静默丢弃破坏性操作。
 - 恢复语义是 at-least-once：重放的 `TRUNCATE` 幂等。恢复后的 `INSERT` 仍写入同一张表，schema 不变。
 
@@ -672,7 +674,7 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
 
 `TRUNCATE TABLE` 属于独立的表操作事件。启用 `table-operations.enabled = true`（默认 `false`），不要把它配进
-`schema-changes.*`。当前仅 Zeta + JDBC sink 会执行，详见 [表操作事件](#表操作事件)。
+`schema-changes.*`。当前仅 Zeta + JDBC sink 会执行，且 JDBC sink 必须使用 `exactly_once = false`，详见 [表操作事件](#表操作事件)。
 
 ### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
 
