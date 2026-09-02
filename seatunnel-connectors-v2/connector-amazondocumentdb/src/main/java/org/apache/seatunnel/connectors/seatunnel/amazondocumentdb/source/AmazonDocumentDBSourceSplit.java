@@ -19,6 +19,12 @@ package org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.source;
 
 import org.apache.seatunnel.api.source.SourceSplit;
 
+/**
+ * Descriptor for the V1 collection scan.
+ *
+ * <p>Only the split id, filter, and projection are durable. There is no continuation token or
+ * cursor position, so restoring this split reruns its query from the beginning.
+ */
 public class AmazonDocumentDBSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = 1L;

@@ -42,6 +42,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.config.
 import static org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.config.AmazonDocumentDBSourceOptions.TLS_CA_FILE;
 import static org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.config.AmazonDocumentDBSourceOptions.URI;
 
+/** Factory entry point discovered through AutoService under the {@code AmazonDocumentDB} name. */
 @AutoService(Factory.class)
 public class AmazonDocumentDBSourceFactory implements TableSourceFactory {
 

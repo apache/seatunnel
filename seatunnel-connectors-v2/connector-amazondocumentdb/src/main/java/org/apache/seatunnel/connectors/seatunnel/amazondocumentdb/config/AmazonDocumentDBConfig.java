@@ -45,6 +45,12 @@ import java.security.cert.Certificate;
 import java.security.cert.CertificateFactory;
 import java.util.Collection;
 
+/**
+ * Validated runtime configuration for the Amazon DocumentDB source.
+ *
+ * <p>The configuration rejects unsupported retryable writes before a reader starts and owns all TLS
+ * trust material so one job cannot change the JVM-wide trust configuration of another job.
+ */
 public class AmazonDocumentDBConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -102,6 +108,14 @@ public class AmazonDocumentDBConfig implements Serializable {
         }
     }
 
+    /**
+     * Builds driver settings with DocumentDB-safe overrides.
+     *
+     * <p>The URI is applied first and {@code retryWrites(false)} second deliberately: the latter
+     * must win over both driver defaults and any URI option. TLS uses a connector-local {@link
+     * SSLContext} built from the configured CA bundle instead of mutating the JVM-global trust
+     * store, which would affect unrelated connectors running in the same process.
+     */
     public MongoClientSettings createMongoClientSettings() {
         ConnectionString connectionString = parseConnectionString(uri);
         MongoClientSettings.Builder builder =
@@ -191,6 +205,7 @@ public class AmazonDocumentDBConfig implements Serializable {
         }
     }
 
+    /** Builds an isolated trust context from every X.509 certificate in the supplied CA bundle. */
     private static SSLContext createSslContext(Path caBundlePath) {
         try (InputStream inputStream = Files.newInputStream(caBundlePath)) {
             CertificateFactory certificateFactory = CertificateFactory.getInstance("X.509");

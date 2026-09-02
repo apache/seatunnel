@@ -44,6 +44,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Converts standalone MongoDB-driver BSON values into rows described by a SeaTunnel schema.
+ *
+ * <p>This implementation intentionally lives in the Amazon DocumentDB module: compatibility with
+ * the wire protocol does not create a runtime dependency on connector-mongodb internals.
+ */
 public class DocumentDBItemDeserializer {
 
     private static final String CONNECTOR_NAME = "AmazonDocumentDB";
@@ -56,10 +62,16 @@ public class DocumentDBItemDeserializer {
         this.rowType = rowType;
     }
 
+    /**
+     * Converts a complete BSON document, leaving fields absent from the document as {@code null}.
+     */
     public SeaTunnelRow deserialize(BsonDocument document) {
         return convertRow("root", rowType, document);
     }
 
+    /**
+     * Dispatches conversion by the declared SeaTunnel type and retains low-level failure causes.
+     */
     private Object convert(String field, SeaTunnelDataType<?> type, BsonValue value) {
         if (isNull(value)) {
             return null;
@@ -107,7 +119,9 @@ public class DocumentDBItemDeserializer {
         } catch (SeaTunnelRuntimeException e) {
             throw e;
         } catch (RuntimeException e) {
-            throw conversionError(field, type);
+            SeaTunnelRuntimeException error = conversionError(field, type);
+            error.initCause(e);
+            throw error;
         }
     }
 
@@ -140,6 +154,10 @@ public class DocumentDBItemDeserializer {
         throw new IllegalArgumentException("Value is not a supported long");
     }
 
+    /**
+     * Applies the configured scale and rejects precision overflow instead of silently emitting
+     * {@code null}, which would make malformed source data indistinguishable from BSON null.
+     */
     private static BigDecimal convertDecimal(DecimalType type, BsonValue value) {
         Decimal128 decimal128 = value.asDecimal128().decimal128Value();
         if (!decimal128.isFinite()) {
@@ -147,7 +165,13 @@ public class DocumentDBItemDeserializer {
         }
         BigDecimal decimal =
                 decimal128.bigDecimalValue().setScale(type.getScale(), RoundingMode.HALF_UP);
-        return decimal.precision() <= type.getPrecision() ? decimal : null;
+        if (decimal.precision() > type.getPrecision()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Decimal precision %d exceeds configured precision %d",
+                            decimal.precision(), type.getPrecision()));
+        }
+        return decimal;
     }
 
     private static String convertString(BsonValue value) {
@@ -175,6 +199,7 @@ public class DocumentDBItemDeserializer {
         return LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
     }
 
+    /** Converts array elements recursively so nested rows, maps, and arrays use the same rules. */
     private Object convertArray(String field, ArrayType<?, ?> type, BsonValue value) {
         List<BsonValue> source = value.asArray();
         Object target = Array.newInstance(type.getElementType().getTypeClass(), source.size());
@@ -184,6 +209,7 @@ public class DocumentDBItemDeserializer {
         return target;
     }
 
+    /** Converts BSON documents to maps; BSON field names require a string map key type. */
     private Map<String, Object> convertMap(String field, MapType<?, ?> type, BsonValue value) {
         if (type.getKeyType().getSqlType() != SqlType.STRING) {
             throw conversionError(field, type);
@@ -196,6 +222,7 @@ public class DocumentDBItemDeserializer {
         return target;
     }
 
+    /** Maps document fields by schema name, preserving schema order in the resulting row. */
     private SeaTunnelRow convertRow(String field, SeaTunnelRowType type, BsonDocument document) {
         SeaTunnelRow row = new SeaTunnelRow(type.getTotalFields());
         for (int i = 0; i < type.getTotalFields(); i++) {
@@ -205,7 +232,8 @@ public class DocumentDBItemDeserializer {
         return row;
     }
 
-    private static RuntimeException conversionError(String field, SeaTunnelDataType<?> type) {
+    private static SeaTunnelRuntimeException conversionError(
+            String field, SeaTunnelDataType<?> type) {
         return CommonError.convertToSeaTunnelTypeError(
                 CONNECTOR_NAME, type.getSqlType().toString(), field);
     }

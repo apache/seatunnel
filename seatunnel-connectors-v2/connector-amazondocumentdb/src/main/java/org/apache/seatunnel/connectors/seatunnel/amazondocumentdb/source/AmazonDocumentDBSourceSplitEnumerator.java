@@ -31,6 +31,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * Enumerates the single split used by the Amazon DocumentDB V1 basic read path.
+ *
+ * <p>The split id hashes to subtask 0, and every other registered reader immediately receives
+ * no-more-splits. Checkpoint state retains only unassigned filter/projection descriptors; it does
+ * not capture cursor progress, so recovery of an assigned split performs a full rescan.
+ */
 public class AmazonDocumentDBSourceSplitEnumerator
         implements SourceSplitEnumerator<AmazonDocumentDBSourceSplit, AmazonDocumentDBSourceState> {
 
@@ -59,11 +66,17 @@ public class AmazonDocumentDBSourceSplitEnumerator
         }
     }
 
+    /** Defers enumeration to {@link #run()} so registered readers are visible before assignment. */
     @Override
     public void open() {
         // no-op
     }
 
+    /**
+     * Creates exactly one split on the first run and assigns it according to its fixed owner.
+     * Readers without that split are completed immediately rather than waiting for more work that
+     * V1 will never enumerate.
+     */
     @Override
     public void run() {
         synchronized (stateLock) {
@@ -77,11 +90,13 @@ public class AmazonDocumentDBSourceSplitEnumerator
         }
     }
 
+    /** Holds no external resources; readers own the MongoDB clients and cursors. */
     @Override
     public void close() throws IOException {
         // no-op
     }
 
+    /** Returns failed reader work to its deterministic owner before reassignment. */
     @Override
     public void addSplitsBack(List<AmazonDocumentDBSourceSplit> splits, int subtaskId) {
         synchronized (stateLock) {
@@ -97,11 +112,13 @@ public class AmazonDocumentDBSourceSplitEnumerator
         }
     }
 
+    /** Ignores pull requests because the bounded split is assigned eagerly in {@link #run()}. */
     @Override
     public void handleSplitRequest(int subtaskId) {
         // The bounded source enumerates its only split eagerly.
     }
 
+    /** Assigns any pending work when its reader registers and otherwise completes that reader. */
     @Override
     public void registerReader(int subtaskId) {
         synchronized (stateLock) {
@@ -109,6 +126,9 @@ public class AmazonDocumentDBSourceSplitEnumerator
         }
     }
 
+    /**
+     * Snapshots only enumeration status and unassigned split descriptors, never cursor progress.
+     */
     @Override
     public AmazonDocumentDBSourceState snapshotState(long checkpointId) {
         synchronized (stateLock) {
@@ -116,6 +136,9 @@ public class AmazonDocumentDBSourceSplitEnumerator
         }
     }
 
+    /**
+     * Has no post-checkpoint commit because enumeration state is fully represented in snapshots.
+     */
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // no-op
@@ -129,6 +152,12 @@ public class AmazonDocumentDBSourceSplitEnumerator
         }
     }
 
+    /**
+     * Gives the sole split to subtask 0 and sends no-more-splits to all readers.
+     *
+     * <p>Assignments are removed before the callback and restored if the callback fails, keeping a
+     * checkpoint from losing an unacknowledged split.
+     */
     private void assignSplits(Set<Integer> readers) {
         for (int reader : readers) {
             List<AmazonDocumentDBSourceSplit> assignment = pendingSplits.remove(reader);

@@ -87,6 +87,9 @@ You must define the SeaTunnel schema explicitly. BSON values are converted accor
 | Document | MAP / ROW |
 | Null / Undefined / Decimal128 NaN | null |
 
+Decimal128 values are rounded to the configured scale. If the resulting precision exceeds the
+declared DECIMAL precision, conversion fails with an error instead of silently producing `null`.
+
 ## Source Options
 
 | Name | Type | Required | Default | Description |
@@ -163,7 +166,7 @@ Source plugin common parameters, refer to [Source Common Options](../common-opti
 > 1. Use a read-only Amazon DocumentDB user and keep credentials out of checked-in job files.<br/>
 > 2. TLS is enabled by default. Use the current AWS CA bundle and rotate the local file when AWS updates its trust chain.<br/>
 > 3. V1 creates one split. Increasing source parallelism does not parallelize the collection scan.<br/>
-> 4. Split state contains the filter and projection, not cursor progress. A failed task can re-read documents after recovery.<br/>
+> 4. Split state contains the filter and projection, not cursor progress. Recovery restarts the full collection scan from the beginning—even if the failed attempt was almost complete—so downstream writes must be idempotent or use a truncate-and-reload strategy to avoid duplicates.<br/>
 > 5. Push selective predicates into `match.query` and include every schema field you need in `match.projection`.
 
 ## How to Create an Amazon DocumentDB Data Synchronization Job

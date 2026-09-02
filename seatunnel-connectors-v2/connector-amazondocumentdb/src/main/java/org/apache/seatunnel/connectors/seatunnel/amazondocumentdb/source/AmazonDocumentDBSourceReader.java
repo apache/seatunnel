@@ -39,6 +39,13 @@ import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+/**
+ * Executes the blocking MongoDB-driver scan for the single DocumentDB source split.
+ *
+ * <p>The reader checkpoints split ownership but not server cursor position. Restoring an active
+ * split therefore starts its query again, which provides an intentionally basic at-least-once read
+ * path and requires an idempotent or truncate-and-reload downstream strategy.
+ */
 public class AmazonDocumentDBSourceReader
         implements SourceReader<SeaTunnelRow, AmazonDocumentDBSourceSplit> {
 
@@ -63,6 +70,7 @@ public class AmazonDocumentDBSourceReader
         this.deserializer = new DocumentDBItemDeserializer(rowType);
     }
 
+    /** Opens the client once per reader so its connector-local TLS context has reader scope. */
     @Override
     public void open() {
         try {
@@ -80,6 +88,7 @@ public class AmazonDocumentDBSourceReader
         }
     }
 
+    /** Closes the cursor before the client to release the server-side query promptly. */
     @Override
     public void close() {
         closeCursor();
@@ -89,6 +98,14 @@ public class AmazonDocumentDBSourceReader
         }
     }
 
+    /**
+     * Emits at most one document per call without holding the checkpoint lock during remote I/O.
+     *
+     * <p>The first lock section transfers split ownership into a stable local reference. The
+     * blocking cursor call then runs outside the lock so a MongoDB network round trip cannot delay
+     * checkpoint-barrier injection. The second section atomically publishes the row or completes
+     * the split against a concurrent snapshot.
+     */
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
         AmazonDocumentDBSourceSplit activeSplit;
@@ -121,6 +138,7 @@ public class AmazonDocumentDBSourceReader
         }
     }
 
+    /** Snapshots pending and active split descriptors; cursor progress is deliberately excluded. */
     @Override
     public List<AmazonDocumentDBSourceSplit> snapshotState(long checkpointId) {
         List<AmazonDocumentDBSourceSplit> state = new ArrayList<>();
@@ -131,16 +149,19 @@ public class AmazonDocumentDBSourceReader
         return state;
     }
 
+    /** Queues restored or newly assigned splits for the reader thread. */
     @Override
     public void addSplits(List<AmazonDocumentDBSourceSplit> splits) {
         pendingSplits.addAll(splits);
     }
 
+    /** Records that completion may be signalled after the pending split queue is drained. */
     @Override
     public void handleNoMoreSplits() {
         noMoreSplits = true;
     }
 
+    /** No cursor position is committed because V1 recovery deliberately restarts the split. */
     @Override
     public void notifyCheckpointComplete(long checkpointId) {
         // no-op

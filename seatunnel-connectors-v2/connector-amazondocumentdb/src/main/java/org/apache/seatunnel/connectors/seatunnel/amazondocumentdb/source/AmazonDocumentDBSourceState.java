@@ -23,6 +23,13 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Enumerator checkpoint for the V1 single-split contract.
+ *
+ * <p>The pending map contains copies of split id, filter, and projection only. Assigned reader
+ * state is checkpointed by the reader, and neither side stores a MongoDB cursor position; a
+ * restored active scan therefore starts again from the beginning.
+ */
 public class AmazonDocumentDBSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;

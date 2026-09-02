@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.io.Serializable;
 
+/** Option definitions shared by factory validation and the DocumentDB runtime configuration. */
 public class AmazonDocumentDBSourceOptions extends ConnectorCommonOptions implements Serializable {
 
     public static final Option<String> URI =

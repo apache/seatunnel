@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.serialize.DocumentDBItemDeserializer;
 
 import org.bson.BsonArray;
@@ -143,5 +144,38 @@ public class DocumentDBItemDeserializerTest {
 
         Assertions.assertEquals(7, row.getField(0));
         Assertions.assertEquals(9L, row.getField(1));
+    }
+
+    @Test
+    public void testPreservesNumericConversionFailureCause() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.BYTE_TYPE});
+        BsonDocument document = new BsonDocument("value", new BsonInt32(128));
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> new DocumentDBItemDeserializer(rowType).deserialize(document));
+
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(exception.getCause().getMessage().contains("out of range"));
+    }
+
+    @Test
+    public void testRejectsDecimalPrecisionOverflow() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {new DecimalType(4, 2)});
+        BsonDocument document =
+                new BsonDocument("value", new BsonDecimal128(Decimal128.parse("123.45")));
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> new DocumentDBItemDeserializer(rowType).deserialize(document));
+
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(exception.getCause().getMessage().contains("exceeds"));
     }
 }

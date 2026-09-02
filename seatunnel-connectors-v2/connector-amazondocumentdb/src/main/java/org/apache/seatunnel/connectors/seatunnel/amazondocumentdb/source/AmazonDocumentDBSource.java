@@ -28,6 +28,12 @@ import org.apache.seatunnel.connectors.seatunnel.amazondocumentdb.config.AmazonD
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * Bounded Amazon DocumentDB source for a schema-driven collection scan.
+ *
+ * <p>V1 intentionally creates one split for the basic read path. Filter and projection are carried
+ * by that split, while cursor progress is not checkpointed, so recovery restarts the scan.
+ */
 public class AmazonDocumentDBSource
         implements SeaTunnelSource<
                 SeaTunnelRow, AmazonDocumentDBSourceSplit, AmazonDocumentDBSourceState> {
@@ -55,6 +61,7 @@ public class AmazonDocumentDBSource
         return Collections.singletonList(catalogTable);
     }
 
+    /** Starts a fresh single-split enumeration using the configured filter and projection. */
     @Override
     public SourceSplitEnumerator<AmazonDocumentDBSourceSplit, AmazonDocumentDBSourceState>
             createEnumerator(
@@ -63,6 +70,7 @@ public class AmazonDocumentDBSource
                 enumeratorContext, null, config.getMatchQuery(), config.getProjection());
     }
 
+    /** Restores only pending split descriptors; assigned cursor progress cannot be resumed. */
     @Override
     public SourceSplitEnumerator<AmazonDocumentDBSourceSplit, AmazonDocumentDBSourceState>
             restoreEnumerator(
@@ -72,6 +80,7 @@ public class AmazonDocumentDBSource
                 enumeratorContext, checkpointState, config.getMatchQuery(), config.getProjection());
     }
 
+    /** Creates the blocking reader that converts BSON according to the declared catalog schema. */
     @Override
     public SourceReader<SeaTunnelRow, AmazonDocumentDBSourceSplit> createReader(
             SourceReader.Context readerContext) {

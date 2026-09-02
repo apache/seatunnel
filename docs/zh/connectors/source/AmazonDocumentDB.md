@@ -87,6 +87,9 @@ sh bin/install-plugin.sh ${version}
 | Document | MAP / ROW |
 | Null / Undefined / Decimal128 NaN | null |
 
+Decimal128 值会按配置的 scale 四舍五入。如果结果精度超过声明的 DECIMAL precision，转换将报错，
+而不会静默产生 `null`。
+
 ## 源配置项
 
 | 名称 | 类型 | 必需 | 默认值 | 描述 |
@@ -163,7 +166,7 @@ Source 插件通用参数，详见 [Source Common Options](../common-options/sou
 > 1. 建议使用只读 Amazon DocumentDB 用户，并避免把凭据提交到版本库中的作业文件。<br/>
 > 2. TLS 默认启用。请使用当前 AWS CA bundle，并在 AWS 更新信任链后轮换本地文件。<br/>
 > 3. V1 只创建一个 split，提高 source 并行度不会并行扫描集合。<br/>
-> 4. Split 状态只保存过滤和投影，不保存游标进度；任务失败恢复后可能重复读取文档。<br/>
+> 4. Split 状态只保存过滤和投影，不保存游标进度。失败恢复会从集合开头重新执行完整扫描，即使上一次扫描已接近完成；因此下游写入必须具备幂等性，或采用 truncate-and-reload 策略，以避免重复数据。<br/>
 > 5. 建议把高选择性条件放到 `match.query`，并在 `match.projection` 中包含 schema 所需的全部字段。
 
 ## 如何创建 Amazon DocumentDB 数据同步作业
