@@ -53,6 +53,7 @@ import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
+import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
@@ -187,6 +188,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkRocketMq(TestContainer container) throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic");
 
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-sink_fake_to_rocketmq.conf");
@@ -205,6 +207,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testTextFormatSinkRocketMq(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_text_topic");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-text-sink_fake_to_rocketmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -457,6 +461,26 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Waits for the name server to expose a topic route to the producer.
+     *
+     * @param topic topic used by the next job submission or restored job
+     */
+    private void waitForTopicRoute(String topic) {
+        Awaitility.await()
+                .ignoreExceptions()
+                .atMost(1, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            producer.createTopic(
+                                    TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC, topic, 1);
+                            Assertions.assertFalse(
+                                    producer.fetchPublishMessageQueues(topic).isEmpty(),
+                                    "Topic route is not ready: " + topic);
+                        });
+    }
+
     private Map<String, RocketMqConsumerMessage> getRocketMqConsumerData(String topicName) {
         Map<String, RocketMqConsumerMessage> data = new HashMap<>();
         Map<MessageQueue, Long> consumedOffsets = new HashMap<>();
@@ -626,9 +650,10 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 new String[] {
                     "sourceTopic=" + sourceTopic,
                     "sinkTopic=" + sinkTopic,
-                    "consumerGroup=" + consumerGroup
+                        "consumerGroup=" + consumerGroup
                 };
 
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 20; i++) {
             Message msg = new Message(sourceTopic, (payload + "_initial_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -705,6 +730,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 "Source end offset should advance by at least 25, actual: "
                         + (srcEndAfterAll - srcEndBeforeStart));
 
+        // The name server can briefly drop an auto-created topic route while the job is stopped
+        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        waitForTopicRoute(sourceTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {

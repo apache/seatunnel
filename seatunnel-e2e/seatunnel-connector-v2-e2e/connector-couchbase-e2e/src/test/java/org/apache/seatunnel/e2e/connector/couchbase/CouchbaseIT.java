@@ -116,6 +116,10 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         couchbaseContainer.getUsername(),
                         couchbaseContainer.getPassword());
 
+        // The container's HTTP bootstrap may finish before the KV service accepts authenticated
+        // client connections. Confirm KV readiness before a SeaTunnel job uses the Docker alias.
+        cluster.bucket(COUCHBASE_BUCKET).waitUntilReady(Duration.ofMinutes(2));
+
         // Wait for the query/management service to be ready before issuing DDL. The container
         // signals readiness at the KV/bucket level but the query and index services can still
         // reject requests for a short window after Cluster.connect() returns. Wrapping the DDL
