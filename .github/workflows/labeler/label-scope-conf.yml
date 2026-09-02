@@ -172,7 +172,9 @@ google-pubsub:
 snmp:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-snmp/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-snmp/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-snmp-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(snmp)/**'
 azure-queue-storage:
   - all:
