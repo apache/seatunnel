@@ -47,7 +47,10 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolSta
 import org.apache.hadoop.fs.FileSystem;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.core.LifecycleService;
+import com.hazelcast.core.LifecycleEvent;
+import com.hazelcast.core.LifecycleEvent.LifecycleState;
+import com.hazelcast.core.LifecycleListener;
+import com.hazelcast.internal.services.GracefulShutdownAwareService;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -59,7 +62,6 @@ import com.hazelcast.spi.impl.NodeEngine;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.LiveOperations;
 import com.hazelcast.spi.impl.operationservice.LiveOperationsTracker;
-import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -73,7 +75,11 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class SeaTunnelServer
-        implements ManagedService, MembershipAwareService, LiveOperationsTracker {
+        implements ManagedService,
+                MembershipAwareService,
+                GracefulShutdownAwareService,
+                LifecycleListener,
+                LiveOperationsTracker {
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -147,8 +153,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
-        clearLocalGracefulMemberRemovalMarker();
-        registerShutdownHook();
+        nodeEngine.getHazelcastInstance().getLifecycleService().addLifecycleListener(this);
         BaseService.retainRunningJobDagJsonCache();
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
@@ -228,6 +233,28 @@ public class SeaTunnelServer
     @Override
     public void reset() {}
 
+    /**
+     * Writes the marker while Hazelcast still has active map and operation services. Hazelcast
+     * invokes this callback only for its configured graceful shutdown path before it tears down
+     * managed services.
+     */
+    @Override
+    public boolean onShutdown(long timeout, TimeUnit unit) {
+        return markLocalGracefulMemberRemoval();
+    }
+
+    /**
+     * Clears a prior process marker only after Hazelcast has started its operation service. Service
+     * initialization itself runs before that service is ready, so clearing the map in init can
+     * fail.
+     */
+    @Override
+    public void stateChanged(LifecycleEvent event) {
+        if (event.getState() == LifecycleState.STARTING) {
+            clearLocalGracefulMemberRemovalMarker();
+        }
+    }
+
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
@@ -267,41 +294,6 @@ public class SeaTunnelServer
      */
     private boolean markLocalGracefulMemberRemoval() {
         return updateLocalGracefulMemberRemovalMarker(true);
-    }
-
-    /**
-     * Registers SeaTunnel's JVM shutdown hook only when the built-in Hazelcast hook is disabled.
-     * The hook writes the marker while the instance is still active, then starts Hazelcast's
-     * graceful lifecycle shutdown. Hazelcast's own hook cannot provide that ordering because it
-     * puts its services into the shutting-down state before graceful-service callbacks run, so a
-     * distributed-map operation cannot be relied on from those callbacks.
-     */
-    private void registerShutdownHook() {
-        if (nodeEngine.getProperties().getBoolean(ClusterProperty.SHUTDOWNHOOK_ENABLED)) {
-            return;
-        }
-        Runtime.getRuntime()
-                .addShutdownHook(
-                        new Thread(
-                                this::shutdownFromJvmHook,
-                                "seatunnel-graceful-member-removal-shutdown"));
-    }
-
-    /**
-     * Marks this member before asking Hazelcast to shut down gracefully from the JVM lifecycle
-     * hook. The marker operation is synchronous so the remaining coordinator can classify the
-     * ensuing member removal before this process leaves the cluster.
-     */
-    private void shutdownFromJvmHook() {
-        if (nodeEngine == null) {
-            return;
-        }
-        LifecycleService lifecycleService = nodeEngine.getHazelcastInstance().getLifecycleService();
-        if (!lifecycleService.isRunning()) {
-            return;
-        }
-        markLocalGracefulMemberRemoval();
-        lifecycleService.shutdown();
     }
 
     /**

@@ -252,7 +252,7 @@ hazelcast:
       auto-increment: false
       port: 5801
   properties:
-    hazelcast.shutdownhook.enabled: false
+    hazelcast.shutdownhook.policy: GRACEFUL
     hazelcast.logging.type: log4j2
 ```
 

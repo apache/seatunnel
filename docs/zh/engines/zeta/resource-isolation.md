@@ -30,7 +30,7 @@ SeaTunnel支持对每个实例添加`tag`, 然后在提交任务时可以在配�
           auto-increment: false
           port: 5801
       properties:
-        hazelcast.shutdownhook.enabled: false
+        hazelcast.shutdownhook.policy: GRACEFUL
         hazelcast.invocation.max.retry.count: 20
         hazelcast.tcp.join.port.try.count: 30
         hazelcast.logging.type: log4j2
