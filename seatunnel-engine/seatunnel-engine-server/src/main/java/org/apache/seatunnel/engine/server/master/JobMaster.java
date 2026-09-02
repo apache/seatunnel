@@ -107,7 +107,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -538,7 +537,11 @@ public class JobMaster {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
-        Set<SlotProfile> reusedSlotProfiles = Collections.newSetFromMap(new IdentityHashMap<>());
+        // Value-based membership (SlotProfile#equals keys on worker+slotID+sequence) so the
+        // cleanup filter below still excludes a reused slot even if a future code path re-reads
+        // or copies the profile between pre-apply and cleanup, instead of relying on the exact
+        // object instance surviving unchanged.
+        Set<SlotProfile> reusedSlotProfiles = new HashSet<>();
 
         boolean isSubPlan = Objects.nonNull(subPlan);
 
@@ -659,27 +662,30 @@ public class JobMaster {
     /**
      * Pre-applies resources for every pipeline in this job.
      *
-     * @param preApplyResourceFutures target map for each task group's resource future
-     * @param reusedSlotProfiles identity set collecting slots retained from the previous master;
-     *     these slots must not be released when part of the pre-apply operation fails
-     * @return the populated resource-future map
+     * <p>Both maps are populated in place; there is nothing to return because the caller already
+     * holds the references it passed in.
+     *
+     * @param preApplyResourceFutures target map for each task group's resource future, mutated in
+     *     place
+     * @param reusedSlotProfiles set collecting slots retained from the previous master; these slots
+     *     must not be released when part of the pre-apply operation fails
      */
-    private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourcesForAll(
+    private void preApplyResourcesForAll(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
             Set<SlotProfile> reusedSlotProfiles) {
         for (SubPlan subPlan : physicalPlan.getPipelineList()) {
             preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures, reusedSlotProfiles);
         }
-        return preApplyResourceFutures;
     }
 
     /**
      * Pre-applies resources for one pipeline.
      *
      * @param subPlan pipeline whose task groups need resources
-     * @param preApplyResourceFutures target map for each task group's resource future
-     * @param reusedSlotProfiles identity set collecting slots retained from the previous master;
-     *     these slots must not be released when part of the pre-apply operation fails
+     * @param preApplyResourceFutures target map for each task group's resource future, mutated in
+     *     place
+     * @param reusedSlotProfiles set collecting slots retained from the previous master; these slots
+     *     must not be released when part of the pre-apply operation fails
      */
     private void preApplyResourcesForSubPlan(
             SubPlan subPlan,
@@ -730,7 +736,12 @@ public class JobMaster {
      * <p>The slot-to-task mapping is stored in Hazelcast before task deployment. After a master
      * failover, requesting those slots again cannot succeed with fixed slots because Workers still
      * own them for this job. A slot is reused only after the current ResourceManager confirms that
-     * the Worker still has the matching allocation sequence.
+     * the Worker still has the matching allocation sequence and that the slot's owner job ID still
+     * matches this job (see {@link ResourceManager#slotActiveCheck}).
+     *
+     * @param taskGroupLocation task group whose previously persisted slot assignment is checked
+     * @return the persisted {@link SlotProfile} if the Worker still actively holds it for this job,
+     *     or {@code null} if this is not a post-failover restore or the slot is no longer valid
      */
     private SlotProfile getReusableSlot(TaskGroupLocation taskGroupLocation) {
         if (!masterFailoverRestore) {
