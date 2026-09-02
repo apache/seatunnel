@@ -461,7 +461,7 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
                 .withNetworkAliases(HOSTNAME)
                 .withExposedPorts(PORT)
                 .withImagePullPolicy(PullPolicy.alwaysPull())
-                .waitingFor(Wait.forLogMessage(".*boot success!.*", 1))
+                .waitingFor(Wait.forLogMessage(".*(boot success!|Connect to observer ok).*", 1))
                 .withStartupTimeout(Duration.ofMinutes(5))
                 .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
     }
