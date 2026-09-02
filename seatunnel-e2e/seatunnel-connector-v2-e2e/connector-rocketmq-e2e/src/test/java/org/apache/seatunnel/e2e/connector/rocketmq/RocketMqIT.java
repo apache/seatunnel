@@ -53,7 +53,6 @@ import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
-import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
@@ -630,7 +629,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     "consumerGroup=" + consumerGroup
                 };
 
-        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 20; i++) {
             Message msg = new Message(sourceTopic, (payload + "_initial_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -707,9 +705,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 "Source end offset should advance by at least 25, actual: "
                         + (srcEndAfterAll - srcEndBeforeStart));
 
-        // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
-        waitForTopicRoute(sourceTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -759,21 +754,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 "Expected 10 '_additional_' messages, got: " + additionalCount);
         Assertions.assertEquals(
                 15, restoreCount, "Expected 15 '_restore_' messages, got: " + restoreCount);
-    }
-
-    private void waitForTopicRoute(String topic) {
-        Awaitility.await()
-                .ignoreExceptions()
-                .atMost(1, TimeUnit.MINUTES)
-                .pollInterval(1, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            producer.createTopic(
-                                    TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC, topic, 1);
-                            Assertions.assertFalse(
-                                    producer.fetchPublishMessageQueues(topic).isEmpty(),
-                                    "Topic route is not ready: " + topic);
-                        });
     }
 
     private List<String> pollMessagesFromOffset(String topicName, long fromOffset) {

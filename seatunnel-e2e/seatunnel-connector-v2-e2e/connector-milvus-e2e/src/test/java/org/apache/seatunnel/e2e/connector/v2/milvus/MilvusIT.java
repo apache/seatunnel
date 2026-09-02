@@ -135,45 +135,9 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Milvus host is {}", container.getHost());
         log.info("Milvus container started");
-        waitForMilvusReady();
+        Awaitility.given().ignoreExceptions().await().atMost(720L, TimeUnit.SECONDS);
         this.initMilvus();
         this.initSourceData();
-    }
-
-    /**
-     * Waits until the Milvus Proxy can serve a real catalog RPC.
-     *
-     * <p>The container health endpoint becomes available before the Proxy accepts gRPC requests.
-     */
-    private void waitForMilvusReady() {
-        Awaitility.await()
-                .ignoreExceptions()
-                .pollInterval(1, TimeUnit.SECONDS)
-                .atMost(720L, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            MilvusServiceClient readinessClient = createMilvusClient();
-                            try {
-                                R<ListDatabasesResponse> response = readinessClient.listDatabases();
-                                Assertions.assertEquals(
-                                        R.Status.Success.getCode(), response.getStatus());
-                            } finally {
-                                readinessClient.close();
-                            }
-                        });
-    }
-
-    /**
-     * Creates a client bound to the current Milvus test container.
-     *
-     * @return client configured with the test endpoint and token
-     */
-    private MilvusServiceClient createMilvusClient() {
-        return new MilvusServiceClient(
-                ConnectParam.newBuilder()
-                        .withUri(this.container.getEndpoint())
-                        .withToken(TOKEN)
-                        .build());
     }
 
     private void initMilvus()
@@ -185,7 +149,12 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
         catalog = new MilvusCatalog(COLLECTION_NAME, readonlyConfig);
         catalog.open();
-        milvusClient = createMilvusClient();
+        milvusClient =
+                new MilvusServiceClient(
+                        ConnectParam.newBuilder()
+                                .withUri(this.container.getEndpoint())
+                                .withToken(TOKEN)
+                                .build());
     }
 
     private void initSourceData() {
