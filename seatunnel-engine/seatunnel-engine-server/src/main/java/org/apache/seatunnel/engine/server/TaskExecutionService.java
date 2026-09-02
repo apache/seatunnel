@@ -1547,8 +1547,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         /**
          * Moves the execution context from the active map to the finished map only when the active
          * map still points to the exact context object installed by this tracker.
+         *
+         * <p>The explicit reference-identity check below is required and must not be replaced by
+         * relying on {@code ConcurrentMap#remove(Object, Object)} alone: {@link TaskGroupContext}
+         * is a Lombok {@code @Data} class, so its generated {@code equals()} performs structural
+         * comparison over {@code taskGroup}/{@code classLoaders}/{@code jars} rather than identity.
+         * {@code remove(key, value)} falls back to that {@code equals()} whenever the map entry is
+         * not reference-equal to {@code ownedContext}, so without this identity guard the ownership
+         * check would silently degrade into value equality the moment any {@link TaskGroup}
+         * implementation (e.g. {@code TaskGroupDefaultImpl}) gains a structural {@code equals()},
+         * reintroducing the stale-generation-corrupts-newer-generation race this method exists to
+         * prevent.
          */
         private boolean finishExecutionContext(TaskGroupLocation taskGroupLocation) {
+            if (executionContexts.get(taskGroupLocation) != ownedContext) {
+                return false;
+            }
             if (executionContexts.remove(taskGroupLocation, ownedContext)) {
                 finishedExecutionContexts.put(taskGroupLocation, ownedContext);
                 return true;
