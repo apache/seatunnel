@@ -40,7 +40,7 @@ public class SnowflakeDataTypeConvertorTest {
                         "", SnowflakeType.TEXT.name(), Collections.emptyMap()));
 
         Assertions.assertEquals(
-                BasicType.STRING_TYPE,
+                BasicType.JSON_TYPE,
                 snowflakeDataTypeConvertor.toSeaTunnelType(
                         "", SnowflakeType.VARIANT.name(), Collections.emptyMap()));
 
@@ -48,5 +48,10 @@ public class SnowflakeDataTypeConvertorTest {
                 BasicType.STRING_TYPE,
                 snowflakeDataTypeConvertor.toSeaTunnelType(
                         "", SnowflakeType.OBJECT.name(), Collections.emptyMap()));
+
+        Assertions.assertEquals(
+                SnowflakeType.VARIANT.name(),
+                snowflakeDataTypeConvertor.toConnectorType(
+                        "", BasicType.JSON_TYPE, Collections.emptyMap()));
     }
 }

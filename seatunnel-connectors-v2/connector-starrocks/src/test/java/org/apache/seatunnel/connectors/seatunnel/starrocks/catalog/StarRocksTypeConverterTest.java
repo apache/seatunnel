@@ -339,9 +339,23 @@ public class StarRocksTypeConverterTest {
                         .build();
         Column column = converter.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        Assertions.assertEquals(StarRocksTypeConverter.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(BasicType.JSON_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    /**
+     * Verifies that SeaTunnel JSON is created as StarRocks JSON.
+     *
+     * <p>This protects native JSON table creation from falling back to a text column.
+     */
+    @Test
+    public void testReconvertJson() {
+        Column column = PhysicalColumn.builder().name("test").dataType(BasicType.JSON_TYPE).build();
+
+        BasicTypeDefine<StarRocksType> typeDefine = converter.reconvert(column);
+
+        Assertions.assertEquals(SR_JSON, typeDefine.getColumnType());
+        Assertions.assertEquals(SR_JSON, typeDefine.getDataType());
     }
 
     @Test

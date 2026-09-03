@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
@@ -154,7 +156,7 @@ public class DorisIT extends AbstractDorisIT {
                     + ")";
 
     private final String DUPLICATE_TABLE_COLUMN_STRING =
-            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_DECIMAL_V3, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME_V2, F_DATETIME, F_DATE, F_DATE_V2, F_JSON, F_JSONB, F_ARRAY_BOOLEAN, F_ARRAY_BYTE, F_ARRAY_SHOT, F_ARRAY_INT, F_ARRAY_BIGINT, F_ARRAY_FLOAT, F_ARRAY_DOUBLE, F_ARRAY_STRING_CHAR, F_ARRAY_STRING_VARCHAR, F_ARRAY_STRING_LARGEINT, F_ARRAY_STRING_STRING, F_ARRAY_DECIMAL, F_ARRAY_DATE, F_ARRAY_DATETIME";
+            "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_DECIMAL_V3, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME_V2, F_DATETIME, F_DATE, F_DATE_V2, F_ARRAY_BOOLEAN, F_ARRAY_BYTE, F_ARRAY_SHOT, F_ARRAY_INT, F_ARRAY_BIGINT, F_ARRAY_FLOAT, F_ARRAY_DOUBLE, F_ARRAY_STRING_CHAR, F_ARRAY_STRING_VARCHAR, F_ARRAY_STRING_LARGEINT, F_ARRAY_STRING_STRING, F_ARRAY_DECIMAL, F_ARRAY_DATE, F_ARRAY_DATETIME";
 
     private final String UNIQUE_TABLE_COLUMN_STRING =
             "F_ID, F_INT, F_BIGINT, F_TINYINT, F_SMALLINT, F_DECIMAL, F_LARGEINT, F_BOOLEAN, F_DOUBLE, F_FLOAT, F_CHAR, F_VARCHAR_11, F_STRING, F_DATETIME_P, F_DATETIME, F_DATE, MAP_VARCHAR_BOOLEAN, MAP_CHAR_TINYINT, MAP_STRING_SMALLINT, MAP_INT_INT, MAP_TINYINT_BIGINT, MAP_SMALLINT_LARGEINT, MAP_BIGINT_FLOAT, MAP_LARGEINT_DOUBLE, MAP_STRING_DECIMAL, MAP_DECIMAL_DATE, MAP_DATE_DATETIME, MAP_DATETIME_CHAR, MAP_CHAR_VARCHAR, MAP_VARCHAR_STRING";
@@ -243,10 +245,58 @@ public class DorisIT extends AbstractDorisIT {
             String sinkSql =
                     String.format("select * from %s.%s order by F_ID", sinkDB, DUPLICATE_TABLE);
             checkSourceAndSinkTableDate(sourceSql, sinkSql, DUPLICATE_TABLE_COLUMN_STRING);
+            assertJsonColumnsRoundTrip();
             clearDuplicateTable();
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
+    }
+
+    /**
+     * Verifies Doris JSON and JSONB values remain structured JSON after source-to-sink transfer.
+     */
+    private void assertJsonColumnsRoundTrip() throws Exception {
+        String sourceSql =
+                String.format(
+                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID",
+                        sourceDB, DUPLICATE_TABLE);
+        String sinkSql =
+                String.format(
+                        "SELECT F_JSON, F_JSONB FROM %s.%s ORDER BY F_ID", sinkDB, DUPLICATE_TABLE);
+        boolean sawObject = false;
+        boolean sawArray = false;
+        boolean sawScalar = false;
+        boolean sawJsonNull = false;
+        boolean sawSqlNull = false;
+        try (Statement sourceStatement = conn.createStatement();
+                Statement sinkStatement = conn.createStatement();
+                ResultSet sourceResult = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResult = sinkStatement.executeQuery(sinkSql)) {
+            while (sourceResult.next()) {
+                Assertions.assertTrue(sinkResult.next());
+                for (String column : new String[] {"F_JSON", "F_JSONB"}) {
+                    String sourceJson = sourceResult.getString(column);
+                    String sinkJson = sinkResult.getString(column);
+                    if (sourceJson == null) {
+                        Assertions.assertNull(sinkJson);
+                        sawSqlNull = true;
+                        continue;
+                    }
+                    JsonNode sourceNode = JsonUtils.stringToJsonNode(sourceJson);
+                    Assertions.assertEquals(sourceNode, JsonUtils.stringToJsonNode(sinkJson));
+                    sawObject |= sourceNode.isObject();
+                    sawArray |= sourceNode.isArray();
+                    sawJsonNull |= sourceNode.isNull();
+                    sawScalar |= sourceNode.isValueNode() && !sourceNode.isNull();
+                }
+            }
+            Assertions.assertFalse(sinkResult.next());
+        }
+        Assertions.assertTrue(sawObject, "Doris JSON E2E must cover object values");
+        Assertions.assertTrue(sawArray, "Doris JSON E2E must cover array values");
+        Assertions.assertTrue(sawScalar, "Doris JSON E2E must cover scalar values");
+        Assertions.assertTrue(sawJsonNull, "Doris JSON E2E must cover JSON null");
+        Assertions.assertTrue(sawSqlNull, "Doris JSON E2E must cover SQL NULL");
     }
 
     protected void checkSinkData() {
@@ -727,8 +777,8 @@ public class DorisIT extends AbstractDorisIT {
                                 GenerateTestData.genDatetimeString(true),
                                 GenerateTestData.genDateString(),
                                 GenerateTestData.genDateString(),
-                                GenerateTestData.genJsonString(),
-                                GenerateTestData.genJsonString(),
+                                jsonValueForIndex(i),
+                                i % 7 == 0 ? null : jsonValueForIndex(i + 1),
                                 Arrays.toString(new boolean[] {true, true, false}),
                                 Arrays.toString(new byte[] {1, 2, 3}),
                                 Arrays.toString(new short[] {1, 2, 3}),
@@ -751,6 +801,28 @@ public class DorisIT extends AbstractDorisIT {
         }
         log.info("generate test data succeed");
         return datas;
+    }
+
+    /**
+     * Generates every JSON value category required by native JSON connector round trips.
+     *
+     * <p>The deterministic sequence guarantees that E2E assertions observe every category.
+     */
+    private String jsonValueForIndex(int index) {
+        switch (index % 6) {
+            case 0:
+                return String.format("{\"id\":%s,\"nested\":[true,2]}", index);
+            case 1:
+                return String.format("[{\"id\":%s},\"text\",false]", index);
+            case 2:
+                return "true";
+            case 3:
+                return String.valueOf(index);
+            case 4:
+                return "\"text\"";
+            default:
+                return "null";
+        }
     }
 
     @AfterAll

@@ -148,9 +148,12 @@ public class SnowflakeTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
             case SNOWFLAKE_TEXT:
-            case SNOWFLAKE_VARIANT:
             case SNOWFLAKE_OBJECT:
                 builder.dataType(BasicType.STRING_TYPE);
+                builder.columnLength(typeDefine.getLength());
+                break;
+            case SNOWFLAKE_VARIANT:
+                builder.dataType(BasicType.JSON_TYPE);
                 builder.columnLength(typeDefine.getLength());
                 break;
             case SNOWFLAKE_GEOGRAPHY:
@@ -299,6 +302,10 @@ public class SnowflakeTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.dataType(SNOWFLAKE_STRING);
                 }
                 builder.length(column.getColumnLength());
+                break;
+            case JSON:
+                builder.columnType(SNOWFLAKE_VARIANT);
+                builder.dataType(SNOWFLAKE_VARIANT);
                 break;
             case DATE:
                 builder.columnType(SNOWFLAKE_DATE);

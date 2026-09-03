@@ -36,6 +36,12 @@ You need to check this document before you upgrade to related version.
 
 ### API Changes
 
+- **Breaking Change: Native semi-structured columns map to the `JSON` logical type**
+  - **Affected components**: Snowflake JDBC (`VARIANT`), Doris (`JSON`/`JSONB`), and StarRocks (`JSON`) sources and catalogs.
+  - **Description**: These native columns previously appeared in SeaTunnel schemas as `STRING`. They now appear as the String-backed `JSON` logical type so native JSON semantics can be preserved by supported sinks and formats.
+  - **Impact**: Pipelines that inspect the source schema or write to a sink without `JSON` support can observe a different type or receive an unsupported-type error. Calcite SQL, Copy, JsonPath, CSV, Avro, the JSON format, Spark translation, Snowflake, Doris, and StarRocks support the new logical type in this release.
+  - **Migration Guide**: If a downstream component does not support `JSON`, add a Calcite Transform projection such as `SELECT CAST(payload AS VARCHAR) AS payload, ... FROM source_table` before that component. This restores the previous String-backed schema and value behavior. Do not cast when the destination is a supported native JSON/VARIANT column, because the cast intentionally removes the JSON type semantics.
+
 - **Breaking Change: Engine REST table metrics key format**
   - **Affected component**: SeaTunnel Engine REST API (job metrics in `/job-info`)
   - **Description**: To support multiple Sources/Sinks/Transforms processing the same table, the key format of table-level metrics has changed from `{tableName}` to `{VertexIdentifier}.{tableName}` (for example, `Sink[0].fake.user_table`).

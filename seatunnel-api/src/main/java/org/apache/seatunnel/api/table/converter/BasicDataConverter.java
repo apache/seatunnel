@@ -79,6 +79,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
             case BYTES:
                 return convertBytes(value);
             case STRING:
+            case JSON:
                 return convertString(value);
             case ROW:
                 return convertRow((SeaTunnelRowType) typeDefine, value);
@@ -130,6 +131,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
             case BYTES:
                 return convertBytes(typeDefine, value);
             case STRING:
+            case JSON:
                 return convertString(typeDefine, value);
             case ROW:
                 return convertRow(typeDefine, columnDefine, value);
