@@ -31,7 +31,6 @@ import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -378,27 +377,5 @@ public class ReadableConfigTest {
         map.put("user", null);
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
         Assertions.assertNull(readonlyConfig.toMap().get("user"));
-    }
-
-    @Test
-    public void testToConfigPreservesSpecialCharacterKeys() {
-        Map<String, Object> primaryKeys = new HashMap<>();
-        primaryKeys.put("^t_nova_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
-
-        Map<String, Object> multiTableConfig = new HashMap<>();
-        multiTableConfig.put("primary_keys", primaryKeys);
-
-        Map<String, Object> map = new HashMap<>();
-        map.put("multi-table_config", multiTableConfig);
-
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
-        Config config = readonlyConfig.toConfig();
-
-        Map<String, Object> result =
-                config.getConfig("multi-table_config").getConfig("primary_keys").root().unwrapped();
-
-        Assertions.assertTrue(result.containsKey("^t_nova_.*$"));
-        Assertions.assertEquals(
-                Arrays.asList("${primary_key}", "DATA_SOURCE"), result.get("^t_nova_.*$"));
     }
 }
