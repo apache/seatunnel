@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSourceState;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
@@ -28,7 +29,11 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.ByteArrayInputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +45,12 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class RabbitmqSplitEnumeratorTest {
+    private static final long LEGACY_STATE_SERIAL_VERSION_UID = -1143819030309308746L;
+
+    // Serialized by RabbitmqSourceState from SeaTunnel 2.3.13.
+    private static final String LEGACY_CHECKPOINT_STATE =
+            "rO0ABXNyAE1vcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5yYWJiaXRtcS5zb3VyY2UuUmFiYml0bXFTb3VyY2VTdGF0ZfAgVqbzFPa2AgAAeHA=";
+
     /**
      * Tests the split assignment logic of the {@link RabbitmqSplitEnumerator} in a Multi-Table
      * scenario.
@@ -156,5 +167,35 @@ public class RabbitmqSplitEnumeratorTest {
         Assertions.assertEquals(2, newState.getAssignedSplits().size());
         Assertions.assertTrue(newState.getAssignedSplits().containsKey("queue_A"));
         Assertions.assertTrue(newState.getAssignedSplits().containsKey("queue_B"));
+    }
+
+    @Test
+    public void testRestoreLegacySourceState() throws Exception {
+        Assertions.assertEquals(
+                LEGACY_STATE_SERIAL_VERSION_UID,
+                ObjectStreamClass.lookup(RabbitmqSourceState.class).getSerialVersionUID());
+
+        RabbitmqSplitEnumeratorState legacyState;
+        try (ObjectInputStream input =
+                new ObjectInputStream(
+                        new ByteArrayInputStream(
+                                Base64.getDecoder().decode(LEGACY_CHECKPOINT_STATE)))) {
+            Object state = input.readObject();
+            Assertions.assertInstanceOf(RabbitmqSourceState.class, state);
+            legacyState = Assertions.assertInstanceOf(RabbitmqSplitEnumeratorState.class, state);
+        }
+        Assertions.assertNotNull(legacyState.getAssignedSplits());
+        Assertions.assertTrue(legacyState.getAssignedSplits().isEmpty());
+
+        @SuppressWarnings("unchecked")
+        SourceSplitEnumerator.Context<RabbitmqSplit> context =
+                mock(SourceSplitEnumerator.Context.class);
+        List<String> queues = Arrays.asList("queue_A", "queue_B");
+
+        RabbitmqSplitEnumerator enumerator =
+                new RabbitmqSplitEnumerator(
+                        context, mock(RabbitmqConfig.class), queues, legacyState);
+
+        Assertions.assertEquals(queues.size(), enumerator.currentUnassignedSplitSize());
     }
 }
