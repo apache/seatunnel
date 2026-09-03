@@ -153,6 +153,12 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         rocketMqContainer.start();
         log.info("RocketMq container started");
         initProducer();
+        // Unlike the other topics in this file, test_topic_source is written directly via
+        // producer.send(Message, MessageQueue) in generateTestData(), which bypasses the normal
+        // route-resolution path a plain send(Message) would use. Establish and confirm the route
+        // up front so the name server has already published it before any source job (started by
+        // a later @TestTemplate method, sometimes minutes after this write) queries it.
+        waitForTopicRoute("test_topic_source");
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
@@ -557,9 +563,15 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         if (consumedOffsets.isEmpty()) {
             return;
         }
+        // consumedOffsets now spans up to DEFAULT_TOPIC_QUEUE_NUMS (4) queues instead of the
+        // single queue this topic previously had, so broker-side offset-commit visibility for
+        // every queue must converge within the window, not just one. Seen to exceed the previous
+        // 30s ceiling under real CI load (fork run 33729027165, job
+        // "rocketmq-connector-it (8, ubuntu-latest)": ConditionTimeoutException on this exact
+        // assertion), even though the sibling JDK 11 leg of the same run passed cleanly.
         Awaitility.await()
                 .ignoreExceptions()
-                .atMost(30, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
