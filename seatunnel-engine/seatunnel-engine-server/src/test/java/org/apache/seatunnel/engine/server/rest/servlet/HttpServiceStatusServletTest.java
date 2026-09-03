@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 
 import org.junit.jupiter.api.Test;
 
+import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
@@ -35,10 +36,18 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/**
+ * Verifies that HTTP status responses expose only derived operational values and never include
+ * sensitive configuration values, even when such values are configured.
+ */
 class HttpServiceStatusServletTest {
 
+    /**
+     * Verifies that derived status can be returned without serializing secret configuration, which
+     * protects credentials and certificate paths from the operations UI.
+     */
     @Test
-    void shouldNotExposeSensitiveHttpConfiguration() throws IOException {
+    void shouldNotExposeSensitiveHttpConfiguration() throws IOException, ServletException {
         SeaTunnelConfig seaTunnelConfig = new SeaTunnelConfig();
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         httpConfig.setKeyStorePath("/secrets/key-store.p12");
