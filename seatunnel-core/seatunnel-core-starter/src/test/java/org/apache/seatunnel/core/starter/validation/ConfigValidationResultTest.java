@@ -32,7 +32,10 @@ public class ConfigValidationResultTest {
                 "{\"schemaVersion\":\"1.0\",\"valid\":true,"
                         + "\"phase\":\"static\",\"errors\":[]}",
                 result.toJson());
-        Assertions.assertTrue(JsonUtils.readTree(result.toJson()).get("valid").asBoolean());
+        Assertions.assertTrue(
+                JsonUtils.readTree(result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        .get("valid")
+                        .asBoolean());
         Assertions.assertEquals("VALID", result.toHumanReadable());
     }
 
@@ -54,6 +57,9 @@ public class ConfigValidationResultTest {
         Assertions.assertEquals(
                 "Static analysis failed: Required option is missing", result.toHumanReadable());
         Assertions.assertEquals(
-                "option", JsonUtils.readTree(result.toJson()).at("/errors/0/ruleCategory").asText());
+                "option",
+                JsonUtils.readTree(result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                        .at("/errors/0/ruleCategory")
+                        .asText());
     }
 }
