@@ -158,12 +158,23 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     /**
      * Configures pool-level validation for JDBC drivers that cannot pass Hikari's default
-     * Connection.isValid(timeout) probe.
+     * Connection.isValid(timeout) probe, and honors user-specified connection test queries
+     * from the {@code properties} configuration block.
      */
     static void applyConnectionValidation(
             HikariDataSource dataSource, JdbcConnectionConfig jdbcConnectionConfig) {
         JdbcConnectionValidationUtils.getConnectionValidationQuery(jdbcConnectionConfig)
                 .ifPresent(dataSource::setConnectionTestQuery);
+        // Also honor user-specified connection test query from the properties config.
+        // HikariCP's setConnectionTestQuery() must be used instead of addDataSourceProperty()
+        // because the latter passes the property to the JDBC DataSource, not to HikariCP's pool.
+        String testQuery = jdbcConnectionConfig.getProperties().get("connectionTestQuery");
+        if (testQuery == null) {
+            testQuery = jdbcConnectionConfig.getProperties().get("connection-test-query");
+        }
+        if (testQuery != null) {
+            dataSource.setConnectionTestQuery(testQuery);
+        }
     }
 
     @Override
