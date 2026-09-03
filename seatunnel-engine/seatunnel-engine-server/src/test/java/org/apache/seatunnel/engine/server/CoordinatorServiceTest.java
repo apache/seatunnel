@@ -1863,8 +1863,7 @@ public class CoordinatorServiceTest {
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
 
-            long jobId =
-                    instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
             LogicalDag logicalDag =
                     TestUtils.createTestLogicalPlan(
                             "stream_fake_to_console.conf", "interrupted_restore", jobId);
@@ -1884,9 +1883,7 @@ public class CoordinatorServiceTest {
                     instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
             runningJobStateIMap.put(jobId, JobStatus.RUNNING);
             ReflectionUtils.setField(
-                    coordinatorService,
-                    "pendingJobQueue",
-                    new AlwaysInterruptedPendingJobQueue());
+                    coordinatorService, "pendingJobQueue", new AlwaysInterruptedPendingJobQueue());
 
             InvocationTargetException invocationException =
                     Assertions.assertThrows(
