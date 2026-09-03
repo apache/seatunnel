@@ -2,32 +2,43 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 # SftpFile
 
-> Sftp file Sink 连接器
+> Sftp File Sink 连接器
+
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## 描述
 
-将数据输出到Sftp。
+通过 SFTP 将数据写入远程目录。连接器支持多种文件格式（`text`、`csv`、`parquet`、`orc`、
+`json`、`excel`、`xml`、`binary`、`canal_json`、`debezium_json`、`maxwell_json`），支持按
+字段分区、自定义文件名以及 CDC 管道运行时的结构变更。
 
-:::提示
+:::tip
 
-如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flink集群已经集成了hadoop。测试的hadoop版本是2.x。
+如果使用 Spark/Flink，请确保集群已集成 Hadoop，测试版本为 Hadoop 2.x。
 
-如果你使用SeaTunnel引擎，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar包。您可以在${SEATUNNEL_HOME}/lib下找到jar包。
+如果使用 SeaTunnel Engine，安装包中已包含 Hadoop JAR，可在 `${SEATUNNEL_HOME}/lib` 下确认。
 
+连接器同时支持密码认证（`password`）和公钥认证（`keyfile`）。
+
+:::
 
 ## 主要特性
 
 - [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
-  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+  使用二进制文件格式读写任意格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
-  默认情况下，我们使用2PC commit来确保`精确一次`
+  默认使用 2PC 提交保证 `精确一次`。
 
-- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+  在 `path` 中使用 `${database_name}` 与 `${table_name}` 占位符，把不同上游表的数据路由到不同的输出目录。
 
 - [x] 文件格式类型
   - [x] text
@@ -44,257 +55,137 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
 ## 参数
 
-| 名称                                    | 类型      | 是否必填 | 默认值                                        | 备注                                                        |
-|---------------------------------------|---------|------|--------------------------------------------|-----------------------------------------------------------|
-| host                                  | string  | 是    | -                                          |                                                           |
-| port                                  | int     | 是    | -                                          |                                                           |
-| user                                  | string  | 是    | -                                          |                                                           |
-| password                              | string  | 否    | -                                          | 未配置 `keyfile` 时需要配置。                                      |
-| keyfile                               | string  | 否    | -                                          | 用于 SFTP 公钥认证的私钥文件路径。                                    |
-| path                                  | string  | 是    | -                                          |                                                           |
-| tmp_path                              | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用`mv`将临时目录剪切到目标目录。需要一个FTP目录。             |
-| custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                |
-| file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在custom_filename为true时使用                                 |
-| filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                 |
-| file_format_type                      | string  | 否    | "csv"                                      |                                                           |
-| field_delimiter                       | string  | 否    | '\001'                                     | 仅当file_format_type为text时使用                                |
-| row_delimiter                         | string  | 否    | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用               |
-| have_partition                        | boolean | 否    | false                                      | 是否需要处理分区。                                                 |
-| partition_by                          | array   | 否    | -                                          | 只有在have_partition为true时才使用                                |
-| partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为true时才使用                                |
-| is_partition_field_write_in_file      | boolean | 否    | false                                      | 只有在have_partition为true时才使用                                |
-| sink_columns                          | array   | 否    |                                            | 当此参数为空时，所有字段都是sink列                                       |
-| is_enable_transaction                 | boolean | 否    | true                                       |                                                           |
-| batch_size                            | int     | 否    | 1000000                                    |                                                           |
-| compress_codec                        | string  | 否    | none                                       |                                                           |
-| common-options                        | object  | 否    | -                                          |                                                           |
-| max_rows_in_memory                    | int     | 否    | -                                          | 仅当file_format_type为excel时使用。                              |
-| sheet_max_rows                         | int     | 否    | 1048576                                    | 仅当 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
-| sheet_name                            | string  | 否    | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                              |
-| csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅当file_format_type为csv时使用。                                |
-| xml_root_tag                          | string  | 否    | RECORDS                                    | 仅当file_format_type为xml时使用                                 |
-| xml_row_tag                           | string  | 否    | RECORD                                     | 仅当file_format_type为xml时使用                                 |
-| xml_use_attr_format                   | boolean | 否    | -                                          | 仅当file_format_type为xml时使用                                 |
-| single_file_mode                      | boolean | 否    | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。       |
-| create_empty_file_when_no_data        | boolean | 否    | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                                  |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                      | 仅当file_format_type为parquet时使用                             |
-| enable_header_write                   | boolean | 否    | false                                      | 仅当file_format_type为text、csv时使用<br/>false：不写标头，true：写标头。   |
-| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅当file_format_type为parquet时使用                             |
-| encoding                              | string  | 否    | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。                  |
-| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
-| schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                  |
-| data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                  |
-| merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json. |
-
-### host [string]
-
-目标sftp主机，必填。
-
-### port [int]
-
-目标sftp端口，必填。
-
-### user [string]
-
-目标sftp用户，必填。
-
-### password [string]
-
-目标sftp密码。未配置 `keyfile` 时需要配置。
-
-### keyfile [string]
-
-用于 SFTP 公钥认证的私钥文件路径。
-
-### path [string]
-
-目标目录路径，必填。
-
-### custom_filename [boolean]
-
-是否自定义文件名
+| 名称                                    | 类型      | 是否必填 | 默认值                                          | 描述                                                                                                                                                |
+|---------------------------------------|---------|------|----------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| host                                  | string  | 是    | -                                            | 目标 SFTP 服务器地址。                                                                                                                                |
+| port                                  | int     | 是    | -                                            | 目标 SFTP 端口，通常为 `22`。                                                                                                                          |
+| user                                  | string  | 是    | -                                            | SFTP 登录用户名。                                                                                                                                    |
+| password                              | string  | 否    | -                                            | SFTP 登录密码。未配置 `keyfile` 时需要配置。                                                                                                              |
+| keyfile                               | string  | 否    | -                                            | 用于 SFTP 公钥认证的私钥文件路径。                                                                                                                       |
+| path                                  | string  | 是    | -                                            | SFTP 服务端的目标目录。                                                                                                                                |
+| tmp_path                              | string  | 是    | /tmp/seatunnel                               | SFTP 服务端的临时目录；写入时会先把输出文件写到这里，检查点完成后再 `mv` 到 `path`。                                                                              |
+| custom_filename                       | boolean | 否    | false                                        | 是否需要自定义文件名。                                                                                                                                  |
+| file_name_expression                  | string  | 否    | "${transactionId}"                           | 仅在 `custom_filename = true` 时使用。                                                                                                                |
+| filename_time_format                  | string  | 否    | "yyyy.MM.dd"                                 | 仅在 `custom_filename = true` 时使用。                                                                                                                |
+| file_format_type                      | string  | 否    | "csv"                                        | 支持 `text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`canal_json`、`debezium_json`、`maxwell_json`。                                          |
+| filename_extension                    | string  | 否    | -                                            | 用自定义后缀覆盖默认后缀，例如 `.xml`、`.json`、`dat`、`.customtype`。                                                                                       |
+| field_delimiter                       | string  | 否    | '\001' for text and ',' for csv              | 列分隔符，仅在 `file_format_type` 为 `text` 或 `csv` 时生效。                                                                                             |
+| row_delimiter                         | string  | 否    | "\n"                                         | 行分隔符，仅在 `file_format_type` 为 `text`、`csv` 或 `json` 时生效。                                                                                      |
+| have_partition                        | boolean | 否    | false                                        | 是否按上游字段值分区输出。                                                                                                                              |
+| partition_by                          | array   | 否    | -                                            | 仅在 `have_partition = true` 时使用。                                                                                                                  |
+| partition_dir_expression              | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"   | 仅在 `have_partition = true` 时使用。                                                                                                                  |
+| is_partition_field_write_in_file      | boolean | 否    | false                                        | 仅在 `have_partition = true` 时使用。                                                                                                                  |
+| sink_columns                          | array   | 否    |                                              | 实际写入文件的列；为空时写入全部上游列。                                                                                                                    |
+| is_enable_transaction                 | boolean | 否    | true                                         | 预留参数，目前仅支持 `true`（也是默认行为）。                                                                                                              |
+| batch_size                            | int     | 否    | 1000000                                      | 单个文件最大行数，达到后滚动生成新文件。                                                                                                                    |
+| compress_codec                        | string  | 否    | none                                         | 压缩编码，详见下方说明。                                                                                                                                |
+| common-options                        | object  | 否    | -                                            | Sink 插件通用参数，详情请参考 [Sink Common Options](../common-options/sink-common-options.md)。                                                          |
+| max_rows_in_memory                    | int     | 否    | -                                            | 仅在 `file_format_type` 为 `excel` 时使用。                                                                                                            |
+| sheet_max_rows                        | int     | 否    | 1048576                                      | 仅在 `file_format_type` 为 `excel` 时使用。                                                                                                            |
+| sheet_name                            | string  | 否    | Sheet${Random number}                        | 仅在 `file_format_type` 为 `excel` 时使用。                                                                                                            |
+| csv_string_quote_mode                 | enum    | 否    | MINIMAL                                      | 仅在 `file_format_type` 为 `csv` 时使用。                                                                                                              |
+| xml_root_tag                          | string  | 否    | RECORDS                                      | 仅在 `file_format_type` 为 `xml` 时使用。                                                                                                              |
+| xml_row_tag                           | string  | 否    | RECORD                                       | 仅在 `file_format_type` 为 `xml` 时使用。                                                                                                              |
+| xml_use_attr_format                   | boolean | 否    | -                                            | 仅在 `file_format_type` 为 `xml` 时使用。                                                                                                              |
+| single_file_mode                      | boolean | 否    | false                                        | 每个并行度只输出一个文件；开启后 `batch_size` 不再生效，文件名也不带分块后缀。                                                                              |
+| create_empty_file_when_no_data        | boolean | 否    | false                                        | 上游没有数据时仍生成对应的空文件。                                                                                                                        |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否    | false                                        | 仅在 `file_format_type` 为 `parquet` 时使用。                                                                                                          |
+| parquet_avro_write_fixed_as_int96     | array   | 否    | -                                            | 仅在 `file_format_type` 为 `parquet` 时使用。                                                                                                          |
+| enable_header_write                   | boolean | 否    | false                                        | 仅在 `file_format_type` 为 `text` 或 `csv` 时使用；为 true 时写入表头行。                                                                                |
+| encoding                              | string  | 否    | "UTF-8"                                      | 仅在 `file_format_type` 为 `json`、`text`、`csv` 或 `xml` 时使用。                                                                                     |
+| schema_evolution_enabled              | boolean | 否    | false                                        | 启用 CDC 结构变更（ADD/DROP/RENAME/MODIFY）支持，无需重启任务；`binary` 不支持，详见下方说明。                                                            |
+| schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST                 | 任务启动时对目标目录的处理方式。                                                                                                                          |
+| data_save_mode                        | string  | 否    | APPEND_DATA                                  | 任务启动时对目录中已有数据文件的处理方式。                                                                                                                  |
+| merge_update_event                    | boolean | 否    | false                                        | 仅在 `file_format_type` 为 `canal_json`、`debezium_json` 或 `maxwell_json` 时使用。为 true 时，UPDATE_AFTER 和 UPDATE_BEFORE 会合并为单个 UPDATE 事件。    |
 
 ### file_name_expression [string]
 
-仅在`custom_filename`为`true`时使用。
+仅在 `custom_filename = true` 时使用。
 
-`file_name_expression`描述了将在`path`中创建的文件表达式。我们可以在`file_name_expression`中添加变量`${now}`或`${uuid}`，类似于`test_${uuid}_${now}`，
-`${now}`表示当前时间，其格式可以通过指定选项`filename_time_format`来定义。
+`file_name_expression` 描述 `path` 内创建文件的命名规则。支持在表达式中嵌入 `${now}` 或
+`${uuid}`，例如 `test_${uuid}_${now}`。`${now}` 表示当前时间，时间格式可通过
+`filename_time_format` 指定。
 
-请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
-
-### filename_time_format [string]
-
-仅在`custom_filename`为`true`时使用。
-
-当`file_name_expression`参数中的格式为`xxxx-${now}`时，`filename_time_format`可以指定路径的时间格式，默认值为`yyyy.MM.dd`。常用的时间格式如下：
-
-| Symbol |    Description     |
-|--------|--------------------|
-| y      | Year               |
-| M      | Month              |
-| d      | Day of month       |
-| H      | Hour in day (0-23) |
-| m      | Minute in hour     |
-| s      | Second in minute   |
-
-### file_format_type [string]
-
-我们支持以下文件类型：
-
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
-
-请注意，最终文件名将以file_format_type的后缀结尾，文本文件的后缀为`txt`。
-
-### field_delimiter [string]
-
-数据行中列之间的分隔符。仅在`text`文件格式中需要。
-
-### row_delimiter [string]
-
-文件中行之间的分隔符。仅在 `text`、`csv`、`json` 文件格式中需要。
-
-### have_partition [boolean]
-
-是否需要处理分区。
-
-### partition_by [array]
-
-仅在`have_partition`为`true`时使用。
-
-根据所选字段对数据进行分区。
-
-### partition_dir_expression [string]
-
-仅在`have_partition`为`true`时使用。
-
-如果指定了`partition_by`，我们将根据分区信息生成相应的分区目录，并将最终文件放置在分区目录中。
-
-默认的`partition_dir_expression`是`${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`。`k0`是第一个分区字段，`v0`是第一个划分字段的值。
-
-### is_partition_field_write_in_file [boolean]
-
-仅在`have_partition`为`true`时使用。
-
-如果`is_partition_field_write_in_file`为`true`，则分区字段及其值将写入数据文件。
-例如，如果你想写一个Hive数据文件，它的值应该是`false`。
-
-### sink_columns [array]
-
-哪些列需要写入文件，默认值是从`Transform`或`Source`获取的所有列。
-字段的顺序决定了文件实际写入的顺序。
-
-### is_enable_transaction [boolean]
-
-如果`is_enable_transaction`为`true`，我们将确保数据在写入目标目录时不会丢失或重复。
-
-请注意，如果`is_enable_transaction`为`true`，我们将自动添加`${transactionId}_`在文件的开头。
-
-现在只支持`true`。
-
-### batch_size [int]
-
-文件中的最大行数。对于SeaTunnel引擎，文件中的行数由`batch_size`和`checkpoint.interval`共同决定。如果`checkpoint.interval`的值足够大，sink writer将在文件中写入行，直到文件中的行大于`batch_size`。如果`checkpoint.interval`较小，则接收器写入程序将在新的检查点触发时创建一个新文件。
+注意：当 `is_enable_transaction = true` 时，文件名会自动加上前缀 `${transactionId}_`。
 
 ### compress_codec [string]
 
-文件的压缩编解码器和支持的详细信息如下所示：
+输出文件的压缩编码，支持以下组合：
 
-- txt: `lzo` `none`
-- json: `lzo` `none`
-- csv: `lzo` `none`
-- orc: `lzo` `snappy` `lz4` `zlib` `none`
-- parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
+- `text` / `json` / `csv`：`lzo`、`none`
+- `orc`：`lzo`、`snappy`、`lz4`、`zlib`、`none`
+- `parquet`：`lzo`、`snappy`、`lz4`、`gzip`、`brotli`、`zstd`、`none`
 
-提示：excel类型不支持任何压缩格式
+`excel` 不支持任何压缩编码。
 
-### common options
-
-Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
-
-### max_rows_in_memory
-
-当文件格式为Excel时，内存中可以缓存的最大数据项数。
-
-### sheet_max_rows [int]
-
-仅当 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
-
-### sheet_name
-
-编写工作簿的工作表
-
-### csv_string_quote_mode [string]
-
-当文件格式为CSV时，CSV的字符串引用模式。
-
-- ALL：所有字符串字段都将被引用。
-- MINIMAL：包含特殊字符的引号字段，如字段分隔符、引号字符或行分隔符字符串中的任何字符。
-- NONE：从不引用字段。当分隔符出现在数据中时，打印机会用转义符作为前缀。如果未设置转义符，格式验证将抛出异常。
-
-### xml_root_tag [string]
-
-指定XML文件中根元素的标记名。
-
-### xml_row_tag [string]
-
-指定XML文件中数据行的标记名称。
-
-### xml_use_attr_format [boolean]
-
-指定是否使用标记属性格式处理数据。
-
-### parquet_avro_write_timestamp_as_int96 [boolean]
-
-支持从时间戳写入Parquet INT96，仅适用于parquet文件。
-
-### parquet_avro_write_fixed_as_int96 [array]
-
-支持从12-byte字段写入Parquet INT96，仅适用于parquet文件。
-
-### enable_header_write [boolean]
-
-仅当file_format_type为text、csv时使用。false：不写标头，true：写标头。
-
-### encoding [string]
-
-仅当file_format_type为json、text、csv、xml时使用。
-要写入的文件的编码。此参数将由`Charset.forName(encoding)`解析。
 ### schema_save_mode [string]
 
-现有的目录处理方法。
+任务启动时对目标目录的处理方式：
 
-- RECREATE_SCHEMA：当目录不存在时创建，当目录存在时删除并重新创建
-- CREATE_SCHEMA_WHEN_NOT_EXIST：当目录不存在时创建，当目录存在时跳过
-- ERROR_WHEN_SCHEMA_NOT_EXIST：当目录不存在时，将报告错误
-- IGNORE：忽略对表的处理
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`（默认）：目录不存在时创建，存在则跳过。
+- `RECREATE_SCHEMA`：目录存在时先删除再重建。
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`：目录不存在时立即报错。
+- `IGNORE`：不做任何处理。
 
 ### data_save_mode [string]
 
-现有的数据处理方法。
+任务启动时对目录中已有数据文件的处理方式：
 
--DROP_DATA:保留目录并删除数据文件
--APPEND_DATA：保留目录，保留数据文件
--ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
+- `APPEND_DATA`（默认）：保留目录与已有文件，继续追加。
+- `DROP_DATA`：保留目录，删除已有数据文件。
+- `ERROR_WHEN_DATA_EXISTS`：目录下存在数据文件时立即报错。
 
+### schema_evolution_enabled [boolean]
 
-### merge_update_event [boolean]
+当设置为 `true` 时，SFTP 文件 Sink 会在不重启任务的情况下处理上游 CDC 结构变更事件
+（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN）。每次结构变更会先关闭当前输出
+文件，再用新结构打开新文件。
 
-仅当file_format_type为canal_json、debezium_json、maxwell_json时使用.
-设置成true,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 会合并成 UPDATE;
-设置成false,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 不会合并;
+**支持的格式：** 除 `binary` 外的全部文件格式。与 `file_format_type = binary` 同时启用会在
+任务启动时因配置校验失败。
+
+**分区约束：** 当 `have_partition = true` 时，不允许 DROP `partition_by` 中列出的字段，
+否则会立即报错。分区列在结构变更前后必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认）时：** 如果上游 CDC 源开启了
+`schema-changes.enabled = true` 并且有 `AlterTableEvent` 进入 Sink，任务会立即失败并给出明确
+错误：
+
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC 源配置（`schema-changes.enabled = false`）的用户完全不受影响。
+
+**已知限制：** 结构变更与检查点不是原子的。如果任务恰好在文件滚动与结构元数据更新之间的
+短暂窗口崩溃，恢复后写入的行可能仍使用变更前的结构。该架构性限制与其他 SeaTunnel Sink 相同。
 
 ## 示例
 
-对于具有`have_partition`、`custom_filename`和`sink_columns`的文本文件格式
+### 带分区与自定义文件名的 Text 格式
 
-```bash
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
-SftpFile {
-    host = "xxx.xxx.xxx.xxx"
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  SftpFile {
+    host = "sftp.example.com"
     port = 22
-    user = "username"
-    password = "password"
+    user = "seatunnel"
+    password = "********"
     path = "/data/sftp/seatunnel/job1"
     tmp_path = "/data/sftp/seatunnel/tmp"
     file_format_type = "text"
@@ -307,20 +198,23 @@ SftpFile {
     custom_filename = true
     file_name_expression = "${transactionId}_${now}"
     filename_time_format = "yyyy.MM.dd"
-    sink_columns = ["name","age"]
+    sink_columns = ["name", "age"]
     is_enable_transaction = true
+  }
 }
-
 ```
 
-当我们的源端是多个表，并且希望不同的表达式到不同的目录时，我们可以这样配置
+### 多表写入
+
+当上游覆盖多张表，并且希望每张表落到各自目录时，可在 `path` 中使用 `${table_name}` 占位符。
 
 ```hocon
-SftpFile {
-    host = "xxx.xxx.xxx.xxx"
+sink {
+  SftpFile {
+    host = "sftp.example.com"
     port = 22
-    user = "username"
-    password = "password"
+    user = "seatunnel"
+    password = "********"
     path = "/data/sftp/seatunnel/job1/${table_name}"
     tmp_path = "/data/sftp/seatunnel/tmp"
     file_format_type = "text"
@@ -333,41 +227,47 @@ SftpFile {
     custom_filename = true
     file_name_expression = "${transactionId}_${now}"
     filename_time_format = "yyyy.MM.dd"
-    sink_columns = ["name","age"]
+    sink_columns = ["name", "age"]
     is_enable_transaction = true
-    schema_save_mode=RECREATE_SCHEMA
-    data_save_mode=DROP_DATA
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+  }
 }
-
-
 ```
 
-### schema_evolution_enabled [boolean]
-
-设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
-
-**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
-
-**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
-
-**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
-> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
-
-使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
-
-**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
-
-CDC 管道中的使用示例：
+### CDC 结构变更
 
 ```hocon
-SftpFile {
-    host = "xxx.xxx.xxx.xxx"
+sink {
+  SftpFile {
+    host = "sftp.example.com"
     port = 22
-    user = "username"
-    password = "xxxxxxxxxxxxxxxxx"
+    user = "seatunnel"
+    password = "********"
     path = "/data/sftp/cdc/${table_name}"
+    tmp_path = "/data/sftp/cdc/tmp"
     file_format_type = "parquet"
     schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+  }
+}
+```
+
+### Parquet + 公钥认证
+
+```hocon
+sink {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/home/seatunnel/.ssh/id_rsa"
+    path = "/data/sftp/seatunnel/parquet"
+    tmp_path = "/data/sftp/seatunnel/tmp"
+    file_format_type = "parquet"
+    sink_columns = ["name", "age"]
+  }
 }
 ```
 
