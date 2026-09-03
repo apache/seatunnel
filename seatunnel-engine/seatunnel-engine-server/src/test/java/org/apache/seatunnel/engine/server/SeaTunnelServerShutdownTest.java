@@ -31,6 +31,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -69,7 +70,10 @@ class SeaTunnelServerShutdownTest {
         verify(gracefulMemberRemovalIMap, never()).remove(address);
     }
 
-    /** Verifies that stale markers are cleared after Hazelcast starts its operation service. */
+    /**
+     * Verifies that stale markers are cleared asynchronously while Hazelcast starts. The completion
+     * stage lets startup continue before map services accept the remove operation.
+     */
     @Test
     void shouldClearGracefulMemberRemovalMarkerWhenHazelcastStarts() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
@@ -80,10 +84,13 @@ class SeaTunnelServerShutdownTest {
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         when(hazelcastInstance.<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
+        when(gracefulMemberRemovalIMap.removeAsync(address))
+                .thenReturn(CompletableFuture.<Long>completedFuture(null));
 
         createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.STARTING));
 
-        verify(gracefulMemberRemovalIMap).remove(address);
+        verify(gracefulMemberRemovalIMap).removeAsync(address);
+        verify(gracefulMemberRemovalIMap, never()).remove(address);
     }
 
     /** Ensures later lifecycle notifications cannot clear the marker during shutdown. */

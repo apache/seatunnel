@@ -244,9 +244,9 @@ public class SeaTunnelServer
     }
 
     /**
-     * Clears a prior process marker only after Hazelcast has started its operation service. Service
-     * initialization itself runs before that service is ready, so clearing the map in init can
-     * fail.
+     * Clears a prior process marker when Hazelcast starts without waiting for its operation service
+     * to process the map operation. Waiting synchronously here blocks the startup thread before
+     * that service can become available.
      */
     @Override
     public void stateChanged(LifecycleEvent event) {
@@ -305,8 +305,7 @@ public class SeaTunnelServer
     }
 
     /**
-     * Updates a best-effort marker without allowing Hazelcast cleanup failures to block service
-     * shutdown or startup.
+     * Updates a best-effort marker without allowing Hazelcast cleanup failures to block startup.
      */
     private boolean updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
         if (nodeEngine == null) {
@@ -323,7 +322,14 @@ public class SeaTunnelServer
                         Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS,
                         TimeUnit.MILLISECONDS);
             } else {
-                gracefulMemberRemovalIMap.remove(thisAddress);
+                gracefulMemberRemovalIMap
+                        .removeAsync(thisAddress)
+                        .exceptionally(
+                                e -> {
+                                    LOGGER.warning(
+                                            "Failed to clear graceful member removal marker", e);
+                                    return null;
+                                });
             }
             return true;
         } catch (Exception e) {
