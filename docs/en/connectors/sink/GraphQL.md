@@ -60,6 +60,33 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 - The sink sends one mutation request for each input row. If the upstream source contains multiple tables, make sure the same mutation and variable names can handle every table routed to this sink.
 - `multi_table_sink_replica` only affects the multi-table sink runtime replica count. It does not choose a different GraphQL mutation per table.
 
+### Authentication
+
+Most GraphQL services require an authentication header. Pass it through `headers`:
+
+```hocon
+sink {
+  GraphQL {
+    plugin_input = "fake"
+    url = "https://graphql.example.com/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+  }
+}
+```
+
+`password`, `token`, and similar sensitive values should be supplied via the
+job substitution mechanism (for example `${secret}` resolved by the runtime),
+not inlined into the configuration file.
+
 ## Task Example
 
 ### Write Rows with a GraphQL Mutation

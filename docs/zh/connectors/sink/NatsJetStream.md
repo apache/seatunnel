@@ -14,7 +14,13 @@ NatsJetStream 是一个 **JetStream sink**，不是 core NATS publish 连接器�
 
 ## 主要特性
 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 :::caution 投递语义
@@ -40,7 +46,7 @@ native 模式中的 message ID 只能作为 **broker 侧的重复缓解提示**�
 > Flink<br/>
 > Spark<br/>
 
-## Connector contract
+## 连接器契约
 
 - 范围：仅支持 sink；本次贡献不包含 NATS source。
 - 兼容性目标：启用 JetStream 的 NATS Server 2.x，客户端版本为 `io.nats:jnats:2.24.0`。
@@ -53,6 +59,7 @@ native 模式中的 message ID 只能作为 **broker 侧的重复缓解提示**�
 - 认证：只能使用无认证、`username` + `password`，或单独 `token`；`token` 与 `username` / `password` 互斥。
 - 初始限制：仅支持同步逐条发布；batching 和连接器自管 retry 不在范围内。
 - 非目标：stream 管理、exactly-once、source 支持、超出输入行模式的 schema evolution，以及文档之外的格式。
+- 多表 sink：同一个 sink 实例会接受来自多张上游表的行。每一行都发布到配置的 `subject`（JSON 模式）或解析后的 native subject；连接器不会按表自动选择不同的 mutation。
 
 ## Broker 准备
 
@@ -303,6 +310,100 @@ subject : string
 id      : string
 headers : map<string,string>
 data    : bytes
+```
+
+### 流模式下的 JSON 示例
+
+同一个 JSON sink 也可以持续运行在流模式下。每条输入行都会作为一次 JetStream
+publish 请求，发布到固定的 subject。设置 checkpoint interval，让 writer
+在重启后以至少一次的方式恢复。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "json_fake_stream"
+    schema = {
+      fields {
+        id = int
+        name = string
+        score = double
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "alice", 9.5] }
+    ]
+  }
+}
+
+sink {
+  NatsJetStream {
+    plugin_input = "json_fake_stream"
+    url = "nats://127.0.0.1:4222"
+    username = "nats-user"
+    password = "nats-password"
+    subject = "orders.json.stream"
+    format = "json"
+  }
+}
+```
+
+### 写入多张上游表
+
+同一个 sink 实例在 JSON 模式下可以接受来自多张上游表的行。每一行都会发布到
+配置的 subject；连接器不会按表自动选择不同的 mutation。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake_multi"
+    tables_configs = [
+      {
+        schema = {
+          table = "events_json_a"
+          fields {
+            id = int
+            name = string
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "alpha"] }
+        ]
+      },
+      {
+        schema = {
+          table = "events_json_b"
+          fields {
+            id = int
+            name = string
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [2, "beta"] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  NatsJetStream {
+    plugin_input = "fake_multi"
+    url = "nats://127.0.0.1:4222"
+    subject = "events.json.multi"
+    format = "json"
+  }
+}
 ```
 
 ## 错误与运维说明

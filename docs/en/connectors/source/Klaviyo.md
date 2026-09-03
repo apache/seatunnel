@@ -4,9 +4,17 @@ import ChangeLog from '../changelog/connector-http-klaviyo.md';
 
 > Klaviyo source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Klaviyo APIs. The connector builds Klaviyo request headers from `private_key` and `revision`, then uses the shared HTTP source runtime to parse the response.
+
+The Klaviyo connector shares its HTTP request, retry, and pagination runtime with other HTTP-based source connectors. Configure `private_key` with the Klaviyo private API key, set `revision` to the API revision date (for example `2020-10-17`), and point `url` at the Klaviyo endpoint you want to call.
 
 ## Key features
 
@@ -22,6 +30,15 @@ Reads data from Klaviyo APIs. The connector builds Klaviyo request headers from 
 In streaming mode, the connector repeatedly calls the configured API. Set `poll_interval_millis` to control the request interval.
 
 :::
+
+## Supported DataSource Info
+
+In order to use the Klaviyo connector, the following dependency is required.
+It can be downloaded via install-plugin.sh or from the Maven central repository.
+
+| Datasource   | Supported Versions |                                         Dependency                                          |
+|--------------|--------------------|-----------------------------------------------------------------------------------------------|
+| Klaviyo      | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)       |
 
 ## Options
 
@@ -99,6 +116,8 @@ Use `content_field` when the rows are inside a nested JSON node. Use `json_field
 
 ## Example
 
+### Batch Read of a Klaviyo List
+
 ```hocon
 env {
   parallelism = 1
@@ -133,6 +152,95 @@ source {
 sink {
   Console {
     plugin_input = "klaviyo"
+  }
+}
+```
+
+### Read with Cursor-Based Pagination
+
+Use `pageing` to follow the `next` cursor that Klaviyo returns. The connector
+reads `cursor_response_field` from the response, writes the value back to
+`cursor_field`, and continues until the response no longer carries a cursor.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Klaviyo {
+    plugin_output = "klaviyo_cursor"
+    url = "https://a.klaviyo.com/api/events"
+    private_key = "replace-with-private-key"
+    revision = "2020-10-17"
+    method = "GET"
+    format = "json"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "page[cursor]"
+      cursor_response_field = "$.links.next"
+    }
+    schema = {
+      fields {
+        type = string
+        id = string
+        attributes = {
+          name = string
+          created = string
+          updated = string
+        }
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "klaviyo_cursor"
+  }
+}
+```
+
+### Polling Read in Streaming Mode
+
+For endpoints that grow over time, run the connector in `STREAMING` mode and
+let `poll_interval_millis` decide how often SeaTunnel re-issues the same
+request.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Klaviyo {
+    plugin_output = "klaviyo_stream"
+    url = "https://a.klaviyo.com/api/metrics"
+    private_key = "replace-with-private-key"
+    revision = "2020-10-17"
+    method = "GET"
+    poll_interval_millis = 30000
+    format = "json"
+    schema = {
+      fields {
+        type = string
+        id = string
+        attributes = {
+          name = string
+          created = string
+          updated = string
+        }
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "klaviyo_stream"
   }
 }
 ```
