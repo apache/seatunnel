@@ -1283,7 +1283,7 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
-pendingJobScheduleEpoch.incrementAndGet();
+        pendingJobScheduleEpoch.incrementAndGet();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();

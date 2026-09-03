@@ -397,11 +397,19 @@ public class JobHistoryService {
     }
 
     private void removeEntryListenerQuietly(IMap<?, ?> imap, UUID listenerId, String listenerName) {
+        boolean removed;
         try {
-            imap.removeEntryListener(listenerId);
+            removed = imap.removeEntryListener(listenerId);
         } catch (Exception e) {
+            logger.warning("Failed to remove " + listenerName + " entry listener", e);
+            return;
+        }
+        if (!removed) {
             logger.warning(
-                    "Failed to remove " + listenerName + " entry listener: " + e.getMessage(), e);
+                    "Removing "
+                            + listenerName
+                            + " entry listener returned false, listener may not be registered: "
+                            + listenerId);
         }
     }
 
