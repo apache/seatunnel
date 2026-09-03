@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.TemporaryClassLoaderContext;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
@@ -36,6 +41,9 @@ import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Path;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -54,12 +62,35 @@ public class CheckpointService {
 
     @SneakyThrows
     public CheckpointService(CheckpointConfig config) {
-        this.checkpointStorage =
-                FactoryUtil.discoverFactory(
-                                Thread.currentThread().getContextClassLoader(),
-                                CheckpointStorageFactory.class,
-                                config.getStorage().getStorage())
-                        .create(config.getStorage().getStoragePluginConfig());
+        this(config, Common.appStarterDir().resolve("zeta"));
+    }
+
+    /**
+     * Creates the checkpoint service with an explicit Zeta starter directory for isolated
+     * classloader verification.
+     */
+    @SneakyThrows
+    @VisibleForTesting
+    CheckpointService(CheckpointConfig config, Path zetaDirectory) {
+        ClassLoader storageClassLoader = Thread.currentThread().getContextClassLoader();
+        List<URL> storageJars =
+                FileUtils.searchJarFilesForStorage(
+                        zetaDirectory,
+                        config.getStorage().getStoragePluginConfig().get("storage.type"));
+        if (!storageJars.isEmpty()) {
+            storageClassLoader =
+                    new URLClassLoader(storageJars.toArray(new URL[0]), storageClassLoader);
+        }
+
+        try (TemporaryClassLoaderContext ignored =
+                TemporaryClassLoaderContext.of(storageClassLoader)) {
+            this.checkpointStorage =
+                    FactoryUtil.discoverFactory(
+                                    Thread.currentThread().getContextClassLoader(),
+                                    CheckpointStorageFactory.class,
+                                    config.getStorage().getStorage())
+                            .create(config.getStorage().getStoragePluginConfig());
+        }
     }
 
     @SneakyThrows

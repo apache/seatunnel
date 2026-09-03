@@ -313,7 +313,9 @@ map:
         fs.oss.endpoint: OSS endpoint
 ```
 
-注意：使用OSS 时，确保 lib目录下有这几个jar。
+注意：在官方二进制发行包中，OSS IMAP 存储所需 jar 会被复制到
+`starter/zeta/common` 和 `starter/zeta/oss`。使用官方发行包时，不需要再手动放到 `lib/`
+目录。如果是自定义打包，请确保以下 jar 位于这两个目录中。
 
 其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
 
