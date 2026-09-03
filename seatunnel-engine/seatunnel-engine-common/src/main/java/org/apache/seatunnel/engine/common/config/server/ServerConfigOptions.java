@@ -219,15 +219,18 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(0)
                         .withDescription(
-                                "The timeout (in milliseconds) used to diagnose restore stalls after the pipeline returns to RUNNING. "
-                                        + "A value less than or equal to 0 derives the timeout from checkpoint interval plus checkpoint timeout.");
+                                "The timeout (in milliseconds) applied separately to task readiness and the first completed checkpoint after restore. "
+                                        + "Each phase gets a full timeout window, so diagnosis can take nearly twice this value. "
+                                        + "A value less than or equal to 0 derives the timeout from checkpoint interval plus checkpoint timeout. "
+                                        + "Account for the worst-case state restore duration before enabling fail-fast.");
 
         public static final Option<Boolean> RESTORE_PROGRESS_FAIL_FAST =
                 Options.key("restore-progress-fail-fast")
                         .booleanType()
                         .defaultValue(false)
                         .withDescription(
-                                "Whether to fail the pipeline when a restored RUNNING pipeline has no post-restore checkpoint progress before the restore progress timeout.");
+                                "Whether to fail the pipeline when either restore progress phase times out. "
+                                        + "The default logs one warning per restore without failing the pipeline.");
 
         public static final Option<String> CHECKPOINT_STORAGE_TYPE =
                 Options.key("type")

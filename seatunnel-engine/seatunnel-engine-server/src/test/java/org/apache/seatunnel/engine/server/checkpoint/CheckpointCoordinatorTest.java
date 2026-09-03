@@ -1152,7 +1152,13 @@ public class CheckpointCoordinatorTest
                             Mockito.mock(CheckpointManager.class));
 
             coordinator.restoreCoordinator(false);
-            ReflectionUtils.invoke(coordinator, "handleRestoreProgressTimeout");
+            ReflectionUtils.invoke(
+                    coordinator,
+                    "handleRestoreProgressTimeout",
+                    new Class<?>[] {long.class},
+                    new Object[] {
+                        ReflectionUtils.getField(coordinator, "restoreProgressGeneration").get()
+                    });
 
             Assertions.assertTrue(coordinator.getRestoreProgressStalled().get());
             Assertions.assertFalse(coordinator.getRestoreProgressTracking().get());
@@ -1175,15 +1181,28 @@ public class CheckpointCoordinatorTest
             checkpointConfig.setRestoreProgressFailFast(true);
             checkpointConfig.setStorage(new CheckpointStorageConfig());
             CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
+            Mockito.doAnswer(
+                            invocation ->
+                                    ((java.util.function.BooleanSupplier) invocation.getArgument(1))
+                                            .getAsBoolean())
+                    .when(checkpointManager)
+                    .handleRestoreProgressTimeout(Mockito.eq(1), Mockito.any());
             coordinator =
                     buildRestoreProgressCoordinator(
                             executorService, checkpointConfig, checkpointManager);
 
             coordinator.restoreCoordinator(false);
-            ReflectionUtils.invoke(coordinator, "handleRestoreProgressTimeout");
+            ReflectionUtils.invoke(
+                    coordinator,
+                    "handleRestoreProgressTimeout",
+                    new Class<?>[] {long.class},
+                    new Object[] {
+                        ReflectionUtils.getField(coordinator, "restoreProgressGeneration").get()
+                    });
 
             Assertions.assertTrue(coordinator.getRestoreProgressStalled().get());
-            Mockito.verify(checkpointManager).handleCheckpointError(1, false);
+            Mockito.verify(checkpointManager)
+                    .handleRestoreProgressTimeout(Mockito.eq(1), Mockito.any());
         } finally {
             if (coordinator != null) {
                 coordinator.cleanPendingCheckpoint(

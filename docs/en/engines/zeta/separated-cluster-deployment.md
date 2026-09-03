@@ -157,9 +157,11 @@ The minimum pause (in milliseconds) between consecutive checkpoints. This ensure
 
 The timeout (in milliseconds) used to diagnose a restored pipeline that does not regain checkpoint progress. The default is `0`, which derives the timeout from `interval + timeout`. Set a positive value of at least `10` to use an explicit timeout.
 
+The timeout applies independently to two phases: waiting for all tasks to become ready, then waiting for the first completed checkpoint. Readiness starts a new full timeout window, so the total time from restore to diagnosis can approach twice this value. Before enabling fail-fast, size this value for the worst-case state restore duration as well as checkpoint completion. Warning-only mode emits one diagnosis per restore; it is not a periodic alert.
+
 **restore-progress-fail-fast**
 
-Whether to fail a restored pipeline when it has no post-restore checkpoint progress before `restore-progress-timeout` expires. The default is `false`, which only records a warning with restore diagnostics.
+Whether to fail a restored pipeline when either restore phase exceeds `restore-progress-timeout`. The default is `false`, which records one warning with restore diagnostics per restore attempt without failing the pipeline.
 
 Example
 
