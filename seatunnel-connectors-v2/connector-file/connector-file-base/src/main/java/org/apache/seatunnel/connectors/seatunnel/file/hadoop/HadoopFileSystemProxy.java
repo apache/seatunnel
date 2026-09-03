@@ -49,6 +49,16 @@ import java.util.List;
 @Slf4j
 public class HadoopFileSystemProxy implements Serializable, Closeable {
 
+    /**
+     * The Hadoop version this connector is built and tested against, kept in one place so the
+     * diagnostic message below cannot drift away from the {@code seatunnel-hadoop3-*-uber}
+     * dependency actually declared in the reactor pom.
+     */
+    private static final String TARGET_HADOOP_VERSION = "3.1.4";
+
+    private static final String TARGET_HADOOP_UBER_ARTIFACT =
+            "seatunnel-hadoop3-" + TARGET_HADOOP_VERSION + "-uber";
+
     private transient UserGroupInformation userGroupInformation;
     private transient FileSystem fileSystem;
 
@@ -378,7 +388,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             isAuthTypeKerberos = true;
             return;
         }
-        fileSystem = FileSystem.get(configuration);
+        fileSystem = getFileSystemWithDiagnostics(configuration);
         fileSystem.setWriteChecksum(false);
         isAuthTypeKerberos = false;
     }
@@ -460,13 +470,103 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         hadoopConf.getKerberosKeytabPath(),
                         (configuration, userGroupInformation) -> {
                             this.userGroupInformation = userGroupInformation;
-                            this.fileSystem = FileSystem.get(configuration);
+                            this.fileSystem = getFileSystemWithDiagnostics(configuration);
                             return Pair.of(userGroupInformation, fileSystem);
                         });
         userGroupInformation = pair.getKey();
         fileSystem = pair.getValue();
         fileSystem.setWriteChecksum(false);
         log.info("Create FileSystem success with Kerberos: {}.", hadoopConf.getKerberosPrincipal());
+    }
+
+    /**
+     * Creates the Hadoop {@link FileSystem} for the given configuration, rewriting a classpath
+     * mismatch into a diagnosable failure.
+     *
+     * <p>{@code FileSystem.get()} constructs a {@code DFSClient}, which reaches into Hadoop
+     * internals (e.g. {@code FsTracer}) whose method signatures have changed across Hadoop
+     * releases. If the Hadoop client jars actually resolved at runtime (this dependency is {@code
+     * provided}, so it comes from the deployment environment, not this project's shaded jar) don't
+     * match what SeaTunnel was built against, that surfaces as a raw {@link LinkageError} deep in
+     * Hadoop's own code with no indication of the real cause.
+     *
+     * <p>Nothing about that failure is specific to one authentication mode, so all three {@code
+     * FileSystem.get()} call sites in this class -- the plain path, the Kerberos path and the
+     * remote-user path -- are routed through here.
+     *
+     * @param configuration Hadoop configuration to build the filesystem from
+     * @return the filesystem for {@code configuration}
+     * @throws IOException if the filesystem cannot be created, including the diagnostic rewrite of
+     *     a {@code LinkageError} raised while loading or linking Hadoop classes
+     */
+    private static FileSystem getFileSystemWithDiagnostics(Configuration configuration)
+            throws IOException {
+        return wrapClasspathMismatch(() -> FileSystem.get(configuration));
+    }
+
+    @FunctionalInterface
+    interface FileSystemSupplier {
+        FileSystem get() throws IOException;
+    }
+
+    /**
+     * Invokes {@code supplier} and rewrites a {@link LinkageError} raised while loading or linking
+     * Hadoop classes into an {@link IOException} that reports the concrete failure and the likely
+     * causes, keeping the original error as the cause.
+     *
+     * <p>The whole {@code LinkageError} family is caught, because every member of it leaves the
+     * caller with the same unusable filesystem and an otherwise unexplained stack trace inside
+     * Hadoop's own code. Most of them ({@code NoSuchMethodError}, {@code NoClassDefFoundError},
+     * {@code NoSuchFieldError}, {@code IncompatibleClassChangeError}) are symptoms of a jar version
+     * mismatch, but some ({@code UnsatisfiedLinkError}, {@code ExceptionInInitializerError}, {@code
+     * ClassFormatError}, {@code VerifyError}, {@code ClassCircularityError}) are not, so the
+     * message names the specific error and presents the version mismatch as a likely rather than a
+     * certain cause.
+     *
+     * <p>Errors outside that family, such as {@code OutOfMemoryError}, still propagate untouched,
+     * as does an {@link IOException} raised by the supplier itself.
+     *
+     * @param supplier filesystem acquisition to guard
+     * @return whatever {@code supplier} returns
+     * @throws IOException the supplier's own {@code IOException}, or a diagnostic one wrapping a
+     *     {@code LinkageError}
+     */
+    static FileSystem wrapClasspathMismatch(FileSystemSupplier supplier) throws IOException {
+        try {
+            return supplier.get();
+        } catch (LinkageError e) {
+            throw new IOException(
+                    "Failed to initialize Hadoop FileSystem ("
+                            + describeLinkageError(e)
+                            + "). This may indicate a Hadoop client version mismatch between "
+                            + "SeaTunnel and the Hadoop jars resolved at runtime (the Hadoop "
+                            + "dependency here is `provided`, so it comes from your deployment "
+                            + "environment, not a bundled version), or another classpath or "
+                            + "linkage problem such as a missing native library or an unreadable "
+                            + "class file. This connector is built and tested against Hadoop "
+                            + TARGET_HADOOP_VERSION
+                            + " (see "
+                            + TARGET_HADOOP_UBER_ARTIFACT
+                            + " in the reactor pom); check that the Hadoop client jars on the "
+                            + "classpath are compatible with that version, and see the cause "
+                            + "below for the specific failure.",
+                    e);
+        }
+    }
+
+    /**
+     * Renders a {@link LinkageError} as a short {@code Type: message} string so the specific
+     * failure stays visible in log environments that only capture {@link Throwable#getMessage()}
+     * and never print the cause chain.
+     *
+     * @param e the linkage error to describe
+     * @return the error's simple class name, followed by its message when it has one
+     */
+    private static String describeLinkageError(LinkageError e) {
+        String message = e.getMessage();
+        return message == null
+                ? e.getClass().getSimpleName()
+                : e.getClass().getSimpleName() + ": " + message;
     }
 
     private boolean enableRemoteUser() {
@@ -480,7 +580,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         hadoopConf.getRemoteUser(),
                         (configuration, userGroupInformation) -> {
                             this.userGroupInformation = userGroupInformation;
-                            this.fileSystem = FileSystem.get(configuration);
+                            this.fileSystem = getFileSystemWithDiagnostics(configuration);
                             return Pair.of(userGroupInformation, fileSystem);
                         });
         log.info("Create FileSystem success with RemoteUser: {}.", hadoopConf.getRemoteUser());
