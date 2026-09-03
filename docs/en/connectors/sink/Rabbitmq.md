@@ -6,7 +6,15 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## Description
 
-Used to write data to RabbitMQ queues.
+The RabbitMQ sink connector publishes each upstream row as a message to a RabbitMQ
+queue, exchange, or routing key. By default messages are sent directly to the named
+`queue_name` via the default exchange; when `routing_key` (and optionally `exchange`) is
+configured, the connector routes the message through the specified exchange instead.
+
+The sink declares the target queue if it does not already exist, applying the
+`durable`, `exclusive`, and `auto_delete` arguments, and reconnects on broker failures
+using the standard AMQP recovery options (`network_recovery_interval`,
+`topology_recovery_enabled`, `AUTOMATIC_RECOVERY_ENABLED`).
 
 ## Key features
 

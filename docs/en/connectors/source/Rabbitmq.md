@@ -6,7 +6,15 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## Description
 
-Used to read data from RabbitMQ queues.
+The RabbitMQ source connector reads messages from one or more RabbitMQ queues and turns
+each AMQP message into a SeaTunnel row. It runs in streaming mode and can consume from a
+single queue or from several queues at once with the multi-table `tables_configs` option.
+
+The connector acknowledges messages through RabbitMQ's delivery confirms, and when
+`use_correlation_id` is enabled it uses the broker-supplied correlation id to deduplicate
+redeliveries after acknowledgement failures. Because RabbitMQ does not allow multiple
+consumers on a single queue to safely share partitions, the source must run with
+`parallelism = 1` to keep exactly-once delivery consistent.
 
 ## Key features
 

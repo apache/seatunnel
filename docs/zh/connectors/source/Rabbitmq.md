@@ -6,7 +6,14 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于从 RabbitMQ 队列读取数据。
+RabbitMQ 源连接器从一个或多个 RabbitMQ 队列中读取消息，并将每条 AMQP 消息转换为一行
+SeaTunnel 数据。它以流处理模式运行，既可以消费单个队列，也可以通过多表选项 `tables_configs`
+同时消费多个队列。
+
+该连接器通过 RabbitMQ 的投递确认（delivery confirm）机制来 ack 消息；当开启
+`use_correlation_id` 时，它会利用 broker 返回的 correlation id 在 ack 失败导致消息重投时做去重。
+由于 RabbitMQ 不允许同一个队列的多个消费者安全地共享分片，源必须以 `parallelism = 1`
+运行，才能保证精确一次投递语义。
 
 ## 主要特性
 
