@@ -53,7 +53,7 @@ downloaded from Maven Central.
 | retry                       | Int    | No       | -       | Maximum retry times when the HTTP request throws an `IOException`. |
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
-| batch_size                  | Int    | No       | 1024    | Maximum number of rows buffered before writing to Prometheus. |
+| batch_size                  | Int    | No       | 1024    | Positive number of rows buffered before writing to Prometheus. |
 | multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
 | common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 

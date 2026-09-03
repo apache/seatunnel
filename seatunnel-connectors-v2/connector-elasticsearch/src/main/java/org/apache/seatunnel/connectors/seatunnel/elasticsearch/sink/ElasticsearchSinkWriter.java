@@ -243,7 +243,7 @@ public class ElasticsearchSinkWriter
         try {
             RetryUtils.retryWithException(
                     () -> {
-                        if (requestEsList.size() > 0) {
+                        if (!requestEsList.isEmpty()) {
                             String requestBody = String.join("\n", requestEsList) + "\n";
                             BulkResponse bulkResponse = esRestClient.bulk(requestBody);
                             if (bulkResponse.isErrors()) {

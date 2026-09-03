@@ -41,8 +41,6 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
@@ -126,7 +124,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
-public class KafkaIT extends TestSuiteBase implements TestResource {
+public class KafkaIT extends AbstractKafkaIT {
     private static final String EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE = "sourceTopic";
     private static final String EXACTLY_ONCE_SINK_TOPIC_VARIABLE = "sinkTopic";
     private static final String EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE = "consumerGroup";
@@ -234,6 +232,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 .get(30, SECONDS);
                                 Assertions.assertEquals(topicNames.size(), desc.size());
                             });
+            // Leader visibility in the admin metadata view does not guarantee the broker the
+            // job's own Kafka client connects to has finished propagating the partition
+            // leader. Wait for a non-null leader on every partition; the static topics below
+            // are then written by generateTestData, whose produce itself forces end-to-end
+            // propagation before any test submits a job. A produce/consume/deleteRecords
+            // warm-up is intentionally NOT applied here: deleteRecords would advance the log
+            // start offset and break tests that read with absolute offsets
+            // (specific_offsets / restore), e.g. testKafkaSpecificOffsetsToConsole.
+            waitForKafkaTopicsReady(topicNames);
         }
 
         log.info("Write 100 records to topic test_topic_source");
@@ -2464,6 +2471,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/kafka/kafkasource_endTimestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @Override
+    protected String kafkaBootstrapServers() {
+        return kafkaContainer.getBootstrapServers();
     }
 
     private AdminClient createKafkaAdmin() {

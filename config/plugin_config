@@ -46,10 +46,12 @@ connector-file-local
 connector-file-oss
 connector-file-jindo-oss
 connector-file-s3
+connector-file-gcs
 connector-file-sftp
 connector-file-obs
 connector-file-bos
 connector-fluss
+connector-firebase
 connector-google-sheets
 connector-google-firestore
 connector-google-pubsub
@@ -63,6 +65,7 @@ connector-http-gitlab
 connector-http-github
 connector-http-jira
 connector-http-klaviyo
+connector-http-stripe
 connector-http-lemlist
 connector-http-myhours
 connector-http-notion
@@ -104,6 +107,7 @@ connector-web3j
 connector-milvus
 connector-activemq
 connector-prometheus
+connector-deeplake
 connector-sls
 connector-qdrant
 connector-typesense
