@@ -38,7 +38,6 @@ public class CouchbaseWriterOptions implements Serializable {
     private final String scope;
     private final String collection;
     private final int flushSize;
-    private final long batchIntervalMs;
     private final boolean upsertEnable;
     private final String[] primaryKey;
     private final int retryMax;
@@ -52,7 +51,6 @@ public class CouchbaseWriterOptions implements Serializable {
         this.scope = builder.scope;
         this.collection = builder.collection;
         this.flushSize = builder.flushSize;
-        this.batchIntervalMs = builder.batchIntervalMs;
         this.upsertEnable = builder.upsertEnable;
         this.primaryKey = builder.primaryKey;
         this.retryMax = builder.retryMax;
@@ -72,7 +70,6 @@ public class CouchbaseWriterOptions implements Serializable {
         private String scope = "_default";
         private String collection;
         private int flushSize = 1000;
-        private long batchIntervalMs = 30000L;
         private boolean upsertEnable = false;
         private String[] primaryKey = new String[0];
         private int retryMax = 3;
@@ -110,11 +107,6 @@ public class CouchbaseWriterOptions implements Serializable {
 
         public Builder withFlushSize(int flushSize) {
             this.flushSize = flushSize;
-            return this;
-        }
-
-        public Builder withBatchIntervalMs(long batchIntervalMs) {
-            this.batchIntervalMs = batchIntervalMs;
             return this;
         }
 

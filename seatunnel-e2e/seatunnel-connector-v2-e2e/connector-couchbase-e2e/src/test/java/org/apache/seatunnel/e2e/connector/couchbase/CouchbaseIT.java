@@ -63,6 +63,7 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final String COUCHBASE_BUCKET = "test_bucket";
     private static final String COUCHBASE_SCOPE = "_default";
     private static final String COUCHBASE_COLLECTION = "test_collection";
+    private static final String COUCHBASE_COLLECTION_TIMER_FLUSH = "test_collection_timer_flush";
 
     /** Matches row.num in fake_source_to_couchbase.conf. */
     private static final int EXPECTED_ROW_COUNT = 100;
@@ -136,36 +137,47 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(() -> cluster.query(createCollectionDdl));
 
         // Similarly retry CREATE PRIMARY INDEX until the collection is visible to the query path.
-        String createIndexDdl =
-                "CREATE PRIMARY INDEX ON `"
+        String createCollectionDdlTimerFlush =
+                "CREATE COLLECTION `"
                         + COUCHBASE_BUCKET
                         + "`.`"
                         + COUCHBASE_SCOPE
                         + "`.`"
-                        + COUCHBASE_COLLECTION
+                        + COUCHBASE_COLLECTION_TIMER_FLUSH
                         + "`";
         Awaitility.given()
                 .ignoreExceptions()
                 .pollInterval(2, TimeUnit.SECONDS)
                 .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(() -> cluster.query(createIndexDdl));
+                .untilAsserted(() -> cluster.query(createCollectionDdlTimerFlush));
 
-        // Wait until the primary index transitions to 'online' before returning.
-        // The index build is asynchronous; without this guard the first N1QL query in the
-        // test body may hit the collection before the index is ready and return no results.
-        String indexStatusQuery =
+        String createIndexDdlTimerFlush =
+                "CREATE PRIMARY INDEX ON `"
+                        + COUCHBASE_BUCKET
+                        + "`.`"
+                        + COUCHBASE_SCOPE
+                        + "`.`"
+                        + COUCHBASE_COLLECTION_TIMER_FLUSH
+                        + "`";
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query(createIndexDdlTimerFlush));
+
+        String indexStatusQueryTimerFlush =
                 String.format(
                         "SELECT state FROM system:indexes WHERE keyspace_id = '%s'"
                                 + " AND `using` = 'gsi' AND is_primary = true"
                                 + " AND `bucket_id` = '%s'",
-                        COUCHBASE_COLLECTION, COUCHBASE_BUCKET);
+                        COUCHBASE_COLLECTION_TIMER_FLUSH, COUCHBASE_BUCKET);
         Awaitility.given()
                 .ignoreExceptions()
                 .pollInterval(1, TimeUnit.SECONDS)
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
-                            QueryResult r = cluster.query(indexStatusQuery);
+                            QueryResult r = cluster.query(indexStatusQueryTimerFlush);
                             List<JsonObject> rows = r.rowsAs(JsonObject.class);
                             Assertions.assertFalse(rows.isEmpty(), "Primary index not created yet");
                             Assertions.assertEquals(
@@ -173,7 +185,6 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     rows.get(0).getString("state"),
                                     "Primary index not yet online");
                         });
-
         log.info("Couchbase cluster ready at {}", couchbaseContainer.getConnectionString());
     }
 
@@ -284,5 +295,53 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     count.get(),
                                     doc.toMap());
                         });
+    }
+
+    @TestTemplate
+    public void testCouchbaseSinkTimerFlush(TestContainer container) throws Exception {
+        cluster.query(
+                String.format(
+                        "DELETE FROM `%s`.`%s`.`%s`",
+                        COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION_TIMER_FLUSH));
+
+        String jobId = String.valueOf(System.currentTimeMillis());
+        java.util.concurrent.CompletableFuture<Container.ExecResult> jobFuture =
+                java.util.concurrent.CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/fake_source_to_couchbase_timer_flush.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        String countQuery =
+                String.format(
+                        "SELECT COUNT(*) AS cnt FROM `%s`.`%s`.`%s`",
+                        COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION_TIMER_FLUSH);
+
+        try {
+            Awaitility.given()
+                    .ignoreExceptions()
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        jobFuture.isDone(),
+                                        "The streaming job must still be running when timer flush publishes the buffered rows");
+                                QueryResult result = cluster.query(countQuery);
+                                List<JsonObject> rows = result.rowsAs(JsonObject.class);
+                                Assertions.assertFalse(
+                                        rows.isEmpty(), "COUNT query returned no rows");
+                                Assertions.assertEquals(10, rows.get(0).getInt("cnt"));
+                            });
+        } finally {
+            if (!jobFuture.isDone()) {
+                Container.ExecResult cancelResult = container.cancelJob(jobId);
+                Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+            }
+        }
     }
 }
