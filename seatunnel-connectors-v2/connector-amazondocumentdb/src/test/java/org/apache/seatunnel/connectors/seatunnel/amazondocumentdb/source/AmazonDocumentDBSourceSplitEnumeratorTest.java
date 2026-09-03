@@ -79,17 +79,59 @@ public class AmazonDocumentDBSourceSplitEnumeratorTest {
     }
 
     @Test
-    public void testReturnedSplitIsReassigned() {
+    public void testReaderRegisteredBeforeRunIsNotSignaledEarly() {
         RecordingContext context = new RecordingContext(1, Collections.singleton(0));
         AmazonDocumentDBSourceSplitEnumerator enumerator =
                 new AmazonDocumentDBSourceSplitEnumerator(context, null, "{}", null);
+
+        enumerator.registerReader(0);
+
+        Assertions.assertTrue(context.noMoreSplitReaders.isEmpty());
+        Assertions.assertTrue(context.assignedSplits.isEmpty());
+
+        enumerator.run();
+
+        Assertions.assertEquals(1, context.assignedSplits.get(0).size());
+        Assertions.assertTrue(context.noMoreSplitReaders.contains(0));
+    }
+
+    @Test
+    public void testReaderRegisteredAfterRunIsSignaledImmediately() {
+        RecordingContext context = new RecordingContext(2, Collections.singleton(0));
+        AmazonDocumentDBSourceSplitEnumerator enumerator =
+                new AmazonDocumentDBSourceSplitEnumerator(context, null, "{}", null);
+
+        enumerator.run();
+        context.registerReader(1);
+        enumerator.registerReader(1);
+
+        Assertions.assertTrue(context.noMoreSplitReaders.contains(1));
+        Assertions.assertTrue(
+                context.assignedSplits.getOrDefault(1, Collections.emptyList()).isEmpty());
+    }
+
+    @Test
+    public void testReturnedSplitWaitsForReaderRegistration() {
+        AmazonDocumentDBSourceState state =
+                new AmazonDocumentDBSourceState(false, Collections.emptyMap());
+        RecordingContext context = new RecordingContext(1, Collections.emptySet());
+        AmazonDocumentDBSourceSplitEnumerator enumerator =
+                new AmazonDocumentDBSourceSplitEnumerator(context, state, "{}", null);
         AmazonDocumentDBSourceSplit returnedSplit =
                 new AmazonDocumentDBSourceSplit(0, "{\"retry\": true}", null);
 
         enumerator.addSplitsBack(Collections.singletonList(returnedSplit), 0);
 
+        Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+        Assertions.assertTrue(context.assignedSplits.isEmpty());
+        Assertions.assertTrue(context.noMoreSplitReaders.isEmpty());
+
+        context.registerReader(0);
+        enumerator.registerReader(0);
+
         Assertions.assertEquals(
                 "{\"retry\": true}", context.assignedSplits.get(0).get(0).getMatchQuery());
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
         Assertions.assertTrue(context.noMoreSplitReaders.contains(0));
     }
 
@@ -104,7 +146,11 @@ public class AmazonDocumentDBSourceSplitEnumeratorTest {
 
         private RecordingContext(int parallelism, Set<Integer> registeredReaders) {
             this.parallelism = parallelism;
-            this.registeredReaders = registeredReaders;
+            this.registeredReaders = new HashSet<>(registeredReaders);
+        }
+
+        private void registerReader(int subtaskId) {
+            registeredReaders.add(subtaskId);
         }
 
         @Override

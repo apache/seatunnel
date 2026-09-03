@@ -96,7 +96,10 @@ public class AmazonDocumentDBSourceSplitEnumerator
         // no-op
     }
 
-    /** Returns failed reader work to its deterministic owner before reassignment. */
+    /**
+     * Returns failed reader work to its deterministic owner and defers reassignment until that
+     * reader is registered again.
+     */
     @Override
     public void addSplitsBack(List<AmazonDocumentDBSourceSplit> splits, int subtaskId) {
         synchronized (stateLock) {
@@ -118,7 +121,14 @@ public class AmazonDocumentDBSourceSplitEnumerator
         // The bounded source enumerates its only split eagerly.
     }
 
-    /** Assigns any pending work when its reader registers and otherwise completes that reader. */
+    /**
+     * Assigns pending work when a reader registers.
+     *
+     * <p>Zeta registers readers before invoking {@link #run()}, so an empty pending-split set here
+     * does not mean that enumeration has finished. No-more-splits is signaled only after {@link
+     * #run()} has completed enumeration; a reader registered after that point is signaled
+     * immediately.
+     */
     @Override
     public void registerReader(int subtaskId) {
         synchronized (stateLock) {
@@ -153,13 +163,20 @@ public class AmazonDocumentDBSourceSplitEnumerator
     }
 
     /**
-     * Gives the sole split to subtask 0 and sends no-more-splits to all readers.
+     * Gives the sole split to subtask 0 and, after enumeration, sends no-more-splits to all
+     * registered readers.
      *
      * <p>Assignments are removed before the callback and restored if the callback fails, keeping a
      * checkpoint from losing an unacknowledged split.
      */
     private void assignSplits(Set<Integer> readers) {
+        Set<Integer> registeredReaders = enumeratorContext.registeredReaders();
         for (int reader : readers) {
+            if (!registeredReaders.contains(reader)) {
+                LOG.warn("Reader {} is not registered. Pending splits are not assigned.", reader);
+                continue;
+            }
+
             List<AmazonDocumentDBSourceSplit> assignment = pendingSplits.remove(reader);
             if (assignment != null && !assignment.isEmpty()) {
                 LOG.info("Assign splits {} to reader {}", assignment, reader);
@@ -171,7 +188,9 @@ public class AmazonDocumentDBSourceSplitEnumerator
                     continue;
                 }
             }
-            enumeratorContext.signalNoMoreSplits(reader);
+            if (!shouldEnumerate) {
+                enumeratorContext.signalNoMoreSplits(reader);
+            }
         }
     }
 
