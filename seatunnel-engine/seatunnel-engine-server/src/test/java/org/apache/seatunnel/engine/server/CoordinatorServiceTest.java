@@ -757,12 +757,18 @@ public class CoordinatorServiceTest {
     }
 
     private void stopCoordinatorSchedulers(CoordinatorService coordinatorService) {
+        // The listener starts with zero delay. It must be fully stopped before tests mutate
+        // isActive; otherwise a late ownership poll can call clearCoordinatorService() and shut
+        // down the executor that the test uses to run its scheduler.
         ReflectionUtils.getField(coordinatorService, "masterActiveListener")
                 .map(ScheduledExecutorService.class::cast)
                 .ifPresent(this::shutdownScheduler);
         ReflectionUtils.getField(coordinatorService, "pipelineCleanupScheduler")
                 .map(ScheduledExecutorService.class::cast)
                 .ifPresent(this::shutdownScheduler);
+        Assertions.assertFalse(
+                getCoordinatorExecutor(coordinatorService).isShutdown(),
+                "Coordinator test scheduler cleanup must not shut down the coordinator executor");
     }
 
     private void shutdownScheduler(ScheduledExecutorService scheduler) {
