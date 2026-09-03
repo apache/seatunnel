@@ -181,4 +181,84 @@ public class MetadataMultiCatalogSchemaChangeTest {
                 postOut.getField(3),
                 "is_featured must survive the wrapper after live ALTER");
     }
+
+    @Test
+    void multiCatalogWrapperProjectsConnectorDeclaredMetadataAfterSchemaChange() {
+        List<Column> metadata = new ArrayList<>();
+        metadata.add(
+                MetadataColumn.of(
+                        "KafkaOffset",
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        "Kafka record offset"));
+        CatalogTable baseTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", TBL),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id",
+                                                BasicType.LONG_TYPE,
+                                                (Long) null,
+                                                false,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "name",
+                                                BasicType.STRING_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "comment",
+                        "test",
+                        MetadataSchema.builder().columns(metadata).build());
+
+        Map<String, String> metaMapping = new LinkedHashMap<>();
+        metaMapping.put("KafkaOffset", "kafka_offset");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("metadata_fields", metaMapping);
+        MetadataMultiCatalogTransform wrapper =
+                new MetadataMultiCatalogTransform(
+                        Collections.singletonList(baseTable), ReadonlyConfig.fromMap(cfg));
+
+        SeaTunnelRow preRow = new SeaTunnelRow(new Object[] {1L, "Widget A"});
+        preRow.setTableId(TBL.getFullName());
+        preRow.getOptions().put("KafkaOffset", 42L);
+        SeaTunnelRow preOut = wrapper.map(preRow);
+        Assertions.assertEquals(3, preOut.getArity(), "pre-ALTER: 2 base + 1 custom metadata");
+        Assertions.assertEquals(42L, preOut.getField(2));
+
+        TableIdentifier tid = baseTable.getTableId();
+        AlterTableColumnsEvent alter =
+                new AlterTableColumnsEvent(tid)
+                        .addEvent(
+                                AlterTableAddColumnEvent.add(
+                                        tid,
+                                        PhysicalColumn.of(
+                                                "discount_pct",
+                                                BasicType.DOUBLE_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null)));
+        wrapper.mapSchemaChangeEvent(alter);
+
+        SeaTunnelRow postRow = new SeaTunnelRow(new Object[] {2L, "Premium A", 10.00d});
+        postRow.setTableId(TBL.getFullName());
+        postRow.getOptions().put("KafkaOffset", 99L);
+        SeaTunnelRow postOut = wrapper.map(postRow);
+
+        Assertions.assertEquals(4, postOut.getArity(), "post-ALTER: 3 base + 1 custom metadata");
+        Assertions.assertEquals(2L, postOut.getField(0));
+        Assertions.assertEquals("Premium A", postOut.getField(1));
+        Assertions.assertEquals(10.00d, postOut.getField(2));
+        Assertions.assertEquals(99L, postOut.getField(3));
+    }
 }
