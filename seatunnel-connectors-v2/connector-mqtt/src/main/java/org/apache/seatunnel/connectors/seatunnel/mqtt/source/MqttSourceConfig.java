@@ -53,34 +53,14 @@ public class MqttSourceConfig {
         this.reconnectTimeout = config.get(MqttSourceOptions.RECONNECT_TIMEOUT);
         this.maxQueueSize = config.get(MqttSourceOptions.MAX_QUEUE_SIZE);
 
+        // Option value validation (qos range, format, reconnect_timeout, max_queue_size,
+        // client_id requirement for persistent sessions) is enforced declaratively by
+        // MqttSourceFactory#optionRule() at job submission time.
         String configuredClientId = config.get(MqttSourceOptions.CLIENT_ID);
-        if (!cleanSession && isBlank(configuredClientId)) {
-            throw new IllegalArgumentException(
-                    "client_id is required when clean_session=false for MQTT source");
-        }
         this.clientId =
                 isBlank(configuredClientId)
                         ? CLIENT_ID_PREFIX + UUID.randomUUID().toString()
                         : configuredClientId;
-
-        validate();
-    }
-
-    private void validate() {
-        if (qos < 0 || qos > 1) {
-            throw new IllegalArgumentException("MQTT source qos must be 0 or 1, got: " + qos);
-        }
-        if (!"json".equalsIgnoreCase(format) && !"text".equalsIgnoreCase(format)) {
-            throw new IllegalArgumentException("Unsupported MQTT source format: " + format);
-        }
-        if (reconnectTimeout <= 0) {
-            throw new IllegalArgumentException(
-                    "reconnect_timeout must be greater than 0, got: " + reconnectTimeout);
-        }
-        if (maxQueueSize <= 0) {
-            throw new IllegalArgumentException(
-                    "max_queue_size must be greater than 0, got: " + maxQueueSize);
-        }
     }
 
     private static boolean isBlank(String value) {
