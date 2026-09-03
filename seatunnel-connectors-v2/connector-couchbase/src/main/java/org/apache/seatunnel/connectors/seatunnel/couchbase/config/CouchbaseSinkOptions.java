@@ -43,13 +43,6 @@ public class CouchbaseSinkOptions extends CouchbaseConfig {
      *
      * <p>A value of {@code -1} disables interval-based flushing.
      */
-    public static final Option<Long> BUFFER_FLUSH_INTERVAL =
-            Options.key("buffer-flush.interval")
-                    .longType()
-                    .defaultValue(30000L)
-                    .withDescription(
-                            "The maximum interval between batch write requests, in milliseconds."
-                                    + " Use -1 to disable interval-based flushing.");
 
     /** Number of retry attempts on transient write failures before giving up. */
     public static final Option<Integer> RETRY_MAX =
