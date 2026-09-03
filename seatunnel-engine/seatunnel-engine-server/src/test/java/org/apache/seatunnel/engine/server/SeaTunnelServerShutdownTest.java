@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 
 import org.junit.jupiter.api.Test;
@@ -31,7 +32,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Field;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyLong;
