@@ -1890,8 +1890,11 @@ public class CoordinatorServiceTest {
             InvocationTargetException invocationException =
                     Assertions.assertThrows(
                             InvocationTargetException.class,
-                            () -> invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, jobInfo));
-            Assertions.assertInstanceOf(SeaTunnelEngineException.class, invocationException.getCause());
+                            () ->
+                                    invokeRestoreJobFromMasterActiveSwitch(
+                                            coordinatorService, jobId, jobInfo));
+            Assertions.assertInstanceOf(
+                    SeaTunnelEngineException.class, invocationException.getCause());
             Assertions.assertInstanceOf(
                     InterruptedException.class, invocationException.getCause().getCause());
             Assertions.assertFalse(coordinatorService.getPendingJobQueue().contains(jobId));
