@@ -759,10 +759,22 @@ public class CoordinatorServiceTest {
     private void stopCoordinatorSchedulers(CoordinatorService coordinatorService) {
         ReflectionUtils.getField(coordinatorService, "masterActiveListener")
                 .map(ScheduledExecutorService.class::cast)
-                .ifPresent(ScheduledExecutorService::shutdownNow);
+                .ifPresent(this::shutdownScheduler);
         ReflectionUtils.getField(coordinatorService, "pipelineCleanupScheduler")
                 .map(ScheduledExecutorService.class::cast)
-                .ifPresent(ScheduledExecutorService::shutdownNow);
+                .ifPresent(this::shutdownScheduler);
+    }
+
+    private void shutdownScheduler(ScheduledExecutorService scheduler) {
+        scheduler.shutdownNow();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Scheduler did not stop in time");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while stopping scheduler", e);
+        }
     }
 
     private void invokePendingJobScheduler(CoordinatorService coordinatorService) throws Exception {
