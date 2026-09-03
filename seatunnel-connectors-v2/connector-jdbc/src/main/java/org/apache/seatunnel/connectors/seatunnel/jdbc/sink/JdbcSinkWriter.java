@@ -19,7 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
+import org.apache.seatunnel.api.common.error.RowErrorPhase;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -40,17 +46,51 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
+import java.sql.Savepoint;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 @Slf4j
-public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager> {
+public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager>
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
     private final Integer primaryKeyIndex;
+    private final Optional<RowErrorCollector> rowErrorCollector;
+    private final int batchSize;
+    private final Object batchLock = new Object();
+    private List<SeaTunnelRow> pendingRows;
+    // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
+    // failure can roll back only the failed batch without moving the durable commit boundary.
+    private Savepoint lastSuccessfulBatchSavepoint;
+    private Boolean supportsSavepoints;
+    private boolean savepointUnsupportedLogged;
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
+            JdbcDialect dialect,
+            JdbcSinkConfig jdbcSinkConfig,
+            TableSchema tableSchema,
+            TableSchema databaseTableSchema,
+            Integer primaryKeyIndex) {
+        this(
+                sinkTablePath,
+                null,
+                dialect,
+                jdbcSinkConfig,
+                tableSchema,
+                databaseTableSchema,
+                primaryKeyIndex);
+    }
+
+    public JdbcSinkWriter(
+            TablePath sinkTablePath,
+            SinkWriter.Context context,
             JdbcDialect dialect,
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
@@ -62,6 +102,16 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
+        this.rowErrorCollector =
+                context == null ? Optional.empty() : context.getRowErrorCollector();
+        this.batchSize = jdbcSinkConfig.getJdbcConnectionConfig().getBatchSize();
+        if (rowErrorCollector.isPresent()) {
+            // Only maintain pending rows when collector is available.
+            this.pendingRows = new ArrayList<>(Math.max(this.batchSize, 16));
+            if (context != null) {
+                context.enableDeferredTerminalWriteOutcomes();
+            }
+        }
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
         this.outputFormat =
@@ -72,6 +122,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
+        configureOutputFormatForRowErrorHandling();
+        if (context != null) {
+            context.registerFlushAction(this::timerFlush);
+        }
     }
 
     @Override
@@ -136,6 +190,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
+        configureOutputFormatForRowErrorHandling();
+    }
+
+    private void configureOutputFormatForRowErrorHandling() {
+        outputFormat.setFailFastOnRowLevelSqlState(rowErrorCollector.isPresent());
     }
 
     @Override
@@ -161,19 +220,104 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
 
+        if (rowErrorCollector.isPresent()) {
+            synchronized (batchLock) {
+                tryOpen();
+                try {
+                    pendingRows.add(element);
+                    boolean autoFlushed = outputFormat.writeRecordWithAutoFlush(element);
+                    reportAndClearPendingRowsIfCommitted(autoFlushed);
+                } catch (Throwable e) {
+                    if (!isRowLevelDataError(e)) {
+                        throwAsIoException(e);
+                    }
+                    // DROP_BATCH: report and discard batch, then continue.
+                    List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
+                    handleRowLevelBatchFailure(RowErrorPhase.WRITE, null, batchRows, e);
+                }
+            }
+            return;
+        }
+
         tryOpen();
         outputFormat.writeRecord(element);
     }
 
     @Override
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
+        return isRowLevelDataError(t)
+                ? RowErrorClassification.ROW_ERROR
+                : RowErrorClassification.SYSTEM_ERROR;
+    }
+
+    private boolean isRowLevelDataError(Throwable t) {
+        // Only treat SQL data/constraint violations as row-level errors.
+        Throwable cause = t;
+        while (cause != null) {
+            if (cause instanceof SQLException) {
+                if (isRowLevelSqlState((SQLException) cause)) {
+                    return true;
+                }
+            }
+            cause = cause.getCause();
+        }
+        return false;
+    }
+
+    private boolean isRowLevelSqlState(SQLException sqlException) {
+        // Scan both the exception and nextException chain for relevant SQLState.
+        Set<SQLException> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        SQLException current = sqlException;
+        while (current != null && visited.add(current)) {
+            String sqlState = current.getSQLState();
+            if (sqlState != null) {
+                // 22XXX: Data exception (e.g. data too long, invalid data)
+                // 23XXX: Integrity constraint violation (e.g. duplicate key)
+                if (sqlState.startsWith("22") || sqlState.startsWith("23")) {
+                    return true;
+                }
+            }
+            current = current.getNextException();
+        }
+        return false;
+    }
+
+    @Override
     public Optional<XidInfo> prepareCommit() throws IOException {
+        return prepareCommitInternal(null);
+    }
+
+    @Override
+    public Optional<XidInfo> prepareCommit(long checkpointId) throws IOException {
+        return prepareCommitInternal(checkpointId);
+    }
+
+    private Optional<XidInfo> prepareCommitInternal(Long checkpointId) throws IOException {
+        if (rowErrorCollector.isPresent()) {
+            synchronized (batchLock) {
+                tryOpen();
+                outputFormat.checkFlushException();
+                List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
+                try {
+                    outputFormat.flush();
+                    commitIfNeeded();
+                    reportWriteSuccess(batchRows);
+                } catch (Throwable e) {
+                    if (!isRowLevelDataError(e)) {
+                        throwAsIoException(e);
+                    }
+                    handleRowLevelBatchFailure(
+                            RowErrorPhase.PREPARE_COMMIT, checkpointId, batchRows, e);
+                }
+            }
+            return Optional.empty();
+        }
+
         tryOpen();
         outputFormat.checkFlushException();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
-            }
+            commitIfNeeded();
         } catch (SQLException e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
@@ -188,11 +332,32 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     @Override
     public void close() throws IOException {
+        if (rowErrorCollector.isPresent()) {
+            synchronized (batchLock) {
+                tryOpen();
+                List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
+                try {
+                    outputFormat.flush();
+                    commitIfNeeded();
+                    reportWriteSuccess(batchRows);
+                } catch (Throwable e) {
+                    if (!isRowLevelDataError(e)) {
+                        throwAsIoException(e);
+                    }
+                    handleRowLevelBatchFailure(RowErrorPhase.CLOSE, null, batchRows, e);
+                } finally {
+                    outputFormat.close();
+                }
+            }
+            return;
+        }
+
         tryOpen();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
+            Connection connection = connectionProvider.getConnection();
+            if (!connection.getAutoCommit()) {
+                connection.commit();
             }
         } catch (SQLException e) {
             throw new JdbcConnectorException(
@@ -201,6 +366,213 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                     e);
         } finally {
             outputFormat.close();
+        }
+    }
+
+    private void reportAndClearPendingRowsIfCommitted(boolean autoFlushed) throws IOException {
+        if (pendingRows == null) {
+            return;
+        }
+        if (autoFlushed) {
+            if (markSuccessfulAutoFlushBoundaryIfNeeded()) {
+                reportWriteSuccess(pendingRows);
+                pendingRows.clear();
+            }
+        }
+    }
+
+    private boolean markSuccessfulAutoFlushBoundaryIfNeeded() throws IOException {
+        if (jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
+            return true;
+        }
+        if (!supportsSavepoints()) {
+            logSavepointUnsupported();
+            return false;
+        }
+        try {
+            Connection connection = connectionProvider.getConnection();
+            Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
+            lastSuccessfulBatchSavepoint = connection.setSavepoint();
+            releaseSavepointSilently(connection, previousSavepoint);
+            return true;
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "set savepoint failed," + e.getMessage(),
+                    e);
+        }
+    }
+
+    private boolean supportsSavepoints() {
+        if (supportsSavepoints != null) {
+            return supportsSavepoints;
+        }
+        try {
+            DatabaseMetaData metaData = connectionProvider.getConnection().getMetaData();
+            supportsSavepoints = metaData != null && metaData.supportsSavepoints();
+        } catch (SQLException e) {
+            supportsSavepoints = false;
+            log.warn(
+                    "Failed to check JDBC savepoint support; fallback to full transaction rollback.",
+                    e);
+        }
+        return supportsSavepoints;
+    }
+
+    private void logSavepointUnsupported() {
+        if (savepointUnsupportedLogged) {
+            return;
+        }
+        savepointUnsupportedLogged = true;
+        log.warn(
+                "JDBC driver does not support savepoints. Row-error handling will keep "
+                        + "auto-flushed rows pending until checkpoint commit and fall back to full "
+                        + "transaction rollback on row-level write failure. table={}",
+                sinkTablePath);
+    }
+
+    // Releasing an old savepoint is a best-effort cleanup. Some drivers invalidate savepoints after
+    // rollback/commit and should not fail the writer just because cleanup is no longer possible.
+    private void releaseSavepointSilently(Connection connection, Savepoint savepoint) {
+        if (savepoint == null) {
+            return;
+        }
+        try {
+            connection.releaseSavepoint(savepoint);
+        } catch (SQLException e) {
+            log.debug("Failed to release JDBC savepoint after moving row-error batch boundary.", e);
+        }
+    }
+
+    private void reportWriteSuccess(List<SeaTunnelRow> rows) throws IOException {
+        if (!rowErrorCollector.isPresent() || rows == null || rows.isEmpty()) {
+            return;
+        }
+        try {
+            for (SeaTunnelRow row : rows) {
+                rowErrorCollector.get().collectWriteSuccess(row);
+            }
+        } catch (Exception collectorEx) {
+            throw toIOException(collectorEx);
+        }
+    }
+
+    private List<SeaTunnelRow> swapPendingRowsLocked() {
+        if (pendingRows == null || pendingRows.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<SeaTunnelRow> batchRows = pendingRows;
+        pendingRows = new ArrayList<>(Math.max(batchSize, 16));
+        return batchRows;
+    }
+
+    private void handleRowLevelBatchFailure(
+            RowErrorPhase phase, Long checkpointId, List<SeaTunnelRow> batchRows, Throwable error)
+            throws IOException {
+        IOException failure = null;
+        try {
+            for (SeaTunnelRow row : batchRows) {
+                rowErrorCollector.get().collect(new RowErrorEvent(phase, checkpointId, row, error));
+            }
+        } catch (Exception collectorEx) {
+            failure = toIOException(collectorEx);
+        } finally {
+            try {
+                outputFormat.clearBatchSilently();
+            } catch (Throwable clearEx) {
+                failure = appendFailure(failure, clearEx);
+            }
+            try {
+                rollbackIfNeeded();
+            } catch (Throwable rollbackEx) {
+                failure = appendFailure(failure, rollbackEx);
+            }
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private void rollbackIfNeeded() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        if (connection.getAutoCommit()) {
+            return;
+        }
+        if (lastSuccessfulBatchSavepoint != null) {
+            connection.rollback(lastSuccessfulBatchSavepoint);
+        } else {
+            connection.rollback();
+        }
+        lastSuccessfulBatchSavepoint = null;
+    }
+
+    private void commitIfNeeded() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        if (!connection.getAutoCommit()) {
+            connection.commit();
+            lastSuccessfulBatchSavepoint = null;
+        }
+    }
+
+    private void throwAsIoException(Throwable e) throws IOException {
+        throw toIOException(e);
+    }
+
+    private IOException toIOException(Throwable e) {
+        if (e instanceof IOException) {
+            return (IOException) e;
+        }
+        if (e instanceof RuntimeException) {
+            return new IOException(e);
+        }
+        return new IOException(e);
+    }
+
+    private IOException appendFailure(IOException current, Throwable next) {
+        IOException nextException = toIOException(next);
+        if (current == null) {
+            return nextException;
+        }
+        current.addSuppressed(nextException);
+        return current;
+    }
+
+    /**
+     * Flushes buffered records when the engine delivers a timer-driven flush signal.
+     *
+     * <p>This action is registered only for the non-XA writer. Flush and commit failures are
+     * propagated to fail the sink task instead of being deferred to the next checkpoint.
+     */
+    public void timerFlush() throws IOException {
+        if (rowErrorCollector.isPresent()) {
+            synchronized (batchLock) {
+                tryOpen();
+                outputFormat.checkFlushException();
+                List<SeaTunnelRow> batchRows = swapPendingRowsLocked();
+                try {
+                    outputFormat.flush();
+                    commitIfNeeded();
+                    reportWriteSuccess(batchRows);
+                } catch (Throwable e) {
+                    if (!isRowLevelDataError(e)) {
+                        throwAsIoException(e);
+                    }
+                    handleRowLevelBatchFailure(RowErrorPhase.FLUSH, null, batchRows, e);
+                }
+            }
+            return;
+        }
+
+        tryOpen();
+        outputFormat.checkFlushException();
+        outputFormat.flush();
+        try {
+            commitIfNeeded();
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "timer flush commit failed: " + e.getMessage(),
+                    e);
         }
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplitGenerator;
@@ -153,20 +154,26 @@ public abstract class AbstractSplitEnumerator
     @Override
     public void addSplitsBack(List<PaimonSourceSplit> splits, int subtaskId) {
         log.debug("Paimon Source Enumerator adds splits back: {}", splits);
-        this.pendingSplits.addAll(splits);
-        if (context.registeredReaders().contains(subtaskId)) {
-            assignSplits();
+        synchronized (stateLock) {
+            this.pendingSplits.addAll(splits);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplitsLocked();
+            }
         }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
+        synchronized (stateLock) {
+            return pendingSplits.size();
+        }
     }
 
     @Override
     public void registerReader(int subtaskId) {
-        readersAwaitingSplit.add(subtaskId);
+        synchronized (stateLock) {
+            readersAwaitingSplit.add(subtaskId);
+        }
     }
 
     @Override
@@ -183,11 +190,13 @@ public abstract class AbstractSplitEnumerator
         this.pendingSplits.addAll(newSplits);
     }
 
-    /**
-     * Method should be synchronized because {@link #handleSplitRequest} and {@link
-     * #processDiscoveredSplits} have thread conflicts.
-     */
-    protected synchronized void assignSplits() {
+    protected void assignSplits() {
+        synchronized (stateLock) {
+            assignSplitsLocked();
+        }
+    }
+
+    private void assignSplitsLocked() {
         Iterator<Integer> pendingReaderIterator = readersAwaitingSplit.iterator();
         while (pendingReaderIterator.hasNext()) {
             Integer pendingReader = pendingReaderIterator.next();
@@ -229,33 +238,31 @@ public abstract class AbstractSplitEnumerator
 
     /** Hash algorithm for assigning splits to readers */
     protected static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 
     // ------------------------------------------------------------------------
 
-    // This need to be synchronized because scan object is not thread safe. handleSplitRequest and
-    // CompletableFuture.supplyAsync will invoke this.
-    protected synchronized List<PlanWithNextSnapshotId> scanNextSnapshot() {
+    protected List<PlanWithNextSnapshotId> scanNextSnapshot() {
 
-        List<PlanWithNextSnapshotId> snapshotIds = Lists.newArrayList();
-        if (pendingSplits.size() >= splitMaxNum) {
+        synchronized (stateLock) {
+            List<PlanWithNextSnapshotId> snapshotIds = Lists.newArrayList();
+            if (pendingSplits.size() >= splitMaxNum) {
+                return snapshotIds;
+            }
+            tableScans.forEach(
+                    (tableId, tableScan) -> {
+                        TableScan.Plan plan = tableScan.plan();
+                        Long nextSnapshotId = null;
+                        if (tableScan instanceof StreamTableScan) {
+                            nextSnapshotId = ((StreamTableScan) tableScan).checkpoint();
+                        }
+                        snapshotIds.add(new PlanWithNextSnapshotId(tableId, plan, nextSnapshotId));
+                    });
             return snapshotIds;
         }
-        tableScans.forEach(
-                (tableId, tableScan) -> {
-                    TableScan.Plan plan = tableScan.plan();
-                    Long nextSnapshotId = null;
-                    if (tableScan instanceof StreamTableScan) {
-                        nextSnapshotId = ((StreamTableScan) tableScan).checkpoint();
-                    }
-                    snapshotIds.add(new PlanWithNextSnapshotId(tableId, plan, nextSnapshotId));
-                });
-        return snapshotIds;
     }
 
-    // This method could not be synchronized, because it runs in coordinatorThread, which will make
-    // it serializable execution.
     protected void processDiscoveredSplits(
             List<PlanWithNextSnapshotId> planWithNextSnapshotIds, Throwable error) {
         if (error != null) {
@@ -269,17 +276,19 @@ public abstract class AbstractSplitEnumerator
             return;
         }
 
-        for (PlanWithNextSnapshotId planWithNextSnapshotId : planWithNextSnapshotIds) {
-            nextSnapshotId = planWithNextSnapshotId.nextSnapshotId;
-            nextSnapshotIds.put(
-                    planWithNextSnapshotId.tableId, planWithNextSnapshotId.nextSnapshotId);
-            TableScan.Plan plan = planWithNextSnapshotId.plan;
-            if (plan.splits().isEmpty()) {
-                continue;
+        synchronized (stateLock) {
+            for (PlanWithNextSnapshotId planWithNextSnapshotId : planWithNextSnapshotIds) {
+                nextSnapshotId = planWithNextSnapshotId.nextSnapshotId;
+                nextSnapshotIds.put(
+                        planWithNextSnapshotId.tableId, planWithNextSnapshotId.nextSnapshotId);
+                TableScan.Plan plan = planWithNextSnapshotId.plan;
+                if (plan.splits().isEmpty()) {
+                    continue;
+                }
+                addSplits(splitGenerator.createSplits(planWithNextSnapshotId.tableId, plan));
             }
-            addSplits(splitGenerator.createSplits(planWithNextSnapshotId.tableId, plan));
+            assignSplitsLocked();
         }
-        assignSplits();
     }
 
     /** The result of scan. */

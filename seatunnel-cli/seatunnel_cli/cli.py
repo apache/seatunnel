@@ -511,19 +511,26 @@ class SeaTunnelCLI:
         console.print("    [bold]3[/bold]. bedrock    — AWS Bedrock (Claude via AWS)")
         console.print("       Requires: AWS credentials (aws configure / env vars / IAM role)")
         console.print("       Docs: https://docs.aws.amazon.com/bedrock/\n")
+        console.print("    [bold]4[/bold]. bedrock-mantle — OpenAI-family models on Bedrock (GPT-5.6 Terra/Sol)")
+        console.print("       Requires: AWS credentials + pip install \".[bedrock-mantle]\"")
+        console.print("       Note: Responses-API-only models on the bedrock-mantle endpoint\n")
+        console.print("    [bold]5[/bold]. orcarouter — OrcaRouter AI gateway (OpenAI-compatible)")
+        console.print("       Requires: ORCAROUTER_API_KEY + pip install \".[openai]\"")
+        console.print("       Note: many models behind one endpoint, e.g. orcarouter/auto\n")
 
         try:
-            choice = pt_prompt("  Enter your choice (1/2/3): ").strip().lower()
+            choice = pt_prompt("  Enter your choice (1/2/3/4/5): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("\n  Setup cancelled.", style="warning")
             return
 
-        choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock"}
+        choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock",
+                      "4": "bedrock-mantle", "5": "orcarouter"}
         choice = choice_map.get(choice, choice)
 
         if not choice or choice not in _PROVIDERS:
             console.print(
-                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, or 3.[/error]"
+                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, 4, or 5.[/error]"
             )
             return
 
@@ -599,8 +606,38 @@ class SeaTunnelCLI:
                     config.setdefault("settings", {})["openai_base_url"] = base_url
                     console.print(f"  Base URL set: [bold]{base_url}[/bold]")
 
-        elif choice == "bedrock":
+        elif choice == "orcarouter":
+            existing = os.environ.get("ORCAROUTER_API_KEY")
+            if existing:
+                masked = existing[:7] + "..." + existing[-4:] if len(existing) > 15 else "***"
+                console.print(f"  ORCAROUTER_API_KEY: [bold green]detected[/bold green] ({masked})")
+            else:
+                console.print("  ORCAROUTER_API_KEY not found in environment.\n")
+                console.print(
+                    "  [dim]Persistent (recommended): add to ~/.zshrc or ~/.bashrc:[/dim]\n"
+                    "    export ORCAROUTER_API_KEY=orc_...\n"
+                    "  [dim]Get a key: https://www.orcarouter.ai[/dim]\n",
+                )
+                try:
+                    key_input = pt_prompt(
+                        "  Enter API key for this session (or Enter to skip): ",
+                    ).strip()
+                except (EOFError, KeyboardInterrupt):
+                    key_input = ""
+                if key_input:
+                    os.environ["ORCAROUTER_API_KEY"] = key_input
+                    console.print(
+                        "  [success]Key set for this session (NOT saved to disk).[/success]"
+                    )
+
+        elif choice in ("bedrock", "bedrock-mantle"):
             console.print("  AWS Bedrock requires AWS credentials.\n")
+            if choice == "bedrock-mantle":
+                console.print(
+                    "  [dim]bedrock-mantle also requires the optional extra:[/dim]\n"
+                    "    pip install \".[bedrock-mantle]\"   "
+                    "[dim](openai SDK + aws-bedrock-token-generator)[/dim]\n"
+                )
             console.print(
                 "  [dim]Options:[/dim]\n"
                 "    - aws configure           (interactive setup)\n"
@@ -653,6 +690,16 @@ class SeaTunnelCLI:
         elif choice == "openai":
             default_model = "gpt-4o"
             default_fast = "gpt-4o-mini"
+            model_env = "OPENAI_MODEL"
+            fast_env = "OPENAI_SMALL_FAST_MODEL"
+        elif choice == "orcarouter":
+            default_model = "orcarouter/auto"
+            default_fast = "orcarouter/auto"
+            model_env = "ORCAROUTER_MODEL"
+            fast_env = "ORCAROUTER_SMALL_FAST_MODEL"
+        elif choice == "bedrock-mantle":
+            default_model = "openai.gpt-5.6-terra"
+            default_fast = "openai.gpt-5.6-terra"
             model_env = "OPENAI_MODEL"
             fast_env = "OPENAI_SMALL_FAST_MODEL"
         else:  # bedrock
@@ -866,6 +913,15 @@ class SeaTunnelCLI:
             base_url = os.environ.get("OPENAI_BASE_URL")
             if base_url:
                 self.console.print(f"  Base URL: [bold]{base_url}[/bold]", style="info")
+        elif provider_name == "orcarouter":
+            if os.environ.get("ORCAROUTER_API_KEY"):
+                self.console.print("  API key:  [bold green]configured[/bold green]", style="info")
+            else:
+                creds_ok = False
+                self.console.print("[error]ORCAROUTER_API_KEY not set.[/error]")
+            self.console.print(
+                "  Base URL: [bold]https://api.orcarouter.ai/v1[/bold]", style="info"
+            )
 
         self.console.print(f"  Model: [bold]{provider.model_id}[/bold]", style="info")
         self.console.print(f"  Fast model: [bold]{provider.fast_model_id}[/bold]", style="info")
@@ -1512,7 +1568,7 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["bedrock", "anthropic", "openai"],
+        choices=["bedrock", "bedrock-mantle", "anthropic", "openai", "orcarouter"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1563,15 +1619,22 @@ def main():
     # Override provider if specified via CLI flags
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
+    # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
+    # bedrock/anthropic read ANTHROPIC_MODEL*; orcarouter has its own.
+    _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     if args.model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider == "openai":
+        if provider == "orcarouter":
+            os.environ["ORCAROUTER_MODEL"] = args.model
+        elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider == "openai":
+        if provider == "orcarouter":
+            os.environ["ORCAROUTER_SMALL_FAST_MODEL"] = args.fast_model
+        elif provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:
             os.environ["ANTHROPIC_SMALL_FAST_MODEL"] = args.fast_model

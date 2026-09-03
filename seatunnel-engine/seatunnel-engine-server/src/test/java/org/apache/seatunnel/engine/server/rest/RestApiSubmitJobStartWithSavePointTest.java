@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.parse.JobConfigParser;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -74,6 +75,7 @@ public class RestApiSubmitJobStartWithSavePointTest {
 
     private static final String SOURCE_FACTORY_ID = "FakeSource";
     private static final String TEST_JOB_NAME = "test";
+    private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
     private HazelcastInstanceImpl masterInstance;
     private HazelcastInstanceImpl workerInstance;
@@ -156,6 +158,7 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
         Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
         Assertions.assertTrue(response.body.contains("No checkpoint found for jobId=" + jobId));
+        Assertions.assertTrue(response.body.contains("restoreSourceJobId=" + jobId));
     }
 
     @Test
@@ -212,6 +215,94 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Assertions.assertTrue(jobImmutableInformation.isStartWithSavePoint());
     }
 
+    @Test
+    public void testSubmitCheckpointRestoreWithoutSourceJobIdReturns400() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + workerRestPort
+                        + "/submit-job?format=json&restoreMode=CHECKPOINT&jobName="
+                        + TEST_JOB_NAME;
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(response.body.contains("restoreSourceJobId"));
+    }
+
+    @Test
+    public void testSubmitSavepointRestoreWithoutSourceJobIdReturns400() throws Exception {
+        String requestUrl =
+                "http://localhost:"
+                        + workerRestPort
+                        + "/submit-job?format=json&restoreMode=SAVEPOINT&jobName="
+                        + TEST_JOB_NAME;
+
+        HttpResponse response = postJson(requestUrl, getRequestBody());
+        Assertions.assertEquals(400, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertTrue(response.body.contains("\"status\":\"fail\""));
+        Assertions.assertTrue(response.body.contains("restoreSourceJobId"));
+    }
+
+    @Test
+    public void testBuildJobStartWithCheckpointOnWorkerCreatesNewJobId() throws Exception {
+        Assertions.assertNotNull(masterServer);
+        Assertions.assertNotNull(masterServer.getCheckpointService());
+        Assertions.assertNotNull(workerServer);
+        Assertions.assertNull(workerServer.getCheckpointService());
+
+        long sourceJobId = System.currentTimeMillis();
+        storeFakeSourceCheckpoint(sourceJobId, CheckpointType.COMPLETED_POINT_TYPE);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(TEST_JOB_NAME);
+        org.apache.seatunnel.shade.com.typesafe.config.Config seaTunnelJobConfig =
+                buildSeaTunnelJobConfigFromJsonRequest();
+
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        workerServer,
+                        jobConfig,
+                        seaTunnelJobConfig,
+                        workerInstance.node,
+                        RestoreMode.CHECKPOINT,
+                        sourceJobId);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Assertions.assertNotEquals(sourceJobId, jobImmutableInformation.getJobId());
+        Assertions.assertEquals(RestoreMode.CHECKPOINT, jobImmutableInformation.getRestoreMode());
+        Assertions.assertEquals(sourceJobId, jobImmutableInformation.getRestoreSourceJobId());
+        Assertions.assertFalse(jobImmutableInformation.isStartWithSavePoint());
+    }
+
+    @Test
+    public void testBuildJobStartWithCheckpointOnWorkerWhenOnlyGeneralCheckpointExists()
+            throws Exception {
+        Assertions.assertNotNull(masterServer);
+        Assertions.assertNotNull(masterServer.getCheckpointService());
+        Assertions.assertNotNull(workerServer);
+        Assertions.assertNull(workerServer.getCheckpointService());
+
+        long sourceJobId = System.currentTimeMillis();
+        storeFakeSourceCheckpoint(sourceJobId, 1L, CheckpointType.CHECKPOINT_TYPE);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(TEST_JOB_NAME);
+        org.apache.seatunnel.shade.com.typesafe.config.Config seaTunnelJobConfig =
+                buildSeaTunnelJobConfigFromJsonRequest();
+
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        workerServer,
+                        jobConfig,
+                        seaTunnelJobConfig,
+                        workerInstance.node,
+                        RestoreMode.CHECKPOINT,
+                        sourceJobId);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Assertions.assertNotEquals(sourceJobId, jobImmutableInformation.getJobId());
+        Assertions.assertEquals(RestoreMode.CHECKPOINT, jobImmutableInformation.getRestoreMode());
+        Assertions.assertEquals(sourceJobId, jobImmutableInformation.getRestoreSourceJobId());
+    }
+
     private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
         Field jettyServiceField = SeaTunnelServer.class.getDeclaredField("jettyService");
         jettyServiceField.setAccessible(true);
@@ -244,6 +335,16 @@ public class RestApiSubmitJobStartWithSavePointTest {
     }
 
     private void storeFakeSourceCheckpoint(long jobId) throws Exception {
+        storeFakeSourceCheckpoint(jobId, CheckpointType.SAVEPOINT_TYPE);
+    }
+
+    private void storeFakeSourceCheckpoint(long jobId, CheckpointType checkpointType)
+            throws Exception {
+        storeFakeSourceCheckpoint(jobId, 1L, checkpointType);
+    }
+
+    private void storeFakeSourceCheckpoint(
+            long jobId, long checkpointId, CheckpointType checkpointType) throws Exception {
         Assertions.assertNotNull(masterServer);
         Assertions.assertNotNull(masterServer.getCheckpointService());
 
@@ -263,7 +364,6 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Map<ActionStateKey, ActionState> taskStates = new HashMap<>();
         taskStates.put(actionStateKey, actionState);
 
-        long checkpointId = 1L;
         int pipelineId = 1;
         long now = System.currentTimeMillis();
         CompletedCheckpoint completedCheckpoint =
@@ -272,7 +372,7 @@ public class RestApiSubmitJobStartWithSavePointTest {
                         pipelineId,
                         checkpointId,
                         now,
-                        CheckpointType.SAVEPOINT_TYPE,
+                        checkpointType,
                         now,
                         taskStates,
                         Collections.emptyMap());
@@ -421,11 +521,13 @@ public class RestApiSubmitJobStartWithSavePointTest {
                 + "      tcp-ip:\n"
                 + "        enabled: true\n"
                 + "        member-list:\n"
-                + "          - localhost\n"
+                + "          - 127.0.0.1\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + HAZELCAST_PORT
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"

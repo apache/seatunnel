@@ -37,6 +37,20 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DRIVER_CLASS_NAME = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
+    // Holds JDBC properties forwarded from the connector URL; applied before dbzProperties in
+    // create() so an explicit debezium.* setting still wins over URL-derived ones.
+    private Properties jdbcUrlProperties;
+
+    /**
+     * Adds SQL Server JDBC properties parsed from the connector URL.
+     *
+     * <p>Explicit Debezium properties are applied afterwards and therefore take precedence.
+     */
+    public SqlServerSourceConfigFactory jdbcUrlProperties(Properties jdbcUrlProperties) {
+        this.jdbcUrlProperties = jdbcUrlProperties;
+        return this;
+    }
+
     @Override
     public SqlServerSourceConfig create(int subtask) {
         Properties props = new Properties();
@@ -76,34 +90,42 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
             props.setProperty("table.include.list", tableIncludeList);
         }
 
+        if (jdbcUrlProperties != null) {
+            jdbcUrlProperties.forEach(props::put);
+        }
+
         if (dbzProperties != null) {
             dbzProperties.forEach(props::put);
         }
 
-        return new SqlServerSourceConfig(
-                startupConfig,
-                stopConfig,
-                databaseList,
-                tableList,
-                splitSize,
-                splitColumn,
-                distributionFactorUpper,
-                distributionFactorLower,
-                sampleShardingThreshold,
-                inverseSamplingRate,
-                sampleShardingAllow,
-                props,
-                DRIVER_CLASS_NAME,
-                hostname,
-                port,
-                username,
-                password,
-                originUrl,
-                fetchSize,
-                serverTimeZone,
-                connectTimeoutMillis,
-                connectMaxRetries,
-                connectionPoolSize,
-                exactlyOnce);
+        SqlServerSourceConfig config =
+                new SqlServerSourceConfig(
+                        startupConfig,
+                        stopConfig,
+                        databaseList,
+                        tableList,
+                        splitSize,
+                        splitColumn,
+                        distributionFactorUpper,
+                        distributionFactorLower,
+                        sampleShardingThreshold,
+                        inverseSamplingRate,
+                        sampleShardingAllow,
+                        props,
+                        DRIVER_CLASS_NAME,
+                        hostname,
+                        port,
+                        username,
+                        password,
+                        originUrl,
+                        fetchSize,
+                        serverTimeZone,
+                        connectTimeoutMillis,
+                        connectMaxRetries,
+                        connectionPoolSize,
+                        exactlyOnce);
+        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 }

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.testcontainers.containers.GenericContainer;
@@ -30,8 +28,6 @@ import org.testcontainers.utility.DockerLoggerFactory;
 public class PostgresSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
     private static final String PG_IMAGE = "postgis/postgis";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
     private final int PG_PORT = 5432;
     private final String DATABASE_TYPE = "Postgres";
     private final String PG_USER = "postgres";
@@ -52,7 +48,6 @@ public class PostgresSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                 .jdbcUrl(PG_JDBC_URL)
                 .username(PG_USER)
                 .password(PG_PASSWORD)
-                .driverUrl(PG_DRIVER_JAR)
                 .port(PG_PORT)
                 .driverClassName(PG_DRIVER_CLASS)
                 .databaseName(SINK_DATABASE)
@@ -68,20 +63,15 @@ public class PostgresSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
     @Override
     protected GenericContainer initSinkContainer() {
-        PostgreSQLContainer container =
-                new PostgreSQLContainer<>(
-                                DockerImageName.parse(PG_IMAGE)
-                                        .asCompatibleSubstituteFor("postgres"))
-                        .withDatabaseName(SINK_DATABASE)
-                        .withUsername(PG_USER)
-                        .withPassword(PG_PASSWORD)
-                        .withNetwork(TestSuiteBase.NETWORK)
-                        .withNetworkAliases("postgresql")
-                        .withCommand("postgres -c max_prepared_transactions=100")
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PG_PORT, PG_PORT)));
-        return container;
+        return new PostgreSQLContainer<>(
+                        DockerImageName.parse(PG_IMAGE).asCompatibleSubstituteFor("postgres"))
+                .withDatabaseName(SINK_DATABASE)
+                .withUsername(PG_USER)
+                .withPassword(PG_PASSWORD)
+                .withNetwork(TestSuiteBase.NETWORK)
+                .withNetworkAliases("postgresql")
+                .withCommand("postgres -c max_prepared_transactions=100")
+                .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
     }
 
     @Override

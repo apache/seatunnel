@@ -33,7 +33,7 @@ The target table must already exist. The connector writes each row as a DynamoDB
 | table               | string | yes      | -             | DynamoDB table name to write to.                 |
 | batch_size          | int    | no       | 25            | Records buffered for one batch write request.    |
 | multi_table_sink_replica | int | no       | -             | Sink writer replicas for each table.             |
-| max_retries         | int    | no       | 10            | Retries for unprocessed items.                   |
+| max_retries         | int    | no       | 10            | Retries for unprocessed items. Must be at least `0`. |
 | retry_base_delay_ms | long   | no       | 100           | Initial retry backoff delay in milliseconds.     |
 | retry_max_delay_ms  | long   | no       | 5000          | Maximum retry backoff delay in milliseconds.     |
 | common-options      | object | no       | -             | Sink plugin common parameters.                   |
@@ -76,6 +76,7 @@ Optional common sink option used by multi-table sink jobs. For details, see [Sin
 ### max_retries [int]
 
 The maximum number of retries when DynamoDB returns unprocessed items from a batch write request.
+A value of `0` disables retries. The value must not be negative.
 
 ### retry_base_delay_ms [long]
 

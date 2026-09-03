@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.common.statestore.metrics.hazelcast;
 
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -30,14 +31,12 @@ import com.hazelcast.map.listener.EntryUpdatedListener;
 
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 /** Implementation backed by a partitioned Hazelcast metrics {@link IMap}. */
 public class HazelcastMetricsSnapshotStateStore
@@ -115,40 +114,24 @@ public class HazelcastMetricsSnapshotStateStore
 
     @Override
     public void removePipeline(final PipelineLocation pipelineLocation) {
-        Map<Long, List<TaskLocation>> partitionedTasks = new HashMap<>();
-        for (Map.Entry<Long, Map<TaskLocation, SeaTunnelMetricsContext>> entry :
-                metricsImap.entrySet()) {
-            long partition = entry.getKey();
-            List<TaskLocation> tasksToRemove =
-                    entry.getValue().keySet().stream()
-                            .filter(
-                                    t ->
-                                            t.getTaskGroupLocation()
-                                                    .getPipelineLocation()
-                                                    .equals(pipelineLocation))
-                            .collect(Collectors.toList());
-            if (!tasksToRemove.isEmpty()) {
-                partitionedTasks.put(partition, tasksToRemove);
-            }
+        for (long partition = 0; partition < partitionCount; partition++) {
+            metricsImap.compute(
+                    partition,
+                    (ignored, current) -> {
+                        if (current == null || current.isEmpty()) {
+                            return current;
+                        }
+                        Map<TaskLocation, SeaTunnelMetricsContext> updated = new HashMap<>(current);
+                        updated.entrySet()
+                                .removeIf(
+                                        entry ->
+                                                pipelineLocation.equals(
+                                                        entry.getKey()
+                                                                .getTaskGroupLocation()
+                                                                .getPipelineLocation()));
+                        return updated.isEmpty() ? null : updated;
+                    });
         }
-
-        partitionedTasks
-                .entrySet()
-                .parallelStream()
-                .forEach(
-                        entry -> {
-                            long partition = entry.getKey();
-                            List<TaskLocation> tasks = entry.getValue();
-                            metricsImap.compute(
-                                    partition,
-                                    (k, oldVal) -> {
-                                        if (oldVal != null) {
-                                            tasks.forEach(oldVal::remove);
-                                            if (oldVal.isEmpty()) return null;
-                                        }
-                                        return oldVal;
-                                    });
-                        });
     }
 
     @Override
@@ -185,7 +168,7 @@ public class HazelcastMetricsSnapshotStateStore
     }
 
     private long partition(TaskLocation taskLocation) {
-        return (taskLocation.hashCode() & Integer.MAX_VALUE) % partitionCount;
+        return HashUtils.bucketIndex(taskLocation.hashCode(), partitionCount);
     }
 
     @Override

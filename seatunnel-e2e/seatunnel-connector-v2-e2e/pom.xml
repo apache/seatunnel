@@ -30,19 +30,23 @@
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>
         <module>connector-redis-e2e</module>
+        <module>connector-cdc-db2-e2e</module>
         <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-databend-e2e</module>
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>
         <module>connector-amazondynamodb-e2e</module>
+        <module>connector-azurecosmosdb-e2e</module>
         <module>connector-amazonsqs-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-file-cos-e2e</module>
+        <module>connector-file-bos-e2e</module>
         <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
+        <module>connector-file-gcs-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
@@ -67,10 +71,13 @@
         <module>connector-maxcompute-e2e</module>
         <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
+        <module>connector-google-pubsub-e2e</module>
+        <module>connector-azure-queue-storage-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
         <module>connector-pulsar-e2e</module>
+        <module>connector-python-e2e</module>
         <module>connector-paimon-e2e</module>
         <module>connector-kudu-e2e</module>
         <module>connector-easysearch-e2e</module>
@@ -93,10 +100,82 @@
         <module>connector-aerospike-e2e</module>
         <module>connector-sensorsdata-e2e</module>
         <module>connector-hugegraph-e2e</module>
+        <module>connector-nebulagraph-e2e</module>
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
         <module>connector-bigquery-e2e</module>
+        <module>connector-nats-jetstream-e2e</module>
+        <module>connector-couchbase-e2e</module>
+        <module>connector-firebase-e2e</module>
     </modules>
+
+    <properties>
+        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
+        <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
+        <dns-cache-manipulator.version>1.8.0</dns-cache-manipulator.version>
+        <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
+        <hadoop-cos.version>2.6.5-8.0.2</hadoop-cos.version>
+        <hive.exec.version>3.1.3</hive.exec.version>
+        <jdom.version>1.1</jdom.version>
+        <libfb303.version>0.9.3</libfb303.version>
+        <mysql.e2e.version>8.0.32</mysql.e2e.version>
+        <zstd-jni.version>1.5.5-5</zstd-jni.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.aliyun.oss</groupId>
+                <artifactId>aliyun-sdk-oss</artifactId>
+                <version>${aliyun.sdk.oss.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.amazonaws</groupId>
+                <artifactId>aws-java-sdk-bundle</artifactId>
+                <version>${aws-java-sdk.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>${zstd-jni.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.mysql</groupId>
+                <artifactId>mysql-connector-j</artifactId>
+                <version>${mysql.e2e.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.qcloud.cos</groupId>
+                <artifactId>hadoop-cos</artifactId>
+                <version>${hadoop-cos.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aliyun</artifactId>
+                <version>${hadoop-aliyun.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hadoop</groupId>
+                <artifactId>hadoop-aws</artifactId>
+                <version>${hadoop-aws.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.thrift</groupId>
+                <artifactId>libfb303</artifactId>
+                <version>${libfb303.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.jdom</groupId>
+                <artifactId>jdom</artifactId>
+                <version>${jdom.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>dns-cache-manipulator</artifactId>
+                <version>${dns-cache-manipulator.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
