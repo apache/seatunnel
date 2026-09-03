@@ -658,6 +658,24 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 httpConfig.setBasicAuthPassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_FILE_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxFileSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_FILE_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxRequestSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_REQUEST_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

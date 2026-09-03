@@ -158,6 +158,12 @@ public class JettyService {
         log.info("SeaTunnel REST service will start on https port {}", httpsPort);
     }
 
+    private static long toBytes(int megabytes) {
+        // Jetty reads a negative limit as unlimited, which is what this server did before the
+        // limit became configurable. Keep that available instead of scaling it into bytes.
+        return megabytes <= 0 ? -1L : megabytes * 1024L * 1024L;
+    }
+
     public void createJettyServer() {
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
@@ -233,7 +239,12 @@ public class JettyService {
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_JOB_INFO));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_RUNNING_JOB));
         context.addServlet(threadDumpHolder, convertUrlToPath(REST_URL_THREAD_DUMP));
-        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("");
+        // Bound the upload: the whole part is buffered by Jetty and then read into a String, so an
+        // unbounded body lets a single request fill the temp directory and exhaust the master heap.
+        long maxFileSize = toBytes(httpConfig.getUploadMaxFileSizeMb());
+        long maxRequestSize = toBytes(httpConfig.getUploadMaxRequestSizeMb());
+        MultipartConfigElement multipartConfigElement =
+                new MultipartConfigElement("", maxFileSize, maxRequestSize, 0);
         submitJobByUploadFileHolder.getRegistration().setMultipartConfig(multipartConfigElement);
         context.addServlet(
                 submitJobByUploadFileHolder, convertUrlToPath(REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE));

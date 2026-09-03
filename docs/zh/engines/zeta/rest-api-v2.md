@@ -13,7 +13,7 @@ v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相�
 
 这里需要区分两个容易混淆的“默认值”来源：
 
-- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`
+- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`、`upload-max-file-size-mb = 10`、`upload-max-request-size-mb = 10`
 - 发行包自带的 `seatunnel.yaml` 示例：默认写入了 `enable-http: true` 和 `port: 8080`
 
 因此，直接使用发行包自带配置启动时，Web UI 和 REST API 通常会监听
@@ -54,6 +54,20 @@ seatunnel:
       enable-http: true
       port: 8080
       context-path: /seatunnel
+```
+
+上传的配置文件有大小上限，避免单个请求把 Master 的临时目录写满或把堆内存吃光。这两个配置只作用于
+`/submit-job/upload`，取值小于等于 `0` 表示不限制：
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      upload-max-file-size-mb: 10
+      upload-max-request-size-mb: 10
 ```
 
 ## Web UI 与 8080 排查
@@ -934,6 +948,9 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 - `.json` 文件：按照 JSON 格式解析
 - `.conf` 或 `.config` 文件：按照 HOCON 格式解析
 - `.sql` 文件：按照 SQL 格式解析，支持 CREATE TABLE 和 INSERT INTO 语法
+
+单个文件大小受 `seatunnel.engine.http.upload-max-file-size-mb`（默认 10 MB）限制，单个请求的总大小受
+`upload-max-request-size-mb`（默认 10 MB）限制。超出上限的请求会在解析配置之前被拒绝。
 
 curl Example
 

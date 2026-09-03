@@ -16,7 +16,7 @@ The v2 API and the Web UI are both served by the embedded Jetty server. Jetty st
 
 There are two different "default" sources that are easy to mix up:
 
-- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`
 - The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
 
 As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
@@ -58,6 +58,21 @@ seatunnel:
       enable-http: true
       port: 8080
       context-path: /seatunnel
+```
+
+The size of an uploaded config file is bounded, so a single request cannot fill the master's temp
+directory or exhaust its heap. Both limits apply to `/submit-job/upload` only, and a value of `0`
+or below means unlimited:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      upload-max-file-size-mb: 10
+      upload-max-request-size-mb: 10
 ```
 
 ## Web UI and Port 8080 Troubleshooting
@@ -960,6 +975,10 @@ The name of the uploaded file key is config_file, and supports the following for
 - `.json` files: parsed in JSON format
 - `.conf` or `.config` files: parsed in HOCON format
 - `.sql` files: parsed in SQL format, supports CREATE TABLE and INSERT INTO syntax
+
+The upload is limited to `seatunnel.engine.http.upload-max-file-size-mb` (10 MB by default) per
+file and `upload-max-request-size-mb` (10 MB by default) per request. A larger upload is rejected
+before the config is parsed.
 
 curl Example :
 ```bash
