@@ -255,6 +255,37 @@ public class OracleUtils {
         return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
     }
 
+    /**
+     * Builds the snapshot query for a split, honoring a Debezium per-table select override when
+     * configured.
+     *
+     * <p>The override is wrapped as an inline view before the split predicate is appended. This
+     * retains the caller's filter while keeping SeaTunnel's parallel snapshot boundaries intact.
+     */
+    public static String buildSnapshotSplitScanQuery(
+            OracleConnectorConfig connectorConfig,
+            TableId tableId,
+            SeaTunnelRowType rowType,
+            boolean isFirstSplit,
+            boolean isLastSplit) {
+        String overriddenSelect = connectorConfig.getSnapshotSelectOverridesByTable().get(tableId);
+        if (overriddenSelect == null) {
+            overriddenSelect =
+                    connectorConfig
+                            .getSnapshotSelectOverridesByTable()
+                            .get(new TableId(null, tableId.schema(), tableId.table()));
+        }
+        if (overriddenSelect == null) {
+            return buildSplitScanQuery(tableId, rowType, isFirstSplit, isLastSplit);
+        }
+
+        String condition = buildSplitCondition(rowType, isFirstSplit, isLastSplit, true);
+        if (condition == null) {
+            return overriddenSelect;
+        }
+        return String.format("SELECT * FROM (%s) WHERE %s", overriddenSelect, condition);
+    }
+
     private static String buildSplitQuery(
             TableId tableId,
             SeaTunnelRowType rowType,
@@ -262,35 +293,8 @@ public class OracleUtils {
             boolean isLastSplit,
             int limitSize,
             boolean isScanningData) {
-        final String condition;
-
-        if (isFirstSplit && isLastSplit) {
-            condition = null;
-        } else if (isFirstSplit) {
-            final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
-            if (isScanningData) {
-                sql.append(" AND NOT (");
-                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
-                sql.append(")");
-            }
-            condition = sql.toString();
-        } else if (isLastSplit) {
-            final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
-            condition = sql.toString();
-        } else {
-            final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
-            if (isScanningData) {
-                sql.append(" AND NOT (");
-                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
-                sql.append(")");
-            }
-            sql.append(" AND ");
-            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
-            condition = sql.toString();
-        }
+        final String condition =
+                buildSplitCondition(rowType, isFirstSplit, isLastSplit, isScanningData);
 
         if (isScanningData) {
             return buildSelectWithRowLimits(
@@ -305,6 +309,38 @@ public class OracleUtils {
                     Optional.ofNullable(condition),
                     orderBy);
         }
+    }
+
+    private static String buildSplitCondition(
+            SeaTunnelRowType rowType,
+            boolean isFirstSplit,
+            boolean isLastSplit,
+            boolean isScanningData) {
+        if (isFirstSplit && isLastSplit) {
+            return null;
+        }
+
+        final StringBuilder sql = new StringBuilder();
+        if (isFirstSplit) {
+            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
+            if (isScanningData) {
+                sql.append(" AND NOT (");
+                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
+                sql.append(")");
+            }
+        } else if (isLastSplit) {
+            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
+        } else {
+            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
+            if (isScanningData) {
+                sql.append(" AND NOT (");
+                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
+                sql.append(")");
+            }
+            sql.append(" AND ");
+            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
+        }
+        return sql.toString();
     }
 
     public static PreparedStatement readTableSplitDataStatement(
