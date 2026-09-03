@@ -28,24 +28,41 @@ title: Zeta 基准测试
 - `IMapWalStorageBenchmark`：分别改变有效 Key 数和单 Key 历史深度，测量文件型 IMap WAL
   追加耗时、字节增长和恢复性能。
 
-对于 `SeaTunnelPipelineBenchmark`，MiniCluster 在每个 JMH Trial 的 Setup 阶段启动，不计入
-测量。作业提交、调度、Source、Transform、Sink 和作业完成都计入 JMH 测量。
+对于需要 Zeta 运行时的测试，JMH 负责 Fork、预热、测量和 Trial 生命周期；Environment
+Context 在 Trial Setup 阶段创建 Client 并启动嵌入式 Zeta。Setup 和 TearDown 不计时，只有
+`@Benchmark` 方法执行的操作计入 JMH 测量。
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
 flowchart LR
-    Setup["启动 MiniCluster<br/>不计入 JMH"] -.-> Submit["提交作业<br/>开始计时"]
-    Submit --> Source["BenchmarkSource"]
-    Source --> Transform["BenchmarkTransform<br/>可选"]
-    Transform --> Sink["BenchmarkSink"]
-    Sink --> Finish["作业完成<br/>停止计时"]
-    Source -. "计划生成时间" .-> Sink
-    Sink -.-> Result["Pipeline JSON<br/>吞吐与延迟"]
+    subgraph JMH["JMH"]
+        direction LR
+        Runner["Benchmark Runner<br/>Fork · 预热 · 测量"]
+        Context["Environment Context<br/>Trial Setup / TearDown"]
+        Runner --> Context
+    end
+
+    subgraph Zeta["Zeta"]
+        direction LR
+        Client["SeaTunnel Client"]
+        Cluster["嵌入式 Zeta Cluster<br/>单节点或独立 Master + Worker"]
+        Client --> Cluster
+    end
+
+    Context -->|"创建 Client 并执行测试"| Client
+    Context -. "Trial 级启动 / 停止" .-> Cluster
+
+    classDef runner fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff
+    classDef runtime fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff
+    class Runner,Context runner
+    class Client,Cluster runtime
+    style JMH fill:#15142a,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff
+    style Zeta fill:#081d24,stroke:#2dd4bf,stroke-width:1.5px,color:#f8fbff
 ```
 
-Source 使用基于绝对时间的开环调度。每条记录都携带计划生成时间；当 Zeta 跟不上时，计划
-时间仍持续向前推进，因此排队和 backlog 会体现在 event-time latency 中，不会因 Source
-等待引擎而被隐藏。
+在 `SeaTunnelPipelineBenchmark` 中，Source 使用基于绝对时间的开环调度。每条记录都携带
+计划生成时间；当 Zeta 跟不上时，计划时间仍持续向前推进，因此排队和 backlog 会体现在
+event-time latency 中，不会因 Source 等待引擎而被隐藏。
 
 ### 测试范围
 

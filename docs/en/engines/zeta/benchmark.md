@@ -32,25 +32,43 @@ The `seatunnel-benchmarks` module provides these types of tests:
 - `IMapWalStorageBenchmark` measures file-backed IMap WAL append cost, byte growth, and recovery as
   live-key count and per-key history depth change independently.
 
-For `SeaTunnelPipelineBenchmark`, the MiniCluster starts during JMH Trial setup and is outside the
-measurement. Job submission, scheduling, Source, Transform, Sink, and job completion are inside the
-JMH measurement.
+For benchmarks that require the Zeta runtime, JMH controls the forks, warmup, measurement, and Trial
+lifecycle. The Environment Context creates the Client and starts embedded Zeta during Trial setup.
+Setup and teardown are outside the timing; only operations performed by the `@Benchmark` method are
+measured.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
 flowchart LR
-    Setup["Start MiniCluster<br/>outside JMH timing"] -.-> Submit["Submit job<br/>start timing"]
-    Submit --> Source["BenchmarkSource"]
-    Source --> Transform["BenchmarkTransform<br/>optional"]
-    Transform --> Sink["BenchmarkSink"]
-    Sink --> Finish["Job completes<br/>stop timing"]
-    Source -. "scheduled time" .-> Sink
-    Sink -.-> Result["Pipeline JSON<br/>throughput and latency"]
+    subgraph JMH["JMH"]
+        direction LR
+        Runner["Benchmark Runner<br/>Fork · Warmup · Measurement"]
+        Context["Environment Context<br/>Trial Setup / TearDown"]
+        Runner --> Context
+    end
+
+    subgraph Zeta["Zeta"]
+        direction LR
+        Client["SeaTunnel Client"]
+        Cluster["Embedded Zeta Cluster<br/>single-node or dedicated Master + Worker"]
+        Client --> Cluster
+    end
+
+    Context -->|"create Client and run benchmark"| Client
+    Context -. "start / stop at Trial scope" .-> Cluster
+
+    classDef runner fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff
+    classDef runtime fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff
+    class Runner,Context runner
+    class Client,Cluster runtime
+    style JMH fill:#15142a,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff
+    style Zeta fill:#081d24,stroke:#2dd4bf,stroke-width:1.5px,color:#f8fbff
 ```
 
-The Source follows an absolute open-loop schedule. Each row carries its planned generation time. If
-Zeta falls behind, planned time continues to advance, so queueing and backlog remain visible in
-event-time latency instead of being hidden while the Source waits for the engine.
+In `SeaTunnelPipelineBenchmark`, the Source follows an absolute open-loop schedule. Each row carries
+its planned generation time. If Zeta falls behind, planned time continues to advance, so queueing
+and backlog remain visible in event-time latency instead of being hidden while the Source waits for
+the engine.
 
 ### Test Scope
 
