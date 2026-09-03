@@ -76,6 +76,7 @@ import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -1848,6 +1849,60 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testInterruptedPendingJobInsertionDuringRestoreFailsRestore() throws Exception {
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(
+                        TestUtils.getClusterName(
+                                "CoordinatorServiceTest_testInterruptedPendingJobInsertionDuringRestore"),
+                        1);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf", "interrupted_restore", jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            JobInfo jobInfo =
+                    new JobInfo(
+                            100L,
+                            instance.getSerializationService().toData(jobImmutableInformation));
+            IMap<Object, Object> runningJobStateIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+            ReflectionUtils.setField(
+                    coordinatorService,
+                    "pendingJobQueue",
+                    new AlwaysInterruptedPendingJobQueue());
+
+            InvocationTargetException invocationException =
+                    Assertions.assertThrows(
+                            InvocationTargetException.class,
+                            () -> invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, jobInfo));
+            Assertions.assertInstanceOf(SeaTunnelEngineException.class, invocationException.getCause());
+            Assertions.assertInstanceOf(
+                    InterruptedException.class, invocationException.getCause().getCause());
+            Assertions.assertFalse(coordinatorService.getPendingJobQueue().contains(jobId));
+            Assertions.assertNotEquals(JobStatus.PENDING, runningJobStateIMap.get(jobId));
+        } finally {
+            Thread.interrupted();
+            instance.shutdown();
+        }
+    }
+
+    @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
     void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
@@ -2085,6 +2140,18 @@ public class CoordinatorServiceTest {
                 Thread.currentThread().interrupt();
             }
             super.put(element);
+        }
+    }
+
+    private static class AlwaysInterruptedPendingJobQueue
+            extends PeekBlockingQueue<PendingJobInfo> {
+        private AlwaysInterruptedPendingJobQueue() {
+            super(PendingJobInfo::getJobId);
+        }
+
+        @Override
+        public void put(PendingJobInfo element) throws InterruptedException {
+            throw new InterruptedException("test interruption");
         }
     }
 
