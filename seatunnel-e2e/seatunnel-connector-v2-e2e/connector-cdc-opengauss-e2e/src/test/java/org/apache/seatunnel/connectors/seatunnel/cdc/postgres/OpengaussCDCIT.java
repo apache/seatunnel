@@ -95,6 +95,11 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
     private static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/JDBC/lib";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
+    /**
+     * OpenGauss CDC startup and first-record propagation can exceed one minute on shared CI
+     * runners, while the assertions still require exact source and sink equality.
+     */
+    private static final long OPENGAUSS_CDC_WAIT_TIMEOUT_SECONDS = 180L;
 
     public static final GenericContainer<?> OPENGAUSS_CONTAINER =
             new GenericContainer<>(OPENGAUSS_IMAGE)
@@ -511,7 +516,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                     });
 
             // snapshot stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(OPENGAUSS_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertIterableEquals(
@@ -526,7 +531,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             upsertDeleteSourceTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(OPENGAUSS_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertIterableEquals(

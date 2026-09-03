@@ -349,6 +349,18 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 作为启动偏移量。未使用的复制槽会持续占用磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC
 任务永久下线时，应在 PostgreSQL 侧手动删除不再使用的复制槽。
 
+当 `exactly_once = true` 且 `startup.mode = initial` 时，SeaTunnel 会在任何快照 reader
+记录低水位线之前先准备好 `slot.name` 指定的流式复制槽。每个快照 reader 随后会使用一个
+由 `slot.name` 和 reader subtask id 派生出来的短生命周期 backfill 复制槽，读取快照低水位线
+到高水位线之间的有界 WAL。生成的 backfill 复制槽名称会控制在 PostgreSQL 63 字节标识符
+限制内，并在有界 backfill reader 结束后显式删除。
+
+如果 Debezium `slot.drop.on.stop` 设置为 `true`，exactly-once initial snapshot 任务关闭时，
+快照枚举器会在没有活跃增量 reader 继续持有该复制槽的情况下删除 `slot.name` 指定的流式
+复制槽。临时 backfill 复制槽始终由快照 reader 自行清理。因此在快照启动阶段，运维人员
+可能会在 `pg_replication_slots` 中短暂看到配置的 `slot.name` 以及生成的 `*_st_backfill_*`
+复制槽。
+
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。

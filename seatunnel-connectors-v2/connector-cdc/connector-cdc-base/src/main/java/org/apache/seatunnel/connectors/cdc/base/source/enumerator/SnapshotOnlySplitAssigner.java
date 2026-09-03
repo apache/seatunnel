@@ -93,4 +93,9 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
     public void notifyCheckpointComplete(long checkpointId) {
         snapshotSplitAssigner.notifyCheckpointComplete(checkpointId);
     }
+
+    @Override
+    public void close() {
+        snapshotSplitAssigner.close();
+    }
 }

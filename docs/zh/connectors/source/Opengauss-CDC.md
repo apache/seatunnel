@@ -200,6 +200,26 @@ transform {
 }
 ```
 
+## FAQ
+
+### 复制槽如何管理？
+
+SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。未使用的复制槽会持续占用
+磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC 任务永久下线时，应在 Opengauss 侧手动删除
+不再使用的复制槽。
+
+当 `exactly_once = true` 且 `startup.mode = initial` 时，SeaTunnel 会在任何快照 reader
+记录低水位线之前先准备好 `slot.name` 指定的流式复制槽。每个快照 reader 随后会使用一个
+由 `slot.name` 和 reader subtask id 派生出来的短生命周期 backfill 复制槽，读取快照低水位线
+到高水位线之间的有界 WAL。生成的 backfill 复制槽名称会控制在 PostgreSQL 兼容的 63 字节
+标识符限制内，并在有界 backfill reader 结束后显式删除。
+
+如果 Debezium `slot.drop.on.stop` 设置为 `true`，exactly-once initial snapshot 任务关闭时，
+快照枚举器会在没有活跃增量 reader 继续持有该复制槽的情况下删除 `slot.name` 指定的流式
+复制槽。临时 backfill 复制槽始终由快照 reader 自行清理。因此在快照启动阶段，运维人员
+可能会在 `pg_replication_slots` 中短暂看到配置的 `slot.name` 以及生成的 `*_st_backfill_*`
+复制槽。
+
 ## 变更日志
 
 <ChangeLog />

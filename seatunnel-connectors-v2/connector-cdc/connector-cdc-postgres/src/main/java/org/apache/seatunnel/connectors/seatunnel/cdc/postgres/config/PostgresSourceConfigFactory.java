@@ -144,6 +144,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
                         connectMaxRetries,
                         connectionPoolSize,
                         exactlyOnce);
+        config.setSubtaskId(subtask);
         // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
         config.setEnableConcurrentRead(this.enableConcurrentRead);
         return config;

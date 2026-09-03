@@ -356,6 +356,19 @@ uses its `confirmed_flush_lsn` as the startup offset.
 Unused replication slots hold WAL segments on disk, which can cause unbounded WAL growth. When a
 CDC job is permanently decommissioned, drop the unused replication slot manually on PostgreSQL.
 
+When `exactly_once = true` and `startup.mode = initial`, SeaTunnel prepares the configured
+streaming slot before any snapshot reader records its low watermark. Each snapshot reader then uses
+a short-lived backfill slot derived from `slot.name` and the reader subtask id to read the bounded
+WAL range between the snapshot low and high watermarks. The generated backfill slot name is kept
+within PostgreSQL's 63-byte identifier limit and is dropped explicitly after the bounded backfill
+reader finishes.
+
+If Debezium `slot.drop.on.stop` is set to `true`, the snapshot enumerator drops the configured
+streaming slot when the exactly-once initial snapshot job closes and no active incremental reader
+still owns that slot. Temporary backfill slots are always cleaned up by the snapshot reader. During
+snapshot startup, operators may therefore briefly see both the configured `slot.name` and generated
+`*_st_backfill_*` slots in `pg_replication_slots`.
+
 ### Why does PostgreSQL CDC fall behind?
 
 Replication lag can occur when the logical decoding plugin is slow or when the WAL sender is under load. Monitor `pg_replication_slots` for `confirmed_flush_lsn` drift. Ensure the CDC job consumes events continuously and that network latency between SeaTunnel and PostgreSQL is low.
