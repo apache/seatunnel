@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -82,14 +83,6 @@ public class JdbcToJdbcRecipeIT extends TestSuiteBase implements TestResource {
     // Password used only by the isolated database containers in this test.
     private static final String DATABASE_PASSWORD = "test";
 
-    // MySQL JDBC driver downloaded into each SeaTunnel engine container.
-    private static final String MYSQL_DRIVER_URL =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
-    // PostgreSQL JDBC driver downloaded into each SeaTunnel engine container.
-    private static final String POSTGRES_DRIVER_URL =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-
     // MySQL source container shared by all engine invocations in this test class.
     private MySQLContainer<?> mysqlContainer;
 
@@ -100,20 +93,10 @@ public class JdbcToJdbcRecipeIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult result =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib"
-                                        + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
-                                        + " && curl -fsSLO "
-                                        + MYSQL_DRIVER_URL
-                                        + " && curl -fsSLO "
-                                        + POSTGRES_DRIVER_URL);
-                Assertions.assertEquals(
-                        0,
-                        result.getExitCode(),
-                        "Failed to download JDBC drivers: " + result.getStderr());
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgresql.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     /**

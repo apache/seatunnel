@@ -77,3 +77,38 @@ These clusters are engineering targets, not permanent limits: they are being add
 ## Repair Loop: Measured Effectiveness
 
 Feeding **real engine errors** back to the repair agent recovered 47% of runtime failures (top-3 models combined). The same model repairs structured validation errors at ~2× the rate of raw Java stack traces — evidence that structured error parsing, not a smarter model, is the highest-leverage next improvement for the repair loop.
+
+## Running the Benchmark Yourself
+
+The benchmark harness ships in the main repository under
+[`seatunnel-cli/benchmark/`](https://github.com/apache/seatunnel/tree/dev/seatunnel-cli/benchmark) —
+100 declarative tasks, the layered verdict gates, the Docker data
+environment, and the report generator.
+
+```bash
+cd seatunnel-cli
+
+# Credentials via provider-standard environment variables
+export OPENAI_API_KEY=sk-...          # or ANTHROPIC_API_KEY / AWS credentials
+
+# One command: installs deps, preflights the environment, runs, reports
+./benchmark/run_benchmark.sh --provider openai --model gpt-4o
+
+# Multi-model comparison
+./benchmark/run_benchmark.sh --models benchmark/models.json
+
+# Optional deeper gates:
+#   L2 (engine dry-run)   — set SEATUNNEL_HOME to a dev-branch build
+#   L3 (real execution)   — docker compose -f benchmark/docker/docker-compose.yml up -d --wait
+```
+
+Missing infrastructure degrades gracefully: without an engine or Docker you
+get a static-gate (L1) report; trials whose requested gates could not execute
+are excluded from every pass metric and flagged in the summary, so results
+from differently-equipped machines are never silently compared.
+
+Every report is stamped with the CLI version and git commit under test —
+rerun the same model on a new CLI build to measure the impact of any prompt,
+metadata, or repair-logic change on identical tasks. See
+[`benchmark/README.md`](https://github.com/apache/seatunnel/blob/dev/seatunnel-cli/benchmark/README.md)
+for the full methodology, task-suite layout, and metric definitions.

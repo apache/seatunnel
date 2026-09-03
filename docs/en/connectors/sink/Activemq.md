@@ -31,6 +31,7 @@ a sink-only connector; SeaTunnel does not provide an ActiveMQ source connector.
 | dispatch_async                          | boolean | no       | -             | Whether the broker dispatches messages asynchronously.                                                                                                                |
 | nested_map_and_list_enabled             | boolean | no       | -             | Whether structured message properties and `MapMessage` entries can contain nested `Map` and `List` objects.                                                           |
 | warn_about_unstarted_connection_timeout | int     | no       | -             | Timeout in milliseconds before ActiveMQ warns that a connection was not started correctly. Set a value less than `0` to disable the warning in the ActiveMQ client. |
+| consumer_expiry_check_enabled            | boolean | no       | -             | Whether the ActiveMQ client checks message expiration in each `MessageConsumer` before dispatching messages.                                                                                                  |
 
 ## Notes
 
@@ -70,6 +71,38 @@ sink {
     uri = "tcp://localhost:61616"
     username = "admin"
     password = "admin"
+    queue_name = "testQueue"
+  }
+}
+```
+
+In streaming mode, the sink keeps the same broker connection open and writes each row as it
+arrives. Username/password can also be embedded in the `uri`, for example
+`tcp://admin:admin@localhost:61616`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice"] }
+    ]
+  }
+}
+
+sink {
+  ActiveMQ {
+    uri = "tcp://admin:admin@localhost:61616"
     queue_name = "testQueue"
   }
 }

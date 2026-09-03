@@ -34,7 +34,6 @@
         <!-- Imap storage dependency package  -->
         <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
         <json-smart.version>2.4.7</json-smart.version>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
         <netty-buffer.version>4.1.60.Final</netty-buffer.version>
     </properties>
 
@@ -47,9 +46,7 @@
         <!-- hadoop jar -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>provided</scope>
             <exclusions>
                 <exclusion>
@@ -60,9 +57,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-commons-lang3</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-commons-lang3</artifactId>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.lmax/disruptor -->
         <dependency>

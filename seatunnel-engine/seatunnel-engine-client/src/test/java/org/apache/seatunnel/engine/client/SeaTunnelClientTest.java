@@ -513,12 +513,13 @@ public class SeaTunnelClientTest {
                             true,
                             exception -> {
                                 // If we do savepoint for a Job which initialization has not been
-                                // completed yet, we will get an error.
+                                // completed yet, or while the master is still publishing the
+                                // running JobMaster, we will get an error.
                                 // In this test case, we need retry savepoint.
-                                return exception
-                                        .getCause()
-                                        .getMessage()
-                                        .contains("Task not all ready, savepoint error");
+                                Throwable cause = exception.getCause();
+                                String message = cause == null ? "" : cause.getMessage();
+                                return message.contains("Task not all ready, savepoint error")
+                                        || message.contains("not running, save point failed");
                             },
                             Constant.OPERATION_RETRY_SLEEP));
 

@@ -17,16 +17,30 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 @Getter
 @AllArgsConstructor
 public class MultiTableState implements Serializable {
+    // Keep the generated UID from the pre-failedTables class shape so old checkpoints restore.
+    private static final long serialVersionUID = 5992121739651030596L;
 
     private Map<SinkIdentifier, List<?>> states;
+    private List<MultiTableFailedTable> failedTables;
+
+    public MultiTableState(Map<SinkIdentifier, List<?>> states) {
+        this(states, Collections.emptyList());
+    }
+
+    public List<MultiTableFailedTable> getFailedTables() {
+        return failedTables == null ? Collections.emptyList() : failedTables;
+    }
 }

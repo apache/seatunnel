@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -25,8 +26,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.common.IdentityFlatMapTransform;
 import org.apache.seatunnel.transform.common.TransformCommonOptions;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -87,6 +91,56 @@ class SQLMultiCatalogFlatMapTransformTest {
                 transform
                         .getTransformMap()
                         .get(tables.get(0).getTableId().toTablePath().toString()));
+    }
+
+    @Test
+    void testClassifyRowError() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        CatalogTable catalogTable =
+                CatalogTableUtil.getCatalogTable("test", "test", "test", "test", rowType);
+        SQLMultiCatalogFlatMapTransform transform =
+                new SQLMultiCatalogFlatMapTransform(
+                        Collections.singletonList(catalogTable),
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(
+                                        SQLTransform.KEY_QUERY.key(), "select * from dual")));
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "name"});
+
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                transform.classifyRowError(
+                        TransformCommonError.sqlExpressionError(
+                                "select * from dual", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                transform.classifyRowError(
+                        new RuntimeException(
+                                TransformCommonError.sqlWhereStatementError(
+                                        "id > 0", new RuntimeException("error"))),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                transform.classifyRowError(
+                        TransformCommonError.encryptionError("name", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                transform.classifyRowError(
+                        TransformCommonError.sqlWhereStatementError(
+                                "id BETWEEN 1 AND 5",
+                                new TransformException(
+                                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                        "Unsupported SQL Expression")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                transform.classifyRowError(new RuntimeException("error"), row));
     }
 
     private static class TestSQLMultiCatalogFlatMapTransform

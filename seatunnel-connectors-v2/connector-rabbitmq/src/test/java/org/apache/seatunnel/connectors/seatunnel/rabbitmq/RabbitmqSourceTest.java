@@ -34,7 +34,6 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -116,43 +115,6 @@ public class RabbitmqSourceTest {
     }
 
     /**
-     * Test Validation: If a user accidentally provides BOTH 'table_configs' and 'schema', the
-     * connector should fail-fast and throw a validation exception.
-     */
-    @Test
-    public void testMixedConfigThrowsException() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
-
-        // Define Table Configs
-        Map<String, Object> table1 = new HashMap<>();
-        table1.put("queue_name", "q1");
-        table1.put(
-                "schema",
-                Collections.singletonMap("fields", Collections.singletonMap("col1", "string")));
-        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
-
-        // Define Root Schema (Conflict)
-        Map<String, Object> rootSchema = new HashMap<>();
-        rootSchema.put("fields", Collections.singletonMap("legacy_col", "boolean"));
-        configMap.put(ConnectorCommonOptions.SCHEMA.key(), rootSchema);
-        configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "global_q");
-
-        // Expect the validation to fail and throw our new RabbitmqConnectorException
-        RabbitmqConnectorException exception =
-                Assertions.assertThrows(
-                        RabbitmqConnectorException.class,
-                        () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
-                        "Should throw an exception when both table_configs and schema are provided");
-
-        // Verify the error message is the one we expect
-        Assertions.assertTrue(
-                exception
-                        .getMessage()
-                        .contains("Cannot specify both 'table_configs' and 'schema'"));
-    }
-
-    /**
      * Tests that the Source throws an exception if configured for BATCH mode, as RabbitMQ is
      * inherently unbounded (Streaming) unless specific for_e2e_testing flag is true.
      */
@@ -201,73 +163,6 @@ public class RabbitmqSourceTest {
         Assertions.assertEquals("RabbitMQ", source.getPluginName());
     }
 
-    /** Test Fallback Scenario: Missing 'queue_name' in table config. */
-    @Test
-    public void testTableConfigWithoutQueueName() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
-        configMap.put(RabbitmqBaseOptions.PORT.key(), 5672);
-
-        // Define a Global Queue
-        configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "global_default_queue");
-
-        // Define a Table Config without queue_name
-        Map<String, Object> table1 = new HashMap<>();
-
-        // Setup Schema
-        Map<String, Object> schema1 = new HashMap<>();
-        schema1.put("table", "fallback_table");
-        schema1.put("fields", Collections.singletonMap("id", "int"));
-        table1.put("schema", schema1);
-
-        // Add to config
-        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
-
-        // Create Source (Περιμένουμε να πετάξει Exception αμέσως!)
-        Assertions.assertThrows(
-                Exception.class,
-                () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
-                "Should fail when table_configs is missing the queue_name");
-    }
-
-    @Test
-    public void testTableConfigMissingSchemaThrowsException() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
-
-        Map<String, Object> table1 = new HashMap<>();
-        table1.put("queue_name", "q1");
-        // table1.put("schema", ...) is purposefully missing
-
-        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
-
-        Assertions.assertThrows(
-                Exception.class,
-                () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
-                "Should fail when table_configs is missing the schema block");
-    }
-    /**
-     * Verifies that if a user configures BOTH 'schema' and 'tables_configs', the code fails-fast
-     * instead of silently prioritizing one over the other.
-     */
-    @Test
-    public void testExclusiveConfigValidation() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("host", "localhost");
-        configMap.put(ConnectorCommonOptions.SCHEMA.key(), new HashMap<>());
-        configMap.put(ConnectorCommonOptions.TABLE_CONFIGS.key(), new ArrayList<>());
-
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-
-        RabbitmqConnectorException exception =
-                Assertions.assertThrows(
-                        RabbitmqConnectorException.class, () -> new RabbitmqSource(config));
-        Assertions.assertTrue(
-                exception
-                        .getMessage()
-                        .contains("Cannot specify both 'table_configs' and 'schema'"));
-    }
-
     /**
      * Verifies that the 'splitId' correctly represents the physical 'queue_name' and is NOT
      * overwritten by the virtual 'plugin_output' table identifier, ensuring connection stability.
@@ -295,39 +190,5 @@ public class RabbitmqSourceTest {
         Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
 
         Assertions.assertTrue(source.getProducedCatalogTables().size() == 1);
-    }
-
-    /**
-     * Verifies that if a user defines a 'table_configs' block but forgets to include the
-     * 'queue_name' key inside it, the system throws a fail-fast validation exception instead of
-     * throwing a NullPointerException during source initialization.
-     */
-    @Test
-    public void testMissingQueueNameInTableConfigsThrowsException() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
-
-        Map<String, Object> table1 = new HashMap<>();
-        table1.put("plugin_output", "my_table");
-        // PURPOSEFULLY MISSING: table1.put("queue_name", "q1");
-
-        Map<String, Object> schema1 = new HashMap<>();
-        schema1.put("fields", Collections.singletonMap("col1", "string"));
-        table1.put("schema", schema1);
-
-        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table1));
-
-        RabbitmqConnectorException exception =
-                Assertions.assertThrows(
-                        RabbitmqConnectorException.class,
-                        () -> new RabbitmqSource(ReadonlyConfig.fromMap(configMap)),
-                        "Should fail-fast when 'queue_name' is omitted inside a table_configs item");
-
-        Assertions.assertTrue(
-                exception
-                        .getMessage()
-                        .contains(
-                                "The 'queue_name' is missing or empty inside one of the 'table_configs' items."),
-                "Error message should clearly state that queue_name is missing");
     }
 }

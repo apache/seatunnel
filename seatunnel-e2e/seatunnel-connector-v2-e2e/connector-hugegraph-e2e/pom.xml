@@ -47,6 +47,34 @@
             <scope>test</scope>
         </dependency>
 
+        <!--
+             hugegraph-client 1.7.0 pulls jackson-jaxrs-* / jackson-module-jaxb-annotations at
+             2.14.0-rc1, while jackson-core/databind resolve to the project-managed ${jackson.version}
+             (2.15.4). Jackson requires all its modules to share one version; the mixed set breaks the
+             client's batch-write REST serialization with an NPE. In the shaded connector jar this is
+             hidden (jackson is relocated into one consistent set), but this in-JVM e2e test runs the
+             unshaded client, so pin the jaxrs/jaxb modules to the managed version here to keep the
+             test classpath consistent.
+        -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-json-provider</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.jaxrs</groupId>
+            <artifactId>jackson-jaxrs-base</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.module</groupId>
+            <artifactId>jackson-module-jaxb-annotations</artifactId>
+            <version>${jackson.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-fake</artifactId>

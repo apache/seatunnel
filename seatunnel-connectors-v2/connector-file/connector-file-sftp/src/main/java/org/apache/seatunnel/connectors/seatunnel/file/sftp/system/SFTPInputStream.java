@@ -19,11 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.sftp.system;
 
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.util.StringUtils;
 
 import com.jcraft.jsch.ChannelSftp;
-import com.jcraft.jsch.JSchException;
-import com.jcraft.jsch.Session;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -39,11 +36,16 @@ public class SFTPInputStream extends FSInputStream {
 
     private InputStream wrappedStream;
     private ChannelSftp channel;
+    private SFTPConnectionPool connectionPool;
     private FileSystem.Statistics stats;
     private boolean closed;
     private long pos;
 
-    SFTPInputStream(InputStream stream, ChannelSftp channel, FileSystem.Statistics stats) {
+    SFTPInputStream(
+            InputStream stream,
+            ChannelSftp channel,
+            SFTPConnectionPool connectionPool,
+            FileSystem.Statistics stats) {
 
         if (stream == null) {
             throw new IllegalArgumentException(E_NULL_INPUT_STREAM);
@@ -53,6 +55,7 @@ public class SFTPInputStream extends FSInputStream {
         }
         this.wrappedStream = stream;
         this.channel = channel;
+        this.connectionPool = connectionPool;
         this.stats = stats;
 
         this.pos = 0;
@@ -110,19 +113,26 @@ public class SFTPInputStream extends FSInputStream {
         if (closed) {
             return;
         }
-        wrappedStream.close();
-        super.close();
-        closed = true;
-        if (!channel.isConnected()) {
-            throw new IOException(E_CLIENT_NOT_CONNECTED);
-        }
-
+        IOException closeFailure = null;
         try {
-            Session session = channel.getSession();
-            channel.disconnect();
-            session.disconnect();
-        } catch (JSchException e) {
-            throw new IOException(StringUtils.stringifyException(e));
+            wrappedStream.close();
+            super.close();
+        } catch (IOException e) {
+            closeFailure = e;
+        } finally {
+            closed = true;
+            try {
+                connectionPool.disconnect(channel);
+            } catch (IOException e) {
+                if (closeFailure == null) {
+                    closeFailure = e;
+                } else {
+                    closeFailure.addSuppressed(e);
+                }
+            }
+        }
+        if (closeFailure != null) {
+            throw closeFailure;
         }
     }
 }

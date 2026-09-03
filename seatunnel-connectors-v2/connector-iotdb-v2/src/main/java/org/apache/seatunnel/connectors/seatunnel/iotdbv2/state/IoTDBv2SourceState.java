@@ -33,4 +33,5 @@ public class IoTDBv2SourceState implements Serializable {
     private static final long serialVersionUID = 7142773921678153583L;
     private boolean shouldEnumerate;
     private Map<Integer, List<IoTDBv2SourceSplit>> pendingSplit;
+    private int assignCount;
 }

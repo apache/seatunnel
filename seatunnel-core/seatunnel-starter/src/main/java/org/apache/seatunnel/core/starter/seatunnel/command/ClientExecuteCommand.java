@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.core.starter.command.Command;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 import org.apache.seatunnel.engine.client.job.JobStatusRunner;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -183,6 +185,12 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 JobConfig jobConfig = new JobConfig();
                 ClientJobExecutionEnvironment jobExecutionEnv;
                 jobConfig.setName(clientCommandArgs.getJobName());
+                if (clientCommandArgs.getDryRun() == DryRun.SAMPLE) {
+                    DryRunSampleConfig.configure(
+                            jobConfig,
+                            clientCommandArgs.getSampleLimit(),
+                            clientCommandArgs.isSamplePrintData());
+                }
                 if (null != clientCommandArgs.getRestoreJobId()) {
                     jobExecutionEnv =
                             engineClient.restoreExecutionContext(
@@ -191,6 +199,18 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                     jobConfig,
                                     seaTunnelConfig,
                                     Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                } else if (null != clientCommandArgs.getRestoreWithCheckpointJobId()) {
+                    jobExecutionEnv =
+                            engineClient.restoreFromCheckpointExecutionContext(
+                                    configFile.toString(),
+                                    clientCommandArgs.getVariables(),
+                                    jobConfig,
+                                    seaTunnelConfig,
+                                    Long.parseLong(
+                                            clientCommandArgs.getRestoreWithCheckpointJobId()),
+                                    clientCommandArgs.getCustomJobId() != null
+                                            ? Long.parseLong(clientCommandArgs.getCustomJobId())
+                                            : null);
                 } else {
                     jobExecutionEnv =
                             engineClient.createExecutionContext(

@@ -18,9 +18,11 @@
 package org.apache.seatunnel.api.table.schema.handler;
 
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
@@ -74,6 +76,8 @@ public class TableSchemaChangeEventDispatcher implements TableSchemaChangeEventH
         handlers.put(AlterTableModifyColumnEvent.class, alterTableEventHandler);
         handlers.put(AlterTableDropColumnEvent.class, alterTableEventHandler);
         handlers.put(AlterTableChangeColumnEvent.class, alterTableEventHandler);
+        handlers.put(AlterTableCommentEvent.class, alterTableEventHandler);
+        handlers.put(AlterColumnCommentEvent.class, alterTableEventHandler);
         return handlers;
     }
 }

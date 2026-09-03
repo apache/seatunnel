@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 > Tablestore Sink 连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将 SeaTunnel 数据写入阿里云 Tablestore。
@@ -14,6 +20,16 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+## 数据类型映射
+
+| SeaTunnel 类型                         | Tablestore 普通属性列类型 | Tablestore 主键列类型 |
+|----------------------------------------|---------------------------|-----------------------|
+| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                 | `INTEGER`             |
+| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                  | `STRING`              |
+| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                  | `STRING`              |
+| `BOOLEAN`                              | `BOOLEAN`                 | `STRING`              |
+| `BYTES`                                | `BINARY`                  | `BINARY`              |
 
 ## 选项
 
@@ -88,16 +104,6 @@ sink {
   }
 }
 ```
-
-## 类型映射
-
-| SeaTunnel 类型                         | Tablestore 普通属性列类型 | Tablestore 主键列类型 |
-|----------------------------------------|---------------------------|-----------------------|
-| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                 | `INTEGER`             |
-| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                  | `STRING`              |
-| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                  | `STRING`              |
-| `BOOLEAN`                              | `BOOLEAN`                 | `STRING`              |
-| `BYTES`                                | `BINARY`                  | `BINARY`              |
 
 ## 变更日志
 

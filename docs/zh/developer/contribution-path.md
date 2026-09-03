@@ -118,6 +118,21 @@ title: 贡献路径
 
 对代码贡献来说，不要把无关清理和真实修复混在一起。
 
+## 理解 Backend CI 的覆盖范围
+
+Pull Request 上要求通过的 Backend `Build`，映射自 PR head 仓库（通常是贡献者的 fork）中的 `push` workflow；它不是 base 仓库另外执行的一次完整矩阵。
+
+workflow 按下面的规则选择 jobs：
+
+- 推送到 Apache 仓库的 `dev`、`main`、`master` 和数字版本发布分支（例如 `2.3.13-release`）时，强制运行由 API 变更触发的完整后端矩阵
+- 修改 API、core、common、format、transform、translation 和根构建文件等具有广泛 API 影响的范围时，运行完整 API 矩阵
+- 仅修改 connector 时，通过 changed-module 判断选择集成测试分片；如果命中 unit-test job，该 job 仍会验证所有模块
+- 修改 engine 时，沿用现有的 engine 和 connector 集成测试路径
+- fork 分支仅修改 `.github/workflows/**`、`tools/update_modules_check/**`、`seatunnel-dist/**` 或 `bin/install-plugin.sh` 时，这些文件本身不会触发所有 connector 集成测试分片；如果变更模块要求运行单元测试，完整 unit-test job 仍可能执行
+- 如果 CI 范围判断工具执行失败或返回非法结果，workflow 会回退到完整 API 覆盖
+
+判断一次绿色 Backend `Build` 是否包含所有 connector 集成测试分片前，请先查看该 Build 实际列出的 jobs。
+
 ## 哪类首个贡献更容易落地
 
 这些类型通常更容易合入：

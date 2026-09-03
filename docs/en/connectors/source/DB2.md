@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Read external data source data through JDBC.
+Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel does not ship it for licensing reasons. Use the `Jdbc` plugin name in the source block and set `driver = "com.ibm.db2.jcc.DB2Driver"`.
 
 ## Using Dependency
 
@@ -33,12 +33,12 @@ Read external data source data through JDBC.
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
-> supports query SQL and can achieve projection effect.
+> Supports query SQL and can achieve column projection.
 
 ## Supported DataSource Info
 
-| Datasource |                    Supported versions                    |             Driver             |                Url                |                                 Maven                                 |
-|------------|----------------------------------------------------------|--------------------------------|-----------------------------------|-----------------------------------------------------------------------|
+| Datasource | Supported versions                                   | Driver                  | Url                           | Maven                                                              |
+|------------|------------------------------------------------------|-------------------------|-------------------------------|--------------------------------------------------------------------|
 | DB2        | Different dependency version has different driver class. | com.ibm.db2.jcc.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [Download](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
 
 ## Database Dependency
@@ -66,102 +66,89 @@ Read external data source data through JDBC.
 
 ## Source Options
 
-|             Name             |    Type    | Required |     Default     |                                                                                                                            Description                                                                                                                            |
-|------------------------------|------------|----------|-----------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String     | Yes      | -               | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                                                |
-| driver                       | String     | Yes      | -               | The jdbc class name used to connect to the remote data source,<br/> if you use db2 the value is `com.ibm.db2.jcc.DB2Driver`.                                                                                                                                 |
-| username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                     |
-| password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                      |
-| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                   |
-| connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                |
-| partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
-| partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
-| partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
-| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
-| fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
-| properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                    |
-| common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                 |
+|             Name             |    Type    | Required | Default | Description                                                                                                                                                                |
+|------------------------------|------------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String     | Yes      | -       | JDBC connection URL, for example `jdbc:db2://127.0.0.1:50000/dbname`.                                                                                                     |
+| driver                       | String     | Yes      | -       | JDBC driver class name. Use `com.ibm.db2.jcc.DB2Driver` for DB2.                                                                                                           |
+| username                     | String     | No       | -       | Username for the DB2 instance. `user` is also accepted as a fallback key for `username`.                                                                                    |
+| password                     | String     | No       | -       | Password for the DB2 instance.                                                                                                                                             |
+| query                        | String     | Yes      | -       | SELECT statement used to read data. The column list of the SELECT defines the output schema; select only the columns you need.                                              |
+| connection_check_timeout_sec | Int        | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                   |
+| partition_column             | String     | No       | -       | Column used to split data for parallel reading. Supports numeric columns and string columns (with `split.string_split_mode`); only one column can be configured.          |
+| partition_lower_bound        | String     | No       | -       | Lower bound of `partition_column` for range splitting. If not set, SeaTunnel queries the minimum value.                                                                    |
+| partition_upper_bound        | String     | No       | -       | Upper bound of `partition_column` for range splitting. If not set, SeaTunnel queries the maximum value.                                                                    |
+| partition_num                | Int        | No       | 10      | Number of source splits used in parallel reading. Defaults to `10`. Increase this value if `env.parallelism` is larger and you want one split per reader task.              |
+| fetch_size                   | Int        | No       | 0       | JDBC fetch size for the query. `0` means use the JDBC driver default. Use a positive value to reduce database round-trips for large result sets.                            |
+| properties                   | Map        | No       | -       | Extra JDBC connection properties. When the same key appears in both `properties` and `url`, the precedence is driver-specific.                                             |
+| common-options               |            | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                          |
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> If `partition_column` is not set, the source reads with one split. If it is set, SeaTunnel splits the table into exactly `partition_num` (default 10) splits regardless of `env.parallelism`; the number of splits that read concurrently is then bounded by `min(partition_num, env.parallelism)` — extra reader slots either sit idle (when `parallelism > partition_num`) or pick up more than one split sequentially (when `parallelism < partition_num`). The two are independent, not "the greater of the two."
 
 ## Task Example
 
 ### Simple
 
-> This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
+This example queries all fields of `type_bin` in DB2 with two parallel readers and prints them to the console.
 
-```
-# Defining the runtime environment
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
-    Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-        connection_check_timeout_sec = 100
-        username = "root"
-        password = "123456"
-        query = "select * from table_xxx"
-    }
-}
 
-transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+source {
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/dbname"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    connection_check_timeout_sec = 100
+    username = "db2inst1"
+    password = "123456"
+    query = "select * from type_bin"
+  }
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
 
-### Parallel
+### Parallel Reading By Numeric Column
 
-> Read your query table in parallel with the shard field you configured and the shard data  You can do this if you want to read the whole table
+Read the table in parallel by a numeric `partition_column` and let SeaTunnel pick the lower and upper bounds for you.
 
-```
+```hocon
 source {
-    Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-        connection_check_timeout_sec = 100
-        username = "root"
-        password = "123456"
-        # Define query logic as required
-        query = "select * from type_bin"
-        # Parallel sharding reads fields
-        partition_column = "id"
-        # Number of fragments
-        partition_num = 10
-    }
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/dbname"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    username = "db2inst1"
+    password = "123456"
+    query = "select * from type_bin"
+    partition_column = "id"
+    partition_num = 10
+  }
 }
 ```
 
-### Parallel Boundary
+### Parallel Reading With Explicit Bounds
 
-> It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
+Provide explicit `partition_lower_bound` and `partition_upper_bound` to avoid the extra `MIN`/`MAX` query SeaTunnel otherwise issues to learn the column range.
 
-```
+```hocon
 source {
-    Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-        connection_check_timeout_sec = 100
-        username = "root"
-        password = "123456"
-        # Define query logic as required
-        query = "select * from type_bin"
-        partition_column = "id"
-        # Read start boundary
-        partition_lower_bound = 1
-        # Read end boundary
-        partition_upper_bound = 500
-        partition_num = 10
-    }
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/dbname"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    username = "db2inst1"
+    password = "123456"
+    query = "select * from type_bin"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 500
+    partition_num = 10
+  }
 }
 ```
 

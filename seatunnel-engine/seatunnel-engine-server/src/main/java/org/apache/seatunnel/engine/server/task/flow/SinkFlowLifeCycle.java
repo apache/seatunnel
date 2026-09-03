@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
@@ -32,6 +33,7 @@ import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -48,6 +50,22 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.ConnectorMetricsCalcContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
+import org.apache.seatunnel.engine.server.task.error.DefaultErrorSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.DefaultRowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.EngineMultiTableRowErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.EngineRowErrorCollector;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil.StageType;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkConfig;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.LocalErrorHandlerCounter;
+import org.apache.seatunnel.engine.server.task.error.RowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.error.StateStoreErrorHandlerCounter;
+import org.apache.seatunnel.engine.server.task.error.SynchronizedErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.sink.SinkPrepareCommitOperation;
@@ -67,6 +85,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -76,6 +95,8 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ABORT_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMIT_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_DROPPED;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_ROUTED;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_PREPARE_COMMIT_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_RECORDS_IN;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_WRITE_NANOS;
@@ -111,8 +132,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final EventListener eventListener;
 
-    /** Mapping relationship between upstream TablePath and downstream TablePath. */
-    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+    /** Mapping relationship between upstream row table IDs and downstream table IDs. */
+    private final Map<String, String> sinkTableMappings = new HashMap<>();
 
     private final MetricsContext metricsContext;
 
@@ -120,9 +141,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final Counter sinkWriteNs;
     private final Counter sinkRecordsIn;
+    private final Counter sinkErrorRecordsRouted;
+    private final Counter sinkErrorRecordsDropped;
     private final Counter sinkPrepareCommitNs;
     private final Counter sinkCommitNs;
     private final Counter sinkAbortNs;
+
+    private transient StageErrorConfig stageErrorConfig;
+    private transient ErrorHandler<T> stageErrorHandler;
+    private transient RowErrorClassifier<T> stageRowErrorClassifier;
+    private transient RowErrorCollector stageRowErrorCollector;
+    private transient boolean multiTableTerminalOutcomeCallbackEnabled;
+    private transient boolean deferTerminalWriteOutcomes;
+    private final Map<PendingTerminalWriteRowKey, SeaTunnelRow> pendingTerminalWriteRows =
+            new LinkedHashMap<>();
+
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
     private final Counter flushSignalSinkSuccessTotal;
@@ -150,6 +183,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         long sinkId = sinkAction.getId();
         this.sinkWriteNs = metricsContext.counter(SINK_WRITE_NANOS + "#" + sinkId);
         this.sinkRecordsIn = metricsContext.counter(SINK_RECORDS_IN + "#" + sinkId);
+        this.sinkErrorRecordsRouted =
+                metricsContext.counter(SINK_ERROR_RECORDS_ROUTED + "#" + sinkId);
+        this.sinkErrorRecordsDropped =
+                metricsContext.counter(SINK_ERROR_RECORDS_DROPPED + "#" + sinkId);
         this.sinkPrepareCommitNs = metricsContext.counter(SINK_PREPARE_COMMIT_NANOS + "#" + sinkId);
         this.sinkCommitNs = metricsContext.counter(SINK_COMMIT_NANOS + "#" + sinkId);
         this.sinkAbortNs = metricsContext.counter(SINK_ABORT_NANOS + "#" + sinkId);
@@ -159,8 +196,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
-            sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            tablesMaps.putAll(((MultiTableSink) sinkAction.getSink()).getSinkTableMapping());
+            MultiTableSink multiTableSink = (MultiTableSink) sinkAction.getSink();
+            sinkTables = multiTableSink.getSinkTables();
+            multiTableSink
+                    .getSinkTableMapping()
+                    .forEach(
+                            (sourceTable, sinkTable) ->
+                                    sinkTableMappings.put(
+                                            sourceTable.toString(), sinkTable.getFullName()));
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
             if (catalogTable.isPresent()) {
@@ -181,6 +224,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.flushSignalSinkQPS = metricsContext.meter(MetricNames.FLUSH_SIGNAL_SINK_QPS);
     }
 
+    /**
+     * Initializes the serializers and optional task-local committer supplied by the sink.
+     *
+     * <p>The writer is created later by {@link #restoreState(List)}, after the checkpoint
+     * coordinator has supplied this action's restored state.
+     *
+     * @throws Exception if the sink cannot create its committer
+     */
     @Override
     public void init() throws Exception {
         this.commitInfoSerializer = sinkAction.getSink().getCommitInfoSerializer();
@@ -189,6 +240,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.lastCommitInfo = Optional.empty();
     }
 
+    /**
+     * Registers this sink task with the aggregate committer, when the execution plan contains one.
+     *
+     * <p>Writer creation or restoration has already completed before this lifecycle method is
+     * called. Sinks without an aggregate committer require no remote registration.
+     *
+     * @throws Exception if the aggregate committer address cannot be resolved or registration fails
+     */
     @Override
     public void open() throws Exception {
         super.open();
@@ -206,10 +265,20 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         .get();
     }
 
+    /**
+     * Marks this flow complete and closes its writer.
+     *
+     * <p>After the writer closes successfully, any delayed row outcomes are emitted before the
+     * {@link WriterCloseEvent} is sent to the writer's event listener.
+     *
+     * @throws IOException if the lifecycle or writer cannot be closed
+     */
     @Override
     public void close() throws IOException {
         super.close();
         writer.close();
+        drainCollectedTerminalWriteOutcomes();
+        flushDeferredTerminalWriteOutcomes();
         writerContext.getEventListener().onEvent(new WriterCloseEvent());
     }
 
@@ -224,7 +293,16 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
-    /** Handles barriers for checkpointing and rows for sink writes plus trace event reporting. */
+    /**
+     * Dispatches an upstream record to checkpoint, schema-change, signal, or data processing.
+     *
+     * <p>Once a close barrier marks this flow as preparing to close, subsequent non-barrier records
+     * are ignored. Barriers continue to be processed so the task can finish its checkpoint and
+     * close protocol.
+     *
+     * @param record the upstream record to process
+     * @throws RuntimeException if dispatch or sink processing fails
+     */
     @Override
     public void received(Record<?> record) {
         try {
@@ -267,6 +345,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.commitPendingMetrics(checkpointId);
+        if (stageErrorHandler != null) {
+            stageErrorHandler.notifyCheckpointComplete(checkpointId);
+        }
     }
 
     @Override
@@ -280,8 +361,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.abortPendingMetrics(checkpointId);
+        if (stageErrorHandler != null) {
+            stageErrorHandler.notifyCheckpointAborted(checkpointId);
+        }
     }
 
+    /**
+     * Creates the sink writer from the checkpoint state assigned to this action.
+     *
+     * <p>Serialized states are deserialized with the sink's writer-state serializer. An empty state
+     * list creates a new writer; otherwise the states are passed to the sink's restore path. The
+     * writer context and row-error handling are initialized before writer creation.
+     *
+     * @param actionStateList checkpoint state assigned to this sink action
+     * @throws Exception if state deserialization or writer creation fails
+     */
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         List<StateT> states = new ArrayList<>();
@@ -300,80 +394,392 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                                                                     .deserialize(bytes)))
                             .collect(Collectors.toList());
         }
+        initRowErrorCollectorIfNeed();
         this.writerContext =
                 new SinkWriterContext(
-                        sinkAction.getParallelism(), indexID, metricsContext, eventListener);
+                        sinkAction.getParallelism(),
+                        indexID,
+                        metricsContext,
+                        eventListener,
+                        stageRowErrorCollector);
         if (states.isEmpty()) {
             this.writer = sinkAction.getSink().createWriter(writerContext);
         } else {
             this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
         }
+        this.deferTerminalWriteOutcomes = writerContext.isDeferredTerminalWriteOutcomesEnabled();
+        wrapWriterIfNeed();
+    }
+
+    @SuppressWarnings("unchecked")
+    private void initRowErrorCollectorIfNeed() {
+        if (!(runningTask instanceof SeaTunnelTask)) {
+            return;
+        }
+        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) runningTask;
+        StageErrorConfig stageConfig =
+                ErrorHandlerConfigUtil.buildStageConfig(
+                        seaTunnelTask.getEnvOptions(),
+                        StageType.SINK,
+                        getJobIdOrDefault(seaTunnelTask));
+        this.stageErrorConfig = stageConfig;
+        if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
+            return;
+        }
+
+        ErrorSinkRowWriter<T> errorSinkWriter = createErrorSinkWriter(seaTunnelTask, stageConfig);
+        ErrorHandler<T> handler =
+                createErrorHandler(
+                        seaTunnelTask, stageConfig, errorSinkWriter, sinkAction.getId(), "SINK");
+        RowErrorClassifier<T> classifier = new DefaultRowErrorClassifier<>();
+
+        this.stageErrorHandler = handler;
+        this.stageRowErrorClassifier = classifier;
+
+        // Expose collector for row-level errors during flush/commit/close.
+        String pluginName = sinkAction.getSink().getPluginName();
+        ErrorHandler<SeaTunnelRow> rowHandler = (ErrorHandler<SeaTunnelRow>) handler;
+        this.stageRowErrorCollector = new EngineRowErrorCollector(rowHandler, pluginName);
+    }
+
+    private void wrapWriterIfNeed() {
+        if (!(runningTask instanceof SeaTunnelTask)) {
+            return;
+        }
+        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) runningTask;
+        StageErrorConfig stageConfig = stageErrorConfig;
+        if (stageConfig == null) {
+            stageConfig =
+                    ErrorHandlerConfigUtil.buildStageConfig(
+                            seaTunnelTask.getEnvOptions(),
+                            StageType.SINK,
+                            getJobIdOrDefault(seaTunnelTask));
+            stageErrorConfig = stageConfig;
+        }
+        if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
+            return;
+        }
+
+        ErrorHandler<T> handler = stageErrorHandler;
+        RowErrorClassifier<T> classifier = stageRowErrorClassifier;
+        if (handler == null || classifier == null) {
+            ErrorSinkRowWriter<T> errorSinkWriter =
+                    createErrorSinkWriter(seaTunnelTask, stageConfig);
+            handler =
+                    createErrorHandler(
+                            seaTunnelTask,
+                            stageConfig,
+                            errorSinkWriter,
+                            sinkAction.getId(),
+                            "SINK");
+            classifier = new DefaultRowErrorClassifier<>();
+            stageErrorHandler = handler;
+            stageRowErrorClassifier = classifier;
+        }
+        String pluginName = sinkAction.getSink().getPluginName();
+
+        if (this.writer instanceof MultiTableSinkWriter) {
+            @SuppressWarnings("unchecked")
+            MultiTableSinkWriter multiTableSinkWriter = (MultiTableSinkWriter) this.writer;
+            @SuppressWarnings("unchecked")
+            ErrorHandler<SeaTunnelRow> rowHandler = (ErrorHandler<SeaTunnelRow>) handler;
+            @SuppressWarnings("unchecked")
+            RowErrorClassifier<SeaTunnelRow> rowClassifier =
+                    (RowErrorClassifier<SeaTunnelRow>) classifier;
+            multiTableSinkWriter.setWriteSuccessHandler(
+                    row ->
+                            recordOrDeferTerminalWriteOutcome(
+                                    row, ErrorHandlingSinkWriter.WriteOutcome.WRITTEN));
+            multiTableTerminalOutcomeCallbackEnabled = true;
+            multiTableSinkWriter.setRowErrorHandler(
+                    new EngineMultiTableRowErrorHandler(
+                            rowHandler,
+                            rowClassifier,
+                            pluginName,
+                            this::recordTerminalWriteOutcome,
+                            stageRowErrorCollector instanceof EngineRowErrorCollector
+                                    ? (EngineRowErrorCollector) stageRowErrorCollector
+                                    : null));
+        }
+
+        ErrorHandlingSinkWriter<T, CommitInfoT, StateT> errorHandlingWriter =
+                new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
+        errorHandlingWriter.registerFlushAction(writerContext);
+        this.deferTerminalWriteOutcomes = writerContext.isDeferredTerminalWriteOutcomesEnabled();
+        this.writer = errorHandlingWriter;
+    }
+
+    private ErrorHandler<T> createErrorHandler(
+            SeaTunnelTask seaTunnelTask,
+            StageErrorConfig stageConfig,
+            ErrorSinkRowWriter<T> errorSinkWriter,
+            long actionId,
+            String stageName) {
+        TaskLocation location = seaTunnelTask.getTaskLocation();
+        if (location == null || seaTunnelTask.getExecutionContext() == null) {
+            return new ErrorHandler<>(stageConfig, errorSinkWriter, new LocalErrorHandlerCounter());
+        }
+        return new ErrorHandler<>(
+                stageConfig,
+                errorSinkWriter,
+                new StateStoreErrorHandlerCounter(
+                        seaTunnelTask
+                                .getExecutionContext()
+                                .getStateStores()
+                                .errorHandlerCounterStore(),
+                        location.getJobId(),
+                        location.getPipelineId(),
+                        actionId,
+                        stageName));
+    }
+
+    private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {
+        TaskLocation taskLocation = seaTunnelTask.getTaskLocation();
+        return taskLocation == null ? -1L : taskLocation.getJobId();
+    }
+
+    @SuppressWarnings("unchecked")
+    private ErrorSinkRowWriter<T> createErrorSinkWriter(
+            SeaTunnelTask seaTunnelTask, StageErrorConfig stageConfig) {
+        if (stageConfig.getMode() != ErrorHandlerMode.ROUTE) {
+            return null;
+        }
+        ErrorSinkConfig sinkConfig = stageConfig.getSink();
+        if (sinkConfig == null || !sinkConfig.isConfigured()) {
+            return null;
+        }
+        DefaultErrorSinkWriter<T> writer =
+                new DefaultErrorSinkWriter<>(
+                        stageConfig,
+                        sinkConfig,
+                        seaTunnelTask.getTaskLocation().getJobId(),
+                        seaTunnelTask.getTaskLocation().getTaskIndex(),
+                        seaTunnelTask.getExecutionContext().getClassLoaderService(),
+                        metricsContext,
+                        eventListener);
+        writer.open();
+        return (ErrorSinkRowWriter<T>) new SynchronizedErrorSinkRowWriter<>(writer);
     }
 
     private void processDataRecord(Record<?> record) throws IOException {
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
-        String tableId;
         long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
-        writer.write((T) record.getData());
+        boolean asyncMultiTableWriter = isAsyncMultiTableWriter();
+        ErrorHandlingSinkWriter.WriteOutcome writeOutcome;
+        if (writer instanceof ErrorHandlingSinkWriter) {
+            writeOutcome =
+                    ((ErrorHandlingSinkWriter<T, CommitInfoT, StateT>) writer)
+                            .writeWithOutcome((T) record.getData());
+        } else {
+            writer.write((T) record.getData());
+            writeOutcome = ErrorHandlingSinkWriter.WriteOutcome.WRITTEN;
+        }
+        boolean currentRowAlreadyResolved = drainCollectedTerminalWriteOutcomes(record.getData());
         if (metricsEnabled) {
             sinkWriteNs.inc(System.nanoTime() - writeStartNs);
             sinkRecordsIn.inc();
         }
-        if (record.getData() instanceof SeaTunnelRow) {
-            SeaTunnelRow row = (SeaTunnelRow) record.getData();
-            if (this.sinkAction.getSink() instanceof MultiTableSink) {
-                if (row.getTableId() == null || row.getTableId().isEmpty()) {
-                    tableId = row.getTableId();
-                } else {
-
-                    TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
-                    tableId =
-                            tablePath != null
-                                    ? tablePath.getFullName()
-                                    : TablePath.DEFAULT.getFullName();
-                }
-
-            } else {
-                Optional<CatalogTable> writeCatalogTable =
-                        this.sinkAction.getSink().getWriteCatalogTable();
-                tableId =
-                        writeCatalogTable
-                                .map(catalogTable -> catalogTable.getTablePath().getFullName())
-                                .orElseGet(TablePath.DEFAULT::getFullName);
-            }
-
-            connectorMetricsCalcContext.updateMetrics(record.getData(), tableId);
-
-            if (StainTraceUtils.hasPayload(row)) {
-                long nowMs = System.currentTimeMillis();
-                StainTraceUtils.appendIfPresent(
-                        row,
-                        StainTraceStage.SINK_WRITE_DONE,
-                        runningTask.getTaskID(),
-                        nowMs,
-                        getStainTraceMaxEntriesPerTrace(),
-                        getStainTraceEntriesTruncatedTotal());
-                byte[] payload = StainTraceUtils.getPayloadOrNull(row);
-                if (payload != null) {
-                    try {
-                        long traceId = StainTracePayload.readTraceId(payload);
-                        eventListener.onEvent(
-                                new StainTraceEvent(
-                                        traceId, payload, taskLocation.getTaskID(), tableId));
-                        stainTraceEventsReportedTotal.inc();
-                    } catch (Exception e) {
-                        stainTraceInvalidPayloadTotal.inc();
-                        log.debug("Failed to report stain trace event", e);
-                    }
-                }
+        if (!asyncMultiTableWriter
+                || writeOutcome != ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
+            if (writeOutcome != ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                    || !currentRowAlreadyResolved) {
+                recordOrDeferTerminalWriteOutcome(record.getData(), writeOutcome);
             }
         }
+    }
+
+    private boolean isAsyncMultiTableWriter() {
+        if (!multiTableTerminalOutcomeCallbackEnabled) {
+            return false;
+        }
+        if (writer instanceof MultiTableSinkWriter) {
+            return true;
+        }
+        if (writer instanceof ErrorHandlingSinkWriter) {
+            return ((ErrorHandlingSinkWriter<?, ?, ?>) writer).wrapsMultiTableSinkWriter();
+        }
+        return false;
+    }
+
+    private void recordTerminalWriteOutcome(
+            Object data, ErrorHandlingSinkWriter.WriteOutcome writeOutcome) {
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK) {
+            sinkErrorRecordsRouted.inc();
+        } else if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.DROPPED) {
+            sinkErrorRecordsDropped.inc();
+        }
+        if (!(data instanceof SeaTunnelRow)) {
+            return;
+        }
+
+        SeaTunnelRow row = (SeaTunnelRow) data;
+        String tableId = resolveSinkTableId(row);
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
+            connectorMetricsCalcContext.updateMetrics(data, tableId);
+        }
+        if (!StainTraceUtils.hasPayload(row)) {
+            return;
+        }
+
+        long nowMs = System.currentTimeMillis();
+        StainTraceStage traceStage;
+        switch (writeOutcome) {
+            case ROUTED_TO_ERROR_SINK:
+                traceStage = StainTraceStage.SINK_ERROR_ROUTED;
+                break;
+            case DROPPED:
+                traceStage = StainTraceStage.SINK_ERROR_DROPPED;
+                break;
+            case WRITTEN:
+            default:
+                traceStage = StainTraceStage.SINK_WRITE_DONE;
+                break;
+        }
+        StainTraceUtils.appendIfPresent(
+                row,
+                traceStage,
+                runningTask.getTaskID(),
+                nowMs,
+                getStainTraceMaxEntriesPerTrace(),
+                getStainTraceEntriesTruncatedTotal());
+        byte[] payload = StainTraceUtils.getPayloadOrNull(row);
+        if (payload != null) {
+            try {
+                long traceId = StainTracePayload.readTraceId(payload);
+                eventListener.onEvent(
+                        new StainTraceEvent(traceId, payload, taskLocation.getTaskID(), tableId));
+                stainTraceEventsReportedTotal.inc();
+            } catch (Exception e) {
+                stainTraceInvalidPayloadTotal.inc();
+                log.debug("Failed to report stain trace event", e);
+            }
+        }
+    }
+
+    private void recordOrDeferTerminalWriteOutcome(
+            Object data, ErrorHandlingSinkWriter.WriteOutcome writeOutcome) {
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                && deferTerminalWriteOutcomes
+                && data instanceof SeaTunnelRow) {
+            SeaTunnelRow row = (SeaTunnelRow) data;
+            synchronized (pendingTerminalWriteRows) {
+                pendingTerminalWriteRows.put(new PendingTerminalWriteRowKey(row), row);
+            }
+            return;
+        }
+        recordTerminalWriteOutcome(data, writeOutcome);
+    }
+
+    private boolean drainCollectedTerminalWriteOutcomes(Object currentData) {
+        if (!(stageRowErrorCollector instanceof EngineRowErrorCollector)) {
+            return false;
+        }
+        List<EngineRowErrorCollector.CollectedRowErrorOutcome> outcomes =
+                ((EngineRowErrorCollector) stageRowErrorCollector)
+                        .drainTerminalOutcomes(multiTableTerminalOutcomeCallbackEnabled);
+        boolean currentRowAlreadyResolved = false;
+        for (EngineRowErrorCollector.CollectedRowErrorOutcome outcome : outcomes) {
+            if (outcome.getRow() == currentData) {
+                currentRowAlreadyResolved = true;
+            }
+            removePendingTerminalWriteRow(outcome.getRow());
+            recordTerminalWriteOutcome(
+                    outcome.getRow(),
+                    outcome.isWritten()
+                            ? ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                            : toWriteOutcome(outcome.getResult()));
+        }
+        return currentRowAlreadyResolved;
+    }
+
+    private void drainCollectedTerminalWriteOutcomes() {
+        drainCollectedTerminalWriteOutcomes(null);
+    }
+
+    private ErrorHandlingSinkWriter.WriteOutcome toWriteOutcome(
+            ErrorHandler.ErrorHandleResult result) {
+        return result == ErrorHandler.ErrorHandleResult.ROUTED_TO_ERROR_SINK
+                ? ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK
+                : ErrorHandlingSinkWriter.WriteOutcome.DROPPED;
+    }
+
+    private void flushDeferredTerminalWriteOutcomes() {
+        List<SeaTunnelRow> writtenRows = new ArrayList<>();
+        synchronized (pendingTerminalWriteRows) {
+            writtenRows.addAll(pendingTerminalWriteRows.values());
+            pendingTerminalWriteRows.clear();
+        }
+        for (SeaTunnelRow row : writtenRows) {
+            recordTerminalWriteOutcome(row, ErrorHandlingSinkWriter.WriteOutcome.WRITTEN);
+        }
+    }
+
+    private void removePendingTerminalWriteRow(SeaTunnelRow row) {
+        synchronized (pendingTerminalWriteRows) {
+            pendingTerminalWriteRows.remove(new PendingTerminalWriteRowKey(row));
+        }
+    }
+
+    private static final class PendingTerminalWriteRowKey {
+        private final SeaTunnelRow row;
+
+        private PendingTerminalWriteRowKey(SeaTunnelRow row) {
+            this.row = row;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof PendingTerminalWriteRowKey
+                    && row == ((PendingTerminalWriteRowKey) obj).row;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(row);
+        }
+    }
+
+    private String resolveSinkTableId(SeaTunnelRow row) {
+        if (this.sinkAction.getSink() instanceof MultiTableSink) {
+            if (row.getTableId() == null || row.getTableId().isEmpty()) {
+                return row.getTableId();
+            }
+            return sinkTableMappings.getOrDefault(
+                    row.getTableId(), TablePath.DEFAULT.getFullName());
+        }
+        Optional<CatalogTable> writeCatalogTable = this.sinkAction.getSink().getWriteCatalogTable();
+        return writeCatalogTable
+                .map(catalogTable -> catalogTable.getTablePath().getFullName())
+                .orElseGet(TablePath.DEFAULT::getFullName);
+    }
+
+    private long getCollectedErrorCount() {
+        if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
+            return ((EngineRowErrorCollector) stageRowErrorCollector).getCollectedErrors();
+        }
+        return 0L;
+    }
+
+    private long getCollectedRoutedCount() {
+        if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
+            return ((EngineRowErrorCollector) stageRowErrorCollector).getRoutedErrors();
+        }
+        return 0L;
+    }
+
+    private long getCollectedDroppedCount() {
+        if (stageRowErrorCollector instanceof EngineRowErrorCollector) {
+            return ((EngineRowErrorCollector) stageRowErrorCollector).getDroppedErrors();
+        }
+        return 0L;
     }
 
     private void processSignal(Signal signal) throws Exception {
         if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
             try {
                 writerContext.getFlushAction().run();
+                drainCollectedTerminalWriteOutcomes();
+                flushDeferredTerminalWriteOutcomes();
                 flushSignalSinkSuccessTotal.inc();
                 flushSignalSinkQPS.markEvent();
             } catch (Exception e) {
@@ -383,50 +789,70 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    /**
+     * Prepares and snapshots the writer before acknowledging a checkpoint barrier.
+     *
+     * <p>Snapshot barriers prepare commit information, flush delayed row outcomes, seal pending
+     * metrics, and add serialized writer state to the running task. Commit information is also sent
+     * to the aggregate committer when configured. A failure invokes {@link
+     * SinkWriter#abortPrepare()} before it is propagated. When an aggregate committer is
+     * configured, non-snapshot barriers are forwarded to it. The task acknowledges the barrier
+     * after processing succeeds.
+     *
+     * @param barrier the barrier to process
+     * @throws IOException if writer preparation or state snapshotting fails
+     */
     private void processCheckpointBarrier(Barrier barrier) throws IOException {
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         long startTime = System.currentTimeMillis();
-        connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
         if (barrier.prepareClose(this.taskLocation)) {
             prepareClose = true;
         }
         if (barrier.snapshot()) {
+            boolean prepared = false;
             try {
                 long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
                 lastCommitInfo = writer.prepareCommit(barrier.getId());
+                drainCollectedTerminalWriteOutcomes();
+                flushDeferredTerminalWriteOutcomes();
+                connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
+                prepared = true;
                 if (metricsEnabled) {
                     sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);
                 }
-            } catch (Exception e) {
-                writer.abortPrepare();
-                throw e;
-            }
-            List<StateT> states = writer.snapshotState(barrier.getId());
-            if (!writerStateSerializer.isPresent()) {
-                runningTask.addState(
-                        barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
-            } else {
-                runningTask.addState(
-                        barrier,
-                        ActionStateKey.of(sinkAction),
-                        serializeStates(writerStateSerializer.get(), states));
-            }
-            if (containAggCommitter) {
-                CommitInfoT commitInfoT = null;
-                if (lastCommitInfo.isPresent()) {
-                    commitInfoT = lastCommitInfo.get();
+
+                List<StateT> states = writer.snapshotState(barrier.getId());
+                if (!writerStateSerializer.isPresent()) {
+                    runningTask.addState(
+                            barrier, ActionStateKey.of(sinkAction), Collections.emptyList());
+                } else {
+                    runningTask.addState(
+                            barrier,
+                            ActionStateKey.of(sinkAction),
+                            serializeStates(writerStateSerializer.get(), states));
                 }
-                runningTask
-                        .getExecutionContext()
-                        .sendToMember(
-                                new SinkPrepareCommitOperation<CommitInfoT>(
-                                        barrier,
-                                        committerTaskLocation,
-                                        commitInfoSerializer.isPresent()
-                                                ? commitInfoSerializer.get().serialize(commitInfoT)
-                                                : null),
-                                committerTaskAddress)
-                        .join();
+                if (containAggCommitter) {
+                    CommitInfoT commitInfoT = null;
+                    if (lastCommitInfo.isPresent()) {
+                        commitInfoT = lastCommitInfo.get();
+                    }
+                    runningTask
+                            .getExecutionContext()
+                            .sendToMember(
+                                    new SinkPrepareCommitOperation<CommitInfoT>(
+                                            barrier,
+                                            committerTaskLocation,
+                                            commitInfoSerializer.isPresent()
+                                                    ? commitInfoSerializer
+                                                            .get()
+                                                            .serialize(commitInfoT)
+                                                    : null),
+                                    committerTaskAddress)
+                            .join();
+                }
+            } catch (Exception e) {
+                abortPreparedWriter(prepared, e);
+                throw e;
             }
         } else {
             if (containAggCommitter) {
@@ -445,6 +871,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 barrier.getId(),
                 System.currentTimeMillis() - startTime,
                 taskLocation);
+    }
+
+    private void abortPreparedWriter(boolean prepared, Exception originalException) {
+        try {
+            writer.abortPrepare();
+        } catch (RuntimeException abortException) {
+            originalException.addSuppressed(abortException);
+        }
+        if (prepared) {
+            lastCommitInfo = Optional.empty();
+        }
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {

@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.AbstractJobEnvironment;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.operation.GetJobCheckpointOperation;
@@ -55,6 +56,10 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final SeaTunnelServer seaTunnelServer;
 
+    private final RestoreMode restoreMode;
+
+    private final Long restoreSourceJobId;
+
     public RestJobExecutionEnvironment(
             SeaTunnelServer seaTunnelServer,
             JobConfig jobConfig,
@@ -62,18 +67,58 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
             Node node,
             boolean isStartWithSavePoint,
             Long jobId) {
-        super(jobConfig, isStartWithSavePoint);
+        this(
+                seaTunnelServer,
+                jobConfig,
+                seaTunnelJobConfig,
+                node,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                isStartWithSavePoint ? jobId : null,
+                jobId);
+    }
+
+    public RestJobExecutionEnvironment(
+            SeaTunnelServer seaTunnelServer,
+            JobConfig jobConfig,
+            Config seaTunnelJobConfig,
+            Node node,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId) {
+        this(
+                seaTunnelServer,
+                jobConfig,
+                seaTunnelJobConfig,
+                node,
+                restoreMode,
+                restoreSourceJobId,
+                null);
+    }
+
+    public RestJobExecutionEnvironment(
+            SeaTunnelServer seaTunnelServer,
+            JobConfig jobConfig,
+            Config seaTunnelJobConfig,
+            Node node,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            Long jobId) {
+        super(jobConfig, restoreMode);
         this.seaTunnelServer = seaTunnelServer;
         this.seaTunnelJobConfig = seaTunnelJobConfig;
         this.nodeEngine = node.getNodeEngine();
-        this.jobConfig.setJobContext(
-                new JobContext(
-                        Objects.nonNull(jobId)
-                                ? jobId
-                                : nodeEngine
-                                        .getHazelcastInstance()
-                                        .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
-                                        .newId()));
+        this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
+        this.restoreSourceJobId = restoreSourceJobId;
+        Long finalJobId = jobId;
+        if (this.restoreMode == RestoreMode.SAVEPOINT) {
+            finalJobId = restoreSourceJobId;
+        } else if (finalJobId == null) {
+            finalJobId =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME)
+                            .newId();
+        }
+        this.jobConfig.setJobContext(new JobContext(Objects.requireNonNull(finalJobId)));
         this.jobId = Long.valueOf(this.jobConfig.getJobContext().getJobId());
     }
 
@@ -100,14 +145,18 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
     @Override
     protected MultipleTableJobConfigParser getJobConfigParser() {
         List<JobPipelineCheckpointData> pipelineCheckpoints = Collections.emptyList();
-        if (isStartWithSavePoint) {
-            LOGGER.info("Start with savepoint, get checkpoint state from server");
+        if (restoreMode.isRestore()) {
+            LOGGER.info(
+                    String.format("Start with %s, get checkpoint state from server", restoreMode));
             pipelineCheckpoints = loadPipelineCheckpointsFromMasterNode();
             if (pipelineCheckpoints == null || pipelineCheckpoints.isEmpty()) {
                 throw new IllegalArgumentException(
                         "No checkpoint found for jobId="
                                 + jobConfig.getJobContext().getJobId()
-                                + ", cannot start with save point.");
+                                + ", restoreMode="
+                                + restoreMode
+                                + ", restoreSourceJobId="
+                                + restoreSourceJobId);
             }
         }
         MetadataConfig metaDataConfig =
@@ -117,22 +166,27 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                isStartWithSavePoint,
+                restoreMode.isRestore(),
                 pipelineCheckpoints,
                 metaDataConfig);
     }
 
     private List<JobPipelineCheckpointData> loadPipelineCheckpointsFromMasterNode() {
         if (seaTunnelServer.isMasterNode() && seaTunnelServer.getCheckpointService() != null) {
-            return seaTunnelServer
-                    .getCheckpointService()
-                    .getLatestCheckpointData(jobConfig.getJobContext().getJobId());
+            if (restoreMode.isRestore()) {
+                return seaTunnelServer
+                        .getCheckpointService()
+                        .getLatestCheckpointData(String.valueOf(restoreSourceJobId), restoreMode);
+            }
+            throw new IllegalStateException(
+                    "Unsupported restore mode for checkpoint loading: " + restoreMode);
         }
 
         try {
             Object response =
                     NodeEngineUtil.sendOperationToMasterNode(
-                                    nodeEngine, new GetJobCheckpointOperation(jobId))
+                                    nodeEngine,
+                                    new GetJobCheckpointOperation(restoreSourceJobId, restoreMode))
                             .join();
             if (response == null) {
                 return Collections.emptyList();
@@ -141,8 +195,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
                     nodeEngine.getSerializationService().toObject(response);
         } catch (Exception e) {
             throw new IllegalStateException(
-                    "Failed to get checkpoint data from master node, jobId="
-                            + jobConfig.getJobContext().getJobId(),
+                    "Failed to get checkpoint data from master node, restoreSourceJobId="
+                            + restoreSourceJobId,
                     e);
         }
     }
@@ -151,7 +205,8 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
         return new JobImmutableInformation(
                 Long.parseLong(jobConfig.getJobContext().getJobId()),
                 jobConfig.getName(),
-                isStartWithSavePoint,
+                restoreMode,
+                restoreSourceJobId,
                 nodeEngine.getSerializationService(),
                 getLogicalDag(),
                 new ArrayList<>(jarUrls),

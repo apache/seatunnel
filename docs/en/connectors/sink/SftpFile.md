@@ -26,6 +26,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 
   By default, we use 2PC commit to ensure `exactly-once`
 
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
 - [x] file format type
   - [x] text
   - [x] csv
@@ -79,10 +83,10 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                                  |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                                 |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
-| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### host [string]
 
@@ -341,7 +345,6 @@ SftpFile {
 
 ```
 
-
 ### schema_evolution_enabled [boolean]
 
 When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
@@ -360,15 +363,16 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+SftpFile {
+    host = "xxx.xxx.xxx.xxx"
+    port = 22
+    user = "username"
+    password = "xxxxxxxxxxxxxxxxx"
+    path = "/data/sftp/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
 }
 ```
-
 
 ## Changelog
 

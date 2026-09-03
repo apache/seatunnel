@@ -63,6 +63,8 @@ public enum StainTraceStage {
     RECORD_SERIALIZE_END((byte) 218),
     RECORD_DESERIALIZE_START((byte) 219),
     RECORD_DESERIALIZE_END((byte) 220),
+    SINK_ERROR_ROUTED((byte) 221),
+    SINK_ERROR_DROPPED((byte) 222),
     // Flow control stages
     FLOW_CONTROL_AUDIT_START((byte) 226),
     FLOW_CONTROL_AUDIT_END((byte) 227);

@@ -31,6 +31,7 @@ Sink，SeaTunnel 目前没有提供 ActiveMQ Source 连接器。
 | dispatch_async                        | boolean | 否    | -   | Broker 是否异步分发消息。                                                                                       |
 | nested_map_and_list_enabled           | boolean | 否    | -   | 是否允许结构化消息属性和 `MapMessage` 条目中包含嵌套的 `Map`、`List` 对象。                                               |
 | warn_about_unstarted_connection_timeout | int   | 否    | -   | 连接没有正确启动时，ActiveMQ 客户端发出警告前等待的毫秒数。设置为小于 `0` 的值可以关闭这个警告。                              |
+| consumer_expiry_check_enabled           | boolean | 否    | -   | 是否在每个 `MessageConsumer` 分发消息前检查消息是否已经过期。                                                  |
 
 ## 注意事项
 
@@ -70,6 +71,37 @@ sink {
     uri = "tcp://localhost:61616"
     username = "admin"
     password = "admin"
+    queue_name = "testQueue"
+  }
+}
+```
+
+在流式模式下，Sink 会保持与 Broker 的连接持续打开，每来一行数据就写入一条。用户名 / 密码也可以直接
+写在 `uri` 中，例如 `tcp://admin:admin@localhost:61616`：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice"] }
+    ]
+  }
+}
+
+sink {
+  ActiveMQ {
+    uri = "tcp://admin:admin@localhost:61616"
     queue_name = "testQueue"
   }
 }

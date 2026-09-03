@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.maxcompute;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -72,8 +70,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> maxcompute;
 
     private static final int HOST_PORT = 8080;
-    private static final int LOCAL_PORT = 8180;
-
     private static final String IMAGE = "maxcompute/maxcompute-emulator:v0.0.7";
 
     @BeforeAll
@@ -89,9 +85,6 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
                                         ".*Started MaxcomputeEmulatorApplication.*\\n", 1))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)));
-        maxcompute.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, HOST_PORT)));
-
         Startables.deepStart(Stream.of(this.maxcompute)).join();
         log.info("MaxCompute container started");
         Awaitility.given()
@@ -113,9 +106,9 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     public Odps getTestOdps() {
         Account account = new AliyunAccount("ak", "sk");
         Odps odps = new Odps(account);
-        odps.setEndpoint(getEndpoint(LOCAL_PORT));
+        odps.setEndpoint(getEndpoint(maxcompute.getMappedPort(HOST_PORT)));
         odps.setDefaultProject("mocked_mc");
-        odps.setTunnelEndpoint(getEndpoint(LOCAL_PORT));
+        odps.setTunnelEndpoint(getEndpoint(maxcompute.getMappedPort(HOST_PORT)));
         return odps;
     }
 
@@ -136,11 +129,13 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
     }
 
     private void prepareLocal() throws IOException {
-        sendPOST(getEndpoint(LOCAL_PORT) + "/init", getEndpoint(LOCAL_PORT));
+        String localEndpoint = getEndpoint(maxcompute.getMappedPort(HOST_PORT));
+        sendPOST(localEndpoint + "/init", localEndpoint);
     }
 
     private void prepareContainer() throws IOException {
-        sendPOST(getEndpoint(LOCAL_PORT) + "/init", getEndpoint(HOST_PORT));
+        sendPOST(
+                getEndpoint(maxcompute.getMappedPort(HOST_PORT)) + "/init", getEndpoint(HOST_PORT));
     }
 
     private static void createTableWithData(Odps odps, String tableName) throws OdpsException {
@@ -272,7 +267,7 @@ public class MaxComputeIT extends TestSuiteBase implements TestResource {
         Map<String, Object> config = new HashMap<>();
         config.put("accessId", "ak");
         config.put("accesskey", "sk");
-        config.put("endpoint", getEndpoint(LOCAL_PORT));
+        config.put("endpoint", getEndpoint(maxcompute.getMappedPort(HOST_PORT)));
         config.put("project", "mocked_mc");
         config.put("table_name", "test_table");
         config.put("read_columns", Arrays.asList("ID", "NAME"));

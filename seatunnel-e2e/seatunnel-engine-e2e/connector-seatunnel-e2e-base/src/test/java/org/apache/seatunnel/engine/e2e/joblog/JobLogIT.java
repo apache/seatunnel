@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.e2e.joblog;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 import org.apache.seatunnel.engine.e2e.SeaTunnelEngineContainer;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
@@ -66,8 +67,6 @@ public class JobLogIT extends SeaTunnelEngineContainer {
     private static final String confFile = "/fakesource_to_console.conf";
     private static final Path BIN_PATH = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
     private static final Path CONFIG_PATH = Paths.get(SEATUNNEL_HOME, "config");
-    private static final Path HADOOP_JAR_PATH =
-            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
 
     private GenericContainer<?> secondServer;
     private final Network NETWORK = Network.newNetwork();
@@ -371,10 +370,8 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                                 + "/seatunnel-e2e/seatunnel-engine-e2e/connector-seatunnel-e2e-base/src/test/resources/cluster/"),
                 CONFIG_PATH.toString());
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                HADOOP_JAR_PATH.toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH

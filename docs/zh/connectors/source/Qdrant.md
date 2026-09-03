@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 > Qdrant 数据源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 [Qdrant](https://qdrant.tech/) 是一个高性能的向量搜索引擎和向量数据库。

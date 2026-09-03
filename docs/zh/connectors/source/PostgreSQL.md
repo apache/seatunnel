@@ -28,6 +28,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> PostgreSQL Source 是基于 JDBC 的批连接器，不会持续监听 PostgreSQL 的预写日志。如果需要持续变更捕获，请使用 [PostgreSQL-CDC](../source/PostgreSQL-CDC.md)。
 
 > 支持查询 SQL，并可以实现投影效果。
 
@@ -305,6 +309,74 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 流式增量 ID 区间读取
+
+PostgreSQL Source 是基于 JDBC 的批读取器。设置 `job.mode = "STREAMING"` 只用于开启 checkpoint 以便在失败时恢复作业；source 本身仍然是有界的，每次作业只会读取一次配置好的 `[partition_lower_bound, partition_upper_bound)` 区间。如需周期性地拉取新增数据，必须在外部重新提交作业（例如按计划滑动区间窗口），或改用 [PostgreSQL-CDC](../source/PostgreSQL-CDC.md) 做持续变更捕获。
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    query = "SELECT * FROM orders WHERE id >= ? AND id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
+### 带 schema 前缀的表名
+
+PostgreSQL 的全限定名为 `database.schema.table`。如果 `url` 中没有显式指定目标库，需要在 `table_path` 中以 `database.schema.table` 的形式带上 schema。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_path = "demo.public.orders"
+    split.size = 10000
+  }
+}
+```
+
+### 表级 query 覆盖
+
+当 `table_list` 中的多张表需要不同的投影或过滤条件时，可以在每个条目上单独设置 `query`，让 SeaTunnel 直接按这条 SQL 读取，跳过表元数据查找。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    table_list = [
+      {
+        table_path = "demo.public.orders"
+        query = "select id, status, amount from orders where status = 'PAID'"
+      },
+      {
+        table_path = "demo.public.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
 }
 ```
 

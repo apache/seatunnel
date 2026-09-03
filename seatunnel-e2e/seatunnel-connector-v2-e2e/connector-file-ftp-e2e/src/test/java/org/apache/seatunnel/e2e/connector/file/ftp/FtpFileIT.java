@@ -54,9 +54,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
@@ -69,7 +66,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private static final String FTP_IMAGE = "fauria/vsftpd:latest";
 
-    private static final String ftp_CONTAINER_HOST = "ftp";
+    private static final String FTP_CONTAINER_HOST = "ftp";
 
     private static final int FTP_PORT = 21;
 
@@ -77,21 +74,20 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private static final String PASSWORD = "pass";
 
+    private static final String CONTINUOUS_DISTCP_PATH = "/tmp/seatunnel/continuous/distcp";
+
+    private static final String CONTINUOUS_DELETE_PATH = "/tmp/seatunnel/continuous/delete";
+
+    private static final String CONTINUOUS_BACKUP_PATH = "/tmp/seatunnel/continuous/backup";
+
+    private static final String CONTINUOUS_RETENTION_PATH = "/tmp/seatunnel/continuous/retention";
+
+    private static final String CONTINUOUS_NON_RECURSIVE_PATH =
+            "/tmp/seatunnel/continuous/non-recursive";
+
     private GenericContainer<?> ftpContainer;
 
     private String ftpHomeDir;
-
-    private String ftpPassiveAddress;
-
-    private BiFunction<Integer, Integer, Integer[]> generateExposedPorts =
-            (startPort, endPort) ->
-                    IntStream.rangeClosed(startPort, endPort).boxed().toArray(Integer[]::new);
-
-    private BiFunction<Integer, Integer, List<String>> generatePortBindings =
-            (startPort, endPort) ->
-                    IntStream.rangeClosed(startPort, endPort)
-                            .mapToObj(i -> i + ":" + i)
-                            .collect(Collectors.toList());
 
     @BeforeAll
     @Override
@@ -102,9 +98,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(FTP_IMAGE)
                         .withNetwork(NETWORK)
                         .withExposedPorts(FTP_PORT)
-                        .withExposedPorts(
-                                generateExposedPorts.apply(passiveStartPort, passiveEndPort))
-                        .withNetworkAliases(ftp_CONTAINER_HOST)
+                        .withNetworkAliases(FTP_CONTAINER_HOST)
                         .withEnv("FILE_OPEN_MODE", "0666")
                         .withEnv("WRITE_ENABLE", "YES")
                         .withEnv("ALLOW_WRITEABLE_CHROOT", "YES")
@@ -113,6 +107,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                         .withEnv("LOCAL_UMASK", "000")
                         .withEnv("FTP_USER", USERNAME)
                         .withEnv("FTP_PASS", PASSWORD)
+                        .withEnv("PASV_ADDRESS", FTP_CONTAINER_HOST)
+                        .withEnv("PASV_ADDR_RESOLVE", "YES")
                         .withEnv("PASV_MIN_PORT", String.valueOf(passiveStartPort))
                         .withEnv("PASV_MAX_PORT", String.valueOf(passiveEndPort))
                         .withLogConsumer(new Slf4jLogConsumer(log))
@@ -121,22 +117,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                         .waitingFor(Wait.forLogMessage(".*", 1))
                         .withPrivilegedMode(true);
 
-        List<String> portBind = new ArrayList<>();
-        portBind.add("21:21");
-        portBind.addAll(generatePortBindings.apply(passiveStartPort, passiveEndPort));
-
-        ftpContainer.setPortBindings(portBind);
         ftpContainer.start();
         Startables.deepStart(Stream.of(ftpContainer)).join();
-
-        // Get the passive mode address of the FTP container
-        Properties properties = new Properties();
-        properties.load(
-                new StringReader(
-                        ftpContainer
-                                .execInContainer("sh", "-c", "cat /etc/vsftpd/vsftpd.conf")
-                                .getStdout()));
-        ftpPassiveAddress = properties.getProperty("pasv_address");
 
         log.info("ftp container started");
 
@@ -198,7 +180,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testFtpFileReadAndWriteForPassive(TestContainer container)
             throws IOException, InterruptedException {
-        List<String> configParams = Collections.singletonList("ftpHost=" + ftpPassiveAddress);
+        List<String> configParams = Collections.singletonList("ftpHost=" + FTP_CONTAINER_HOST);
         // Test passive mode
         assertJobExecution(
                 container, "/text/ftp_file_text_to_assert_for_passive.conf", configParams);
@@ -267,59 +249,62 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
     public void testFtpBinaryUpdateModeContinuousDiscoveryDistcp(TestContainer container)
-            throws IOException, InterruptedException {
-        resetContinuousTestPath();
-        putFtpFile("/tmp/seatunnel/continuous/src/test1.bin", "abc");
-
+            throws Throwable {
+        resetContinuousTestPath(CONTINUOUS_DISTCP_PATH);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/text/ftp_binary_update_distcp_continuous.conf", jobId);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        "abc",
-                                        readFtpFile("/tmp/seatunnel/continuous/dst/test1.bin")));
-
-        long firstMtimeSeconds = getFtpFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
-        Thread.sleep(2500);
-        long secondMtimeSeconds = getFtpFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
-        Assertions.assertEquals(
-                firstMtimeSeconds,
-                secondMtimeSeconds,
-                "Continuous discovery should skip unchanged files in update mode.");
-
-        putFtpFile("/tmp/seatunnel/continuous/src/test2.bin", "def");
-        Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        "def",
-                                        readFtpFile("/tmp/seatunnel/continuous/dst/test2.bin")));
-
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
-
-        Container.ExecResult execResult;
+        CompletableFuture<Container.ExecResult> jobFuture = null;
+        Throwable testFailure = null;
         try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait continuous job exit failed.", e);
-        }
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            putFtpFile(CONTINUOUS_DISTCP_PATH + "/src/test1.bin", "abc");
 
-        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/ftp_binary_update_distcp_continuous.conf",
+                                            jobId,
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "abc",
+                                            readFtpFile(
+                                                    CONTINUOUS_DISTCP_PATH + "/dst/test1.bin")));
+
+            long firstMtimeSeconds =
+                    getFtpFileMtimeSeconds(CONTINUOUS_DISTCP_PATH + "/dst/test1.bin");
+            Thread.sleep(2500);
+            long secondMtimeSeconds =
+                    getFtpFileMtimeSeconds(CONTINUOUS_DISTCP_PATH + "/dst/test1.bin");
+            Assertions.assertEquals(
+                    firstMtimeSeconds,
+                    secondMtimeSeconds,
+                    "Continuous discovery should skip unchanged files in update mode.");
+
+            putFtpFile(CONTINUOUS_DISTCP_PATH + "/src/test2.bin", "def");
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "def",
+                                            readFtpFile(
+                                                    CONTINUOUS_DISTCP_PATH + "/dst/test2.bin")));
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            cleanupContinuousJob(
+                    container, jobId, jobFuture, ftpHomeDir + CONTINUOUS_DISTCP_PATH, testFailure);
+        }
     }
 
     @TestTemplate
@@ -327,88 +312,368 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
-    public void testFtpBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
-            TestContainer container) throws IOException, InterruptedException {
-        resetContinuousTestPath();
-
+    public void testFtpBinaryUpdateModeContinuousDiscoveryPostSyncDelete(TestContainer container)
+            throws Throwable {
+        resetContinuousTestPath(CONTINUOUS_DELETE_PATH);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
-        CompletableFuture<Container.ExecResult> jobFuture =
-                CompletableFuture.supplyAsync(
-                        () -> {
-                            try {
-                                return container.executeJob(
-                                        "/text/ftp_binary_update_distcp_continuous_non_recursive.conf",
-                                        jobId);
-                            } catch (Exception e) {
-                                throw new RuntimeException(e);
-                            }
-                        });
-
-        putFtpFile("/tmp/seatunnel/continuous/src/root.bin", "root");
-        putFtpFile("/tmp/seatunnel/continuous/src/subdir/nested.bin", "nested");
-
-        Awaitility.await()
-                .atMost(60, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertEquals(
-                                        "root",
-                                        readFtpFile("/tmp/seatunnel/continuous/dst/root.bin")));
-
-        Thread.sleep(3000);
-        Assertions.assertFalse(isFtpFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
-
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
-
-        Container.ExecResult execResult;
+        CompletableFuture<Container.ExecResult> jobFuture = null;
+        Throwable testFailure = null;
         try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait continuous job exit failed.", e);
-        }
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            putFtpFile(CONTINUOUS_DELETE_PATH + "/src/delete-test.bin", "abc");
 
-        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+            jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/ftp_binary_update_distcp_continuous_post_sync_delete.conf",
+                                            jobId,
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "abc",
+                                            readFtpFile(
+                                                    CONTINUOUS_DELETE_PATH
+                                                            + "/dst/delete-test.bin")));
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isFtpFileExists(
+                                                    CONTINUOUS_DELETE_PATH
+                                                            + "/src/delete-test.bin"),
+                                            "source file should be deleted after checkpoint-gated post-sync commit"));
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            cleanupContinuousJob(
+                    container, jobId, jobFuture, ftpHomeDir + CONTINUOUS_DELETE_PATH, testFailure);
+        }
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testFtpBinaryUpdateModeContinuousDiscoveryPostSyncBackup(TestContainer container)
+            throws Throwable {
+        resetContinuousTestPath(CONTINUOUS_BACKUP_PATH);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
+        Throwable testFailure = null;
+        try {
+            putFtpFile(CONTINUOUS_BACKUP_PATH + "/src/backup-test.bin", "abc");
+
+            jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/ftp_binary_update_distcp_continuous_post_sync_backup.conf",
+                                            jobId,
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "abc",
+                                            readFtpFile(
+                                                    CONTINUOUS_BACKUP_PATH
+                                                            + "/dst/backup-test.bin")));
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isFtpFileExists(
+                                                    CONTINUOUS_BACKUP_PATH
+                                                            + "/src/backup-test.bin"),
+                                            "source file should be moved from source path after backup commit"));
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            countFtpFilesByNamePattern(
+                                                            CONTINUOUS_BACKUP_PATH + "/backup",
+                                                            "backup-test.bin.v*")
+                                                    > 0,
+                                            "backup target should contain version-suffixed file"));
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            cleanupContinuousJob(
+                    container, jobId, jobFuture, ftpHomeDir + CONTINUOUS_BACKUP_PATH, testFailure);
+        }
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testFtpContinuousBackupRetentionCleanup(TestContainer container) throws Throwable {
+        resetContinuousTestPath(CONTINUOUS_RETENTION_PATH);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
+        Throwable testFailure = null;
+        try {
+            putFtpFile(CONTINUOUS_RETENTION_PATH + "/src/retention-input.bin", "input");
+            putFtpFile(CONTINUOUS_RETENTION_PATH + "/backup/retention-old.bin.v3_123456", "abc");
+            setFtpFileMtimeToPast(
+                    CONTINUOUS_RETENTION_PATH + "/backup/retention-old.bin.v3_123456");
+
+            jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/ftp_binary_update_distcp_continuous_post_sync_backup_retention.conf",
+                                            jobId,
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            0L,
+                                            countFtpFilesByNamePattern(
+                                                    CONTINUOUS_RETENTION_PATH + "/backup",
+                                                    "retention-old.bin.v*"),
+                                            "retention should remove expired SeaTunnel backup files"));
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            cleanupContinuousJob(
+                    container,
+                    jobId,
+                    jobFuture,
+                    ftpHomeDir + CONTINUOUS_RETENTION_PATH,
+                    testFailure);
+        }
+    }
+
+    /**
+     * Verifies continuous non-recursive FTP sync copies root files while ignoring nested files.
+     *
+     * <p>The nested-file assertion protects the connector's non-recursive discovery contract.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testFtpBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
+            TestContainer container) throws Throwable {
+        resetContinuousTestPath(CONTINUOUS_NON_RECURSIVE_PATH);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture = null;
+        Throwable testFailure = null;
+        try {
+            putFtpFile(CONTINUOUS_NON_RECURSIVE_PATH + "/src/root.bin", "root");
+            putFtpFile(CONTINUOUS_NON_RECURSIVE_PATH + "/src/subdir/nested.bin", "nested");
+
+            jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/text/ftp_binary_update_distcp_continuous_non_recursive.conf",
+                                            jobId,
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "root",
+                                            readFtpFile(
+                                                    CONTINUOUS_NON_RECURSIVE_PATH
+                                                            + "/dst/root.bin")));
+
+            Thread.sleep(3000);
+            Assertions.assertFalse(
+                    isFtpFileExists(CONTINUOUS_NON_RECURSIVE_PATH + "/dst/subdir/nested.bin"));
+        } catch (Throwable failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            cleanupContinuousJob(
+                    container,
+                    jobId,
+                    jobFuture,
+                    ftpHomeDir + CONTINUOUS_NON_RECURSIVE_PATH,
+                    testFailure);
+        }
+    }
+
+    /**
+     * Verifies non-recursive FTP distcp updates root files without overwriting nested files.
+     *
+     * <p>The stale nested destination file must remain unchanged after the job finishes.
+     */
     @TestTemplate
     public void testFtpBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
-        putFtpFile("/tmp/seatunnel/update/src/root.bin", "root-updated-v2");
-        putFtpFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-updated-v2");
-        putFtpFile("/tmp/seatunnel/update/dst/root.bin", "root-stale-v1");
-        putFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-stale-v1");
+        try {
+            putFtpFile("/tmp/seatunnel/update/src/root.bin", "root-updated-v2");
+            putFtpFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-updated-v2");
+            putFtpFile("/tmp/seatunnel/update/dst/root.bin", "root-stale-v1");
+            putFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-stale-v1");
 
-        Container.ExecResult execResult =
-                container.executeJob("/text/ftp_binary_update_non_recursive_distcp.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Assertions.assertEquals(
-                "root-updated-v2", readFtpFile("/tmp/seatunnel/update/dst/root.bin"));
-        Assertions.assertEquals(
-                "nest-stale-v1", readFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
-
-        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+            Container.ExecResult execResult =
+                    container.executeJob("/text/ftp_binary_update_non_recursive_distcp.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            Assertions.assertEquals(
+                    "root-updated-v2", readFtpFile("/tmp/seatunnel/update/dst/root.bin"));
+            Assertions.assertEquals(
+                    "nest-stale-v1", readFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+        } finally {
+            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+        }
     }
 
+    /**
+     * Verifies strict checksum mode keeps nested FTP files untouched during non-recursive scans.
+     */
     @TestTemplate
     public void testFtpBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
             TestContainer container) throws IOException, InterruptedException {
         resetUpdateTestPath();
-        putFtpFile("/tmp/seatunnel/update/src/root.bin", "root-same-v1");
-        putFtpFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-new-v1");
-        putFtpFile("/tmp/seatunnel/update/dst/root.bin", "root-same-v1");
-        putFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-old-v1");
+        try {
+            putFtpFile("/tmp/seatunnel/update/src/root.bin", "root-same-v1");
+            putFtpFile("/tmp/seatunnel/update/src/subdir/nested.bin", "nest-new-v1");
+            putFtpFile("/tmp/seatunnel/update/dst/root.bin", "root-same-v1");
+            putFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin", "nest-old-v1");
 
-        Container.ExecResult execResult =
-                container.executeJob("/text/ftp_binary_update_non_recursive_strict_checksum.conf");
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
-        Assertions.assertEquals("root-same-v1", readFtpFile("/tmp/seatunnel/update/dst/root.bin"));
-        Assertions.assertEquals(
-                "nest-old-v1", readFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            "/text/ftp_binary_update_non_recursive_strict_checksum.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            Assertions.assertEquals(
+                    "root-same-v1", readFtpFile("/tmp/seatunnel/update/dst/root.bin"));
+            Assertions.assertEquals(
+                    "nest-old-v1", readFtpFile("/tmp/seatunnel/update/dst/subdir/nested.bin"));
+        } finally {
+            deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+        }
+    }
 
-        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/update");
+    /**
+     * Continuous discovery is only considered stopped after the engine reaches CANCELED and the
+     * submit command exits, so cleanup regressions still fail this E2E test.
+     */
+    private void assertContinuousJobStopsAfterCancel(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture)
+            throws IOException, InterruptedException {
+        if (jobFuture == null) {
+            return;
+        }
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult cancelResult = container.cancelJob(jobId);
+                            Assertions.assertEquals(
+                                    0, cancelResult.getExitCode(), cancelResult.getStderr());
+                        });
+
+        Awaitility.await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "CANCELED",
+                                        container.getJobStatus(jobId),
+                                        "Continuous job should be canceled before the test exits."));
+
+        Awaitility.await()
+                .atMost(180, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(jobFuture::isDone);
+
+        try {
+            Container.ExecResult execResult = jobFuture.get(30, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+    }
+
+    /**
+     * Stops a continuous job before deleting its shared test path, without hiding the original test
+     * failure when cleanup also fails.
+     */
+    private void cleanupContinuousJob(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture,
+            String cleanupPath,
+            Throwable testFailure)
+            throws Throwable {
+        Throwable cleanupFailure = null;
+        try {
+            assertContinuousJobStopsAfterCancel(container, jobId, jobFuture);
+        } catch (Throwable failure) {
+            cleanupFailure = failure;
+        }
+
+        if (cleanupFailure == null) {
+            try {
+                deleteFileFromContainer(cleanupPath);
+            } catch (Throwable failure) {
+                cleanupFailure = failure;
+            }
+        }
+
+        if (cleanupFailure == null) {
+            return;
+        }
+        if (testFailure != null) {
+            testFailure.addSuppressed(cleanupFailure);
+        } else {
+            throw cleanupFailure;
+        }
     }
 
     @TestTemplate
@@ -503,6 +768,19 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         // test read recursive file path
         helper.execute("/text/ftp_file_text_recursive_to_assert.conf");
         helper.execute("/text/ftp_file_text_non_recursive_to_assert.conf");
+
+        String homePath = ftpHomeDir;
+        String sink01 = "/tmp/seatunnel/json/sink/multiplesource/fake01";
+        String sink02 = "/tmp/seatunnel/json/sink/multiplesource/fake02";
+        deleteFileFromContainer(homePath + sink01);
+        deleteFileFromContainer(homePath + sink02);
+        // Keep a dedicated source file for each logical table. Sharing one FTP path between the
+        // two multiple-table entries can leave the second reader with no physical file to open on
+        // slower CI runs.
+        ensureMultipleTableJsonInputFiles();
+        helper.execute("/json/ftp_file_json_to_assert_with_multipletable.conf");
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink01).size(), 1);
+        Assertions.assertEquals(getFileListFromContainer(homePath + sink02).size(), 1);
     }
 
     @TestTemplate
@@ -609,37 +887,41 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/update || true");
     }
 
-    private void resetContinuousTestPath() throws IOException, InterruptedException {
-        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/continuous");
+    private void resetContinuousTestPath(String continuousPath)
+            throws IOException, InterruptedException {
+        deleteFileFromContainer(ftpHomeDir + continuousPath);
         Container.ExecResult mkdirResult =
                 ftpContainer.execInContainer(
                         "sh",
                         "-c",
                         "mkdir -p "
                                 + ftpHomeDir
-                                + "/tmp/seatunnel/continuous/src "
+                                + continuousPath
+                                + "/src "
                                 + ftpHomeDir
-                                + "/tmp/seatunnel/continuous/dst "
+                                + continuousPath
+                                + "/dst "
                                 + ftpHomeDir
-                                + "/tmp/seatunnel/continuous/tmp");
+                                + continuousPath
+                                + "/tmp");
         Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
         ftpContainer.execInContainer(
-                "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/continuous || true");
+                "sh", "-c", "chmod -R 777 " + ftpHomeDir + continuousPath + " || true");
         ftpContainer.execInContainer(
-                "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/tmp/seatunnel/continuous || true");
+                "sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + continuousPath + " || true");
     }
 
     private void putFtpFile(String ftpPath, String content)
             throws IOException, InterruptedException {
         String containerPath = ftpHomeDir + ftpPath;
         String command =
-                "mkdir -p $(dirname '"
+                "parent=$(dirname '"
                         + containerPath
-                        + "') && printf '"
+                        + "') && mkdir -p \"$parent\" && printf '"
                         + content
                         + "' > '"
                         + containerPath
-                        + "' && chmod 666 '"
+                        + "' && chmod -R 777 \"$parent\" && chmod 666 '"
                         + containerPath
                         + "'";
         Container.ExecResult putResult = ftpContainer.execInContainer("sh", "-c", command);
@@ -654,6 +936,11 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
+    /**
+     * Checks whether a file exists in the FTP container without creating parent directories.
+     *
+     * <p>This helper is used by negative assertions where creating the path would hide regressions.
+     */
     private boolean isFtpFileExists(String ftpPath) throws IOException, InterruptedException {
         String containerPath = ftpHomeDir + ftpPath;
         Container.ExecResult result =
@@ -667,6 +954,78 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 ftpContainer.execInContainer("sh", "-c", "stat -c %Y '" + containerPath + "'");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         return Long.parseLong(result.getStdout().trim());
+    }
+
+    private long countFtpFilesByNamePattern(String ftpPath, String namePattern)
+            throws IOException, InterruptedException {
+        String containerPath = ftpHomeDir + ftpPath;
+        Container.ExecResult result =
+                ftpContainer.execInContainer(
+                        "sh",
+                        "-c",
+                        "if [ -d '"
+                                + containerPath
+                                + "' ]; then find '"
+                                + containerPath
+                                + "' -type f -name '"
+                                + namePattern
+                                + "' | wc -l; else echo 0; fi");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private void setFtpFileMtimeToPast(String ftpPath) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                ftpContainer.execInContainer(
+                        "sh", "-c", "touch -t 202001010000.00 '" + ftpHomeDir + ftpPath + "'");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    /**
+     * Best-effort cleanup for assertion failures so a continuous test cannot leak a running job.
+     */
+    private void cancelContinuousJobQuietly(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        if (jobFuture == null || jobFuture.isDone()) {
+            return;
+        }
+        try {
+            String status = container.getJobStatus(jobId);
+            if (!"CANCELED".equals(status)
+                    && !"FINISHED".equals(status)
+                    && !"FAILED".equals(status)) {
+                container.cancelJob(jobId);
+            }
+            Awaitility.await()
+                    .atMost(180, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .until(jobFuture::isDone);
+        } catch (Exception e) {
+            log.warn("Failed to clean up continuous FTP job {}.", jobId, e);
+        }
+    }
+
+    private void waitContinuousJobExit(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("CANCELED", container.getJobStatus(jobId)));
+        Awaitility.await()
+                .atMost(180, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(jobFuture::isDone);
+        try {
+            Container.ExecResult execResult = jobFuture.get(30, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
     }
 
     private String getFtpUserHomeDir() throws IOException, InterruptedException {
@@ -747,6 +1106,10 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     }
 
     private void ensureReadJsonInputFile() throws IOException, InterruptedException {
+        // Reset the shared JSON source directory for each template run. The FTP container is
+        // reused across engine variants, so stale fake01/fake02 inputs from the multiple-table
+        // case can otherwise leak into the single-table assert and inflate the row count.
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/read/json");
         Container.ExecResult mkdirResult =
                 ftpContainer.execInContainer(
                         "sh",
@@ -763,6 +1126,39 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 ftpContainer.execInContainer(
                         "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/read");
         Assertions.assertEquals(0, chmodResult.getExitCode(), chmodResult.getStderr());
+    }
+
+    /**
+     * The multiple-table FTP JSON test reads two logical tables from two table configs. Give each
+     * table its own physical source file so one reader never depends on a file already consumed by
+     * the other table path. This helper owns {@code tmp/seatunnel/read/json} for the suite and
+     * rebuilds it before the multiple-table run.
+     */
+    private void ensureMultipleTableJsonInputFiles() throws IOException, InterruptedException {
+        // Rebuild the multiple-table source tree from scratch so previous template runs never
+        // leave extra JSON files behind for the next engine invocation.
+        deleteFileFromContainer(ftpHomeDir + "/tmp/seatunnel/read/json");
+        copyJsonInputFileTo(
+                ftpHomeDir + "/tmp/seatunnel/read/json/fake01/name=tyrantlucifer/hobby=coding");
+        copyJsonInputFileTo(
+                ftpHomeDir + "/tmp/seatunnel/read/json/fake02/name=tyrantlucifer/hobby=coding");
+        Container.ExecResult chmodResult =
+                ftpContainer.execInContainer(
+                        "sh", "-c", "chmod -R 777 " + ftpHomeDir + "/tmp/seatunnel/read/json");
+        Assertions.assertEquals(0, chmodResult.getExitCode(), chmodResult.getStderr());
+    }
+
+    /**
+     * Copies the canonical JSON fixture into an isolated multiple-table input directory.
+     *
+     * @param directory destination directory inside the FTP container
+     */
+    private void copyJsonInputFileTo(String directory) throws IOException, InterruptedException {
+        Container.ExecResult mkdirResult =
+                ftpContainer.execInContainer("sh", "-c", "mkdir -p " + directory);
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+        ContainerUtil.copyFileIntoContainers(
+                "/json/e2e.json", directory + "/e2e.json", ftpContainer);
     }
 
     @SneakyThrows

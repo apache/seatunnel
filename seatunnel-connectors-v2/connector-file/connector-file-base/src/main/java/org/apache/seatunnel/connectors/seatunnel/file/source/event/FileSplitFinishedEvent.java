@@ -20,12 +20,20 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.event;
 import org.apache.seatunnel.api.source.SourceEvent;
 
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 
 @Getter
-@RequiredArgsConstructor
 public class FileSplitFinishedEvent implements SourceEvent {
     private static final long serialVersionUID = 1L;
 
     private final String splitId;
+    private final String contentFingerprint;
+
+    public FileSplitFinishedEvent(String splitId) {
+        this(splitId, null);
+    }
+
+    public FileSplitFinishedEvent(String splitId, String contentFingerprint) {
+        this.splitId = splitId;
+        this.contentFingerprint = contentFingerprint;
+    }
 }

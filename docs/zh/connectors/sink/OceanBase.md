@@ -259,6 +259,58 @@ sink {
 }
 ```
 
+### 基于 XA 事务的精确一次
+
+启用 XA 精确一次语义需要把 `is_exactly_once = true`，并提供 OceanBase JDBC 驱动中的 `xa_data_source_class_name`，同时把 `max_retries = 0`。写入器会把每个 checkpoint 批次包装在 XA 事务里，要么与源 checkpoint 一起提交，要么失败回滚。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    is_exactly_once = true
+    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseXADataSource"
+    max_retries = 0
+    batch_size = 1000
+  }
+}
+```
+
+### 批量 + 定时刷新组合
+
+流式作业可以同时设置 `batch_size` 与 `batch_interval_ms`，基于距离上次刷新的耗时来刷新缓冲行。刷新是**写入触发的**：每条记录进入写入路径时都会检查耗时，达到间隔才会同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证低吞吐量流上的精确 wall-clock 时延边界。配合 `batch_size` 使用可以兼顾吞吐与单条记录时延，但请不要把它当作严格的实时定时器。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />

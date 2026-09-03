@@ -19,21 +19,44 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.state;
 
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 public class FileSourceState implements Serializable {
     private static final long serialVersionUID = 9208369906513934611L;
-    private final Set<FileSourceSplit> assignedSplit;
-    private final long discoveryStartTimeMillis;
+    private Set<FileSourceSplit> assignedSplit;
+    private long discoveryStartTimeMillis;
+    private Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint;
+    private Map<String, Long> retentionLastRunMillisByPath;
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit) {
-        this(assignedSplit, 0L);
+        this(assignedSplit, 0L, Collections.emptyMap(), Collections.emptyMap());
     }
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit, long discoveryStartTimeMillis) {
+        this(
+                assignedSplit,
+                discoveryStartTimeMillis,
+                Collections.emptyMap(),
+                Collections.emptyMap());
+    }
+
+    public FileSourceState(
+            Set<FileSourceSplit> assignedSplit,
+            long discoveryStartTimeMillis,
+            Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
+            Map<String, Long> retentionLastRunMillisByPath) {
         this.assignedSplit = assignedSplit;
         this.discoveryStartTimeMillis = discoveryStartTimeMillis;
+        this.pendingOpsByCheckpoint = pendingOpsByCheckpoint;
+        this.retentionLastRunMillisByPath = retentionLastRunMillisByPath;
     }
 
     public Set<FileSourceSplit> getAssignedSplit() {
@@ -42,5 +65,26 @@ public class FileSourceState implements Serializable {
 
     public long getDiscoveryStartTimeMillis() {
         return discoveryStartTimeMillis;
+    }
+
+    public Map<Long, List<FileSourceOperationState>> getPendingOpsByCheckpoint() {
+        return pendingOpsByCheckpoint;
+    }
+
+    public Map<String, Long> getRetentionLastRunMillisByPath() {
+        return retentionLastRunMillisByPath;
+    }
+
+    private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+        in.defaultReadObject();
+        if (assignedSplit == null) {
+            assignedSplit = new HashSet<>();
+        }
+        if (pendingOpsByCheckpoint == null) {
+            pendingOpsByCheckpoint = new HashMap<>();
+        }
+        if (retentionLastRunMillisByPath == null) {
+            retentionLastRunMillisByPath = new HashMap<>();
+        }
     }
 }

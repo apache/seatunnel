@@ -52,12 +52,16 @@
         <module>connector-elasticsearch</module>
         <module>connector-iotdb</module>
         <module>connector-iotdb-v2</module>
+        <module>connector-nebulagraph</module>
         <module>connector-neo4j</module>
         <module>connector-redis</module>
         <module>connector-datahub</module>
         <module>connector-sentry</module>
         <module>connector-mongodb</module>
+        <module>connector-couchbase</module>
         <module>connector-mqtt</module>
+        <module>connector-snmp</module>
+        <module>connector-python</module>
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
         <module>connector-amazondynamodb</module>
@@ -68,6 +72,8 @@
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
         <module>connector-google-firestore</module>
+        <module>connector-google-pubsub</module>
+        <module>connector-azure-queue-storage</module>
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>
@@ -86,6 +92,7 @@
         <module>connector-milvus</module>
         <module>connector-activemq</module>
         <module>connector-prometheus</module>
+        <module>connector-deeplake</module>
         <module>connector-qdrant</module>
         <module>connector-sls</module>
         <module>connector-typesense</module>
@@ -96,6 +103,9 @@
         <module>connector-lance</module>
         <module>connector-bigquery</module>
         <module>connector-edge-socket</module>
+        <module>connector-azurecosmosdb</module>
+        <module>connector-nats-jetstream</module>
+        <module>connector-firebase</module>
     </modules>
 
     <dependencyManagement>

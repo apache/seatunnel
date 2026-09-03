@@ -93,6 +93,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(EZS_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(PORT)
                         .withPrivilegedMode(true)
                         .withEnv("cluster.routing.allocation.disk.threshold_enabled", "false")
                         .withStartupAttempts(5)
@@ -100,7 +101,6 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(EZS_DOCKER_IMAGE)));
-        easysearchServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(easysearchServer)).join();
         log.info("Easysearch container started");
         // prepare test dataset
@@ -109,14 +109,17 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         Awaitility.given()
                 .ignoreExceptions()
                 .atLeast(5L, TimeUnit.SECONDS)
+                .pollDelay(5L, TimeUnit.SECONDS)
                 .pollInterval(1L, TimeUnit.SECONDS)
                 .atMost(120L, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);
     }
 
     private void initConnection() {
-        String host = easysearchServer.getContainerIpAddress();
-        String endpoint = String.format("https://%s:%d", host, PORT);
+        String endpoint =
+                String.format(
+                        "https://%s:%d",
+                        easysearchServer.getHost(), easysearchServer.getMappedPort(PORT));
         Map<String, Object> config = new HashMap<>();
         config.put("username", "admin");
         config.put("password", "admin");

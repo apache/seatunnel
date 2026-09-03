@@ -4,15 +4,22 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 
 > MQTT Sink 连接器
 
+## 引擎支持
+
+> SeaTunnel Zeta<br/>
+> Flink<br/>
+> Spark<br/>
+
 ## 描述
 
 用于把数据写入 MQTT broker。该连接器基于 Eclipse Paho 客户端库，支持 MQTT 3.1.1 协议。
 
 它适合把 SeaTunnel 作业中的数据发布到物联网设备、边缘网关或轻量消息 broker。消息可以按 JSON 或纯文本格式序列化，并写入指定的 MQTT topic。
 
-## 主要特性
+## 关键特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 :::caution 投递语义
@@ -23,40 +30,34 @@ import ChangeLog from '../changelog/connector-mqtt.md';
 
 :::
 
-## 支持引擎
+## Sink 选项
 
-> SeaTunnel Zeta<br/>
-> Flink<br/>
-> Spark<br/>
-
-## 选项
-
-| 名称                 | 类型      | 是否必须 | 默认值  |
-|--------------------|---------|------|------|
-| url                | string  | 是    | -    |
-| topic              | string  | 是    | -    |
-| username           | string  | 否    | -    |
-| password           | string  | 否    | -    |
-| qos                | int     | 否    | 1    |
-| format             | string  | 否    | json |
-| field_delimiter    | string  | 否    | ,    |
-| batch_size         | int     | 否    | 1    |
-| retry_timeout      | int     | 否    | 5000 |
-| connection_timeout | int     | 否    | 30   |
-| clean_session      | boolean | 否    | true |
-| common-options     |         | 否    | -    |
+| 名称                 | 类型      | 是否必须 | 默认值  | 描述                                                              |
+|--------------------|---------|------|------|-----------------------------------------------------------------|
+| url                | string  | 是    | -    | MQTT broker 连接地址，必须包含协议、主机和端口，例如 `tcp://broker.example.com:1883`。 |
+| topic              | string  | 是    | -    | 要发布消息的 MQTT topic，例如 `iot/sensors/temperature`。                |
+| username           | string  | 否    | -    | MQTT broker 认证用户名。匿名访问时可以不配置。                                   |
+| password           | string  | 否    | -    | MQTT broker 认证密码。匿名访问时可以不配置。                                   |
+| qos                | int     | 否    | 1    | 发布消息时使用的 MQTT QoS 等级。`0` 表示最多一次，`1` 表示至少一次。                  |
+| format             | string  | 否    | json | 输出消息的序列化格式。`json` 把每一行序列化为 JSON 对象；`text` 按分隔符拼接为纯文本。          |
+| field_delimiter    | string  | 否    | ,    | 当 `format = "text"` 时使用的字段分隔符，例如 `,`、`|`、`\t`。                  |
+| batch_size         | int     | 否    | 1    | 发送到 broker 前缓存的消息数量；每个 checkpoint 和 writer 关闭时也会自动 flush。        |
+| retry_timeout      | int     | 否    | 5000 | 发布消息遇到临时网络故障时，最多重试多久，单位为毫秒。                                  |
+| connection_timeout | int     | 否    | 30   | 建立 MQTT 连接的超时时间，单位为秒。                                          |
+| clean_session      | boolean | 否    | true | 是否使用 clean MQTT session。`true` 丢弃之前的会话状态，`false` 保留会话状态。       |
+| common-options     | config  | 否    | -    | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### url [string]
 
 MQTT broker 连接地址，必须包含协议、主机和端口。
 
-示例：`tcp://broker.example.com:1883`
+示例：`tcp://broker.example.com:1883`。
 
 ### topic [string]
 
 要发布消息的 MQTT topic。
 
-示例：`iot/sensors/temperature`
+示例：`iot/sensors/temperature`。
 
 ### username [string]
 
@@ -84,12 +85,11 @@ MQTT broker 认证密码。匿名访问时可以不配置。
 
 当 `format = "text"` 时使用的字段分隔符。默认值为 `,`。
 
-示例：`,`, `|`, `\t`
+示例：`,`、`|`、`\t`。
 
 ### batch_size [int]
 
 发送到 broker 前缓存的消息数量。默认值为 `1`，表示每条消息都会立即发送。
-
 调大该值可以减少逐条发送的开销，提升吞吐。缓存中的消息会在 checkpoint 和 writer 关闭时自动 flush。
 
 ### retry_timeout [int]
@@ -107,20 +107,25 @@ MQTT broker 认证密码。匿名访问时可以不配置。
 - `true`：broker 会丢弃之前的会话状态，适合大多数无状态写入场景。
 - `false`：broker 可以在 writer 运行期间保留自动生成的 client id 对应的会话状态。它有助于处理短暂断连，但可能造成 broker 端状态堆积，也不提供跨作业重启的稳定 client id。
 
-### common options
+### 通用选项
 
 Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md)。
 
 ## 性能建议
 
-MQTT Sink 会同步发送消息，以保持写入顺序。可以通过下面方式提升吞吐：
+MQTT Sink 会同步发送消息，以保持写入顺序。典型吞吐：
+
+- QoS 0：~10,000 条消息/秒（局域网）。
+- QoS 1：~5,000 条消息/秒（需要 broker ACK）。
+
+可以通过下面方式提升吞吐：
 
 - 适当调大 `batch_size`，例如设置为 `100`，减少逐条发送开销。
 - 如果业务可以接受最多一次投递，把 `qos` 设置为 `0`。
 - 提高 SeaTunnel 作业并行度，让多个 MQTT client 分担写入。
 - 如果需要非常高的吞吐，可以考虑使用 Kafka Sink。
 
-## 示例
+## 任务示例
 
 ### 写入 JSON 消息到 MQTT
 

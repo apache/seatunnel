@@ -232,8 +232,9 @@ exit;
 | table-names                               | List     | Conditionally required | -       | Table names to monitor. Each value should use `database.schema.table`, for example: `ORCLCDB.DEBEZIUM.FULL_TYPES`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | table-pattern                             | String   | Conditionally required | -       | Regular expression for table names to capture. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | table-names-config                        | List     | No        | -       | Per-table config list. For example: `[{"table": "ORCLCDB.DEBEZIUM.FULL_TYPES","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`. Use this when the table has no primary key, needs a custom primary key, or needs an explicit snapshot split column.                                                                                                                                                                                                                                                                                                                                                              |
-| startup.mode                              | Enum     | No        | INITIAL | Optional startup mode for Oracle CDC consumer, valid enumerations are `initial`, `latest` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `latest`: Start from the latest offset and skip the initial snapshot.<br/> `timestamp`: Start from the SCN resolved from `startup.timestamp`.                                                                                                                                                                                           |
+| startup.mode                              | Enum     | No        | INITIAL | Optional startup mode for Oracle CDC consumer, valid enumerations are `initial`, `latest`, `timestamp` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `latest`: Start from the latest offset and skip the initial snapshot.<br/> `timestamp`: Start from the SCN resolved from `startup.timestamp`.<br/> `specific`: Start from user-supplied SCN.                                                                                                                                                                                           |
 | startup.timestamp                         | Long     | No        | -       | Start from the specified timestamp (milliseconds since Unix epoch). This timestamp is converted with `server-time-zone` when `startup.mode = timestamp`. **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                        |
+| startup.specific-offset.scn               | Long     | No        | -       | Start from the specified Oracle SCN. **Note, This option is required when the `startup.mode` option uses `specific`. The SCN must still be available to the selected Oracle log mining backend.**                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | stop.mode                                 | Enum     | No        | NEVER   | Optional stop mode for Oracle CDC consumer. The only valid value is `never`, so a streaming Oracle CDC source keeps running until the job is stopped.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | snapshot.split.size                       | Integer  | No        | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No        | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -423,12 +424,11 @@ source {
 
 ### Configure Debezium heartbeat
 
-For low-traffic tables, Debezium heartbeat can help the Oracle LogMiner position move forward regularly.
+For low-traffic tables, the Oracle LogMiner SCN only advances when redo log changes occur. Use a Debezium heartbeat to keep the SCN moving so checkpoint offsets are recorded regularly and replication lag stays observable. The heartbeat table must exist on the Oracle server before the job starts.
 
 ```hocon
 source {
   Oracle-CDC {
-    plugin_output = "customers"
     username = "system"
     password = "top_secret"
     database-names = ["ORCLCDB"]
@@ -437,12 +437,45 @@ source {
     url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
-      heartbeat.interval.ms = 1000
+      heartbeat.interval.ms = 100
       heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }
 ```
+
+### Read tables without a primary key
+
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and redo-log phases both use the configured key for
+  consistent row identity.
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"]
+    table-names-config = [
+      {
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"
+        primaryKeys = ["ID"]
+      }
+    ]
+    exactly_once = true
+  }
+}
+```
+
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
 
 ### Schema change event filtering
 

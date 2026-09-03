@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -56,9 +57,15 @@ public class HbaseSourceFactory implements TableSourceFactory {
                         HbaseSourceOptions.START_ROW_KEY,
                         HbaseSourceOptions.END_ROW_KEY,
                         HbaseSourceOptions.START_ROW_INCLUSIVE,
-                        HbaseSourceOptions.END_ROW_INCLUSIVE,
+                        HbaseSourceOptions.END_ROW_INCLUSIVE)
+                .optional(
                         HbaseSourceOptions.START_TIMESTAMP,
-                        HbaseSourceOptions.END_TIMESTAMP)
+                        HbaseSourceOptions.END_TIMESTAMP,
+                        Conditions.greaterOrEqual(HbaseSourceOptions.START_TIMESTAMP, 0L),
+                        Conditions.greaterThan(HbaseSourceOptions.END_TIMESTAMP, 0L),
+                        Conditions.lessThanField(
+                                HbaseSourceOptions.START_TIMESTAMP,
+                                HbaseSourceOptions.END_TIMESTAMP))
                 .build();
     }
 

@@ -68,6 +68,15 @@ public interface EngineStateStores extends AutoCloseable {
     }
 
     /**
+     * Returns the store for row-level error handler counters.
+     *
+     * @return error handler counter store
+     */
+    default CounterStateStore<String> errorHandlerCounterStore() {
+        return authoritative().errorHandlerCounterStore();
+    }
+
+    /**
      * Returns the store for checkpoint overviews.
      *
      * @return checkpoint overview state store

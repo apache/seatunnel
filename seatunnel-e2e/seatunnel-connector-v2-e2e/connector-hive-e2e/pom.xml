@@ -51,9 +51,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -92,7 +90,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
         <!-- Add Hive MetaStore dependency for E2E tests -->
         <dependency>
             <groupId>org.apache.hive</groupId>
@@ -134,5 +131,72 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-hive-e2e-dependencies</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.hive</groupId>
+                                    <artifactId>hive-exec</artifactId>
+                                    <version>${hive.version}</version>
+                                    <destFileName>hive-exec.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.thrift</groupId>
+                                    <artifactId>libfb303</artifactId>
+                                    <version>${thrift.version}</version>
+                                    <destFileName>libfb303.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.hadoop</groupId>
+                                    <artifactId>hadoop-aws</artifactId>
+                                    <version>${hadoop-aws.version}</version>
+                                    <destFileName>hadoop-aws.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.aliyun.oss</groupId>
+                                    <artifactId>aliyun-sdk-oss</artifactId>
+                                    <version>${aliyun.sdk.oss.version}</version>
+                                    <destFileName>aliyun-sdk-oss.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.jdom</groupId>
+                                    <artifactId>jdom</artifactId>
+                                    <version>${jdom.version}</version>
+                                    <destFileName>jdom.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.hadoop</groupId>
+                                    <artifactId>hadoop-aliyun</artifactId>
+                                    <version>${hadoop-aliyun.version}</version>
+                                    <destFileName>hadoop-aliyun.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.qcloud.cos</groupId>
+                                    <artifactId>hadoop-cos</artifactId>
+                                    <version>${hadoop-cos.version}</version>
+                                    <destFileName>hadoop-cos.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

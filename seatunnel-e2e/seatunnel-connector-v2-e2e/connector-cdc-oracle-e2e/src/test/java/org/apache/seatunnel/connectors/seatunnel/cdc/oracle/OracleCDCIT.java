@@ -16,14 +16,13 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -63,13 +62,14 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s ORDER BY ID";
 
     @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory = this::copyOracleDriverToContainer;
+    protected final ContainerExtendedFactory extendedFactory =
+            container ->
+                    DependencyJar.of(oracle.jdbc.driver.OracleDriver.class)
+                            .copyTo(container, ORACLE_CDC_PLUGIN_LIB);
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        ORACLE_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
         log.info("Starting Oracle containers...");
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Oracle containers are started.");

@@ -41,7 +41,15 @@ public class CheckpointConfig implements Serializable {
     private CheckpointStorageConfig storage =
             ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
+    private boolean retainAfterJobCancelled =
+            ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED
+                    .defaultValue();
+
     private boolean checkpointEnable = true;
+
+    public boolean isRetainAfterJobCancelled() {
+        return retainAfterJobCancelled;
+    }
 
     public void setCheckpointInterval(long checkpointInterval) {
         checkArgument(

@@ -30,8 +30,10 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.s3a.S3AFileSystem;
 import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
@@ -57,6 +59,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MinIOContainer;
 
+import com.amazonaws.services.s3.AmazonS3;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
@@ -83,33 +86,17 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCa
         value = {TestContainerId.SPARK_2_4},
         type = {EngineType.FLINK, EngineType.SEATUNNEL},
         disabledReason =
-                "Needs hadoop-aws,aws-java-sdk jar for flink, spark2.4. For the seatunnel engine, it crashes on seatunnel-hadoop3-3.1.4-uber.jar.")
+                "Needs hadoop-aws,aws-java-sdk jar for flink, spark2.4. For the seatunnel engine, it crashes on seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar.")
 @Slf4j
 public class IcebergSourceIT extends TestSuiteBase implements TestResource {
-
-    public static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-    public static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && curl -O "
-                                        + HADOOP_AWS_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Iceberg/lib && curl -O "
-                                        + AWS_SDK_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                DependencyJar.of(S3AFileSystem.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(AmazonS3.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";

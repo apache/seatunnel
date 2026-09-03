@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.parser.SeatunnelDDLParser;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.utils.OracleTypeUtils;
@@ -52,13 +52,13 @@ public class CustomAlterTableParserListener extends BaseParserListener
     private List<ColumnEditor> columnEditors;
     private int parsingColumnIndex = STARTING_INDEX;
 
-    private final LinkedList<AlterTableColumnEvent> changes;
+    private final LinkedList<AlterTableEvent> changes;
     private TableIdentifier tableIdentifier;
 
     public CustomAlterTableParserListener(
             CustomOracleAntlrDdlParser parser,
             List<ParseTreeListener> listeners,
-            LinkedList<AlterTableColumnEvent> changes) {
+            LinkedList<AlterTableEvent> changes) {
         this.parser = parser;
         this.listeners = listeners;
         this.changes = changes;

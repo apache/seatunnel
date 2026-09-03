@@ -865,6 +865,41 @@ public class CheckpointCoordinator {
         return savepointPendingCheckpoint.getCompletableFuture();
     }
 
+    public PassiveCompletableFuture<CheckpointCoordinatorState> startSavepointAndWaitComplete() {
+        CompletableFuture<CheckpointCoordinatorState> result = new CompletableFuture<>();
+        PassiveCompletableFuture<CompletedCheckpoint> savepointFuture;
+        try {
+            savepointFuture = startSavepoint();
+        } catch (Throwable e) {
+            result.completeExceptionally(e);
+            return new PassiveCompletableFuture<>(result);
+        }
+
+        savepointFuture.whenCompleteAsync(
+                (completedCheckpoint, error) -> {
+                    if (error != null) {
+                        result.completeExceptionally(error);
+                        return;
+                    }
+                    if (completedCheckpoint == null) {
+                        result.completeExceptionally(
+                                new CheckpointException(CheckpointCloseReason.PIPELINE_END));
+                        return;
+                    }
+                    waitCheckpointCoordinatorComplete()
+                            .whenComplete(
+                                    (state, stateError) -> {
+                                        if (stateError != null) {
+                                            result.completeExceptionally(stateError);
+                                        } else {
+                                            result.complete(state);
+                                        }
+                                    });
+                },
+                executorService);
+        return new PassiveCompletableFuture<>(result);
+    }
+
     private PassiveCompletableFuture<CompletedCheckpoint> completableFutureWithError(
             CheckpointCloseReason closeReason) {
         CompletableFuture<CompletedCheckpoint> future = new CompletableFuture<>();
@@ -1396,8 +1431,8 @@ public class CheckpointCoordinator {
         CheckpointCoordinatorStatus status =
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
-                && (status.equals(CheckpointCoordinatorStatus.FINISHED)
-                        || status.equals(CheckpointCoordinatorStatus.SUSPEND))
+                && (CheckpointCoordinatorStatus.FINISHED.equals(status)
+                        || CheckpointCoordinatorStatus.SUSPEND.equals(status))
                 && !latestCompletedCheckpoint.isRestored();
     }
 

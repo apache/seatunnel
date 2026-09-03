@@ -134,6 +134,8 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 ### 线程池状态
 
+以下指标仅由 active master 输出；采集 worker 节点的接口不会返回这些指标。
+
 | MetricName                          | Type    | Labels                                  | 描述                             |
 |-------------------------------------|---------|-----------------------------------------|--------------------------------|
 | job_thread_pool_activeCount         | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的活动线程数  |
@@ -175,6 +177,8 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 - `failure`：master 到 worker 的调用失败，或 operation 异常完成。
 
 ### 作业信息详细
+
+该指标仅由 active master 输出，且只能按状态统计聚合数量，不带按作业区分的标签，因此无法用于针对某个具体作业（按 ID 或名称）的告警，只能用于类似 `job_count{type="failed"}` 这种集群级别的总量告警。
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|

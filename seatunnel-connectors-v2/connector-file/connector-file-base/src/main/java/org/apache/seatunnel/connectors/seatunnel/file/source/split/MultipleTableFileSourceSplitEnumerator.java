@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -29,6 +30,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,24 +54,42 @@ public class MultipleTableFileSourceSplitEnumerator
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Object lock = new Object();
     private final FileSplitStrategy fileSplitStrategy;
+    private final Set<String> documentRoutingTableIds;
 
     public MultipleTableFileSourceSplitEnumerator(
             Context<FileSourceSplit> context,
             BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
             FileSplitStrategy fileSplitStrategy) {
+        this(context, multipleTableFileSourceConfig, fileSplitStrategy, Collections.emptySet());
+    }
+
+    public MultipleTableFileSourceSplitEnumerator(
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
+            FileSplitStrategy fileSplitStrategy,
+            Set<String> documentRoutingTableIds) {
         this.context = context;
         this.fileSourceConfigs = multipleTableFileSourceConfig.getFileSourceConfigs();
         this.assignedSplit = new HashSet<>();
         this.allSplit = new TreeSet<>(Comparator.comparing(FileSourceSplit::splitId));
         this.fileSplitStrategy = fileSplitStrategy;
+        this.documentRoutingTableIds =
+                new HashSet<>(
+                        documentRoutingTableIds == null
+                                ? Collections.emptySet()
+                                : documentRoutingTableIds);
     }
 
     public MultipleTableFileSourceSplitEnumerator(
             Context<FileSourceSplit> context,
             BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
             FileSourceState fileSourceState) {
-        this(context, multipleTableFileSourceConfig, new DefaultFileSplitStrategy());
-        this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
+        this(
+                context,
+                multipleTableFileSourceConfig,
+                new DefaultFileSplitStrategy(),
+                Collections.emptySet(),
+                fileSourceState);
     }
 
     public MultipleTableFileSourceSplitEnumerator(
@@ -77,7 +97,21 @@ public class MultipleTableFileSourceSplitEnumerator
             BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
             FileSplitStrategy fileSplitStrategy,
             FileSourceState fileSourceState) {
-        this(context, multipleTableFileSourceConfig, fileSplitStrategy);
+        this(
+                context,
+                multipleTableFileSourceConfig,
+                fileSplitStrategy,
+                Collections.emptySet(),
+                fileSourceState);
+    }
+
+    public MultipleTableFileSourceSplitEnumerator(
+            Context<FileSourceSplit> context,
+            BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
+            FileSplitStrategy fileSplitStrategy,
+            Set<String> documentRoutingTableIds,
+            FileSourceState fileSourceState) {
+        this(context, multipleTableFileSourceConfig, fileSplitStrategy, documentRoutingTableIds);
         this.assignedSplit.addAll(fileSourceState.getAssignedSplit());
     }
 
@@ -145,7 +179,7 @@ public class MultipleTableFileSourceSplitEnumerator
 
     private void assignSplit(int taskId) {
         List<FileSourceSplit> currentTaskSplits = new ArrayList<>();
-        if (context.currentParallelism() == 1) {
+        if (documentRoutingTableIds.isEmpty() && context.currentParallelism() == 1) {
             // if parallelism == 1, we should assign all the splits to reader
             currentTaskSplits.addAll(allSplit);
         } else {
@@ -154,7 +188,10 @@ public class MultipleTableFileSourceSplitEnumerator
             assignCount.set(0);
             for (FileSourceSplit fileSourceSplit : allSplit) {
                 int splitOwner =
-                        getSplitOwner(assignCount.getAndIncrement(), context.currentParallelism());
+                        getSplitOwner(
+                                fileSourceSplit,
+                                assignCount.getAndIncrement(),
+                                context.currentParallelism());
                 if (splitOwner == taskId) {
                     currentTaskSplits.add(fileSourceSplit);
                 }
@@ -189,8 +226,25 @@ public class MultipleTableFileSourceSplitEnumerator
                 + " more)";
     }
 
-    private static int getSplitOwner(int assignCount, int numReaders) {
+    private int getSplitOwner(FileSourceSplit split, int assignCount, int numReaders) {
+        if (documentRoutingTableIds.contains(split.getTableId())) {
+            return getDocumentRouteOwner(split, numReaders);
+        }
+        return getRoundRobinSplitOwner(assignCount, numReaders);
+    }
+
+    private static int getRoundRobinSplitOwner(int assignCount, int numReaders) {
         return assignCount % numReaders;
+    }
+
+    private static int getDocumentRouteOwner(FileSourceSplit split, int numReaders) {
+        if (split.getStart() != 0L || split.getLength() >= 0L) {
+            throw new IllegalStateException(
+                    "Document routing requires whole-file splits, but got split "
+                            + split.splitId());
+        }
+        String documentId = FileSourceDocumentRouting.buildDocumentId(split.getFilePath());
+        return FileSourceDocumentRouting.routeBucket(documentId, numReaders);
     }
 
     @Override

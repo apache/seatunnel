@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -150,7 +148,6 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CASSANDRA_DOCKER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         Startables.deepStart(Stream.of(this.container)).join();
         log.info("Cassandra container started");
         Awaitility.given()
@@ -190,8 +187,7 @@ public class CassandraIT extends TestSuiteBase implements TestResource {
                     CqlSession.builder()
                             .addContactPoint(
                                     new InetSocketAddress(
-                                            container.getHost(),
-                                            container.getExposedPorts().get(0)))
+                                            container.getHost(), container.getMappedPort(PORT)))
                             .withLocalDatacenter(DATACENTER)
                             .withConfigLoader(DriverConfigLoader.fromFile(file))
                             .build();

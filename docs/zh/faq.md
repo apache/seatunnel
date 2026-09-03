@@ -52,6 +52,7 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 - **`ERROR_WHEN_SCHEMA_NOT_EXIST`**：当表不存在时会报错。
 - **`IGNORE`**：忽略对表的处理。
   目前很多 connector 已经支持了自动建表，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](./connectors/sink/Jdbc.md#schema_save_mode-enum)
+  跨 Sink 的行为边界，以及它和 `generate_sink_sql` 的关系，请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
 
 ## SeaTunnel 是否支持数据同步任务开始前对已有数据进行处理？
 在同步任务启动之前，可以为目标端已有的数据选择不同的处理方案。是通过 `data_save_mode` 参数来控制的。
@@ -63,6 +64,10 @@ SeaTunnel 支持增量数据同步。例如通过 CDC 连接器实现对数据�
 
   目前很多 connector 已经支持了对已有数据进行处理，请参考对应的 connector 文档，这里拿 Jdbc 举例，请参考 [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum)
   注意：对于 JDBC sink，当 sink 配置了 `query`（自定义写入 SQL）时，当前不会执行 save mode 处理，因此 `CUSTOM_PROCESSING`/`custom_sql` 不会生效。
+  具体 connector 支持边界，以及 File/Object Storage Sink 的差异，请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
+
+## JDBC Sink 应该使用 `generate_sink_sql` 还是 `query`？
+当你希望 SeaTunnel 自动生成 INSERT、UPSERT、UPDATE、DELETE，并且需要 save mode 或自动建表时，优先使用 `generate_sink_sql = true`，并配置 `database`、`table`，通常还要配置 `primary_keys`。只有在必须完全控制逐行写入 SQL 时才使用 `query`。不要同时配置两种模式。完整决策表请参考 [Sink 写入模式与 Save Mode](./connectors/common-options/sink-write-modes.md)。
 
 ## SeaTunnel 是否支持精确一致性管理？
 SeaTunnel 支持一部分数据源的精确一致性，例如支持 MySQL、PostgreSQL 等数据库的事务写入，确保数据在同步过程中的一致性，另外精确一致性也要看数据库本身是否可以支持

@@ -231,8 +231,9 @@ exit;
 | table-names                               | List     | 条件必填 | -       | 要监控的数据库表名，建议使用 `database.schema.table` 格式，例如：`ORCLCDB.DEBEZIUM.FULL_TYPES`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-pattern                             | String   | 条件必填 | -       | 要捕获的表名正则表达式。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-names-config                        | List     | 否      | -       | 按表单独配置。例如：`[{"table": "ORCLCDB.DEBEZIUM.FULL_TYPES","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`。当表没有主键、需要自定义主键，或需要指定快照拆分列时使用。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| startup.mode                              | Enum     | 否      | INITIAL | Oracle CDC 使用者的可选启动模式，有效枚举值为 `initial`、`latest` 和 `timestamp`。<br/> `initial`：启动时同步历史数据，然后同步增量数据。<br/> `latest`：从最新偏移量启动，并跳过初始快照。<br/> `timestamp`：从 `startup.timestamp` 解析出的 SCN 启动。                                                                                                                                                                                                          |
+| startup.mode                              | Enum     | 否      | INITIAL | Oracle CDC 使用者的可选启动模式，有效枚举值为 `initial`、`latest`、`timestamp` 和 `specific`。<br/> `initial`：启动时同步历史数据，然后同步增量数据。<br/> `latest`：从最新偏移量启动，并跳过初始快照。<br/> `timestamp`：从 `startup.timestamp` 解析出的 SCN 启动。<br/> `specific`：从用户提供的 SCN 启动。                                                                                                                                                                                                          |
 | startup.timestamp                         | Long     | 否      | -       | 从指定的时间戳（自 Unix 纪元以来的毫秒数）启动。当 `startup.mode = timestamp` 时，该时间戳会按 `server-time-zone` 转换。**注意，当 `startup.mode` 选项使用 `timestamp` 时，此选项是必需的。**                                                                                                                                                                                                                                                                                                                                                                                                      |
+| startup.specific-offset.scn               | Long     | 否      | -       | 从指定的 Oracle SCN 启动。**注意，当 `startup.mode` 选项使用 `specific` 时，此选项是必需的。该 SCN 必须仍可被所选 Oracle 日志挖掘后端读取。**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | stop.mode                                 | Enum     | 否      | NEVER   | Oracle CDC 使用者的可选停止模式。当前唯一有效值是 `never`，因此流式 Oracle CDC source 会一直运行，直到任务被停止。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | snapshot.split.size                       | Integer  | 否      | 8096    | 表快照的拆分大小（行数），在读取表快照时，捕获的表将被拆分为多个拆分块。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否      | 1024    | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
@@ -422,12 +423,11 @@ source {
 
 ### 配置 Debezium 心跳
 
-对于变更较少的表，可以配置 Debezium 心跳，让 Oracle LogMiner 位点定期向前推进。
+对于变更较少的表，Oracle LogMiner 的 SCN 只有在发生 redo log 变更时才会推进。使用 Debezium 心跳让 SCN 持续向前滚动，便于 checkpoint 定期记录偏移，并让复制延迟可观测。心跳表必须提前在 Oracle 服务端创建。
 
 ```hocon
 source {
   Oracle-CDC {
-    plugin_output = "customers"
     username = "system"
     password = "top_secret"
     database-names = ["ORCLCDB"]
@@ -436,12 +436,41 @@ source {
     url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
-      heartbeat.interval.ms = 1000
+      heartbeat.interval.ms = 100
       heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }
 ```
+
+### 读取没有主键的表
+
+根据源表能够提供的保证来选择合适的路径：
+
+- **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 redo log 阶段都使用同一配置主键作为稳定的行标识。
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"]
+    table-names-config = [
+      {
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"
+        primaryKeys = ["ID"]
+      }
+    ]
+    exactly_once = true
+  }
+}
+```
+
+没有可用的主键时，connector 无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景下使用此模式。
 
 ### Schema change 事件过滤
 

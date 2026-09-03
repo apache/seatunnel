@@ -38,6 +38,7 @@ public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
     public static final int BROKER_PORT = 10911;
     public static final String BROKER_NAME = "broker-a";
     private static final int DEFAULT_BROKER_PERMISSION = 6;
+    private static final int DEFAULT_TOPIC_QUEUE_NUMS = 1;
 
     public RocketMqContainer(DockerImageName image) {
         super(image);
@@ -58,6 +59,8 @@ public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
     protected void containerIsStarted(InspectContainerResponse containerInfo) {
         List<String> updateBrokerConfigCommands = new ArrayList<>();
         updateBrokerConfigCommands.add(updateBrokerConfig("autoCreateTopicEnable", true));
+        updateBrokerConfigCommands.add(
+                updateBrokerConfig("defaultTopicQueueNums", DEFAULT_TOPIC_QUEUE_NUMS));
         updateBrokerConfigCommands.add(updateBrokerConfig("brokerName", BROKER_NAME));
         updateBrokerConfigCommands.add(updateBrokerConfig("brokerIP1", getLinuxLocalIp()));
         updateBrokerConfigCommands.add(

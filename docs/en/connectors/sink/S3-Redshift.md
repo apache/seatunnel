@@ -28,29 +28,29 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-|               name               |  type   | required |                       default value                       |
-|----------------------------------|---------|----------|-----------------------------------------------------------|
-| jdbc_url                         | string  | yes      | -                                                         |
-| jdbc_user                        | string  | yes      | -                                                         |
-| jdbc_password                    | string  | yes      | -                                                         |
-| execute_sql                      | string  | yes      | -                                                         |
-| path                             | string  | yes      | -                                                         |
-| bucket                           | string  | yes      | -                                                         |
-| access_key                       | string  | no       | -                                                         |
-| access_secret                    | string  | no       | -                                                         |
-| hadoop_s3_properties             | map     | no       | -                                                         |
-| file_name_expression             | string  | no       | "${transactionId}"                                        |
-| file_format_type                 | string  | no       | "text"                                                    |
-| filename_time_format             | string  | no       | "yyyy.MM.dd"                                              |
-| field_delimiter                  | string  | no       | '\001'                                                    |
-| row_delimiter                    | string  | no       | "\n"                                                      |
-| partition_by                     | array   | no       | -                                                         |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                |
-| is_partition_field_write_in_file | boolean | no       | false                                                     |
-| sink_columns                     | array   | no       | When this parameter is empty, all fields are sink columns |
-| is_enable_transaction            | boolean | no       | true                                                      |
-| batch_size                       | int     | no       | 1000000                                                   |
-| common-options                   |         | no       | -                                                         |
+|               name               |  type   | required |                       default value                       |                                                                                                       Description                                                                                                        |
+|----------------------------------|---------|----------|-----------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| jdbc_url                         | string  | yes      | -                                                         | The JDBC URL to connect to the Redshift database, for example `jdbc:redshift://your-cluster.region.redshift.amazonaws.com:5439/your_database`.                                                                              |
+| jdbc_user                        | string  | yes      | -                                                         | The JDBC user to connect to the Redshift database.                                                                                                                                                                       |
+| jdbc_password                    | string  | yes      | -                                                         | The JDBC password to connect to the Redshift database.                                                                                                                                                                  |
+| execute_sql                      | string  | yes      | -                                                         | The SQL to execute after the data is written to S3. This is typically a Redshift `COPY` command (see `### execute_sql` below for the placeholders it must contain).                                                       |
+| path                             | string  | yes      | -                                                         | The target directory path under the bucket. The connector appends the actual file path to your `execute_sql` via the `${path}` placeholder.                                                                              |
+| bucket                           | string  | yes      | -                                                         | The bucket address of the S3 file system, for example `s3a://seatunnel-test`. Use the `s3a` protocol for Hadoop-backed reads.                                                                                            |
+| access_key                       | string  | no       | -                                                         | The access key of the S3 file system. If not set, the Hadoop credential provider chain must be configured correctly. See [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html). |
+| access_secret                    | string  | no       | -                                                         | The access secret of the S3 file system. If not set, the Hadoop credential provider chain must be configured correctly. See [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html).  |
+| hadoop_s3_properties             | map     | no       | -                                                         | Additional Hadoop S3A/Hadoop-AWS options. Use this to set things like `fs.s3a.aws.credentials.provider`. See [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html).              |
+| file_name_expression             | string  | no       | "${transactionId}"                                        | File name expression appended under `path`. Use `${now}` or `${uuid}` to inject timestamp or UUID. When `is_enable_transaction = true`, `${transactionId}_` is automatically prepended.                                  |
+| file_format_type                 | string  | no       | "text"                                                    | File format written to S3. Supported values: `text`, `csv`, `parquet`, `orc`, `json`. The final file name ends with the corresponding suffix (e.g. `txt` for text).                                                       |
+| filename_time_format             | string  | no       | "yyyy.MM.dd"                                              | Time format used to resolve `${now}` inside `file_name_expression`. See [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html) for the full syntax.                          |
+| field_delimiter                  | string  | no       | '\001'                                                    | Column delimiter used in `text` and `csv` files.                                                                                                                                                                          |
+| row_delimiter                    | string  | no       | "\n"                                                      | Row delimiter used in `text` and `csv` files.                                                                                                                                                                             |
+| partition_by                     | array   | no       | -                                                         | Partition the data by the listed upstream fields. Partition directories are derived from `partition_dir_expression`.                                                                                                       |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                | Expression used to derive the partition directory layout from `partition_by` fields.                                                                                                                                      |
+| is_partition_field_write_in_file | boolean | no       | false                                                     | When `true`, the partition field and its value are written into the data file in addition to the partition directory. Set to `false` for Hive-style data files.                                                            |
+| sink_columns                     | array   | no       | All fields are sink columns when empty                    | Columns to write to the file. The order of the fields determines the order in which the file is actually written.                                                                                                          |
+| is_enable_transaction            | boolean | no       | true                                                      | When `true`, the connector guarantees that data is not lost or duplicated when it is written to the target directory. Currently only `true` is supported.                                                                  |
+| batch_size                       | int     | no       | 1000000                                                   | Maximum number of rows in a file. For SeaTunnel Zeta, the number of rows per file is determined by `batch_size` together with `checkpoint.interval`.                                                                        |
+| common-options                   |         | no       | -                                                         | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                               |
 
 ### jdbc_url
 
@@ -200,9 +200,8 @@ For text file format
     jdbc_password = "xxxx"
     execute_sql="COPY table_name FROM 's3://test${path}' IAM_ROLE 'arn:aws-cn:iam::xxx' REGION 'cn-north-1' removequotes emptyasnull blanksasnull maxerror 100 delimiter '|' ;"
     access_key = "xxxxxxxxxxxxxxxxx"
-    secret_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
-    tmp_path = "/tmp/seatunnel"
     path="/seatunnel/text"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
@@ -228,9 +227,8 @@ For parquet file format
     jdbc_password = "xxxx"
     execute_sql="COPY table_name FROM 's3://test${path}' IAM_ROLE 'arn:aws-cn:iam::xxx' REGION 'cn-north-1' format as PARQUET;"
     access_key = "xxxxxxxxxxxxxxxxx"
-    secret_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
-    tmp_path = "/tmp/seatunnel"
     path="/seatunnel/parquet"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"
@@ -256,9 +254,8 @@ For orc file format
     jdbc_password = "xxxx"
     execute_sql="COPY table_name FROM 's3://test${path}' IAM_ROLE 'arn:aws-cn:iam::xxx' REGION 'cn-north-1' format as ORC;"
     access_key = "xxxxxxxxxxxxxxxxx"
-    secret_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
     bucket = "s3a://seatunnel-test"
-    tmp_path = "/tmp/seatunnel"
     path="/seatunnel/orc"
     row_delimiter="\n"
     partition_dir_expression="${k0}=${v0}"

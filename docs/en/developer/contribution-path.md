@@ -118,6 +118,21 @@ A contribution is much easier to review when it includes:
 
 For code contributions, avoid mixing unrelated cleanup with the real fix.
 
+## Understand Backend CI Coverage
+
+The required Backend `Build` on a pull request mirrors the `push` workflow run in the PR head repository, which is usually the contributor's fork. It is not a separate full-matrix run in the base repository.
+
+The workflow selects jobs as follows:
+
+- pushes in the Apache repository to `dev`, `main`, `master`, and numeric release branches such as `2.3.13-release` force the full API-triggered backend matrix
+- broad API-impacting changes, including API, core, common, format, transform, translation, and root build changes, trigger the full API matrix
+- connector-only changes use changed-module detection to select integration-test shards; when the unit-test job is selected, it still verifies all modules
+- engine changes keep their existing engine and connector integration-test paths
+- fork pushes that only change `.github/workflows/**`, `tools/update_modules_check/**`, `seatunnel-dist/**`, or `bin/install-plugin.sh` do not trigger every connector integration-test shard by themselves; the full unit-test job can still run when a changed module requires it
+- if the CI scope helper fails or returns an invalid result, the workflow falls back to full API coverage
+
+Check the jobs listed under the Backend `Build` before assuming that a green result includes every connector integration-test shard.
+
 ## Good First Contribution Shapes
 
 These contribution shapes tend to land faster:

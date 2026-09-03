@@ -21,12 +21,16 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
+import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.StopTimeTestTask;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskDeployState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
@@ -41,6 +45,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
@@ -54,6 +59,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
@@ -232,6 +238,101 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         fake.delete();
         console.delete();
+    }
+
+    /**
+     * Verifies that a partially constructed task group does not retain classloader references when
+     * a later task cannot be deserialized.
+     */
+    @Test
+    public void testDeployTaskReleasesClassLoadersWhenDeserializationFails() throws IOException {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        DefaultClassLoaderService classLoaderService =
+                (DefaultClassLoaderService) server.getClassLoaderService();
+
+        File testJar = File.createTempFile("failed-deployment", ".jar");
+        testJar.deleteOnExit();
+        URL testJarUrl = testJar.toURI().toURL();
+        Set<URL> testJars = Collections.singleton(testJarUrl);
+        long testJobId = System.currentTimeMillis();
+        TestTask validTask = new TestTask(new AtomicBoolean(false), 300, true);
+        TaskGroupImmutableInformation taskGroupImmutableInformation =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                        new TaskGroupLocation(testJobId, 1, 1),
+                        "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
+                        Arrays.asList(
+                                nodeEngine.getSerializationService().toData(validTask),
+                                nodeEngine.getSerializationService().toData("not a task")),
+                        Arrays.asList(testJars, testJars),
+                        Arrays.asList(emptySet(), emptySet()));
+
+        TaskDeployState taskDeployState =
+                taskExecutionService.deployTask(taskGroupImmutableInformation);
+
+        Assertions.assertFalse(taskDeployState.isSuccess());
+        Assertions.assertThrows(
+                TaskGroupContextNotFoundException.class,
+                () ->
+                        taskExecutionService.getActiveExecutionContext(
+                                taskGroupImmutableInformation.getTaskGroupLocation()));
+        Assertions.assertTrue(
+                classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
+        Assertions.assertEquals(
+                0, classLoaderService.queryClassLoaderReferenceCount(testJobId, testJars));
+        testJar.delete();
+    }
+
+    /**
+     * Verifies that a failure before context publication releases the acquired classloader and is
+     * still reported to the master.
+     */
+    @Test
+    public void testDeployTaskHandlesFailureBeforeContextPublication() throws IOException {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        Mockito.doNothing()
+                .when(taskExecutionService)
+                .notifyTaskStatusToMaster(Mockito.any(), Mockito.any());
+        DefaultClassLoaderService classLoaderService =
+                (DefaultClassLoaderService) server.getClassLoaderService();
+
+        File testJar = File.createTempFile("failed-context-publication", ".jar");
+        testJar.deleteOnExit();
+        URL testJarUrl = testJar.toURI().toURL();
+        Set<URL> testJars = Collections.singleton(testJarUrl);
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        Task task = new ContextInitializationFailureTask();
+        TaskGroupImmutableInformation taskGroupImmutableInformation =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.DEFAULT,
+                        location,
+                        "testDeployTaskHandlesFailureBeforeContextPublication",
+                        Collections.singletonList(
+                                nodeEngine.getSerializationService().toData(task)),
+                        Collections.singletonList(testJars),
+                        Collections.singletonList(emptySet()));
+
+        TaskDeployState taskDeployState =
+                taskExecutionService.deployTask(taskGroupImmutableInformation);
+
+        Assertions.assertEquals(TaskDeployState.success(), taskDeployState);
+        Assertions.assertThrows(
+                TaskGroupContextNotFoundException.class,
+                () -> taskExecutionService.getActiveExecutionContext(location));
+        Assertions.assertTrue(
+                classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
+        Assertions.assertEquals(
+                0, classLoaderService.queryClassLoaderReferenceCount(testJobId, testJars));
+        Mockito.verify(taskExecutionService, Mockito.timeout(5000))
+                .notifyTaskStatusToMaster(
+                        Mockito.eq(location),
+                        Mockito.argThat(state -> state.getExecutionState() == FAILED));
+        testJar.delete();
     }
 
     /** Test task execution time is the same as the timer timeout */
@@ -538,5 +639,23 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskLocation unknown = new TaskLocation(groupLocation, 1L, 99);
 
         Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(unknown));
+    }
+
+    private static class ContextInitializationFailureTask implements Task {
+
+        @Override
+        public void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {
+            throw new IllegalStateException("context initialization failed");
+        }
+
+        @Override
+        public ProgressState call() {
+            return ProgressState.DONE;
+        }
+
+        @Override
+        public Long getTaskID() {
+            return 1L;
+        }
     }
 }

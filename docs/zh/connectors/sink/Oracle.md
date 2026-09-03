@@ -196,7 +196,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
         username = root
         password = 123456
-        
+
         generate_sink_sql = true
         # You need to configure both database and table
         database = XE
@@ -205,6 +205,47 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### 批量 + 定时刷新组合
+
+流式作业同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "TEST.TEST_TABLE"
+    primary_keys = ["ID"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### 使用占位符的多表写入
+
+在 `table` 中使用 `${schema_name}` 和 `${table_name}` 占位符，可以根据上游行携带的元数据把每行路由到对应的目标表。通过 `multi_table_sink_replica` 控制多表写入的 writer 副本数。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["ID"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

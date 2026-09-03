@@ -32,4 +32,5 @@ public class TDengineSourceState implements Serializable {
     private static final long serialVersionUID = 6915087497958523069L;
     private boolean shouldEnumerate;
     private final Map<Integer, List<TDengineSourceSplit>> pendingSplits;
+    private int assignCount;
 }

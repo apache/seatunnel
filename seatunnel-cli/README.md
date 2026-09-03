@@ -7,7 +7,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 ## Features
 
 - **Natural Language to Config** -- Describe what you want in plain English or Chinese, get a valid SeaTunnel config
-- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI)
+- **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI), OrcaRouter AI gateway
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
 - **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
@@ -27,6 +27,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
   - **AWS Bedrock** -- requires AWS credentials and `boto3`
   - **Anthropic API** -- requires `ANTHROPIC_API_KEY` and `anthropic` package
   - **OpenAI API** -- requires `OPENAI_API_KEY` and `openai` package
+  - **OrcaRouter** -- requires `ORCAROUTER_API_KEY` and `openai` package
 - (Optional) Running Apache SeaTunnel engine for live metadata and job execution
 
 > **Note:** When launched via `bin/seatunnel-ai.sh`, Python dependencies are installed automatically on first run. No manual `pip install` needed.
@@ -67,7 +68,7 @@ seatunnel --init
 ```bash
 pip install -e ".[bedrock]"    # AWS Bedrock
 pip install -e ".[anthropic]"  # Anthropic API
-pip install -e ".[openai]"     # OpenAI API
+pip install -e ".[openai]"     # OpenAI API / OrcaRouter
 pip install -e ".[all]"        # All providers
 pip install -e ".[dev]"        # Development (all providers + pytest, ruff)
 ```
@@ -111,6 +112,29 @@ Converse responses when Bedrock returns them.
 > model for the rest of the session, so subsequent calls skip the parameter.
 > For these models any configured temperature value is not applied.
 
+#### Option A2: AWS Bedrock — OpenAI-family models (bedrock-mantle)
+
+Some OpenAI models on Bedrock (e.g. `openai.gpt-5.6-terra`) are not in the
+foundation-model catalog and only support the OpenAI Responses API on the
+dedicated `bedrock-mantle` endpoint. Use the `bedrock-mantle` provider for
+these:
+
+```bash
+export AI_PROVIDER=bedrock-mantle
+export AWS_REGION=us-east-1
+export OPENAI_MODEL='openai.gpt-5.6-terra'
+
+# Requires: pip install -e ".[bedrock-mantle]"
+# Auth: a short-term bearer token is derived automatically from your AWS
+# credentials (aws-bedrock-token-generator) and refreshed every 30 minutes.
+```
+
+These models do not accept the `temperature` parameter; the provider omits it.
+
+All requests are sent with `store=false`, so Bedrock does not retain your
+prompts or responses server-side (the service default would otherwise keep
+them for 30 days).
+
 #### Option B: Anthropic API
 
 ```bash
@@ -141,6 +165,30 @@ export OPENAI_SMALL_FAST_MODEL=gpt-4o-mini
 # Keep enabled for compatible reasoning models that require reasoning_content replay
 # export OPENAI_ECHO_REASONING_CONTENT=true
 ```
+
+#### Option D: OrcaRouter AI Gateway
+
+```bash
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+
+# Model overrides (optional) — OrcaRouter model IDs use a provider/model namespace,
+# e.g. openai/gpt-5.5-pro, deepseek/deepseek-v4-pro, anthropic/claude-fable-5.
+# The special model `orcarouter/auto` auto-grades and auto-routes each request.
+# export ORCAROUTER_MODEL=orcarouter/auto
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
+```
+
+Requires: `pip install -e ".[openai]"` (the `openai` package).
+
+[OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible AI gateway
+that exposes many models — including Claude, GPT, Gemini, DeepSeek and Qwen —
+behind a single endpoint (`https://api.orcarouter.ai/v1`). Model IDs follow a
+`provider/model` namespace, and the `orcarouter/auto` model automatically
+selects the best model per request. The OrcaRouter provider speaks the OpenAI
+Chat Completions protocol, so it inherits the same reasoning-content replay,
+streaming and tool-calling support as the `openai` provider.
 
 ### SEATUNNEL_HOME
 
@@ -184,16 +232,20 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `anthropic`, or `openai` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, `openai`, or `orcarouter` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
 | `OPENAI_BASE_URL` | No | -- | Custom endpoint for OpenAI-compatible APIs |
 | `OPENAI_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models such as DeepSeek or GLM thinking mode |
+| `ORCAROUTER_API_KEY` | OrcaRouter | -- | OrcaRouter API key |
 | `ANTHROPIC_MODEL` | No | Provider default | Override primary model ID |
 | `ANTHROPIC_SMALL_FAST_MODEL` | No | Provider default | Override fast model ID |
 | `OPENAI_MODEL` | No | `gpt-4o` | Primary model for OpenAI provider |
 | `OPENAI_SMALL_FAST_MODEL` | No | `gpt-4o-mini` | Fast model for OpenAI provider |
+| `ORCAROUTER_MODEL` | No | `orcarouter/auto` | Primary model for OrcaRouter provider (provider/model namespace) |
+| `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
+| `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |
@@ -233,7 +285,7 @@ Positional:
 
 Options:
   -o, --output PATH        Save generated config to file
-  --provider PROVIDER      LLM provider: bedrock | anthropic | openai
+  --provider PROVIDER      LLM provider: bedrock | bedrock-mantle | anthropic | openai | orcarouter
   --model MODEL            Override primary model ID
   --fast-model MODEL       Override fast model ID
   --sync-catalog PATH      Regenerate connector catalog from SeaTunnel source

@@ -78,7 +78,19 @@ flowchart TB
     style worker fill:#081425,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff;
 ```
 
-### 2.2 核心组件
+### 2.2 作业提交、类加载与任务下发流程
+
+![Zeta 作业提交、类加载与任务执行流程](../../../images/zeta_job_submission_classloader_task_execution_flow.png)
+
+这张图更适合放在引擎架构章节，因为它把客户端装配、Coordinator 侧调度、Worker 执行与状态回报串成了一条完整链路：
+
+1. 客户端先在本地解析插件目录，然后提交 `JobImmutableInformation`，其中同时包含逻辑 DAG、插件 jar URL 和连接器 jar 标识。
+2. `CoordinatorService` 接收提交请求后，会记录待调度作业，并在 `JobMaster.init()` 完成且作业入队后返回提交确认。
+3. Coordinator 持有的 `Scheduler` 会轮询 `PendingJobQueue`，通过 `preApplyResources()` 申请资源，并在 `ResourceFuture` 就绪后触发 `JobMaster.run()`。
+4. `JobMaster` 把逻辑作业展开为面向流水线的 `ExecutionPlan` 和 `PhysicalPlan`，构造 `TaskGroupImmutableInformation`，再通过 `PhysicalVertex.deploy()` 和 `DeployTaskOperation` 把任务下发到 Worker。
+5. 每个 Worker 会补齐缺失 jar、为每个任务创建 child-first 类加载器，在 `TaskExecutionService` 中反序列化并初始化任务组，执行任务，并把部署状态与最终状态回报给 `JobMaster` 和 `CoordinatorService`。
+
+### 2.3 核心组件
 
 #### CoordinatorService
 

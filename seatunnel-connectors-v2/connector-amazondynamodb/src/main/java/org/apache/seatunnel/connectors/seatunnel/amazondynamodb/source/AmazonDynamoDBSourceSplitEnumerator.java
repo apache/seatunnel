@@ -27,11 +27,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class AmazonDynamoDBSourceSplitEnumerator
         implements SourceSplitEnumerator<AmazonDynamoDBSourceSplit, AmazonDynamoDBSourceState> {
@@ -42,6 +44,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
     private final SourceSplitEnumerator.Context<AmazonDynamoDBSourceSplit> enumeratorContext;
     private final Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits;
     private final AmazonDynamoDBConfig amazonDynamoDBConfig;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     private final Object stateLock = new Object();
     private volatile boolean shouldEnumerate;
@@ -63,6 +66,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplits.putAll(sourceState.getPendingSplits());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -106,15 +110,25 @@ public class AmazonDynamoDBSourceSplitEnumerator
 
     private void addPendingSplit(Collection<AmazonDynamoDBSourceSplit> splits) {
         int readerCount = enumeratorContext.currentParallelism();
-        for (AmazonDynamoDBSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.getTotalSegments(), readerCount);
-            log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
-        }
+        splits.stream()
+                .sorted(Comparator.comparing(AmazonDynamoDBSourceSplit::splitId))
+                .forEach(
+                        split -> {
+                            int ownerReader =
+                                    getSplitOwner(assignCount.getAndIncrement(), readerCount);
+                            log.info("Assigning {} to {} reader.", split, ownerReader);
+                            pendingSplits
+                                    .computeIfAbsent(ownerReader, r -> new ArrayList<>())
+                                    .add(split);
+                        });
     }
 
-    private static int getSplitOwner(Integer tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private void addPendingSplit(Collection<AmazonDynamoDBSourceSplit> splits, int ownerReader) {
+        pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
+    }
+
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private Set<AmazonDynamoDBSourceSplit> discoverySplits() {
@@ -137,15 +151,21 @@ public class AmazonDynamoDBSourceSplitEnumerator
     public void addSplitsBack(List<AmazonDynamoDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to AmazonDynamoDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singleton(subtaskId));
-            enumeratorContext.signalNoMoreSplits(subtaskId);
+            addPendingSplit(splits, subtaskId);
+            if (enumeratorContext.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singleton(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
+        return pendingSplits.values().stream().mapToInt(List::size).sum();
     }
 
     @Override
@@ -162,7 +182,7 @@ public class AmazonDynamoDBSourceSplitEnumerator
     @Override
     public AmazonDynamoDBSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new AmazonDynamoDBSourceState(shouldEnumerate, pendingSplits);
+            return new AmazonDynamoDBSourceState(shouldEnumerate, pendingSplits, assignCount.get());
         }
     }
 

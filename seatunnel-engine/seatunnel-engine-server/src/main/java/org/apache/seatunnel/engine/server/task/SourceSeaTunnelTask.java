@@ -66,7 +66,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
             int indexID,
             PhysicalExecutionFlow<SourceAction, SourceConfig> executionFlow,
             Map<String, Object> envOption) {
-        super(jobID, taskID, indexID, executionFlow);
+        super(jobID, taskID, indexID, executionFlow, envOption);
         this.sourceFlow = executionFlow;
         this.envOption = envOption;
     }
@@ -113,7 +113,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             tablePaths,
                             this,
                             engineConfig,
-                            envOption);
+                            envOption,
+                            () ->
+                                    ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
+                                            .signalNoMoreElement());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }

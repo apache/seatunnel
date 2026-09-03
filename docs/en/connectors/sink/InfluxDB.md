@@ -4,16 +4,24 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 > InfluxDB sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write SeaTunnel rows to InfluxDB 1.x. The sink converts one row into one InfluxDB point, using
 `measurement`, `key_time`, and `key_tags` to decide the target measurement, timestamp, tags, and
 fields.
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -30,7 +38,7 @@ fields.
 
 Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
 
-## Options
+## Sink Options
 
 | name                        | type   | required | default value         | description                                                                                   |
 |-----------------------------|--------|----------|-----------------------|-----------------------------------------------------------------------------------------------|
@@ -51,67 +59,64 @@ Other SeaTunnel types are not supported by the current InfluxDB sink serializer.
 | connect_timeout_ms          | long   | no       | 15000                 | Timeout for connecting to InfluxDB, in milliseconds.                                          |
 | query_timeout_sec           | int    | no       | 3                     | Read timeout used by the InfluxDB client, in seconds.                                         |
 | multi_table_sink_replica    | int    | no       | -                     | Replica count for multi-table sink writers.                                                   |
-| common-options              | config | no       | -                     | Sink plugin common options.                                                                   |
+| common-options              | config | no       | -                     | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
-### url
+### url [string]
 
-the url to connect to influxDB e.g.
-
-```
-http://influxdb-host:8086
-```
+The URL to connect to InfluxDB, for example `http://influxdb-host:8086`.
 
 ### database [string]
 
-The name of `influxDB` database
+The name of the InfluxDB database that points are written to.
 
 ### measurement [string]
 
-The name of `influxDB` measurement. This option is optional. If it is omitted, the sink uses the
-input table full name as the measurement name, which is useful for multi-table writes.
-For multi-table input, make sure the generated table names are valid InfluxDB measurement names.
+The InfluxDB measurement name. When omitted, the sink uses the input table full name as the
+measurement — which is the common setting for multi-table writes. Make sure the generated
+table names are valid InfluxDB measurement names.
 
 ### username [string]
 
-`influxDB` user username
+The InfluxDB user name. Configure it together with `password` when the influxdb requires authentication.
 
 ### password [string]
 
-`influxDB` user password
+The InfluxDB user password. Configure it together with `username` when authentication is required.
 
 ### key_time [string]
 
-Specify field-name of the `influxDB` measurement timestamp in SeaTunnelRow. If not specified, use processing-time as timestamp
+The field name in the upstream row that supplies the InfluxDB point timestamp. When omitted, the
+sink uses the current processing time. Values configured here are accepted as numeric timestamps
+or as an ISO-8601 timestamp string.
 
 ### key_tags [array]
 
-Specify field-name of the `influxDB` measurement tags in SeaTunnelRow.
-If not specified, include all fields with `influxDB` measurement field
+The field names in the upstream row that should be written as InfluxDB tags. All other fields are
+written as point fields. When omitted, every field is written as a point field.
 
 ### batch_size [int]
 
-For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `checkpoint.interval`, the data will be flushed into the influxDB
+Number of points buffered before flushing to InfluxDB. The default is `1024`. The buffer is also
+flushed at each checkpoint and when the writer closes.
 
 ### max_retries [int]
 
-The number of retries to flush failed
-
-If this option is not configured, the sink tries the write once and fails immediately if that write fails.
+Maximum retry count when the flush fails. When this option is not set, the sink writes once and
+fails immediately if that write fails.
 
 ### retry_backoff_multiplier_ms [int]
 
-Using as a multiplier for generating the next delay for backoff
+Backoff multiplier used between retry attempts, in milliseconds. Configure it together with
+`max_retry_backoff_ms` so the retry sleep interval is non-zero.
 
 ### max_retry_backoff_ms [int]
 
-The amount of time to wait before attempting to retry a request to `influxDB`
-
-When retry options are used, configure both `retry_backoff_multiplier_ms` and
-`max_retry_backoff_ms`; otherwise the retry sleep interval remains `0`.
+Maximum backoff between retry attempts, in milliseconds. Configure it together with
+`retry_backoff_multiplier_ms` so the retry sleep interval is non-zero.
 
 ### write_timeout [int]
 
-The write timeout used by the InfluxDB client.
+The write timeout used by the InfluxDB client, in seconds.
 
 ### rp [string]
 
@@ -119,9 +124,8 @@ Retention policy used when writing points.
 
 ### epoch [string]
 
-Time precision used by the InfluxDB client. For sink write precision, uppercase values `H`, `M`,
-`S`, `MS`, `U`, and `NS` are recognized by the current connector. The default `n` is treated as
-nanosecond precision.
+Time precision used by the InfluxDB client. Uppercase values `H`, `M`, `S`, `MS`, `U`, and `NS`
+are recognized for write precision. The default value `n` is treated as nanosecond precision.
 
 ### query_timeout_sec [int]
 
@@ -129,28 +133,29 @@ The read timeout used by the InfluxDB client, in seconds.
 
 ### connect_timeout_ms [long]
 
-the timeout for connecting to InfluxDB, in milliseconds
+The timeout for connecting to InfluxDB, in milliseconds. The default is `15000`.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
 
-## Examples
+## Task Example
 
 ### Write One Measurement
 
+A simple sink that writes rows to a single named measurement.
+
 ```hocon
 sink {
-    InfluxDB {
-        url = "http://influxdb-host:8086"
-        database = "test"
-        measurement = "sink"
-        key_time = "time"
-        key_tags = ["label"]
-        batch_size = 1
-    }
+  InfluxDB {
+    url = "http://influxdb-host:8086"
+    database = "test"
+    measurement = "sink"
+    key_time = "time"
+    key_tags = ["label"]
+    batch_size = 1
+  }
 }
-
 ```
 
 ### Write Without Explicit Measurement
@@ -199,7 +204,7 @@ sink {
 }
 ```
 
-### Multiple Table
+### Multi-Table Write
 
 When `measurement` is omitted, each upstream table is written to a measurement named after that
 table. This is the usual setting for multi-table input.
@@ -216,7 +221,7 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
+
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }

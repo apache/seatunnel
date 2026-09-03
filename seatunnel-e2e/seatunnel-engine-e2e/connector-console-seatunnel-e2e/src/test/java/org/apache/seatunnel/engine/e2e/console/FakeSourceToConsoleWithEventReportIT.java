@@ -40,6 +40,9 @@ import lombok.extern.slf4j.Slf4j;
 import okio.Buffer;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -53,17 +56,18 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContainer {
-    private static final int MOCK_SERVER_PORT = 1024;
+    private static final String MOCK_SERVER_PORT_PLACEHOLDER = "${MOCK_SERVER_PORT}";
 
     private MockWebServer mockWebServer;
+    private Path eventReportConfig;
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
         mockWebServer = new MockWebServer();
-        mockWebServer.start(MOCK_SERVER_PORT);
+        mockWebServer.start();
         mockWebServer.enqueue(new MockResponse().setResponseCode(200));
-        Testcontainers.exposeHostPorts(MOCK_SERVER_PORT);
+        Testcontainers.exposeHostPorts(mockWebServer.getPort());
 
         super.startUp();
         log.info("The TestContainer[{}] is running.", identifier());
@@ -75,16 +79,28 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
         super.tearDown();
 
         mockWebServer.shutdown();
+        if (eventReportConfig != null) {
+            Files.deleteIfExists(eventReportConfig);
+        }
         log.info("The TestContainer[{}] is closed.", identifier());
     }
 
     @Override
     protected void executeExtraCommands(GenericContainer<?> container)
             throws IOException, InterruptedException {
-        container.withCopyFileToContainer(
-                MountableFile.forHostPath(
+        Path configTemplate =
+                Paths.get(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-console-seatunnel-e2e/src/test/resources/seatunnel_config_with_event_report.yaml"),
+                                + "/seatunnel-e2e/seatunnel-engine-e2e/connector-console-seatunnel-e2e/src/test/resources/seatunnel_config_with_event_report.yaml");
+        String config =
+                new String(Files.readAllBytes(configTemplate), StandardCharsets.UTF_8)
+                        .replace(
+                                MOCK_SERVER_PORT_PLACEHOLDER,
+                                String.valueOf(mockWebServer.getPort()));
+        eventReportConfig = Files.createTempFile("seatunnel-event-report-", ".yaml");
+        Files.write(eventReportConfig, config.getBytes(StandardCharsets.UTF_8));
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(eventReportConfig),
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
     }
 

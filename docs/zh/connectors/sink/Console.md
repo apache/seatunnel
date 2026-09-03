@@ -29,6 +29,8 @@ import ChangeLog from '../changelog/connector-console.md';
 
 Console 可以接收多个上游表的数据，也可以处理 Schema 变更事件并用于日志展示。由于它写入的是日志，不向外部系统持久化数据，因此不提供精确一次写入语义，也不属于真正的 CDC 写入目标。
 
+> Console sink 默认启用 schema 演进处理（`ADD_COLUMN`、`DROP_COLUMN`、`RENAME_COLUMN`、`UPDATE_COLUMN`），上游 schema 的变化会反映在打印出的行类型中。
+
 ## 接收器选项
 
 | 名称                       | 类型      | 是否必须 | 默认值  | 描述                                                                 |

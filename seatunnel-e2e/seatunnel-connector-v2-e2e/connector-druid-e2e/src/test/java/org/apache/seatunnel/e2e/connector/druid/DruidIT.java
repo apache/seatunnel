@@ -45,14 +45,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.Duration;
-import java.util.List;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.given;
 
@@ -66,9 +61,9 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     private static final String MULTI_DATASOURCE_1 = "druid_sink_1";
     private static final String MULTI_DATASOURCE_2 = "druid_sink_2";
     private static final String SQL_QUERY_TEMPLATE = "SELECT * FROM ";
-    private static final String CONF_PREFIX = "src/test/resources";
     private static final String DRUID_SERVICE_NAME = "router";
     private static final int DRUID_SERVICE_PORT = 8888;
+    private static final String COORDINATOR_URL_VARIABLE = "druidCoordinatorUrl";
     private DockerComposeContainer environment;
     private String coordinatorURL;
 
@@ -83,8 +78,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                                 Wait.forListeningPort()
                                         .withStartupTimeout(Duration.ofSeconds(360)));
         environment.start();
-        changeCoordinatorURLConf(CONF_PREFIX + "/fakesource_to_druid.conf");
-        changeCoordinatorURLConf(CONF_PREFIX + "/fakesource_to_druid_with_multi.conf");
+        coordinatorURL =
+                InetAddress.getLocalHost().getHostAddress()
+                        + ":"
+                        + environment.getServicePort(DRUID_SERVICE_NAME, DRUID_SERVICE_PORT);
     }
 
     @AfterAll
@@ -95,7 +92,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testDruidSink(TestContainer container) throws Exception {
-        Container.ExecResult execResult = container.executeJob("/fakesource_to_druid.conf");
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/fakesource_to_druid.conf",
+                        Collections.singletonList(COORDINATOR_URL_VARIABLE + "=" + coordinatorURL));
         Assertions.assertEquals(0, execResult.getExitCode());
 
         given().ignoreExceptions()
@@ -128,7 +128,9 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testDruidMultiSink(TestContainer container) throws Exception {
         Container.ExecResult execResult =
-                container.executeJob("/fakesource_to_druid_with_multi.conf");
+                container.executeJob(
+                        "/fakesource_to_druid_with_multi.conf",
+                        Collections.singletonList(COORDINATOR_URL_VARIABLE + "=" + coordinatorURL));
         Assertions.assertEquals(0, execResult.getExitCode());
         // Check multi sink table 1
         given().ignoreExceptions()
@@ -157,31 +159,6 @@ public class DruidIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(responseBody.contains("errorMessage"));
                             Assertions.assertTrue(responseBody.contains(expectedDataRow));
                         });
-    }
-
-    private void changeCoordinatorURLConf(String resourceFilePath) throws UnknownHostException {
-        coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
-        Path path = Paths.get(resourceFilePath);
-        try {
-            List<String> lines = Files.readAllLines(path);
-            List<String> newLines =
-                    lines.stream()
-                            .map(
-                                    line -> {
-                                        if (line.contains("coordinatorUrl")) {
-                                            return "    coordinatorUrl = "
-                                                    + "\""
-                                                    + coordinatorURL
-                                                    + "\"";
-                                        }
-                                        return line;
-                                    })
-                            .collect(Collectors.toList());
-            Files.write(path, newLines);
-            log.info("Conf has been updated successfully.");
-        } catch (IOException e) {
-            throw new RuntimeException("Change conf error", e);
-        }
     }
 
     private String getSelectResponse(String datasource) throws IOException {

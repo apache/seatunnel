@@ -415,6 +415,103 @@ sink {
 }
 ```
 
+### Configure Debezium heartbeat
+
+For low-traffic tables, the MySQL binlog only advances when row changes occur. Use a Debezium heartbeat to keep the binlog position moving so downstream checkpoints record fresh offsets and replication lag stays measurable. The heartbeat table must exist on the MySQL server before the job starts.
+
+```hocon
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO mysql_cdc.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### Flush on a timer without waiting for `batch_size`
+
+When the source has very low write volume, the JDBC sink can sit idle until a checkpoint fires. Enable timer flush in the sink so buffered rows are written even if `batch_size` is not reached.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5680-5690
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.timer_flush_src"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user_sink"
+    password = "mysqlpw"
+    generate_sink_sql = true
+    database = mysql_cdc
+    table = timer_flush_sink
+    primary_keys = ["id"]
+    batch_size = 100000000
+    batch_interval_ms = 0
+  }
+}
+```
+
+`sink.flush.interval` is configured in the `env` block and applies to the sink pipeline regardless of `batch_size`.
+
+### Read tables without a primary key
+
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and binlog phases both use the configured key for
+  consistent row identity.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    table-names-config = [
+      {
+        table = "mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
+  }
+}
+```
+
+Without a usable primary key (configured or physical) the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads or when downstream sink behavior does not depend on row identity.
+
 ### Start From a Specific Binlog Offset
 
 Use `startup.mode = "specific"` when the first record must be read from a known binlog file and position.
@@ -430,6 +527,53 @@ source {
     startup.mode = "specific"
     startup.specific-offset.file = "mysql-bin.000001"
     startup.specific-offset.pos = 154
+  }
+}
+```
+
+### Bounded Read: Stop at a Specific Binlog Offset
+
+Use `stop.mode = "specific"` to make the job a bounded read: it reads the binlog between the
+startup offset (or startup timestamp) and the configured stop offset, then terminates
+(`FINISHED`) instead of running forever.
+
+> **Note**: bounded-read termination is currently supported on the **Zeta** engine only.
+> Flink and Spark engines do not support bounded incremental-split termination yet.
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
+`stop.mode = "specific"` can also be combined with `startup.mode = "timestamp"` to bound the
+read both by time and by binlog position:
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "timestamp"
+    startup.timestamp = 1716076800000
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
   }
 }
 ```

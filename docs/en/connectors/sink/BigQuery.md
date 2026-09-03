@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md) for batch mode only
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -41,7 +41,11 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
 | emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
-| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime, but this connector still writes to the single configured BigQuery table. |
+| universe_domain             | string  | No       | -       | The Google Cloud Universe Domain, such as `s3nsapis.fr` for S3NS sovereign cloud.                           |
+| schema_save_mode            | enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. See below.                                                                           |
+| data_save_mode              | enum    | No       | APPEND_DATA | Data save mode. See below.                                                                                 |
+| custom_sql                  | string  | No       | -       | Custom SQL to execute when `data_save_mode` is `CUSTOM_PROCESSING`.                                         |
+| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime.                                  |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
 ### Authentication Options
@@ -54,10 +58,31 @@ For production BigQuery jobs, provide **one** of the following authentication me
 
 ### Table Options
 
-The target BigQuery table must already exist.
-The connector reads the existing table schema during writer initialization and does not create the table automatically.
+The target BigQuery table can be created automatically using SeaTunnel's SaveMode.
+By configuring `schema_save_mode` to `CREATE_SCHEMA_WHEN_NOT_EXIST` (default) or `RECREATE_SCHEMA`, the connector can automatically create the BigQuery dataset and table based on the upstream schema information.
 
-The connector writes to one configured table: `project_id.dataset_id.table_id`. It does not create a different BigQuery table for each upstream table. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
+The connector writes to target tables determined by `project_id.dataset_id.table_id`.
+In multi-table pipelines, you can configure `table_id` to include `${table_name}` (e.g., `table_id = "${table_name}"` or `table_id = "prefix_${table_name}"`) to dynamically route data to different BigQuery tables. Under this multi-table setting, the connector automatically creates separate target tables as needed.
+
+### schema_save_mode [Enum]
+
+Before the synchronization task starts, controls how the target table schema is handled.
+- `RECREATE_SCHEMA` : Drop the target table if it exists, and then recreate it.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` : Create the target table if it does not exist, or skip creation if it exists.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST` : Throw an error if the target table does not exist.
+- `IGNORE` : Ignore schema handling and do not perform any schema-related checks or DDL actions.
+
+### data_save_mode [Enum]
+
+Before the synchronization task starts, controls how existing data on the target side is handled.
+- `DROP_DATA` : Delete existing data in the target table.
+- `APPEND_DATA` : Keep the target table's existing structure and append new data.
+- `CUSTOM_PROCESSING` : Perform user-defined processing. This requires configuring `custom_sql`.
+- `ERROR_WHEN_DATA_EXISTS` : Throw an error if the target table already contains data.
+
+### custom_sql [String]
+
+When `data_save_mode` is set to `CUSTOM_PROCESSING`, the SQL statement specified here will be executed before row writing begins.
 
 ### Write Modes
 
@@ -86,6 +111,10 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 ## Task Example
 
 ### Simple Batch Example
+
+This example shows a local end-to-end batch test against the BigQuery emulator.
+Production jobs should provide a real service-account key (or rely on default
+application credentials) and target a real GCP project.
 
 ```hocon
 env {
@@ -175,6 +204,27 @@ sink {
 }
 ```
 
+When the upstream CDC source already produces a monotonically increasing column
+(such as an `updated_at` epoch millis or a row version), wire it to
+`sequence_number_column` so BigQuery can dedup retried batches. The target
+table must define a primary key (the example above uses `PRIMARY KEY (uuid)
+NOT ENFORCED`), otherwise BigQuery treats every write as an append and skips
+deduplication.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
+    batch_size = 500
+  }
+}
+```
+
 ### Complex Data Types Example
 
 ```hocon
@@ -202,6 +252,24 @@ sink {
     dataset_id = "orders"
     table_id = "customer_orders"
     service_account_key_path = "/path/to/key.json"
+    batch_size = 500
+  }
+}
+```
+
+### Inline Service Account Key
+
+For environments where a key file is inconvenient (CI runners, Kubernetes
+secrets mounted as env vars), inline the JSON content with
+`service_account_key_json`.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
     batch_size = 500
   }
 }

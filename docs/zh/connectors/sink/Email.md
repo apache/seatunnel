@@ -8,6 +8,8 @@ import ChangeLog from '../changelog/connector-email.md';
 
 将接收到的数据写成附件文件，并发送到一个或多个邮箱地址。
 
+连接器会把每张表的数据缓冲到一个带分隔符的附件文件里（每行一条记录，不含表头），并在 Writer 关闭时为每张表各发送一封邮件。如果某张表没有数据，则不会为该表发送邮件。
+
 ## 支持版本
 
 测试版本:1.5.6(供参考)
@@ -52,19 +54,19 @@ import ChangeLog from '../changelog/connector-email.md';
 
 ### email_transport_protocol [string]
 
-加载会话的协议
+发送邮件使用的传输协议，通常为 `smtp`（或 `smtps`）。
 
 ### email_smtp_auth [boolean]
 
-是否对客户进行认证
+是否启用 SMTP 认证。设为 `true` 时，连接器会自动开启 SSL，并以 `email_from_address` 作为用户名、`email_authorization_code` 作为密码进行认证。设为 `false` 时，连接器通过普通 SMTP 发送邮件，不进行认证。
 
 ### email_smtp_port [int]
 
-选择用于身份验证的端口。
+SMTP 服务器端口，取值必须在 `1` 到 `65535` 之间（包含边界值）。默认值 `465` 为 SMTPS 端口，需与 `email_smtp_auth = true` 配合使用。如果使用不带认证的普通 SMTP，请填写与服务匹配的端口（例如 `25` 或 `3025`）。
 
 ### email_authorization_code [string]
 
-授权码或密码，可以从邮箱设置中获取。
+当 `email_smtp_auth = true` 时，用于与 `email_from_address` 一起对 SMTP 会话进行认证的授权码或密码。可以从邮箱设置中获取（例如 QQ 邮箱、Gmail、163 邮箱等提供的专用密码 / 授权码）。
 
 连接器要求必须配置该项。当 `email_smtp_auth = false` 时，可以配置为空字符串。
 
@@ -97,6 +99,15 @@ import ChangeLog from '../changelog/connector-email.md';
 ### common options
 
 Sink插件常用参数，请参考 [Sink常用选项](../common-options/sink-common-options.md) 了解详情.
+
+:::tip
+
+认证与 SSL
+
+- 当 `email_smtp_auth = true` 时，连接器会开启 SSL（`mail.smtp.ssl.enable`）并信任所有 SMTP 主机，因此默认端口 `465`（SMTPS）适用于 QQ 邮箱、Gmail、163 邮箱等服务商。请使用邮箱的授权码（专用密码）作为 `email_authorization_code`，而不是账号登录密码。
+- 当 `email_smtp_auth = false` 时，连接器通过不带 SSL 的普通 SMTP 发送邮件，请选择匹配的普通 SMTP 端口（例如 `25` 或本地测试服务的 `3025`）。
+
+:::
 
 ## 示例
 
@@ -197,6 +208,43 @@ sink {
     email_smtp_auth = false
     email_smtp_port = 3025
     email_authorization_code = ""
+    email_message_headline = "test-title"
+    email_message_content = "test-content"
+  }
+}
+```
+
+### 使用 SMTP 认证发送
+
+本示例通过 QQ 邮箱等需要认证的 SMTP 服务器发送邮件。当 `email_smtp_auth = true` 时，连接器会自动开启 SSL，并使用 `email_from_address` 和 `email_authorization_code` 进行认证。请将授权码替换为你在邮箱设置中生成的授权码。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+sink {
+  EmailSink {
+    email_from_address = "xxxxxxxx@qq.com"
+    email_to_address = "xxxxxxxx@qq.com"
+    email_host = "smtp.qq.com"
+    email_transport_protocol = "smtp"
+    email_smtp_auth = true
+    email_authorization_code = "your-authorization-code"
     email_message_headline = "test-title"
     email_message_content = "test-content"
   }

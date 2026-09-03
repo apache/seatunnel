@@ -1,0 +1,674 @@
+{
+  "tier": 2,
+  "description": "Discrimination tier: type mapping, CDC, transform chains, multi-table sync, streaming. SeaTunnel SQL transform supports projection/WHERE only (no GROUP BY/JOIN/ORDER BY). Connection details match benchmark/docker/docker-compose.yml.",
+  "tasks": [
+    {
+      "id": "t2_tm_datetime_date_zh",
+      "name": "TYPE: MySQL DATETIME to DATE (Chinese)",
+      "category": "type_mapping",
+      "prompt": "把 MySQL（主机 localhost，端口 3306，数据库 shop，用户 root）的 orders 表同步到 ClickHouse（主机 localhost，端口 8123，数据库 bench，表 orders_daily，用户 default）。orders 表里的 created_at 是 DATETIME 类型，需要用 SQL transform 把它转成 DATE 类型的 order_date 字段（目标表列为 order_id, amount, order_date，目标表已存在）。批处理模式。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)order_date", "(?i)cast|date"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["mysql", "clickhouse"], "mode": "batch", "l3": "run",
+        "verify": {
+          "container": "st-bench-clickhouse",
+          "command": ["clickhouse-client", "--password", "Test@123", "-q", "SELECT count() FROM bench.orders_daily"],
+          "expect_min_rows": 1
+        }
+      }
+    },
+    {
+      "id": "t2_tm_string_decimal",
+      "name": "TYPE: string to decimal cast",
+      "category": "type_mapping",
+      "prompt": "Read CSV files from /tmp/st_bench/price_updates (no header; fields sku string, new_price string), cast new_price to decimal(10,2) using a SQL transform, and write into the existing ClickHouse table price_updates in database bench (host localhost, port 8123, user default). Batch mode.",
+      "expect": {
+        "source": ["LocalFile"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)cast", "(?i)decimal"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["clickhouse"], "mode": "batch", "l3": "run",
+        "setup_files": {
+          "/tmp/st_bench/price_updates/prices.csv": "SKU-001,19.99\nSKU-002,5.50\nSKU-003,120.00\n"
+        }
+      }
+    },
+    {
+      "id": "t2_tm_bigint_string",
+      "name": "TYPE: bigint id to string",
+      "category": "type_mapping",
+      "prompt": "Read the users table from MySQL (host localhost, port 3306, database shop, user root), convert the numeric id column to a string column named user_key with a SQL transform (keep name and email unchanged), and print the result to the console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)user_key", "(?i)cast"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tm_timestamp_epoch",
+      "name": "TYPE: format timestamp column",
+      "category": "type_mapping",
+      "prompt": "Read the audit_log table from MySQL (host localhost, port 3306, database shop, user root). Using a SQL transform, keep columns id and actor, and add a column day that is the ts column cast to DATE. Output to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)cast|to_date", "(?i)day"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tm_decimal_precision_zh",
+      "name": "TYPE: decimal precision widening (Chinese)",
+      "category": "type_mapping",
+      "prompt": "从 MySQL（主机 localhost，端口 3306，数据库 shop，用户 root）读取 transactions 表，用 SQL transform 把 amount（decimal(10,2)）转换成 decimal(12,4) 类型的 amount_precise 字段，连同 tx_id、account 一起输出到控制台。批处理模式。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)amount_precise", "(?i)decimal\\s*\\(\\s*12\\s*,\\s*4\\s*\\)"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tm_null_handling",
+      "name": "TYPE: NULL-safe defaults",
+      "category": "type_mapping",
+      "prompt": "Read the payments table from MySQL (host localhost, port 3306, database shop, user root). With a SQL transform, replace NULL paid_amount values with 0.00 using COALESCE and output payment_id, order_id, and the cleaned paid_amount to the console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)coalesce"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tm_kafka_schema_types",
+      "name": "TYPE: Kafka JSON schema with mixed types",
+      "category": "type_mapping",
+      "prompt": "Stream from Kafka topic order_events (broker localhost:9092, earliest offset). The JSON messages have order_id string, amount string, created_at string. Declare the schema accordingly, cast amount to decimal(10,2) via SQL transform, and print to console.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "transform": ["Sql"],
+        "must_match": ["(?i)schema", "(?i)cast"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_tm_pg_numeric_es",
+      "name": "TYPE: PostgreSQL to Elasticsearch with rounding",
+      "category": "type_mapping",
+      "prompt": "Read the web_events table from PostgreSQL (host localhost, port 5432, database analytics, user bench). Keep id, uid, evt and add a column url_len that is the length of the url column (integer), via SQL transform. Index the result into Elasticsearch index web-events-typed (localhost:9200, security disabled). Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Elasticsearch"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)length|char_length", "(?i)url_len"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "elasticsearch"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tm_probe_type_widening",
+      "name": "PROBE: implicit int→varchar must be explicit",
+      "category": "failure_probe",
+      "prompt": "Copy the fact_sales table from MySQL (host localhost, port 3306, database shop, user root) into the existing ClickHouse table fact_sales in database bench (host localhost, port 8123, user default). The target column types match the source exactly — do not add any transform. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)fact_sales"],
+        "must_not_match": ["(?i)transform\\s*\\{"]
+      },
+      "execution": {
+        "services": ["mysql", "clickhouse"], "mode": "batch", "l3": "run",
+        "verify": {
+          "container": "st-bench-clickhouse",
+          "command": ["clickhouse-client", "--password", "Test@123", "-q", "SELECT count() FROM bench.fact_sales"],
+          "expect_min_rows": 1
+        }
+      }
+    },
+    {
+      "id": "t2_tm_probe_date_format",
+      "name": "PROBE: date output format for CSV",
+      "category": "failure_probe",
+      "prompt": "Export the orders table from MySQL (host localhost, port 3306, database shop, user root) to local CSV files under /tmp/st_bench/orders_dated with datetime values formatted as yyyy-MM-dd HH:mm:ss. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)yyyy-MM-dd"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_mysql_console",
+      "name": "CDC: MySQL to Console",
+      "category": "cdc_realtime",
+      "prompt": "Capture all changes from the MySQL orders table in real time (host localhost, port 3306, database shop, user root, the account has all CDC privileges) and print the change stream to the console.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)checkpoint"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_mysql_initial_snapshot",
+      "name": "CDC: MySQL with initial snapshot",
+      "category": "cdc_realtime",
+      "prompt": "Set up MySQL CDC on the users table (host localhost, port 3306, database shop, user root) that first takes a full initial snapshot of existing rows and then continues with incremental changes, printing everything to the console.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)initial"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_pg_kafka",
+      "name": "CDC: PostgreSQL to Kafka",
+      "category": "cdc_realtime",
+      "prompt": "Capture changes from the PostgreSQL inventory table in real time (host localhost, port 5432, database analytics, user bench, decoding plugin pgoutput, logical replication is enabled) and publish them to Kafka topic wms.inventory on broker localhost:9092.",
+      "expect": {
+        "source": ["PostgreSQL-CDC"],
+        "sink": ["Kafka"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)inventory"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_mysql_multi_table_zh",
+      "name": "CDC: MySQL multi-table (Chinese)",
+      "category": "cdc_realtime",
+      "prompt": "对 MySQL（主机 localhost，端口 3306，用户 root，具备 CDC 权限）的 shop.users、shop.orders、shop.payments 三张表做实时 CDC 同步，把变更流打印到控制台。",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)table-names|table_names|database-names|database_names"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_kafka_debezium_sink",
+      "name": "CDC: consume debezium_json into MySQL",
+      "category": "cdc_realtime",
+      "prompt": "Consume debezium_json formatted change events from Kafka topic dbz.shop.users (broker localhost:9092, earliest offset; the payload rows have fields id bigint, name string, email string) and apply them to the existing MySQL table users_replica in database shop (host localhost, port 3306, user root). Streaming mode.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Jdbc"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)debezium"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka", "mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_mysql_localfile",
+      "name": "CDC: MySQL changes archived to files",
+      "category": "cdc_realtime",
+      "prompt": "Stream MySQL CDC changes of the transactions table (host localhost, port 3306, database shop, user root, CDC privileges granted) into local JSON files under /tmp/st_bench/tx_changelog for archival.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["LocalFile"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)json", "/tmp/st_bench/tx_changelog"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_startup_latest",
+      "name": "CDC: changes-only from latest offset",
+      "category": "cdc_realtime",
+      "prompt": "Set up MySQL CDC on the payments table (host localhost, port 3306, database shop, user root) that skips the initial snapshot and only captures NEW changes from now on (start from the latest binlog position), printing to console.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)latest"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_pg_console_snapshot",
+      "name": "CDC: PostgreSQL with snapshot to Console",
+      "category": "cdc_realtime",
+      "prompt": "Capture the customers table from PostgreSQL via CDC (host localhost, port 5432, database analytics, user bench, plugin pgoutput), including an initial snapshot of existing rows, and print to console.",
+      "expect": {
+        "source": ["PostgreSQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)customers"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_probe_batch_mode",
+      "name": "PROBE: CDC source must not run in BATCH mode",
+      "category": "failure_probe",
+      "prompt": "I want to replicate ongoing changes of the MySQL orders table (host localhost, port 3306, database shop, user root) to the console. Changes must keep flowing continuously as they happen.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)STREAMING"],
+        "must_not_match": ["(?i)job\\.mode\\s*=\\s*\"?BATCH"]
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_cdc_probe_privileges",
+      "name": "PROBE: CDC needs server-id awareness",
+      "category": "failure_probe",
+      "prompt": "Create a MySQL CDC pipeline for shop.orders (host localhost, port 3306, user root) to console. We run several CDC jobs against this server, so make sure this job uses its own unique server id range to avoid conflicts.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)server-id|server_id"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_filter_where",
+      "name": "TRANSFORM: SQL WHERE filter",
+      "category": "transform_chain",
+      "prompt": "Read the transactions table from MySQL (host localhost, port 3306, database shop, user root), keep only rows where amount > 100 using a SQL transform, and write the result to local files under /tmp/st_bench/large_tx in JSON format. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)where", "(?i)amount\\s*>\\s*100"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_fieldmapper_rename",
+      "name": "TRANSFORM: FieldMapper rename",
+      "category": "transform_chain",
+      "prompt": "Read the web_events table from PostgreSQL (host localhost, port 5432, database analytics, user bench), rename column uid to user_id and evt to event_type using a FieldMapper transform, then index into Elasticsearch index web-events (host localhost, port 9200, security disabled). Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Elasticsearch"],
+        "job_mode": "BATCH",
+        "transform": ["FieldMapper"],
+        "must_match": ["(?i)user_id", "(?i)event_type"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "elasticsearch"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_filter_columns",
+      "name": "TRANSFORM: Filter keeps selected columns",
+      "category": "transform_chain",
+      "prompt": "Read the users table from MySQL (host localhost, port 3306, database shop, user root), and use a Filter transform to keep only the id and name columns (drop email and created_at), then print to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Filter"],
+        "must_match": ["(?i)include_fields|exclude_fields|fields"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_replace_transform",
+      "name": "TRANSFORM: Replace values",
+      "category": "transform_chain",
+      "prompt": "Read the customers table from PostgreSQL (host localhost, port 5432, database analytics, user bench) and use a Replace transform to replace every space in the name column with an underscore, then print to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Replace"],
+        "must_match": ["(?i)replace_field|pattern"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_copy_field",
+      "name": "TRANSFORM: Copy column",
+      "category": "transform_chain",
+      "prompt": "Read the products table from MySQL (host localhost, port 3306, database shop, user root), duplicate the sku column into a new column sku_backup using a Copy transform, and print to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Copy"],
+        "must_match": ["(?i)sku_backup"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_chain_two_transforms_zh",
+      "name": "TRANSFORM: chained SQL + FieldMapper (Chinese)",
+      "category": "transform_chain",
+      "prompt": "从 MySQL（主机 localhost，端口 3306，数据库 shop，用户 root）读取 orders 表，先用 SQL transform 过滤出 amount > 50 的行，再用 FieldMapper 把 order_id 改名为 id、amount 改名为 total，最后输出到控制台。批处理模式。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql", "FieldMapper"],
+        "must_match": ["(?i)where", "(?i)total"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_sql_concat",
+      "name": "TRANSFORM: SQL string concatenation",
+      "category": "transform_chain",
+      "prompt": "Read the users table from MySQL (host localhost, port 3306, database shop, user root). With a SQL transform, produce columns id and display_name where display_name is name plus the literal suffix ' <' plus email plus '>'. Print to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)display_name", "(?i)concat|\\|\\|"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_sql_case_when",
+      "name": "TRANSFORM: SQL CASE WHEN bucketing",
+      "category": "transform_chain",
+      "prompt": "Read the transactions table from MySQL (host localhost, port 3306, database shop, user root). With a SQL transform, add a column size_bucket that is 'LARGE' when amount >= 1000 and 'SMALL' otherwise, and print tx_id, amount, size_bucket to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)case", "(?i)size_bucket"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_probe_no_groupby",
+      "name": "PROBE: SQL transform cannot GROUP BY",
+      "category": "failure_probe",
+      "prompt": "Read the transactions table from MySQL (host localhost, port 3306, database shop, user root) and give me insight into large transactions: I need each transaction row where amount is above the overall level of 100, with all its columns, written to console. Keep it simple — remember SeaTunnel's SQL transform does not support aggregation. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)where"],
+        "must_not_match": ["(?i)group\\s+by", "(?i)join", "(?i)order\\s+by"]
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_tc_probe_transform_io_labels",
+      "name": "PROBE: transform must wire plugin_input/output",
+      "category": "failure_probe",
+      "prompt": "Read the orders table from MySQL (host localhost, port 3306, database shop, user root), filter to amount > 10 with a SQL transform, and write to console. Use explicit plugin_output/plugin_input routing labels on every block. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_mt_three_tables_console",
+      "name": "MULTI-TABLE: 3 MySQL tables to Console",
+      "category": "multi_table_sync",
+      "prompt": "Sync three MySQL tables (users, orders, payments) from database shop (host localhost, port 3306, user root) to Console in one job, one pipeline per table. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)users", "(?i)orders", "(?i)payments"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_mt_table_list",
+      "name": "MULTI-TABLE: table_list bulk sync",
+      "category": "multi_table_sync",
+      "prompt": "Use a single Jdbc source with a table_list to read both shop.users and shop.products from MySQL (host localhost, port 3306, user root) and print all rows to the console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)table_list"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_mt_two_dbs_zh",
+      "name": "MULTI-TABLE: cross-database sync (Chinese)",
+      "category": "multi_table_sync",
+      "prompt": "同一个作业里：把 MySQL shop 库（主机 localhost，端口 3306，用户 root）的 users 表和 PostgreSQL analytics 库（主机 localhost，端口 5432，用户 bench）的 customers 表都同步到控制台，两条流水线，批处理。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:mysql://", "jdbc:postgresql://"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "postgres"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_mt_partitioned_read",
+      "name": "MULTI-TABLE: parallel partitioned read",
+      "category": "multi_table_sync",
+      "prompt": "Sync the fact_sales table (numeric primary key id) from MySQL (host localhost, port 3306, database shop, user root) to the existing ClickHouse table fact_sales in database bench (host localhost, port 8123, user default). Use partitioned parallel reading on the id column with parallelism 4. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)partition_column|split", "parallelism\\s*=\\s*4"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "clickhouse"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_mt_selective_columns",
+      "name": "MULTI-TABLE: per-table column projection",
+      "category": "multi_table_sync",
+      "prompt": "In one batch job from MySQL shop (host localhost, port 3306, user root): pipeline 1 reads only id and name from the users table; pipeline 2 reads only order_id and amount from the orders table. Both print to console.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)select\\s+id\\s*,\\s*name|SELECT id, name", "(?i)order_id"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_mt_probe_duplicate_blocks",
+      "name": "PROBE: duplicate connector blocks need distinct labels",
+      "category": "failure_probe",
+      "prompt": "One job, two Jdbc source blocks against the same MySQL shop database (host localhost, port 3306, user root): one reads audit_log, the other reads transactions. Route audit_log to Console and transactions to an Assert sink checking at least 1 row. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_si_kafka_earliest_console",
+      "name": "STREAM: Kafka earliest offset consumption",
+      "category": "streaming_ingest",
+      "prompt": "Stream JSON events from Kafka topic clicks (broker localhost:9092, fields event_id string, user_id bigint, url string), starting from the earliest offset, to the console.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)earliest"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_si_kafka_to_kafka",
+      "name": "STREAM: Kafka topic re-publish",
+      "category": "streaming_ingest",
+      "prompt": "Consume JSON messages from Kafka topic clicks (broker localhost:9092, earliest offset, fields event_id string, user_id bigint, url string) and republish them unchanged to Kafka topic clicks_mirror on the same broker. Streaming mode.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Kafka"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)clicks_mirror"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_si_kafka_filter_stream",
+      "name": "STREAM: filtered Kafka to files",
+      "category": "streaming_ingest",
+      "prompt": "Stream JSON events from Kafka topic clicks (broker localhost:9092, earliest offset, fields event_id string, user_id bigint, url string), keep only rows where user_id = 1 via SQL transform, and append them to local JSON files under /tmp/st_bench/user1_clicks.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["LocalFile"],
+        "job_mode": "STREAMING",
+        "transform": ["Sql"],
+        "must_match": ["(?i)where", "(?i)user_id\\s*=\\s*1"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_si_fake_unbounded",
+      "name": "STREAM: unbounded FakeSource",
+      "category": "streaming_ingest",
+      "prompt": "Create a streaming job that continuously generates fake rows (fields sensor_id int, temperature double) at a steady rate and prints them to the console, with a 10-second checkpoint interval.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)checkpoint", "10000|10s"],
+        "must_not_match": []
+      },
+      "execution": {"services": [], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_si_probe_group_offsets",
+      "name": "PROBE: Kafka consumer group semantics",
+      "category": "failure_probe",
+      "prompt": "Stream from Kafka topic events (broker localhost:9092, fields id bigint, name string, ts string) to console using consumer group st_bench_group, resuming from that group's committed offsets. Streaming mode.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)st_bench_group", "(?i)group"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t2_bs_savemode_append",
+      "name": "BATCH: append semantics to existing table",
+      "category": "batch_sync",
+      "prompt": "Append all rows from the MySQL products table (host localhost, port 3306, database shop, user root) into the existing ClickHouse table dim_products in database bench (host localhost, port 8123, user default) WITHOUT dropping or recreating the target table — data must be appended, keeping existing rows. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)dim_products"],
+        "must_not_match": ["(?i)DROP_DATA|RECREATE_SCHEMA"]
+      },
+      "execution": {"services": ["mysql", "clickhouse"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_bs_query_pushdown",
+      "name": "BATCH: source-side WHERE pushdown",
+      "category": "batch_sync",
+      "prompt": "Read only the PAID orders from the MySQL orders table (host localhost, port 3306, database shop, user root) by filtering in the source query itself (WHERE status = 'PAID'), no transform block, and print to console. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)where.*PAID"],
+        "must_not_match": ["(?i)transform\\s*\\{"]
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_bs_fake_to_mysql",
+      "name": "BATCH: generated data into MySQL",
+      "category": "batch_sync",
+      "prompt": "Generate 100 fake rows with fields id (bigint), label (string) and insert them into the existing MySQL table bench_landing in database shop (host localhost, port 3306, user root). Batch mode.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["Jdbc"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)bench_landing"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t2_bs_probe_sink_options_on_source",
+      "name": "PROBE: no sink options on source block",
+      "category": "failure_probe",
+      "prompt": "Copy the users table from MySQL shop into the existing MySQL table users_replica in the same database (host localhost, port 3306, user root), generating the sink INSERT statements automatically from the target database and table name instead of writing SQL by hand. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Jdbc"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)generate_sink_sql", "(?i)users_replica"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    }
+  ]
+}

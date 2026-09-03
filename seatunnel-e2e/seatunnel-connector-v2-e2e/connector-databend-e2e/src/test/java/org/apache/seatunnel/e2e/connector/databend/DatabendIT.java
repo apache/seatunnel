@@ -34,7 +34,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.databend.DatabendContainer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.Lists;
 
 import com.amazonaws.auth.AWSCredentials;
 import com.amazonaws.auth.AWSCredentialsProvider;
@@ -65,7 +64,6 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     private static final String DATABEND_DOCKER_IMAGE = "datafuselabs/databend:v1.2.71-nightly";
     private static final String DATABEND_CONTAINER_HOST = "databend";
     private static final int PORT = 8000;
-    private static final int LOCAL_PORT = 8000;
     private static final String DRIVER_CLASS = "com.databend.jdbc.Driver";
     private static final String INIT_DATABEND_PATH = "/databend/databend_init.conf";
     private static final String DATABEND_JOB_CONFIG = "/databend/databend_to_databend.conf";
@@ -248,8 +246,6 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
         this.minioContainer.setWaitStrategy(
                 Wait.defaultWaitStrategy().withStartupTimeout(Duration.ofSeconds(60)));
 
-        this.minioContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 9000, 9000)));
-
         this.minioContainer.start();
 
         LOG.info("MinIO container starting，wait 5 secs ...");
@@ -275,12 +271,6 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                         .withEnv("STORAGE_S3_FORCE_PATH_STYLE", "true")
                         .withUrlParam("ssl", "false");
 
-        this.container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", LOCAL_PORT, PORT) // host 8000 map to container port 8000
-                        ));
-
         Startables.deepStart(Stream.of(this.container)).join();
         LOG.info("Databend container started");
         Awaitility.given()
@@ -305,7 +295,10 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
 
             AwsClientBuilder.EndpointConfiguration endpointConfig =
                     new AwsClientBuilder.EndpointConfiguration(
-                            "http://localhost:9000", "us-east-1");
+                            String.format(
+                                    "http://%s:%s",
+                                    minioContainer.getHost(), minioContainer.getMappedPort(9000)),
+                            "us-east-1");
 
             AWSCredentials credentials = new BasicAWSCredentials("minioadmin", "minioadmin");
             AWSCredentialsProvider credentialsProvider =

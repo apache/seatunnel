@@ -19,7 +19,9 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> IoTDB Sink 通过调用 IoTDB 的 insert RPC 写入。当一行带有非唯一的 `(device, timestamp)` 组合时，写入会按 upsert 处理——最新值覆盖之前的值，因此上游重复投递不会产生多余数据。行类型 `UPDATE`/`DELETE` 不会被当作 CDC 操作处理，所有行都按 insert 写入。
 
 ## 支持的数据源信息
 
@@ -202,6 +204,34 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 |2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
 +------------------------+------------------------+--------------+-----------+
 ```
+
+### 案例4：显式批量刷写的流式写入
+
+对于长时间运行的流式作业，可以调大 `batch_size` 减少单行 RPC 开销。连接器在缓冲行数达到 `batch_size` 或 checkpoint 完成时刷新缓冲。配合 `max_retries` 和 `max_retry_backoff_ms` 可以让任务在 RPC 抖动时保持稳定。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  IoTDB {
+    node_urls = ["localhost:6667", "localhost:6668"]
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "event_ts"
+    batch_size = 2048
+    max_retries = 3
+    retry_backoff_multiplier_ms = 100
+    max_retry_backoff_ms = 5000
+  }
+}
+```
+
+`node_urls` 支持传入多个 IoTDB 节点。Sink 会为每个任务选择一个活跃写入节点，并在活跃节点失败时切换到其它节点。
 
 ## 变更日志
 

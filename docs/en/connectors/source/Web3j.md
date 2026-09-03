@@ -28,6 +28,10 @@ string that contains `blockNumber` and the read timestamp.
 In batch mode, the source emits one row and then finishes. In streaming mode, it keeps polling the
 provider and emits the latest observed block number.
 
+The connector uses a single split and does not support parallelism. Each row produced contains the
+result of one HTTP `eth_blockNumber` call, so the effective polling rate follows the response time
+of the configured provider.
+
 ## Source Options
 
 | Name | Type   | Required | Default | Description |
@@ -46,7 +50,19 @@ The JSON stored in `value` has this shape:
 {"blockNumber":19525949,"timestamp":"2024-03-27T13:28:45.605Z"}
 ```
 
+## Notes
+
+- The `url` must point to a JSON-RPC compatible Web3 provider, such as Infura, Alchemy, or a
+  self-hosted Ethereum node. HTTPS is recommended; the connector does not perform additional
+  authentication, so put the API key directly into the URL when the provider requires one.
+- The connector exposes only a single row type with the `value` field. Use a SQL transform or JSON
+  path downstream to extract `blockNumber` or `timestamp` for further processing.
+- In streaming mode the connector keeps the HTTP connection open and emits the latest block
+  number observed on each poll; pair it with checkpointing only if downstream sinks require it.
+
 ## Example
+
+In batch mode, the source emits one row and then finishes:
 
 ```hocon
 env {
@@ -73,6 +89,43 @@ Then you will get data similar to the following:
 
 ```json
 {"value":"{\"blockNumber\":19525949,\"timestamp\":\"2024-03-27T13:28:45.605Z\"}"}
+```
+
+In streaming mode, the connector keeps polling the provider and emits a row on every poll containing
+the latest observed block number:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Web3j {
+    url = "https://mainnet.infura.io/v3/xxxxx"
+    plugin_output = "web3j"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "web3j"
+    rules {
+      field_rules = [
+        {
+          field_name = value
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
 ```
 
 ## Changelog

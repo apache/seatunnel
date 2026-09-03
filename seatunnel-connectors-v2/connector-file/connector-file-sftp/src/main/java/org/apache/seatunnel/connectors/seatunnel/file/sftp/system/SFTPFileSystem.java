@@ -481,30 +481,26 @@ public class SFTPFileSystem extends FileSystem implements StreamingFileSystem {
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
         ChannelSftp channel = connect();
-        Path workDir;
         try {
-            workDir = new Path(channel.pwd());
-        } catch (SftpException e) {
-            throw new IOException(e);
-        }
-        Path absolute = makeAbsolute(workDir, f);
-        FileStatus fileStat = getFileStatus(channel, absolute);
-        if (fileStat.isDirectory()) {
-            disconnect(channel);
-            throw new IOException(String.format(E_PATH_DIR, f));
-        }
-        InputStream is;
-        try {
+            Path workDir = new Path(channel.pwd());
+            Path absolute = makeAbsolute(workDir, f);
+            FileStatus fileStat = getFileStatus(channel, absolute);
+            if (fileStat.isDirectory()) {
+                throw new IOException(String.format(E_PATH_DIR, f));
+            }
             // the path could be a symbolic link, so get the real path
             absolute = new Path("/", channel.realpath(absolute.toUri().getPath()));
 
-            is = channel.get(quote(absolute.toUri().getPath()));
-        } catch (SftpException e) {
+            InputStream is = channel.get(quote(absolute.toUri().getPath()));
+            return new FSDataInputStream(
+                    new SFTPInputStream(is, channel, connectionPool, statistics));
+        } catch (Exception e) {
+            disconnectAfterFailure(channel, e);
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
             throw new IOException(e);
         }
-
-        FSDataInputStream fis = new FSDataInputStream(new SFTPInputStream(is, channel, statistics));
-        return fis;
     }
 
     /**
@@ -522,49 +518,50 @@ public class SFTPFileSystem extends FileSystem implements StreamingFileSystem {
             Progressable progress)
             throws IOException {
         final ChannelSftp client = connect();
-        Path workDir;
         try {
-            workDir = new Path(client.pwd());
-        } catch (SftpException e) {
-            throw new IOException(e);
-        }
-        Path absolute = makeAbsolute(workDir, f);
-        if (exists(client, f)) {
-            if (overwrite) {
-                delete(client, f, false);
-            } else {
-                disconnect(client);
-                throw new IOException(String.format(E_FILE_EXIST, f));
+            Path workDir = new Path(client.pwd());
+            Path absolute = makeAbsolute(workDir, f);
+            if (exists(client, f)) {
+                if (overwrite) {
+                    delete(client, f, false);
+                } else {
+                    throw new IOException(String.format(E_FILE_EXIST, f));
+                }
             }
-        }
-        Path parent = absolute.getParent();
-        if (parent == null || !mkdirs(client, parent, FsPermission.getDefault())) {
-            parent = (parent == null) ? new Path("/") : parent;
-            disconnect(client);
-            throw new IOException(String.format(E_CREATE_DIR, parent));
-        }
-        OutputStream os;
-        try {
+            Path parent = absolute.getParent();
+            if (parent == null || !mkdirs(client, parent, FsPermission.getDefault())) {
+                parent = (parent == null) ? new Path("/") : parent;
+                throw new IOException(String.format(E_CREATE_DIR, parent));
+            }
             final String previousCwd = client.pwd();
             client.cd(parent.toUri().getPath());
-            os = client.put(f.getName());
+            OutputStream os = client.put(f.getName());
             client.cd(previousCwd);
-        } catch (SftpException e) {
+            return new FSDataOutputStream(os, statistics) {
+                @Override
+                public void close() throws IOException {
+                    try {
+                        super.close();
+                    } finally {
+                        disconnect(client);
+                    }
+                }
+            };
+        } catch (Exception e) {
+            disconnectAfterFailure(client, e);
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
             throw new IOException(e);
         }
-        FSDataOutputStream fos =
-                new FSDataOutputStream(os, statistics) {
-                    @Override
-                    public void close() throws IOException {
-                        try {
-                            super.close();
-                        } finally {
-                            disconnect(client);
-                        }
-                    }
-                };
+    }
 
-        return fos;
+    private void disconnectAfterFailure(ChannelSftp channel, Exception originalFailure) {
+        try {
+            disconnect(channel);
+        } catch (IOException disconnectFailure) {
+            originalFailure.addSuppressed(disconnectFailure);
+        }
     }
 
     @Override

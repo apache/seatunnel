@@ -40,12 +40,13 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -78,85 +79,15 @@ public class HiveKerberosIT extends SeaTunnelContainer {
     private GenericContainer<?> kerberosContainer;
     private static final String KERBEROS_IMAGE_NAME = "zhangshenghang/kerberos-server:1.0";
 
-    private String hiveExeUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
-    }
-
-    private String libFb303Url() {
-        return "https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.3/libfb303-0.9.3.jar";
-    }
-
-    private String hadoopAwsUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-    }
-
-    private String aliyunSdkOssUrl() {
-        return "https://repo1.maven.org/maven2/com/aliyun/oss/aliyun-sdk-oss/3.4.1/aliyun-sdk-oss-3.4.1.jar";
-    }
-
-    private String jdomUrl() {
-        return "https://repo1.maven.org/maven2/org/jdom/jdom/1.1/jdom-1.1.jar";
-    }
-
-    private String hadoopAliyunUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.1.4/hadoop-aliyun-3.1.4.jar";
-    }
-
-    private String hadoopCosUrl() {
-        return "https://repo1.maven.org/maven2/com/qcloud/cos/hadoop-cos/2.6.5-8.0.2/hadoop-cos-2.6.5-8.0.2.jar";
-    }
-
     private HiveContainer hiveServerContainer;
     private HiveContainer hmsContainer;
     private Connection hiveConnection;
+    private Path kerberosLocalConfig;
     private String pluginHiveDir = "/tmp/seatunnel/plugins/Hive/lib";
 
-    protected void downloadHivePluginJar() throws IOException, InterruptedException {
-        Container.ExecResult downloadHiveExeCommands =
-                server.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p "
-                                + pluginHiveDir
-                                + " && cd "
-                                + pluginHiveDir
-                                + " && wget "
-                                + hiveExeUrl());
-        Assertions.assertEquals(
-                0, downloadHiveExeCommands.getExitCode(), downloadHiveExeCommands.getStderr());
-        Container.ExecResult downloadLibFb303Commands =
-                server.execInContainer(
-                        "sh", "-c", "cd " + pluginHiveDir + " && wget " + libFb303Url());
-        Assertions.assertEquals(
-                0, downloadLibFb303Commands.getExitCode(), downloadLibFb303Commands.getStderr());
-        // The jar of s3
-        Container.ExecResult downloadS3Commands =
-                server.execInContainer(
-                        "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopAwsUrl());
-        Assertions.assertEquals(
-                0, downloadS3Commands.getExitCode(), downloadS3Commands.getStderr());
-        // The jar of oss
-        Container.ExecResult downloadOssCommands =
-                server.execInContainer(
-                        "sh",
-                        "-c",
-                        "cd "
-                                + pluginHiveDir
-                                + " && wget "
-                                + aliyunSdkOssUrl()
-                                + " && wget "
-                                + jdomUrl()
-                                + " && wget "
-                                + hadoopAliyunUrl());
-        Assertions.assertEquals(
-                0, downloadOssCommands.getExitCode(), downloadOssCommands.getStderr());
-        // The jar of cos
-        Container.ExecResult downloadCosCommands =
-                server.execInContainer(
-                        "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopCosUrl());
-        Assertions.assertEquals(
-                0, downloadCosCommands.getExitCode(), downloadCosCommands.getStderr());
-    };
+    protected void copyHivePluginDependencies() throws IOException, InterruptedException {
+        HiveDependencies.copyTo(server, pluginHiveDir);
+    }
 
     @BeforeEach
     @Override
@@ -170,9 +101,9 @@ public class HiveKerberosIT extends SeaTunnelContainer {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KERBEROS_IMAGE_NAME)));
-        kerberosContainer.setPortBindings(Arrays.asList("88/udp:88/udp", "749:749"));
         Startables.deepStart(Stream.of(kerberosContainer)).join();
         log.info("Kerberos just started");
+        configureLocalKerberos();
 
         // Copy the keytab file from kerberos container to local
         given().ignoreExceptions()
@@ -199,8 +130,6 @@ public class HiveKerberosIT extends SeaTunnelContainer {
                                 ContainerUtil.getResourcesFile("/kerberos/core-site.xml").getPath(),
                                 "/opt/hive/conf/core-site.xml")
                         .withNetworkAliases(HMS_HOST);
-        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
-
         Startables.deepStart(Stream.of(hmsContainer)).join();
         log.info("HMS just started");
 
@@ -225,8 +154,6 @@ public class HiveKerberosIT extends SeaTunnelContainer {
                         .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://metastore:9083")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
-        hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
-
         Startables.deepStart(Stream.of(hiveServerContainer)).join();
 
         log.info("HiveServer2 just started");
@@ -243,7 +170,7 @@ public class HiveKerberosIT extends SeaTunnelContainer {
         // Set the fixed network to SeatunnelContainer
         super.startUp(this.NETWORK);
         // Load the hive plugin jar
-        this.downloadHivePluginJar();
+        copyHivePluginDependencies();
     }
 
     @AfterEach
@@ -261,12 +188,35 @@ public class HiveKerberosIT extends SeaTunnelContainer {
             kerberosContainer.close();
         }
         super.tearDown();
+        if (kerberosLocalConfig != null) {
+            if (kerberosLocalConfig
+                    .toString()
+                    .equals(System.getProperty("java.security.krb5.conf"))) {
+                System.clearProperty("java.security.krb5.conf");
+            }
+            Files.deleteIfExists(kerberosLocalConfig);
+            kerberosLocalConfig = null;
+        }
     }
 
     private void initializeConnection()
             throws ClassNotFoundException, InstantiationException, IllegalAccessException,
                     SQLException {
-        this.hiveConnection = this.hiveServerContainer.getConnection(true);
+        this.hiveConnection =
+                this.hiveServerContainer.getConnection(true, kerberosLocalConfig.toString());
+    }
+
+    private void configureLocalKerberos() throws IOException {
+        Path configTemplate = ContainerUtil.getResourcesFile("/kerberos/krb5_local.conf").toPath();
+        String config =
+                new String(Files.readAllBytes(configTemplate), StandardCharsets.UTF_8)
+                        .replace("${KDC_PORT}", String.valueOf(kerberosContainer.getMappedPort(88)))
+                        .replace(
+                                "${ADMIN_SERVER_PORT}",
+                                String.valueOf(kerberosContainer.getMappedPort(749)));
+        kerberosLocalConfig = Files.createTempFile("seatunnel-krb5-", ".conf");
+        Files.write(kerberosLocalConfig, config.getBytes(StandardCharsets.UTF_8));
+        System.setProperty("java.security.krb5.conf", kerberosLocalConfig.toString());
     }
 
     private void prepareTable() throws Exception {

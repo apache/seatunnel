@@ -19,12 +19,12 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### For SeaTunnel Zeta Engine
 
-1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
+1. You must ensure `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
@@ -203,6 +203,8 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | skip_header_row_number     | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv. For example, set like following:`skip_header_row_number = 2`. Then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                  |
 | schema                     | config  | no       | -                   | The schema of upstream data.                                                                                                                                                                                                                                                                                                        |
 | sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                               |
+| excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                 |
+| poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                 |
 | xml_row_tag                | string  | no       | -                   | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                     |
 | xml_use_attr_format        | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                |
 | csv_use_header_line        | boolean | no       | false               | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                 |
@@ -211,6 +213,20 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | null_format                | string  | no       | -                   | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                  |
 | binary_chunk_size          | int     | no       | 1024                | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                    |
 | binary_complete_file_mode  | boolean | no       | false               | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                          |
+| discovery_mode             | string  | no       | once                | File discovery mode. Supported values: `once` (default), `continuous`. Continuous mode periodically scans the path and currently requires `sync_mode=update` and `file_format_type=binary`. |
+| scan_interval              | string  | no       | 10S                 | Polling interval used when `discovery_mode=continuous`. Shorthand values such as `10S` and ISO-8601 values such as `PT10S` are supported. |
+| start_mode                 | string  | no       | earliest            | Initial scan behavior for continuous discovery. `earliest` processes existing files; `latest` processes only later additions or changes. |
+| sync_mode                  | string  | no       | full                | File sync mode. `update` compares source objects with `target_path` and reads only new or changed objects. Update mode currently supports binary format only. |
+| target_path                | string  | no       | -                   | Required when `sync_mode=update`. Target base path used for comparison and normally the same as the sink `path`. |
+| target_hadoop_conf         | map     | no       | -                   | Optional Hadoop configuration for the target filesystem when `sync_mode=update`. |
+| update_strategy            | string  | no       | distcp              | Comparison strategy used by update mode. Supported values are `distcp` and `strict`. |
+| compare_mode               | string  | no       | len_mtime           | Comparison mode used by update mode. Supported values are `len_mtime` and `checksum`; checksum requires `update_strategy=strict`. |
+| update_compare_parallelism | int     | no       | 8                   | Maximum parallelism for target metadata lookups. Valid range is `1-64`. |
+| update_compare_bulk_threshold | int  | no       | 0                   | Positive values switch comparison to a directory listing when that many candidates share a target parent. `0` disables automatic bulk listing. |
+| post_sync_action           | string  | no       | none                | Optional action after a continuously discovered object is checkpointed. Supported values are `none`, `delete`, and `backup`. |
+| backup_path                | string  | no       | -                   | Required when `post_sync_action=backup`. Backup destination must not overlap with the source `path`. |
+| retention_max_age          | string  | no       | -                   | Optional maximum age for SeaTunnel backup objects under `backup_path`. |
+| retention_check_interval   | string  | no       | 1H                  | Retention scan interval when backup retention is configured. |
 | file_filter_pattern        | string  | no       |                     | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                     |
 | common-options             | config  | no       | -                   | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                  |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
@@ -239,19 +255,35 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
 - `chunk_index`: One-based chunk order in the parsed document
 - `content_hash`: SHA-256 hash of the emitted `text` value
 
+When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 
 The main PDF-specific behaviors are:
 
@@ -260,6 +292,12 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### compress_codec [string]
 
@@ -379,6 +417,48 @@ When specified, the connector will fetch table schema from the external metadata
 > When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md).
 
 For more information, please refer to [Metadata SPI](../../introduction/concepts/metadata-spi.md).
+
+## Continuous Discovery
+
+`discovery_mode=continuous` keeps a streaming job running and polls OSS for new or changed objects. This mode uses the existing file comparison path; it does not consume OSS event notifications and does not emit object delete events or changelog rows.
+
+Continuous discovery currently requires `file_format_type="binary"` and `sync_mode="update"`. Set `target_path` to the same base path used by the sink so the source can skip unchanged objects. The default `discovery_mode="once"` preserves the existing bounded-source behavior.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  OssFile {
+    path = "/watch/source"
+    bucket = "oss://seatunnel-test"
+    endpoint = "oss-cn-hangzhou.aliyuncs.com"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  OssFile {
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    bucket = "oss://seatunnel-test"
+    endpoint = "oss-cn-hangzhou.aliyuncs.com"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+  }
+}
+```
 
 ## How to Create a Oss Data Synchronization Jobs
 

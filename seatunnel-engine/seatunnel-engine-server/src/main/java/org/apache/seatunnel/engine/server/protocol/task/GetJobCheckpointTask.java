@@ -26,20 +26,22 @@ import com.hazelcast.internal.nio.Connection;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
-public class GetJobCheckpointTask extends AbstractSeaTunnelMessageTask<Long, Data> {
+public class GetJobCheckpointTask
+        extends AbstractSeaTunnelMessageTask<
+                SeaTunnelGetJobCheckpointCodec.RequestParameters, Data> {
 
     protected GetJobCheckpointTask(ClientMessage clientMessage, Node node, Connection connection) {
         super(
                 clientMessage,
                 node,
                 connection,
-                SeaTunnelGetJobCheckpointCodec::decodeRequest,
+                SeaTunnelGetJobCheckpointCodec::decodeRequestParameters,
                 SeaTunnelGetJobCheckpointCodec::encodeResponse);
     }
 
     @Override
     protected Operation prepareOperation() {
-        return new GetJobCheckpointOperation(parameters);
+        return new GetJobCheckpointOperation(parameters.jobId, parameters.restoreModeCode);
     }
 
     @Override

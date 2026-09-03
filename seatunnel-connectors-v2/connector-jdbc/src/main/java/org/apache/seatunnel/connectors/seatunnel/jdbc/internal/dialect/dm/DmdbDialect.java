@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
@@ -26,6 +27,8 @@ import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -39,8 +42,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm.DmdbTypeConverter.DM_CHAR;
@@ -55,6 +62,18 @@ import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm
 
 @Slf4j
 public class DmdbDialect implements JdbcDialect {
+
+    /** Dameng FILLFACTOR legal range (inclusive). */
+    private static final int FILLFACTOR_MIN = 0;
+
+    private static final int FILLFACTOR_MAX = 100;
+
+    private static final Set<String> SUPPORTED_TABLE_OPTIONS =
+            Collections.unmodifiableSet(
+                    new LinkedHashSet<>(
+                            Arrays.asList(
+                                    DamengCatalog.TABLE_OPTION_TABLESPACE,
+                                    DamengCatalog.TABLE_OPTION_FILLFACTOR)));
 
     public String fieldIde;
 
@@ -385,5 +404,113 @@ public class DmdbDialect implements JdbcDialect {
             rs.next();
             return rs.getString("NULLABLE").equals("Y");
         }
+    }
+
+    @Override
+    public void validateTableOptions(Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return;
+        }
+
+        Set<String> unsupportedOptions = new LinkedHashSet<>(tableOptions.keySet());
+        unsupportedOptions.removeAll(SUPPORTED_TABLE_OPTIONS);
+        if (!unsupportedOptions.isEmpty()) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Unsupported JDBC table_options for dialect '%s': %s. Supported keys: %s",
+                            dialectName(),
+                            String.join(", ", unsupportedOptions),
+                            String.join(", ", SUPPORTED_TABLE_OPTIONS)));
+        }
+
+        for (Map.Entry<String, String> entry : tableOptions.entrySet()) {
+            String key = entry.getKey();
+            String value = entry.getValue();
+            if (StringUtils.isBlank(value)) {
+                throw new JdbcConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "Invalid JDBC table_options for dialect '%s': key '%s' must not be blank",
+                                dialectName(), key));
+            }
+            String trimmed = value.trim();
+            if (DamengCatalog.TABLE_OPTION_FILLFACTOR.equals(key)) {
+                normalizeFillfactorForDdl(trimmed);
+            } else if (DamengCatalog.TABLE_OPTION_TABLESPACE.equals(key)) {
+                normalizeTablespaceForDdl(trimmed);
+            }
+        }
+    }
+
+    /**
+     * Normalizes a Dameng {@code fillfactor} option for DDL emission.
+     *
+     * <p>Shared by submission-time validation and {@link
+     * org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCreateTableSqlBuilder} so
+     * catalog-driven auto-create cannot bypass the value contract.
+     */
+    public static String normalizeFillfactorForDdl(String value) {
+        return Integer.toString(parseFillfactorInRange(value));
+    }
+
+    /**
+     * Normalizes a Dameng {@code tablespace} option for DDL emission.
+     *
+     * <p>Shared by submission-time validation and {@link
+     * org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.dm.DamengCreateTableSqlBuilder}.
+     */
+    public static String normalizeTablespaceForDdl(String value) {
+        String trimmed = value.trim();
+        validateTablespaceCharacters(trimmed);
+        return trimmed;
+    }
+
+    private static int parseFillfactorInRange(String value) {
+        int fillfactor;
+        try {
+            fillfactor = Integer.parseInt(value);
+        } catch (NumberFormatException e) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            DatabaseIdentifier.DAMENG,
+                            DamengCatalog.TABLE_OPTION_FILLFACTOR,
+                            FILLFACTOR_MIN,
+                            FILLFACTOR_MAX,
+                            value));
+        }
+        if (fillfactor < FILLFACTOR_MIN || fillfactor > FILLFACTOR_MAX) {
+            throw new JdbcConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Invalid JDBC table_options for dialect '%s': key '%s' must be an integer between %d and %d, but got '%s'",
+                            DatabaseIdentifier.DAMENG,
+                            DamengCatalog.TABLE_OPTION_FILLFACTOR,
+                            FILLFACTOR_MIN,
+                            FILLFACTOR_MAX,
+                            value));
+        }
+        return fillfactor;
+    }
+
+    private static void validateTablespaceCharacters(String value) {
+        if (value.indexOf('"') >= 0 || value.indexOf(';') >= 0) {
+            throw illegalTablespaceException(value);
+        }
+        for (int i = 0; i < value.length(); i++) {
+            if (Character.isISOControl(value.charAt(i))) {
+                throw illegalTablespaceException(value);
+            }
+        }
+    }
+
+    private static JdbcConnectorException illegalTablespaceException(String value) {
+        return new JdbcConnectorException(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                String.format(
+                        "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
+                        DatabaseIdentifier.DAMENG, DamengCatalog.TABLE_OPTION_TABLESPACE, value));
     }
 }

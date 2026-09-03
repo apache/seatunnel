@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 > Cassandra 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 以批处理方式从 Apache Cassandra 读取数据。
@@ -14,6 +20,12 @@ Cassandra source 支持两种读取方式：
 - 使用 `tables_configs` 读取多张表，每个条目里配置一个 `cql`。
 
 连接器会根据 CQL 返回结果里的列名和数据类型生成下游数据结构，所以 CQL 应该返回下游真正需要的列。
+
+## 支持的数据源信息
+
+| 数据源      | 支持版本 | 依赖 |
+|-----------|--------|------|
+| Cassandra | 通用    | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cassandra) |
 
 ## 关键特性
 
@@ -48,7 +60,7 @@ Cassandra source 支持两种读取方式：
 | set               | ARRAY              |
 | map               | MAP                |
 
-## 选项
+## Source 选项
 
 | 名称              | 类型       | 是否必填 | 默认值      | 描述 |
 |-------------------|------------|----------|-------------|------|
@@ -88,7 +100,7 @@ Cassandra source 支持两种读取方式：
 
 示例条目：
 
-```
+```hocon
 {
   cql = "SELECT id, name FROM keyspace.table1"
 }
@@ -123,8 +135,10 @@ Source 插件通用参数，详情请参考 [Source 常用选项](../common-opti
   `tables_configs`。
 - 这是批处理 source。它读取当前查询结果后就会结束。
 - 一个 CQL 查询会作为一个 source split 读取。调大任务并行度不会自动把单张 Cassandra 表拆成多个扫描任务。
+- 连接器底层使用 Cassandra Java Driver，本文档列出的连接选项是连接器实际读取的全部设置；其他
+  DataStax Driver 选项沿用其内置默认值。
 
-## 示例
+## 任务示例
 
 ### 单表读取
 
@@ -185,6 +199,25 @@ sink {
     datacenter = "datacenter1"
     keyspace = "test"
     table = "mt_sink_table"
+  }
+}
+```
+
+### 提高读取一致性级别
+
+当读取结果必须满足配置的副本因子时，使用 `consistency_level = "QUORUM"`，并配合
+`datacenter` 让 Driver 连接到正确的本地协调节点：
+
+```hocon
+source {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    consistency_level = "QUORUM"
+    cql = "SELECT id, name, score FROM test.accounts"
   }
 }
 ```

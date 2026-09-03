@@ -193,6 +193,11 @@ public class ReadableConfigTest {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () -> ReadonlyConfig.fromMap(optionMap).get(durationOption));
+
+        optionMap.put("option.duration", "PT7D");
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ReadonlyConfig.fromMap(optionMap).get(durationOption));
     }
 
     @Test

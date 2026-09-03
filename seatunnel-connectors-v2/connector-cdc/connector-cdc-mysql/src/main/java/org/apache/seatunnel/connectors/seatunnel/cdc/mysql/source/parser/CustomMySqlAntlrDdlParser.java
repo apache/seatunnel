@@ -21,40 +21,57 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import io.debezium.antlr.AntlrDdlParserListener;
 import io.debezium.antlr.DataTypeResolver;
+import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;
 import io.debezium.ddl.parser.mysql.generated.MySqlParser;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
+import io.debezium.relational.Tables;
 
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A ddl parser that will use custom listener. */
 public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
 
-    private final LinkedList<AlterTableColumnEvent> parsedEvents;
+    private final LinkedList<AlterTableEvent> parsedEvents;
 
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
-    private final TablePath tablePath;
-
-    public CustomMySqlAntlrDdlParser(
-            TablePath tablePath, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
-        super();
-        this.tablePath = tablePath;
+    /**
+     * Creates a parser that propagates listener failures instead of silently treating malformed DDL
+     * as a no-op.
+     */
+    public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        super(true, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
         this.parsedEvents = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
     }
 
+    /**
+     * Retains the original constructor for binary and source compatibility.
+     *
+     * @deprecated the parser now resolves table identifiers from each DDL statement
+     */
+    @Deprecated
+    public CustomMySqlAntlrDdlParser(
+            TablePath ignoredTablePath, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        this(dbzConnectorConfig);
+    }
+
     @Override
     public TableId parseQualifiedTableId(MySqlParser.FullIdContext fullIdContext) {
-        return new TableId(
-                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
+        // Always resolve the real table identifier from the current DDL text. Multi-database CDC
+        // jobs can reuse one resolver instance across different source tables, so binding the
+        // parser to the first table path would mis-route later DDL events from sibling databases.
+        return super.parseQualifiedTableId(fullIdContext);
     }
 
     // Overriding this method because the BIT type requires default length dimension of 1.
@@ -297,9 +314,16 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
         return new CustomMySqlAntlrDdlParserListener(dbzConnectorConfig, this, parsedEvents);
     }
 
-    public List<AlterTableColumnEvent> getAndClearParsedEvents() {
-        List<AlterTableColumnEvent> result = Lists.newArrayList(parsedEvents);
+    public List<AlterTableEvent> getAndClearParsedEvents() {
+        List<AlterTableEvent> result = Lists.newArrayList(parsedEvents);
         parsedEvents.clear();
         return result;
+    }
+
+    public List<AlterTableColumnEvent> getAndClearParsedColumnEvents() {
+        return getAndClearParsedEvents().stream()
+                .filter(event -> event instanceof AlterTableColumnEvent)
+                .map(event -> (AlterTableColumnEvent) event)
+                .collect(Collectors.toList());
     }
 }

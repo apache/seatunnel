@@ -30,6 +30,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.HdfsStorage;
@@ -71,7 +72,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,14 +136,14 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mySqlContainer.withPassword(MYSQL_USER_PASSWORD);
         mySqlContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mysql-Docker-Image")));
-        // For local test use
-        mySqlContainer.setPortBindings(Collections.singletonList("3310:3306"));
         return mySqlContainer;
     }
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            MysqlDriverResolver::copyMySQLDriverToJdbcContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -156,8 +156,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
         log.info("The second stage:Starting Mongodb containers...");
         mongodbContainer = new MongoDBContainer(NETWORK);
-        // For local test use
-        mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
         mongodbContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mongodb-Docker-Image")));
 

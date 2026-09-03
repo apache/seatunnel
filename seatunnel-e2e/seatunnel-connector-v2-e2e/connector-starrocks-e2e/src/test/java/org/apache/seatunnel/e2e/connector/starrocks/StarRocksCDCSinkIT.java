@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -34,13 +35,9 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -66,8 +63,6 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String SR_DRIVER_CONTAINER_PATH =
-            "/tmp/seatunnel/plugins/Jdbc/lib/mysql-connector-java.jar";
 
     private static final String DDL_SINK =
             "create table "
@@ -92,37 +87,12 @@ public class StarRocksCDCSinkIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Path driverJarPath = driverJarPath();
-                Assertions.assertTrue(
-                        Files.isRegularFile(driverJarPath),
-                        "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
-                                + driverJarPath);
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath), SR_DRIVER_CONTAINER_PATH);
-            };
-
-    /**
-     * Resolve the MySQL JDBC test dependency from the active test classpath instead of downloading
-     * it inside the container.
-     */
-    private Path driverJarPath() {
-        try {
-            return Paths.get(
-                    com.mysql.cj.jdbc.Driver.class
-                            .getProtectionDomain()
-                            .getCodeSource()
-                            .getLocation()
-                            .toURI());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/Jdbc/lib",
+                                    "mysql-connector-java.jar");
 
     @BeforeAll
     @Override

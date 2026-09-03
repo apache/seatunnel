@@ -43,7 +43,9 @@
         <module>connector-http-notion</module>
         <module>connector-http-persistiq</module>
         <module>connector-http-airtable</module>
+        <module>connector-http-posthog</module>
         <module>connector-http-zendesk</module>
+        <module>connector-http-stripe</module>
     </modules>
 
 </project>

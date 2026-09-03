@@ -13,48 +13,58 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流](../../introduction/concepts/connector-v2-features.md)
+- [x] [流](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-MongoDB连接器提供了从MongoDB读取数据和向MongoDB写入数据的能力。
-本文档描述了如何设置MongoDB连接器以对MongoDB运行数据读取。
+MongoDB 源连接器从 MongoDB 集合中读取文档，并把每个 BSON 文档转换为 SeaTunnel 行记录。
+它同时支持**批**和**流**两种作业模式，并通过 `partition.split-key` 把集合按取值范围切分为多个
+split，实现并行读取。
+
+在不扫描整张集合的前提下，可以缩小读取范围并控制返回字段：
+
+- 使用 `match.query` 过滤符合条件的文档。
+- 使用 `match.projection` 控制结果中返回的字段。
+- 使用 `flat.sync-string` 把整篇文档作为一条 JSON `STRING` 列读入，跳过固定 schema 的定义。
+
+在流模式下，连接器读取已分配的 split，并通过 checkpoint 跟踪读取位置；任务重启后会从上次提交
+的游标继续读取。
 
 ## 支持的数据源信息
 
-为了使用Mongodb连接器，需要以下依赖关系。
-它们可以通过install-plugin.sh或Maven中央存储库下载。
+要使用 MongoDB 连接器，需要以下依赖。可以通过 `install-plugin.sh` 或 Maven 中央仓库下载。
 
 | 数据源 | 支持的版本 | 依赖                                                                                    |
-|------------|--------------------|---------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
+|--------|------------|-----------------------------------------------------------------------------------------|
+| MongoDB | 通用版本    | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb)   |
 
 ## 数据类型映射
 
-下表列出了从MongoDB BSON类型到SeaTunnel数据类型的字段数据类型映射。
+下表列出了从 MongoDB BSON 类型到 SeaTunnel 数据类型的字段映射。
 
-| MongoDB BSON type | SeaTunnel 数据类型 |
-|-------------------|----------------|
-| ObjectId          | STRING         |
-| String            | STRING         |
-| Boolean           | BOOLEAN        |
-| Binary            | BINARY         |
-| Int32             | INTEGER        |
-| Int64             | BIGINT         |
-| Double            | DOUBLE         |
-| Decimal128        | DECIMAL        |
-| Date              | Date           |
-| Timestamp         | Timestamp      |
-| Object            | ROW            |
-| Array             | ARRAY          |
+| MongoDB BSON 类型 | SeaTunnel 数据类型 |
+|-------------------|-------------------|
+| ObjectId          | STRING            |
+| String            | STRING            |
+| Boolean           | BOOLEAN           |
+| Binary            | BINARY            |
+| Int32             | INTEGER           |
+| Int64             | BIGINT            |
+| Double            | DOUBLE            |
+| Decimal128        | DECIMAL           |
+| Date              | Date              |
+| Timestamp         | Timestamp         |
+| Object            | ROW               |
+| Array             | ARRAY             |
 
-对于MongoDB中的特定类型，我们使用扩展JSON格式将其映射到SeaTunnel STRING类型。
+针对 MongoDB 中的特殊类型，连接器使用扩展 JSON（Extended JSON）格式映射到 SeaTunnel 的
+`STRING` 类型。
 
-| MongoDB BSON type |                                       SeaTunnel STRING                                       |
+| MongoDB BSON 类型 |                                       SeaTunnel STRING                                       |
 |-------------------|----------------------------------------------------------------------------------------------|
 | Symbol            | {"_value": {"$symbol": "12"}}                                                                |
 | RegularExpression | {"_value": {"$regularExpression": {"pattern": "^9$", "options": "i"}}}                       |
@@ -63,42 +73,43 @@ MongoDB连接器提供了从MongoDB读取数据和向MongoDB写入数据的能�
 
 **提示**
 
-> 1.在SeaTunnel中使用DECIMAL类型时，请注意最大范围不能超过34位数字，这意味着您应该使用DECIMAL(34,18)。<br/>
+> 1. 在 SeaTunnel 中使用 `DECIMAL` 类型时，最大精度不能超过 34 位。建议使用
+>    `decimal(34, 18)` 以满足支持的精度与标度。
 
 ## 源配置项
 
-|         参数名         |  类型   | 必须 |     默认值      | 描述                                                                                                                                                                                                                                                                                                 |
-|----------------------|---------|----|------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| uri                  | String  | 是  | -                | MongoDB标准连接uri。例如 mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true.                                                                                                                                                                                              |
-| database             | String  | 是  | -                | 要读取或写入的MongoDB数据库的名称。                                                                                                                                                                                                                                                                              |
-| collection           | String  | 是  | -                | 要读取或写入的MongoDB集合的名称。                                                                                                                                                                                                                                                                               |
-| schema               | Config  | 是  | -                | MongoDB 的 BSON 与 SeaTunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                      |
-| match.query          | String  | 否  | -                | 在MongoDB中，过滤器用于过滤查询操作的文档。                                                                                                                                                                                                                                                                          |
-| match.projection     | String  | 否 | -                | 在MongoDB中，投影用于控制查询结果中包含的字段。                                                                                                                                                                                                                                                                        |
-| partition.split-key  | String  | 否 | _id              | 分片字段。                                                                                                                                                                                                                                                                                              |
-| partition.split-size | Long    | 否 | 64 * 1024 * 1024 | 分片大小。                                                                                                                                                                                                                                                                                              |
-| cursor.no-timeout    | Boolean | 否 | true             | MongoDB服务器通常在非活动期（10分钟）后超时空闲游标，以防止过度使用内存。将此选项设置为true以防止这种情况发生。但是，如果应用程序处理当前一批文档的时间超过30分钟，则会话将标记为已过期并关闭。 |
-| fetch.size           | Int     | 否 | 2048             | 设置每批从服务器获取的文档数量。设置适当的批大小可以提高查询性能，避免一次获取大量数据造成的内存压力。                                                                                    |
-| max.time-min         | Long    | 否 | 10               | 此参数是一个MongoDB查询选项，用于限制查询操作的最大执行时间。maxTimeMin的值以分钟为单位。如果查询的执行时间超过指定的时间限制，MongoDB将终止操作并返回错误。                                     |
-| flat.sync-string     | Boolean | 否 | false            | 开启后，会把整个 MongoDB 文档映射到一个 SeaTunnel `STRING` 字段。此时 schema 只能配置一个字段，并且该字段类型必须是 `STRING`。                                                                                                                      |
-| common-options       |         | 否 | -                | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md)                                                                                                                                                                                              |
+| 参数名称              | 类型    | 是否必填 | 默认值            | 描述                                                                                                                                                                                                                                                                                          |
+|-----------------------|---------|----------|--------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| uri                   | String  | 是       | -                  | MongoDB 标准连接 URI，例如 `mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true`。更多示例请参考 [参数说明](#参数说明)。                                                                                                                                            |
+| database              | String  | 是       | -                  | 要读取的 MongoDB 数据库名称。                                                                                                                                                                                                                                                                  |
+| collection            | String  | 是       | -                  | 要读取的 MongoDB 集合名称。                                                                                                                                                                                                                                                                    |
+| schema                | Config  | 是       | -                  | MongoDB 的 BSON 与 SeaTunnel 数据结构的映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                       |
+| match.query           | String  | 否       | -                  | 用于过滤读取文档的 MongoDB 查询表达式。兼容旧版参数名 `matchQuery`。                                                                                                                                                                                                                            |
+| match.projection      | String  | 否       | -                  | 用于控制查询结果中包含字段的 MongoDB 投影表达式。                                                                                                                                                                                                                                              |
+| partition.split-key   | String  | 否       | _id                | 用作 MongoDB 分片字段的列名，连接器会按该字段的取值范围切分集合。                                                                                                                                                                                                                              |
+| partition.split-size  | Long    | 否       | 64 * 1024 * 1024   | 每个 MongoDB split 的大小。split 越小并行度越高，split 越大并行度越低。                                                                                                                                                                                                                          |
+| cursor.no-timeout     | Boolean | 否       | true               | MongoDB 服务端默认会在游标空闲 10 分钟后关闭游标以回收内存。将此选项设置为 `true` 可让游标在长时间运行的批次中保持打开。如果应用持有批次超过 30 分钟，MongoDB 会将当前会话标记为过期并关闭。                                                                                                       |
+| fetch.size            | Int     | 否       | 2048               | 每批从服务器获取的文档数。合理设置可以提升查询性能并降低一次性获取大量数据带来的内存压力。                                                                                                                                                                                                       |
+| max.time-min          | Long    | 否       | 10                 | 每次 MongoDB 查询的最大执行时间（分钟）。超过该限制 MongoDB 将终止操作并返回错误。                                                                                                                                                                                                              |
+| flat.sync-string      | Boolean | 否       | false              | 开启后，连接器会把整篇 MongoDB 文档映射到一个 SeaTunnel `STRING` 字段。此时 schema 只能声明一个字段，且该字段必须是 `STRING` 类型。                                                                                                                                                              |
+| common-options        |         | 否       | -                  | 源插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                                                                                                                                                                                                                |
 
 ### 提示
 
-> 1.参数`match.query `与历史旧版本参数`matchQuery `兼容，它们是等效的替换。<br/>
+> 1. `match.query` 与旧版参数名 `matchQuery` 等价，二者不能同时设置。
+> 2. 使用 `partition.split-key` 时建议选择有索引的字段，能显著加快 split 边界扫描。
+> 3. 当 `flat.sync-string = true` 时，schema 仅用于声明单个接收文档的 `STRING` 字段。
 
-## 如何创建MongoDB数据同步作业
+## 如何创建 MongoDB 数据同步作业
 
-以下示例演示了如何创建数据同步作业，该作业从MongoDB读取数据并将其打印到本地客户端：
+下面的示例从 MongoDB 读取数据并打印到本地客户端：
 
-```bash
-# 设置要执行的任务的基本配置
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
 }
 
-# 创建MongoDB源
 source {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
@@ -135,7 +146,6 @@ source {
   }
 }
 
-# 控制台打印读取的Mongodb数据
 sink {
   Console {
     parallelism = 1
@@ -145,9 +155,9 @@ sink {
 
 ## 参数说明
 
-### MongoDB数据库连接URI示例
+### MongoDB 数据库连接 URI 示例
 
-未经身份验证的单节点连接：
+无认证的单节点连接：
 
 ```bash
 mongodb://192.168.0.100:27017/mydb
@@ -159,7 +169,7 @@ mongodb://192.168.0.100:27017/mydb
 mongodb://192.168.0.100:27017/mydb?replicaSet=xxx
 ```
 
-经过身份验证的副本集连接：
+带认证的副本集连接：
 
 ```bash
 mongodb://admin:password@192.168.0.100:27017/mydb?replicaSet=xxx&authSource=admin
@@ -171,26 +181,26 @@ mongodb://admin:password@192.168.0.100:27017/mydb?replicaSet=xxx&authSource=admi
 mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb?replicaSet=xxx
 ```
 
-分片集群连接：
+分片集群连接（通过一个 `mongos` 路由）：
 
 ```bash
-mongodb://192.168.0.100:27017/mydb
+mongodb://mongos1.example.com:27017,mongos2.example.com:27017,mongos3.example.com:27017/mydb
 ```
 
-多个mongos连接：
+多个 mongos 节点连接：
 
 ```bash
 mongodb://192.168.0.1:27017,192.168.0.2:27017,192.168.0.3:27017/mydb
 ```
 
-注意：URI中的用户名和密码在连接到连接字符串之前必须进行URL编码。
+> 注意：URI 中的用户名与密码在拼接到连接字符串前必须进行 URL 编码。
 
 ### 匹配查询扫描
 
-在数据同步场景中，需要尽早使用matchQuery方法来减少后续操作员需要处理的文档数量，从而提高性能。
-下面是一个使用`match.query的seatunnel的简单示例`
+在数据同步场景中，建议尽早使用 `match.query` 减少下游算子需要处理的文档数量，从而提升整体
+性能。下面是一个简单的示例：
 
-```bash
+```hocon
 source {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
@@ -207,38 +217,38 @@ source {
 }
 ```
 
-以下是各种数据类型的MatchQuery查询语句的示例：
+下面是常见数据类型对应的 `match.query` 表达式：
 
 ```bash
-# Query Boolean type
-"{c_boolean:true}"
-# Query string type
-"{c_string:\"OCzCj\"}"
-# Query the integer
-"{c_int:2}"
-# Type of query time
-"{c_date:ISODate(\"2023-06-26T16:00:00.000Z\")}"
-# Query floating point type
-{c_double:{$gte:1.71763202185342e+308}}
+# 布尔类型
+"{c_boolean: true}"
+# 字符串类型
+"{c_string: \"OCzCj\"}"
+# 整数类型
+"{c_int: 2}"
+# 日期类型
+"{c_date: {\$date: \"2023-06-26T16:00:00.000Z\"}}"
+# 浮点类型
+"{c_double: {\$gte: 1.71763202185342e+308}}"
 ```
 
-请参阅如何编写`match.query的语法`：https://www.mongodb.com/docs/manual/tutorial/query-documents
+完整查询语法请参考 MongoDB 官方文档：
+<https://www.mongodb.com/docs/manual/tutorial/query-documents>
 
 ### 投影扫描
 
-在MongoDB中，Projection用于控制查询结果中包含哪些字段。这可以通过指定哪些字段需要返回，哪些字段不需要返回来实现。
-在find（）方法中，投影对象可以作为第二个参数传递。投影对象的键表示要包含或排除的字段，值1表示包含，0表示排除。
-这里有一个简单的例子，假设我们有一个名为users的集合：
+MongoDB 中的 Projection 用来控制查询结果中返回哪些字段：在 `find()` 方法中通过第二个参数
+传入一个投影对象，键表示字段，值 `1` 表示包含，`0` 表示排除。例如对于 `users` 集合：
 
-```bash
-# Returns only the name and email fields
+```javascript
+// 仅返回 `name` 字段，过滤掉 `email` 字段
 db.users.find({}, { name: 1, email: 0 });
 ```
 
-在数据同步场景中，需要尽早使用投影来减少后续操作员需要处理的文档数量，从而提高性能。
-以下是一个使用投影的seatunnel的简单示例：
+在数据同步场景中，尽早使用 Projection 可以减少下游算子需要处理的字段数量。下面是 SeaTunnel
+中使用投影的简单示例：
 
-```bash
+```hocon
 source {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
@@ -252,15 +262,15 @@ source {
     }
   }
 }
-
 ```
 
 ### 分区扫描
 
-为了加快并行源任务实例中的数据读取速度，seatunnel为MongoDB集合提供了分区扫描功能。提供了以下分区策略。
-用户可以通过设置用于分片字段的partition.split-key和用于分片大小的partition.split-size来控制数据分片。
+为了加速并行源任务中的数据读取，SeaTunnel 为 MongoDB 集合提供了分区扫描能力。通过
+`partition.split-key` 指定分片字段、`partition.split-size` 指定每个 split 的大小，可以控制
+数据分片方式：
 
-```bash
+```hocon
 source {
   MongoDB {
     uri = "mongodb://user:password@127.0.0.1:27017"
@@ -276,17 +286,18 @@ source {
     }
   }
 }
-
 ```
+
+> 建议选择有索引的字段作为 split key，能显著加快 split 边界扫描。
 
 ### Flat Sync String
 
-通过使用“flat.sync string”，只能设置一个字段属性值，并且字段类型必须是string。
-此操作将对单个MongoDB数据条目执行字符串映射。
+启用 `flat.sync-string` 后，只需声明一个 `STRING` 类型字段，连接器会把每条 MongoDB 文档序列化
+为扩展 JSON 字符串写入该字段。
 
-```bash
+```hocon
 env {
-  parallelism = 10
+  parallelism = 1
   job.mode = "BATCH"
 }
 source {
@@ -307,144 +318,38 @@ sink {
 }
 ```
 
-使用与修改后的参数同步的数据样本，例如：
+通过该配置写入的样本数据示例：
 
 ```json
 {
-  "_id":{
-    "$oid":"643d41f5fdc6a52e90e59cbf"
+  "_id": {
+    "$oid": "643d41f5fdc6a52e90e59cbf"
   },
-  "c_map":{
-    "OQBqH":"jllt",
-    "rkvlO":"pbfdf",
-    "pCMEX":"hczrdtve",
-    "DAgdj":"t",
-    "dsJag":"voo"
+  "c_map": {
+    "OQBqH": "jllt",
+    "rkvlO": "pbfdf",
+    "pCMEX": "hczrdtve",
+    "DAgdj": "t",
+    "dsJag": "voo"
   },
-  "c_array":[
-    {
-      "$numberInt":"-865590937"
-    },
-    {
-      "$numberInt":"833905600"
-    },
-    {
-      "$numberInt":"-1104586446"
-    },
-    {
-      "$numberInt":"2076336780"
-    },
-    {
-      "$numberInt":"-1028688944"
-    }
+  "c_array": [
+    { "$numberInt": "-865590937" },
+    { "$numberInt": "833905600" },
+    { "$numberInt": "-1104586446" },
+    { "$numberInt": "2076336780" },
+    { "$numberInt": "-1028686444" }
   ],
-  "c_string":"bddkzxr",
-  "c_boolean":false,
-  "c_tinyint":{
-    "$numberInt":"39"
-  },
-  "c_smallint":{
-    "$numberInt":"23672"
-  },
-  "c_int":{
-    "$numberInt":"-495763561"
-  },
-  "c_bigint":{
-    "$numberLong":"3768307617923954543"
-  },
-  "c_float":{
-    "$numberDouble":"5.284220288280258E37"
-  },
-  "c_double":{
-    "$numberDouble":"1.1706091642478246E308"
-  },
-  "c_bytes":{
-    "$binary":{
-      "base64":"ZWJ4",
-      "subType":"00"
-    }
-  },
-  "c_date":{
-    "$date":{
-      "$numberLong":"1686614400000"
-    }
-  },
-  "c_decimal":{
-    "$numberDecimal":"683265300"
-  },
-  "c_timestamp":{
-    "$date":{
-      "$numberLong":"1684283772000"
-    }
-  },
-  "c_row":{
-    "c_map":{
-      "OQBqH":"cbrzhsktmm",
-      "rkvlO":"qtaov",
-      "pCMEX":"tuq",
-      "DAgdj":"jzop",
-      "dsJag":"vwqyxtt"
-    },
-    "c_array":[
-      {
-        "$numberInt":"1733526799"
-      },
-      {
-        "$numberInt":"-971483501"
-      },
-      {
-        "$numberInt":"-1716160960"
-      },
-      {
-        "$numberInt":"-919976360"
-      },
-      {
-        "$numberInt":"727499700"
-      }
-    ],
-    "c_string":"oboislr",
-    "c_boolean":true,
-    "c_tinyint":{
-      "$numberInt":"-66"
-    },
-    "c_smallint":{
-      "$numberInt":"1308"
-    },
-    "c_int":{
-      "$numberInt":"-1573886733"
-    },
-    "c_bigint":{
-      "$numberLong":"4877994302999518682"
-    },
-    "c_float":{
-      "$numberDouble":"1.5353209063652051E38"
-    },
-    "c_double":{
-      "$numberDouble":"1.1952441956458565E308"
-    },
-    "c_bytes":{
-      "$binary":{
-        "base64":"cWx5Ymp0Yw==",
-        "subType":"00"
-      }
-    },
-    "c_date":{
-      "$date":{
-        "$numberLong":"1686614400000"
-      }
-    },
-    "c_decimal":{
-      "$numberDecimal":"656406177"
-    },
-    "c_timestamp":{
-      "$date":{
-        "$numberLong":"1684283772000"
-      }
-    }
-  },
-  "id":{
-    "$numberInt":"2"
-  }
+  "c_string": "bddkzxr",
+  "c_boolean": false,
+  "c_tinyint": { "$numberInt": "39" },
+  "c_smallint": { "$numberInt": "23672" },
+  "c_int": { "$numberInt": "-495763561" },
+  "c_bigint": { "$numberLong": "3768307617923954543" },
+  "c_double": { "$numberDouble": "1.1706091642478246E308" },
+  "c_bytes": { "$binary": { "base64": "ZWJ4", "subType": "00" } },
+  "c_date": { "$date": { "$numberLong": "1686614400000" } },
+  "c_decimal": { "$numberDecimal": "683265300" },
+  "c_timestamp": { "$date": { "$numberLong": "1684283772000" } }
 }
 ```
 

@@ -2,9 +2,15 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 # Elasticsearch
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Output data to `Elasticsearch`.
+Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `8.x` is supported.
 
 ## Key features
 
@@ -23,33 +29,33 @@ Engine Supported
 
 ## Options
 
-| name                    | type    | required |        default value         |
-|-------------------------|---------|----------|------------------------------|
-| hosts                   | array   | yes      | -                            |
-| index                   | string  | yes      | -                            |
-| schema_save_mode        | string  | yes      | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode          | string  | yes      | APPEND_DATA                  |
-| index_type              | string  | no       |                              |
-| primary_keys            | list    | no       |                              |
-| key_delimiter           | string  | no       | `_`                          |
-| auth_type               | string  | no       | basic                        |
-| username                | string  | no       |                              |
-| password                | string  | no       |                              |
-| auth.api_key_id         | string  | no       | -                            |
-| auth.api_key            | string  | no       | -                            |
-| auth.api_key_encoded    | string  | no       | -                            |
-| max_retry_count         | int     | no       | 3                            |
-| max_batch_size          | int     | no       | 10                           |
-| tls_verify_certificate  | boolean | no       | true                         |
-| tls_verify_hostname    | boolean | no       | true                         |
-| tls_keystore_path       | string  | no       | -                            |
-| tls_keystore_password   | string  | no       | -                            |
-| tls_truststore_path     | string  | no       | -                            |
-| tls_truststore_password | string  | no       | -                            |
-| common-options          |         | no       | -                            |
-| vectorization_fields    | array   | no       | -                            |
-| vector_dimensions       | int     | no       | 0                            |
-| multi_table_sink_replica | int     | no       | 1                            |
+| name                    | type    | required |        default value         | description |
+|-------------------------|---------|----------|------------------------------|-------------|
+| hosts                   | array   | yes      | -                            | Cluster HTTP addresses in `host:port` form. Multiple hosts are allowed, e.g. `["host1:9200", "host2:9200"]`. |
+| index                   | string  | yes      | -                            | Target index name. May contain field placeholders such as `seatunnel_${age}`; the referenced field must exist in the upstream row. Set `schema_save_mode = "IGNORE"` when using placeholder indices. |
+| schema_save_mode        | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target index schema before writing: `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
+| data_save_mode          | string  | no       | APPEND_DATA                  | How to handle existing documents before writing: `DROP_DATA`, `APPEND_DATA`, `ERROR_WHEN_DATA_EXISTS`. The Elasticsearch sink restricts this option to a `singleChoice` and explicitly excludes `CUSTOM_PROCESSING`. |
+| index_type              | string  | no       | -                            | Deprecated. Maps to Elasticsearch `_type` for clusters that still require it. Leave unset for modern clusters. |
+| primary_keys            | list    | no       | -                            | Primary key fields used to generate the document `_id`. Required for CDC sources that produce update / delete events. |
+| key_delimiter           | string  | no       | `_`                          | Delimiter joining composite keys into `_id` (default `_`). Use a different character to avoid clashes with field values. |
+| auth_type               | string  | no       | basic                        | Authentication mode: `basic` (HTTP Basic with `username`/`password`) or `api_key` (Elasticsearch API key). |
+| username                | string  | no       | -                            | Username for `basic` auth. |
+| password                | string  | no       | -                            | Password for `basic` auth. |
+| auth.api_key_id         | string  | no       | -                            | API key id for `api_key` auth. |
+| auth.api_key            | string  | no       | -                            | API key secret for `api_key` auth. |
+| auth.api_key_encoded    | string  | no       | -                            | Base64-encoded `id:secret` API key, alternative to `auth.api_key_id` + `auth.api_key`. |
+| max_retry_count         | int     | no       | 3                            | Maximum retry attempts for a single bulk request. |
+| max_batch_size          | int     | no       | 10                           | Maximum number of documents buffered in one bulk request before flushing. |
+| tls_verify_certificate  | boolean | no       | true                         | Validate the server certificate when using HTTPS. |
+| tls_verify_hostname    | boolean | no       | true                         | Validate the server hostname against the certificate. |
+| tls_keystore_path       | string  | no       | -                            | Path to a PEM or JKS keystore for client-side mTLS. |
+| tls_keystore_password   | string  | no       | -                            | Password for the keystore. |
+| tls_truststore_path     | string  | no       | -                            | Path to a PEM or JKS truststore. |
+| tls_truststore_password | string  | no       | -                            | Password for the truststore. |
+| common-options          |         | no       | -                            | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
+| vectorization_fields    | array   | no       | -                            | Field names whose values should be stored as dense vectors. |
+| vector_dimensions       | int     | no       | 0                            | Dimensionality of the dense vectors stored under `vectorization_fields`. Set together with `vectorization_fields`. |
+| multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas when writing multiple tables. |
 
 ### hosts [array]
 

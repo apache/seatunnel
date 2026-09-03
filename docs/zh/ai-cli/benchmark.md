@@ -77,3 +77,35 @@ AI CLI 的准确率靠实测而非假设：专门的基准测试包含 100 个�
 ## 修复循环的实测效果
 
 把**真实引擎报错**喂回修复 Agent，可挽回 47% 的运行时失败（前三名模型合计）。同一个模型修复结构化校验错误的成功率约为修复原始 Java 堆栈的 2 倍——证明修复循环下一步最有杠杆的改进是结构化错误解析，而不是更聪明的模型。
+
+## 自己运行基准测试
+
+基准测试工程随主仓库发布，位于
+[`seatunnel-cli/benchmark/`](https://github.com/apache/seatunnel/tree/dev/seatunnel-cli/benchmark)——
+包含 100 个声明式任务、分层判定门、Docker 数据环境和报告生成器。
+
+```bash
+cd seatunnel-cli
+
+# 凭证走各提供商的标准环境变量
+export OPENAI_API_KEY=sk-...          # 或 ANTHROPIC_API_KEY / AWS 凭证
+
+# 一条命令：装依赖、预检环境、运行、出报告
+./benchmark/run_benchmark.sh --provider openai --model gpt-4o
+
+# 多模型对比
+./benchmark/run_benchmark.sh --models benchmark/models.json
+
+# 可选的更深判定门：
+#   L2（引擎 dry-run）  — 设置 SEATUNNEL_HOME 指向 dev 分支构建
+#   L3（真实执行）      — docker compose -f benchmark/docker/docker-compose.yml up -d --wait
+```
+
+环境缺失时自动降级：没有引擎或 Docker 时输出静态门（L1）报告；请求了但
+无法执行的判定门对应的测试轮次会被排除在所有通过率指标之外并在摘要中
+标注，不同配置的机器之间不会被静默比较。
+
+每份报告都标记被测 CLI 的版本与 git commit——在新的 CLI 构建上重跑同一
+模型，即可在相同任务集上量化任何 prompt、元数据或修复逻辑改动的效果。
+完整方法论、任务集结构与指标定义见
+[`benchmark/README.md`](https://github.com/apache/seatunnel/blob/dev/seatunnel-cli/benchmark/README.md)。

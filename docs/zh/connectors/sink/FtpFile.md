@@ -69,6 +69,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | compress_codec                        | string  | 否    | none                                       |                                                                           |
 | common-options                        | object  | 否    | -                                          |                                                                           |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
+| sheet_max_rows                         | int     | 否    | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在 `file_format` 为 `csv` 时使用。                                             |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 `file_format` 为 `xml` 时使用。                                             |
@@ -237,6 +238,10 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 当文件格式为Excel时，可在内存中缓存的数据项的最大数量。 
 
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
+
 ### sheet_name [string]
 
 写入工作簿的工作表。
@@ -401,6 +406,28 @@ FtpFile {
     data_save_mode=DROP_DATA
 }
 
+```
+
+### 通过 SFTP 写入
+
+`FtpFile` Sink 同时支持 `ftp://` 和 `sftp://` URI。认证方式与 source 一致：SSH 密钥或密码外加 `known_hosts` 文件——连接器不会自动信任未知 host。
+
+```hocon
+sink {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "parquet"
+    ftp_properties = {
+      "fs.sftp.user."      = "seatunnel"
+      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"       = "sftp.example.example.com"
+      "fs.sftp.port"       = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
 ```
 
 
