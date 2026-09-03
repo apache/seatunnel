@@ -474,7 +474,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .untilAsserted(
                         () -> {
                             producer.createTopic(
-                                    TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC, topic, 1);
+                                    TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC,
+                                    topic,
+                                    RocketMqContainer.DEFAULT_TOPIC_QUEUE_NUMS);
                             Assertions.assertFalse(
                                     producer.fetchPublishMessageQueues(topic).isEmpty(),
                                     "Topic route is not ready: " + topic);
