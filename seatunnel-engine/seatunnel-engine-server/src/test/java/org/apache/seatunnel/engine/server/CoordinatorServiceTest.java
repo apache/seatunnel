@@ -57,6 +57,7 @@ import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -802,9 +803,14 @@ public class CoordinatorServiceTest {
                 .when(jobMaster)
                 .run();
 
-        coordinatorService
-                .getPendingJobQueue()
-                .put(new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster));
+        try {
+            coordinatorService
+                    .getPendingJobQueue()
+                    .put(new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Failed to enqueue mock pending job", e);
+        }
         return jobMaster;
     }
 
@@ -1325,6 +1331,60 @@ public class CoordinatorServiceTest {
                                     Assertions.assertNotEquals(
                                             JobStatus.PENDING,
                                             server.getCoordinatorService().getJobStatus(jobId)));
+        } finally {
+            instance.shutdown();
+        }
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    void testInterruptedPendingJobInsertionFailsSubmission() throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testInterruptedPendingJobInsertionFailsSubmission");
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            InterruptiblePendingJobQueue pendingJobQueue = new InterruptiblePendingJobQueue();
+            ReflectionUtils.setField(coordinatorService, "pendingJobQueue", pendingJobQueue);
+
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf",
+                            "interrupted_pending_job_insertion",
+                            jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            Data data = instance.getSerializationService().toData(jobImmutableInformation);
+
+            PassiveCompletableFuture<Void> submitFuture =
+                    coordinatorService.submitJob(
+                            jobId, data, jobImmutableInformation.isStartWithSavePoint());
+            Assertions.assertTrue(
+                    pendingJobQueue.putStarted.await(20, TimeUnit.SECONDS),
+                    "submission did not reach pending queue insertion");
+
+            coordinatorService.clearCoordinatorService();
+
+            await().atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(submitFuture.isCompletedExceptionally()));
+            Assertions.assertThrows(CompletionException.class, submitFuture::join);
+            Assertions.assertFalse(pendingJobQueue.contains(jobId));
+            Assertions.assertNotEquals(
+                    JobStatus.PENDING,
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE).get(jobId),
+                    "an interrupted submission must not advance the job to PENDING");
         } finally {
             instance.shutdown();
         }
@@ -2006,6 +2066,26 @@ public class CoordinatorServiceTest {
         System.out.printf("Average completion time per op: %.6f seconds%n", avgSeconds);
 
         return elapsedNs / 1_000_000_000.0;
+    }
+
+    private static class InterruptiblePendingJobQueue extends PeekBlockingQueue<PendingJobInfo> {
+        private final CountDownLatch putStarted = new CountDownLatch(1);
+        private final CountDownLatch releasePut = new CountDownLatch(1);
+
+        private InterruptiblePendingJobQueue() {
+            super(PendingJobInfo::getJobId);
+        }
+
+        @Override
+        public void put(PendingJobInfo element) throws InterruptedException {
+            putStarted.countDown();
+            try {
+                releasePut.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            super.put(element);
+        }
     }
 
     private static class JobInformation {
