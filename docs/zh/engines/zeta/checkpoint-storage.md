@@ -131,7 +131,7 @@ seatunnel:
                 plugin-config:
                   namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
                   storage.type: s3
-                  s3.bucket: your-bucket
+                  s3.bucket: s3a://your-bucket
                   fs.s3a.access.key: your-access-key
                   fs.s3a.secret.key: your-secret-key
                   fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
@@ -155,10 +155,36 @@ seatunnel:
         plugin-config:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: s3
-          s3.bucket: your-bucket
+          s3.bucket: s3a://your-bucket
           fs.s3a.endpoint: your-endpoint
-          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
+
+
+Checkpoint 存储与 S3File source/sink 不同：`plugin-config` 下的值会直接传入 Hadoop configuration，不受 S3File 选项校验限制。使用当前发行包内置的 AWS SDK v1 类时，`com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 可以读取环境变量、profile、ECS container 和 EC2 instance profile 凭据。对于 ECS task role，也可以显式选择 container provider：
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: s3a://your-bucket
+          fs.s3a.endpoint: your-endpoint
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.ContainerCredentialsProvider
+```
+
+对于基于 EC2 的 Kubernetes 或 EKS 节点，可按上面的示例使用 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，并仅向节点角色授予所需 bucket/prefix 的最小权限。
+
+当前 checkpoint-storage 依赖内置的 AWS SDK v1 版本不包含 `WebIdentityTokenCredentialsProvider`，因此不支持 EKS IRSA。除非运行时依赖已经整体升级并完成验证，否则不要配置 IRSA provider。
+
+如果遇到 `Factory initialize failed` 或 `ClassNotFoundException`，请检查 provider 类名，并确认所有访问 checkpoint 存储的 master/worker 都已加载所需的 Hadoop/AWS jar。
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
