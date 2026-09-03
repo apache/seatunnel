@@ -25,7 +25,7 @@ import org.openjdk.jmh.annotations.State;
 public class SeaTunnelObservabilityEnvironmentContext extends SeaTunnelEnvironmentContext {
 
     private static final String JOB_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/source-transform-sink-observability.conf.template");
+            BenchmarkTemplates.load("/benchmark/source-transform-sink-observability.conf.template");
 
     @Override
     protected String jobConfigTemplate(BenchmarkPipeline pipeline) {

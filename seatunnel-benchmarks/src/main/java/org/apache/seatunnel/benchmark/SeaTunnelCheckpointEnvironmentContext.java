@@ -36,11 +36,8 @@ import com.hazelcast.config.Config;
 import com.hazelcast.config.YamlConfigBuilder;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
-import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -63,11 +60,11 @@ public class SeaTunnelCheckpointEnvironmentContext {
     public static final MemorySize UNALIGNED_RECORD_SIZE = MemorySize.parse("1kb");
 
     private static final String ENGINE_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/engine-checkpoint.yaml.template");
+            BenchmarkTemplates.load("/benchmark/engine-checkpoint.yaml.template");
     private static final String HAZELCAST_MASTER_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/hazelcast-checkpoint-master.yaml.template");
+            BenchmarkTemplates.load("/benchmark/hazelcast-checkpoint-master.yaml.template");
     private static final String HAZELCAST_WORKER_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/hazelcast-checkpoint-worker.yaml.template");
+            BenchmarkTemplates.load("/benchmark/hazelcast-checkpoint-worker.yaml.template");
     private static final Duration START_TIMEOUT = Duration.ofMinutes(2);
     private static final int WORKER_SLOT_COUNT = 12;
 
@@ -177,7 +174,7 @@ public class SeaTunnelCheckpointEnvironmentContext {
         Path engineConfigFile = clusterHome.resolve("seatunnel.yaml");
         Files.write(
                 engineConfigFile,
-                renderTemplate(
+                BenchmarkTemplates.render(
                                 ENGINE_CONFIG_TEMPLATE,
                                 "slot_count",
                                 WORKER_SLOT_COUNT,
@@ -189,7 +186,7 @@ public class SeaTunnelCheckpointEnvironmentContext {
 
     private SeaTunnelConfig createMasterConfig(String clusterName) {
         String hazelcastConfig =
-                renderTemplate(
+                BenchmarkTemplates.render(
                         HAZELCAST_MASTER_CONFIG_TEMPLATE,
                         "cluster_name",
                         clusterName,
@@ -200,7 +197,7 @@ public class SeaTunnelCheckpointEnvironmentContext {
 
     private SeaTunnelConfig createWorkerConfig(String clusterName, String masterAddress) {
         String hazelcastConfig =
-                renderTemplate(
+                BenchmarkTemplates.render(
                         HAZELCAST_WORKER_CONFIG_TEMPLATE,
                         "cluster_name",
                         clusterName,
@@ -211,7 +208,7 @@ public class SeaTunnelCheckpointEnvironmentContext {
 
     private SeaTunnelConfig createSeaTunnelConfig(String hazelcastConfig) {
         String engineConfig =
-                renderTemplate(
+                BenchmarkTemplates.render(
                         ENGINE_CONFIG_TEMPLATE,
                         "slot_count",
                         WORKER_SLOT_COUNT,
@@ -326,35 +323,6 @@ public class SeaTunnelCheckpointEnvironmentContext {
         masterInstance = null;
         workerInstance = null;
         client = null;
-    }
-
-    private static String loadTemplate(String resourceName) {
-        InputStream input =
-                SeaTunnelCheckpointEnvironmentContext.class.getResourceAsStream(resourceName);
-        if (input == null) {
-            throw new IllegalStateException("Benchmark template was not found: " + resourceName);
-        }
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            return reader.lines().collect(Collectors.joining("\n", "", "\n"));
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read benchmark template " + resourceName, e);
-        }
-    }
-
-    private static String renderTemplate(String template, Object... replacements) {
-        String rendered = template;
-        for (int index = 0; index < replacements.length; index += 2) {
-            rendered =
-                    rendered.replace(
-                            "{{" + replacements[index] + "}}",
-                            String.valueOf(replacements[index + 1]));
-        }
-        if (rendered.contains("{{")) {
-            throw new IllegalStateException(
-                    "Checkpoint benchmark template contains an unresolved placeholder");
-        }
-        return rendered;
     }
 
     private static void restoreSystemProperty(String key, String value) {

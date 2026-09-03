@@ -39,10 +39,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,7 +46,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /** Long-running source-to-sink pipeline whose checkpoint completion time is measured. */
@@ -58,7 +53,7 @@ import java.util.stream.Stream;
 public class CheckpointingTimeBenchmarkPipeline {
 
     private static final String JOB_TEMPLATE =
-            loadTemplate("/benchmark/source-sink-checkpoint.conf.template");
+            BenchmarkTemplates.load("/benchmark/source-sink-checkpoint.conf.template");
     private static final Duration START_TIMEOUT = Duration.ofMinutes(2);
     private static final Duration CHECKPOINT_TIMEOUT = Duration.ofMinutes(2);
     private static final Duration CANCEL_TIMEOUT = Duration.ofSeconds(30);
@@ -155,7 +150,7 @@ public class CheckpointingTimeBenchmarkPipeline {
     }
 
     String createCheckpointJobConfig(Path resultPath) {
-        return renderTemplate(
+        return BenchmarkTemplates.render(
                 JOB_TEMPLATE,
                 "payload_size",
                 selectedRecordSize().getBytes(),
@@ -262,34 +257,5 @@ public class CheckpointingTimeBenchmarkPipeline {
             return SeaTunnelCheckpointEnvironmentContext.UNALIGNED_RECORD_SIZE;
         }
         throw new IllegalArgumentException("Unsupported checkpoint record size: " + recordSize);
-    }
-
-    private static String loadTemplate(String resourceName) {
-        InputStream input =
-                CheckpointingTimeBenchmarkPipeline.class.getResourceAsStream(resourceName);
-        if (input == null) {
-            throw new IllegalStateException("Benchmark template was not found: " + resourceName);
-        }
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            return reader.lines().collect(Collectors.joining("\n", "", "\n"));
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read benchmark template " + resourceName, e);
-        }
-    }
-
-    private static String renderTemplate(String template, Object... replacements) {
-        String rendered = template;
-        for (int index = 0; index < replacements.length; index += 2) {
-            rendered =
-                    rendered.replace(
-                            "{{" + replacements[index] + "}}",
-                            String.valueOf(replacements[index + 1]));
-        }
-        if (rendered.contains("{{")) {
-            throw new IllegalStateException(
-                    "Checkpoint benchmark template contains an unresolved placeholder");
-        }
-        return rendered;
     }
 }

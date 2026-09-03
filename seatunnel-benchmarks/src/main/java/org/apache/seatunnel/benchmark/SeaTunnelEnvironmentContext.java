@@ -42,10 +42,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.core.HazelcastInstance;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -75,11 +72,11 @@ public class SeaTunnelEnvironmentContext {
     private static final long SOURCE_START_DELAY_MILLIS = 250L;
     private static final int SOURCE_EMIT_BATCH_SIZE = 1_024;
     private static final String SOURCE_SINK_JOB_TEMPLATE =
-            loadTemplate("/benchmark/source-sink.conf.template");
+            BenchmarkTemplates.load("/benchmark/source-sink.conf.template");
     private static final String SOURCE_TRANSFORM_SINK_JOB_TEMPLATE =
-            loadTemplate("/benchmark/source-transform-sink.conf.template");
+            BenchmarkTemplates.load("/benchmark/source-transform-sink.conf.template");
     private static final String ENGINE_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/engine.yaml.template");
+            BenchmarkTemplates.load("/benchmark/engine.yaml.template");
     protected static final String BENCHMARK_TRANSFORM_NAME = "benchmark_transform";
 
     private final AtomicLong invocationSequence = new AtomicLong();
@@ -277,7 +274,7 @@ public class SeaTunnelEnvironmentContext {
 
     String createJobConfig(
             BenchmarkPipeline pipeline, PipelineBenchmarkOptions options, String runId) {
-        return renderTemplate(
+        return BenchmarkTemplates.render(
                 jobConfigTemplate(pipeline),
                 "job_name",
                 escapeConfigString(runId),
@@ -312,7 +309,7 @@ public class SeaTunnelEnvironmentContext {
 
     /** Renders the complete engine configuration for this benchmark environment. */
     protected String embeddedEngineConfiguration() {
-        return renderTemplate(ENGINE_CONFIG_TEMPLATE, "slot_count", SLOT_COUNT);
+        return BenchmarkTemplates.render(ENGINE_CONFIG_TEMPLATE, "slot_count", SLOT_COUNT);
     }
 
     private static void validateResult(
@@ -360,36 +357,19 @@ public class SeaTunnelEnvironmentContext {
         return miniClusterHome;
     }
 
-    protected static String loadTemplate(String resourceName) {
-        InputStream input = SeaTunnelEnvironmentContext.class.getResourceAsStream(resourceName);
-        if (input == null) {
-            throw new IllegalStateException("Benchmark template was not found: " + resourceName);
-        }
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
-            return reader.lines().collect(Collectors.joining("\n", "", "\n"));
-        } catch (IOException e) {
-            throw new IllegalStateException("Could not read benchmark template " + resourceName, e);
-        }
+    /** Returns the embedded member to benchmark environments that exercise engine internals. */
+    protected final HazelcastInstance getMiniCluster() {
+        return miniCluster;
     }
 
-    protected static String renderTemplate(String template, Object... replacements) {
-        if (replacements.length % 2 != 0) {
-            throw new IllegalArgumentException("Template replacements must be key-value pairs");
-        }
-        String rendered = template;
-        for (int index = 0; index < replacements.length; index += 2) {
-            String placeholder = "{{" + replacements[index] + "}}";
-            if (!rendered.contains(placeholder)) {
-                continue;
-            }
-            rendered = rendered.replace(placeholder, String.valueOf(replacements[index + 1]));
-        }
-        if (rendered.contains("{{")) {
-            throw new IllegalStateException(
-                    "Benchmark template contains an unresolved placeholder");
-        }
-        return rendered;
+    /** Returns the embedded client to benchmark environments that prepare real engine fixtures. */
+    protected final SeaTunnelClient getClient() {
+        return client;
+    }
+
+    /** Returns the configuration used by the embedded benchmark member and client. */
+    protected final SeaTunnelConfig getSeaTunnelConfig() {
+        return seaTunnelConfig;
     }
 
     private static void restoreSystemProperty(String key, String value) {
