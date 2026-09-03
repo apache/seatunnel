@@ -650,7 +650,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 new String[] {
                     "sourceTopic=" + sourceTopic,
                     "sinkTopic=" + sinkTopic,
-                        "consumerGroup=" + consumerGroup
+                    "consumerGroup=" + consumerGroup
                 };
 
         waitForTopicRoute(sourceTopic);
