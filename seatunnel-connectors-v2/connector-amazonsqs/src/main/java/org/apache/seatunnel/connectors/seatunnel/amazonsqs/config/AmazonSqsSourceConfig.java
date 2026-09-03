@@ -42,6 +42,8 @@ public class AmazonSqsSourceConfig implements Serializable {
 
     private boolean deleteMessage;
 
+    private boolean ignoreParseErrors;
+
     private Config schema;
 
     public AmazonSqsSourceConfig(ReadonlyConfig config) {
@@ -51,6 +53,7 @@ public class AmazonSqsSourceConfig implements Serializable {
         this.secretAccessKey = config.get(AmazonSqsSourceOptions.SECRET_ACCESS_KEY);
         this.messageGroupId = config.get(AmazonSqsSourceOptions.MESSAGE_GROUP_ID);
         this.deleteMessage = config.get(AmazonSqsSourceOptions.DELETE_MESSAGE);
+        this.ignoreParseErrors = config.get(AmazonSqsSourceOptions.IGNORE_PARSE_ERRORS);
         this.schema = ReadonlyConfig.fromMap(config.get(AmazonSqsSourceOptions.SCHEMA)).toConfig();
         ;
     }

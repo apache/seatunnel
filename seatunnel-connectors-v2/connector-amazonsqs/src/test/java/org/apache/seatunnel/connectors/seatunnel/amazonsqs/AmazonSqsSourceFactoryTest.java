@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.sink.AmazonSqsSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.source.AmazonSqsSourceFactory;
 
@@ -32,6 +33,11 @@ public class AmazonSqsSourceFactoryTest {
         AmazonSqsSourceFactory amazonSqsSourceFactory = new AmazonSqsSourceFactory();
         OptionRule sourceOptionRule = amazonSqsSourceFactory.optionRule();
         Assertions.assertNotNull(sourceOptionRule);
+        Assertions.assertTrue(
+                sourceOptionRule
+                        .getOptionalOptions()
+                        .contains(AmazonSqsSourceOptions.IGNORE_PARSE_ERRORS));
+        Assertions.assertFalse(AmazonSqsSourceOptions.IGNORE_PARSE_ERRORS.defaultValue());
 
         AmazonSqsSinkFactory amazonSqsSinkFactory = new AmazonSqsSinkFactory();
         OptionRule sinkOptionRule = amazonSqsSinkFactory.optionRule();

@@ -57,7 +57,9 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             SeaTunnelRowType seaTunnelRowType) {
         this.context = context;
         this.amazonSqsSourceConfig = amazonSqsSourceConfig;
-        this.seaTunnelRowDeserializer = new AmazonSqsDeserializer(deserializationSchema);
+        this.seaTunnelRowDeserializer =
+                new AmazonSqsDeserializer(
+                        deserializationSchema, amazonSqsSourceConfig.isIgnoreParseErrors());
     }
 
     @Override
@@ -107,7 +109,9 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
         for (Message message : messages) {
             String messageBody = message.body();
             SeaTunnelRow seaTunnelRow = this.seaTunnelRowDeserializer.deserializeRow(messageBody);
-            output.collect(seaTunnelRow);
+            if (seaTunnelRow != null) {
+                output.collect(seaTunnelRow);
+            }
 
             // Delete the processed message
             if (amazonSqsSourceConfig.isDeleteMessage()) {

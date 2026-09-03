@@ -27,22 +27,28 @@ import java.io.IOException;
 public class AmazonSqsDeserializer implements SeaTunnelRowDeserializer {
 
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
+    private final boolean ignoreParseErrors;
 
-    public AmazonSqsDeserializer(DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+    public AmazonSqsDeserializer(
+            DeserializationSchema<SeaTunnelRow> deserializationSchema, boolean ignoreParseErrors) {
         this.deserializationSchema = deserializationSchema;
+        this.ignoreParseErrors = ignoreParseErrors;
     }
 
     @Override
     public SeaTunnelRow deserializeRow(String row) {
         try {
             SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(row.getBytes());
-            if (seaTunnelRow == null) {
+            if (seaTunnelRow == null && !ignoreParseErrors) {
                 throw new AmazonSqsConnectorException(
                         AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
                         "Failed to deserialize Amazon SQS message");
             }
             return seaTunnelRow;
         } catch (IOException e) {
+            if (ignoreParseErrors) {
+                return null;
+            }
             throw new AmazonSqsConnectorException(
                     AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
                     "Failed to deserialize Amazon SQS message",
