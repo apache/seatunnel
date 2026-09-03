@@ -36,6 +36,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.dockerjava.api.model.HostConfig;
 import lombok.SneakyThrows;
 
 import java.sql.Date;
@@ -266,6 +267,18 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         .withCommand("--master-password", PASSWORD, "--agree-to-sap-license")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HANA_IMAGE)))
+                        .withCreateContainerCmdModifier(
+                                cmd -> {
+                                    // HANA requires move_pages and mbind during startup on GitHub
+                                    // runners.
+                                    HostConfig hostConfig = cmd.getHostConfig();
+                                    if (hostConfig == null) {
+                                        hostConfig = HostConfig.newHostConfig();
+                                        cmd.withHostConfig(hostConfig);
+                                    }
+                                    hostConfig.withSecurityOpts(
+                                            Lists.newArrayList("seccomp=unconfined"));
+                                })
                         .waitingFor(
                                 Wait.forLogMessage(".*Startup finished!.*", 1)
                                         .withStartupTimeout(Duration.of(5, ChronoUnit.MINUTES)));
