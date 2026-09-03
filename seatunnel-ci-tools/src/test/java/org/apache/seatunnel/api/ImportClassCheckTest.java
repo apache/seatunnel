@@ -133,6 +133,12 @@ public class ImportClassCheckTest {
                         Arrays.asList(
                                 "org.apache.seatunnel.format.compatible.debezium.json",
                                 "org.apache.seatunnel.format.compatible.kafka.connect.json",
+                                // Module-local override of Kafka's JsonConverter (official 3.2.0
+                                // sources with the Kafka Connect 3.9.0 backports) must stay in the
+                                // org.apache.kafka.connect.json package to win the runtime
+                                // classpath; its jackson usage is by definition the same as Kafka
+                                // Connect's own JsonConverter.
+                                "org.apache.kafka.connect.json",
                                 "org.apache.seatunnel.connectors.druid.sink",
                                 "org.apache.seatunnel.connectors.seatunnel.typesense.client"));
         Assertions.assertEquals(0, errorMap.size(), shadeErrorMsg("jackson", errorMap));

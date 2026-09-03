@@ -41,6 +41,12 @@ public class DebeziumJsonDeserializeSchema
         extends AbstractDebeziumDeserializationSchema<SeaTunnelRow> {
     private static final String KEY_SCHEMA_ENABLE = "key.converter.schemas.enable";
     private static final String VALUE_SCHEMA_ENABLE = "value.converter.schemas.enable";
+    // Same keys as Kafka Connect's JsonConverterConfig; default false so explicit NULLs are
+    // preserved (the upstream default is true), while tasks may opt back in with "true".
+    private static final String KEY_REPLACE_NULL_WITH_DEFAULT =
+            "key.converter.replace.null.with.default";
+    private static final String VALUE_REPLACE_NULL_WITH_DEFAULT =
+            "value.converter.replace.null.with.default";
 
     private final CompatibleDebeziumJsonDeserializationSchema deserializationSchema;
 
@@ -55,8 +61,15 @@ public class DebeziumJsonDeserializeSchema
                 Boolean.valueOf(debeziumConfig.getOrDefault(KEY_SCHEMA_ENABLE, "true"));
         boolean valueSchemaEnable =
                 Boolean.valueOf(debeziumConfig.getOrDefault(VALUE_SCHEMA_ENABLE, "true"));
+        boolean replaceNullWithDefault =
+                Boolean.valueOf(
+                        debeziumConfig.getOrDefault(
+                                VALUE_REPLACE_NULL_WITH_DEFAULT,
+                                debeziumConfig.getOrDefault(
+                                        KEY_REPLACE_NULL_WITH_DEFAULT, "false")));
         this.deserializationSchema =
-                new CompatibleDebeziumJsonDeserializationSchema(keySchemaEnable, valueSchemaEnable);
+                new CompatibleDebeziumJsonDeserializationSchema(
+                        keySchemaEnable, valueSchemaEnable, replaceNullWithDefault);
     }
 
     @Override
