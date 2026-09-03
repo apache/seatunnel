@@ -353,8 +353,8 @@ ResourceManager 侧的典型处理步骤:
 seatunnel {
   engine {
     slot-service {
-      # 是否启用动态槽位
-      dynamic-slot = true
+      # 是否启用动态槽位（默认为静态槽位）
+      dynamic-slot = false
 
       # 固定槽位数（仅在 dynamic-slot = false 时生效）
       slot-num = 2

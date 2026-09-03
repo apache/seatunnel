@@ -496,7 +496,7 @@ public class ServerConfigOptions {
         public static final Option<Boolean> DYNAMIC_SLOT =
                 Options.key("dynamic-slot")
                         .booleanType()
-                        .defaultValue(true)
+                        .defaultValue(false)
                         .withDescription("Whether to use dynamic slot.");
 
         public static final Option<Integer> SLOT_NUM =

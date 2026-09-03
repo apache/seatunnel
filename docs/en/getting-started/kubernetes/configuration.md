@@ -138,7 +138,7 @@ In separated cluster mode, use different Hazelcast configuration for Master and 
 
 ## Slot Configuration
 
-Worker slots are cluster scheduling resources. Static slots are recommended for production:
+Worker slots are cluster scheduling resources. Static slots are the engine default (and recommended for production):
 
 ```yaml
 seatunnel:
