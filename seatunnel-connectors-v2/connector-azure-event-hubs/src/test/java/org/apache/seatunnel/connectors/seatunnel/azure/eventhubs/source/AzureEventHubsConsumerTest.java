@@ -85,6 +85,50 @@ class AzureEventHubsConsumerTest {
         Assertions.assertSame(failure, exception.getCause());
     }
 
+    @Test
+    void partitionReceiverRetainsBufferOverflowFailureWhenSignalQueueIsFull() {
+        AzureEventHubsConsumer.PartitionReceiver receiver =
+                new AzureEventHubsConsumer.PartitionReceiver("0", 1);
+        receiver.hookOnNext(event(10L));
+        receiver.hookOnNext(event(11L));
+        receiver.hookOnNext(event(12L));
+
+        List<EventHubsRecord> records = receiver.poll(2, Duration.ZERO);
+        AzureEventHubsConnectorException exception =
+                Assertions.assertThrows(
+                        AzureEventHubsConnectorException.class,
+                        () -> receiver.poll(1, Duration.ZERO));
+        receiver.close();
+
+        Assertions.assertEquals(2, records.size());
+        Assertions.assertEquals(10L, records.get(0).getSequenceNumber());
+        Assertions.assertEquals(11L, records.get(1).getSequenceNumber());
+        Assertions.assertInstanceOf(IllegalStateException.class, exception.getCause());
+        Assertions.assertTrue(exception.getCause().getMessage().contains("buffer is full"));
+    }
+
+    @Test
+    void partitionReceiverRetainsCompletionWhenSignalQueueIsFull() {
+        AzureEventHubsConsumer.PartitionReceiver receiver =
+                new AzureEventHubsConsumer.PartitionReceiver("0", 1);
+        receiver.hookOnNext(event(10L));
+        receiver.hookOnNext(event(11L));
+        receiver.hookOnComplete();
+
+        List<EventHubsRecord> records = receiver.poll(2, Duration.ZERO);
+        AzureEventHubsConnectorException exception =
+                Assertions.assertThrows(
+                        AzureEventHubsConnectorException.class,
+                        () -> receiver.poll(1, Duration.ZERO));
+        receiver.close();
+
+        Assertions.assertEquals(2, records.size());
+        Assertions.assertEquals(10L, records.get(0).getSequenceNumber());
+        Assertions.assertEquals(11L, records.get(1).getSequenceNumber());
+        Assertions.assertNull(exception.getCause());
+        Assertions.assertTrue(exception.getMessage().contains("completed unexpectedly"));
+    }
+
     private EventHubsRecord event(long sequenceNumber) {
         return new EventHubsRecord(new byte[] {1}, sequenceNumber);
     }

@@ -37,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 /** Synchronous Azure SDK adapter. Each instance is confined to one SeaTunnel reader thread. */
 public class AzureEventHubsConsumer implements EventHubsConsumer {
@@ -172,7 +173,8 @@ public class AzureEventHubsConsumer implements EventHubsConsumer {
         private final int prefetchCount;
         private final LinkedBlockingQueue<ReceiverSignal> signals;
 
-        private ReceiverSignal pendingTerminalSignal;
+        private final AtomicReference<ReceiverSignal> pendingTerminalSignal =
+                new AtomicReference<>();
 
         PartitionReceiver(String partitionId, int prefetchCount) {
             this.partitionId = partitionId;
@@ -201,17 +203,18 @@ public class AzureEventHubsConsumer implements EventHubsConsumer {
 
         @Override
         protected void hookOnError(Throwable throwable) {
-            signals.offer(ReceiverSignal.error(throwable));
+            offerTerminalSignal(ReceiverSignal.error(throwable));
         }
 
         @Override
         protected void hookOnComplete() {
-            signals.offer(ReceiverSignal.complete());
+            offerTerminalSignal(ReceiverSignal.complete());
         }
 
         List<EventHubsRecord> poll(int maxEvents, Duration maximumWaitTime) {
-            if (pendingTerminalSignal != null) {
-                throw terminalException(pendingTerminalSignal);
+            ReceiverSignal terminalSignal = pendingTerminalSignal.get();
+            if (terminalSignal != null && signals.isEmpty()) {
+                throw terminalException(terminalSignal);
             }
 
             ReceiverSignal signal;
@@ -236,15 +239,22 @@ public class AzureEventHubsConsumer implements EventHubsConsumer {
                     break;
                 }
                 collectSignal(next, records);
-                if (pendingTerminalSignal != null) {
+                if (next.record == null) {
                     break;
                 }
             }
 
-            if (records.isEmpty() && pendingTerminalSignal != null) {
-                throw terminalException(pendingTerminalSignal);
+            terminalSignal = pendingTerminalSignal.get();
+            if (records.isEmpty() && terminalSignal != null) {
+                throw terminalException(terminalSignal);
             }
             return records;
+        }
+
+        private void offerTerminalSignal(ReceiverSignal terminalSignal) {
+            if (!signals.offer(terminalSignal)) {
+                pendingTerminalSignal.compareAndSet(null, terminalSignal);
+            }
         }
 
         private void collectSignal(ReceiverSignal signal, List<EventHubsRecord> records) {
@@ -252,7 +262,7 @@ public class AzureEventHubsConsumer implements EventHubsConsumer {
                 records.add(signal.record);
                 request(1);
             } else {
-                pendingTerminalSignal = signal;
+                pendingTerminalSignal.compareAndSet(null, signal);
             }
         }
 
@@ -273,6 +283,7 @@ public class AzureEventHubsConsumer implements EventHubsConsumer {
         void close() {
             cancel();
             signals.clear();
+            pendingTerminalSignal.set(null);
         }
     }
 

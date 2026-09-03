@@ -98,6 +98,7 @@ public class AzureEventHubsSource
         return Collections.singletonList(catalogTable);
     }
 
+    /** Creates a reader whose checkpoint position advances only after successful emission. */
     @Override
     public SourceReader<SeaTunnelRow, AzureEventHubsSourceSplit> createReader(
             SourceReader.Context readerContext) {
@@ -110,6 +111,7 @@ public class AzureEventHubsSource
                 readerContext);
     }
 
+    /** Discovers partitions and resolves their configured startup positions for a fresh job. */
     @Override
     public SourceSplitEnumerator<AzureEventHubsSourceSplit, AzureEventHubsSourceState>
             createEnumerator(
@@ -118,6 +120,7 @@ public class AzureEventHubsSource
                 config, enumeratorContext, consumerFactory, null);
     }
 
+    /** Restores checkpointed splits without rediscovering partitions or reapplying start mode. */
     @Override
     public SourceSplitEnumerator<AzureEventHubsSourceSplit, AzureEventHubsSourceState>
             restoreEnumerator(
