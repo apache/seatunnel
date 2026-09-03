@@ -1863,7 +1863,8 @@ public class CoordinatorServiceTest {
                     .untilAsserted(
                             () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
 
-            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            long jobId =
+                    instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
             LogicalDag logicalDag =
                     TestUtils.createTestLogicalPlan(
                             "stream_fake_to_console.conf", "interrupted_restore", jobId);
