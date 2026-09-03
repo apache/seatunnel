@@ -297,6 +297,8 @@ public class DebeziumJsonFormatBenchmark extends BenchmarkBase {
 
         private void reset() {
             count = 0;
+            row0 = null;
+            row1 = null;
         }
     }
 }

@@ -50,8 +50,11 @@ class DebeziumJsonFormatBenchmarkTest {
 
         assertEquals(RowKind.INSERT, insertRow.getRowKind());
         assertEquals(6, insertRow.getArity());
+        assertEquals(1001L, insertRow.getField(0));
+        assertEquals("seatunnel-order", insertRow.getField(1));
         assertEquals(RowKind.UPDATE_AFTER, updateAfterRow.getRowKind());
         assertEquals(6, updateAfterRow.getArity());
+        assertEquals(13.75D, updateAfterRow.getField(3));
         assertNotNull(insertJson);
         assertNotNull(updateJson);
 
@@ -59,10 +62,13 @@ class DebeziumJsonFormatBenchmarkTest {
         String updateEnvelope = new String(updateJson, StandardCharsets.UTF_8);
         assertTrue(insertEnvelope.contains("\"op\":\"c\""));
         assertTrue(insertEnvelope.contains("\"after\":{"));
+        assertTrue(insertEnvelope.contains("\"before\":null"));
         assertTrue(updateEnvelope.contains("\"op\":\"u\""));
         assertTrue(updateEnvelope.contains("\"before\":{"));
         assertTrue(updateEnvelope.contains("\"after\":{"));
         assertTrue(updateEnvelope.contains("12.5"));
         assertTrue(updateEnvelope.contains("13.75"));
+        assertTrue(updateEnvelope.contains("199.99"));
+        assertTrue(updateEnvelope.contains("249.5"));
     }
 }
