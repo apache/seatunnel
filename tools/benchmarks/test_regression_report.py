@@ -55,6 +55,37 @@ class RegressionReportTest(unittest.TestCase):
         self.assertIn("+10.00%", markdown)
         self.assertIn("ops/ms", markdown)
 
+    def test_jmh_comparison_reports_refs_cv_error_and_changes(self):
+        baseline_one = self.jmh_metric(100.0, "ops/s")
+        baseline_one.update({"score_error": 10.0, "sample_standard_deviation": 20.0})
+        baseline_two = self.jmh_metric(100.0, "ops/s")
+        baseline_two.update({"score_error": 20.0, "sample_standard_deviation": 10.0})
+        candidate_one = self.jmh_metric(110.0, "ops/s")
+        candidate_one.update({"score_error": 11.0, "sample_standard_deviation": 11.0})
+        candidate_two = self.jmh_metric(110.0, "ops/s")
+        candidate_two.update({"score_error": 11.0, "sample_standard_deviation": 11.0})
+        baselines = [
+            self.report("dev", baseline_one),
+            self.report("dev", baseline_two),
+        ]
+        candidates = [
+            self.report("PR #123", candidate_one),
+            self.report("PR #123", candidate_two),
+        ]
+
+        markdown = "\n".join(
+            regression_report.jmh_comparison_lines(baselines, candidates)
+        )
+
+        self.assertIn(
+            "| Benchmark | Parameters | dev | PR #123 | Score Change | dev CV | PR #123 CV | "
+            "CV Change | dev Error | PR #123 Error | Error Change | Unit |",
+            markdown,
+        )
+        self.assertIn("15.00%", markdown)
+        self.assertIn("10.00%", markdown)
+        self.assertIn("-33.33%", markdown)
+
     def test_lower_is_better_change_is_reported_as_positive(self):
         metric = self.jmh_metric(10.0, "ms/op", direction="lower")
         baseline = self.report("dev", metric)
