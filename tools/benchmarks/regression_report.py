@@ -408,8 +408,8 @@ def jmh_comparison_lines(baselines, candidates):
     lines = [
         "### JMH comparison",
         "",
-        "`B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures variability and Error represents the relative JMH confidence interval, both aggregated as medians across runs.",
-        "Score Change is direction-adjusted so positive is favorable; CV and Error changes are relative changes.",
+        "> `B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures variability and Error represents the relative JMH confidence interval, both aggregated as medians across runs.",
+        "> Score Change is direction-adjusted so positive is favorable; CV and Error changes are relative changes.",
         "",
         "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | CV Change | Error B | Error C | Error Change | Unit |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
