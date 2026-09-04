@@ -117,8 +117,20 @@ public class SystemLoadAllocateStrategyIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
-            // Waiting for worker heartbeat registration
-            Thread.sleep(10000);
+            NodeEngineImpl nodeEngine = node1.node.nodeEngine;
+            Address node2Address = node2.node.address;
+            Address node1Address = node1.node.address;
+            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    resourceManager.getRegisterWorker().containsKey(node1Address)
+                                            && resourceManager
+                                                    .getRegisterWorker()
+                                                    .containsKey(node2Address));
             Common.setDeployMode(DeployMode.CLIENT);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
@@ -152,13 +164,6 @@ public class SystemLoadAllocateStrategyIT {
                                     seaTunnelConfig)
                             .execute();
 
-            NodeEngineImpl nodeEngine = node1.node.nodeEngine;
-            Address node2Address = node2.node.address;
-            Address node1Address = node1.node.address;
-
-            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
-
             Awaitility.await()
                     .atMost(600, TimeUnit.SECONDS)
                     .untilAsserted(
@@ -176,8 +181,21 @@ public class SystemLoadAllocateStrategyIT {
                             });
             log.info("The first step is completed");
 
-            // Waiting to collect the node's System Load information
-            Thread.sleep(60000);
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .ignoreExceptions()
+                    .until(
+                            () ->
+                                    resourceManager
+                                                            .getRegisterWorker()
+                                                            .get(node1Address)
+                                                            .getSystemLoadInfo()
+                                                    != null
+                                            && resourceManager
+                                                            .getRegisterWorker()
+                                                            .get(node2Address)
+                                                            .getSystemLoadInfo()
+                                                    != null);
 
             // Start a task that occupies 4 slots
             jobConfig = new JobConfig();

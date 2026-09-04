@@ -227,9 +227,10 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                 String.format(
                         "INSERT INTO %s.%s (id) VALUES (31), (32)", MYSQL_DATABASE, SOURCE_TABLE));
 
-        // MySQL binlog timestamps have second granularity, wait so the startup timestamp
-        // is clearly after the rows above.
-        Thread.sleep(3000L);
+        // Intentional time-based wait: MySQL binlog timestamps have second granularity, and this
+        // test requires the startup timestamp to fall in a later timestamp bucket than the rows
+        // above. No readiness condition can replace the passage of that timestamp boundary.
+        TimeUnit.SECONDS.sleep(3);
 
         // Take the startup timestamp before inserting the rows that must be synced,
         // so their binlog event timestamps are greater than the startup timestamp.

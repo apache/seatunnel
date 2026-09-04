@@ -157,7 +157,8 @@ public class MysqlCDCWithBinlogDeleteIT extends TestSuiteBase implements TestRes
                         });
         // flush binary logs
         executeSql("flush binary logs");
-        // wait a moment for binlog heartbeat event
+        // The heartbeat advances the persisted CDC offset into the newly rotated binlog. There is
+        // no externally observable heartbeat offset before the following savepoint is created.
         TimeUnit.SECONDS.sleep(60);
         // pause task
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());

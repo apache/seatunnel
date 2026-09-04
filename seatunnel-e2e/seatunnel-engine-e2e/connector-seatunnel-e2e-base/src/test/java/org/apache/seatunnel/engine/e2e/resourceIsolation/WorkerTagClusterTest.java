@@ -95,12 +95,11 @@ public class WorkerTagClusterTest {
             throws Exception {
         // waiting all node added to cluster
         Awaitility.await()
-                .atMost(10000, TimeUnit.MILLISECONDS)
+                .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
                         new ThrowingRunnable() {
                             @Override
                             public void run() throws Throwable {
-                                Thread.sleep(2000);
                                 // check master and worker node
                                 Assertions.assertEquals(
                                         2, masterNode1.getCluster().getMembers().size());

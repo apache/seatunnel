@@ -211,13 +211,20 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                         }
                         return null;
                     });
-            TimeUnit.SECONDS.sleep(10);
+            Awaitility.await()
+                    .atMost(5, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING",
+                                            container.getJobStatus(String.valueOf(jobId))));
             // insert update delete
             upsertDeleteSourceTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_1);
 
-            TimeUnit.SECONDS.sleep(20);
             Awaitility.await()
+                    .during(20, TimeUnit.SECONDS)
                     .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 String jobStatus = container.getJobStatus(String.valueOf(jobId));

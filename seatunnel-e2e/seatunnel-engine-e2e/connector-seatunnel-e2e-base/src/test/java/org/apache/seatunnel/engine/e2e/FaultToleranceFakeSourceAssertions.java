@@ -114,7 +114,9 @@ final class FaultToleranceFakeSourceAssertions {
 
     private static void sleep(long sleepMillis) {
         try {
-            Thread.sleep(sleepMillis);
+            // Intentional polling interval: the bounded stability loop must observe elapsed stable
+            // time without continuously reading the sink directory.
+            TimeUnit.MILLISECONDS.sleep(sleepMillis);
         } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();
             throw new AssertionError(

@@ -34,7 +34,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.pulsar.client.admin.PulsarAdmin;
-import org.apache.pulsar.client.admin.PulsarAdminException;
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
 import org.apache.pulsar.client.api.PulsarClient;
@@ -235,17 +234,14 @@ public class CanalToPulsarIT extends TestSuiteBase implements TestResource {
                                         PULSAR_CONTAINER.getHost(),
                                         PULSAR_CONTAINER.getMappedPort(PULSAR_BROKER_HTTP_PORT)))
                         .build()) {
-            while (true) {
-                try {
-                    List<String> topics = pulsarAdmin.topics().getList("public/default");
-                    if (topics.stream().anyMatch(t -> StringUtils.contains(t, TOPIC))) {
-                        break;
-                    }
-                    Thread.sleep(5000);
-                } catch (PulsarAdminException | InterruptedException e) {
-                    throw new RuntimeException(e);
-                }
-            }
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(5, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    pulsarAdmin.topics().getList("public/default").stream()
+                                            .anyMatch(topic -> StringUtils.contains(topic, TOPIC)));
         }
     }
 

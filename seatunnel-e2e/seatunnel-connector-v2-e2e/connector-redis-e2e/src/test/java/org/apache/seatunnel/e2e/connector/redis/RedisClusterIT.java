@@ -33,6 +33,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -64,6 +65,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -176,56 +178,31 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private void waitForRedisClusterReady() {
         log.info("Waiting for Redis cluster to be ready...");
-
-        int maxRetries = 30;
-        int retryCount = 0;
-
-        while (retryCount < maxRetries) {
-            try {
-                boolean allReady = true;
-
-                for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
-                    Container.ExecResult result =
-                            redisClusterNodes[i].execInContainer(
-                                    "redis-cli",
-                                    "-p",
-                                    String.valueOf(REDIS_PORTS[i]),
-                                    "-a",
-                                    redisContainerInfo.getPassword(),
-                                    "cluster",
-                                    "info");
-
-                    String output = result.getStdout().trim();
-                    if (!output.contains("cluster_state:ok")
-                            || !output.contains("cluster_slots_ok:16384")) {
-                        allReady = false;
-                        break;
-                    }
-                }
-
-                if (allReady) {
-                    log.info(
-                            "Redis cluster is fully ready after {} attempts (all slots assigned)",
-                            retryCount + 1);
-                    return;
-                }
-
-            } catch (Exception e) {
-                log.debug(
-                        "Redis cluster readiness check failed, attempt {}: {}",
-                        retryCount + 1,
-                        e.getMessage());
-            }
-
-            retryCount++;
-            try {
-                Thread.sleep(2000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        throw new RuntimeException("Redis cluster failed to become ready within timeout");
+        Awaitility.await("Redis cluster slots to become ready")
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(
+                        () -> {
+                            for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+                                Container.ExecResult result =
+                                        redisClusterNodes[i].execInContainer(
+                                                "redis-cli",
+                                                "-p",
+                                                String.valueOf(REDIS_PORTS[i]),
+                                                "-a",
+                                                redisContainerInfo.getPassword(),
+                                                "cluster",
+                                                "info");
+                                String output = result.getStdout().trim();
+                                if (!output.contains("cluster_state:ok")
+                                        || !output.contains("cluster_slots_ok:16384")) {
+                                    return false;
+                                }
+                            }
+                            return true;
+                        });
+        log.info("Redis cluster is fully ready (all slots assigned)");
     }
 
     private void initJedisCluster() {

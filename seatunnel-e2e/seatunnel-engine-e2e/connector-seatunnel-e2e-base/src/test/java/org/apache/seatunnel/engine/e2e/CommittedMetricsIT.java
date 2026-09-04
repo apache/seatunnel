@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.notNullValue;
@@ -104,16 +105,14 @@ public class CommittedMetricsIT {
 
         log.info("Job is running, job id: {}", streamJobProxy.getJobId());
 
-        Thread.sleep(5000);
+        // Intentional time-based sample: capture the transient interval after writes begin but
+        // before the first 10-second checkpoint. A condition that waits for both values can miss
+        // that interval once the first checkpoint has committed, so preserve the original sampling
+        // window and use adaptive waits only for the later completed-checkpoint states.
+        TimeUnit.SECONDS.sleep(5);
+        Response responseBeforeCheckpoint = getJobInfo();
 
-        Response responseBeforeCheckpoint =
-                given().get(
-                                HOST
-                                        + node1.getCluster().getLocalMember().getAddress().getPort()
-                                        + RestConstant.CONTEXT_PATH
-                                        + RestConstant.REST_URL_JOB_INFO
-                                        + "/"
-                                        + streamJobProxy.getJobId());
+        AtomicReference<Response> responseReference = new AtomicReference<>();
 
         log.info("Metrics before checkpoint: {}", responseBeforeCheckpoint.prettyPrint());
 
@@ -134,16 +133,18 @@ public class CommittedMetricsIT {
                 writeBeforeCP,
                 committedBeforeCP);
 
-        Thread.sleep(8000);
-
-        Response responseAfterFirstCheckpoint =
-                given().get(
-                                HOST
-                                        + node1.getCluster().getLocalMember().getAddress().getPort()
-                                        + RestConstant.CONTEXT_PATH
-                                        + RestConstant.REST_URL_JOB_INFO
-                                        + "/"
-                                        + streamJobProxy.getJobId());
+        Awaitility.await()
+                .atMost(3, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Response response = getJobInfo();
+                            String committedCount = response.path("metrics.SinkCommittedCount");
+                            Assertions.assertNotNull(committedCount);
+                            Assertions.assertTrue(Long.parseLong(committedCount) > 0);
+                            responseReference.set(response);
+                        });
+        Response responseAfterFirstCheckpoint = responseReference.get();
 
         log.info("Metrics after first checkpoint: {}", responseAfterFirstCheckpoint.prettyPrint());
 
@@ -165,16 +166,19 @@ public class CommittedMetricsIT {
                 committedCountAfterFirstCP,
                 writeCountAfterFirstCP - committedCountAfterFirstCP);
 
-        Thread.sleep(12000);
-
-        Response responseFinal =
-                given().get(
-                                HOST
-                                        + node1.getCluster().getLocalMember().getAddress().getPort()
-                                        + RestConstant.CONTEXT_PATH
-                                        + RestConstant.REST_URL_JOB_INFO
-                                        + "/"
-                                        + streamJobProxy.getJobId());
+        Awaitility.await()
+                .atMost(3, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Response response = getJobInfo();
+                            String committedCount = response.path("metrics.SinkCommittedCount");
+                            Assertions.assertNotNull(committedCount);
+                            Assertions.assertTrue(
+                                    Long.parseLong(committedCount) > committedCountAfterFirstCP);
+                            responseReference.set(response);
+                        });
+        Response responseFinal = responseReference.get();
 
         log.info("Metrics after second checkpoint: {}", responseFinal.prettyPrint());
 
@@ -272,6 +276,16 @@ public class CommittedMetricsIT {
                                         JobStatus.CANCELED, streamJobProxy.getJobStatus()));
 
         log.info("testCommittedMetricsWithCheckpoint completed successfully");
+    }
+
+    private Response getJobInfo() {
+        return given().get(
+                        HOST
+                                + node1.getCluster().getLocalMember().getAddress().getPort()
+                                + RestConstant.CONTEXT_PATH
+                                + RestConstant.REST_URL_JOB_INFO
+                                + "/"
+                                + streamJobProxy.getJobId());
     }
 
     @AfterEach

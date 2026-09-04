@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
@@ -38,6 +39,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -83,24 +85,11 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
                     return null;
                 });
 
-        // Wait for the task to start
-        Thread.sleep(15000);
-
-        // Get the task id
-        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
-        String regex = "(\\d+)\\s+";
-        Pattern pattern = Pattern.compile(regex);
-        List<String> runningJobId =
-                Arrays.stream(execResult.getStdout().toString().split("\n"))
-                        .filter(s -> s.contains("batch_cancel_task"))
-                        .map(
-                                s -> {
-                                    Matcher matcher = pattern.matcher(s);
-                                    return matcher.find() ? matcher.group(1) : null;
-                                })
-                        .filter(jobId -> jobId != null)
-                        .collect(Collectors.toList());
-        Assertions.assertEquals(2, runningJobId.size());
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> getRunningJobIds(container).size() == 2);
+        List<String> runningJobId = getRunningJobIds(container);
 
         // Verify that the status is Running
         for (String jobId : runningJobId) {
@@ -119,11 +108,33 @@ public class SeaTunnelConnectorBatchCancelTest extends TestSuiteBase implements 
 
         // Verify whether the cancellation is successful
         for (String jobId : runningJobId) {
-            Container.ExecResult execResult1 =
-                    container.executeBaseCommand(new String[] {"-j", jobId});
-            String stdout = execResult1.getStdout();
-            ObjectNode jsonNodes = JsonUtils.parseObject(stdout);
-            Assertions.assertEquals(jsonNodes.get("jobStatus").asText(), "CANCELED");
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Container.ExecResult execResult =
+                                        container.executeBaseCommand(new String[] {"-j", jobId});
+                                ObjectNode jsonNodes =
+                                        JsonUtils.parseObject(execResult.getStdout());
+                                Assertions.assertEquals(
+                                        "CANCELED", jsonNodes.get("jobStatus").asText());
+                            });
         }
+    }
+
+    private List<String> getRunningJobIds(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeBaseCommand(new String[] {"-l"});
+        Pattern pattern = Pattern.compile("(\\d+)\\s+");
+        return Arrays.stream(execResult.getStdout().split("\n"))
+                .filter(line -> line.contains("batch_cancel_task"))
+                .map(
+                        line -> {
+                            Matcher matcher = pattern.matcher(line);
+                            return matcher.find() ? matcher.group(1) : null;
+                        })
+                .filter(jobId -> jobId != null)
+                .collect(Collectors.toList());
     }
 }

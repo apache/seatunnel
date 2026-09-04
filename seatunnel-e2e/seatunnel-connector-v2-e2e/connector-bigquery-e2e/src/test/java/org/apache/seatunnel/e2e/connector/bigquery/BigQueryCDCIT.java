@@ -233,10 +233,13 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
         }
         try {
             initializeBigQueryCDCTable();
-            Thread.sleep(10000);
         } catch (InterruptedException e) {
-            throw new RuntimeException(e);
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("BigQuery table initialization interrupted", e);
         }
+        await().atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> bigquery.getTable(cdcTableId) != null);
     }
 
     private Connection getMysqlJdbcConnection() throws SQLException {

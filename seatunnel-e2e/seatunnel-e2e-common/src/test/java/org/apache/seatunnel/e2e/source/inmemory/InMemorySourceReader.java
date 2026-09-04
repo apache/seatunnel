@@ -26,6 +26,7 @@ import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.TimeUnit;
 
 public class InMemorySourceReader implements SourceReader<SeaTunnelRow, InMemorySourceSplit> {
 
@@ -47,6 +48,7 @@ public class InMemorySourceReader implements SourceReader<SeaTunnelRow, InMemory
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        boolean waitingForSplit = false;
         synchronized (output.getCheckpointLock()) {
             InMemorySourceSplit split = sourceSplits.poll();
             if (null != split) {
@@ -57,8 +59,14 @@ public class InMemorySourceReader implements SourceReader<SeaTunnelRow, InMemory
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                waitingForSplit = true;
             }
+        }
+        if (waitingForSplit) {
+            // Intentional polling cadence: this synthetic source has no split-arrival callback to
+            // await. Delay the next poll outside the checkpoint lock to avoid busy-spinning
+            // without blocking checkpoint snapshots.
+            TimeUnit.SECONDS.sleep(1);
         }
     }
 

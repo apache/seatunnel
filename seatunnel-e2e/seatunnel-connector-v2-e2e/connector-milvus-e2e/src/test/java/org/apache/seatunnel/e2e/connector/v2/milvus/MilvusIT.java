@@ -889,7 +889,6 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         String database = "streaming_test";
         String collection = "streaming_simple_example";
         String vectorField = "book_intro";
-        int checkpointInterval = 30000;
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -909,10 +908,17 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
-                .until(() -> countCollectionEntities(database, collection) >= 9);
-        Assertions.assertEquals(9, countCollectionEntities(database, collection));
-        TimeUnit.MILLISECONDS.sleep(checkpointInterval);
-        Assertions.assertEquals(10, countCollectionEntities(database, collection));
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        9, countCollectionEntities(database, collection)));
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        10, countCollectionEntities(database, collection)));
 
         // cancel jobs
         container.cancelJob(jobId);

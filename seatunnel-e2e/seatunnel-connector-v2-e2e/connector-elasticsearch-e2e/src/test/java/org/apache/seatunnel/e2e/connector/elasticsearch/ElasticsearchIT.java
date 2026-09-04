@@ -45,8 +45,9 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.commons.io.IOUtils;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
@@ -79,7 +80,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -87,8 +87,6 @@ import java.util.stream.Stream;
 
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
-
-    private static final long INDEX_REFRESH_MILL_DELAY = 5000L;
 
     private List<String> testDataset1;
 
@@ -100,7 +98,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         container =
@@ -131,6 +129,15 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         esRestClient = EsRestClient.createInstance(config);
         testDataset1 = generateTestDataSet1();
         testDataset2 = generateTestDataSet2();
+    }
+
+    @BeforeEach
+    public void initializeTestData() throws Exception {
+        // Reuse the Elasticsearch process across this large parameterized suite, while keeping
+        // every invocation isolated from indices created by the preceding invocation.
+        esRestClient.listIndex().stream()
+                .filter(index -> !index.startsWith("."))
+                .forEach(esRestClient::dropIndex);
         createIndexForResourceNull("st_index");
         createIndexDocs();
         createIndexWithFullType();
@@ -194,8 +201,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Assertions.assertFalse(response.isErrors(), "Bulk insert should not have errors");
         log.info("Inserted {} documents into index: {}", testData.size(), indexName);
 
-        // Wait for index refresh
-        Thread.sleep(2000);
+        awaitIndexDocsCount(indexName, testData.size());
     }
 
     private void generateTestSqlDataSet() throws JsonProcessingException, InterruptedException {
@@ -269,10 +275,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         }
         BulkResponse response = esRestClient.bulk(requestBody.toString());
         Assertions.assertFalse(response.isErrors(), response.getResponse());
-        // waiting index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                2, esRestClient.getIndexDocsCount("st_index_sql").get(0).getDocsCount());
+        awaitIndexDocsCount("st_index_sql", 2);
     }
 
     private void createIndexDocsByName(String indexName, List<String> testDataSet) {
@@ -306,10 +309,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                         .replace("\n", "")
                                 + "\n");
         Assertions.assertFalse(response.isErrors(), response.getResponse());
-        // waiting index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                3, esRestClient.getIndexDocsCount("st_index_nest").get(0).getDocsCount());
+        awaitIndexDocsCount("st_index_nest", 3);
     }
 
     private void createIndexWithFullType() throws IOException, InterruptedException {
@@ -331,10 +331,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                         .replace("\n", "")
                                 + "\n");
         Assertions.assertFalse(response.isErrors(), response.getResponse());
-        // waiting index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                2, esRestClient.getIndexDocsCount("st_index_full_type").get(0).getDocsCount());
+        awaitIndexDocsCount("st_index_full_type", 2);
     }
 
     private void createIndexForResourceNull(String indexName) throws IOException {
@@ -382,18 +379,13 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
         // create index
         esRestClient.createIndex("vector_test", mapping);
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
 
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/fake-to-elasticsearch-vector.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // Wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-
         // Verify that 10 documents were inserted as specified in the config
-        Assertions.assertEquals(
-                10, esRestClient.getIndexDocsCount("vector_test").get(0).getDocsCount());
+        awaitIndexDocsCount("vector_test", 10);
 
         // Verify vector field exists in the mapping
         Map<String, BasicTypeDefine<EsType>> fieldTypes =
@@ -507,7 +499,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range2.put("c_int2", rangeParam);
         query2.put("range", range2);
 
-        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(INDEX_REFRESH_MILL_DELAY));
+        awaitIndexDocsCount(
+                "read_filter_index1_copy", countDocumentsMatchingRange(testDataset1, "c_int"));
+        awaitIndexDocsCount(
+                "read_filter_index2_copy", countDocumentsMatchingRange(testDataset2, "c_int2"));
         Set<String> sinkData1 =
                 new HashSet<>(
                         getDocsWithTransformDate(
@@ -563,7 +558,6 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                             return JsonUtils.toJsonString(map);
                         });
 
-        LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(INDEX_REFRESH_MILL_DELAY));
         Set<String> sinkData2 =
                 new HashSet<>(
                         getDocsWithTransformDate(
@@ -627,10 +621,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult =
                 container.executeJob("/elasticsearch/elasticsearch_source_and_sink_full_type.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        Assertions.assertEquals(
-                1,
-                esRestClient.getIndexDocsCount("st_index_full_type_target").get(0).getDocsCount());
+        awaitIndexDocsCount("st_index_full_type_target", 1);
     }
 
     @TestTemplate
@@ -784,7 +775,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> readSinkDataWithOutSchema(String indexName) throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName);
     }
@@ -795,7 +786,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName, nullAllowedFields);
     }
@@ -803,8 +794,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     // The timestamp type in Elasticsearch is incompatible with that in Seatunnel,
     // and we need to handle the conversion here.
     private List<String> readSinkDataWithSchema(String index) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        awaitIndexDocsCount(index, mapTestDatasetForDSL().size());
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -826,16 +816,15 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkDataWithNestSchema(String index) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        // Elasticsearch's docs.count includes the root document and its two nested documents.
+        awaitIndexDocsCount(index, 3);
         List<String> source = Lists.newArrayList("name", "address");
         return getDocsWithNestType(source, index);
     }
 
     private List<String> readMultiSinkData(String index, List<String> source)
             throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
+        awaitIndexDocsCount(index, 1);
         Map<String, Object> query = new HashMap<>();
         query.put("match_all", Maps.newHashMap());
 
@@ -1070,13 +1059,15 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 .collect(Collectors.toList());
     }
 
-    @AfterEach
+    @AfterAll
     @Override
     public void tearDown() {
         if (Objects.nonNull(esRestClient)) {
             esRestClient.close();
         }
-        container.close();
+        if (Objects.nonNull(container)) {
+            container.close();
+        }
     }
 
     @Test
@@ -1116,7 +1107,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             requestBody.append("\n");
         }
         esRestClient.bulk(requestBody.toString());
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
+        awaitIndexDocsCount("st_index3", data.size());
 
         // Verify data exists
         List<String> sourceFields = Arrays.asList("field1", "field2");
@@ -1128,7 +1119,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
         // Truncate the table
         elasticSearchCatalog.truncateTable(tablePath, false);
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY); // Wait for data to be indexed
+        awaitIndexDocsCount("st_index3", 0);
 
         // Verify data is deleted
         scrollResult = esRestClient.searchByScroll("st_index3", sourceFields, query, "1m", 100);
@@ -1157,6 +1148,32 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 () -> elasticSearchCatalog.dropDatabase(TablePath.of("", "tmp_index"), false));
 
         elasticSearchCatalog.close();
+    }
+
+    private void awaitIndexDocsCount(String indexName, long expectedCount) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedCount,
+                                        esRestClient
+                                                .getIndexDocsCount(indexName)
+                                                .get(0)
+                                                .getDocsCount()));
+    }
+
+    private long countDocumentsMatchingRange(List<String> dataset, String fieldName) {
+        return dataset.stream()
+                .map(JsonUtils::parseObject)
+                .filter(
+                        document -> {
+                            JsonNode field = document.get(fieldName);
+                            return field != null && field.asInt() >= 10 && field.asInt() <= 20;
+                        })
+                .count();
     }
 
     private List<String> generateTestData() throws JsonProcessingException {

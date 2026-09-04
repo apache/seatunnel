@@ -109,10 +109,9 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
         Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        Thread.sleep(JobEventHttpReportHandler.REPORT_INTERVAL.toMillis());
         given().ignoreExceptions()
                 .await()
-                .atMost(60, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
                 .until(() -> mockWebServer.getRequestCount(), count -> count > 0);
 
         List<JsonNode> events = new ArrayList<>();

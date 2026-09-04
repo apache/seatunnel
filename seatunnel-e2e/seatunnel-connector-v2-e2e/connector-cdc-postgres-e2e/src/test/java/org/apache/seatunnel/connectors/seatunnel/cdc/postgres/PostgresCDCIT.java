@@ -42,6 +42,7 @@ import org.apache.kafka.clients.consumer.OffsetResetStrategy;
 import org.apache.kafka.common.IsolationLevel;
 import org.apache.kafka.common.TopicPartition;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -439,13 +440,23 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             List<List<Object>> snapshotOnlySinkRows =
                     query("select * from " + POSTGRESQL_SCHEMA + "." + SINK_TABLE_1);
             insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 11);
-            TimeUnit.SECONDS.sleep(5);
-            Assertions.assertIterableEquals(
-                    snapshotOnlySinkRows,
-                    query("select * from " + POSTGRESQL_SCHEMA + "." + SINK_TABLE_1));
-            Assertions.assertFalse(
-                    replicationSlotExists(snapshotSlotName),
-                    "Snapshot-only startup must not create or retain a replication slot");
+            Awaitility.await()
+                    .during(5, TimeUnit.SECONDS)
+                    .atMost(1, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertIterableEquals(
+                                        snapshotOnlySinkRows,
+                                        query(
+                                                "select * from "
+                                                        + POSTGRESQL_SCHEMA
+                                                        + "."
+                                                        + SINK_TABLE_1));
+                                Assertions.assertFalse(
+                                        replicationSlotExists(snapshotSlotName),
+                                        "Snapshot-only startup must not create or retain a replication slot");
+                            });
 
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
             createLogicalReplicationSlot(committedSlotName);
@@ -734,12 +745,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                         throw new RuntimeException(e);
                     }
                 });
-        TimeUnit.SECONDS.sleep(10);
+        await().atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
         // insert update delete
         upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
 
-        TimeUnit.SECONDS.sleep(20);
-        await().atMost(2, TimeUnit.MINUTES)
+        await().during(20, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));

@@ -260,16 +260,20 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         throw new RuntimeException(e);
                     }
                 });
-        TimeUnit.SECONDS.sleep(10);
+        await().atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
         // insert update delete
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE_1);
-        TimeUnit.SECONDS.sleep(10);
-        await().atMost(2, TimeUnit.MINUTES)
+        await().during(10, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
-                        () -> {
-                            String jobStatus = container.getJobStatus(String.valueOf(jobId));
-                            Assertions.assertEquals("RUNNING", jobStatus);
-                        });
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
         try {
             Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
             Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
@@ -796,40 +800,36 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         throw new RuntimeException(e);
                     }
                 });
-        TimeUnit.SECONDS.sleep(5);
+        await().atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(this::assertWildcardTablesSynchronized);
         inventoryDatabase.setTemplateName("wildcards_dml").createAndInitialize();
-        given().pollDelay(20, TimeUnit.SECONDS)
-                .pollInterval(2000, TimeUnit.MILLISECONDS)
+        given().pollInterval(2000, TimeUnit.MILLISECONDS)
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Assertions.assertAll(
-                                    () -> {
-                                        log.info(
-                                                query(getQuerySQL("sink", "source_products"))
-                                                        .toString());
-                                        Assertions.assertIterableEquals(
-                                                query(getQuerySQL("source", "products")),
-                                                query(getQuerySQL("sink", "source_products")));
-                                    },
-                                    () -> {
-                                        log.info(
-                                                query(getQuerySQL("sink", "source_customers"))
-                                                        .toString());
-                                        Assertions.assertIterableEquals(
-                                                query(getQuerySQL("source", "customers")),
-                                                query(getQuerySQL("sink", "source_customers")));
-                                    },
-                                    () -> {
-                                        log.info(
-                                                query(getQuerySQL("sink", "source1_orders"))
-                                                        .toString());
-                                        Assertions.assertIterableEquals(
-                                                query(getQuerySQL("source1", "orders")),
-                                                query(getQuerySQL("sink", "source1_orders")));
-                                    });
-                        });
+                .atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(this::assertWildcardTablesSynchronized);
+    }
+
+    private void assertWildcardTablesSynchronized() {
+        Assertions.assertAll(
+                () -> {
+                    log.info(query(getQuerySQL("sink", "source_products")).toString());
+                    Assertions.assertIterableEquals(
+                            query(getQuerySQL("source", "products")),
+                            query(getQuerySQL("sink", "source_products")));
+                },
+                () -> {
+                    log.info(query(getQuerySQL("sink", "source_customers")).toString());
+                    Assertions.assertIterableEquals(
+                            query(getQuerySQL("source", "customers")),
+                            query(getQuerySQL("sink", "source_customers")));
+                },
+                () -> {
+                    log.info(query(getQuerySQL("sink", "source1_orders")).toString());
+                    Assertions.assertIterableEquals(
+                            query(getQuerySQL("source1", "orders")),
+                            query(getQuerySQL("sink", "source1_orders")));
+                });
     }
 
     @TestTemplate

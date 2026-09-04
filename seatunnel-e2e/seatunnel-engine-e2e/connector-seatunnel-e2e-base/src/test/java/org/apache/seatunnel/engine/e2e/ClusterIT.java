@@ -135,7 +135,6 @@ public class ClusterIT {
 
             final ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
 
-            TimeUnit.SECONDS.sleep(2);
             CompletableFuture<PassiveCompletableFuture<JobResult>> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::doWaitForJobComplete);
 

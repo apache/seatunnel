@@ -151,8 +151,6 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
         mysqlContainer.start();
         log.info("MySQL container started at {}", mysqlContainer.getHost());
-        // Wait for MySQL to be fully ready
-        Thread.sleep(10000);
     }
 
     private void startGravitinoServer() throws Exception {

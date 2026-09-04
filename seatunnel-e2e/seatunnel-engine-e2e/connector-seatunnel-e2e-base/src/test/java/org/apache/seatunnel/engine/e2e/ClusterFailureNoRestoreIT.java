@@ -63,7 +63,7 @@ public class ClusterFailureNoRestoreIT {
      */
     private static final long NO_RESTORE_BATCH_ROW_NUM_PER_PARALLELISM = 20_000L;
 
-    /** Wait for the batch job to enter the steady RUNNING state before shutting a worker down. */
+    /** Wait for the batch job to enter RUNNING before checking observable source progress. */
     private static final long PRE_SHUTDOWN_RUNNING_TIMEOUT_SECONDS = 30L;
 
     /**

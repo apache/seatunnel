@@ -277,8 +277,11 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                             }
                         });
 
-        // checkpoint.interval=3s × 3 = 9 s
-        Thread.sleep(9_000);
+        given().ignoreExceptions()
+                .await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> collectCheckpointIds(loadRecoveryTable()).size() >= 3);
 
         Assertions.assertEquals(
                 0,

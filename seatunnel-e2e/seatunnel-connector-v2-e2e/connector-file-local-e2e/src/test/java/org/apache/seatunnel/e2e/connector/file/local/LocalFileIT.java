@@ -492,7 +492,10 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertEquals("abc", readLocalFile("/tmp/seatunnel/update/dst/test.bin"));
 
         long firstMtimeSeconds = getLocalFileMtimeSeconds("/tmp/seatunnel/update/dst/test.bin");
-        Thread.sleep(1100);
+        // Intentional time-based wait: the assertion reads mtime with second precision. Cross a
+        // clock tick so an unnecessary second copy cannot preserve the observed timestamp by
+        // coincidence; there is no independent readiness condition for the passage of time.
+        TimeUnit.MILLISECONDS.sleep(1100);
 
         helper.execute("/binary/local_file_binary_update_strict_checksum.conf");
         long secondMtimeSeconds = getLocalFileMtimeSeconds("/tmp/seatunnel/update/dst/test.bin");
@@ -538,13 +541,16 @@ public class LocalFileIT extends TestSuiteBase {
 
         long firstMtimeSeconds =
                 getLocalFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
-        Thread.sleep(2500);
-        long secondMtimeSeconds =
-                getLocalFileMtimeSeconds("/tmp/seatunnel/continuous/dst/test1.bin");
-        Assertions.assertEquals(
-                firstMtimeSeconds,
-                secondMtimeSeconds,
-                "Continuous discovery should skip unchanged files in update mode.");
+        Awaitility.await()
+                .during(2, TimeUnit.SECONDS)
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        firstMtimeSeconds,
+                                        getLocalFileMtimeSeconds(
+                                                "/tmp/seatunnel/continuous/dst/test1.bin"),
+                                        "Continuous discovery should skip unchanged files in update mode."));
 
         putLocalFile("/tmp/seatunnel/continuous/src/test2.bin", "def");
         Awaitility.await()
@@ -603,9 +609,14 @@ public class LocalFileIT extends TestSuiteBase {
                                         "root",
                                         readLocalFile("/tmp/seatunnel/continuous/dst/root.bin")));
 
-        Thread.sleep(3000);
-        Assertions.assertFalse(
-                isLocalFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
+        Awaitility.await()
+                .during(3, TimeUnit.SECONDS)
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        isLocalFileExists(
+                                                "/tmp/seatunnel/continuous/dst/subdir/nested.bin")));
 
         cancelContinuousJob(container, jobId, jobFuture);
         baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");

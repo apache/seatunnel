@@ -281,13 +281,16 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
             long firstMtimeSeconds =
                     getFtpFileMtimeSeconds(CONTINUOUS_DISTCP_PATH + "/dst/test1.bin");
-            Thread.sleep(2500);
-            long secondMtimeSeconds =
-                    getFtpFileMtimeSeconds(CONTINUOUS_DISTCP_PATH + "/dst/test1.bin");
-            Assertions.assertEquals(
-                    firstMtimeSeconds,
-                    secondMtimeSeconds,
-                    "Continuous discovery should skip unchanged files in update mode.");
+            Awaitility.await()
+                    .during(2, TimeUnit.SECONDS)
+                    .atMost(1, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            firstMtimeSeconds,
+                                            getFtpFileMtimeSeconds(
+                                                    CONTINUOUS_DISTCP_PATH + "/dst/test1.bin"),
+                                            "Continuous discovery should skip unchanged files in update mode."));
 
             putFtpFile(CONTINUOUS_DISTCP_PATH + "/src/test2.bin", "def");
             Awaitility.await()
@@ -528,9 +531,15 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                                     CONTINUOUS_NON_RECURSIVE_PATH
                                                             + "/dst/root.bin")));
 
-            Thread.sleep(3000);
-            Assertions.assertFalse(
-                    isFtpFileExists(CONTINUOUS_NON_RECURSIVE_PATH + "/dst/subdir/nested.bin"));
+            Awaitility.await()
+                    .during(3, TimeUnit.SECONDS)
+                    .atMost(1, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isFtpFileExists(
+                                                    CONTINUOUS_NON_RECURSIVE_PATH
+                                                            + "/dst/subdir/nested.bin")));
         } catch (Throwable failure) {
             testFailure = failure;
             throw failure;

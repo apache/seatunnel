@@ -345,11 +345,16 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                     }
                     return null;
                 });
-        TimeUnit.SECONDS.sleep(10);
+        await().atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
         // insert update delete
         updateSourceTable(SCEHMA_NAME, SOURCE_TABLE_NO_PRIMARY_KEY);
-        TimeUnit.SECONDS.sleep(20);
-        await().atMost(2, TimeUnit.MINUTES)
+        await().during(20, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
@@ -644,9 +649,11 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
 
         insertRow(1, SCEHMA_NAME, SOURCE_TABLE1);
 
-        // sleep for a while to make sure the timestamp is different
+        // Oracle CDC startup timestamps must fall strictly between the two change events.
+        // Keep both events away from the sampled millisecond boundary.
         TimeUnit.SECONDS.sleep(5);
         long startTimestamp = System.currentTimeMillis();
+        // Ensure the second change event is committed after the sampled startup timestamp.
         TimeUnit.SECONDS.sleep(5);
 
         insertRow(2, SCEHMA_NAME, SOURCE_TABLE1);

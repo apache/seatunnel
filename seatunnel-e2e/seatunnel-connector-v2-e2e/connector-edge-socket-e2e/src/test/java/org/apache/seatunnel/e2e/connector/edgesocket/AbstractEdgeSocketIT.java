@@ -159,11 +159,14 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw timeoutException;
                 }
+                // Back off before reconnecting after a transient socket timeout; the outer
+                // deadline bounds the complete retry loop.
                 TimeUnit.MILLISECONDS.sleep(200);
             } catch (IOException ioException) {
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw ioException;
                 }
+                // Use a slightly longer backoff for connection-level I/O failures before retrying.
                 TimeUnit.MILLISECONDS.sleep(500);
             }
         }
@@ -209,11 +212,14 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw timeoutException;
                 }
+                // Back off before reconnecting after a transient socket timeout; the outer
+                // deadline bounds the complete retry loop.
                 TimeUnit.MILLISECONDS.sleep(200);
             } catch (IOException ioException) {
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw ioException;
                 }
+                // Use a slightly longer backoff for connection-level I/O failures before retrying.
                 TimeUnit.MILLISECONDS.sleep(500);
             }
         }
@@ -395,6 +401,7 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 return;
             }
             if ("RETRY".equals(reply)) {
+                // Respect collector backpressure before resending the same batch.
                 TimeUnit.MILLISECONDS.sleep(100);
                 continue;
             }
@@ -409,6 +416,7 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
             writeLine(writer, EDGE_COMMIT_PREFIX + expectedBatchId);
             String reply = readLine(reader);
             if ("PENDING".equals(reply)) {
+                // Give the checkpoint time to complete before polling its acknowledgement again.
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;
             }
@@ -417,10 +425,12 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 if (ackedBatchId >= expectedBatchId) {
                     return;
                 }
+                // The acknowledgement belongs to an earlier batch; wait before polling again.
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;
             }
             if ("RETRY".equals(reply)) {
+                // The forwarder explicitly requested a retry while the checkpoint is progressing.
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;
             }
@@ -437,6 +447,7 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
             writeLine(writer, EDGE_COMMIT_PREFIX + expectedBatchId);
             String reply = readLine(reader);
             if ("PENDING".equals(reply)) {
+                // Give the checkpoint time to complete before polling its watermark again.
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;
             }
@@ -445,10 +456,12 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 if (ackedBatchId >= expectedBatchId) {
                     return ackedBatchId;
                 }
+                // The acknowledgement belongs to an earlier batch; wait before polling again.
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;
             }
             if ("RETRY".equals(reply)) {
+                // The forwarder explicitly requested a retry while the checkpoint is progressing.
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;
             }
@@ -499,11 +512,13 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw timeoutException;
                 }
+                // Back off before reconnecting the packet-mode client after a transient timeout.
                 TimeUnit.MILLISECONDS.sleep(200);
             } catch (IOException ioException) {
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw ioException;
                 }
+                // Back off after packet-mode connection failures before the bounded retry.
                 TimeUnit.MILLISECONDS.sleep(500);
             }
         }
@@ -561,11 +576,13 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw timeoutException;
                 }
+                // Back off before reconnecting the encrypted client after a transient timeout.
                 TimeUnit.MILLISECONDS.sleep(200);
             } catch (IOException ioException) {
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw ioException;
                 }
+                // Back off after encrypted connection failures before the bounded retry.
                 TimeUnit.MILLISECONDS.sleep(500);
             }
         }

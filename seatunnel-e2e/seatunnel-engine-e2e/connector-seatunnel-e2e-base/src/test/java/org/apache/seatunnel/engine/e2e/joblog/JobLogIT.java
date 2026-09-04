@@ -161,13 +161,15 @@ public class JobLogIT extends SeaTunnelEngineContainer {
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
         assertFileLogClean(before);
-        Thread.sleep(90000);
         List<Tuple2<Boolean, String>> after =
                 Lists.newArrayList(
                         Tuple2.tuple2(true, "job-" + CUSTOM_JOB_ID + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID2 + ".log"),
                         Tuple2.tuple2(false, "job-" + CUSTOM_JOB_ID3 + ".log"));
-        assertFileLogClean(after);
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertFileLogClean(after));
     }
 
     private void assertConsoleLog() {

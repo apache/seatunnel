@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 
 public class InMemorySinkWriter
         implements SinkWriter<SeaTunnelRow, InMemoryCommitInfo, InMemoryState>,
@@ -49,7 +50,10 @@ public class InMemorySinkWriter
                         () -> {
                             while (true) {
                                 try {
-                                    Thread.sleep(1000);
+                                    // Intentional periodic delay: keep the deliberately leaked
+                                    // thread and classloader reachable without busy-spinning so
+                                    // cleanup tests can detect and handle the leak.
+                                    TimeUnit.SECONDS.sleep(1);
                                     System.out.println(classLoader);
                                 } catch (InterruptedException e) {
                                     e.printStackTrace();
@@ -81,7 +85,10 @@ public class InMemorySinkWriter
     public void write(SeaTunnelRow element) throws IOException {
         if (config.get(InMemorySinkFactory.WRITER_SLEEP)) {
             try {
-                Thread.sleep(999999999L);
+                // Intentional blocking latency: no readiness condition is expected because this
+                // writer models an unresponsive operation. Cancellation or interruption is the
+                // signal that should release it in timeout and cancellation tests.
+                TimeUnit.MILLISECONDS.sleep(999_999_999L);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -102,11 +109,16 @@ public class InMemorySinkWriter
     public Optional<InMemoryCommitInfo> prepareCommit() throws IOException {
         try {
             if (config.get(InMemorySinkFactory.THROW_EXCEPTION)) {
-                Thread.sleep(4000L);
+                // Intentional failure-injection timing: the fixture has no observable hook for
+                // the target lifecycle phase, so delay the commit failure until fault-tolerance
+                // tests have entered that phase.
+                TimeUnit.SECONDS.sleep(4);
                 throw new IOException("write failed");
             }
             if (config.get(InMemorySinkFactory.CHECKPOINT_SLEEP)) {
-                Thread.sleep(5000L);
+                // Intentional latency injection: the elapsed commit time is the tested behavior,
+                // not a readiness wait, for checkpoint timeout and coordination tests.
+                TimeUnit.SECONDS.sleep(5);
             }
         } catch (InterruptedException e) {
             throw new RuntimeException(e);

@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,6 +34,7 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import com.aerospike.client.AerospikeClient;
+import com.aerospike.client.AerospikeException;
 import com.aerospike.client.Bin;
 import com.aerospike.client.Host;
 import com.aerospike.client.Key;
@@ -81,12 +83,6 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
 
         container.start();
 
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
         ClientPolicy policy = new ClientPolicy();
         policy.timeout = 30000;
         policy.failIfNotConnected = true;
@@ -96,12 +92,24 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
         Host[] hosts =
                 new Host[] {new Host(container.getHost(), container.getMappedPort(AEROSPIKE_PORT))};
 
-        client = new AerospikeClient(policy, hosts);
-
-        // Verify connection
-        if (!client.isConnected()) {
-            throw new IllegalStateException("Failed to connect to Aerospike server");
-        }
+        // Aerospike emits "service ready: soon" before cluster initialization completes.
+        Awaitility.await()
+                .atMost(Duration.ofMinutes(2))
+                .pollInterval(Duration.ofSeconds(1))
+                .until(
+                        () -> {
+                            try {
+                                AerospikeClient candidate = new AerospikeClient(policy, hosts);
+                                if (!candidate.isConnected()) {
+                                    candidate.close();
+                                    return false;
+                                }
+                                client = candidate;
+                                return true;
+                            } catch (AerospikeException e) {
+                                return false;
+                            }
+                        });
     }
 
     private void insertTestData() {

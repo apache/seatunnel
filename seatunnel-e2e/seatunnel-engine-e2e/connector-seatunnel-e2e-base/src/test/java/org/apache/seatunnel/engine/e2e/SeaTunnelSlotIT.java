@@ -74,7 +74,6 @@ public class SeaTunnelSlotIT {
                     .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FAILED.equals(
@@ -127,7 +126,6 @@ public class SeaTunnelSlotIT {
                     .atMost(300000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
-                                Thread.sleep(2000);
                                 Assertions.assertTrue(
                                         objectCompletableFuture.isDone()
                                                 && JobStatus.FINISHED.equals(

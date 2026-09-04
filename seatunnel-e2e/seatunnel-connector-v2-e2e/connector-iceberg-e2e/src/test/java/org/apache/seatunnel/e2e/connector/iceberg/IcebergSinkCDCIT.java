@@ -68,7 +68,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
-import static java.lang.Thread.sleep;
 import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCatalogType.HADOOP;
 import static org.awaitility.Awaitility.given;
 
@@ -249,12 +248,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, addField1, addField2, addField3);
         executeSql(insertMultiColumnSql);
 
-        sleep(30000); // Wait for source capture data
-
         // Verify that multiple columns were added and data is correct
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -324,7 +322,7 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyTypeField1, modifyTypeField2);
         executeSql(insertTypeColumnsSql);
 
-        sleep(30000); // Wait for source capture data
+        awaitIcebergRecord(300);
 
         // Now modify multiple column types in a single ALTER TABLE statement
         String modifyTypesSql =
@@ -354,12 +352,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyTypeField1, modifyTypeField2);
         executeSql(insertAfterModifyTypesSql);
 
-        sleep(30000); // Wait for source capture data
-
         // Verify that column types were modified and data is correct
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -426,7 +423,7 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyField1, modifyField2);
         executeSql(insertModifyColumnsSql);
 
-        sleep(30000); // Wait for source capture data
+        awaitIcebergRecord(400);
 
         // Now modify multiple columns in a single ALTER TABLE statement
         String modifyColumnsSql =
@@ -455,12 +452,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, modifyField1, modifyField2);
         executeSql(insertAfterModifySql);
 
-        sleep(30000); // Wait for source capture data
-
         // Verify that columns were modified and data is correct
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -507,13 +503,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         // Init table data
         addTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
         insertAddColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
         // stream stage
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -534,12 +528,10 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
         String modifyField = "f_varchar";
         modifyTableColumn(MYSQL_DATABASE, SOURCE_TABLE, modifyField, "text");
         insertModifyColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             List<Record> records = loadIcebergTable();
@@ -557,12 +549,10 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
 
         dropTableColumn(MYSQL_DATABASE, SOURCE_TABLE, addField);
         insertAfterDropColumnData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -648,12 +638,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         MYSQL_DATABASE, SOURCE_TABLE, newColumnName);
         executeSql(insertAfterRenameSql);
 
-        sleep(30000); // Wait for source capture data
-
         // Verify that column was renamed and data is correct
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Schema schema = loadIcebergSchema();
@@ -692,13 +681,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     private void upsertAndCheckData(TestContainer container)
             throws InterruptedException, IOException {
         upsertDeleteSourceTable(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
         // stream stage
         given().ignoreExceptions()
                 .await()
-                .atMost(120000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             List<Record> records = loadIcebergTable();
@@ -717,13 +704,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
             throws InterruptedException, IOException {
         // Init table data
         initSourceTableData(MYSQL_DATABASE, SOURCE_TABLE);
-        // Waiting 30s for source capture data
-        sleep(30000);
-
         // stream stage
         given().ignoreExceptions()
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals(3, loadIcebergTable().size());
@@ -752,6 +737,23 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
             log.error(ex.getMessage());
         }
         return results;
+    }
+
+    private void awaitIcebergRecord(int expectedId) {
+        given().ignoreExceptions()
+                .await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            boolean recordExists =
+                                    loadIcebergTable().stream()
+                                            .anyMatch(
+                                                    record ->
+                                                            Integer.valueOf(expectedId)
+                                                                    .equals(record.getField("id")));
+                            Assertions.assertTrue(recordExists);
+                        });
     }
 
     @NotNull private static IcebergTableLoader getTableLoader() {

@@ -45,6 +45,7 @@ import java.sql.Statement;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -210,20 +211,30 @@ public class JdbcSinkBatchIntervalIT extends TestSuiteBase implements TestResour
                         });
 
         int firstCount = getSinkRowCount("sink_batch_interval_bs1");
-        Thread.sleep(5000);
-        Assertions.assertFalse(jobFinished.get(), "Job should still be running for second poll");
-        int secondCount = getSinkRowCount("sink_batch_interval_bs1");
+        AtomicInteger secondCount = new AtomicInteger();
+        given().ignoreExceptions()
+                .await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(
+                                    jobFinished.get(),
+                                    "Job should still be running for second poll");
+                            secondCount.set(getSinkRowCount("sink_batch_interval_bs1"));
+                            Assertions.assertTrue(secondCount.get() > firstCount);
+                        });
         log.info(
                 "batch_size=1 incremental check: firstCount={}, secondCount={}",
                 firstCount,
-                secondCount);
+                secondCount.get());
         Assertions.assertTrue(
-                secondCount > firstCount,
+                secondCount.get() > firstCount,
                 "Row count should keep growing with batch_size=1 (per-row flush), "
                         + "firstCount="
                         + firstCount
                         + ", secondCount="
-                        + secondCount);
+                        + secondCount.get());
 
         Container.ExecResult result = jobFuture.join();
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());

@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
 import org.apache.http.HttpResponse;
+import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
@@ -41,6 +42,7 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.ssl.SSLContextBuilder;
 import org.apache.http.util.EntityUtils;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -71,8 +73,6 @@ import java.util.stream.Stream;
 public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
     private static final String ELASTICSEARCH_IMAGE = "elasticsearch:8.9.0";
-    private static final long INDEX_REFRESH_DELAY = 2000L;
-
     // Test data constants
     private static final String TEST_INDEX = "auth_test_index";
     private static final String VALID_USERNAME = "elastic";
@@ -165,35 +165,30 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
     }
 
     /** Wait for Elasticsearch to be ready */
-    private void waitForElasticsearchReady() throws IOException, InterruptedException {
+    private void waitForElasticsearchReady() {
         String elasticsearchUrl = "https://" + elasticsearchContainer.getHttpHostAddress();
         String healthUrl = elasticsearchUrl + "/_cluster/health";
 
         log.info("Waiting for Elasticsearch to be ready at: {}", healthUrl);
+        Awaitility.await("Elasticsearch cluster to become ready")
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(() -> isElasticsearchReady(healthUrl));
+        log.info("Elasticsearch is ready");
+    }
 
-        for (int i = 0; i < 30; i++) {
-            try {
-                HttpGet request = new HttpGet(healthUrl);
-                String auth =
-                        Base64.getEncoder()
-                                .encodeToString(
-                                        (VALID_USERNAME + ":" + VALID_PASSWORD)
-                                                .getBytes(StandardCharsets.UTF_8));
-                request.setHeader("Authorization", "Basic " + auth);
-
-                HttpResponse response = httpClient.execute(request);
-                if (response.getStatusLine().getStatusCode() == 200) {
-                    log.info("Elasticsearch is ready");
-                    return;
-                }
-            } catch (Exception e) {
-                log.debug("Elasticsearch not ready yet, attempt {}/30: {}", i + 1, e.getMessage());
-            }
-
-            TimeUnit.SECONDS.sleep(2);
+    private boolean isElasticsearchReady(String healthUrl) throws IOException {
+        HttpGet request = new HttpGet(healthUrl);
+        String auth =
+                Base64.getEncoder()
+                        .encodeToString(
+                                (VALID_USERNAME + ":" + VALID_PASSWORD)
+                                        .getBytes(StandardCharsets.UTF_8));
+        request.setHeader("Authorization", "Basic " + auth);
+        try (CloseableHttpResponse response = httpClient.execute(request)) {
+            return response.getStatusLine().getStatusCode() == 200;
         }
-
-        throw new RuntimeException("Elasticsearch failed to become ready within timeout");
     }
 
     /** Create real API keys using Elasticsearch API */
@@ -332,7 +327,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 throw new RuntimeException("Failed to insert test data: " + response.getResponse());
             }
 
-            Thread.sleep(INDEX_REFRESH_DELAY);
+            awaitIndexDocsCountAtLeast(TEST_INDEX, 3);
             log.info("Test data inserted successfully - {} documents", 3);
         } catch (Exception e) {
             log.error("Failed to insert test data", e);
@@ -566,12 +561,8 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
-            // Wait for index refresh
-            Thread.sleep(2000);
-
             // Verify results
-            long targetCount =
-                    esRestClient.getIndexDocsCount("auth_test_apikey_target").get(0).getDocsCount();
+            long targetCount = awaitIndexDocsCountAtLeast("auth_test_apikey_target", 3);
             log.info("✓ API Key auth E2E test completed - {} documents processed", targetCount);
             Assertions.assertTrue(
                     targetCount > 0, "Should have processed documents with API key auth");
@@ -613,15 +604,8 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, execResult.getExitCode(), "Job should complete successfully");
 
-            // Wait for index refresh
-            Thread.sleep(2000);
-
             // Verify results
-            long targetCount =
-                    esRestClient
-                            .getIndexDocsCount("auth_test_apikey_encoded_target")
-                            .get(0)
-                            .getDocsCount();
+            long targetCount = awaitIndexDocsCountAtLeast("auth_test_apikey_encoded_target", 3);
             log.info(
                     "✓ API Key Encoded auth E2E test completed - {} documents processed",
                     targetCount);
@@ -778,10 +762,19 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             log.warn("Some documents might already exist: {}", response.getResponse());
         }
 
-        // Wait for index refresh
-        Thread.sleep(2000);
-
-        long docCount = esRestClient.getIndexDocsCount(testIndex).get(0).getDocsCount();
+        long docCount = awaitIndexDocsCountAtLeast(testIndex, 10);
         log.info("Test data setup completed - {} documents in source index", docCount);
+    }
+
+    private long awaitIndexDocsCountAtLeast(String indexName, long minimumCount) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .ignoreExceptions()
+                .until(
+                        () ->
+                                esRestClient.getIndexDocsCount(indexName).get(0).getDocsCount()
+                                        >= minimumCount);
+        return esRestClient.getIndexDocsCount(indexName).get(0).getDocsCount();
     }
 }

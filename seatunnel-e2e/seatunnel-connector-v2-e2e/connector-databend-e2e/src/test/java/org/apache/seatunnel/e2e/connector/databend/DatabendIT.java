@@ -57,6 +57,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public class DatabendIT extends TestSuiteBase implements TestResource {
@@ -248,13 +249,10 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
 
         this.minioContainer.start();
 
-        LOG.info("MinIO container starting，wait 5 secs ...");
-        Thread.sleep(5000);
-
-        boolean bucketCreated = createMinIOBucketWithAWSSDK("databend");
-        if (!bucketCreated) {
-            LOG.warn("can't make sure MinIO bucket create success，continue to start Databend");
-        }
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> createMinIOBucketWithAWSSDK("databend"));
         this.container =
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
@@ -450,16 +448,14 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
             }
         }
 
-        if (minioContainer != null) {
-            minioContainer.stop();
-            LOG.info("Minio container stopped");
-        }
-
-        Thread.sleep(5000);
-
         if (this.container != null) {
             this.container.stop();
             LOG.info("Container stopped");
+        }
+
+        if (minioContainer != null) {
+            minioContainer.stop();
+            LOG.info("Minio container stopped");
         }
     }
 }

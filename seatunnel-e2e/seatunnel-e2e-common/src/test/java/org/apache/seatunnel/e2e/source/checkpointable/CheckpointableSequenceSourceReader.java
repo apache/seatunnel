@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.TimeUnit;
 
 public class CheckpointableSequenceSourceReader
         implements SourceReader<SeaTunnelRow, CheckpointableSequenceSplit> {
@@ -50,30 +51,34 @@ public class CheckpointableSequenceSourceReader
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        long delayMillis = 0L;
         synchronized (output.getCheckpointLock()) {
             CheckpointableSequenceSplit split = activeSplits.poll();
             if (split == null) {
                 if (noMoreSplits) {
                     context.signalNoMoreElement();
                 } else {
-                    Thread.sleep(Math.max(emitIntervalMs, 10L));
+                    delayMillis = Math.max(emitIntervalMs, 10L);
                 }
-                return;
-            }
+            } else {
+                int emitted = 0;
+                while (emitted < recordsPerPoll && split.hasRemaining()) {
+                    output.collect(new SeaTunnelRow(new Object[] {split.advance()}));
+                    emitted++;
+                }
 
-            int emitted = 0;
-            while (emitted < recordsPerPoll && split.hasRemaining()) {
-                output.collect(new SeaTunnelRow(new Object[] {split.advance()}));
-                emitted++;
-            }
+                if (split.hasRemaining()) {
+                    activeSplits.addLast(split);
+                }
 
-            if (split.hasRemaining()) {
-                activeSplits.addLast(split);
+                delayMillis = emitIntervalMs;
             }
-
-            if (emitIntervalMs > 0L) {
-                Thread.sleep(emitIntervalMs);
-            }
+        }
+        if (delayMillis > 0L) {
+            // Intentional source pacing: emitIntervalMs is part of this synthetic source's
+            // behavior, not a readiness wait. Sleep outside the checkpoint lock so pacing cannot
+            // block checkpoint snapshots.
+            TimeUnit.MILLISECONDS.sleep(delayMillis);
         }
     }
 

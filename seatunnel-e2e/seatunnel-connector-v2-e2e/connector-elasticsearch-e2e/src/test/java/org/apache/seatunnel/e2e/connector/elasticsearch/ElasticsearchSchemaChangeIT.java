@@ -140,21 +140,43 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
 
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/elasticsearch/mysqlcdc_to_elasticsearch_with_schema_change.conf";
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.executeJob(jobConfigFile, jobId);
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Void> jobFuture =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                Container.ExecResult result =
+                                        container.executeJob(jobConfigFile, jobId);
+                                Assertions.assertEquals(
+                                        0, result.getExitCode(), result.getStderr());
+                            } catch (Exception e) {
+                                log.error("Elasticsearch schema-change job failed", e);
+                                throw new RuntimeException(e);
+                            }
+                        });
 
-        TimeUnit.SECONDS.sleep(20);
+        // The schema change must be applied only after the initial snapshot reaches Elasticsearch.
+        // Starting the CDC pipeline can exceed two minutes on a shared GitHub runner, so keep a
+        // wider bound for this one-time startup transition.
+        await().atMost(5, TimeUnit.MINUTES)
+                .failFast(
+                        "The streaming job finished before the initial snapshot was indexed",
+                        jobFuture::isDone)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        9,
+                                        esRestClient
+                                                .getIndexDocsCount("schema_change_index")
+                                                .get(0)
+                                                .getDocsCount()));
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
 
         await().atMost(120, TimeUnit.SECONDS)
                 .pollInterval(3, TimeUnit.SECONDS)
+                .failFast(
+                        "The streaming job finished before the schema change was indexed",
+                        jobFuture::isDone)
                 .ignoreExceptions()
                 .untilAsserted(
                         () -> {

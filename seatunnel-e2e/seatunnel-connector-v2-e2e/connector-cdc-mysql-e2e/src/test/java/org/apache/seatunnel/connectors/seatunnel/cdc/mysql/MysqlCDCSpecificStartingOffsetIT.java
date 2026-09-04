@@ -526,9 +526,10 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                                 + "         0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field',\n"
                                 + "         112.345, '14:30:00', -128, 22, '{ \"key\": \"value5\" }', 2013 )",
                         MYSQL_DATABASE, SOURCE_TABLE_1));
-        //  mysql binlog timestamp is second, wait for 3 seconds to make sure the timestamp is
-        // different
-        Thread.sleep(3000);
+        // Intentional time-based wait: MySQL binlog timestamps have second granularity, and this
+        // test requires the following starting offset to fall in a later timestamp bucket than the
+        // rows above. No readiness condition can replace the passage of that timestamp boundary.
+        TimeUnit.SECONDS.sleep(3);
 
         // get latest binlog timestamp
         String[] variables = {

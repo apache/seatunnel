@@ -486,12 +486,9 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                     }
                 });
 
-        // give the job some time to start
-        TimeUnit.SECONDS.sleep(10);
-
         // verify job stays running (i.e. no fatal exception like ArrayIndexOutOfBounds from
         // Debezium)
-        await().atMost(2, TimeUnit.MINUTES)
+        await().atMost(5, TimeUnit.MINUTES)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
@@ -526,11 +523,16 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         throw new RuntimeException(e);
                     }
                 });
-        TimeUnit.SECONDS.sleep(10);
+        await().atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
         // insert update delete
         updateSourceTable(SOURCE_TABLE_CUSTOM_PRIMARY_KEY);
-        TimeUnit.SECONDS.sleep(20);
-        await().atMost(2, TimeUnit.MINUTES)
+        await().during(20, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
@@ -979,9 +981,11 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                         + SOURCE_TABLE_CUSTOM_PRIMARY_KEY
                         + " VALUES (1, 'cč1', 'vcč', 'tč', N'cč', N'vcč', N'tč', 1.123, 2, 3.323, 4.323, 5.323, 6.323, 1, 22, 333, 4444, 55555, '2018-07-13', '10:23:45', '2018-07-13 11:23:45.34', '2018-07-13 13:23:45.78', '2018-07-13 14:23:45', '<a>b</a>',SYSDATETIMEOFFSET(),CAST('test_varbinary' AS varbinary(100)), 5.32)");
 
-        // sleep for a while to make sure the timestamp is different
+        // SQL Server CDC startup timestamps must fall strictly between the two change events.
+        // Keep both events away from the sampled millisecond boundary.
         TimeUnit.SECONDS.sleep(5);
         long startTimestamp = System.currentTimeMillis();
+        // Ensure the second change event is committed after the sampled startup timestamp.
         TimeUnit.SECONDS.sleep(5);
 
         executeSql(

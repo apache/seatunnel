@@ -38,12 +38,10 @@ import java.sql.Driver;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.LockSupport;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.given;
@@ -111,13 +109,10 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);
             statement.execute(SET_CONNECTIONS);
-            ResultSet resultSet = null;
-            do {
-                if (resultSet != null) {
-                    resultSet.close();
-                }
-                resultSet = statement.executeQuery(SHOW_BE);
-            } while (!isBeReady(resultSet, Duration.ofSeconds(1L)));
+            given().pollInterval(1, TimeUnit.SECONDS)
+                    .await()
+                    .atMost(300, TimeUnit.SECONDS)
+                    .until(() -> isBeReady(statement));
         }
     }
 
@@ -153,14 +148,15 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
         }
     }
 
-    private boolean isBeReady(ResultSet rs, Duration duration) throws SQLException {
-        if (rs.next()) {
-            String isAlive = rs.getString("Alive").trim();
-            String totalCap = rs.getString("TotalCapacity").trim();
-            LockSupport.parkNanos(duration.toNanos());
-            return "true".equalsIgnoreCase(isAlive) && !"0.000".equalsIgnoreCase(totalCap);
+    private boolean isBeReady(Statement statement) throws SQLException {
+        try (ResultSet resultSet = statement.executeQuery(SHOW_BE)) {
+            if (resultSet.next()) {
+                String isAlive = resultSet.getString("Alive").trim();
+                String totalCap = resultSet.getString("TotalCapacity").trim();
+                return "true".equalsIgnoreCase(isAlive) && !"0.000".equalsIgnoreCase(totalCap);
+            }
+            return false;
         }
-        return false;
     }
 
     @AfterAll

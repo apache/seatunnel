@@ -166,11 +166,9 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/easysearch/easysearch_source_and_sink_with_save_mode.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // Wait for index refresh
-        Thread.sleep(2000);
-
         // Verify the index was created with the correct schema
         String indexName = "st_index_save_mode";
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         try {
             List<IndexDocsCount> indexDocsCounts = easysearchClient.getIndexDocsCount(indexName);
             Assertions.assertFalse(indexDocsCounts.isEmpty(), "Index should exist");
@@ -185,8 +183,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkDataFromIndex(String indexName) throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(2000);
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -327,8 +324,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkData() throws InterruptedException {
-        // wait for index refresh
-        Thread.sleep(2000);
+        awaitIndexDocsCount("st_index2", mapTestDatasetForDSL().size());
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -384,6 +380,21 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         }
 
         return docs;
+    }
+
+    private void awaitIndexDocsCount(String indexName, long expectedCount) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedCount,
+                                        easysearchClient
+                                                .getIndexDocsCount(indexName)
+                                                .get(0)
+                                                .getDocsCount()));
     }
 
     private List<String> mapTestDatasetForDSL() {

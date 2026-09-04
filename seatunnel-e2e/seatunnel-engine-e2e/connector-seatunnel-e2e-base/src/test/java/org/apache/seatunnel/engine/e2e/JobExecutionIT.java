@@ -131,7 +131,12 @@ public class JobExecutionIT {
 
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
-            Thread.sleep(1000);
+            await().atMost(1, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
             clientJobProxy.cancelJob();
 
             await().atMost(20000, TimeUnit.MILLISECONDS)

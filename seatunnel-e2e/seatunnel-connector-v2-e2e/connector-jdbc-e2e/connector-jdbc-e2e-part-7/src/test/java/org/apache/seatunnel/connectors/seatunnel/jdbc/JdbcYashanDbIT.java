@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 
+import org.awaitility.Awaitility;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -39,6 +40,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JdbcYashanDbIT extends AbstractJdbcIT {
@@ -165,21 +167,10 @@ public class JdbcYashanDbIT extends AbstractJdbcIT {
     protected void beforeStartUP() {
         // YashanDB port opens well before the database is fully deployed (~156s).
         // Wait for the init success message in container logs before proceeding.
-        long deadline = System.currentTimeMillis() + Duration.ofMinutes(5).toMillis();
-        while (System.currentTimeMillis() < deadline) {
-            String logs = dbServer.getLogs();
-            if (logs.contains("yashandb init success")) {
-                log.info("YashanDB initialization completed");
-                return;
-            }
-            try {
-                Thread.sleep(5000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                return;
-            }
-        }
-        throw new RuntimeException("YashanDB did not finish initialization within 5 minutes");
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .until(() -> dbServer.getLogs().contains("yashandb init success"));
+        log.info("YashanDB initialization completed");
     }
 
     @Override

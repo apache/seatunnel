@@ -162,9 +162,6 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                     }
                 });
 
-        // Waiting to job running for auto create sink table
-        Thread.sleep(10000L);
-
         assertSchemaEvolution(
                 ORACLE_CONTAINER.getJdbcUrl(),
                 ORACLE_CONTAINER.getJdbcUrl(),
@@ -191,9 +188,8 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                     }
                 });
 
-        given().pollDelay(10, TimeUnit.SECONDS)
-                .await()
-                .pollDelay(5000L, TimeUnit.MILLISECONDS)
+        given().await()
+                .atMost(5, TimeUnit.MINUTES)
                 .untilAsserted(
                         () -> {
                             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
@@ -214,7 +210,12 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
             String sinkTableName,
             boolean oracle2Mysql)
             throws Exception {
-        await().atMost(300, TimeUnit.SECONDS)
+        // Matching snapshot rows alone does not guarantee that Oracle LogMiner has entered the
+        // streaming phase. Keep the initial state stable before issuing the first DDL batch so
+        // changes made between snapshot completion and streaming startup are not missed.
+        await().ignoreExceptions()
+                .during(10, TimeUnit.SECONDS)
+                .atMost(300, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 checkData(
@@ -227,7 +228,6 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
 
         // case1 add columns with cdc data at same time
         createAndInitialize("add_columns", CONNECTOR_USER, CONNECTOR_PWD);
-        Thread.sleep(40 * 1000);
         // verify the schema: oracle -> oracle
         if (!oracle2Mysql) {
             await().atMost(300, TimeUnit.SECONDS)
@@ -240,8 +240,8 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                             sinkSchemaName,
                                             sinkTableName));
             // verify the data
-            with().pollInterval(TWO_SECONDS)
-                    .pollDelay(10, TimeUnit.SECONDS)
+            with().ignoreExceptions()
+                    .pollInterval(TWO_SECONDS)
                     .and()
                     .await()
                     .atMost(20, TimeUnit.MINUTES)
@@ -353,7 +353,6 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
             boolean oracle2Mysql)
             throws Exception {
         createAndInitialize(ddlSqlName, CONNECTOR_USER, CONNECTOR_PWD);
-        Thread.sleep(10 * 1000);
         assertTableStructureAndData(
                 sourceJdbcUrl, sinkJdbcUrl, sinkSchemaname, sinkTable, oracle2Mysql);
     }
