@@ -408,7 +408,8 @@ def jmh_comparison_lines(baselines, candidates):
     lines = [
         "### JMH comparison",
         "",
-        "`B` = Baseline, `C` = Candidate. Score is the median JMH score; CV and Error are the medians of the per-run relative statistics.",
+        "`B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures variability and Error represents the relative JMH confidence interval, both aggregated as medians across runs.",
+        "Score Change is direction-adjusted so positive is favorable; CV and Error changes are relative changes.",
         "",
         "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | CV Change | Error B | Error C | Error Change | Unit |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
@@ -580,9 +581,7 @@ def comparison_lines(baselines, candidates):
         "- Runner image: `{}`".format(environment.get("runner_image", "unknown")),
         "- CPU: `{}`".format(environment.get("cpu_model", "unknown")),
         "",
-        "> Baseline and candidate ran alternately on the same worker. Score and pipeline changes "
-        "are direction-adjusted so positive is favorable; CV and Error changes are relative "
-        "changes. This observational report does not enforce a regression threshold.",
+        "> Baseline and candidate ran alternately on the same worker.",
     ]
     for section in (
         jmh_comparison_lines(baselines, candidates),
