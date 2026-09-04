@@ -92,6 +92,7 @@
         <module>connector-milvus</module>
         <module>connector-activemq</module>
         <module>connector-prometheus</module>
+        <module>connector-deeplake</module>
         <module>connector-qdrant</module>
         <module>connector-sls</module>
         <module>connector-typesense</module>
@@ -104,6 +105,7 @@
         <module>connector-edge-socket</module>
         <module>connector-azurecosmosdb</module>
         <module>connector-nats-jetstream</module>
+        <module>connector-firebase</module>
     </modules>
 
     <dependencyManagement>
