@@ -30,8 +30,9 @@ import org.apache.flink.api.connector.source.SourceEvent;
  * 2. After {@link FlinkSourceEnumerator} received this event and invoke {@link
  * org.apache.flink.api.connector.source.SplitEnumeratorContext#sendEventToSourceReader(int,
  * SourceEvent)} send this event to {@link FlinkSourceReader}.<br>
- * 3. After {@link FlinkSourceReader} received this event and change {@link
- * org.apache.flink.core.io.InputStatus} from MORE_AVAILABLE to END_INPUT.<br>
+ * 3. After {@link FlinkSourceReader} receives this event, it either finishes normally or enters a
+ * logically closed state that stops connector polling while retaining checkpoint participation on
+ * runtimes that require source keep-alive.<br>
  */
 public final class NoMoreElementEvent implements SourceEvent {
     private final int subTaskIndex;

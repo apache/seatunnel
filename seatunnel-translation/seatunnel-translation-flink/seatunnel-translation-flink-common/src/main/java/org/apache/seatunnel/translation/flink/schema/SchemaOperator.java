@@ -20,7 +20,6 @@ package org.apache.seatunnel.translation.flink.schema;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -29,7 +28,6 @@ import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
@@ -44,12 +42,13 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.UUID;
 
 /**
  * Operator placed after the source to handle schema evolution.
@@ -69,7 +68,8 @@ import java.util.concurrent.ConcurrentHashMap;
  * high-parallelism CDC jobs hit that condition, pending schema changes would otherwise stay blocked
  * forever. Subclasses may override {@link #scheduleFallbackTimer()} to register a version-specific
  * timer that detects the stall and re-enters the task thread via {@link
- * #handleFallbackTimerOnTaskThread()} so the deferred DDL can still be applied safely. The base
+ * #handleFallbackTimerOnTaskThread()}. Exactly-once jobs fail rather than bypassing the second
+ * checkpoint fence; at-least-once jobs may release the DDL through the fallback. The base
  * implementation is a no-op, keeping the common module free of version-specific overhead.
  */
 @Slf4j
@@ -77,43 +77,61 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         implements OneInputStreamOperator<SeaTunnelRow, SeaTunnelRow> {
 
     private static final int MAX_BUFFERED_RECORDS = 100000;
-    private static final long SCHEMA_CHANGE_TIMEOUT_MS = 300_000L;
+    private static final long MAX_BUFFERED_BYTES = 64L * 1024 * 1024;
+    private static final int MIN_ESTIMATED_RECORD_BYTES = 64;
     private static final int CHECKPOINT_WAIT_ROUNDS = 1;
+    protected static final long DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS = 15_000L;
 
-    /** Exposed to subclasses so version-specific fallback timers can use the same threshold. */
-    protected static final long CHECKPOINT_STALL_TIMEOUT_MS = 15_000L;
-
-    private final Map<TableIdentifier, CatalogTable> localSchemaState;
-
-    /** Exposed to subclasses for logging only. */
     protected String jobId;
-
     private final SupportSchemaEvolution source;
     private final Config pluginConfig;
-    private volatile Long lastProcessedEventTime;
-    private transient LocalSchemaCoordinator coordinator;
+    private final boolean exactlyOnceMode;
+    protected final long checkpointStallTimeoutMs;
+    private String schemaChangeProducerId;
+    private long schemaChangeSequence;
+    private String lastEmittedSchemaChangeId;
     private transient Queue<BufferedRecord> pendingQueue;
+    private transient long pendingBytes;
     private volatile boolean schemaChangePending = false;
     private long firstSeenCheckpointId = -1L;
 
-    /**
-     * Timestamp of the most recently completed checkpoint. Updated in {@link
-     * #notifyCheckpointComplete} and read by {@link #handleFallbackTimerOnTaskThread} to detect
-     * whether checkpoints have stalled.
-     */
     protected volatile long lastCheckpointCompletedMs = -1L;
+    private transient ListState<SchemaEvolutionProtocolState> schemaEvolutionProtocolState;
 
-    private transient ListState<SchemaStateEntry> localSchemaStateStore;
-    private transient ListState<Long> lastProcessedEventTimeState;
+    // Legacy state descriptors are retained so savepoints written before the atomic protocol
+    // state was introduced remain restorable. New snapshots also keep them populated for rollback
+    // compatibility, but restore always prefers schemaEvolutionProtocolState when it is present.
+    private transient ListState<TableEventTimeEntry> lastProcessedEventTimesState;
     private transient ListState<Boolean> schemaChangePendingState;
     private transient ListState<BufferedRecordEntry> bufferedRecordsState;
     private transient ListState<Long> firstSeenCheckpointIdState;
+    private transient ListState<String> schemaChangeProducerIdState;
+    private transient ListState<Long> schemaChangeSequenceState;
+    private transient ListState<String> lastEmittedSchemaChangeIdState;
 
     public SchemaOperator(String jobId, SupportSchemaEvolution source, Config pluginConfig) {
+        this(jobId, source, pluginConfig, true);
+    }
+
+    public SchemaOperator(
+            String jobId,
+            SupportSchemaEvolution source,
+            Config pluginConfig,
+            boolean exactlyOnceMode) {
+        this(jobId, source, pluginConfig, exactlyOnceMode, DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS);
+    }
+
+    protected SchemaOperator(
+            String jobId,
+            SupportSchemaEvolution source,
+            Config pluginConfig,
+            boolean exactlyOnceMode,
+            long checkpointStallTimeoutMs) {
         this.jobId = jobId;
         this.source = source;
         this.pluginConfig = pluginConfig;
-        this.localSchemaState = new ConcurrentHashMap<>();
+        this.exactlyOnceMode = exactlyOnceMode;
+        this.checkpointStallTimeoutMs = checkpointStallTimeoutMs;
     }
 
     @Override
@@ -124,9 +142,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             this.jobId = flinkJobId;
         }
         if (this.pendingQueue == null) {
-            this.pendingQueue = new LinkedList<>();
+            this.pendingQueue = new ArrayDeque<>();
         }
-        this.coordinator = LocalSchemaCoordinator.getInstance(this.jobId);
 
         log.info(
                 "SchemaOperator opened for job: {}, schemaChangePending: {}, pendingQueue size: {}",
@@ -155,13 +172,13 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             }
         }
 
-        // while a schema change is pending, buffer ALL subsequent records
+        // while a schema change is pending, buffer all subsequent records
         if (schemaChangePending) {
             enqueueDataRecord(element, streamRecord.getTimestamp());
             return;
         }
 
-        output.collect(streamRecord);
+        emitDataRecord(element, streamRecord.getTimestamp());
     }
 
     private void handleSchemaChangeDetected(SchemaChangeEvent event) {
@@ -185,24 +202,62 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 event.tableIdentifier(),
                 event.getCreatedTime());
 
-        pendingQueue.add(BufferedRecord.schemaChange(event));
+        enqueueSchemaChange(event);
         schemaChangePending = true;
         scheduleFallbackTimer();
     }
 
+    private void enqueueSchemaChange(SchemaChangeEvent event) {
+        long eventBytes = estimateSchemaChangeBytes(event);
+        ensurePendingCapacity(eventBytes, event.tableIdentifier());
+        pendingQueue.add(BufferedRecord.schemaChange(event));
+        pendingBytes += eventBytes;
+    }
+
     private void enqueueDataRecord(SeaTunnelRow row, long timestamp) {
-        if (pendingQueue.size() >= MAX_BUFFERED_RECORDS) {
-            TableIdentifier tableIdentifier = getPendingSchemaTableIdentifier();
+        long rowBytes = estimateRowBytes(row);
+        ensurePendingCapacity(rowBytes, getPendingSchemaTableIdentifier());
+        pendingQueue.add(BufferedRecord.data(row, timestamp));
+        pendingBytes += rowBytes;
+    }
+
+    private void ensurePendingCapacity(long recordBytes, TableIdentifier tableIdentifier) {
+        if (pendingQueue.size() >= MAX_BUFFERED_RECORDS
+                || pendingBytes + recordBytes > MAX_BUFFERED_BYTES) {
             throw new SchemaEvolutionException(
                     SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                     String.format(
-                            "Pending schema buffer overflow (max=%d). "
+                            "Pending schema buffer overflow (records=%d/%d, bytes=%d/%d). "
                                     + "Failing fast to avoid dropping schema change control events.",
-                            MAX_BUFFERED_RECORDS),
+                            pendingQueue.size(),
+                            MAX_BUFFERED_RECORDS,
+                            pendingBytes + recordBytes,
+                            MAX_BUFFERED_BYTES),
                     tableIdentifier,
                     jobId);
         }
-        pendingQueue.add(BufferedRecord.data(row, timestamp));
+    }
+
+    private static long estimateRowBytes(SeaTunnelRow row) {
+        return Math.max(MIN_ESTIMATED_RECORD_BYTES, row.getBytesSize());
+    }
+
+    private static long estimateSchemaChangeBytes(SchemaChangeEvent event) {
+        return Math.max(MIN_ESTIMATED_RECORD_BYTES, event.toString().length() * 2L);
+    }
+
+    private static long estimateBufferedRecordBytes(BufferedRecord record) {
+        return record.isSchemaChange
+                ? estimateSchemaChangeBytes(record.schemaEvent)
+                : estimateRowBytes(record.row);
+    }
+
+    private BufferedRecord pollPendingRecord() {
+        BufferedRecord record = pendingQueue.poll();
+        if (record != null) {
+            pendingBytes = Math.max(0L, pendingBytes - estimateBufferedRecordBytes(record));
+        }
+        return record;
     }
 
     private TableIdentifier getPendingSchemaTableIdentifier() {
@@ -290,11 +345,10 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
      * thread (e.g. via {@code ProcessingTimeService.registerTimer} callback) to keep {@code
      * output.collect} and operator state accesses thread-safe.
      *
-     * <p>Safety fence: the DDL is applied only when at least one checkpoint has already completed
-     * after the schema event ({@code firstSeenCheckpointId >= 0}). This preserves the guarantee
-     * that XA transactions from the earlier checkpoint cycle have finished before ALTER TABLE runs.
-     * If that fence has not been crossed yet, the fallback reschedules itself by calling {@link
-     * #scheduleFallbackTimer()} and returns without applying anything.
+     * <p>Exactly-once mode never uses elapsed wall-clock time as proof that an asynchronous sink
+     * commit finished. If the second checkpoint cannot complete, the task fails so recovery can
+     * retry from Flink-managed state. At-least-once mode may use the timer after the first
+     * completed checkpoint because it does not promise the XA commit fence.
      */
     protected void handleFallbackTimerOnTaskThread() throws InterruptedException {
         if (!schemaChangePending || pendingQueue.isEmpty()) {
@@ -303,7 +357,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
         if (lastCheckpointCompletedMs > 0
                 && System.currentTimeMillis() - lastCheckpointCompletedMs
-                        < CHECKPOINT_STALL_TIMEOUT_MS) {
+                        < checkpointStallTimeoutMs) {
             scheduleFallbackTimer();
             return;
         }
@@ -324,11 +378,24 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
 
+        if (exactlyOnceMode) {
+            throw new SchemaEvolutionException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    String.format(
+                            "Checkpoint progress stalled after checkpoint %d while waiting for "
+                                    + "the second completed checkpoint before applying schema "
+                                    + "change epoch %d. Failing the task because exactly-once "
+                                    + "schema evolution cannot infer XA commit completion from "
+                                    + "elapsed time.",
+                            firstSeenCheckpointId, head.schemaEvent.getCreatedTime()),
+                    head.schemaEvent.tableIdentifier(),
+                    jobId);
+        }
+
         log.warn(
                 "Checkpoint stall detected after first post-DDL checkpoint {}. "
-                        + "Applying deferred DDL for table {} (epoch {}) via fallback timer. "
-                        + "Note: data committed via normal Flink checkpoint lifecycle may be "
-                        + "delayed until checkpoints resume.",
+                        + "Applying deferred DDL for table {} (epoch {}) via the at-least-once "
+                        + "fallback timer.",
                 firstSeenCheckpointId,
                 head.schemaEvent.tableIdentifier(),
                 head.schemaEvent.getCreatedTime());
@@ -338,7 +405,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     /**
      * Schedules a fallback timer that will call {@link #handleFallbackTimerOnTaskThread()} if
-     * checkpoints stall before the pending schema change can be applied.
+     * checkpoints stall before the pending schema change can be applied or failed safely.
      *
      * <p>The base implementation is a no-op: version-specific subclasses (e.g. {@code
      * SchemaOperator13}) override this to register a timer via {@code ProcessingTimeService},
@@ -351,8 +418,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private BufferedRecord advancePastDataRecords() {
         BufferedRecord head = pendingQueue.peek();
         while (head != null && !head.isSchemaChange) {
-            output.collect(new StreamRecord<>(head.row, head.timestamp));
-            pendingQueue.poll();
+            emitDataRecord(head.row, head.timestamp);
+            pollPendingRecord();
             head = pendingQueue.peek();
         }
         if (head == null) {
@@ -372,42 +439,13 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         TableIdentifier tableId = event.tableIdentifier();
         long eventTime = event.getCreatedTime();
 
-        if (lastProcessedEventTime != null && eventTime <= lastProcessedEventTime) {
-            log.warn(
-                    "Skipping outdated schema change event (epoch {} <= last processed {})",
-                    eventTime,
-                    lastProcessedEventTime);
-            pendingQueue.poll();
-            firstSeenCheckpointId = -1L;
-            drainDataUntilNextSchemaChange();
-            return;
-        }
-
-        sendSchemaChangeEventToDownstream(event);
-
-        boolean success =
-                coordinator.requestSchemaChange(tableId, eventTime, SCHEMA_CHANGE_TIMEOUT_MS);
-        if (!success) {
-            throw new SchemaEvolutionException(
-                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
-                    String.format(
-                            "Schema change for table %s (epoch %d) failed during sink coordination.",
-                            tableId, eventTime),
-                    tableId,
-                    jobId);
-        }
-        log.info(
-                "Schema change for table {} (epoch {}) confirmed by all sink subtasks.",
-                tableId,
-                eventTime);
-        pendingQueue.poll();
+        String schemaChangeId =
+                SchemaEvolutionControlMessage.schemaChangeId(
+                        schemaChangeProducerId, ++schemaChangeSequence);
+        sendSchemaChangeEventToDownstream(event, schemaChangeId);
+        lastEmittedSchemaChangeId = schemaChangeId;
+        pollPendingRecord();
         firstSeenCheckpointId = -1L;
-
-        CatalogTable newSchema = event.getChangeAfter();
-        if (newSchema != null) {
-            localSchemaState.put(tableId, newSchema);
-        }
-        lastProcessedEventTime = eventTime;
 
         drainDataUntilNextSchemaChange();
 
@@ -431,8 +469,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 scheduleFallbackTimer();
                 return;
             }
-            pendingQueue.poll();
-            output.collect(new StreamRecord<>(record.row, record.timestamp));
+            pollPendingRecord();
+            emitDataRecord(record.row, record.timestamp);
             released++;
         }
 
@@ -445,25 +483,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     public void snapshotState(StateSnapshotContext context) throws Exception {
         super.snapshotState(context);
 
-        lastProcessedEventTimeState.clear();
-        if (lastProcessedEventTime != null) {
-            lastProcessedEventTimeState.add(lastProcessedEventTime);
-        }
-
-        schemaChangePendingState.clear();
-        schemaChangePendingState.add(schemaChangePending);
-
-        firstSeenCheckpointIdState.clear();
-        firstSeenCheckpointIdState.add(firstSeenCheckpointId);
-
-        localSchemaStateStore.clear();
-        for (Map.Entry<TableIdentifier, CatalogTable> entry : localSchemaState.entrySet()) {
-            localSchemaStateStore.add(new SchemaStateEntry(entry.getKey(), entry.getValue()));
-        }
-
-        bufferedRecordsState.clear();
+        List<BufferedRecordEntry> bufferedRecords = new ArrayList<>(pendingQueue.size());
         for (BufferedRecord record : pendingQueue) {
-            bufferedRecordsState.add(
+            bufferedRecords.add(
                     new BufferedRecordEntry(
                             record.isSchemaChange,
                             record.row,
@@ -471,36 +493,87 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                             record.schemaEvent));
         }
 
+        // Flink redistributes each operator ListState independently during rescale. Persist every
+        // field that defines one producer's schema protocol in a single entry so pending DDLs,
+        // buffered rows and their producer/sequence identity cannot be assigned to different
+        // subtasks when parallelism changes.
+        schemaEvolutionProtocolState.clear();
+        schemaEvolutionProtocolState.add(
+                new SchemaEvolutionProtocolState(
+                        schemaChangePending,
+                        bufferedRecords,
+                        firstSeenCheckpointId,
+                        schemaChangeProducerId,
+                        schemaChangeSequence,
+                        lastEmittedSchemaChangeId));
+
+        lastProcessedEventTimesState.clear();
+
+        schemaChangePendingState.clear();
+        schemaChangePendingState.add(schemaChangePending);
+
+        firstSeenCheckpointIdState.clear();
+        firstSeenCheckpointIdState.add(firstSeenCheckpointId);
+
+        schemaChangeProducerIdState.clear();
+        // Keep the producer and sequence paired in one redistributable state entry. The separate
+        // sequence state remains populated for savepoint compatibility with the earlier layout.
+        schemaChangeProducerIdState.add(
+                SchemaEvolutionControlMessage.schemaChangeId(
+                        schemaChangeProducerId, schemaChangeSequence));
+
+        schemaChangeSequenceState.clear();
+        schemaChangeSequenceState.add(schemaChangeSequence);
+
+        lastEmittedSchemaChangeIdState.clear();
+        if (lastEmittedSchemaChangeId != null) {
+            lastEmittedSchemaChangeIdState.add(lastEmittedSchemaChangeId);
+        }
+
+        bufferedRecordsState.clear();
+        for (BufferedRecordEntry record : bufferedRecords) {
+            bufferedRecordsState.add(record);
+        }
+
         log.debug(
-                "State snapshot for checkpoint {}: lastEventTime={}, pending={}, "
-                        + "firstSeenCkpt={}, queueSize={}",
+                "State snapshot for checkpoint {}: pending={}, firstSeenCkpt={}, "
+                        + "queueSize={}, queueBytes={}",
                 context.getCheckpointId(),
-                lastProcessedEventTime,
                 schemaChangePending,
                 firstSeenCheckpointId,
-                pendingQueue.size());
+                pendingQueue.size(),
+                pendingBytes);
     }
 
     @Override
     public void initializeState(StateInitializationContext context) throws Exception {
         super.initializeState(context);
         if (this.pendingQueue == null) {
-            this.pendingQueue = new LinkedList<>();
+            this.pendingQueue = new ArrayDeque<>();
         }
 
-        ListStateDescriptor<SchemaStateEntry> schemaDescriptor =
-                new ListStateDescriptor<>("localSchemaState", SchemaStateEntry.class);
-        ListStateDescriptor<Long> eventTimeDescriptor =
-                new ListStateDescriptor<>("lastProcessedEventTime", Long.class);
+        ListStateDescriptor<TableEventTimeEntry> eventTimeDescriptor =
+                new ListStateDescriptor<>(
+                        "lastProcessedEventTimeByTable", TableEventTimeEntry.class);
+        ListStateDescriptor<SchemaEvolutionProtocolState> protocolStateDescriptor =
+                new ListStateDescriptor<>(
+                        "schemaEvolutionProtocolState", SchemaEvolutionProtocolState.class);
         ListStateDescriptor<Boolean> pendingDescriptor =
                 new ListStateDescriptor<>("schemaChangePending", Boolean.class);
         ListStateDescriptor<BufferedRecordEntry> bufferedDescriptor =
                 new ListStateDescriptor<>("bufferedRecords", BufferedRecordEntry.class);
         ListStateDescriptor<Long> firstSeenCkptDescriptor =
                 new ListStateDescriptor<>("firstSeenCheckpointId", Long.class);
+        ListStateDescriptor<String> producerIdDescriptor =
+                new ListStateDescriptor<>("schemaChangeProducerId", String.class);
+        ListStateDescriptor<Long> sequenceDescriptor =
+                new ListStateDescriptor<>("schemaChangeSequence", Long.class);
+        ListStateDescriptor<String> lastEmittedSchemaChangeIdDescriptor =
+                new ListStateDescriptor<>("lastEmittedSchemaChangeId", String.class);
 
-        this.localSchemaStateStore = context.getOperatorStateStore().getListState(schemaDescriptor);
-        this.lastProcessedEventTimeState =
+        this.schemaEvolutionProtocolState =
+                context.getOperatorStateStore().getListState(protocolStateDescriptor);
+        this.lastProcessedEventTimesState =
                 context.getOperatorStateStore().getListState(eventTimeDescriptor);
         this.schemaChangePendingState =
                 context.getOperatorStateStore().getListState(pendingDescriptor);
@@ -508,36 +581,141 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 context.getOperatorStateStore().getListState(bufferedDescriptor);
         this.firstSeenCheckpointIdState =
                 context.getOperatorStateStore().getListState(firstSeenCkptDescriptor);
+        this.schemaChangeProducerIdState =
+                context.getOperatorStateStore().getListState(producerIdDescriptor);
+        this.schemaChangeSequenceState =
+                context.getOperatorStateStore().getListState(sequenceDescriptor);
+        this.lastEmittedSchemaChangeIdState =
+                context.getOperatorStateStore().getListState(lastEmittedSchemaChangeIdDescriptor);
 
         if (context.isRestored()) {
-            for (Long t : lastProcessedEventTimeState.get()) {
-                this.lastProcessedEventTime = t;
-                break;
+            List<SchemaEvolutionProtocolState> restoredProtocolStates = new ArrayList<>();
+            for (SchemaEvolutionProtocolState protocolState : schemaEvolutionProtocolState.get()) {
+                restoredProtocolStates.add(protocolState);
             }
-            for (Boolean p : schemaChangePendingState.get()) {
-                this.schemaChangePending = p;
-                break;
+            if (!restoredProtocolStates.isEmpty()) {
+                restoreAtomicProtocolState(selectProtocolState(restoredProtocolStates));
+            } else {
+                restoreLegacyProtocolState();
             }
-            for (Long ckpt : firstSeenCheckpointIdState.get()) {
-                this.firstSeenCheckpointId = ckpt;
-                break;
+        }
+        if (schemaChangeProducerId == null) {
+            schemaChangeProducerId = UUID.randomUUID().toString();
+        }
+    }
+
+    private SchemaEvolutionProtocolState selectProtocolState(
+            List<SchemaEvolutionProtocolState> restoredStates) {
+        SchemaEvolutionProtocolState activeState = null;
+        for (SchemaEvolutionProtocolState state : restoredStates) {
+            if (!state.hasProtocolHistory()) {
+                continue;
             }
-            for (SchemaStateEntry entry : localSchemaStateStore.get()) {
-                localSchemaState.put(entry.tableId, entry.catalogTable);
+            if (activeState != null) {
+                throw new IllegalStateException(
+                        "Multiple active schema-evolution protocol states were assigned to one "
+                                + "operator while incremental.parallelism=1. Refusing to merge "
+                                + "different producers because that would break DDL/DML ordering.");
             }
-            for (BufferedRecordEntry entry : bufferedRecordsState.get()) {
-                if (entry.isSchemaChange) {
-                    pendingQueue.add(BufferedRecord.schemaChange(entry.schemaEvent));
-                } else {
-                    pendingQueue.add(BufferedRecord.data(entry.row, entry.timestamp));
-                }
+            activeState = state;
+        }
+        return activeState != null ? activeState : restoredStates.get(0);
+    }
+
+    private void restoreAtomicProtocolState(SchemaEvolutionProtocolState state) {
+        long restoredFirstSeenCheckpointId = state.firstSeenCheckpointId;
+        this.schemaChangeProducerId = state.schemaChangeProducerId;
+        this.schemaChangeSequence = state.schemaChangeSequence;
+        this.lastEmittedSchemaChangeId = state.lastEmittedSchemaChangeId;
+        restoreBufferedRecords(state.bufferedRecords);
+        this.schemaChangePending = state.schemaChangePending || !pendingQueue.isEmpty();
+
+        // A checkpoint completed before the failure cannot fence a sink transaction restored from
+        // that checkpoint. Wait for two fresh checkpoint completions after every restore.
+        this.firstSeenCheckpointId = -1L;
+        log.info(
+                "Atomic protocol state restored: pending={}, restoredFirstSeenCkpt={}, "
+                        + "activeFirstSeenCkpt={}, producerId={}, sequence={}, queueSize={}, "
+                        + "queueBytes={}",
+                schemaChangePending,
+                restoredFirstSeenCheckpointId,
+                firstSeenCheckpointId,
+                schemaChangeProducerId,
+                schemaChangeSequence,
+                pendingQueue.size(),
+                pendingBytes);
+    }
+
+    private void restoreLegacyProtocolState() throws Exception {
+        long restoredFirstSeenCheckpointId = -1L;
+        for (Boolean p : schemaChangePendingState.get()) {
+            this.schemaChangePending |= Boolean.TRUE.equals(p);
+        }
+        for (Long ckpt : firstSeenCheckpointIdState.get()) {
+            restoredFirstSeenCheckpointId = Math.max(restoredFirstSeenCheckpointId, ckpt);
+        }
+        String legacyProducerId = null;
+        long pairedSequence = -1L;
+        for (String producerState : schemaChangeProducerIdState.get()) {
+            String producerId = SchemaEvolutionControlMessage.schemaChangeProducerId(producerState);
+            long sequence = SchemaEvolutionControlMessage.schemaChangeSequence(producerState);
+            if (producerId != null && sequence >= 0 && sequence > pairedSequence) {
+                this.schemaChangeProducerId = producerId;
+                this.schemaChangeSequence = sequence;
+                pairedSequence = sequence;
+            } else if (producerId == null && legacyProducerId == null) {
+                legacyProducerId = producerState;
             }
-            log.info(
-                    "State restored: lastEventTime={}, pending={}, firstSeenCkpt={}, queueSize={}",
-                    lastProcessedEventTime,
-                    schemaChangePending,
-                    firstSeenCheckpointId,
-                    pendingQueue.size());
+        }
+        long legacySequence = 0L;
+        for (Long sequence : schemaChangeSequenceState.get()) {
+            legacySequence = Math.max(legacySequence, sequence);
+        }
+        if (pairedSequence < 0 && legacyProducerId != null) {
+            this.schemaChangeProducerId = legacyProducerId;
+            this.schemaChangeSequence = legacySequence;
+        }
+        long lastEmittedSequence = -1L;
+        for (String schemaChangeId : lastEmittedSchemaChangeIdState.get()) {
+            long sequence = SchemaEvolutionControlMessage.schemaChangeSequence(schemaChangeId);
+            if (sequence > lastEmittedSequence) {
+                this.lastEmittedSchemaChangeId = schemaChangeId;
+                lastEmittedSequence = sequence;
+            }
+        }
+        List<BufferedRecordEntry> legacyBufferedRecords = new ArrayList<>();
+        for (BufferedRecordEntry entry : bufferedRecordsState.get()) {
+            legacyBufferedRecords.add(entry);
+        }
+        restoreBufferedRecords(legacyBufferedRecords);
+        this.schemaChangePending |= !pendingQueue.isEmpty();
+        // A checkpoint completed before the failure cannot fence a sink transaction that was
+        // restored from that checkpoint. Re-establish the fence so the restored pending DDL
+        // waits for two fresh checkpoint-completion notifications before it is broadcast.
+        // Keep reading and writing the old state for savepoint compatibility, but never reuse
+        // its value as the active recovery fence.
+        this.firstSeenCheckpointId = -1L;
+        log.info(
+                "State restored: pending={}, restoredFirstSeenCkpt={}, "
+                        + "activeFirstSeenCkpt={}, queueSize={}, queueBytes={}",
+                schemaChangePending,
+                restoredFirstSeenCheckpointId,
+                firstSeenCheckpointId,
+                pendingQueue.size(),
+                pendingBytes);
+    }
+
+    private void restoreBufferedRecords(List<BufferedRecordEntry> bufferedRecords) {
+        if (bufferedRecords == null) {
+            return;
+        }
+        for (BufferedRecordEntry entry : bufferedRecords) {
+            BufferedRecord record =
+                    entry.isSchemaChange
+                            ? BufferedRecord.schemaChange(entry.schemaEvent)
+                            : BufferedRecord.data(entry.row, entry.timestamp);
+            pendingQueue.add(record);
+            pendingBytes += estimateBufferedRecordBytes(record);
         }
     }
 
@@ -574,15 +752,22 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         }
     }
 
-    private void sendSchemaChangeEventToDownstream(SchemaChangeEvent schemaChangeEvent) {
+    private void sendSchemaChangeEventToDownstream(
+            SchemaChangeEvent schemaChangeEvent, String schemaChangeId) {
         log.info(
                 "Broadcasting SchemaChangeEvent to downstream for table: {}",
                 schemaChangeEvent.tableIdentifier());
         SeaTunnelRow broadcastRow = new SeaTunnelRow(0);
         Map<String, Object> options = new HashMap<>();
-        options.put("schema_change_broadcast", schemaChangeEvent);
+        options.put(SchemaEvolutionControlMessage.SCHEMA_CHANGE_BROADCAST, schemaChangeEvent);
+        options.put(SchemaEvolutionControlMessage.SCHEMA_CHANGE_ID, schemaChangeId);
         broadcastRow.setOptions(options);
         output.collect(new StreamRecord<>(broadcastRow));
+    }
+
+    private void emitDataRecord(SeaTunnelRow row, long timestamp) {
+        SchemaEvolutionControlMessage.requireSchemaChange(row, lastEmittedSchemaChangeId);
+        output.collect(new StreamRecord<>(row, timestamp));
     }
 
     static class BufferedRecord {
@@ -613,16 +798,16 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     @Setter
     @Getter
-    public static class SchemaStateEntry implements Serializable {
+    public static class TableEventTimeEntry implements Serializable {
         private static final long serialVersionUID = 1L;
         private TableIdentifier tableId;
-        private CatalogTable catalogTable;
+        private long eventTime;
 
-        public SchemaStateEntry() {}
+        public TableEventTimeEntry() {}
 
-        public SchemaStateEntry(TableIdentifier tableId, CatalogTable catalogTable) {
+        public TableEventTimeEntry(TableIdentifier tableId, long eventTime) {
             this.tableId = tableId;
-            this.catalogTable = catalogTable;
+            this.eventTime = eventTime;
         }
     }
 
@@ -646,6 +831,43 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             this.row = row;
             this.timestamp = timestamp;
             this.schemaEvent = schemaEvent;
+        }
+    }
+
+    /** Atomic snapshot of all state belonging to one source-side schema protocol producer. */
+    @Setter
+    @Getter
+    public static class SchemaEvolutionProtocolState implements Serializable {
+        private static final long serialVersionUID = 1L;
+        private boolean schemaChangePending;
+        private List<BufferedRecordEntry> bufferedRecords;
+        private long firstSeenCheckpointId;
+        private String schemaChangeProducerId;
+        private long schemaChangeSequence;
+        private String lastEmittedSchemaChangeId;
+
+        public SchemaEvolutionProtocolState() {}
+
+        public SchemaEvolutionProtocolState(
+                boolean schemaChangePending,
+                List<BufferedRecordEntry> bufferedRecords,
+                long firstSeenCheckpointId,
+                String schemaChangeProducerId,
+                long schemaChangeSequence,
+                String lastEmittedSchemaChangeId) {
+            this.schemaChangePending = schemaChangePending;
+            this.bufferedRecords = bufferedRecords;
+            this.firstSeenCheckpointId = firstSeenCheckpointId;
+            this.schemaChangeProducerId = schemaChangeProducerId;
+            this.schemaChangeSequence = schemaChangeSequence;
+            this.lastEmittedSchemaChangeId = lastEmittedSchemaChangeId;
+        }
+
+        private boolean hasProtocolHistory() {
+            return schemaChangePending
+                    || (bufferedRecords != null && !bufferedRecords.isEmpty())
+                    || schemaChangeSequence > 0
+                    || lastEmittedSchemaChangeId != null;
         }
     }
 }

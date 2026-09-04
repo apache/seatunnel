@@ -41,6 +41,8 @@
 ## 启用Schema evolution功能
 在CDC源连接器中模式演进默认是关闭的。你需要在CDC连接器中配置`schema-changes.enabled = true`来启用它。
 
+在 Flink 上启用模式演进时，`incremental.parallelism` 必须为 `1`（默认值）。如果配置多个增量读取器，Flink 会在任务启动阶段拒绝该任务。
+
 ## 多库多表路由
 
 只要每张上游表都能稳定映射到一个明确的物理下游表，模式演进就可以和多库多表任务一起工作。SeaTunnel 会在连接器启动前完成 Sink 占位符替换，因此你可以结合 [Sink 参数占位符](./sink-options-placeholders.md) 中的 `${database_name}`、`${schema_name}`、`${table_name}` 做路由。

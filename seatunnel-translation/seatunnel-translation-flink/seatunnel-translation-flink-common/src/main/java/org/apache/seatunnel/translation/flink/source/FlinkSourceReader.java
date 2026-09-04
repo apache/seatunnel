@@ -59,8 +59,6 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     private final FlinkRowCollector flinkRowCollector;
 
-    private InputStatus inputStatus = InputStatus.MORE_AVAILABLE;
-
     private volatile CompletableFuture<Void> availabilityFuture;
 
     private static final long DEFAULT_WAIT_TIME_MILLIS = 1000L;
@@ -68,6 +66,8 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     private final ScheduledExecutorService scheduledExecutor;
 
     private final boolean sourceKeepAliveEnabled;
+
+    private volatile ReaderLifecycle readerLifecycle = ReaderLifecycle.ACTIVE;
 
     public FlinkSourceReader(
             org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader,
@@ -102,26 +102,21 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     @Override
     public InputStatus pollNext(ReaderOutput<SeaTunnelRow> output) throws Exception {
-        if (!((FlinkSourceReaderContext) context).isSendNoMoreElementEvent()) {
-            sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
-            if (flinkRowCollector.isEmptyThisPollNext()) {
-                synchronized (this) {
-                    if (availabilityFuture == null || availabilityFuture.isDone()) {
-                        availabilityFuture = new CompletableFuture<>();
-                        scheduleComplete(availabilityFuture);
-                        LOGGER.debug("No data available, wait for next poll.");
-                    }
-                }
-                return InputStatus.NOTHING_AVAILABLE;
-            }
-        } else {
-            if (sourceKeepAliveEnabled) {
-                // Flink 1.13 requires idle source subtasks to stay alive so checkpoints continue.
-                Thread.sleep(DEFAULT_WAIT_TIME_MILLIS);
-                return InputStatus.NOTHING_AVAILABLE;
-            }
+        if (readerLifecycle == ReaderLifecycle.FINISHED) {
+            return InputStatus.END_OF_INPUT;
         }
-        return inputStatus;
+        if (readerLifecycle == ReaderLifecycle.LOGICALLY_CLOSED
+                || ((FlinkSourceReaderContext) context).isSendNoMoreElementEvent()) {
+            suspendUntilReactivated();
+            return InputStatus.NOTHING_AVAILABLE;
+        }
+
+        sourceReader.pollNext(flinkRowCollector.withReaderOutput(output));
+        if (flinkRowCollector.isEmptyThisPollNext()) {
+            waitForNextPoll();
+            return InputStatus.NOTHING_AVAILABLE;
+        }
+        return InputStatus.MORE_AVAILABLE;
     }
 
     @Override
@@ -143,9 +138,16 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void addSplits(List<SplitWrapper<SplitT>> splits) {
         if (!splits.isEmpty() && context instanceof FlinkSourceReaderContext) {
-            if (sourceKeepAliveEnabled) {
-                ((FlinkSourceReaderContext) context).resetNoMoreElementEvent();
-                inputStatus = InputStatus.MORE_AVAILABLE;
+            FlinkSourceReaderContext flinkContext = (FlinkSourceReaderContext) context;
+            if (sourceKeepAliveEnabled
+                    && (readerLifecycle == ReaderLifecycle.LOGICALLY_CLOSED
+                            || flinkContext.isSendNoMoreElementEvent())) {
+                flinkContext.resetNoMoreElementEvent();
+                readerLifecycle = ReaderLifecycle.ACTIVE;
+                completeAvailabilityFuture();
+                LOGGER.info(
+                        "Logically closed source reader [{}] reactivated for new splits",
+                        context.getIndexOfSubtask());
             }
         }
         sourceReader.addSplits(
@@ -160,8 +162,22 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void handleSourceEvents(SourceEvent sourceEvent) {
         if (sourceEvent instanceof NoMoreElementEvent) {
-            inputStatus =
-                    sourceKeepAliveEnabled ? InputStatus.MORE_AVAILABLE : InputStatus.END_OF_INPUT;
+            FlinkSourceReaderContext flinkContext = (FlinkSourceReaderContext) context;
+            if (!flinkContext.isSendNoMoreElementEvent()) {
+                LOGGER.debug(
+                        "Ignore stale no-more-element acknowledgement for reactivated source "
+                                + "reader [{}]",
+                        context.getIndexOfSubtask());
+            } else if (sourceKeepAliveEnabled) {
+                readerLifecycle = ReaderLifecycle.LOGICALLY_CLOSED;
+                LOGGER.info(
+                        "Source reader [{}] logically closed; connector polling is suspended while "
+                                + "the Flink task remains available for checkpoints",
+                        context.getIndexOfSubtask());
+            } else {
+                readerLifecycle = ReaderLifecycle.FINISHED;
+                completeAvailabilityFuture();
+            }
         }
         if (sourceEvent instanceof SourceEventWrapper) {
             sourceReader.handleSourceEvent((((SourceEventWrapper) sourceEvent).getSourceEvent()));
@@ -170,10 +186,7 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     @Override
     public void close() throws Exception {
-        CompletableFuture<Void> future = availabilityFuture;
-        if (future != null && !future.isDone()) {
-            future.complete(null);
-        }
+        completeAvailabilityFuture();
         sourceReader.close();
         context.getEventListener().onEvent(new ReaderCloseEvent());
         scheduledExecutor.shutdown();
@@ -192,5 +205,40 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     private void scheduleComplete(CompletableFuture<Void> future) {
         scheduledExecutor.schedule(
                 () -> future.complete(null), DEFAULT_WAIT_TIME_MILLIS, TimeUnit.MILLISECONDS);
+    }
+
+    private synchronized void waitForNextPoll() {
+        if (availabilityFuture == null || availabilityFuture.isDone()) {
+            availabilityFuture = new CompletableFuture<>();
+            scheduleComplete(availabilityFuture);
+            LOGGER.debug("No data available, wait for next poll.");
+        }
+    }
+
+    /**
+     * Suspends connector polling without finishing the Flink source task.
+     *
+     * <p>The underlying reader has already drained its assigned splits before it sends {@link
+     * NoMoreElementEvent}; common source readers also stop their finished split fetchers at that
+     * point. The task must nevertheless remain running on Flink 1.13 so that it can participate in
+     * checkpoints. This incomplete future keeps the task dormant until a racing split assignment
+     * explicitly reactivates it.
+     */
+    private synchronized void suspendUntilReactivated() {
+        if (availabilityFuture == null || availabilityFuture.isDone()) {
+            availabilityFuture = new CompletableFuture<>();
+        }
+    }
+
+    private synchronized void completeAvailabilityFuture() {
+        if (availabilityFuture != null && !availabilityFuture.isDone()) {
+            availabilityFuture.complete(null);
+        }
+    }
+
+    private enum ReaderLifecycle {
+        ACTIVE,
+        LOGICALLY_CLOSED,
+        FINISHED
     }
 }
