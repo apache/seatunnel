@@ -65,7 +65,7 @@ public class ExceptionHandlingFilter implements Filter {
         response.setContentType("application/json;charset=UTF-8");
 
         ErrResponse errorResponse = new ErrResponse();
-        errorResponse.setMessage(ExceptionUtils.getStackTrace(e));
+        errorResponse.setMessage(ExceptionUtils.getMessage(e));
         errorResponse.setStatus("fail");
 
         String jsonResponse = objectMapper.writeValueAsString(errorResponse);
