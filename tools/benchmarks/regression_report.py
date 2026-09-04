@@ -408,7 +408,7 @@ def jmh_comparison_lines(baselines, candidates):
     lines = [
         "### JMH comparison",
         "",
-        "`B` = Baseline, `C` = Candidate.",
+        "`B` = Baseline, `C` = Candidate. Score is the median JMH score; CV and Error are the medians of the per-run relative statistics.",
         "",
         "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | CV Change | Error B | Error C | Error Change | Unit |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
