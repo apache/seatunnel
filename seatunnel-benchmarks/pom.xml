@@ -40,6 +40,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-format-json</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-engine-client</artifactId>
             <version>${project.version}</version>
             <exclusions>
@@ -59,6 +64,11 @@
                     <artifactId>seatunnel-hazelcast-shade</artifactId>
                 </exclusion>
             </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>checkpoint-storage-hdfs</artifactId>
+            <version>${project.version}</version>
         </dependency>
         <dependency>
             <groupId>com.lmax</groupId>
