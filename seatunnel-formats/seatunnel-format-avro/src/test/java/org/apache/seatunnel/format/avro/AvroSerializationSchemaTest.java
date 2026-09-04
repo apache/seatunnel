@@ -328,12 +328,14 @@ class AvroSerializationSchemaTest {
     public void testDeserializeConfluentSchemaRegistryHeader() throws IOException {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"payload"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
         String writerSchemaText =
                 "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}";
         Schema writerSchema = new Schema.Parser().parse(writerSchemaText);
-        GenericRecord record = new GenericRecordBuilder(writerSchema).set("payload", "seatunnel").build();
+        GenericRecord record =
+                new GenericRecordBuilder(writerSchema).set("payload", "seatunnel").build();
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         BinaryEncoder encoder = EncoderFactory.get().directBinaryEncoder(out, null);
@@ -356,12 +358,15 @@ class AvroSerializationSchemaTest {
     public void testDeserializeConfluentSchemaRegistryHeaderRejectsInvalidHeader() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"payload"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+                        new String[] {"payload"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
         AvroDeserializationSchema schema =
-                new AvroDeserializationSchema(catalogTable, "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}", true);
+                new AvroDeserializationSchema(
+                        catalogTable,
+                        "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}",
+                        true);
         Assertions.assertThrows(
-                RuntimeException.class,
-                () -> schema.deserialize(new byte[] {1, 0, 0, 0, 1}));
+                RuntimeException.class, () -> schema.deserialize(new byte[] {1, 0, 0, 0, 1}));
     }
 }

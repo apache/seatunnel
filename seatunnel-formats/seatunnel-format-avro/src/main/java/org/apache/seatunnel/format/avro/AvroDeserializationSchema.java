@@ -78,8 +78,7 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
 
     private SeaTunnelRow deserializePayload(byte[] message, int offset, int length)
             throws IOException {
-        BinaryDecoder decoder =
-                DecoderFactory.get().binaryDecoder(message, offset, length, null);
+        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, offset, length, null);
         GenericRecord record = this.converter.getReader().read(null, decoder);
         SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
         Optional<TablePath> tablePath =
