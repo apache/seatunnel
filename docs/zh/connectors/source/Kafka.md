@@ -704,7 +704,7 @@ transform {
 
 支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
 
-`format = avro` 默认读取原始 Avro 二进制消息。对于由 Confluent `KafkaAvroSerializer` 写入的消息，请设置 `strip_schema_registry_header = true` 并提供 `avro_schema`。连接器会校验并剥离固定的 5 字节头（magic byte `0` 加 4 字节 schema ID）后再解码，不会查询 Schema Registry。该选项默认关闭，关闭时原始 Avro 行为保持不变。
+`format = avro` 默认读取原始 Avro 二进制消息。对于由 Confluent `KafkaAvroSerializer` 写入的消息，请设置 `strip_schema_registry_header = true` 并提供 `avro_schema`。连接器通过开头的 magic byte 检测并剥离固定的 5 字节线上格式头（magic byte `0` 加 4 字节 schema ID）后再解码，不会查询 Schema Registry。该选项默认关闭，关闭时原始 Avro 行为保持不变。
 
 ### 如何配置 SASL/Kerberos 认证？
 

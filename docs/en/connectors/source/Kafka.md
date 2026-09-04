@@ -711,7 +711,7 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 
 Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
 
-`format = avro` expects raw Avro-encoded messages by default. For messages produced by a Confluent `KafkaAvroSerializer`, set `strip_schema_registry_header = true` and provide `avro_schema`. SeaTunnel validates and strips the fixed five-byte header (magic byte `0` plus four-byte schema ID) before decoding, without contacting Schema Registry. The option is opt-in, so raw Avro behavior is unchanged when it is `false`.
+`format = avro` expects raw Avro-encoded messages by default. For messages produced by a Confluent `KafkaAvroSerializer`, set `strip_schema_registry_header = true` and provide `avro_schema`. SeaTunnel detects the header by its leading magic byte and strips the fixed five-byte wire header (magic byte `0` plus four-byte schema ID) before decoding, without contacting Schema Registry. The option is opt-in, so raw Avro behavior is unchanged when it is `false`.
 
 ### How do I configure SASL/Kerberos authentication?
 

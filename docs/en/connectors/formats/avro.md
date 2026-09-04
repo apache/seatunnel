@@ -4,7 +4,7 @@ Avro is very popular in streaming data pipeline. Now seatunnel supports Avro for
 
 :::note Confluent Schema Registry is not supported
 
-This format decodes plain Avro binary directly using the `schema` you configure; it does not talk to a schema registry. For Confluent Schema Registry messages consumed through Kafka, set `strip_schema_registry_header = true` and provide `avro_schema`. The connector validates and strips the five-byte header (magic byte `0` plus four-byte schema ID) without contacting Schema Registry. The option is opt-in and raw Avro behavior is unchanged when disabled.
+This format decodes plain Avro binary directly using the `schema` you configure; it does not talk to a schema registry. For Confluent Schema Registry messages consumed through Kafka, set `strip_schema_registry_header = true` and provide `avro_schema`. The connector detects the header by its leading magic byte and strips the five-byte wire header (magic byte `0` plus four-byte schema ID) without contacting Schema Registry. The option is opt-in and raw Avro behavior is unchanged when disabled.
 
 :::
 

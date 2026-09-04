@@ -4,7 +4,7 @@ Avro 在流式数据处理管道中非常流行。现在seatunnel在kafka连接�
 
 :::note 不支持 Confluent Schema Registry
 
-该格式直接使用你配置的 `schema` 解码原始 Avro 二进制数据，不会与 Schema Registry 交互。消费 Confluent Schema Registry 消息时，请设置 `strip_schema_registry_header = true` 并提供 `avro_schema`。连接器会校验并剥离 5 字节头（1 字节 magic byte `0` + 4 字节 schema ID），不会查询 Schema Registry。该选项默认关闭，关闭时原始 Avro 行为保持不变。
+该格式直接使用你配置的 `schema` 解码原始 Avro 二进制数据，不会与 Schema Registry 交互。消费 Confluent Schema Registry 消息时，请设置 `strip_schema_registry_header = true` 并提供 `avro_schema`。连接器通过开头的 magic byte 检测并剥离 5 字节线上格式头（1 字节 magic byte `0` + 4 字节 schema ID），不会查询 Schema Registry。该选项默认关闭，关闭时原始 Avro 行为保持不变。
 
 :::
 
