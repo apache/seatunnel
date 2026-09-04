@@ -36,6 +36,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -131,6 +134,144 @@ public class SeaTunnelConfValidateCommandTest {
                 DryRunConnectValidator.PluginResult.Status.VALIDATED, transformResult.getStatus());
         Assertions.assertEquals(
                 DryRunConnectValidator.PluginResult.Status.SKIPPED, results.get(2).getStatus());
+    }
+
+    @Test
+    public void testConnectDryRunRejectsUnresolvedTransformCycleWithoutRetryingIndefinitely() {
+        ConfigCheckException exception =
+                Assertions.assertTimeoutPreemptively(
+                        Duration.ofSeconds(5),
+                        () ->
+                                Assertions.assertThrows(
+                                        ConfigCheckException.class,
+                                        () ->
+                                                runConnectValidatorFromString(
+                                                        "source {\n"
+                                                                + "  FakeSource { plugin_output = src, schema = { fields { name = string } } }\n"
+                                                                + "}\n"
+                                                                + "transform {\n"
+                                                                + "  Copy { plugin_input = [t2], plugin_output = t1, src_field = name, dest_field = name_1 }\n"
+                                                                + "  Copy { plugin_input = [t1], plugin_output = t2, src_field = name, dest_field = name_2 }\n"
+                                                                + "}\n"
+                                                                + "sink { InMemory { plugin_input = [src] } }")));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unable to resolve transform dependencies"));
+        Assertions.assertTrue(exception.getMessage().contains("t1 <- [t2]"));
+        Assertions.assertTrue(exception.getMessage().contains("t2 <- [t1]"));
+    }
+
+    @Test
+    public void testConnectDryRunValidatesTransformsDeclaredOutOfDependencyOrder() {
+        DryRunTestTransformFactory.resetCreatedTables();
+        List<DryRunConnectValidator.PluginResult> results =
+                runConnectValidatorFromString(
+                        "source {\n"
+                                + "  DryRunTestSource { plugin_output = src }\n"
+                                + "}\n"
+                                + "transform {\n"
+                                + "  DryRunTestTransform { plugin_input = [src,t1,t1], plugin_output = t2, expected_input_count = 2, produced_table = t2_table }\n"
+                                + "  DryRunTestTransform { plugin_input = [src], plugin_output = t1, expected_input_count = 1, produced_table = t1_table }\n"
+                                + "}\n"
+                                + "sink { DryRunTestSink { expected_table = t2_table } }");
+
+        Assertions.assertEquals(4, results.size());
+        results.forEach(
+                result ->
+                        Assertions.assertEquals(
+                                DryRunConnectValidator.PluginResult.Status.VALIDATED,
+                                result.getStatus()));
+        Assertions.assertEquals(
+                Arrays.asList("t1_table", "t2_table"),
+                DryRunTestTransformFactory.getCreatedTables());
+    }
+
+    @Test
+    public void testConnectDryRunRejectsPartiallyResolvedTransformInputs() {
+        ConfigCheckException exception =
+                Assertions.assertThrows(
+                        ConfigCheckException.class,
+                        () ->
+                                runConnectValidatorFromString(
+                                        "source { DryRunTestSource { plugin_output = src } }\n"
+                                                + "transform { NonExistentTransform { plugin_input = [src,missing], plugin_output = t1 } }\n"
+                                                + "sink { InMemory { plugin_input = [src] } }"));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unable to resolve transform dependencies"));
+        Assertions.assertTrue(exception.getMessage().contains("t1 <- [src, missing]"));
+    }
+
+    @Test
+    public void testConnectDryRunSchedulesLongReverseDependencyChainOnce() {
+        int transformCount = 512;
+        List<Config> transforms = new ArrayList<>(transformCount);
+        for (int outputIndex = transformCount - 1; outputIndex >= 0; outputIndex--) {
+            String inputId = outputIndex == 0 ? "src" : "t" + (outputIndex - 1);
+            transforms.add(
+                    ConfigFactory.parseString(
+                            "{ plugin_name=Copy, plugin_input=["
+                                    + inputId
+                                    + "], plugin_output=t"
+                                    + outputIndex
+                                    + " }"));
+        }
+
+        List<DryRunConnectValidator.ScheduledTransform> scheduled =
+                DryRunConnectValidator.scheduleTransforms(transforms, Collections.singleton("src"));
+
+        Assertions.assertEquals(transformCount, scheduled.size());
+        for (int evaluationIndex = 0; evaluationIndex < transformCount; evaluationIndex++) {
+            Assertions.assertEquals(
+                    "t" + evaluationIndex, scheduled.get(evaluationIndex).getOutputId());
+        }
+    }
+
+    @Test
+    public void testConnectDryRunDoesNotFallbackAfterAnotherTransformWasScheduled() {
+        List<Config> transforms =
+                Arrays.asList(
+                        ConfigFactory.parseString(
+                                "{ plugin_name=Copy, plugin_input=[src], plugin_output=t1 }"),
+                        ConfigFactory.parseString(
+                                "{ plugin_name=Copy, plugin_input=[missing], plugin_output=t2 }"));
+
+        ConfigCheckException exception =
+                Assertions.assertThrows(
+                        ConfigCheckException.class,
+                        () ->
+                                DryRunConnectValidator.scheduleTransforms(
+                                        transforms, Collections.singleton("src")));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Unable to resolve transform dependencies"));
+        Assertions.assertTrue(exception.getMessage().contains("t2 <- [missing]"));
+    }
+
+    @Test
+    public void testConnectDryRunExplicitEmptyInputUsesResolvedTerminalSchema() {
+        DryRunTestTransformFactory.resetCreatedTables();
+        List<DryRunConnectValidator.PluginResult> results =
+                runConnectValidatorFromString(
+                        "source { DryRunTestSource { plugin_output = src } }\n"
+                                + "transform {\n"
+                                + "  DryRunTestTransform { plugin_input = [src], plugin_output = t1, expected_input_count = 1, produced_table = t1_table }\n"
+                                + "  DryRunTestTransform { plugin_input = [], plugin_output = t2, expected_input_count = 1, produced_table = t2_table }\n"
+                                + "}\n"
+                                + "sink {\n"
+                                + "  DryRunTestSink { plugin_input = [t1], expected_table = t1_table }\n"
+                                + "  DryRunTestSink { plugin_input = [t2], expected_table = t2_table }\n"
+                                + "}");
+
+        Assertions.assertEquals(5, results.size());
+        results.forEach(
+                result ->
+                        Assertions.assertEquals(
+                                DryRunConnectValidator.PluginResult.Status.VALIDATED,
+                                result.getStatus()));
+        Assertions.assertEquals(
+                Arrays.asList("t1_table", "t2_table"),
+                DryRunTestTransformFactory.getCreatedTables());
     }
 
     @Test
