@@ -38,22 +38,39 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
     private final SeaTunnelRowType rowType;
     private final AvroToRowConverter converter;
     private final CatalogTable catalogTable;
+    private final boolean stripSchemaRegistryHeader;
 
     public AvroDeserializationSchema(CatalogTable catalogTable) {
-        this.catalogTable = catalogTable;
-        this.rowType = catalogTable.getSeaTunnelRowType();
-        this.converter = new AvroToRowConverter(rowType);
+        this(catalogTable, null, false);
     }
 
     public AvroDeserializationSchema(CatalogTable catalogTable, String writerSchema) {
+        this(catalogTable, writerSchema, false);
+    }
+
+    public AvroDeserializationSchema(
+            CatalogTable catalogTable, String writerSchema, boolean stripSchemaRegistryHeader) {
         this.catalogTable = catalogTable;
         this.rowType = catalogTable.getSeaTunnelRowType();
-        this.converter = new AvroToRowConverter(rowType, writerSchema);
+        this.converter =
+                writerSchema == null
+                        ? new AvroToRowConverter(rowType)
+                        : new AvroToRowConverter(rowType, writerSchema);
+        this.stripSchemaRegistryHeader = stripSchemaRegistryHeader;
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);
+        if (stripSchemaRegistryHeader) {
+            if (message == null || message.length < 5 || message[0] != 0) {
+                throw new IOException(
+                        "Invalid Confluent Schema Registry Avro header: expected a five-byte header with magic byte 0");
+            }
+        }
+        int offset = stripSchemaRegistryHeader ? 5 : 0;
+        int length = stripSchemaRegistryHeader ? message.length - offset : message.length;
+        BinaryDecoder decoder =
+                DecoderFactory.get().binaryDecoder(message, offset, length, null);
         GenericRecord record = this.converter.getReader().read(null, decoder);
         SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
         Optional<TablePath> tablePath =
