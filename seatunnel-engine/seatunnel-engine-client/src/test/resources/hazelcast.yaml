@@ -22,7 +22,7 @@ hazelcast:
       tcp-ip:
         enabled: true
         member-list:
-          - localhost
+          - 127.0.0.1
     port:
       auto-increment: true
       port-count: 10

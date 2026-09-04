@@ -44,8 +44,24 @@ public class FlowControlGate {
     }
 
     public void audit(SeaTunnelRow row) {
-        bytesRateLimiter.ifPresent(rateLimiter -> rateLimiter.acquire(row.getBytesSize()));
+        bytesRateLimiter.ifPresent(rateLimiter -> acquireBytes(rateLimiter, row));
         countRateLimiter.ifPresent(RateLimiter::acquire);
+    }
+
+    /**
+     * Charge the byte limiter for this row, unless the row measures zero bytes.
+     *
+     * <p>A row can legitimately measure zero bytes: {@link SeaTunnelRow#getBytesSize()} counts a
+     * null field as 0 and a String as its length, so an all-null row, or one of only empty strings,
+     * sums to 0. {@link RateLimiter#acquire(int)} rejects a non-positive permit count, so charging
+     * it would abort the task instead of throttling it. Such a row consumes no byte budget; the
+     * count limiter is what bounds its rate.
+     */
+    private void acquireBytes(RateLimiter rateLimiter, SeaTunnelRow row) {
+        int bytesSize = row.getBytesSize();
+        if (bytesSize > 0) {
+            rateLimiter.acquire(bytesSize);
+        }
     }
 
     public static FlowControlGate create(FlowControlStrategy flowControlStrategy) {

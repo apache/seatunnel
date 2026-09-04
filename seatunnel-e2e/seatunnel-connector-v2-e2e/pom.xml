@@ -46,6 +46,7 @@
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
+        <module>connector-file-gcs-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
@@ -105,6 +106,7 @@
         <module>connector-bigquery-e2e</module>
         <module>connector-nats-jetstream-e2e</module>
         <module>connector-couchbase-e2e</module>
+        <module>connector-firebase-e2e</module>
     </modules>
 
     <properties>

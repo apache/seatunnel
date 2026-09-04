@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.pulsar.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -40,7 +41,12 @@ public class PulsarSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(PulsarSinkOptions.CLIENT_SERVICE_URL, PulsarSinkOptions.ADMIN_SERVICE_URL)
+                .required(
+                        PulsarSinkOptions.CLIENT_SERVICE_URL,
+                        Conditions.notBlank(PulsarSinkOptions.CLIENT_SERVICE_URL))
+                .required(
+                        PulsarSinkOptions.ADMIN_SERVICE_URL,
+                        Conditions.notBlank(PulsarSinkOptions.ADMIN_SERVICE_URL))
                 .optional(
                         PulsarSinkOptions.TOPIC,
                         PulsarSinkOptions.FORMAT,

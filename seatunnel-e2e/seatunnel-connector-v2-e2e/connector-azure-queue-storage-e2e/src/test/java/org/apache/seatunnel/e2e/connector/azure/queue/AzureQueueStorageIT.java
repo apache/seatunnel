@@ -19,8 +19,11 @@ package org.apache.seatunnel.e2e.connector.azure.queue;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +42,7 @@ import com.azure.storage.queue.models.QueueMessageItem;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Iterator;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -53,13 +57,19 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
     private static final String ACCOUNT_KEY =
             "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
     private static final String QUEUE_NAME = "events";
+    private static final String SOURCE_QUEUE_NAME = "source-events";
     private static final int QUEUE_PORT = 10001;
     private static final String NETWORK_ALIAS = "azure-queue";
     private static final String JOB_CONFIG = "/azurequeue/fake_to_azure_queue.conf";
+    private static final String SOURCE_JOB_CONFIG = "/azurequeue/azure_queue_to_console.conf";
     private static final String EXPECTED_MESSAGE = "{\"name\":\"alice\",\"age\":30}";
+    private static final String EXPECTED_SOURCE_EVENT_ID = "azure-queue-source-checkpoint-event";
+    private static final String SOURCE_MESSAGE =
+            "{\"event_id\":\"" + EXPECTED_SOURCE_EVENT_ID + "\",\"event_type\":\"created\"}";
 
     private GenericContainer<?> azurite;
     private QueueClient queueClient;
+    private QueueClient sourceQueueClient;
 
     @BeforeAll
     @Override
@@ -90,6 +100,12 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
                         .queueName(QUEUE_NAME)
                         .buildClient();
         queueClient.createIfNotExists();
+        sourceQueueClient =
+                new QueueClientBuilder()
+                        .connectionString(hostConnectionString())
+                        .queueName(SOURCE_QUEUE_NAME)
+                        .buildClient();
+        sourceQueueClient.createIfNotExists();
         SeaTunnelContainer.enableAzureQueueReactorThreadExemption();
     }
 
@@ -127,6 +143,81 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(EXPECTED_MESSAGE, receivedMessage.get().getBody().toString());
         queueClient.deleteMessage(
                 receivedMessage.get().getMessageId(), receivedMessage.get().getPopReceipt());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "The source checkpoint assertion uses the Zeta REST job status and server logs")
+    public void testAzureQueueStorageSourceDeletesAfterCheckpoint(TestContainer container)
+            throws Exception {
+        sourceQueueClient.clearMessages();
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(SOURCE_JOB_CONFIG, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                            });
+
+            long checkpointCount = container.getCompletedCheckpointCount(jobId);
+            sourceQueueClient.sendMessage(SOURCE_MESSAGE);
+
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains(EXPECTED_SOURCE_EVENT_ID),
+                                        "Azure Queue message was not emitted by the source");
+                            });
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(jobId)
+                                                > checkpointCount,
+                                        "No checkpoint completed after the Azure Queue message was emitted");
+                                Assertions.assertNull(
+                                        sourceQueueClient.peekMessage(),
+                                        "Azure Queue message was not deleted after checkpoint completion");
+                            });
+        } finally {
+            if (!jobFuture.isDone()) {
+                Container.ExecResult cancelResult = container.cancelJob(jobId);
+                Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+            }
+        }
+
+        Container.ExecResult jobResult = jobFuture.get(120, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
+    }
+
+    private void assertJobStillRunning(CompletableFuture<Container.ExecResult> jobFuture)
+            throws Exception {
+        if (jobFuture.isDone()) {
+            Container.ExecResult result = jobFuture.get();
+            Assertions.fail("Streaming source job terminated early:\n" + result.getStderr());
+        }
     }
 
     private String hostConnectionString() {
