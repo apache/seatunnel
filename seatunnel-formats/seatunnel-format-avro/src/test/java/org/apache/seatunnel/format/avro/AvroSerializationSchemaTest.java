@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Arrays;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -363,6 +362,6 @@ class AvroSerializationSchemaTest {
                 new AvroDeserializationSchema(catalogTable, "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}", true);
         Assertions.assertThrows(
                 RuntimeException.class,
-                () -> schema.deserialize(Arrays.copyOf(new byte[] {1, 0, 0, 0, 1}, 5)));
+                () -> schema.deserialize(new byte[] {1, 0, 0, 0, 1}));
     }
 }
