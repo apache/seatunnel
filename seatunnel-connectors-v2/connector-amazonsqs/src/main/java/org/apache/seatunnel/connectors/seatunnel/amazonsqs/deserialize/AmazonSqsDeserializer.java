@@ -18,27 +18,46 @@
 package org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
 
 public class AmazonSqsDeserializer implements SeaTunnelRowDeserializer {
 
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final boolean ignoreParseErrors;
+    private final MessageFormat format;
 
     public AmazonSqsDeserializer(
             DeserializationSchema<SeaTunnelRow> deserializationSchema, boolean ignoreParseErrors) {
+        this(deserializationSchema, ignoreParseErrors, MessageFormat.JSON);
+    }
+
+    public AmazonSqsDeserializer(
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            boolean ignoreParseErrors,
+            MessageFormat format) {
         this.deserializationSchema = deserializationSchema;
         this.ignoreParseErrors = ignoreParseErrors;
+        this.format = format;
     }
 
     @Override
     public SeaTunnelRow deserializeRow(String row) {
+        byte[] message = row.getBytes(StandardCharsets.UTF_8);
         try {
-            SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(row.getBytes());
+            SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(message);
             if (seaTunnelRow == null && !ignoreParseErrors) {
                 throw new AmazonSqsConnectorException(
                         AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
@@ -53,6 +72,54 @@ public class AmazonSqsDeserializer implements SeaTunnelRowDeserializer {
                     AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
                     "Failed to deserialize Amazon SQS message",
                     e);
+        }
+    }
+
+    @Override
+    public List<SeaTunnelRow> deserializeRows(String row) {
+        if (format == MessageFormat.CANAL_JSON || format == MessageFormat.DEBEZIUM_JSON) {
+            return deserializeMultipleRows(row.getBytes(StandardCharsets.UTF_8));
+        }
+        return SeaTunnelRowDeserializer.super.deserializeRows(row);
+    }
+
+    private List<SeaTunnelRow> deserializeMultipleRows(byte[] message) {
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        try {
+            deserializationSchema.deserialize(message, new BufferingCollector(rows));
+            return rows;
+        } catch (IOException e) {
+            if (ignoreParseErrors) {
+                return Collections.emptyList();
+            }
+            throw new AmazonSqsConnectorException(
+                    AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
+                    "Failed to deserialize Amazon SQS message",
+                    e);
+        } catch (SeaTunnelRuntimeException e) {
+            if (ignoreParseErrors
+                    && CommonErrorCode.JSON_OPERATION_FAILED.equals(e.getSeaTunnelErrorCode())) {
+                return Collections.emptyList();
+            }
+            throw e;
+        }
+    }
+
+    private static final class BufferingCollector implements Collector<SeaTunnelRow> {
+        private final List<SeaTunnelRow> rows;
+
+        private BufferingCollector(List<SeaTunnelRow> rows) {
+            this.rows = rows;
+        }
+
+        @Override
+        public void collect(SeaTunnelRow row) {
+            rows.add(Objects.requireNonNull(row, "Deserialization schema emitted a null row"));
+        }
+
+        @Override
+        public Object getCheckpointLock() {
+            return this;
         }
     }
 }
