@@ -19,8 +19,10 @@ package org.apache.seatunnel.e2e.connector.couchbase;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -298,6 +300,11 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "engine-level timer flush (sink.flush.interval) is only supported on Zeta engine")
     public void testCouchbaseSinkTimerFlush(TestContainer container) throws Exception {
         cluster.query(
                 String.format(
