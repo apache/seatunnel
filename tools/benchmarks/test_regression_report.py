@@ -55,7 +55,7 @@ class RegressionReportTest(unittest.TestCase):
         self.assertIn("+10.00%", markdown)
         self.assertIn("ops/ms", markdown)
 
-    def test_jmh_comparison_reports_refs_cv_error_and_changes(self):
+    def test_jmh_comparison_reports_score_cv_error_and_changes(self):
         baseline_one = self.jmh_metric(100.0, "ops/s")
         baseline_one.update({"score_error": 10.0, "sample_standard_deviation": 20.0})
         baseline_two = self.jmh_metric(100.0, "ops/s")
@@ -77,9 +77,10 @@ class RegressionReportTest(unittest.TestCase):
             regression_report.jmh_comparison_lines(baselines, candidates)
         )
 
+        self.assertIn("`B` = Baseline, `C` = Candidate.", markdown)
         self.assertIn(
-            "| Benchmark | Parameters | dev | PR #123 | Score Change | dev CV | PR #123 CV | "
-            "CV Change | dev Error | PR #123 Error | Error Change | Unit |",
+            "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | "
+            "CV Change | Error B | Error C | Error Change | Unit |",
             markdown,
         )
         self.assertIn("15.00%", markdown)
