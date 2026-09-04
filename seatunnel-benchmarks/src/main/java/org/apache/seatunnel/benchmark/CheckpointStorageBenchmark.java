@@ -93,6 +93,9 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
      * independent job/pipeline counters that were initialized before measurement. Counter setup,
      * MapStore reload checks, result validation, and cleanup are not timed.
      *
+     * <p>Each increment waits on the write-through file-backed MapStore WAL append, so durable sync
+     * cost dominates both the mean latency and the within-run coefficient of variation.
+     *
      * <p>{@link Mode#SingleShotTime} keeps the phase at exactly 100 allocations, while {@link
      * OperationsPerInvocation} reports the normalized cost of one atomic checkpoint-ID allocation.
      */
@@ -111,6 +114,10 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
      * checkpoint-overview IMap update that increments the completed count and records the latest
      * and historical checkpoint metadata. Fixture construction, durable MapStore reload checks, and
      * cleanup are outside measured time.
+     *
+     * <p>Like the counter benchmark, this path is write-through. Latency variance is dominated by
+     * durable WAL sync plus overview serialization; residual CV after WAL-writer cleanup should be
+     * interpreted as storage-path noise, not a cross-JDK regression.
      *
      * <p>{@link Mode#SingleShotTime} executes one fixed update phase per measurement iteration, and
      * {@link OperationsPerInvocation} normalizes its duration to one completed-checkpoint overview

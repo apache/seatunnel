@@ -202,6 +202,11 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointStorageBenchmark
 Barrier 传递、任务快照、ACK 等待、Fixture 生成、持久性校验和清理均不计入测量。每次
 invocation 固定执行 100 个逻辑操作，并按单个操作归一化为 `us/op`；数值越低越好。
 
+上述两个隔离方法都走 write-through IMap MapStore 路径（`write-delay-seconds: 0`），因此每次
+测量操作都会等待一次基于文件的持久化 WAL 追加。样本间变异系数（CV）主要由该持久化同步成本
+以及 overview 的 ProtoStuff 序列化体量决定，不能当作 Java 8 与 Java 11 的对比信号。排查高
+CV 时，应先剖析 WAL writer 与 MapStore 等待路径，而不是先改 Benchmark Fixture。
+
 只分析持久化事务中的一个环节时，应精确选择对应方法：
 
 ```bash

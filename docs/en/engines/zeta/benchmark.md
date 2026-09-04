@@ -214,6 +214,13 @@ Barrier delivery, task snapshotting, ACK waiting, fixture generation, durability
 cleanup are outside measured time. Each invocation processes a fixed batch of 100 logical
 operations and reports the normalized time per operation in `us/op`; lower is better.
 
+These two isolated methods stay on the write-through IMap MapStore path
+(`write-delay-seconds: 0`). Every measured operation therefore waits for one durable file-backed WAL
+append. Sample-to-sample coefficient of variation is dominated by that durable sync cost and by
+overview ProtoStuff serialization size; it is not a Java 8 vs Java 11 comparison signal. When
+investigating high CV, profile the WAL writer and MapStore wait path before changing the benchmark
+fixture.
+
 Run one exact method when only one part of the persistence transaction is under investigation:
 
 ```bash
