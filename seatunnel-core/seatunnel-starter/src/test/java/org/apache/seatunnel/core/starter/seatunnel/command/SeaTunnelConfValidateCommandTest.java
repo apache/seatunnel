@@ -82,6 +82,40 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testValidationResultClassifiesParseFailure() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgs("config/invalid_hocon_syntax.conf"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("parse", result.getErrors().get(0).getRuleCategory());
+    }
+
+    @Test
+    public void testValidationResultClassifiesOptionFailure() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgs("config/invalid_option_type.json"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("option", result.getErrors().get(0).getRuleCategory());
+    }
+
+    @Test
+    public void testValidationResultClassifiesPluginLoadFailure() {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(
+                        buildArgs("config/invalid_plugin_loadability.json"));
+
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("plugin", result.getErrors().get(0).getRuleCategory());
+    }
+
+    @Test
     public void testValidConnectDryRun() {
         ClientCommandArgs args = buildConnectArgs("config/valid_static_dryrun.json");
         Assertions.assertInstanceOf(SeaTunnelConfValidateCommand.class, args.buildCommand());
