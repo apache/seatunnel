@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
 
@@ -37,22 +39,32 @@ public class AmazonSqsDeserializer implements SeaTunnelRowDeserializer {
 
     @Override
     public SeaTunnelRow deserializeRow(String row) {
+        SeaTunnelRow seaTunnelRow;
         try {
-            SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(row.getBytes());
-            if (seaTunnelRow == null && !ignoreParseErrors) {
-                throw new AmazonSqsConnectorException(
-                        AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
-                        "Failed to deserialize Amazon SQS message");
+            seaTunnelRow = deserializationSchema.deserialize(row.getBytes());
+        } catch (SeaTunnelRuntimeException e) {
+            if (!CommonErrorCode.JSON_OPERATION_FAILED.equals(e.getSeaTunnelErrorCode())) {
+                throw e;
             }
-            return seaTunnelRow;
+            return handleDeserializationFailure(e);
         } catch (IOException e) {
-            if (ignoreParseErrors) {
-                return null;
-            }
+            return handleDeserializationFailure(e);
+        }
+        if (seaTunnelRow == null && !ignoreParseErrors) {
             throw new AmazonSqsConnectorException(
                     AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
-                    "Failed to deserialize Amazon SQS message",
-                    e);
+                    "Failed to deserialize Amazon SQS message");
         }
+        return seaTunnelRow;
+    }
+
+    private SeaTunnelRow handleDeserializationFailure(Throwable cause) {
+        if (ignoreParseErrors) {
+            return null;
+        }
+        throw new AmazonSqsConnectorException(
+                AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED,
+                "Failed to deserialize Amazon SQS message",
+                cause);
     }
 }
