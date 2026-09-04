@@ -35,6 +35,8 @@ public class RequestFuture implements Future<Boolean> {
 
     private final CountDownLatch latch = new CountDownLatch(1);
 
+    // Written in done() before countDown(); get() already observes it via the latch
+    // happens-before. volatile keeps the result bit safely published across threads.
     private volatile boolean success = false;
 
     @Override
