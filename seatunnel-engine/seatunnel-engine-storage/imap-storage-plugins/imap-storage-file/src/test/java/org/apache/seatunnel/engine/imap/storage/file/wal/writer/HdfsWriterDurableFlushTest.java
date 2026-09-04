@@ -43,8 +43,11 @@ import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 
 /**
- * Verifies that a single durable {@code hsync} path keeps WAL records readable after each append,
- * including while the writer is still open.
+ * Verifies mid-stream write-then-read visibility across handles while the writer is still open.
+ *
+ * <p>This is not a crash-survival / fsync proof: same-process read-back also passes for {@code
+ * hflush()}-only data sitting in the OS page cache. Use {@link HdfsWriterFlushSyncPathTest} to
+ * assert that {@link HdfsWriter#flush()} still invokes an {@code hsync}-family method exactly once.
  */
 @EnabledOnOs({LINUX, MAC})
 class HdfsWriterDurableFlushTest {
