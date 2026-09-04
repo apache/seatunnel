@@ -35,6 +35,11 @@ public class CheckpointErrorRestoreEndTest
         extends AbstractSeaTunnelServerTest<CheckpointErrorRestoreEndTest> {
     public static String STREAM_CONF_WITH_ERROR_PATH =
             "batch_fakesource_to_inmemory_with_commit_error.conf";
+    /**
+     * The commit-error batch job restores three times before reaching the final FAILED state, so
+     * the related regression tests share the same 240-second upper bound.
+     */
+    public static final long RESTORE_TO_FAILED_TIMEOUT_SECONDS = 240L;
 
     @Test
     public void testCheckpointRestoreToFailEnd() {
@@ -43,7 +48,7 @@ public class CheckpointErrorRestoreEndTest
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
-        await().atMost(240, TimeUnit.SECONDS)
+        await().atMost(RESTORE_TO_FAILED_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
@@ -53,7 +58,7 @@ public class CheckpointErrorRestoreEndTest
                                                 .getPipelineList()
                                                 .get(0)
                                                 .getPipelineRestoreNum()));
-        await().atMost(240, TimeUnit.SECONDS)
+        await().atMost(RESTORE_TO_FAILED_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(

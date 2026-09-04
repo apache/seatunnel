@@ -61,10 +61,13 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
-import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -1284,20 +1287,180 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
-        physicalPlan.savepointJob();
-        PassiveCompletableFuture<CompletedCheckpoint>[] passiveCompletableFutures =
-                checkpointManager.triggerSavePoints();
         return CompletableFuture.supplyAsync(
-                () ->
-                        Arrays.stream(passiveCompletableFutures)
-                                .allMatch(
-                                        future -> {
-                                            try {
-                                                return future.get() != null;
-                                            } catch (Exception e) {
-                                                throw new SeaTunnelEngineException(e);
-                                            }
-                                        }));
+                () -> {
+                    boolean savepointCompleted = false;
+                    SavepointCompletionResult savepointCompletionResult = null;
+                    try {
+                        physicalPlan.savepointJob();
+                        PassiveCompletableFuture<CheckpointCoordinatorState>[]
+                                passiveCompletableFutures =
+                                        checkpointManager.triggerSavePointsAndWaitComplete();
+                        savepointCompletionResult =
+                                waitSavepointCompleted(passiveCompletableFutures);
+                        savepointCompleted = savepointCompletionResult.isCompleted();
+                        Optional<Exception> failureException =
+                                getSavepointFailureException(savepointCompletionResult);
+                        if (failureException.isPresent()) {
+                            throw new SeaTunnelEngineException(failureException.get());
+                        }
+                        return savepointCompleted;
+                    } finally {
+                        if (!savepointCompleted) {
+                            if (isSavepointStartPreconditionFailure(savepointCompletionResult)) {
+                                LOGGER.info(
+                                        String.format(
+                                                "Savepoint for Job %s (%s) could not start because the checkpoint coordinator is not ready; restore job status to RUNNING for retry.",
+                                                jobImmutableInformation.getJobConfig().getName(),
+                                                jobImmutableInformation.getJobId()));
+                                restoreRunningAfterSavepointStartFailure();
+                            } else {
+                                // At least one pipeline failed its final checkpoint. Some other
+                                // pipelines may already have completed the savepoint and stopped,
+                                // so the job must leave DOING_SAVEPOINT through a deterministic
+                                // stop path instead of being reported as RUNNING.
+                                physicalPlan.savepointFailed();
+                            }
+                        }
+                    }
+                });
+    }
+
+    private Optional<Exception> getSavepointFailureException(
+            SavepointCompletionResult savepointCompletionResult) {
+        Optional<Exception> nonPreconditionFailure =
+                savepointCompletionResult.getExceptions().stream()
+                        .filter(exception -> !isSavepointStartPreconditionException(exception))
+                        .findFirst();
+        return nonPreconditionFailure.isPresent()
+                ? nonPreconditionFailure
+                : savepointCompletionResult.getFirstException();
+    }
+
+    private void restoreRunningAfterSavepointStartFailure() {
+        if (physicalPlan.getJobStatus() == JobStatus.DOING_SAVEPOINT) {
+            physicalPlan.updateJobState(JobStatus.RUNNING);
+        }
+    }
+
+    /**
+     * Waits for every pipeline savepoint future and preserves all failures for the job-level
+     * decision.
+     *
+     * <p>A stop-with-savepoint request fans out to independent checkpoint coordinators. The cleanup
+     * decision must therefore be based on the whole result set, not on whichever pipeline fails
+     * first or appears first in the pipeline list.
+     */
+    private SavepointCompletionResult waitSavepointCompleted(
+            PassiveCompletableFuture<CheckpointCoordinatorState>[] passiveCompletableFutures) {
+        try {
+            CompletableFuture.allOf(passiveCompletableFutures).join();
+        } catch (Exception e) {
+            // Inspect every pipeline future below so a fast failure does not short-circuit the
+            // stop-with-savepoint decision while another pipeline is still completing.
+            LOGGER.fine(
+                    "Savepoint aggregate future completed exceptionally; inspect every pipeline future before deciding stop-with-savepoint result",
+                    e);
+        }
+
+        boolean savepointCompleted = true;
+        boolean anyPipelineSuspended = false;
+        List<Exception> exceptions = new ArrayList<>();
+        for (PassiveCompletableFuture<CheckpointCoordinatorState> future :
+                passiveCompletableFutures) {
+            try {
+                CheckpointCoordinatorState state = future.get();
+                if (state == null
+                        || state.getCheckpointCoordinatorStatus()
+                                != CheckpointCoordinatorStatus.SUSPEND) {
+                    savepointCompleted = false;
+                } else {
+                    anyPipelineSuspended = true;
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                savepointCompleted = false;
+                exceptions.add(e);
+            } catch (Exception e) {
+                savepointCompleted = false;
+                exceptions.add(e);
+            }
+        }
+        return new SavepointCompletionResult(savepointCompleted, exceptions, anyPipelineSuspended);
+    }
+
+    /**
+     * Returns true only when the savepoint failed before any pipeline could start a checkpoint.
+     *
+     * <p>These pre-start failures are safe to retry: no pipeline has reached {@link
+     * CheckpointCoordinatorStatus#SUSPEND}, and every reported failure reason comes from a
+     * checkpoint coordinator that rejected the request before creating a pending checkpoint. Any
+     * genuine checkpoint failure, partial suspension, or non-exceptional non-suspend state must use
+     * the deterministic stop fallback instead.
+     */
+    private boolean isSavepointStartPreconditionFailure(
+            SavepointCompletionResult savepointCompletionResult) {
+        if (savepointCompletionResult == null
+                || savepointCompletionResult.isAnyPipelineSuspended()
+                || savepointCompletionResult.getExceptions().isEmpty()) {
+            return false;
+        }
+
+        return savepointCompletionResult.getExceptions().stream()
+                .allMatch(this::isSavepointStartPreconditionException);
+    }
+
+    /**
+     * Returns true for checkpoint coordinator failures that happen before a savepoint checkpoint is
+     * created.
+     */
+    private boolean isSavepointStartPreconditionException(Exception exception) {
+        Throwable rootException = ExceptionUtils.getRootException(exception);
+        if (!(rootException instanceof CheckpointException)) {
+            return false;
+        }
+
+        CheckpointCloseReason failureReason =
+                ((CheckpointException) rootException).getCheckpointFailureReason();
+        return failureReason == CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT
+                || failureReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN;
+    }
+
+    /**
+     * Aggregated outcome of all pipeline savepoint futures.
+     *
+     * <p>The job can be restored to RUNNING only when all failures are retryable pre-start
+     * rejections. A single genuine checkpoint failure or already-suspended pipeline means some
+     * pipeline state may have changed, so the job must use the stop fallback.
+     */
+    private static class SavepointCompletionResult {
+
+        private final boolean completed;
+        private final List<Exception> exceptions;
+        private final boolean anyPipelineSuspended;
+
+        private SavepointCompletionResult(
+                boolean completed, List<Exception> exceptions, boolean anyPipelineSuspended) {
+            this.completed = completed;
+            this.exceptions = exceptions;
+            this.anyPipelineSuspended = anyPipelineSuspended;
+        }
+
+        private boolean isCompleted() {
+            return completed;
+        }
+
+        private Optional<Exception> getFirstException() {
+            return exceptions.stream().findFirst();
+        }
+
+        private List<Exception> getExceptions() {
+            return exceptions;
+        }
+
+        private boolean isAnyPipelineSuspended() {
+            return anyPipelineSuspended;
+        }
     }
 
     public void setOwnedSlotProfiles(

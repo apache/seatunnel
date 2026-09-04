@@ -30,19 +30,23 @@
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>
         <module>connector-redis-e2e</module>
+        <module>connector-cdc-db2-e2e</module>
         <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-databend-e2e</module>
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>
         <module>connector-amazondynamodb-e2e</module>
+        <module>connector-azurecosmosdb-e2e</module>
         <module>connector-amazonsqs-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-file-cos-e2e</module>
+        <module>connector-file-bos-e2e</module>
         <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
+        <module>connector-file-gcs-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
@@ -68,6 +72,7 @@
         <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-google-pubsub-e2e</module>
+        <module>connector-azure-queue-storage-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
@@ -95,11 +100,13 @@
         <module>connector-aerospike-e2e</module>
         <module>connector-sensorsdata-e2e</module>
         <module>connector-hugegraph-e2e</module>
+        <module>connector-nebulagraph-e2e</module>
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
         <module>connector-bigquery-e2e</module>
         <module>connector-nats-jetstream-e2e</module>
         <module>connector-couchbase-e2e</module>
+        <module>connector-firebase-e2e</module>
     </modules>
 
     <properties>

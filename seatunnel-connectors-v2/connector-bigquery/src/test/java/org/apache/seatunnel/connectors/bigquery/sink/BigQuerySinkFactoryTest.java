@@ -52,4 +52,26 @@ class BigQuerySinkFactoryTest {
                         ConfigValidator.of(ReadonlyConfig.fromConfig(config))
                                 .validate(factory.optionRule()));
     }
+
+    @Test
+    void testUniverseDomainConfigurationParsing() {
+        Config config =
+                ConfigFactory.parseString(
+                        BigQuerySinkOptions.PROJECT_ID.key()
+                                + " = \"test-project\"\n"
+                                + BigQuerySinkOptions.DATASET_ID.key()
+                                + " = \"test_dataset\"\n"
+                                + BigQuerySinkOptions.TABLE_ID.key()
+                                + " = \"test_table\"\n"
+                                + BigQuerySinkOptions.UNIVERSE_DOMAIN.key()
+                                + " = \"s3nsapis.fr\"\n");
+
+        BigQuerySinkFactory factory = new BigQuerySinkFactory();
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+
+        assertDoesNotThrow(() -> ConfigValidator.of(readonlyConfig).validate(factory.optionRule()));
+
+        org.junit.jupiter.api.Assertions.assertEquals(
+                "s3nsapis.fr", readonlyConfig.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+    }
 }

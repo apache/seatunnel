@@ -115,7 +115,7 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 
 **说明:**
 
-- `start_timestamp` / `end_timestamp` 必须大于等于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
+- `start_timestamp` 必须大于等于 0，`end_timestamp` 必须大于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
 - 当 `start_rowkey` / `end_rowkey` 与 `start_timestamp` / `end_timestamp` 同时配置时，会同时应用行键范围与时间范围限制，最终返回两者的交集。
 
 ### 常用选项

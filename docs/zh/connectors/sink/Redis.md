@@ -93,6 +93,22 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 多表作业中，`key` 可以包含 `${table_name}`，这样不同上游表的数据会写入不同 Redis key，例如
 `key = "redis-result-${table_name}"`。
 
+## 模式演变
+
+Redis Sink 在 SeaTunnel Zeta 引擎中支持模式演变。上游使用 CDC Source 时，需要在 Source 配置中设置
+`schema-changes.enabled = true`，使模式变更事件能够发送到 Sink。
+
+Redis 本身没有表结构，因此模式演变不会在 Redis 中执行 DDL。当 Redis Sink 使用 JSON 或 TEXT
+序列化完整上游行时，它会在收到支持的模式变更事件后更新序列化器：新增字段会写入 Redis，已删除字段不再写入。
+支持的事件类型请参见[模式演变](../../introduction/configuration/schema-evolution.md)。
+
+模式演变不会自动改写 `key`、自定义 Key 占位符、`value_field`、`hash_key_field` 或 `hash_value_field` 中配置的
+字段名。作业运行期间，请勿重命名或删除这些选项引用的字段。如果配置的字段已不存在，Redis Sink 会按
+[写入规则](#写入规则)中的缺失字段行为处理，配置的字段名可能会被当作字面量 Key 或 Value 写入。
+
+应用模式变更前，Redis Sink 会先刷新按旧模式缓存的数据。它还会把最新模式保存到 checkpoint 状态，并在恢复时使用
+该模式。当前不支持从包含 DDL 后状态的 checkpoint 恢复作业时增加 Redis Sink 的并行度。
+
 ## 示例
 
 ### 写入 Redis List

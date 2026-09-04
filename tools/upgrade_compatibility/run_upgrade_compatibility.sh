@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "$0")/../.." >/dev/null; pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." >/dev/null; pwd)"
 OLD_SEATUNNEL_VERSION="${OLD_SEATUNNEL_VERSION:-2.3.13}"
 SCENARIO="${SCENARIO:-generic-fake-localfile}"
 WORK_DIR="${WORK_DIR:-${ROOT_DIR}/target/upgrade-compatibility}"
@@ -75,7 +75,15 @@ cleanup() {
 
 stop_process() {
     local pid="$1"
-    if [ -n "${pid}" ] && kill -0 "${pid}" >/dev/null 2>&1; then
+    local child_pid
+
+    [ -n "${pid}" ] || return 0
+
+    while IFS= read -r child_pid; do
+        stop_process "${child_pid}"
+    done < <(pgrep -P "${pid}" 2>/dev/null || true)
+
+    if kill -0 "${pid}" >/dev/null 2>&1; then
         kill "${pid}" >/dev/null 2>&1 || true
         wait "${pid}" >/dev/null 2>&1 || true
     fi
@@ -124,13 +132,23 @@ find_current_distribution() {
         return
     fi
 
+    local -a archives=()
     local archive
-    archive="$(find "${ROOT_DIR}/seatunnel-dist/target" -maxdepth 1 \
-        -name "apache-seatunnel-*-bin.tar.gz" \
-        ! -name "*-src.tar.gz" \
-        | sort | tail -n 1)"
-    [ -n "${archive}" ] || fail "No current dev distribution found under seatunnel-dist/target"
-    echo "${archive}"
+    while IFS= read -r archive; do
+        archives+=("${archive}")
+    done < <(
+        find "${ROOT_DIR}/seatunnel-dist/target" -maxdepth 1 \
+            -name "apache-seatunnel-*-bin.tar.gz" \
+            ! -name "apache-seatunnel-edge-agent-*-bin.tar.gz" \
+            ! -name "*-src.tar.gz" \
+            | sort
+    )
+
+    [ "${#archives[@]}" -gt 0 ] \
+        || fail "No current dev distribution found under seatunnel-dist/target"
+    [ "${#archives[@]}" -eq 1 ] \
+        || fail "Multiple current dev distributions found: ${archives[*]}"
+    echo "${archives[0]}"
 }
 
 extract_distribution() {
@@ -207,12 +225,10 @@ install_old_release_connectors() {
             continue
         fi
         echo "Installing ${connector}:${OLD_SEATUNNEL_VERSION}"
-        "${ROOT_DIR}/mvnw" --batch-mode dependency:get \
-            -Dtransitive=false \
-            -DgroupId=org.apache.seatunnel \
-            -DartifactId="${connector}" \
-            -Dversion="${OLD_SEATUNNEL_VERSION}" \
-            -Ddest="${OLD_DIST_DIR}/connectors"
+        "${ROOT_DIR}/mvnw" --batch-mode dependency:copy \
+            -Dartifact="org.apache.seatunnel:${connector}:${OLD_SEATUNNEL_VERSION}" \
+            -DoutputDirectory="${OLD_DIST_DIR}/connectors" \
+            -Dmdep.stripVersion=false
     done < "${SCENARIO_DIR}/plugin_config"
     end_stage
 }
@@ -333,12 +349,16 @@ wait_for_process_to_stop() {
 start_cluster() {
     local dist_dir="$1"
     local log_file="$2"
+    local engine_log="${dist_dir}/logs/seatunnel-engine-server.log"
 
     mkdir -p "$(dirname "${log_file}")"
+    rm -f "${engine_log}"
     SEATUNNEL_CONFIG="${dist_dir}/config/seatunnel.yaml" \
         "${dist_dir}/bin/seatunnel-cluster.sh" > "${log_file}" 2>&1 &
     local pid="$!"
-    if ! wait_for_log "${log_file}" "received new worker register" "${STARTUP_TIMEOUT_SECONDS}"; then
+    if ! wait_for_log \
+        "${engine_log}" "received new worker register" "${STARTUP_TIMEOUT_SECONDS}"; then
+        tail -n 200 "${log_file}" >&2 || true
         stop_process "${pid}"
         return 1
     fi
@@ -502,4 +522,6 @@ main() {
     echo "Upgrade compatibility scenario passed: ${OLD_SEATUNNEL_VERSION} -> current dev (${SCENARIO})"
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+    main "$@"
+fi
