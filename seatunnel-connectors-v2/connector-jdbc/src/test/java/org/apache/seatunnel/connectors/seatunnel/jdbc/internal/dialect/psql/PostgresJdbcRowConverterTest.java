@@ -24,6 +24,9 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql.DsqlJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo.HighGoJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss.OpenGaussJdbcRowConverter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -102,6 +105,56 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertEquals(hour, offsetDateTime.getHour());
         Assertions.assertEquals(minute, offsetDateTime.getMinute());
         Assertions.assertEquals(offset, offsetDateTime.getOffset());
+    }
+
+    private void assertPostgresTypedObject(String sourceType, String value) throws SQLException {
+        TableSchema tableSchema = createTableSchema("value", BasicType.STRING_TYPE, null);
+        TableSchema databaseTableSchema =
+                createTableSchema("value", BasicType.STRING_TYPE, sourceType);
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        converter.toExternal(
+                tableSchema,
+                databaseTableSchema,
+                new SeaTunnelRow(new Object[] {1, value}),
+                statement);
+
+        ArgumentCaptor<Object> captor = ArgumentCaptor.forClass(Object.class);
+        verify(statement).setObject(eq(2), captor.capture());
+        Object valueObject = captor.getValue();
+        Assertions.assertTrue(valueObject instanceof PGobject);
+        PGobject object = (PGobject) valueObject;
+        Assertions.assertEquals(sourceType, object.getType());
+        Assertions.assertEquals(value, object.getValue());
+    }
+
+    private void assertStringBinding(PostgresJdbcRowConverter rowConverter) throws SQLException {
+        TableSchema tableSchema = createTableSchema("value", BasicType.STRING_TYPE, null);
+        TableSchema databaseTableSchema = createTableSchema("value", BasicType.STRING_TYPE, "json");
+        PreparedStatement statement = mock(PreparedStatement.class);
+
+        rowConverter.toExternal(
+                tableSchema,
+                databaseTableSchema,
+                new SeaTunnelRow(new Object[] {1, "{\"key\":\"value\"}"}),
+                statement);
+
+        verify(statement).setString(2, "{\"key\":\"value\"}");
+    }
+
+    @Test
+    public void testOpenGaussJsonUsesStringBinding() throws SQLException {
+        assertStringBinding(new OpenGaussJdbcRowConverter());
+    }
+
+    @Test
+    public void testDsqlJsonUsesStringBinding() throws SQLException {
+        assertStringBinding(new DsqlJdbcRowConverter());
+    }
+
+    @Test
+    public void testHighGoJsonUsesStringBinding() throws SQLException {
+        assertStringBinding(new HighGoJdbcRowConverter());
     }
 
     @Test
@@ -298,5 +351,20 @@ public class PostgresJdbcRowConverterTest {
         PGobject pg = (PGobject) arg;
         Assertions.assertEquals("geography", pg.getType());
         Assertions.assertEquals("0102FF", pg.getValue());
+    }
+
+    @Test
+    public void testToExternalWithPostgresJsonTargetType() throws SQLException {
+        assertPostgresTypedObject("json", "{\"id\":1}");
+    }
+
+    @Test
+    public void testToExternalWithPostgresJsonbTargetType() throws SQLException {
+        assertPostgresTypedObject("jsonb", "{\"id\":1}");
+    }
+
+    @Test
+    public void testToExternalWithPostgresUuidTargetType() throws SQLException {
+        assertPostgresTypedObject("uuid", "550e8400-e29b-41d4-a716-446655440000");
     }
 }

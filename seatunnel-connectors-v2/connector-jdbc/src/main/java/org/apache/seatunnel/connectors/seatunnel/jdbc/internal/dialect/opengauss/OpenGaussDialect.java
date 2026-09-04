@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss;
 
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
 import java.util.Arrays;
@@ -24,6 +25,11 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 public class OpenGaussDialect extends PostgresDialect {
+
+    @Override
+    public JdbcRowConverter getRowConverter() {
+        return new OpenGaussJdbcRowConverter();
+    }
 
     @Override
     public Optional<String> getUpsertStatement(
