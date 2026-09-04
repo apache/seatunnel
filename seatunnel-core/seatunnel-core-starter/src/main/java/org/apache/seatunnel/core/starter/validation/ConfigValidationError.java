@@ -24,10 +24,19 @@ public final class ConfigValidationError implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** Plugin location, such as {@code source[0](FakeSource)}, when the phase can identify it. */
     private final String location;
+
+    /** Plugin factory identifier parsed from {@link #location}, when available. */
     private final String plugin;
+
+    /** Option or option group reported by the underlying option validator, when available. */
     private final String optionPath;
+
+    /** Stable, closed category describing the validation rule that failed. */
     private final String ruleCategory;
+
+    /** Sanitized diagnostic message suitable for programmatic consumers. */
     private final String message;
 
     public ConfigValidationError(

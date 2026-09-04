@@ -101,6 +101,46 @@ public class SeaTunnelConfValidateCommandTest {
 
         Assertions.assertFalse(result.isValid());
         Assertions.assertEquals("option", result.getErrors().get(0).getRuleCategory());
+        Assertions.assertNotNull(result.getErrors().get(0).getOptionPath());
+    }
+
+    @Test
+    public void testValidationResultIncludesConnectFailureLocationAndPlugin() throws Exception {
+        Path configFile = Files.createTempFile("seatunnel-validation-connect-failure", ".conf");
+        Files.write(
+                configFile,
+                ("source { DryRunTestSource { fail_connection = true } }\n"
+                                + "sink { InMemory {} }")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildConnectArgsFromPath(configFile.toString()));
+        ConfigValidationResult result = command.validateResult();
+
+        Assertions.assertFalse(result.isValid());
+        Assertions.assertEquals("connectivity", result.getPhase());
+        Assertions.assertEquals(
+                "source[0](DryRunTestSource)", result.getErrors().get(0).getLocation());
+        Assertions.assertEquals("DryRunTestSource", result.getErrors().get(0).getPlugin());
+    }
+
+    @Test
+    public void testValidationResultSanitizesConnectFailure() throws Exception {
+        Path configFile = Files.createTempFile("seatunnel-validation-sensitive-failure", ".conf");
+        Files.write(
+                configFile,
+                ("source { DryRunTestSource { sensitive_connection_failure = true } }\n"
+                                + "sink { InMemory {} }")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildConnectArgsFromPath(configFile.toString()));
+        String message = command.validateResult().getErrors().get(0).getMessage();
+
+        Assertions.assertFalse(message.contains("secret-password"), message);
+        Assertions.assertFalse(message.contains("secret-token"), message);
     }
 
     @Test

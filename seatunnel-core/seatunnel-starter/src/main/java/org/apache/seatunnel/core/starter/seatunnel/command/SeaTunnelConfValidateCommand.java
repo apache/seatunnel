@@ -88,6 +88,11 @@ import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAM
 @Slf4j
 public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> {
 
+    private static final Pattern PLUGIN_LOCATION_PATTERN =
+            Pattern.compile("((?:source|transform|sink)\\[\\d+\\]\\([^)]*\\))");
+    private static final Pattern OPTION_PATH_PATTERN =
+            Pattern.compile("(?m)^\\s*options?:\\s*([^\\r\\n]+)");
+
     private final ClientCommandArgs clientCommandArgs;
 
     public SeaTunnelConfValidateCommand(ClientCommandArgs clientCommandArgs) {
@@ -207,6 +212,9 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             if (message != null && message.startsWith(prefix)) {
                 message = message.substring(prefix.length());
             }
+            // The result is intended for programmatic consumers, so never expose credentials
+            // even when the underlying validation phase is static.
+            message = DryRunConnectFailureMessageSanitizer.sanitize(message);
             return ConfigValidationResult.failure(
                     validationPhase(),
                     toValidationError(message == null ? "Validation failed" : message));
@@ -226,32 +234,47 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
     private ConfigValidationError toValidationError(String message) {
         String location = null;
         String plugin = null;
-        Matcher locationMatcher =
-                Pattern.compile("((?:source|transform|sink)\\[\\d+\\]\\([^)]*\\))")
-                        .matcher(message);
+        Matcher locationMatcher = PLUGIN_LOCATION_PATTERN.matcher(message);
         if (locationMatcher.find()) {
             location = locationMatcher.group(1);
             int open = location.lastIndexOf('(');
             plugin = location.substring(open + 1, location.length() - 1);
         }
 
+        Matcher optionPathMatcher = OPTION_PATH_PATTERN.matcher(message);
+        String optionPath = optionPathMatcher.find() ? optionPathMatcher.group(1).trim() : null;
+
         String lower = message.toLowerCase(Locale.ROOT);
-        String ruleCategory;
+        ValidationRuleCategory ruleCategory;
         if (lower.contains("parse") || lower.contains("syntax") || lower.contains("hocon")) {
-            ruleCategory = "parse";
+            ruleCategory = ValidationRuleCategory.PARSE;
         } else if (lower.contains("option")
                 || lower.contains("required")
                 || lower.contains("unknown key")
                 || lower.contains("type")) {
-            ruleCategory = "option";
+            ruleCategory = ValidationRuleCategory.OPTION;
         } else if (lower.contains("plugin")
                 || lower.contains("factory")
                 || lower.contains("classloader")) {
-            ruleCategory = "plugin";
+            ruleCategory = ValidationRuleCategory.PLUGIN;
         } else {
-            ruleCategory = "validation";
+            ruleCategory = ValidationRuleCategory.VALIDATION;
         }
-        return new ConfigValidationError(location, plugin, null, ruleCategory, message);
+        return new ConfigValidationError(location, plugin, optionPath, ruleCategory.value, message);
+    }
+
+    /** Closed categories exposed by the current structured validation result schema. */
+    private enum ValidationRuleCategory {
+        PARSE("parse"),
+        OPTION("option"),
+        PLUGIN("plugin"),
+        VALIDATION("validation");
+
+        private final String value;
+
+        ValidationRuleCategory(String value) {
+            this.value = value;
+        }
     }
 
     private void validateOptionTypes(ReadonlyConfig config, OptionRule rule) {
