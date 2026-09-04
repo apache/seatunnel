@@ -39,6 +39,8 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -85,6 +87,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.Sl
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SystemLoadStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.savepoint.SavepointSaveSession;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -331,6 +334,10 @@ public class JobMaster {
 
     public void initCheckPointManager(boolean restart) {
         CheckpointStorage checkpointStorage = resolveCheckpointStorageOrFallback(restart);
+        SavepointStorage savepointStorage =
+                checkpointStorage instanceof SavepointStorage
+                        ? (SavepointStorage) checkpointStorage
+                        : null;
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
@@ -342,6 +349,7 @@ public class JobMaster {
                         checkpointPlanMap,
                         jobCheckpointConfig,
                         checkpointStorage,
+                        savepointStorage,
                         executorService,
                         runningJobStateIMap,
                         seaTunnelServer.getEngineContext(),
@@ -1280,6 +1288,11 @@ public class JobMaster {
                         });
     }
 
+    /** Single-flight guard: concurrent savepoint requests reuse the in-flight savepoint. */
+    private final Object savepointLock = new Object();
+
+    private volatile SavepointSaveSession inFlightSavepoint;
+
     /** Execute savePoint, which will cause the job to end. */
     public CompletableFuture<Boolean> savePoint() {
         LOGGER.info(
@@ -1287,18 +1300,59 @@ public class JobMaster {
                         "Begin do save point for Job %s (%s) ",
                         jobImmutableInformation.getJobConfig().getName(),
                         jobImmutableInformation.getJobId()));
+        long jobId = jobImmutableInformation.getJobId();
         return CompletableFuture.supplyAsync(
                 () -> {
                     boolean savepointCompleted = false;
                     SavepointCompletionResult savepointCompletionResult = null;
+                    SavepointSaveSession savepointSaveSession = null;
                     try {
+                        // Single-flight: a savepoint request arriving while another one is in
+                        // progress reuses the in-flight session (and thus the same pending
+                        // checkpoints), matching the historical multiplexing behavior.
+                        synchronized (savepointLock) {
+                            savepointSaveSession = inFlightSavepoint;
+                            if (savepointSaveSession == null
+                                    && checkpointManager.getSavepointStorage() != null) {
+                                try {
+                                    savepointSaveSession =
+                                            new SavepointSaveSession(
+                                                    checkpointManager.getSavepointStorage(),
+                                                    jobId,
+                                                    checkpointManager.getPipelineIds());
+                                } catch (CheckpointStorageException e) {
+                                    throw new RuntimeException(
+                                            "Failed to open savepoint write attempt for job "
+                                                    + jobId,
+                                            e);
+                                }
+                                inFlightSavepoint = savepointSaveSession;
+                            }
+                        }
                         physicalPlan.savepointJob();
                         PassiveCompletableFuture<CheckpointCoordinatorState>[]
                                 passiveCompletableFutures =
-                                        checkpointManager.triggerSavePointsAndWaitComplete();
+                                        savepointSaveSession != null
+                                                ? checkpointManager
+                                                        .triggerSavePointsAndWaitComplete(
+                                                                savepointSaveSession.getWriter())
+                                                : checkpointManager
+                                                        .triggerSavePointsAndWaitComplete();
                         savepointCompletionResult =
                                 waitSavepointCompleted(passiveCompletableFutures);
                         savepointCompleted = savepointCompletionResult.isCompleted();
+                        if (savepointSaveSession != null) {
+                            if (savepointCompleted) {
+                                try {
+                                    savepointSaveSession.commit();
+                                } catch (CheckpointStorageException e) {
+                                    throw new RuntimeException(
+                                            "Failed to commit savepoint for job " + jobId, e);
+                                }
+                            } else {
+                                savepointSaveSession.abort();
+                            }
+                        }
                         Optional<Exception> failureException =
                                 getSavepointFailureException(savepointCompletionResult);
                         if (failureException.isPresent()) {
@@ -1306,6 +1360,12 @@ public class JobMaster {
                         }
                         return savepointCompleted;
                     } finally {
+                        synchronized (savepointLock) {
+                            inFlightSavepoint = null;
+                        }
+                        if (savepointSaveSession != null && !savepointCompleted) {
+                            savepointSaveSession.abort();
+                        }
                         if (!savepointCompleted) {
                             if (isSavepointStartPreconditionFailure(savepointCompletionResult)) {
                                 LOGGER.info(

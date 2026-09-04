@@ -32,15 +32,18 @@ For a CDC job this includes:
 - 2PC sink transaction state (Doris, StarRocks, Kafka transaction IDs)
 - SeaTunnelRow buffers in-flight through transforms
 
-### Storage path layout
+### Checkpoint storage layout
 
-```
+```text
 <namespace>/                          # configured namespace, default /seatunnel/checkpoint/
   <job-id>/
-    <pipeline-id>/
-      <checkpoint-id>/
-        <task-location>/state-data
+    <timestamp>-<random>-<pipeline-id>-<checkpoint-id>.ser
 ```
+
+Each checkpoint writes one `.ser` file per pipeline under the job id directory. The file wraps a
+`PipelineState` envelope (`jobId / pipelineId / checkpointId / states`), where `states` is the
+serialized runtime checkpoint state. Savepoints are <b>not</b> written here - they live under the
+`savepoint/` subtree (see [Savepoint path layout](#savepoint-path-layout)).
 
 ### Configuration reference
 
@@ -86,7 +89,10 @@ seatunnel:
 | Trigger | Periodic / automatic | Manual (`seatunnel.sh -r <jobId> --savepoint`) |
 | Purpose | Fault tolerance | Planned stop, upgrade, migration |
 | Lifecycle | Managed by engine | Managed by operator |
-| Retention | Auto-rotated | Kept until manually deleted |
+| Retention | Auto-rotated (`max-retained`) | Kept until manually deleted |
+| Storage location | `<namespace>/<job-id>/` | `<namespace>/savepoint/<job-id>/<savepoint-id>/` |
+| Format version | None (internal, changes allowed) | Yes (`_metadata.ser` `formatVersion`, currently `1`) |
+| Integrity | Best effort | Manifest with per-file length + SHA-256 checksums |
 
 ### Triggering a savepoint
 
@@ -121,14 +127,25 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 
 ### Savepoint path layout
 
-```
+```text
 <namespace>/
   savepoint/
     <job-id>/
-      <savepoint-timestamp>/
-        <pipeline-id>/
-          <task-location>/state-data
+      <savepoint-id>/                       # savepoint-id = stop-trigger timestamp + unique suffix
+        _metadata.ser                       # commit marker: format version, manifest, SHA-256
+        <pipeline-id>-<checkpoint-id>.ser   # one file per pipeline (engine-wire-v1 payload)
 ```
+
+A savepoint is a **bundle** of all pipelines. Payloads are written into `<namespace>/savepoint/<job-id>/.staging/<attempt-id>/` first and become visible only when `_metadata.ser` is written (the commit marker), so a partially written savepoint is never listed or restored. `list`/`restore` only consider bundles whose metadata and manifest validate; reads verify per-file length and checksum and fail with the savepoint id, pipeline id and file name in the error.
+
+**Legacy note**: savepoints written by engine versions before this format are still stored inside
+the checkpoint directory. They remain readable on a best-effort basis (no manifest, no version
+marker) and are picked up only when no new bundle exists for the job. Moving them into the new
+`savepoint/` layout is operator-managed; a future migration tool is planned.
+
+**Management**: there is no dedicated list/delete API yet - an operator can list bundles by
+inspecting `savepoint/<job-id>/` (only directories containing a valid `_metadata.ser`) and delete a
+bundle by removing its directory. Never delete a savepoint while a job is restoring from it.
 
 ### Safe cleanup
 

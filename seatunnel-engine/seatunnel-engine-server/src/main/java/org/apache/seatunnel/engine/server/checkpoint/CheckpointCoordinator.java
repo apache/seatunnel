@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointWriter;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -44,6 +45,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.savepoint.serialization.SavepointWireCodec;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -191,6 +193,14 @@ public class CheckpointCoordinator {
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
+
+    /** Active savepoint bundle writer; set right before a user-triggered savepoint. */
+    private volatile SavepointWriter savepointWriter;
+
+    @VisibleForTesting
+    public void setSavepointWriter(SavepointWriter savepointWriter) {
+        this.savepointWriter = savepointWriter;
+    }
 
     private final String checkpointStateImapKey;
 
@@ -1324,34 +1334,47 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCompletedTimestamp());
         final long checkpointId = completedCheckpoint.getCheckpointId();
-        completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
             if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
-                byte[] states = serializer.serialize(completedCheckpoint);
-                checkpointStorage.storeCheckPoint(
+                PipelineState pipelineState =
                         PipelineState.builder()
                                 .checkpointId(checkpointId)
                                 .jobId(String.valueOf(jobId))
                                 .pipelineId(pipelineId)
-                                .states(states)
-                                .build());
-            }
-            if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
-                List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
-                    needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
+                                .states(serializer.serialize(completedCheckpoint))
+                                .build();
+                if (completedCheckpoint.getCheckpointType().isSavepoint()
+                        && savepointWriter != null) {
+                    // Savepoint bundles persist the engine-wire-v1 payload (runtime-only fields
+                    // like isRestored are excluded from the storage contract).
+                    pipelineState.setStates(
+                            SavepointWireCodec.encode(
+                                    SavepointWireCodec.fromCompletedCheckpoint(
+                                            completedCheckpoint)));
+                    savepointWriter.writePipeline(pipelineState);
+                } else {
+                    checkpointStorage.storeCheckPoint(pipelineState);
                 }
-                checkpointStorage.deleteCheckpoint(
-                        String.valueOf(completedCheckpoint.getJobId()),
-                        String.valueOf(completedCheckpoint.getPipelineId()),
-                        needDeleteCheckpointId);
+            }
+            if (!completedCheckpoint.getCheckpointType().isSavepoint()) {
+                completedCheckpointIds.addLast(String.valueOf(checkpointId));
+                if (completedCheckpointIds.size()
+                                        % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
+                                == 0
+                        && completedCheckpointIds.size()
+                                        / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
+                                > 1) {
+                    List<String> needDeleteCheckpointId = new ArrayList<>();
+                    for (int i = 0;
+                            i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+                            i++) {
+                        needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
+                    }
+                    checkpointStorage.deleteCheckpoint(
+                            String.valueOf(completedCheckpoint.getJobId()),
+                            String.valueOf(completedCheckpoint.getPipelineId()),
+                            needDeleteCheckpointId);
+                }
             }
         } catch (Throwable e) {
             LOG.error("store checkpoint states failed.", e);
