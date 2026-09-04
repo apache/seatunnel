@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.source.split.IcebergFileScanTaskSplit;
@@ -190,7 +191,7 @@ public abstract class AbstractSplitEnumerator
     }
 
     private static int getSplitOwner(String splitId, int numReaders) {
-        return (splitId.hashCode() & Integer.MAX_VALUE) % numReaders;
+        return HashUtils.bucketIndex(splitId.hashCode(), numReaders);
     }
 
     protected void addPendingSplits(Collection<IcebergFileScanTaskSplit> newSplits) {
