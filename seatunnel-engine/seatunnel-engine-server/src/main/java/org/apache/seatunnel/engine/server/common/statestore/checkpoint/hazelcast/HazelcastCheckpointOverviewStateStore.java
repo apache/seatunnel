@@ -28,6 +28,7 @@ import com.hazelcast.map.listener.EntryExpiredListener;
 import com.hazelcast.map.listener.EntryRemovedListener;
 import com.hazelcast.map.listener.EntryUpdatedListener;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -203,23 +204,19 @@ public class HazelcastCheckpointOverviewStateStore
     }
 
     private long getInProgressCount(CheckpointOverview overview) {
-        long count = 0L;
-        for (PipelineCheckpointOverview pipelineOverview : overview.getPipelines().values()) {
-            if (pipelineOverview != null) {
-                count += pipelineOverview.getInProgress().size();
-            }
-        }
-        return count;
+        return overview.getPipelines().values().stream()
+                .filter(Objects::nonNull)
+                .mapToLong(pipelineOverview -> pipelineOverview.getInProgress().size())
+                .sum();
     }
 
     private long getHistoryCount(CheckpointOverview overview) {
-        long count = 0L;
-        for (PipelineCheckpointOverview pipelineOverview : overview.getPipelines().values()) {
-            if (pipelineOverview != null && pipelineOverview.getHistory() != null) {
-                count += pipelineOverview.getHistory().size();
-            }
-        }
-        return count;
+        return overview.getPipelines().values().stream()
+                .filter(Objects::nonNull)
+                .map(PipelineCheckpointOverview::getHistory)
+                .filter(Objects::nonNull)
+                .mapToLong(Collection::size)
+                .sum();
     }
 
     private void replaceOverviewStats(Long jobId, CheckpointOverview overview) {

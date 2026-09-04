@@ -38,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -257,26 +258,13 @@ public class CheckpointMonitorService {
         pipeline.getInProgress().removeIf(cp -> cp.getCheckpointId() == checkpointId);
     }
 
-    /**
-     * Sums retained subtask state sizes without allocating stream pipelines on the completed
-     * checkpoint hot path.
-     */
     public static long calculateStateSize(CompletedCheckpoint checkpoint) {
-        long total = 0L;
-        for (TaskStatistics taskStatistics : checkpoint.getTaskStatistics().values()) {
-            if (taskStatistics == null) {
-                continue;
-            }
-            List<SubtaskStatistics> subtaskStats = taskStatistics.getSubtaskStats();
-            if (subtaskStats == null) {
-                continue;
-            }
-            for (SubtaskStatistics subtaskStatistics : subtaskStats) {
-                if (subtaskStatistics != null) {
-                    total += subtaskStatistics.getStateSize();
-                }
-            }
-        }
-        return total;
+        return checkpoint.getTaskStatistics().values().stream()
+                .map(TaskStatistics::getSubtaskStats)
+                .filter(Objects::nonNull)
+                .flatMap(List::stream)
+                .filter(Objects::nonNull)
+                .mapToLong(SubtaskStatistics::getStateSize)
+                .sum();
     }
 }
