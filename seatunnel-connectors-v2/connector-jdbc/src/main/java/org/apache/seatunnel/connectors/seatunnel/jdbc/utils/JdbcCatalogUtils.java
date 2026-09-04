@@ -272,7 +272,8 @@ public class JdbcCatalogUtils {
             return jdbcCatalog.getTable(tablePath);
         }
 
-        return jdbcCatalog.getTable(tableConfig.getQuery());
+        return enrichQueryCatalogTable(
+                jdbcCatalog.getTable(tableConfig.getQuery()), jdbcCatalog::getTable);
     }
 
     static CatalogTable mergeCatalogTable(CatalogTable tableOfPath, CatalogTable tableOfQuery) {
@@ -468,7 +469,35 @@ public class JdbcCatalogUtils {
             return CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect);
         }
 
-        return getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
+        return enrichQueryCatalogTable(
+                getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect),
+                tablePath -> CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect));
+    }
+
+    /**
+     * Enriches a query-derived table with physical table metadata when the JDBC driver identifies a
+     * single source table. Query metadata preserves the selected columns and their order, while the
+     * physical table supplies comments, keys, and partition metadata.
+     */
+    static CatalogTable enrichQueryCatalogTable(
+            CatalogTable tableOfQuery, QueryPhysicalTableLoader physicalTableLoader) {
+        TablePath tablePath = tableOfQuery.getTableId().toTablePath();
+        if (TablePath.DEFAULT.equals(tablePath)) {
+            return tableOfQuery;
+        }
+        try {
+            return mergeCatalogTable(physicalTableLoader.load(tablePath), tableOfQuery);
+        } catch (Exception e) {
+            // A query may use joins, aliases, views, or expressions that cannot be mapped back to
+            // one physical table. Preserve the existing query-derived schema in those cases.
+            log.debug("Unable to enrich query metadata from physical table: {}", tablePath, e);
+            return tableOfQuery;
+        }
+    }
+
+    @FunctionalInterface
+    interface QueryPhysicalTableLoader {
+        CatalogTable load(TablePath tablePath) throws Exception;
     }
 
     private static CatalogTable getCatalogTable(

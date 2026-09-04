@@ -116,7 +116,7 @@ public class JdbcCatalogUtilsTest {
                             .build(),
                     Collections.emptyMap(),
                     Collections.singletonList("f2"),
-                    null);
+                    "table comment");
 
     @Test
     public void testColumnEqualsMerge() {
@@ -192,6 +192,90 @@ public class JdbcCatalogUtilsTest {
                         .map(e -> columnMap.get(e.getName()))
                         .collect(Collectors.toList());
         Assertions.assertEquals(sortByQueryColumns, mergeTable.getTableSchema().getColumns());
+    }
+
+    @Test
+    public void testEnrichQueryCatalogTableKeepsQueryColumnOrderAndPhysicalComments() {
+        CatalogTable tableOfQuery =
+                CatalogTable.of(
+                        DEFAULT_TABLE.getTableId(),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f2",
+                                                BasicType.STRING_TYPE,
+                                                10,
+                                                true,
+                                                null,
+                                                null,
+                                                null,
+                                                false,
+                                                false,
+                                                null,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f1",
+                                                BasicType.LONG_TYPE,
+                                                null,
+                                                true,
+                                                null,
+                                                null,
+                                                null,
+                                                false,
+                                                false,
+                                                null,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        CatalogTable enrichedTable =
+                JdbcCatalogUtils.enrichQueryCatalogTable(tableOfQuery, tablePath -> DEFAULT_TABLE);
+
+        Assertions.assertEquals("table comment", enrichedTable.getComment());
+        Assertions.assertEquals(
+                Arrays.asList("f2", "f1"),
+                enrichedTable.getTableSchema().getColumns().stream()
+                        .map(Column::getName)
+                        .collect(Collectors.toList()));
+        Assertions.assertEquals(
+                Arrays.asList("f2 comment", "f1 comment"),
+                enrichedTable.getTableSchema().getColumns().stream()
+                        .map(Column::getComment)
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    public void testEnrichQueryCatalogTableSkipsUnknownPhysicalTable() {
+        CatalogTable tableOfQuery =
+                CatalogTable.of(
+                        TableIdentifier.of("jdbc_catalog", TablePath.DEFAULT),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f1",
+                                                BasicType.LONG_TYPE,
+                                                (Long) null,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        CatalogTable enrichedTable =
+                JdbcCatalogUtils.enrichQueryCatalogTable(
+                        tableOfQuery,
+                        tablePath -> {
+                            throw new AssertionError("Physical metadata must not be loaded");
+                        });
+
+        Assertions.assertSame(tableOfQuery, enrichedTable);
     }
 
     @Test
