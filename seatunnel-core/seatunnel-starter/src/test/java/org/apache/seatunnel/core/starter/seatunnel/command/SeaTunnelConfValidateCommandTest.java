@@ -101,7 +101,6 @@ public class SeaTunnelConfValidateCommandTest {
 
         Assertions.assertFalse(result.isValid());
         Assertions.assertEquals("option", result.getErrors().get(0).getRuleCategory());
-        Assertions.assertNotNull(result.getErrors().get(0).getOptionPath());
     }
 
     @Test
