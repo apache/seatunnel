@@ -124,6 +124,7 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
         // reject requests for a short window after Cluster.connect() returns. Wrapping the DDL
         // itself in a retry loop is the safest approach — it eliminates the startup timing race
         // without relying on a fixed sleep.
+
         String createCollectionDdl =
                 "CREATE COLLECTION `"
                         + COUCHBASE_BUCKET
@@ -137,6 +138,41 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 .pollInterval(2, TimeUnit.SECONDS)
                 .atMost(60, TimeUnit.SECONDS)
                 .untilAsserted(() -> cluster.query(createCollectionDdl));
+
+        String createIndexDdl =
+                "CREATE PRIMARY INDEX ON `"
+                        + COUCHBASE_BUCKET
+                        + "`.`"
+                        + COUCHBASE_SCOPE
+                        + "`.`"
+                        + COUCHBASE_COLLECTION
+                        + "`";
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> cluster.query(createIndexDdl));
+
+        String indexStatusQuery =
+                String.format(
+                        "SELECT state FROM system:indexes WHERE keyspace_id = '%s'"
+                                + " AND `using` = 'gsi' AND is_primary = true"
+                                + " AND `bucket_id` = '%s'",
+                        COUCHBASE_COLLECTION, COUCHBASE_BUCKET);
+        Awaitility.given()
+                .ignoreExceptions()
+                .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            QueryResult r = cluster.query(indexStatusQuery);
+                            List<JsonObject> rows = r.rowsAs(JsonObject.class);
+                            Assertions.assertFalse(rows.isEmpty(), "Primary index not created yet");
+                            Assertions.assertEquals(
+                                    "online",
+                                    rows.get(0).getString("state"),
+                                    "Primary index not yet online");
+                        });
 
         // Similarly retry CREATE PRIMARY INDEX until the collection is visible to the query path.
         String createCollectionDdlTimerFlush =

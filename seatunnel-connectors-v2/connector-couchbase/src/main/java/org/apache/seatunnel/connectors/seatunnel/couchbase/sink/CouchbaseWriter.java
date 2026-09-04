@@ -230,7 +230,7 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     // ---------------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------------
-
+    /** Converts a {@link SeaTunnelRow} to a {@link JsonObject} using the schema field names. */
     private JsonObject toJsonObject(SeaTunnelRow row) {
         JsonObject doc = JsonObject.create();
         String[] fieldNames = rowType.getFieldNames();
