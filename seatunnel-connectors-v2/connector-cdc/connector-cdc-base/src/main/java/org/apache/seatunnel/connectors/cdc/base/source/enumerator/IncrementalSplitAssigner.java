@@ -20,9 +20,11 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -85,6 +87,12 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
      */
     private Offset startupOffset;
 
+    /**
+     * The stop offset resolved once when the snapshot phase completes ({@code stop.mode = latest}),
+     * reused after checkpoint restore so that a restart does not re-resolve (and drift) it.
+     */
+    private Offset resolvedStopOffset;
+
     private final boolean restoredFromCheckpoint;
 
     public IncrementalSplitAssigner(
@@ -113,6 +121,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         this.offsetFactory = offsetFactory;
         this.restoredFromCheckpoint = true;
         this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
+        this.resolvedStopOffset = checkpointState == null ? null : checkpointState.getStopOffset();
     }
 
     @Override
@@ -190,6 +199,21 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                             if (this.startupOffset == null) {
                                 this.startupOffset = startupOffset;
                             }
+                            // Mirror the startupOffset restoration for the resolved latest
+                            // stop offset: a checkpoint written before the stopOffset field
+                            // existed has none, so on restore the re-created incremental
+                            // split carries the previously resolved stop offset. Reuse it
+                            // here instead of re-resolving (and drifting) at split creation.
+                            // If several splits with already-diverged stop offsets are handed
+                            // back in the same call, the first one processed wins (they can
+                            // only diverge in the same narrow legacy-checkpoint upgrade case).
+                            if (resolvedStopOffset == null
+                                    && context.getSourceConfig() != null
+                                    && context.getSourceConfig().getStopConfig().getStopMode()
+                                            == StopMode.LATEST
+                                    && incrementalSplit.getStopOffset() != null) {
+                                resolvedStopOffset = incrementalSplit.getStopOffset();
+                            }
                             checkpointTables = incrementalSplit.getCheckpointTables();
                             historyTableChanges = incrementalSplit.getHistoryTableChanges();
                         });
@@ -200,7 +224,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
-        return new IncrementalPhaseState(startupOffset);
+        return new IncrementalPhaseState(startupOffset, resolvedStopOffset);
     }
 
     @Override
@@ -290,11 +314,32 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
             startupOffset = sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
         }
         Offset incrementalSplitStartOffset = minOffset != null ? minOffset : startupOffset;
+        // stop.mode=latest: resolve the stop offset exactly once here, at the first
+        // incremental split creation, and reuse the same value for every subsequent split
+        // and for the checkpoint. This is the single authoritative resolution point (the
+        // split handed to the reader and the checkpointed value can never diverge, so a
+        // restore cannot silently move the stop boundary). Other stop modes keep the
+        // split's configured offset from StopConfig.
+        if (resolvedStopOffset == null
+                && sourceConfig.getStopConfig().getStopMode() == StopMode.LATEST) {
+            // The latest() resolution opens a fresh JDBC connection to query the current
+            // binlog position; a transient failure at this exact snapshot-to-incremental
+            // transition point must not fail the whole job, so retry with a short backoff
+            // (mirrors the connection-factory retry pattern).
+            resolvedStopOffset = resolveLatestStopOffsetWithRetry(sourceConfig);
+            LOG.info(
+                    "stop.mode=latest: resolved stop offset {} at incremental split creation",
+                    resolvedStopOffset);
+        }
+        Offset incrementalSplitStopOffset =
+                resolvedStopOffset != null
+                        ? resolvedStopOffset
+                        : sourceConfig.getStopConfig().getStopOffset(offsetFactory);
         return new IncrementalSplit(
                 String.format(INCREMENTAL_SPLIT_ID, index),
                 capturedTables,
                 incrementalSplitStartOffset,
-                sourceConfig.getStopConfig().getStopOffset(offsetFactory),
+                incrementalSplitStopOffset,
                 completedSnapshotSplitInfos,
                 checkpointTables,
                 historyTableChanges);
@@ -315,11 +360,50 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 context.getSplitCompletedOffsets().remove(assignedSplit.splitId());
             }
         }
-        return context.getAssignedSnapshotSplit().isEmpty()
-                && context.getSplitCompletedOffsets().isEmpty();
+        boolean completed =
+                context.getAssignedSnapshotSplit().isEmpty()
+                        && context.getSplitCompletedOffsets().isEmpty();
+        return completed;
     }
 
     public boolean waitingForAssignedSplits() {
         return !(splitAssigned && noMoreSplits());
+    }
+
+    /**
+     * Resolves the latest stop offset with retry, so a transient failure of the underlying JDBC
+     * query (e.g. a momentarily unreachable database at the snapshot-to-incremental transition)
+     * does not fail the whole job. Mirrors the retry pattern used by the CDC connection factory.
+     *
+     * <p>Threading note: this runs on the job's own split-enumerator coordinator thread (invoked
+     * via {@code IncrementalSourceEnumerator.assignSplits()} → {@code getNext()}), which is per-job
+     * and not shared across concurrently running sources; the bounded backoff (at most 300ms +
+     * 600ms) blocks only this job's enumerator, matching the connection-factory retry.
+     */
+    private Offset resolveLatestStopOffsetWithRetry(C sourceConfig) {
+        final int maxRetries = 3;
+        for (int attempt = 1; ; attempt++) {
+            try {
+                return sourceConfig.getStopConfig().getStopOffset(offsetFactory);
+            } catch (RuntimeException e) {
+                if (attempt < maxRetries) {
+                    try {
+                        Thread.sleep(300L * attempt);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw new SeaTunnelException(
+                                "Interrupted while retrying latest stop offset resolution", ie);
+                    }
+                    LOG.warn("Resolving latest stop offset failed, retry times {}", attempt, e);
+                } else {
+                    LOG.error("Resolving latest stop offset failed after {} attempts", attempt, e);
+                    throw new SeaTunnelException(
+                            "Failed to resolve the latest stop offset after "
+                                    + attempt
+                                    + " attempts",
+                            e);
+                }
+            }
+        }
     }
 }
