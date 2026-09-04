@@ -61,14 +61,23 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        if (stripSchemaRegistryHeader) {
-            if (message == null || message.length < 5 || message[0] != 0) {
-                throw new IOException(
-                        "Invalid Confluent Schema Registry Avro header: expected a five-byte header with magic byte 0");
+        if (stripSchemaRegistryHeader && hasSchemaRegistryHeader(message)) {
+            try {
+                return deserializePayload(message, 5, message.length - 5);
+            } catch (IOException | RuntimeException framedFailure) {
+                // A raw Avro payload can legally begin with zero. Preserve compatibility by
+                // retrying the complete message when the framed interpretation is not decodable.
             }
         }
-        int offset = stripSchemaRegistryHeader ? 5 : 0;
-        int length = stripSchemaRegistryHeader ? message.length - offset : message.length;
+        return deserializePayload(message, 0, message.length);
+    }
+
+    private static boolean hasSchemaRegistryHeader(byte[] message) {
+        return message != null && message.length >= 5 && message[0] == 0;
+    }
+
+    private SeaTunnelRow deserializePayload(byte[] message, int offset, int length)
+            throws IOException {
         BinaryDecoder decoder =
                 DecoderFactory.get().binaryDecoder(message, offset, length, null);
         GenericRecord record = this.converter.getReader().read(null, decoder);

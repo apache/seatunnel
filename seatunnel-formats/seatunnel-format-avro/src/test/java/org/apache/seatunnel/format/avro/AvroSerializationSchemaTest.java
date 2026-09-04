@@ -361,6 +361,8 @@ class AvroSerializationSchemaTest {
         CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
         AvroDeserializationSchema schema =
                 new AvroDeserializationSchema(catalogTable, "{\"type\":\"record\",\"name\":\"Event\",\"fields\":[{\"name\":\"payload\",\"type\":\"string\"}]}", true);
-        Assertions.assertThrows(IOException.class, () -> schema.deserialize(Arrays.copyOf(new byte[] {1, 0, 0, 0, 1}, 5)));
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> schema.deserialize(Arrays.copyOf(new byte[] {1, 0, 0, 0, 1}, 5)));
     }
 }
