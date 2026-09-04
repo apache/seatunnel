@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.aerospike.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -47,8 +48,11 @@ public class AerospikeSinkFactory implements TableSinkFactory {
                         AerospikeSinkOptions.PASSWORD,
                         AerospikeSinkOptions.KEY_FIELD,
                         AerospikeSinkOptions.BIN_NAME,
-                        AerospikeSinkOptions.DATA_FORMAT,
                         AerospikeSinkOptions.WRITE_TIMEOUT)
+                .optional(
+                        AerospikeSinkOptions.DATA_FORMAT,
+                        Conditions.matches(
+                                AerospikeSinkOptions.DATA_FORMAT, "(?i)^(map|string|kv)$"))
                 .build();
     }
 
