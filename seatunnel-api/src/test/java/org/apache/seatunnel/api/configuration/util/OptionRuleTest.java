@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import java.util.Collections;
 import java.util.List;
 
 import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
@@ -374,6 +375,43 @@ public class OptionRuleTest {
         assertEquals(1, extRule.getValueConstraints().size());
         assertEquals(
                 ConditionOperator.EXTENSION, extRule.getValueConstraints().get(0).getOperator());
+
+        ConditionExtension<String> topicPatternExt =
+                new ConditionExtension<String>() {
+                    @Override
+                    public String description() {
+                        return "must start with topic-";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, String value) {
+                        return value != null && value.startsWith("topic-");
+                    }
+                };
+        OptionRule exclusiveExtRule =
+                OptionRule.builder()
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .valueConstraint(Conditions.extension(TEST_TOPIC_PATTERN, topicPatternExt))
+                        .build();
+        assertEquals(1, exclusiveExtRule.getValueConstraints().size());
+        assertEquals(
+                ConditionOperator.EXTENSION,
+                exclusiveExtRule.getValueConstraints().get(0).getOperator());
+        assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(
+                                        ReadonlyConfig.fromMap(
+                                                Collections.singletonMap(
+                                                        TEST_TOPIC_PATTERN.key(), "invalid")))
+                                .validate(exclusiveExtRule));
+        assertDoesNotThrow(
+                () ->
+                        ConfigValidator.of(
+                                        ReadonlyConfig.fromMap(
+                                                Collections.singletonMap(
+                                                        TEST_TOPIC_PATTERN.key(), "topic-valid")))
+                                .validate(exclusiveExtRule));
 
         // test extension with null extension throws
         assertThrows(IllegalArgumentException.class, () -> Conditions.extension(TEST_NUM, null));

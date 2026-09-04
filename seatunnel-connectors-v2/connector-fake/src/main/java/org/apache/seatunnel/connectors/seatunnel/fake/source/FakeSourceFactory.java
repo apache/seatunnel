@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -35,10 +39,16 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.extension;
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqual;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ARRAY_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BIGINT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BINARY_VECTOR_DIMENSION;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.BYTES_LENGTH;
@@ -46,15 +56,23 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOp
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DATE_MONTH_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DATE_YEAR_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.DOUBLE_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.FLOAT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.INT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.MAP_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ROWS;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ROW_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SMALLINT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SPLIT_NUM;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.SPLIT_READ_INTERVAL;
@@ -64,8 +82,12 @@ import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOp
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TIME_MINUTE_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TIME_SECOND_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_FAKE_MODE;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_MIN;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.TINYINT_TEMPLATE;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_DIMENSION;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_FLOAT_MAX;
+import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.VECTOR_FLOAT_MIN;
 
 @AutoService(Factory.class)
 public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
@@ -110,7 +132,108 @@ public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRu
                 .conditional(BIGINT_FAKE_MODE, FakeSourceOptions.FakeMode.TEMPLATE, BIGINT_TEMPLATE)
                 .conditional(FLOAT_FAKE_MODE, FakeSourceOptions.FakeMode.TEMPLATE, FLOAT_TEMPLATE)
                 .conditional(DOUBLE_FAKE_MODE, FakeSourceOptions.FakeMode.TEMPLATE, DOUBLE_TEMPLATE)
+                .optional(
+                        TINYINT_MIN,
+                        greaterOrEqual(TINYINT_MIN, TINYINT_MIN.defaultValue())
+                                .and(lessOrEqual(TINYINT_MIN, TINYINT_MAX.defaultValue())))
+                .optional(
+                        TINYINT_MAX,
+                        greaterOrEqual(TINYINT_MAX, TINYINT_MIN.defaultValue())
+                                .and(lessOrEqual(TINYINT_MAX, TINYINT_MAX.defaultValue())))
+                .optional(
+                        SMALLINT_MIN,
+                        greaterOrEqual(SMALLINT_MIN, SMALLINT_MIN.defaultValue())
+                                .and(lessOrEqual(SMALLINT_MIN, SMALLINT_MAX.defaultValue())))
+                .optional(
+                        SMALLINT_MAX,
+                        greaterOrEqual(SMALLINT_MAX, SMALLINT_MIN.defaultValue())
+                                .and(lessOrEqual(SMALLINT_MAX, SMALLINT_MAX.defaultValue())))
+                .optional(
+                        INT_MIN,
+                        greaterOrEqual(INT_MIN, INT_MIN.defaultValue())
+                                .and(lessOrEqual(INT_MIN, INT_MAX.defaultValue())))
+                .optional(
+                        INT_MAX,
+                        greaterOrEqual(INT_MAX, INT_MIN.defaultValue())
+                                .and(lessOrEqual(INT_MAX, INT_MAX.defaultValue())))
+                .optional(
+                        BIGINT_MIN,
+                        greaterOrEqual(BIGINT_MIN, BIGINT_MIN.defaultValue())
+                                .and(lessOrEqual(BIGINT_MIN, BIGINT_MAX.defaultValue())))
+                .optional(
+                        BIGINT_MAX,
+                        greaterOrEqual(BIGINT_MAX, BIGINT_MIN.defaultValue())
+                                .and(lessOrEqual(BIGINT_MAX, BIGINT_MAX.defaultValue())))
+                .optional(
+                        FLOAT_MIN,
+                        greaterOrEqual(FLOAT_MIN, FLOAT_MIN.defaultValue())
+                                .and(lessOrEqual(FLOAT_MIN, FLOAT_MAX.defaultValue())))
+                .optional(
+                        FLOAT_MAX,
+                        greaterOrEqual(FLOAT_MAX, FLOAT_MIN.defaultValue())
+                                .and(lessOrEqual(FLOAT_MAX, FLOAT_MAX.defaultValue())))
+                .optional(
+                        DOUBLE_MIN,
+                        greaterOrEqual(DOUBLE_MIN, DOUBLE_MIN.defaultValue())
+                                .and(lessOrEqual(DOUBLE_MIN, DOUBLE_MAX.defaultValue())))
+                .optional(
+                        DOUBLE_MAX,
+                        greaterOrEqual(DOUBLE_MAX, DOUBLE_MIN.defaultValue())
+                                .and(lessOrEqual(DOUBLE_MAX, DOUBLE_MAX.defaultValue())))
+                .optional(
+                        VECTOR_FLOAT_MIN,
+                        greaterOrEqual(VECTOR_FLOAT_MIN, VECTOR_FLOAT_MIN.defaultValue())
+                                .and(
+                                        lessOrEqual(
+                                                VECTOR_FLOAT_MIN, VECTOR_FLOAT_MAX.defaultValue())))
+                .optional(
+                        VECTOR_FLOAT_MAX,
+                        greaterOrEqual(VECTOR_FLOAT_MAX, VECTOR_FLOAT_MIN.defaultValue())
+                                .and(
+                                        lessOrEqual(
+                                                VECTOR_FLOAT_MAX, VECTOR_FLOAT_MAX.defaultValue())))
+                .valueConstraint(
+                        extension(
+                                ConnectorCommonOptions.TABLE_CONFIGS,
+                                new TableConfigsValidationExtension()))
                 .build();
+    }
+
+    private static final class TableConfigsValidationExtension
+            implements ConditionExtension<List<Map<String, Object>>> {
+
+        @Override
+        public String description() {
+            return "each tables_configs entry must satisfy the FakeSource option rules";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> tableConfigs)
+                throws OptionValidationException {
+            if (tableConfigs == null) {
+                return true;
+            }
+            OptionRule childRule = new FakeSourceFactory().optionRule();
+            for (int index = 0; index < tableConfigs.size(); index++) {
+                Map<String, Object> childConfig = tableConfigs.get(index);
+                if (childConfig == null) {
+                    throw new OptionValidationException(
+                            "Invalid tables_configs[%s]: child config must not be null", index);
+                }
+                if (childConfig.containsKey(ConnectorCommonOptions.TABLE_CONFIGS.key())) {
+                    throw new OptionValidationException(
+                            "Invalid tables_configs[%s]: nested tables_configs is not supported",
+                            index);
+                }
+                try {
+                    ConfigValidator.of(ReadonlyConfig.fromMap(childConfig)).validate(childRule);
+                } catch (OptionValidationException e) {
+                    throw new OptionValidationException(
+                            "Invalid tables_configs[%s]: %s", index, e.getRawMessage());
+                }
+            }
+            return true;
+        }
     }
 
     @Override
