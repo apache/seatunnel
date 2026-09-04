@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Condition;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -81,6 +82,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING,
+                        MySqlIncrementalSourceOptions.STARTUP_SNAPSHOT_TABLE_NAMES,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
                         MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET,
@@ -93,6 +95,18 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         SourceOptions.EXACTLY_ONCE)
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.MIXED,
+                        SourceOptions.EXACTLY_ONCE,
+                        MySqlIncrementalSourceOptions.STARTUP_SNAPSHOT_TABLE_NAMES,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.MIXED,
+                        Condition.of(SourceOptions.EXACTLY_ONCE, true),
+                        Condition.of(SourceOptions.INCREMENTAL_PARALLELISM, 1))
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,

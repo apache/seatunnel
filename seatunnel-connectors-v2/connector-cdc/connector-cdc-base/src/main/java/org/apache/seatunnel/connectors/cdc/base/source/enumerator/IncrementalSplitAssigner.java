@@ -39,6 +39,7 @@ import io.debezium.relational.TableId;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,6 +63,11 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     private final int incrementalParallelism;
 
     private final OffsetFactory offsetFactory;
+
+    /**
+     * Table-specific lower bounds that are applied only before the first incremental assignment.
+     */
+    private final Map<TableId, Offset> tableStartOffsets;
 
     /**
      * Maximum watermark in SnapshotSplits per table. <br>
@@ -91,9 +97,18 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
             SplitAssigner.Context<C> context,
             int incrementalParallelism,
             OffsetFactory offsetFactory) {
+        this(context, incrementalParallelism, offsetFactory, Collections.emptyMap());
+    }
+
+    public IncrementalSplitAssigner(
+            SplitAssigner.Context<C> context,
+            int incrementalParallelism,
+            OffsetFactory offsetFactory,
+            Map<TableId, Offset> tableStartOffsets) {
         this.context = context;
         this.incrementalParallelism = incrementalParallelism;
         this.offsetFactory = offsetFactory;
+        this.tableStartOffsets = new HashMap<>(tableStartOffsets);
         this.restoredFromCheckpoint = false;
         StartupConfig startupConfig =
                 context.getSourceConfig() == null
@@ -108,9 +123,24 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
             int incrementalParallelism,
             OffsetFactory offsetFactory,
             IncrementalPhaseState checkpointState) {
+        this(
+                context,
+                incrementalParallelism,
+                offsetFactory,
+                checkpointState,
+                Collections.emptyMap());
+    }
+
+    public IncrementalSplitAssigner(
+            SplitAssigner.Context<C> context,
+            int incrementalParallelism,
+            OffsetFactory offsetFactory,
+            IncrementalPhaseState checkpointState,
+            Map<TableId, Offset> tableStartOffsets) {
         this.context = context;
         this.incrementalParallelism = incrementalParallelism;
         this.offsetFactory = offsetFactory;
+        this.tableStartOffsets = new HashMap<>(tableStartOffsets);
         this.restoredFromCheckpoint = true;
         this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
     }
@@ -245,6 +275,19 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 context.getSplitCompletedOffsets();
         final List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos = new ArrayList<>();
         Offset minOffset = null;
+        if (startWithSnapshotMinimumOffset) {
+            for (TableId tableId : capturedTables) {
+                Offset tableStartOffset = tableStartOffsets.get(tableId);
+                if (tableStartOffset != null
+                        && (minOffset == null || tableStartOffset.isBefore(minOffset))) {
+                    minOffset = tableStartOffset;
+                    LOG.debug(
+                            "Find the min offset {} of change log from table start offset {}",
+                            tableStartOffset,
+                            tableId);
+                }
+            }
+        }
         for (SnapshotSplit split : assignedSnapshotSplit) {
             SnapshotSplitWatermark splitWatermark = splitCompletedOffsets.get(split.splitId());
             if (startWithSnapshotMinimumOffset) {
@@ -296,8 +339,20 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 incrementalSplitStartOffset,
                 sourceConfig.getStopConfig().getStopOffset(offsetFactory),
                 completedSnapshotSplitInfos,
+                tableStartOffsetsFor(capturedTables),
                 checkpointTables,
                 historyTableChanges);
+    }
+
+    private Map<TableId, Offset> tableStartOffsetsFor(List<TableId> capturedTables) {
+        Map<TableId, Offset> splitTableStartOffsets = new HashMap<>();
+        for (TableId tableId : capturedTables) {
+            Offset tableStartOffset = tableStartOffsets.get(tableId);
+            if (tableStartOffset != null) {
+                splitTableStartOffsets.put(tableId, tableStartOffset);
+            }
+        }
+        return splitTableStartOffsets;
     }
 
     @VisibleForTesting

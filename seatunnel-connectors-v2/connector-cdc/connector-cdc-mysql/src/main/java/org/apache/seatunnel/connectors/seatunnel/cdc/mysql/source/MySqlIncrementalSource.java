@@ -58,11 +58,13 @@ import io.debezium.relational.history.TableChanges;
 
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -82,7 +84,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     /* Route MySQL specific startup through the map-based offset path for GTID and skip metadata. */
     static StartupConfig createStartupConfig(ReadonlyConfig config) {
         StartupMode startupMode = config.get(MySqlIncrementalSourceOptions.STARTUP_MODE);
-        if (StartupMode.SPECIFIC.equals(startupMode)) {
+        if (StartupMode.SPECIFIC.equals(startupMode) || StartupMode.MIXED.equals(startupMode)) {
             return new StartupConfig(startupMode, createSpecificStartupOffset(config));
         }
 
@@ -192,7 +194,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         if (hasSpecificStartupOffset(config)) {
             throw new IllegalArgumentException(
                     String.format(
-                            "'startup.specific-offset.*' options can only be used when '%s' is 'specific', but current mode is '%s'.",
+                            "'startup.specific-offset.*' options can only be used when '%s' is 'specific' or 'mixed', but current mode is '%s'.",
                             SourceOptions.STARTUP_MODE_KEY, startupMode));
         }
     }
@@ -214,6 +216,62 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public Option<StartupMode> getStartupModeOption() {
         return MySqlIncrementalSourceOptions.STARTUP_MODE;
+    }
+
+    @Override
+    protected Set<TableId> getMixedSnapshotTables(
+            List<TableId> capturedTables, boolean isTableIdCaseSensitive) {
+        return resolveMixedSnapshotTables(readonlyConfig, capturedTables, isTableIdCaseSensitive);
+    }
+
+    /** Resolves configured mixed-mode snapshot table names to the discovered table identifiers. */
+    static Set<TableId> resolveMixedSnapshotTables(
+            ReadonlyConfig config, List<TableId> capturedTables, boolean isTableIdCaseSensitive) {
+        if (!config.getOptional(MySqlIncrementalSourceOptions.TABLE_NAMES).isPresent()
+                || config.getOptional(MySqlIncrementalSourceOptions.TABLE_PATTERN).isPresent()) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode supports table-names only and does not support table-pattern.");
+        }
+        List<String> configuredTableNames =
+                config.getOptional(MySqlIncrementalSourceOptions.STARTUP_SNAPSHOT_TABLE_NAMES)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "The mixed startup mode requires startup.snapshot-table-names."));
+        if (configuredTableNames.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires at least one startup.snapshot-table-names entry.");
+        }
+        Set<TableId> snapshotTables = new HashSet<>();
+        for (String configuredTableName : configuredTableNames) {
+            if (StringUtils.isBlank(configuredTableName)) {
+                throw new IllegalArgumentException(
+                        "The mixed startup snapshot table name must not be blank.");
+            }
+            TableId configuredTableId = TableId.parse(configuredTableName);
+            Optional<TableId> capturedTable =
+                    capturedTables.stream()
+                            .filter(
+                                    tableId ->
+                                            isTableIdCaseSensitive
+                                                    ? tableId.equals(configuredTableId)
+                                                    : tableId.compareToIgnoreCase(configuredTableId)
+                                                            == 0)
+                            .findFirst();
+            if (!capturedTable.isPresent()) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The mixed startup snapshot table '%s' is not captured by this source.",
+                                configuredTableName));
+            }
+            if (!snapshotTables.add(capturedTable.get())) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The mixed startup snapshot table '%s' is configured more than once.",
+                                configuredTableName));
+            }
+        }
+        return snapshotTables;
     }
 
     @Override

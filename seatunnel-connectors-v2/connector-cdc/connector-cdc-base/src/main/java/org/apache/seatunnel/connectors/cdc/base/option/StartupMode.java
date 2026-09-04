@@ -32,7 +32,9 @@ public enum StartupMode {
     /** Start from user-supplied timestamp. */
     TIMESTAMP,
     /** Startup from user-supplied specific offsets. */
-    SPECIFIC;
+    SPECIFIC,
+    /** Snapshot selected tables and read the remaining tables from a user-supplied offset. */
+    MIXED;
 
     @Override
     public String toString() {

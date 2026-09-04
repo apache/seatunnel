@@ -312,6 +312,7 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         splitStartWatermark = currentIncrementalSplit.getStartupOffset();
         Map<TableId, List<CompletedSnapshotSplitInfo>> splitsInfoMap = new HashMap<>();
         Map<TableId, Offset> tableIdBinlogPositionMap = new HashMap<>();
+        tableIdBinlogPositionMap.putAll(currentIncrementalSplit.getTableStartOffsets());
         List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
                 currentIncrementalSplit.getCompletedSnapshotSplitInfos();
 

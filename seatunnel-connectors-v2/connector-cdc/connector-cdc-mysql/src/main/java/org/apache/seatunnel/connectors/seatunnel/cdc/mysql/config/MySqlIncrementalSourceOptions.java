@@ -58,6 +58,14 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                     .withDescription(
                             "Optional number of rows to skip after the specific startup offset.");
 
+    public static final Option<List<String>> STARTUP_SNAPSHOT_TABLE_NAMES =
+            Options.key("startup.snapshot-table-names")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Tables that are initialized with a snapshot when startup.mode is mixed. "
+                                    + "Every other configured table starts from startup.specific-offset.*.");
+
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
                     .singleChoice(
@@ -67,11 +75,12 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                                     StartupMode.EARLIEST,
                                     StartupMode.LATEST,
                                     StartupMode.SPECIFIC,
-                                    StartupMode.TIMESTAMP))
+                                    StartupMode.TIMESTAMP,
+                                    StartupMode.MIXED))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\" , \"specific\" or \"timestamp\"");
+                                    + "\"initial\", \"earliest\", \"latest\" , \"specific\", \"timestamp\" or \"mixed\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)
