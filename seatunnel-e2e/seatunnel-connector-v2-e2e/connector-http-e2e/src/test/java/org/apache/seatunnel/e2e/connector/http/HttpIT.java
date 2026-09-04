@@ -361,6 +361,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         // http airtable source
         Container.ExecResult execResult22 = container.executeJob("/airtable_json_to_assert.conf");
         Assertions.assertEquals(0, execResult22.getExitCode());
+
+        // http posthog source
+        Container.ExecResult execResult23 = container.executeJob("/posthog_json_to_assert.conf");
+        Assertions.assertEquals(0, execResult23.getExitCode());
     }
 
     /**

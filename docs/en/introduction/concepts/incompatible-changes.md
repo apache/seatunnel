@@ -60,6 +60,12 @@ You need to check this document before you upgrade to related version.
   }
   ```
 
+- **Breaking Change: An unknown log level is rejected by the runtime log level endpoint**
+  - **Affected component**: SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **Description**: The endpoint answered `200` with `{"status":"SUCCESS"}` for every request, including a level name it could not resolve (`DEBUGG`, `verbose`, a lowercase name of a level that does not exist, an empty value). Nothing was applied in that case, and the unresolved level was handed to log4j2 as `null`, which removes the explicit level of the logger instead of leaving it alone — so the logger silently fell back to its parent, or to `ERROR` for the root logger. An unknown level, a blank level and a missing `level` parameter are now rejected with `400` and a message listing the valid levels; a level name is still accepted in any letter case.
+  - **Impact**: Scripts and automation that only check the HTTP status now see `400` where they used to see `200`, for requests that never took effect in the first place. Requests with a resolvable level are unchanged.
+  - **Migration Guide**: Send a level log4j2 knows (`OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`, `ALL`, or a level registered by the configuration). The response body of a rejected request names the levels the node accepts.
+
 - **Breaking Change: `Condition.of(option, null)` no longer allowed**
   - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
   - **Description**: The `Condition` constructor now validates that binary literal operators (such as `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, etc.) must have a non-null `expectValue`. Previously, `Condition.of(option, null)` was silently accepted; it now throws `IllegalArgumentException` at construction time.
@@ -104,6 +110,12 @@ You need to check this document before you upgrade to related version.
 
 
 ### Connector Changes
+
+- **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
+  - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
+  - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
+  - **Impact**: Upgrading existing pipelines targeting a non-existent table will now automatically create the table in BigQuery with the source schema instead of failing fast at the BigQuery API layer.
+  - **Migration Guide**: To preserve the legacy fail-fast behavior, explicitly configure `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` in your BigQuery sink configuration.
 
 - **Breaking Change: ORC file sink preserves case of nested struct field names**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (used by all File/HDFS/S3/OSS ORC sinks that share `OrcWriteStrategy`)
@@ -151,9 +163,9 @@ You need to check this document before you upgrade to related version.
   - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
   - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block, which is **supported only by the Zeta engine**.
   - **Impact**:
-    - **Spark and Flink lose periodic timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic flush on those engines. On Spark and Flink the buffer is now flushed only when it reaches `batch_size` and when the writer is closed (it is not flushed on checkpoint). A low-throughput streaming job can therefore hold buffered points in memory until it stops; tune `batch_size` accordingly.
+    - **Spark and Flink lose sub-checkpoint timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic timer flush on those engines. On Spark and Flink the buffer is flushed when it reaches `batch_size`, on checkpoint (the sink flushes in `prepareCommit()`), and when the writer is closed. Buffered points are therefore bounded by the checkpoint interval rather than held until the job stops; for lower latency between checkpoints, tune `batch_size` accordingly.
     - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
-  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, buffered points are flushed on each checkpoint; tune `batch_size` for lower latency between checkpoints. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
 
 - **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
@@ -213,6 +225,54 @@ You need to check this document before you upgrade to related version.
   - Dividing by a zero `DECIMAL` now fails with a `TransformException` naming the operation, where the underlying cause was previously `java.lang.ArithmeticException("/ by zero")`. The failing expression was already reported either way, since the SQL engine wraps anything thrown while evaluating an expression; only the cause type changed. This matches how `MOD` by zero has always been reported.
 
   **Migration Guide**: Results that were previously inflated by the old rounding mode, or truncated by the `double` conversion, will change. Multiplication results may now carry *fewer* decimal places than before: the old conversion sometimes emitted a value wider than the declared column scale, and that value is now rounded down to it, so a job reading `38.4375` from a `DECIMAL(38,2)` column will read `38.44` after upgrading. Any code that inspects the *cause* of a division failure and matches on `ArithmeticException` should be updated to expect `TransformException`. If a downstream system was reconciled against the old values, re-baseline it after upgrading. Any workaround that compensated for the old behavior (for example subtracting a correction term after a division) should be removed.
+- **[BREAKING]** SQL Transform `ABS`, and `ROUND` / `CEIL` / `CEILING` / `FLOOR` with a negative digit count, now
+  fail with a `TransformException` when the result does not fit the argument's own data type, instead of silently
+  wrapping around to a wrong — usually negative — value:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ABS(-2147483648)` | `INT` | `-2147483648` | `TransformException` |
+  | `ABS(-9223372036854775808)` | `BIGINT` | `-9223372036854775808` | `TransformException` |
+  | `ROUND(2147483647, -1)` | `INT` | `-2147483646` | `TransformException` |
+  | `ROUND(9223372036854775807, -1)` | `BIGINT` | `-9223372036854775806` | `TransformException` |
+  | `CEIL(32767, -1)` | `SMALLINT` | `-32766` | `TransformException` |
+  | `FLOOR(-2147483648, -1)` | `INT` | `2147483646` | `TransformException` |
+
+  `ABS` has always been documented this way — "ABS(-2147483648) should be 2147483648, but this value is not allowed
+  for this data type. It leads to an exception" — the implementation simply never did it. `TRUNC` / `TRUNCATE` round
+  toward zero and so can never grow a value out of its own range; they are unaffected, as are `FLOAT`, `DOUBLE` and
+  `DECIMAL` arguments.
+
+  **Migration Guide**: A job that previously emitted these wrapped values now fails on the row that overflows. Cast
+  the argument to a wider type to keep the job running — `ABS(CAST(int_col AS BIGINT))` or
+  `ROUND(CAST(int_col AS BIGINT), -1)` — or filter the offending rows out upstream. If a downstream system was
+  reconciled against the old wrapped values, re-baseline it after upgrading.
+
+- **[BREAKING]** SQL Transform now dispatches `TINYINT` and `SMALLINT` arguments correctly in the numeric
+  functions that previously omitted them. `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` had no
+  `TINYINT` branch, so a `TINYINT` argument fell through the type switch and was returned unrounded, with no
+  exception and no log line. `ABS` and `SIGN` had no `TINYINT` or `SMALLINT` branch and rejected those columns
+  outright:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`, silently not rounded | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`, silently not rounded | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`, silently not rounded | `TransformException`, `130` exceeds `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`, "Unsupported arg type" | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `-1` |
+
+  The same type switch also gained a `default` branch, so any numeric type it does not handle now fails with a
+  `TransformException` instead of being returned unrounded. `SIGN` on a `DECIMAL` argument now uses
+  `BigDecimal.signum()` rather than a `double` conversion, so a value smaller than `Double.MIN_VALUE` reports its
+  true sign instead of `0`.
+
+  **Migration Guide**: A job with a `TINYINT` column that silently skipped rounding now receives the rounded value;
+  if a downstream system was reconciled against the old unrounded output, re-baseline it after upgrading. If a
+  rounded `TINYINT` no longer fits its own type, cast the argument to a wider type — `ROUND(CAST(tiny_col AS INT), -1)`
+  — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
+  (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
 
 ### Engine Behavior Changes
 

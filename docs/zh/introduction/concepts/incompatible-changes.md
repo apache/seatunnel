@@ -54,6 +54,12 @@
   }
   ```
 
+- **破坏性变更：运行期日志级别接口拒绝无法识别的级别**
+  - **影响范围**：SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **变更说明**：该接口此前对任何请求都返回 `200` 和 `{"status":"SUCCESS"}`，包括无法识别的级别名（`DEBUGG`、`verbose`、不存在的级别、空值）。这类请求实际上什么都没有生效，并且无法识别的级别会以 `null` 传给 log4j2，而 `null` 并不是"保持不变"：它会清除该 logger 上显式设置的级别，于是 logger 静默回退到父级别，root logger 则回退到 `ERROR`。现在无法识别的级别、空级别以及缺少 `level` 参数都会返回 `400`，并在响应中列出有效级别；级别名仍然不区分大小写。
+  - **影响**：只检查 HTTP 状态码的脚本和自动化流程，对于原本就没有生效的请求，会从 `200` 变为 `400`。能够正确识别级别的请求行为不变。
+  - **升级指南**：请传入 log4j2 能识别的级别（`OFF`、`FATAL`、`ERROR`、`WARN`、`INFO`、`DEBUG`、`TRACE`、`ALL`，或配置中注册的自定义级别）。被拒绝请求的响应体会列出该节点接受的级别。
+
 - **破坏性变更：`Condition.of(option, null)` 不再允许**
   - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
   - **变更说明**：`Condition` 构造器新增校验：二元字面量操作符（如 `EQUAL`、`NOT_EQUAL`、`GREATER_THAN` 等）的 `expectValue` 不能为 null。此前 `Condition.of(option, null)` 会被静默接受，现在会在构造时抛出 `IllegalArgumentException`。
@@ -141,9 +147,9 @@
   - **受影响组件**：`seatunnel-connectors-v2/connector-prometheus`
   - **变更说明**：Prometheus Sink 不再启动自己的后台刷新线程，连接器级的 `flush_interval` 选项已被移除。定时刷新改为由引擎通过作业 `env` 中的 `sink.flush.interval` 驱动，**仅 Zeta 引擎支持**。
   - **影响**：
-    - **Spark 和 Flink 会失去周期性定时刷新。** 被移除的 `flush_interval` 调度器是连接器自己的线程，在所有引擎上都能工作；其替代者 `sink.flush.interval` 是 Zeta 引擎的能力，Spark 和 Flink 的 Sink 写入器上下文并未实现它，因此这两个引擎上没有周期性刷新。在 Spark 和 Flink 上，缓存现在只会在达到 `batch_size` 以及写入器关闭时被刷新（不会在检查点时刷新）。因此低吞吐的流式作业可能会把缓存的采样点一直保存在内存中直到作业停止；请相应调整 `batch_size`。
+    - **Spark 和 Flink 会失去检查点之间的定时刷新。** 被移除的 `flush_interval` 调度器是连接器自己的线程，在所有引擎上都能工作；其替代者 `sink.flush.interval` 是 Zeta 引擎的能力，Spark 和 Flink 的 Sink 写入器上下文并未实现它，因此这两个引擎上没有周期性定时刷新。在 Spark 和 Flink 上，缓存会在达到 `batch_size`、检查点时（Sink 在 `prepareCommit()` 中刷新）以及写入器关闭时被刷新。因此缓存的采样点最多保留一个检查点间隔，而不会一直保存到作业停止；如需降低检查点之间的延迟，请相应调整 `batch_size`。
     - 只有在使用 `--check` / `--dry-run=static` / `--dry-run=connect` 校验配置时（会执行 `validateUnknownKeys`），`Prometheus` sink 中残留的 `flush_interval` 键才会被拒绝。直接提交的作业会静默忽略该残留键；连接器会在每个 Sink 写入器启动时各打印一次告警作为替代提示（因此并行度为 N、多表或多副本的作业会多次打印）。
-  - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上请依赖 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
+  - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上，缓存会在每个检查点被刷新；如需降低检查点之间的延迟，请调整 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
 
 - **破坏性变更：File 连接器拒绝 XML 输入中的 `DOCTYPE` 声明（XXE 加固）**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`），以及所有基于该模块构建的 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
@@ -200,6 +206,46 @@
   - 除数为零的 `DECIMAL` 除法现在抛出标明该运算的 `TransformException`，而此前底层原因是 `java.lang.ArithmeticException("/ by zero")`。两种情况下出错的表达式本来就会被报告（SQL 引擎会包装表达式求值过程中抛出的任何异常），变化的只是 cause 的类型。这与 `MOD` 除零一直以来的报错方式保持一致。
 
   **迁移指南**：之前被旧舍入模式抬高、或被 `double` 转换截断的结果都会发生变化。乘法结果的小数位数可能比以前*更少*：旧的转换有时会输出比列声明 scale 更宽的值，现在该值会被舍入到声明的 scale，因此原先从 `DECIMAL(38,2)` 列读到 `38.4375` 的作业，升级后会读到 `38.44`。如果下游系统已按旧值对账，升级后需要重新校准。任何为兼容旧行为而做的补偿（例如在除法后减去一个修正值）都应当移除。如果有代码检查除法失败的 cause 并匹配 `ArithmeticException`，需要改为 `TransformException`。
+- **[BREAKING]** SQL 转换的 `ABS`，以及使用负数位数的 `ROUND` / `CEIL` / `CEILING` / `FLOOR`，现在当结果无法用参数自身的数据类型表示时，
+  会抛出 `TransformException`，而不再静默回绕成一个错误的（通常为负数的）值：
+
+  | 表达式 | 参数类型 | 之前的结果 | 当前的结果 |
+  |--------|----------|------------|------------|
+  | `ABS(-2147483648)` | `INT` | `-2147483648` | `TransformException` |
+  | `ABS(-9223372036854775808)` | `BIGINT` | `-9223372036854775808` | `TransformException` |
+  | `ROUND(2147483647, -1)` | `INT` | `-2147483646` | `TransformException` |
+  | `ROUND(9223372036854775807, -1)` | `BIGINT` | `-9223372036854775806` | `TransformException` |
+  | `CEIL(32767, -1)` | `SMALLINT` | `-32766` | `TransformException` |
+  | `FLOOR(-2147483648, -1)` | `INT` | `2147483646` | `TransformException` |
+
+  `ABS` 的文档一直是这样描述的——“ABS(-2147483648) 应该是 2147483648，但是这个值对于这个数据类型是不允许的。这会导致异常”——只是实现从未真正这么做。
+  `TRUNC` / `TRUNCATE` 向零舍入，绝不会把值撑出自身的取值范围，因此不受影响；`FLOAT`、`DOUBLE` 和 `DECIMAL` 参数同样不受影响。
+
+  **迁移指南**：之前会输出这些回绕值的作业，现在会在发生溢出的那一行失败。可以把参数转换为更宽的类型以保持作业运行——例如
+  `ABS(CAST(int_col AS BIGINT))` 或 `ROUND(CAST(int_col AS BIGINT), -1)`——或者在上游过滤掉这些行。如果下游系统已按旧的回绕值对账，
+  升级后需要重新校准。
+
+- **[BREAKING]** SQL 转换现在能正确处理数值函数中此前被遗漏的 `TINYINT` 和 `SMALLINT` 参数。
+  `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` 缺少 `TINYINT` 分支，因此 `TINYINT` 参数会直接穿过类型
+  switch 并被原样返回，既不舍入，也没有异常和日志。`ABS` 和 `SIGN` 缺少 `TINYINT` 与 `SMALLINT` 分支，会直接拒绝这些列：
+
+  | 表达式 | 参数类型 | 之前的结果 | 当前的结果 |
+  |--------|----------|------------|------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`，静默未舍入 | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`，静默未舍入 | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`，静默未舍入 | `TransformException`，`130` 超出 `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`，“Unsupported arg type” | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`，“Unsupported arg type” | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`，“Unsupported arg type” | `-1` |
+
+  该类型 switch 同时补上了 `default` 分支，因此任何未被处理的数值类型现在会抛出 `TransformException`，而不再被原样返回。
+  `SIGN` 处理 `DECIMAL` 参数时改用 `BigDecimal.signum()` 而非 `double` 转换，因此小于 `Double.MIN_VALUE` 的值会返回真实
+  符号，而不是 `0`。
+
+  **迁移指南**：之前 `TINYINT` 列静默跳过舍入的作业，现在会得到真正舍入后的值；如果下游系统已按旧的未舍入结果对账，
+  升级后需要重新校准。如果舍入后的 `TINYINT` 超出自身类型范围，可以把参数转换为更宽的类型——例如
+  `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
+  （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
 ### 引擎行为变更
 

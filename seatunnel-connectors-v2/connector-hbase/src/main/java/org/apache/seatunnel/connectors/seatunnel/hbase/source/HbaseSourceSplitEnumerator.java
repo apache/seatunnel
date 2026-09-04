@@ -21,6 +21,7 @@ package org.apache.seatunnel.connectors.seatunnel.hbase.source;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.hbase.client.HbaseClient;
 import org.apache.seatunnel.connectors.seatunnel.hbase.config.HbaseParameters;
 import org.apache.seatunnel.connectors.seatunnel.hbase.exception.HbaseConnectorErrorCode;
@@ -320,6 +321,6 @@ public class HbaseSourceSplitEnumerator
 
     /** Hash algorithm for assigning splits to readers */
     private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 }
