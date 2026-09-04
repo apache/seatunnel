@@ -76,7 +76,6 @@ sh bin/install-plugin.sh ${version}
 | primary-key            | `List<String>`  | 否       | -          | 用于构建文档键的字段名列表（长度前缀编码：`<长度>:<值>` 分量以 `#` 分隔）。未设置时使用随机 UUID。 |
 | upsert-enable          | Boolean        | 否       | `false`    | 是否启用 Upsert（插入或替换）模式。为 `false` 时，重复键将报错。 |
 | buffer-flush.max-rows  | Integer        | 否       | `1000`     | 触发批量写入的最大缓冲行数。设为 `-1` 禁用。 |
-| buffer-flush.interval  | Long           | 否       | `30000`    | 批量写入之间的最大间隔（毫秒）。设为 `-1` 禁用。 |
 | retry.max              | Integer        | 否       | `3`        | 写入失败时的最大重试次数。 |
 | retry.interval         | Long           | 否       | `1000`     | 线性退避基础间隔（毫秒）。第 n 次重试等待 `retry.interval × n` 毫秒。 |
 
@@ -154,11 +153,24 @@ sink {
     primary-key            = ["user_id", "order_id"]
     upsert-enable          = true
     buffer-flush.max-rows  = 500
-    buffer-flush.interval  = 10000
     retry.max              = 5
     retry.interval         = 2000
   }
 }
+```
+
+### 定时刷新
+
+该连接器支持在空闲时按计时器刷新缓冲区，即使尚未达到 `buffer-flush.max-rows`，也能定期发送已缓冲的记录。  
+此定时器由**引擎**驱动，而非连接器本身，目前仅 **SeaTunnel Zeta** 支持。
+
+在 Job 的 `env` 块中设置 `sink.flush.interval`（毫秒）即可启用：
+
+```hocon  
+env {  
+  sink.flush.interval = 10000  
+}
+
 ```
 
 <ChangeLog />

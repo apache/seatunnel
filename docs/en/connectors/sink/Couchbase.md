@@ -81,7 +81,6 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | primary-key           | `List<String>` | No       | -          | Field names used to build the document key (length-prefixed encoding: `<len>:<value>` components separated by `#`). A random UUID is used when not set. |
 | upsert-enable         | Boolean       | No       | `false`    | Enable upsert (insert-or-replace) mode. When `false`, duplicate keys will cause an error. |
 | buffer-flush.max-rows | Integer       | No       | `1000`     | Maximum rows to buffer before a batch write is triggered. Use `-1` to disable. |
-| buffer-flush.interval | Long          | No       | `30000`    | Maximum milliseconds between batch writes. Use `-1` to disable. |
 | retry.max             | Integer       | No       | `3`        | Maximum retry attempts on transient write failure. |
 | retry.interval        | Long          | No       | `1000`     | Base milliseconds for linear retry delay. Attempt `n` waits `retry.interval × n` ms. |
 
@@ -161,11 +160,31 @@ sink {
     primary-key            = ["user_id", "order_id"]
     upsert-enable          = true
     buffer-flush.max-rows  = 500
-    buffer-flush.interval  = 10000
     retry.max              = 5
     retry.interval         = 2000
   }
 }
 ```
+
+### Timer Flush
+
+The sink can flush its buffer on a timer so that buffered rows are written even when the upstream  
+flow is idle and fewer than `buffer-flush.max-rows` rows have been buffered. This timer is driven  
+by the engine, not by the connector, and is currently supported only by **SeaTunnel Zeta**.
+
+Enable it by setting `sink.flush.interval` (milliseconds) in the job `env` block:
+
+```hocon  
+env {  
+sink.flush.interval = 10000  
+}  
+```
+
+> On Spark and Flink there is no sub-checkpoint timer flush: `sink.flush.interval` is a Zeta engine  
+> primitive, and the Spark/Flink sink writer context does not implement it. On those engines the  
+> buffer is flushed when it reaches `buffer-flush.max-rows`, on checkpoint (`CouchbaseWriter`  
+> flushes in `prepareCommit()`), and when the writer is closed. For lower latency between  
+> checkpoints on Spark or Flink, tune `buffer-flush.max-rows` accordingly.
+
 
 <ChangeLog />
