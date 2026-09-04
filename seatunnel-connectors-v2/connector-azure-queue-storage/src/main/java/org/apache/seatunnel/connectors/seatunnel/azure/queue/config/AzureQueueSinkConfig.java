@@ -23,14 +23,10 @@ import lombok.Builder;
 import lombok.Getter;
 
 import java.io.Serializable;
-import java.util.regex.Pattern;
 
 @Getter
 @Builder(toBuilder = true)
-public class AzureQueueSinkConfig implements Serializable {
-
-    private static final Pattern QUEUE_NAME_PATTERN =
-            Pattern.compile("[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])?");
+public class AzureQueueSinkConfig implements AzureQueueClientConfig, Serializable {
 
     private final String queueName;
     private final AuthenticationType authenticationType;
@@ -69,57 +65,7 @@ public class AzureQueueSinkConfig implements Serializable {
     }
 
     private void validate() {
-        requireNonBlank(queueName, AzureQueueStorageSinkOptions.QUEUE_NAME.key());
-        if (queueName.length() < 3
-                || queueName.length() > 63
-                || !QUEUE_NAME_PATTERN.matcher(queueName).matches()
-                || queueName.contains("--")) {
-            throw new IllegalArgumentException(
-                    "Option 'queue_name' must contain 3-63 lowercase letters, numbers or single hyphens");
-        }
-        if (authenticationType == null) {
-            throw new IllegalArgumentException("Option 'authentication_type' is required");
-        }
-
-        switch (authenticationType) {
-            case CONNECTION_STRING:
-                requireNonBlank(
-                        connectionString, AzureQueueStorageSinkOptions.CONNECTION_STRING.key());
-                rejectPresent(
-                        endpoint,
-                        AzureQueueStorageSinkOptions.ENDPOINT.key(),
-                        accountName,
-                        AzureQueueStorageSinkOptions.ACCOUNT_NAME.key(),
-                        accountKey,
-                        AzureQueueStorageSinkOptions.ACCOUNT_KEY.key(),
-                        sasToken,
-                        AzureQueueStorageSinkOptions.SAS_TOKEN.key());
-                break;
-            case SHARED_KEY:
-                requireNonBlank(endpoint, AzureQueueStorageSinkOptions.ENDPOINT.key());
-                requireNonBlank(accountName, AzureQueueStorageSinkOptions.ACCOUNT_NAME.key());
-                requireNonBlank(accountKey, AzureQueueStorageSinkOptions.ACCOUNT_KEY.key());
-                rejectPresent(
-                        connectionString,
-                        AzureQueueStorageSinkOptions.CONNECTION_STRING.key(),
-                        sasToken,
-                        AzureQueueStorageSinkOptions.SAS_TOKEN.key());
-                break;
-            case SAS_TOKEN:
-                requireNonBlank(endpoint, AzureQueueStorageSinkOptions.ENDPOINT.key());
-                requireNonBlank(sasToken, AzureQueueStorageSinkOptions.SAS_TOKEN.key());
-                rejectPresent(
-                        connectionString,
-                        AzureQueueStorageSinkOptions.CONNECTION_STRING.key(),
-                        accountName,
-                        AzureQueueStorageSinkOptions.ACCOUNT_NAME.key(),
-                        accountKey,
-                        AzureQueueStorageSinkOptions.ACCOUNT_KEY.key());
-                break;
-            default:
-                throw new IllegalArgumentException(
-                        "Unsupported authentication_type: " + authenticationType);
-        }
+        AzureQueueConfigValidator.validateClient(this);
 
         if (format == MessageFormat.TEXT && fieldDelimiter.isEmpty()) {
             throw new IllegalArgumentException("Option 'field_delimiter' cannot be empty");
@@ -130,24 +76,6 @@ public class AzureQueueSinkConfig implements Serializable {
         if (operationTimeoutMillis <= 0) {
             throw new IllegalArgumentException(
                     "Option 'operation_timeout_ms' must be greater than zero");
-        }
-    }
-
-    private static void requireNonBlank(String value, String option) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Option '" + option + "' cannot be blank");
-        }
-    }
-
-    private static void rejectPresent(Object... valuesAndOptions) {
-        for (int index = 0; index < valuesAndOptions.length; index += 2) {
-            Object value = valuesAndOptions[index];
-            if (value != null) {
-                throw new IllegalArgumentException(
-                        "Option '"
-                                + valuesAndOptions[index + 1]
-                                + "' is not valid for the selected authentication_type");
-            }
         }
     }
 }

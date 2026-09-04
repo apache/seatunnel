@@ -13,11 +13,13 @@ title: Zeta 基准测试
 
 ## 工作原理
 
-`seatunnel-benchmarks` 提供两类测试：
+`seatunnel-benchmarks` 提供三类测试：
 
 - `SeaTunnelRowBenchmark`：测试 Row 创建、读取、复制、投影和大小计算等热点代码。
 - `SeaTunnelPipelineBenchmark`：启动单节点嵌入式 Zeta 集群，并通过正常的 Client 和配置
   解析 API 运行完整的有界作业。
+- `CheckpointingTimeBenchmark`：保持一个流式作业运行，并测量显式触发普通 Checkpoint 的
+  完成耗时。
 
 MiniCluster 在每个 JMH Trial 的 Setup 阶段启动，不计入测量。作业提交、调度、Source、
 Transform、Sink 和作业完成都计入 JMH 测量。
@@ -82,6 +84,13 @@ Source 使用基于绝对时间的开环调度。每条记录都携带计划生�
 ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
 ```
 
+### 在 IntelliJ IDEA 中导入模块
+
+该模块位于默认未启用的 `benchmark` Maven profile 中，因此首次打开根项目时 IDEA 可能不会
+自动导入。在 Maven 工具窗口中展开 `Profiles`，启用 `benchmark`，然后点击
+`Reload All Maven Projects`。如果仍未显示该模块，右键点击
+`seatunnel-benchmarks/pom.xml`，选择 `Add as Maven Project`，再重新加载一次 Maven。
+
 查看全部 JMH 方法：
 
 ```bash
@@ -136,6 +145,82 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 运行 Checkpoint 基准测试
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointingTimeBenchmark
+```
+
+该测试覆盖 `recordSize=1b` 和 `recordSize=1kb`。`checkpointSingleInput` 使用受控输入速率
+以及相同的 Source/Sink 并行度。专用 JMH 环境会在每个 Trial 中启动 master/worker 角色
+分离的双节点 Zeta 集群和一个流式作业。master 不提供 worker slot，pipeline 只在 worker
+执行，IMap backup count 为 0。该环境使用一份独立的 Checkpoint Engine 配置（不复用普通
+Benchmark 的 Engine 配置），为 `engine*` 开启基于本地文件系统的 HDFS MapStore，并通过
+HDFS Checkpoint 插件的 local 模式保存状态。每次 invocation 显式触发一个普通 Checkpoint，
+并等待 Zeta 完成持久化。Score 使用 `s/op`，数值越低越好；作业启动、负载建立、持久化
+校验和作业关闭不计入 invocation 时间。
+
+### 查看 Workflow 报告
+
+定时或手动触发的 `Benchmarks` workflow 会在 Java 8 和 Java 11 上运行所选 benchmark。
+每个 Java job 会上传一个 artifact，其中包含：
+
+- 原始 `*.jmh.json`，保留所有 fork 和 iteration 样本；
+- 带版本的 `*.report.json`，统一记录 benchmark 名称、参数、Score、Error、单位、优化方向、
+  Commit、JVM、CPU 和 Runner 元数据；
+- `summary.md`，同时展示在 GitHub Actions Job Summary 中；
+- 环境指纹和完整 Pipeline 的样本 JSON（如有）。
+
+标准化报告还包含 Pipeline 吞吐中位数、P50/P95/P99/最大延迟、延迟增长、完整性和可持续样本
+数量。保留原始样本和 Schema 版本后，后续工具无需解析控制台日志即可消费已有 artifact。
+该 workflow 不会把结果推送到仓库分支。
+
+手动运行可以通过 `benchmarks` 选择常用 selector；`custom_benchmarks` 可以填写类名、方法名或
+正则表达式，并覆盖前者。`.*` 会选择当前及未来的所有 benchmark。设置 `pr_number` 后，
+workflow 会在同一 Worker 上按 `baseline -> PR -> PR -> baseline` 顺序运行，比较两个版本各自
+两次结果的中位数，并输出经过优化方向校正的百分比；正值表示 Candidate 向更优方向变化。
+
+绝对结果仍会受到机器负载、预热、CPU 频率和 Runner 硬件影响。GitHub 托管 Runner 的结果
+适合用于趋势与功能检查。精确比较应像 PR 对比一样，在同一台机器上重复运行 Base 与 Change；
+未来如需作为回归门禁，则应使用固定的 Self-hosted Runner。
+
+### 诊断不稳定的 Benchmark
+
+只有正常运行出现异常的 Score、Error 或 CV 后，才使用 profiling 继续定位。Profiler 会引入
+额外开销，因此诊断报告与正常报告完全分开，诊断 Score 不能用于性能回归比较。诊断 selector
+必须且只能匹配一个 benchmark 方法；`.*` 或能够匹配多个方法的类名会被拒绝。
+
+运行 CPU、wall-clock 或 lock profiling 前，需要安装完整的 async-profiler，并设置
+`ASYNC_PROFILER_HOME`。Runner 会先生成 JFR，再使用安装包内的 `jfrconv` 生成正向和反向
+火焰图。GC profiling 和 JFR capture 使用 JMH 内置 profiler，不依赖 async-profiler：
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile cpu --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile wall --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile lock --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile gc --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh capture jfr --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+```
+
+CPU、wall-clock 和 lock 模式直接使用 JMH 的 async-profiler 集成，GC 模式使用 JMH GC
+profiler，`capture jfr` 使用 JMH JFR profiler。Runner 始终使用一个 fork，防止后续 fork
+覆盖文件型 profiler 的产物。预热和测量设置默认仍来自 benchmark 注解；如需覆盖，将参数
+放在 `--` 后，例如 `-- -wi 1 -i 1 -w 1s -r 1s`。默认输出目录每次运行都不同；显式指定
+的 `--output` 目录必须为空，避免旧产物混入报告。
+
+async-profiler 产生文件而不是数值型 secondary metric，因此原始 JMH JSON 中的
+`secondaryMetrics.async` Score 为 `NaN`，这是预期行为。诊断报告会显示采集到的样本数；
+lock profiling 没有观察到竞争时会报告 0 个样本，并且不会生成没有内容的火焰图。
+
+手动触发 `Benchmarks Diagnostics` workflow 时，必须指定一个精确的 `benchmark` 方法和一个
+`java_version`。该 workflow 与定时或手动触发的 `Benchmarks` workflow 相互独立，后者继续
+运行 Java 8/11 matrix。选择 `all` 会分别执行 CPU、wall-clock、lock 和 GC step，并上传四个
+可以独立下载的 artifact；`capture_jfr` 会增加第五个 JFR artifact。每个 artifact 只包含对应
+模式的 JFR、火焰图、文本摘要、JMH 日志和 JSON 报告。Job Summary 会集中显示目标、
+benchmark 设置、各模式结果和独立 artifact 名称，不再重复完整文件清单。GitHub 托管的
+Linux runner 使用 async-profiler 的 `ctimer` 事件进行 CPU profiling，不依赖 `perf_event`
+权限。
+
 ## 指标
 
 ### 样本有效性
@@ -152,7 +237,7 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 
 | 字段 | 说明 |
 |---|---|
-| `Score` | Pipeline Benchmark 每秒处理的行数，越大越好；Row 微基准仍使用 `ops/ms`。 |
+| `Score` | Pipeline Benchmark 每秒处理的行数，越大越好；Row 微基准使用 `ops/ms`；Checkpoint Benchmark 使用 `s/op`，越低越好。 |
 | `Error` | 根据本次 JMH 运行内部样本计算的不确定性。 |
 | `Cnt` | 参与聚合的 Measurement 样本数，不是处理行数。 |
 | `Units` | Score 的单位。 |
@@ -214,6 +299,16 @@ JMH Visualizer 会把参数值拼成标签。例如 `600000:4:256:64` 依次表�
 `pipeline-results` 下的 JSON 不是 JMH 格式，应直接查看，或者使用
 `tools/benchmarks/save_jmh_result.py` 和 `tools/benchmarks/regression_report.py` 生成
 标准化 JSON 和 Markdown 报告。
+
+## 添加 Benchmark
+
+Benchmark 应保持小而专注，优先选择无需外部服务、可以在单机运行的热点路径，例如
+`SeaTunnelRow` 操作、格式解析与序列化、Transform 热点、Connector 参数解析和 Split 生成。
+
+新 Benchmark 应继承 `BenchmarkBase`，复用统一的 JMH Mode、Fork、预热、测量、State 和输出
+单位配置；Benchmark 自身只保留场景相关的状态与 Setup。完整 Pipeline 的引擎生命周期和控制
+逻辑应放在 `SeaTunnelEnvironmentContext` 或职责明确的子类中，以便后续增加 Checkpoint、
+故障恢复和 Metrics 场景时无需复制集群 Setup。
 
 ## 开销与限制
 

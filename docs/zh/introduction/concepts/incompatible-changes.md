@@ -206,6 +206,46 @@
   - 除数为零的 `DECIMAL` 除法现在抛出标明该运算的 `TransformException`，而此前底层原因是 `java.lang.ArithmeticException("/ by zero")`。两种情况下出错的表达式本来就会被报告（SQL 引擎会包装表达式求值过程中抛出的任何异常），变化的只是 cause 的类型。这与 `MOD` 除零一直以来的报错方式保持一致。
 
   **迁移指南**：之前被旧舍入模式抬高、或被 `double` 转换截断的结果都会发生变化。乘法结果的小数位数可能比以前*更少*：旧的转换有时会输出比列声明 scale 更宽的值，现在该值会被舍入到声明的 scale，因此原先从 `DECIMAL(38,2)` 列读到 `38.4375` 的作业，升级后会读到 `38.44`。如果下游系统已按旧值对账，升级后需要重新校准。任何为兼容旧行为而做的补偿（例如在除法后减去一个修正值）都应当移除。如果有代码检查除法失败的 cause 并匹配 `ArithmeticException`，需要改为 `TransformException`。
+- **[BREAKING]** SQL 转换的 `ABS`，以及使用负数位数的 `ROUND` / `CEIL` / `CEILING` / `FLOOR`，现在当结果无法用参数自身的数据类型表示时，
+  会抛出 `TransformException`，而不再静默回绕成一个错误的（通常为负数的）值：
+
+  | 表达式 | 参数类型 | 之前的结果 | 当前的结果 |
+  |--------|----------|------------|------------|
+  | `ABS(-2147483648)` | `INT` | `-2147483648` | `TransformException` |
+  | `ABS(-9223372036854775808)` | `BIGINT` | `-9223372036854775808` | `TransformException` |
+  | `ROUND(2147483647, -1)` | `INT` | `-2147483646` | `TransformException` |
+  | `ROUND(9223372036854775807, -1)` | `BIGINT` | `-9223372036854775806` | `TransformException` |
+  | `CEIL(32767, -1)` | `SMALLINT` | `-32766` | `TransformException` |
+  | `FLOOR(-2147483648, -1)` | `INT` | `2147483646` | `TransformException` |
+
+  `ABS` 的文档一直是这样描述的——“ABS(-2147483648) 应该是 2147483648，但是这个值对于这个数据类型是不允许的。这会导致异常”——只是实现从未真正这么做。
+  `TRUNC` / `TRUNCATE` 向零舍入，绝不会把值撑出自身的取值范围，因此不受影响；`FLOAT`、`DOUBLE` 和 `DECIMAL` 参数同样不受影响。
+
+  **迁移指南**：之前会输出这些回绕值的作业，现在会在发生溢出的那一行失败。可以把参数转换为更宽的类型以保持作业运行——例如
+  `ABS(CAST(int_col AS BIGINT))` 或 `ROUND(CAST(int_col AS BIGINT), -1)`——或者在上游过滤掉这些行。如果下游系统已按旧的回绕值对账，
+  升级后需要重新校准。
+
+- **[BREAKING]** SQL 转换现在能正确处理数值函数中此前被遗漏的 `TINYINT` 和 `SMALLINT` 参数。
+  `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` 缺少 `TINYINT` 分支，因此 `TINYINT` 参数会直接穿过类型
+  switch 并被原样返回，既不舍入，也没有异常和日志。`ABS` 和 `SIGN` 缺少 `TINYINT` 与 `SMALLINT` 分支，会直接拒绝这些列：
+
+  | 表达式 | 参数类型 | 之前的结果 | 当前的结果 |
+  |--------|----------|------------|------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`，静默未舍入 | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`，静默未舍入 | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`，静默未舍入 | `TransformException`，`130` 超出 `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`，“Unsupported arg type” | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`，“Unsupported arg type” | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`，“Unsupported arg type” | `-1` |
+
+  该类型 switch 同时补上了 `default` 分支，因此任何未被处理的数值类型现在会抛出 `TransformException`，而不再被原样返回。
+  `SIGN` 处理 `DECIMAL` 参数时改用 `BigDecimal.signum()` 而非 `double` 转换，因此小于 `Double.MIN_VALUE` 的值会返回真实
+  符号，而不是 `0`。
+
+  **迁移指南**：之前 `TINYINT` 列静默跳过舍入的作业，现在会得到真正舍入后的值；如果下游系统已按旧的未舍入结果对账，
+  升级后需要重新校准。如果舍入后的 `TINYINT` 超出自身类型范围，可以把参数转换为更宽的类型——例如
+  `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
+  （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
 ### 引擎行为变更
 
