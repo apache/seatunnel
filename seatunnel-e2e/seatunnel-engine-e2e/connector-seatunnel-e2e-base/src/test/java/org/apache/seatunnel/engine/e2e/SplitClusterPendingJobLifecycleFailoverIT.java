@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -52,6 +53,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -418,6 +420,234 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         }
     }
 
+    /**
+     * Regression test for the terminal-zombie-job restore gate fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/10692">#10692</a> ("[Fix][Zeta] Prevent
+     * terminal-state zombie jobs from being restored after master switch"). Before that fix, {@code
+     * CoordinatorService#restoreAllRunningJobFromMasterNodeSwitch} funneled every entry found in
+     * {@code runningJobInfoIMap} -- including jobs that had already reached a terminal status such
+     * as FINISHED -- through the same {@code while (getResourceManager().workerCount(...) == 0)}
+     * wait loop that live jobs legitimately need, so a terminal job's IMap tombstone cleanup could
+     * be starved indefinitely by the absence of a worker it never needed in the first place. The
+     * fix added a pre-filter that resolves terminal-state entries immediately, before the
+     * worker-wait loop is ever reached.
+     *
+     * <p>This test constructs the precondition the fix targets -- a master switch where the new
+     * active master has zero registered workers, with both a terminal job and a live job present in
+     * {@code runningJobInfoIMap} at that moment -- purely by controlling node start/stop order, so
+     * the outcome does not depend on winning any timing race:
+     *
+     * <ul>
+     *   <li>A small batch job is run to completion on a temporary worker, which is only shut down
+     *       after that job's tasks have already reached a terminal execution state. Tearing a
+     *       worker down while it still hosts a DEPLOYING/RUNNING/CANCELING task would route through
+     *       the synchronous Hazelcast membership listener {@code
+     *       CoordinatorService#failedTaskOnMemberRemoved}, fail that task immediately, and (with
+     *       the default {@code job.retry.times}/{@code job.retry.interval.seconds} of 3/3) drive
+     *       the job to terminal FAILED roughly 9 seconds later -- turning the intended "live" job
+     *       terminal before the switch and collapsing this test's mixed-state precondition.
+     *       Shutting the worker down only after the batch job already finished avoids that confound
+     *       entirely: no task is left DEPLOYING/RUNNING/CANCELING on it to fail.
+     *   <li>A second job is then submitted with zero workers registered anywhere in the cluster.
+     *       {@code ScheduleStrategy#WAIT} resource pre-checks (see {@code
+     *       JobMaster#preApplyResources}) fail gracefully rather than erroring out, so this job
+     *       simply lands in PENDING -- a genuinely non-end-state job that legitimately still needs
+     *       a worker, without ever requiring a worker to be torn out from under a dispatched task.
+     *   <li>The standby master has held a live IMap backup since before either job was submitted,
+     *       so both jobs' {@code runningJobInfoIMap}/{@code runningJobStateIMap} entries are
+     *       already replicated there once the active master is shut down.
+     * </ul>
+     *
+     * <p>{@code stateCleanupDelayMillis} is set far beyond this test's lifetime so the terminal
+     * job's IMap tombstone cannot be swept by its own delayed-cleanup timer mid-test; the
+     * pre-filter path under test, not the timer, must be what the assertions below observe.
+     */
+    @Test
+    public void testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch() throws Exception {
+        String testClusterName =
+                "SplitClusterPendingJobLifecycleFailoverIT_"
+                        + "testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch";
+        String testCaseName = "terminalJobCleanupSkipsWorkerWaitAfterMasterSwitch";
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl masterNode2 = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode2Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode2Config = getSeaTunnelConfig(testClusterName);
+        configurePendingLifecycleTest(masterNode1Config);
+        configurePendingLifecycleTest(masterNode2Config);
+        configurePendingLifecycleTest(workerNode1Config);
+        configurePendingLifecycleTest(workerNode2Config);
+        // Keep the terminal job's IMap tombstone alive far longer than this test can possibly
+        // run, so the pre-filter under test -- not the unrelated delayed-cleanup timer -- is what
+        // the assertions below observe.
+        long stateCleanupDelayMillis = TimeUnit.MINUTES.toMillis(10);
+        masterNode1Config.getEngineConfig().setStateCleanupDelayMillis(stateCleanupDelayMillis);
+        masterNode2Config.getEngineConfig().setStateCleanupDelayMillis(stateCleanupDelayMillis);
+
+        try {
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);
+
+            HazelcastInstanceImpl finalMasterNode1 = masterNode1;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMasterNode1.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode1Config);
+            HazelcastInstanceImpl finalWorkerNode1 = workerNode1;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalWorkerNode1.getCluster().getMembers().size()));
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode1, masterNode2);
+            HazelcastInstanceImpl standbyMaster =
+                    activeMaster == masterNode1 ? masterNode2 : masterNode1;
+
+            // Run a small batch job to completion so it reaches a terminal status (FINISHED) the
+            // normal way, leaving a real pendingJobCleanupIMap tombstone behind -- the realistic
+            // shape of a "zombie" job, rather than one hand-injected directly into the IMaps.
+            ImmutablePair<String, String> terminalJobResources =
+                    createTerminalJobResources(testCaseName, 5L, 1);
+            ClientJobProxy terminalJob =
+                    submitJob(
+                            engineClient,
+                            masterNode1Config,
+                            "terminal_zombie_job",
+                            terminalJobResources.getRight());
+            long terminalJobId = terminalJob.getJobId();
+            assertJobStatusWithTimeout(terminalJob, JobStatus.FINISHED, 60);
+
+            // The batch job's tasks already completed, so its slot was already released; removing
+            // its worker now cannot fail any task, since none is DEPLOYING/RUNNING/CANCELING on
+            // it anymore. See the class-level javadoc above for why this ordering matters.
+            workerNode1.shutdown();
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, standbyMaster.getCluster().getMembers().size()));
+
+            // With zero workers registered anywhere in the cluster, this job can only land in
+            // PENDING (see JobMaster#preApplyResources): a genuinely live, non-end-state job that
+            // legitimately still needs a worker before it can make progress.
+            ClientJobProxy liveJob =
+                    submitJob(
+                            engineClient,
+                            masterNode1Config,
+                            "live_pending_job",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            long liveJobId = liveJob.getJobId();
+            assertJobStatusWithTimeout(liveJob, JobStatus.PENDING, 60);
+
+            // Trigger the master switch. Both jobs' IMap entries are already replicated on
+            // standbyMaster, and the cluster has already been confirmed to have zero workers, so
+            // restoreAllRunningJobFromMasterNodeSwitch begins with exactly the precondition this
+            // test needs -- no race to win.
+            activeMaster.shutdown();
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(
+                                        standbyMaster.getLifecycleService().isRunning());
+                                Assertions.assertTrue(
+                                        isCoordinatorActive(standbyMaster),
+                                        "Standby master should become active after failover");
+                            });
+
+            SeaTunnelServer standbyServer =
+                    standbyMaster.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService standbyCoordinatorService = standbyServer.getCoordinatorService();
+
+            Awaitility.await()
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            0,
+                                            standbyCoordinatorService
+                                                    .getResourceManager()
+                                                    .workerCount(Collections.emptyMap())));
+
+            // While the new active master still has zero registered workers: the terminal job
+            // must already be resolved (not queued behind the worker-wait loop), while the live
+            // job must still be blocked waiting for a worker. Holding both for a stability window
+            // proves they are on genuinely different code paths, not merely "both happened to
+            // finish quickly."
+            Awaitility.await()
+                    .during(10, TimeUnit.SECONDS)
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.FINISHED,
+                                        standbyCoordinatorService.getJobStatus(terminalJobId),
+                                        "Terminal job must not be resurrected while restore is "
+                                                + "still waiting for a worker for the live job");
+                                Assertions.assertFalse(
+                                        standbyCoordinatorService
+                                                .getPendingJobQueue()
+                                                .contains(liveJobId),
+                                        "Live job must still be blocked behind the worker-wait "
+                                                + "loop while zero workers are registered");
+                            });
+
+            // A worker finally registers: the live job's restore, previously gated behind the
+            // worker-wait loop, now proceeds to completion; the already-resolved terminal job is
+            // unaffected by it.
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode2Config);
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, standbyMaster.getCluster().getMembers().size()));
+
+            ClientJobProxy liveJobAfterFailover =
+                    engineClient.createJobClient().getJobProxy(liveJobId);
+            assertJobStatusWithTimeout(liveJobAfterFailover, JobStatus.RUNNING, 120);
+            Assertions.assertEquals(
+                    JobStatus.FINISHED, standbyCoordinatorService.getJobStatus(terminalJobId));
+
+            liveJobAfterFailover.cancelJob();
+            assertEventuallyCanceled(liveJobAfterFailover);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (workerNode1 != null && workerNode1.getLifecycleService().isRunning()) {
+                workerNode1.shutdown();
+            }
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
+            }
+            if (masterNode1 != null && masterNode1.getLifecycleService().isRunning()) {
+                masterNode1.shutdown();
+            }
+            if (masterNode2 != null && masterNode2.getLifecycleService().isRunning()) {
+                masterNode2.shutdown();
+            }
+        }
+    }
+
     @NotNull private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
@@ -687,5 +917,39 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                                                 .contains(expectedRemovedJobId),
                                         "Pending queue should not contain job "
                                                 + expectedRemovedJobId));
+    }
+
+    /**
+     * Renders a small, quickly-completing batch job from {@code
+     * cluster_batch_fake_to_localfile_template.conf} so it reaches FINISHED almost immediately,
+     * leaving a realistic terminal-job IMap tombstone behind for {@link
+     * #testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch}. Mirrors {@code
+     * ClusterFaultToleranceIT#createTestResources}; kept local since it is only needed by that test
+     * in this class.
+     *
+     * @return pair of (sink output directory, generated job config file path)
+     */
+    private static ImmutablePair<String, String> createTerminalJobResources(
+            String testCaseName, long rowNumber, int parallelism) throws IOException {
+        Map<String, String> valueMap = new HashMap<>();
+        valueMap.put("dynamic_test_case_name", testCaseName);
+        valueMap.put("dynamic_job_mode", JobMode.BATCH.toString());
+        valueMap.put("dynamic_test_row_num_per_parallelism", String.valueOf(rowNumber));
+        valueMap.put("dynamic_test_parallelism", String.valueOf(parallelism));
+
+        String targetDir = ("/tmp/hive/warehouse/" + testCaseName).replace("/", File.separator);
+        FileUtils.createNewDir(targetDir);
+
+        String targetConfigFilePath =
+                File.separator
+                        + "tmp"
+                        + File.separator
+                        + "test_conf"
+                        + File.separator
+                        + testCaseName
+                        + ".conf";
+        TestUtils.createTestConfigFileFromTemplate(
+                "cluster_batch_fake_to_localfile_template.conf", valueMap, targetConfigFilePath);
+        return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 }
