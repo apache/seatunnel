@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-
 package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;

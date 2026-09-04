@@ -38,12 +38,6 @@ public class CouchbaseSinkOptions extends CouchbaseConfig {
                             "The maximum number of buffered rows per batch write request."
                                     + " Use -1 to disable size-based flushing.");
 
-    /**
-     * Maximum time (ms) between two consecutive batch writes.
-     *
-     * <p>A value of {@code -1} disables interval-based flushing.
-     */
-
     /** Number of retry attempts on transient write failures before giving up. */
     public static final Option<Integer> RETRY_MAX =
             Options.key("retry.max")

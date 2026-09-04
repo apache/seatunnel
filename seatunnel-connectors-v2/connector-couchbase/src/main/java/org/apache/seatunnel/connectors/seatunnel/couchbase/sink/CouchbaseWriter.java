@@ -55,8 +55,6 @@ import java.util.concurrent.TimeUnit;
  *
  * <ul>
  *   <li>The buffer reaches {@code buffer-flush.max-rows}, or
- *   <li>A periodic background timer fires every {@code buffer-flush.interval} milliseconds (the
- *       real max-latency guarantee, enforced even when no new rows arrive), or
  *   <li>A checkpoint or shutdown is triggered.
  * </ul>
  *
@@ -233,12 +231,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     // Internal helpers
     // ---------------------------------------------------------------------------
 
-    /**
-     * Throws a {@link CouchbaseConnectorException} wrapping the latched async error if one has been
-     * recorded by the background flush timer.
-     */
-
-    /** Converts a {@link SeaTunnelRow} to a {@link JsonObject} using the schema field names. */
     private JsonObject toJsonObject(SeaTunnelRow row) {
         JsonObject doc = JsonObject.create();
         String[] fieldNames = rowType.getFieldNames();
