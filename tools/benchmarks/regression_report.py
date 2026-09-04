@@ -405,19 +405,12 @@ def jmh_comparison_lines(baselines, candidates):
     )
     if not names:
         return []
-    baseline_ref, _ = source_summary(baselines)
-    candidate_ref, _ = source_summary(candidates)
     lines = [
         "### JMH comparison",
         "",
-        "| Benchmark | Parameters | {} | {} | Score Change | {} CV | {} CV | CV Change | {} Error | {} Error | Error Change | Unit |".format(
-            baseline_ref,
-            candidate_ref,
-            baseline_ref,
-            candidate_ref,
-            baseline_ref,
-            candidate_ref,
-        ),
+        "`B` = Baseline, `C` = Candidate.",
+        "",
+        "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | CV Change | Error B | Error C | Error Change | Unit |",
         "| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
     ]
     names.sort(
