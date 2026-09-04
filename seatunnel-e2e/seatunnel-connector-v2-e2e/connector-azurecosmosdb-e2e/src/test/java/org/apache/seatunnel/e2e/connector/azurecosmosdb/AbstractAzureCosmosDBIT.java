@@ -227,7 +227,14 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
      * Retries idempotent seeding until the emulator accepts data-plane requests.
      *
      * <p>The emulator's container health endpoint can be available before its database service
-     * finishes accepting collection creation requests.
+     * finishes accepting collection creation requests. Beyond that initial gap, the emulator's
+     * gateway has also been observed (see CI run 33715122800, job "all-connectors-it-4") to stall
+     * on an individual request for the client's full {@code httpNetworkRequestTimeout} (1 minute)
+     * while it continues initializing in the background, even after an earlier request already
+     * succeeded. A 2-minute ceiling only allows one such stall to be absorbed before the retry
+     * budget is exhausted, so this is widened to 5 minutes to reliably ride out that warm-up
+     * window, matching the more generous ceiling already used for the similarly slow-starting
+     * Milvus readiness check in this same test module family.
      *
      * @param containerName container to initialize
      * @param items rows to persist in the container
@@ -237,7 +244,7 @@ public abstract class AbstractAzureCosmosDBIT extends TestSuiteBase implements T
         Awaitility.await()
                 .ignoreExceptions()
                 .pollInterval(1, TimeUnit.SECONDS)
-                .atMost(2, TimeUnit.MINUTES)
+                .atMost(5, TimeUnit.MINUTES)
                 .untilAsserted(() -> seedContainer(containerName, items));
     }
 

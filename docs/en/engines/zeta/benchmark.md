@@ -15,7 +15,7 @@ not replace a production proof of concept.
 
 ## How It Works
 
-The `seatunnel-benchmarks` module provides three types of tests:
+The `seatunnel-benchmarks` module provides these types of tests:
 
 - `SeaTunnelRowBenchmark` measures hot paths such as row creation, access, copying, projection, and
   size calculation.
@@ -23,25 +23,52 @@ The `seatunnel-benchmarks` module provides three types of tests:
   jobs through the normal client and configuration parser APIs.
 - `CheckpointingTimeBenchmark` keeps one streaming job running and measures the time required to
   complete explicitly triggered regular checkpoints.
+- `CheckpointStorageBenchmark` measures checkpoint ID allocation, completed-checkpoint persistence,
+  and checkpoint-overview updates after checkpoint coordination has completed.
+- `IMapJobStorageBenchmark` measures task-state transitions, metrics reports, active and completed
+  job growth, and running-job recovery through the production IMaps.
+- `IMapDagStorageBenchmark` measures persisted `JobDAGInfo` growth and reload with controlled DAG
+  sizes.
+- `IMapWalStorageBenchmark` measures file-backed IMap WAL append cost, byte growth, and recovery as
+  live-key count and per-key history depth change independently.
 
-The MiniCluster starts during JMH Trial setup and is outside the measurement. Job submission,
-scheduling, Source, Transform, Sink, and job completion are inside the JMH measurement.
+For benchmarks that require the Zeta runtime, JMH controls the forks, warmup, measurement, and Trial
+lifecycle. The Environment Context creates the Client and starts embedded Zeta during Trial setup.
+Setup and teardown are outside the timing; only operations performed by the `@Benchmark` method are
+measured.
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
 flowchart LR
-    Setup["Start MiniCluster<br/>outside JMH timing"] -.-> Submit["Submit job<br/>start timing"]
-    Submit --> Source["BenchmarkSource"]
-    Source --> Transform["BenchmarkTransform<br/>optional"]
-    Transform --> Sink["BenchmarkSink"]
-    Sink --> Finish["Job completes<br/>stop timing"]
-    Source -. "scheduled time" .-> Sink
-    Sink -.-> Result["Pipeline JSON<br/>throughput and latency"]
+    subgraph JMH["JMH"]
+        direction LR
+        Runner["Benchmark Runner<br/>Fork · Warmup · Measurement"]
+        Context["Environment Context<br/>Trial Setup / TearDown"]
+        Runner --> Context
+    end
+
+    subgraph Zeta["Zeta"]
+        direction LR
+        Client["SeaTunnel Client"]
+        Cluster["Embedded Zeta Cluster<br/>single-node or dedicated Master + Worker"]
+        Client --> Cluster
+    end
+
+    Context -->|"create Client and run benchmark"| Client
+    Context -. "start / stop at Trial scope" .-> Cluster
+
+    classDef runner fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff
+    classDef runtime fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff
+    class Runner,Context runner
+    class Client,Cluster runtime
+    style JMH fill:#15142a,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff
+    style Zeta fill:#081d24,stroke:#2dd4bf,stroke-width:1.5px,color:#f8fbff
 ```
 
-The Source follows an absolute open-loop schedule. Each row carries its planned generation time. If
-Zeta falls behind, planned time continues to advance, so queueing and backlog remain visible in
-event-time latency instead of being hidden while the Source waits for the engine.
+In `SeaTunnelPipelineBenchmark`, the Source follows an absolute open-loop schedule. Each row carries
+its planned generation time. If Zeta falls behind, planned time continues to advance, so queueing
+and backlog remain visible in event-time latency instead of being hidden while the Source waits for
+the engine.
 
 ### Test Scope
 
@@ -168,6 +195,107 @@ one regular checkpoint and waits until Zeta has persisted and completed it. The 
 completion time in `s/op`, so lower is better. Job startup, workload ramp-up, persistence
 verification, and job shutdown are outside the measured invocation.
 
+### Run the Checkpoint Storage Benchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointStorageBenchmark
+```
+
+`CheckpointStorageBenchmark` uses coordinator-produced checkpoint state and the production HDFS
+checkpoint storage plugin over `file:///`. It contains three storage-only hot paths:
+
+- `checkpointPersistenceTransaction` atomically allocates a checkpoint ID, serializes and stores a
+  completed checkpoint, and updates its checkpoint overview;
+- `checkpointIdAtomicIncrement` isolates the production checkpoint counter state store;
+- `checkpointOverviewIncrementalUpdate` isolates the completed-count, latest-checkpoint, and
+  checkpoint-history update.
+
+Barrier delivery, task snapshotting, ACK waiting, fixture generation, durability validation, and
+cleanup are outside measured time. Each invocation processes a fixed batch of 100 logical
+operations and reports the normalized time per operation in `us/op`; lower is better.
+
+Run one exact method when only one part of the persistence transaction is under investigation:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'CheckpointStorageBenchmark.checkpointIdAtomicIncrement$'
+```
+
+### Run the IMap Job Storage Benchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapJobStorageBenchmark
+```
+
+The class uses the same running-state, history, and metrics IMaps as Zeta. Fixture values come from
+a real streaming job, while job startup and cleanup are outside measurement. Its methods cover:
+
+- `taskGroupStateTransition`, with `storedTaskGroupCount=0|1000`;
+- `runningMetricsReport`, with `taskCount=10|100|1000`;
+- `runningJobGrowth` and `completedJobHistoryGrowth`, with
+  `initialStoredJobCount=0|1000`;
+- `runningJobRecovery`, with `runningJobCount=100|1000`.
+
+The fixed growth and transition methods perform 100 logical operations and report normalized
+`us/op`. Recovery evicts the in-memory values, calls the production `IMap.loadAll(true)` path, and
+scans the restored entries. For example, run only the largest running-job recovery fixture:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapJobStorageBenchmark.runningJobRecovery$' \
+  -p runningJobCount=1000
+```
+
+### Run the IMap DAG Storage Benchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
+```
+
+`finishedJobDagStore` writes a fixed batch of 100 unique production `JobDAGInfo` values through
+the finished-job DAG IMap and its file-backed MapStore. `finishedJobDagLoad` evicts one value and
+reloads it through MapStore. `pipelineCount=1|10|100` controls the exact number of code-built
+source-to-sink pipelines in each DAG, and `storedDagCount=0|100` controls retained storage pressure.
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapDagStorageBenchmark.finishedJobDagLoad$' \
+  -p pipelineCount=100 \
+  -p storedDagCount=100
+```
+
+### Run the IMap WAL Storage Benchmarks
+
+`appendNewKey` and `appendHotKey` each perform 100 production IMap writes and report both normalized
+time and the auxiliary `walBytesPerAppend` counter. `pipelineCount=1|10|100` changes the serialized
+DAG payload. `recoverAll` executes `IMap.loadAll(true)` over a prebuilt WAL;
+`uniqueKeyCount=100|1000` controls live values and `mutationsPerKey=1|10|100` controls obsolete
+history that must be replayed.
+
+Select an exact method for normal investigation. The `IMapWalStorageBenchmark` class selector runs
+every append and recovery parameter combination and can take a long time:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapWalStorageBenchmark.appendHotKey$' \
+  -p pipelineCount=10
+```
+
+WAL recovery can be expensive, especially with 1,000 keys and 100 mutations per key, so it is an
+on-demand diagnostic rather than part of `benchmarks_core`. Run one controlled case explicitly:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapWalStorageBenchmark.recoverAll$' \
+  -p uniqueKeyCount=1000 \
+  -p mutationsPerKey=100
+```
+
+All four storage benchmark classes start an isolated single-node Zeta/Hazelcast environment with
+IMap MapStore enabled, backup count `0`, and local file-backed IMap and checkpoint storage. They do
+not require HDFS, S3, OSS, or another external storage service. Setup, validation, and cleanup do
+not contribute to the reported score.
+
 ### Read Workflow Reports
 
 The scheduled and manually triggered `Benchmarks` workflow runs each selected benchmark on Java 8
@@ -253,7 +381,7 @@ These conditions reject incomplete output and prove that Transform work reached 
 
 | Field | Description |
 |---|---|
-| `Score` | Processed rows per second for a Pipeline benchmark; higher is better. Row microbenchmarks retain `ops/ms`, while the checkpoint benchmark reports `s/op` and lower is better. |
+| `Score` | Processed rows per second for a Pipeline benchmark; higher is better. Row microbenchmarks retain `ops/ms`; checkpoint completion reports `s/op`; storage benchmarks report `us/op`. Time-per-operation scores are lower-is-better. |
 | `Error` | Uncertainty calculated from samples inside this JMH run. |
 | `Cnt` | Aggregated measurement samples, not processed rows. |
 | `Units` | Unit of the score. |
