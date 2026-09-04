@@ -78,13 +78,13 @@ class RegressionReportTest(unittest.TestCase):
         )
 
         self.assertIn(
-            "`B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures "
+            "> `B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures "
             "variability and Error represents the relative JMH confidence interval, both "
             "aggregated as medians across runs.",
             markdown,
         )
         self.assertIn(
-            "Score Change is direction-adjusted so positive is favorable; CV and Error changes "
+            "> Score Change is direction-adjusted so positive is favorable; CV and Error changes "
             "are relative changes.",
             markdown,
         )
