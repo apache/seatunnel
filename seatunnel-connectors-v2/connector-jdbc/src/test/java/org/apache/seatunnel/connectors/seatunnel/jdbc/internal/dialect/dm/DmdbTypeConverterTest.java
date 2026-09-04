@@ -902,4 +902,124 @@ public class DmdbTypeConverterTest {
         Assertions.assertEquals(DmdbTypeConverter.DM_TIMESTAMP, typeDefine.getDataType());
         Assertions.assertEquals(column.getScale(), typeDefine.getScale());
     }
+
+    @Test
+    public void testReconvertTimestampTz() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .build();
+
+        BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                DmdbTypeConverter.DM_DATETIME_WITH_TIME_ZONE, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                DmdbTypeConverter.DM_DATETIME_WITH_TIME_ZONE, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(3)
+                        .build();
+
+        typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("DATETIME(%s) WITH TIME ZONE", column.getScale()),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(
+                DmdbTypeConverter.DM_DATETIME_WITH_TIME_ZONE, typeDefine.getDataType());
+        Assertions.assertEquals(column.getScale(), typeDefine.getScale());
+    }
+
+    @Test
+    public void testReconvertTimestampTzBoundary() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(7)
+                        .build();
+
+        BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("DATETIME(%s) WITH TIME ZONE", DmdbTypeConverter.MAX_TIMESTAMP_SCALE),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(
+                DmdbTypeConverter.MAX_TIMESTAMP_SCALE, typeDefine.getScale().intValue());
+        Assertions.assertEquals(
+                DmdbTypeConverter.DM_DATETIME_WITH_TIME_ZONE, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertDecimalBoundary() {
+        Column column =
+                PhysicalColumn.builder().name("test").dataType(new DecimalType(40, 5)).build();
+        BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("%s(%s,%s)", DmdbTypeConverter.DM_DECIMAL, 38, 3),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(DmdbTypeConverter.DM_DECIMAL, typeDefine.getDataType());
+
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, -2)).build();
+        typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("%s(%s,%s)", DmdbTypeConverter.DM_DECIMAL, 10, 0),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(DmdbTypeConverter.DM_DECIMAL, typeDefine.getDataType());
+
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(38, 38)).build();
+        typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format("%s(%s,%s)", DmdbTypeConverter.DM_DECIMAL, 38, 37),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(DmdbTypeConverter.DM_DECIMAL, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertTimeBoundary() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.LOCAL_TIME_TYPE)
+                        .scale(7)
+                        .build();
+
+        BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format(
+                        "%s(%s)", DmdbTypeConverter.DM_TIME, DmdbTypeConverter.MAX_TIME_SCALE),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(DmdbTypeConverter.MAX_TIME_SCALE, typeDefine.getScale().intValue());
+        Assertions.assertEquals(DmdbTypeConverter.DM_TIME, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertTimestampBoundary() {
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE)
+                        .scale(7)
+                        .build();
+
+        BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(
+                String.format(
+                        "%s(%s)",
+                        DmdbTypeConverter.DM_TIMESTAMP, DmdbTypeConverter.MAX_TIMESTAMP_SCALE),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(
+                DmdbTypeConverter.MAX_TIMESTAMP_SCALE, typeDefine.getScale().intValue());
+        Assertions.assertEquals(DmdbTypeConverter.DM_TIMESTAMP, typeDefine.getDataType());
+    }
 }
