@@ -33,7 +33,8 @@ public class ConfigValidationResultTest {
                         + "\"phase\":\"static\",\"errors\":[]}",
                 result.toJson());
         Assertions.assertTrue(
-                JsonUtils.readTree(result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                JsonUtils.readTree(
+                                result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
                         .get("valid")
                         .asBoolean());
         Assertions.assertEquals("VALID", result.toHumanReadable());
@@ -44,8 +45,7 @@ public class ConfigValidationResultTest {
         ConfigValidationError error =
                 new ConfigValidationError(
                         "source[0](Kafka)", "Kafka", null, "option", "Required option is missing");
-        ConfigValidationResult result =
-                ConfigValidationResult.failure("static", error);
+        ConfigValidationResult result = ConfigValidationResult.failure("static", error);
 
         Assertions.assertEquals(
                 "{\"schemaVersion\":\"1.0\",\"valid\":false,"
@@ -58,7 +58,8 @@ public class ConfigValidationResultTest {
                 "Static analysis failed: Required option is missing", result.toHumanReadable());
         Assertions.assertEquals(
                 "option",
-                JsonUtils.readTree(result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
+                JsonUtils.readTree(
+                                result.toJson().getBytes(java.nio.charset.StandardCharsets.UTF_8))
                         .at("/errors/0/ruleCategory")
                         .asText());
     }

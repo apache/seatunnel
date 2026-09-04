@@ -67,8 +67,7 @@ public class SeaTunnelConfValidateCommandTest {
         Path configFile = Files.createTempFile("seatunnel-validation-result", ".conf");
         Files.write(
                 configFile,
-                ("source { FakeSource { plugin_output = output } }\n"
-                                + "sink { InMemory {} }")
+                ("source { FakeSource { plugin_output = output } }\n" + "sink { InMemory {} }")
                         .getBytes(StandardCharsets.UTF_8));
         configFile.toFile().deleteOnExit();
 

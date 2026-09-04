@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.core.starter.validation;
 
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.apache.seatunnel.common.utils.JsonUtils;
 
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -52,8 +53,7 @@ public final class ConfigValidationResult implements Serializable {
         return new ConfigValidationResult(true, phase, Collections.emptyList());
     }
 
-    public static ConfigValidationResult failure(
-            String phase, ConfigValidationError error) {
+    public static ConfigValidationResult failure(String phase, ConfigValidationError error) {
         return new ConfigValidationResult(false, phase, Collections.singletonList(error));
     }
 
