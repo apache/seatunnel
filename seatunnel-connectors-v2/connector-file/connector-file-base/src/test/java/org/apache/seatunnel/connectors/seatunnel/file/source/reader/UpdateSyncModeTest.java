@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.ChunkedInputHadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
@@ -30,6 +32,7 @@ import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
@@ -204,6 +207,41 @@ class UpdateSyncModeTest {
     }
 
     @Test
+    void testStrictChecksumFallbackSkipsEqualContentWithDifferentReadChunkSizes() throws Exception {
+        assertStrictChecksumFallback(
+                "identical-content".getBytes(StandardCharsets.UTF_8),
+                3,
+                "identical-content".getBytes(StandardCharsets.UTF_8),
+                5,
+                false);
+    }
+
+    @Test
+    void testStrictChecksumFallbackCopiesDifferentContent() throws Exception {
+        assertStrictChecksumFallback(
+                "same-length-a".getBytes(StandardCharsets.UTF_8),
+                3,
+                "same-length-b".getBytes(StandardCharsets.UTF_8),
+                5,
+                true);
+    }
+
+    @Test
+    void testStrictChecksumCopiesDifferentLength() throws Exception {
+        assertStrictChecksumFallback(
+                "short".getBytes(StandardCharsets.UTF_8),
+                3,
+                "longer".getBytes(StandardCharsets.UTF_8),
+                5,
+                true);
+    }
+
+    @Test
+    void testStrictChecksumFallbackSkipsEmptyContent() throws Exception {
+        assertStrictChecksumFallback(new byte[0], 3, new byte[0], 5, false);
+    }
+
+    @Test
     void testUpdateModeNonRecursiveScanOnlyComparesTopLevelFiles() throws Exception {
         Path sourceDir = tempDir.resolve("src");
         Path targetDir = tempDir.resolve("dst");
@@ -277,6 +315,47 @@ class UpdateSyncModeTest {
 
     private static void setMtime(Path path, long millis) throws IOException {
         Files.setLastModifiedTime(path, FileTime.fromMillis(millis));
+    }
+
+    private void assertStrictChecksumFallback(
+            byte[] sourceContent,
+            int sourceChunkSize,
+            byte[] targetContent,
+            int targetChunkSize,
+            boolean expectedCopy)
+            throws Exception {
+        Path sourceDir = tempDir.resolve("fallback-src-" + sourceChunkSize);
+        Path targetDir = tempDir.resolve("fallback-dst-" + targetChunkSize);
+        Path sourceFile = sourceDir.resolve("test.bin");
+        Path targetFile = targetDir.resolve("test.bin");
+        writeFile(sourceFile, sourceContent);
+        writeFile(targetFile, targetContent);
+
+        try (BinaryReadStrategy strategy = new BinaryReadStrategy()) {
+            strategy.setPluginConfig(
+                    updateConfig(
+                            sourceDir.toUri().toString(),
+                            targetDir.toUri().toString(),
+                            "strict",
+                            "checksum"));
+            strategy.init(new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT));
+
+            strategy.hadoopFileSystemProxy.close();
+            HadoopFileSystemProxy fileSystem =
+                    new ChunkedInputHadoopFileSystemProxy(
+                            new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT),
+                            sourceFile,
+                            sourceContent,
+                            sourceChunkSize,
+                            targetFile,
+                            targetContent,
+                            targetChunkSize);
+            strategy.hadoopFileSystemProxy = fileSystem;
+            strategy.targetHadoopFileSystemProxy = fileSystem;
+
+            List<String> files = strategy.getFileNamesByPath(sourceDir.toUri().toString());
+            Assertions.assertEquals(expectedCopy ? 1 : 0, files.size());
+        }
     }
 
     private static Config updateConfig(
