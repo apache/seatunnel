@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -60,6 +61,7 @@ import lombok.SneakyThrows;
 import java.time.Instant;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -265,6 +267,15 @@ public class CheckpointCoordinator {
         // For job restore from master node active switch
         CheckpointCoordinatorStatus checkpointCoordinatorStatus =
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
+
+        boolean restoresCurrentJob =
+                pipelineState != null && String.valueOf(jobId).equals(pipelineState.getJobId());
+        boolean recreatesRunningCoordinator =
+                checkpointCoordinatorStatus != null && !checkpointCoordinatorStatus.isEndState();
+        if (coordinatorConfig.isCheckpointEnable()
+                && (restoresCurrentJob || recreatesRunningCoordinator)) {
+            restoreCompletedCheckpointRetentionState();
+        }
 
         // This is not a new job
         if (isStartWithSavePoint) {
@@ -1324,7 +1335,6 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCompletedTimestamp());
         final long checkpointId = completedCheckpoint.getCheckpointId();
-        completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
             if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
                 byte[] states = serializer.serialize(completedCheckpoint);
@@ -1335,23 +1345,8 @@ public class CheckpointCoordinator {
                                 .pipelineId(pipelineId)
                                 .states(states)
                                 .build());
-            }
-            if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
-                List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
-                    needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
-                }
-                checkpointStorage.deleteCheckpoint(
-                        String.valueOf(completedCheckpoint.getJobId()),
-                        String.valueOf(completedCheckpoint.getPipelineId()),
-                        needDeleteCheckpointId);
+                completedCheckpointIds.addLast(String.valueOf(checkpointId));
+                cleanExpiredCheckpointsSafely();
             }
         } catch (Throwable e) {
             LOG.error("store checkpoint states failed.", e);
@@ -1590,5 +1585,72 @@ public class CheckpointCoordinator {
     @VisibleForTesting
     public Map<Long, SeaTunnelTaskState> getPipelineTaskStatus() {
         return pipelineTaskStatus;
+    }
+
+    /**
+     * Restores the retention queue from durable storage when this coordinator is recreated.
+     * Checkpoint storage implementations do not guarantee enumeration order, so checkpoint IDs must
+     * be sorted before the oldest entries are selected for deletion.
+     */
+    private void restoreCompletedCheckpointRetentionState() {
+        List<PipelineState> pipelineStates;
+        try {
+            pipelineStates =
+                    checkpointStorage.getCheckpointsByJobIdAndPipelineId(
+                            String.valueOf(jobId), String.valueOf(pipelineId));
+        } catch (CheckpointStorageException e) {
+            LOG.warn(
+                    "Failed to restore checkpoint retention state, job id: {}, pipeline id: {}. The coordinator will continue without the previous retention state.",
+                    jobId,
+                    pipelineId,
+                    e);
+            return;
+        }
+
+        pipelineStates.stream()
+                .sorted(Comparator.comparingLong(PipelineState::getCheckpointId))
+                .map(PipelineState::getCheckpointId)
+                .map(String::valueOf)
+                .forEach(completedCheckpointIds::addLast);
+        cleanExpiredCheckpointsSafely();
+        LOG.info(
+                "Restore checkpoint retention state, job id: {}, pipeline id: {}, retained checkpoint count: {}.",
+                jobId,
+                pipelineId,
+                completedCheckpointIds.size());
+    }
+
+    private void cleanExpiredCheckpointsSafely() {
+        try {
+            cleanExpiredCheckpoints();
+        } catch (CheckpointStorageException e) {
+            LOG.warn(
+                    "Failed to clean checkpoint retention state, job id: {}, pipeline id: {}. The coordinator will retry cleanup after the next checkpoint.",
+                    jobId,
+                    pipelineId,
+                    e);
+        }
+    }
+
+    /**
+     * Deletes the oldest durable checkpoints until the configured retention bound is satisfied.
+     * Queue entries are removed only after storage deletion succeeds, so failed deletions remain
+     * available for the next cleanup attempt.
+     */
+    private void cleanExpiredCheckpoints() throws CheckpointStorageException {
+        int numberToDelete =
+                completedCheckpointIds.size()
+                        - coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
+        if (numberToDelete <= 0) {
+            return;
+        }
+
+        List<String> checkpointIdsToDelete =
+                completedCheckpointIds.stream().limit(numberToDelete).collect(Collectors.toList());
+        checkpointStorage.deleteCheckpoint(
+                String.valueOf(jobId), String.valueOf(pipelineId), checkpointIdsToDelete);
+        for (int i = 0; i < numberToDelete; i++) {
+            completedCheckpointIds.removeFirst();
+        }
     }
 }

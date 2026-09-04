@@ -311,25 +311,27 @@ public class HdfsStorage extends AbstractCheckpointStorage {
             throw new CheckpointStorageException(
                     "No checkpoint found for job, job id is: " + jobId);
         }
-        fileNames.forEach(
-                fileName -> {
-                    String checkpointIdByFileName = getCheckpointIdByFileName(fileName);
-                    if (pipelineId.equals(getPipelineIdByFileName(fileName))
-                            && checkpointIdList.contains(checkpointIdByFileName)) {
-                        try {
+        for (String fileName : fileNames) {
+            String checkpointIdByFileName = getCheckpointIdByFileName(fileName);
+            if (pipelineId.equals(getPipelineIdByFileName(fileName))
+                    && checkpointIdList.contains(checkpointIdByFileName)) {
+                try {
+                    boolean deleted =
                             fs.delete(
                                     new Path(path + DEFAULT_CHECKPOINT_FILE_PATH_SPLIT + fileName),
                                     false);
-                        } catch (Exception e) {
-                            log.error(
-                                    "Failed to delete checkpoint {} for job {}, pipeline {}",
-                                    checkpointIdByFileName,
-                                    jobId,
-                                    pipelineId,
-                                    e);
-                        }
+                    if (!deleted) {
+                        throw new IOException("File system returned false");
                     }
-                });
+                } catch (Exception e) {
+                    throw new CheckpointStorageException(
+                            String.format(
+                                    "Failed to delete checkpoint %s for job %s, pipeline %s",
+                                    checkpointIdByFileName, jobId, pipelineId),
+                            e);
+                }
+            }
+        }
     }
 
     public List<String> getFileNames(String path) throws CheckpointStorageException {

@@ -23,12 +23,19 @@ package org.apache.seatunnel.engine.checkpoint.storage.localfile;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 
+import org.apache.commons.io.FileUtils;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledOnOs;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.condition.OS.LINUX;
@@ -80,6 +87,29 @@ public class LocalFileStorageTest {
     public void testGetCheckpointsByJobIdAndPipelineId() throws CheckpointStorageException {
         List<PipelineState> state = STORAGE.getCheckpointsByJobIdAndPipelineId(JOB_ID, "1");
         Assertions.assertEquals(2, state.size());
+    }
+
+    @Test
+    public void testBatchDeletePropagatesFailure() throws Exception {
+        LocalFileStorage storage = new LocalFileStorage(null);
+        File checkpointFile = new File("1-1-1-1.ser");
+        try (MockedStatic<FileUtils> fileUtils = Mockito.mockStatic(FileUtils.class)) {
+            fileUtils
+                    .when(
+                            () ->
+                                    FileUtils.listFiles(
+                                            Mockito.any(File.class),
+                                            Mockito.any(String[].class),
+                                            Mockito.eq(false)))
+                    .thenReturn(Collections.singletonList(checkpointFile));
+            fileUtils
+                    .when(() -> FileUtils.delete(Mockito.any(File.class)))
+                    .thenThrow(new IOException("delete failed"));
+
+            Assertions.assertThrows(
+                    CheckpointStorageException.class,
+                    () -> storage.deleteCheckpoint("1", "1", Collections.singletonList("1")));
+        }
     }
 
     @AfterAll
