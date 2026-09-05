@@ -172,5 +172,10 @@ env {
 }
 
 ```
+> 在 Spark 和 Flink 上没有检查点之间的定时刷新：`sink.flush.interval` 是 Zeta 引擎的能力，  
+> Spark/Flink 的 Sink 写入器上下文并未实现它。在这两个引擎上，缓存会在达到  
+> `buffer-flush.max-rows`、检查点时（`CouchbaseWriter` 在 `prepareCommit()` 中刷新）  
+> 以及写入器关闭时被刷新。如需降低 Spark 或 Flink 上检查点之间的延迟，  
+> 请相应调整 `buffer-flush.max-rows`。
 
 <ChangeLog />
