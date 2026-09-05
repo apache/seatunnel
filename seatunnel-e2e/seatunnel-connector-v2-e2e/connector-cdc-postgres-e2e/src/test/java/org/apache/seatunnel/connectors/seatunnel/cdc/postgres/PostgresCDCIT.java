@@ -592,7 +592,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            // The completed job can retain the replication slot briefly after savepoint creation.
+            // Wait for that connection to close so the next active state belongs to the restored
+            // job.
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isReplicationSlotActive(committedSlotName)));
 
             committedOffsetJob =
                     CompletableFuture.runAsync(
@@ -610,6 +617,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
+            waitForReplicationSlotActive(committedSlotName);
+            // Insert only after the restored replication connection is active so this CDC record
+            // is not written before the restored slot can consume it.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
             await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
