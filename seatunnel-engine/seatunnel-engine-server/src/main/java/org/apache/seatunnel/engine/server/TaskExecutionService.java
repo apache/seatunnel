@@ -1424,8 +1424,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } catch (CancellationException ignore) {
                 // ignore
             }
-            cancelAsyncFunction(taskGroupLocation);
-            cancelTimerFlushForTaskGroup(taskGroupLocation);
+            // taskAsyncFunctionFuture/timerFlushFutures are keyed by TaskGroupLocation alone,
+            // which is reused verbatim across restore generations. This method is reachable
+            // both from taskDone()'s FAILED-fallthrough (a sibling task can still fail after
+            // this tracker's own generation has already been superseded, e.g. because another
+            // task in the same stale group already finished and lost the ownership race in
+            // finishExecutionContext()) and from the cancellationFuture completion handler in
+            // the constructor. Neither caller is guaranteed to still own the active generation
+            // for this location, so - exactly like finishExecutionContext() - only the tracker
+            // that still owns the current context may cancel these shared, location-keyed
+            // resources; otherwise a newer generation's async functions or timer flushes would
+            // be torn down out from under it.
+            synchronized (TaskExecutionService.this) {
+                if (executionContexts.get(taskGroupLocation) != ownedContext) {
+                    logger.warning(
+                            String.format(
+                                    "Preserve active generation resources for stale cancelAllTask on %s.",
+                                    taskGroupLocation));
+                    return;
+                }
+                cancelAsyncFunction(taskGroupLocation);
+                cancelTimerFlushForTaskGroup(taskGroupLocation);
+            }
         }
 
         private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {

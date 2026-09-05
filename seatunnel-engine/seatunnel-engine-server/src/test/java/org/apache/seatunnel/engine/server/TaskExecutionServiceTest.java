@@ -626,6 +626,72 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.closeTimerFlushTask(taskLocation);
     }
 
+    /**
+     * Verifies the FAILED-fallthrough path in {@code taskDone()}: a stale tracker whose task
+     * fails (not just finishes normally) must still not tear down a newer generation's shared,
+     * TaskGroupLocation-keyed resources via {@code cancelAllTask()}. Uses a two-task old group
+     * and fails only the first task so {@code completionLatch} does not reach zero, isolating
+     * this path from {@code finishOwnedResources()}'s already-guarded completionLatch==0 branch.
+     */
+    @Test
+    public void testStaleFailedTaskDoneDoesNotCleanupNewerGenerationResources() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location =
+                new TaskGroupLocation(
+                        System.currentTimeMillis(), pipeLineId, FLAKE_ID_GENERATOR.newId());
+        Task oldTask1 = new TestTask(new AtomicBoolean(true), 0, true);
+        Task oldTask2 = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup oldTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location, "old-generation", Lists.newArrayList(oldTask1, oldTask2));
+        TaskGroup newTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "new-generation",
+                        Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
+        TaskGroupContext oldContext = newTaskGroupContext(oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(newTaskGroup);
+        CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker oldTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        oldCancellationFuture, oldTaskGroup, oldContext, oldResultFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+                taskAsyncFunctionFuture = getField(taskExecutionService, "taskAsyncFunctionFuture");
+        ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        CompletableFuture<?> asyncFuture = new CompletableFuture<>();
+        Map<String, CompletableFuture<?>> asyncFutures = new ConcurrentHashMap<>();
+        asyncFutures.put("new-generation-async", asyncFuture);
+        TaskLocation taskLocation = new TaskLocation(location, 1L, 1);
+        ScheduledFuture<?> timerFlushFuture =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 60_000L);
+
+        // The new generation has already taken over this TaskGroupLocation before the stale
+        // old-generation task fails.
+        executionContexts.put(location, newContext);
+        taskAsyncFunctionFuture.put(location, asyncFutures);
+
+        oldTracker.exception(new RuntimeException("stale generation task failed"));
+        // Only the first of two tasks completes, so completionLatch does not reach zero and
+        // finishOwnedResources() is never invoked - this exercises only the bottom "cancel
+        // other task in taskGroup" fallthrough in taskDone().
+        oldTracker.taskDone(oldTask1);
+
+        Assertions.assertSame(newContext, executionContexts.get(location));
+        Assertions.assertSame(asyncFutures, taskAsyncFunctionFuture.get(location));
+        Assertions.assertFalse(asyncFuture.isCancelled());
+        Assertions.assertSame(timerFlushFuture, timerFlushFutures.get(location).get(taskLocation));
+        Assertions.assertFalse(timerFlushFuture.isCancelled());
+        Assertions.assertFalse(oldResultFuture.isDone());
+
+        taskExecutionService.closeTimerFlushTask(taskLocation);
+    }
+
     public List<Task> buildFixedTestTask(
             long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();
