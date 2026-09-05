@@ -40,8 +40,6 @@ import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduTable;
 
 import lombok.extern.slf4j.Slf4j;
-import sun.security.krb5.Config;
-import sun.security.krb5.KrbException;
 
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
@@ -141,12 +139,33 @@ public class KuduUtil {
 
     private static void reloadKrb5conf(String krb5conf) {
         System.setProperty(KRB5_CONF_KEY, krb5conf);
+        refreshJdkKerberosConfig();
+        KerberosName.resetDefaultRealm();
+    }
+
+    /**
+     * Refresh the JDK Kerberos configuration without a compile-time dependency on internal JDK
+     * packages. Directly importing sun.security.krb5.Config breaks Java 17 compilation because the
+     * package is not exported by the java.security.jgss module.
+     */
+    private static void refreshJdkKerberosConfig() {
         try {
-            Config.refresh();
-            KerberosName.resetDefaultRealm();
-        } catch (KrbException e) {
+            Class.forName("sun.security.krb5.Config").getMethod("refresh").invoke(null);
+        } catch (IllegalAccessException e) {
+            // Module access denied: the JVM is missing the jgss export, so the custom krb5.conf
+            // configured for this source cannot take effect. This is an actionable deployment
+            // problem, not a transient refresh failure, so report it at ERROR with the fix.
+            log.error(
+                    "JVM module system denied the Kerberos configuration reload, so the configured"
+                            + " krb5.conf will NOT take effect. Start the JVM with"
+                            + " --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+                            + " (shipped in config/jvm_*_options and appended by the launch"
+                            + " scripts since the Java 11 baseline).",
+                    e);
+        } catch (ReflectiveOperationException | RuntimeException e) {
             log.warn(
-                    "resetting default realm failed, current default realm will still be used.", e);
+                    "refreshing JDK Kerberos configuration failed, current default realm will still be used.",
+                    e);
         }
     }
 

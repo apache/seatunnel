@@ -77,7 +77,9 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                     "restart-strategy.fixed-delay.attempts: 2",
                     "restart-strategy.fixed-delay.delay: 1000");
 
-    protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
+    // Pinned to the java11 flavour: SeaTunnel is built to Java 11 bytecode, so a Flink image on a
+    // Java 8 runtime cannot load its classes.
+    protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11-java11";
     private static final int FLINK_REST_PORT = 8081;
 
     protected GenericContainer<?> jobManager;

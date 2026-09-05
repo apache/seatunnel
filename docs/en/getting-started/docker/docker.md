@@ -64,7 +64,7 @@ docker images | grep apache/seatunnel
 
 The Dockerfile is like this:
 ```dockerfile
-FROM seatunnelhub/openjdk:8u342
+FROM eclipse-temurin:11-jdk
 
 ARG VERSION
 # Build from Source Code And Copy it into image

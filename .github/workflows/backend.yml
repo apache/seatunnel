@@ -34,6 +34,13 @@ env:
   # GitHub-hosted runners are ephemeral, so CI does not need Ryuk to reap containers after tests.
   # Disabling it avoids transient Docker Hub pulls for testcontainers/ryuk that can fail unrelated PRs.
   TESTCONTAINERS_RYUK_DISABLED: 'true'
+  JAVA_TOOL_OPTIONS: >-
+    --add-opens=java.base/java.lang=ALL-UNNAMED
+    --add-opens=java.base/java.net=ALL-UNNAMED
+    --add-opens=java.base/java.nio=ALL-UNNAMED
+    --add-opens=java.base/java.util=ALL-UNNAMED
+    --add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+    --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
 
 jobs:
   license-header:
@@ -431,7 +438,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '8'
+          java-version: '17'
           cache: 'maven'
       - name: Install
         uses: nick-fields/retry@v3
@@ -509,7 +516,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
     timeout-minutes: 90
     steps:
@@ -541,7 +548,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
@@ -586,7 +593,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -619,7 +626,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -652,7 +659,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 300
     steps:
@@ -685,7 +692,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 200
     steps:
@@ -717,7 +724,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -749,7 +756,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -781,7 +788,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -814,7 +821,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -847,7 +854,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -873,7 +880,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -899,7 +906,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 45
     steps:
@@ -937,7 +944,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -966,7 +973,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -997,7 +1004,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1029,7 +1036,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1061,7 +1068,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1093,7 +1100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1125,7 +1132,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1157,7 +1164,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1189,7 +1196,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1221,7 +1228,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1250,7 +1257,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
@@ -1279,7 +1286,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1308,7 +1315,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1337,7 +1344,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1366,7 +1373,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1395,7 +1402,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1424,7 +1431,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1453,7 +1460,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1482,7 +1489,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1508,7 +1515,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     # Kudu E2E expands each @TestTemplate case across several PR test containers.
     timeout-minutes: 90
@@ -1535,7 +1542,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1559,8 +1566,9 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-google-pubsub-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1586,7 +1594,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1612,7 +1620,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1638,7 +1646,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1664,7 +1672,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1690,7 +1698,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1716,7 +1724,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:
@@ -1742,7 +1750,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1773,7 +1781,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1799,7 +1807,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 120
     steps:
@@ -1825,7 +1833,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 210
     steps:
@@ -1851,7 +1859,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 180
     steps:

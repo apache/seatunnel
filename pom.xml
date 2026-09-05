@@ -77,11 +77,16 @@
         <seatunnel.shade.calcite.version>1.38.0</seatunnel.shade.calcite.version>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <java.version>1.8</java.version>
+        <java.version>11</java.version>
         <scala.version>2.12.15</scala.version>
         <scala.binary.version>2.12</scala.binary.version>
         <maven.compiler.source>${java.version}</maven.compiler.source>
         <maven.compiler.target>${java.version}</maven.compiler.target>
+        <!-- Constrains javac to the API surface of java.version, not merely its bytecode level,
+             so compiling on a JDK newer than java.version cannot silently link against APIs the
+             target runtime does not have. Modules that must still output Java 8 bytecode override
+             this property (not source/target, which the compiler plugin below no longer reads). -->
+        <maven.compiler.release>${java.version}</maven.compiler.release>
 
         <system-rules.version>1.2.1</system-rules.version>
         <powermock.version>2.0.9</powermock.version>
@@ -768,8 +773,7 @@
                     <artifactId>maven-compiler-plugin</artifactId>
                     <version>${maven-compiler-plugin.version}</version>
                     <configuration>
-                        <source>${maven.compiler.source}</source>
-                        <target>${maven.compiler.target}</target>
+                        <release>${maven.compiler.release}</release>
                         <forceJavacCompilerUse>true</forceJavacCompilerUse>
                     </configuration>
                 </plugin>

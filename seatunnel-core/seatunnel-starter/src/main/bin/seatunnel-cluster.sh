@@ -154,6 +154,32 @@ do
   fi
 done
 
+# SeaTunnel requires Java 11 or newer. Fail fast with an actionable message instead of letting a
+# JDK 8 launcher abort on the JDK 9+ module flags below with a cryptic "Unrecognized option" error.
+JAVA_MAJOR_VERSION=$(java -version 2>&1 | awk -F '[".]' '/version/ {print ($2 == "1") ? $3 : $2; exit}')
+if [[ -n "$JAVA_MAJOR_VERSION" && "$JAVA_MAJOR_VERSION" -lt 11 ]]; then
+  echo "Error: SeaTunnel requires Java 11 or newer, but Java ${JAVA_MAJOR_VERSION} was detected. Point JAVA_HOME/PATH at a Java 11+ JDK." >&2
+  exit 1
+fi
+
+# These JDK module flags are mandatory on Java 11+: Hazelcast needs reflective access to JDK
+# internals and the Kerberos krb5.conf reload needs the jgss export. They are appended here, not
+# only shipped in the config/jvm_*_options templates, so an in-place upgrade that preserves an old
+# config directory (mounted Docker volume, K8s ConfigMap) cannot silently drop them. Appending a
+# flag twice is harmless, so config files that already carry them stay compatible.
+for module_flag in \
+  "--add-opens=java.base/java.lang=ALL-UNNAMED" \
+  "--add-opens=java.base/java.net=ALL-UNNAMED" \
+  "--add-opens=java.base/java.nio=ALL-UNNAMED" \
+  "--add-opens=java.base/java.util=ALL-UNNAMED" \
+  "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED" \
+  "--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"; do
+  case " ${JAVA_OPTS} " in
+    *" ${module_flag} "*) ;;
+    *) JAVA_OPTS="${JAVA_OPTS} ${module_flag}" ;;
+  esac
+done
+
 # Ensure HeapDumpPath directory exists to avoid OOM dump failures.
 
 HEAP_DUMP_PATH=""

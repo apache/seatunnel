@@ -68,6 +68,7 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -249,7 +250,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                             BigDecimal.valueOf(11, 1),
                             "test".getBytes(),
                             LocalDate.now(),
-                            LocalDateTime.now()
+                            LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
                         });
 
         Map<String, AttributeValue> data = new HashMap<>(seatunnelRowType.getTotalFields());
