@@ -185,6 +185,24 @@ public class JobMaster {
     /** If the job or pipeline cancel by user, needRestore will be false */
     @Getter private volatile boolean needRestore = true;
 
+    /**
+     * Set when this JobMaster is reconstructed by {@code
+     * CoordinatorService#restoreJobFromMasterActiveSwitch} for a job whose status was {@code
+     * JobStatus#DOING_SAVEPOINT} at the moment of a master failover.
+     *
+     * <p>The generic restore path unconditionally cascades the job's top-level status back to
+     * {@code JobStatus#RUNNING} (see {@code PhysicalPlan#startJob()}), and {@code
+     * CheckpointCoordinator#restoreCoordinator} discards the in-flight savepoint {@code
+     * PendingCheckpoint} without ever re-deriving that a savepoint had been requested. Without this
+     * flag, the client's original savepoint request is silently and permanently dropped: the job
+     * keeps running and periodically checkpointing as if the savepoint had never been asked for.
+     * {@code CoordinatorService} consumes this flag (see {@link
+     * #consumeRedriveSavepointAfterRestore()}) once the restored job stabilizes back to {@code
+     * RUNNING} and re-issues the savepoint through the same {@link #savePoint()} entry point a
+     * fresh client request would use.
+     */
+    private volatile boolean redriveSavepointAfterRestore;
+
     private CheckpointConfig jobCheckpointConfig;
 
     @Getter private Long jobId;
@@ -1506,6 +1524,33 @@ public class JobMaster {
 
     public void neverNeedRestore() {
         this.needRestore = false;
+    }
+
+    /**
+     * Marks that this job's savepoint request must be re-issued once it stabilizes back to {@code
+     * JobStatus#RUNNING} after being restored from a master failover. See {@link
+     * #redriveSavepointAfterRestore} for why this is necessary. Called at most once, by {@code
+     * CoordinatorService#restoreJobFromMasterActiveSwitch}, before this JobMaster is handed off to
+     * the pending job queue.
+     */
+    public synchronized void markRedriveSavepointAfterRestore() {
+        this.redriveSavepointAfterRestore = true;
+    }
+
+    /**
+     * Atomically consumes the redrive flag set by {@link #markRedriveSavepointAfterRestore()},
+     * returning whether a savepoint redrive is owed. Consuming (rather than just reading) rather
+     * than leaving the flag set prevents a duplicate redrive if this were ever checked more than
+     * once for the same restore.
+     *
+     * @return true if this job's savepoint must be redriven and had not already been consumed
+     */
+    public synchronized boolean consumeRedriveSavepointAfterRestore() {
+        if (!redriveSavepointAfterRestore) {
+            return false;
+        }
+        redriveSavepointAfterRestore = false;
+        return true;
     }
 
     public EngineConfig getEngineConfig() {
