@@ -563,8 +563,8 @@ public class MultiTableSinkWriter
      *
      * <ul>
      *   <li>If the table's primary key information is present and the primary key field value is
-     *       non-null, the row is routed by {@code Math.abs(primaryKeyValue.hashCode()) %
-     *       queueSize}, guaranteeing that rows with the same primary key always go to the same
+     *       non-null, the row is routed by {@code (primaryKeyValue.hashCode() & Integer.MAX_VALUE)
+     *       % queueSize}, guaranteeing that rows with the same primary key always go to the same
      *       queue for ordered delivery.
      *   <li>If the table's primary key information is present but the actual field value is {@code
      *       null}, the row is routed to queue 0.
@@ -616,7 +616,7 @@ public class MultiTableSinkWriter
             Object object = element.getField(primaryKey.get());
             int index = 0;
             if (object != null) {
-                index = Math.abs(object.hashCode()) % blockingQueues.size();
+                index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
             }
             offerRowElement(index, element);
         }
