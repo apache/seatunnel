@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
@@ -48,6 +49,7 @@ import java.lang.reflect.Field;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.FileTime;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -251,6 +253,568 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Assertions.assertTrue(
                 exception.getMessage().contains("file_format_type=binary"),
                 "continuous mode should require binary format");
+    }
+
+    @Test
+    void testLocalTextTailingEmitsOnlyCompleteAppendedRows() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail"));
+        Path srcFile = srcDir.resolve("application.log");
+        Files.write(srcFile, "first\npartial".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                    enumeratorWithContext.enumerator;
+            enumerator.scanOnceForTest();
+            FileSourceSplit firstSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals(0L, firstSplit.getStart());
+            Assertions.assertEquals("first\n".getBytes().length, firstSplit.getLength());
+
+            enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    0,
+                    enumerator.currentUnassignedSplitSize(),
+                    "a file must not receive another range while its previous range is in flight");
+
+            enumerator.handleSourceEvent(0, new FileSplitFinishedEvent(firstSplit.splitId()));
+            Files.write(srcFile, "-done\n".getBytes(), StandardOpenOption.APPEND);
+            enumerator.scanOnceForTest();
+
+            FileSourceSplit appendedSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals(firstSplit.getLength(), appendedSplit.getStart());
+            Assertions.assertEquals("partial-done\n".getBytes().length, appendedSplit.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingRestoresCommittedOffset() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_restore"));
+        Path srcFile = srcDir.resolve("application.log");
+        Files.write(srcFile, "first\n".getBytes());
+
+        FileSourceState checkpointState;
+        EnumeratorWithContext first =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            first.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(first);
+            first.enumerator.handleSourceEvent(0, new FileSplitFinishedEvent(split.splitId()));
+            checkpointState = first.enumerator.snapshotState(1L);
+        } finally {
+            first.enumerator.close();
+        }
+
+        Files.write(srcFile, "second\n".getBytes(), StandardOpenOption.APPEND);
+        EnumeratorWithContext restored =
+                createTextTailingEnumerator(srcDir, "earliest", checkpointState);
+        try {
+            restored.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(restored);
+            Assertions.assertEquals("first\n".getBytes().length, split.getStart());
+            Assertions.assertEquals("second\n".getBytes().length, split.getLength());
+        } finally {
+            restored.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingLatestStartsAfterExistingContent() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_latest"));
+        Path srcFile = srcDir.resolve("application.log");
+        Files.write(srcFile, "existing\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    0, enumeratorWithContext.enumerator.currentUnassignedSplitSize());
+
+            Files.write(srcFile, "new\n".getBytes(), StandardOpenOption.APPEND);
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals("existing\n".getBytes().length, split.getStart());
+            Assertions.assertEquals("new\n".getBytes().length, split.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingSkipsConfiguredHeader() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_header"));
+        Files.write(srcDir.resolve("application.log"), "header\nfirst\n".getBytes());
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER.key(), 1L);
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals("header\n".getBytes().length, split.getStart());
+            Assertions.assertEquals("first\n".getBytes().length, split.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingFollowsFileIdentityAcrossRotation() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_rotation"));
+        Path activeFile = srcDir.resolve("application.log");
+        Path rotatedFile = srcDir.resolve("application.log.1");
+        Files.write(activeFile, "first\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            FileSourceSplit firstSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(firstSplit.splitId()));
+
+            Files.write(activeFile, "last-old\n".getBytes(), StandardOpenOption.APPEND);
+            Files.move(activeFile, rotatedFile);
+            Files.write(activeFile, "first-new\n".getBytes());
+
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            List<FileSourceSplit> splits = assignAndCaptureSplits(enumeratorWithContext);
+            Assertions.assertEquals(2, splits.size());
+
+            FileSourceSplit rotatedSplit =
+                    splits.stream()
+                            .filter(split -> split.getFilePath().endsWith("application.log.1"))
+                            .findFirst()
+                            .orElseThrow(AssertionError::new);
+            Assertions.assertEquals("first\n".getBytes().length, rotatedSplit.getStart());
+            Assertions.assertEquals("last-old\n".getBytes().length, rotatedSplit.getLength());
+
+            FileSourceSplit newSplit =
+                    splits.stream()
+                            .filter(split -> split.getFilePath().endsWith("application.log"))
+                            .findFirst()
+                            .orElseThrow(AssertionError::new);
+            Assertions.assertEquals(0L, newSplit.getStart());
+            Assertions.assertEquals("first-new\n".getBytes().length, newSplit.getLength());
+            Assertions.assertNotEquals(rotatedSplit.getFileIdentity(), newSplit.getFileIdentity());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingDetectsCopyTruncateAfterRefill() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_copytruncate"));
+        Path srcFile = srcDir.resolve("application.log");
+        Files.write(srcFile, "old-record\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            FileSourceSplit firstSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(firstSplit.splitId()));
+
+            Files.write(
+                    srcFile,
+                    "new-record-one\nnew-record-two\n".getBytes(),
+                    StandardOpenOption.TRUNCATE_EXISTING);
+            enumeratorWithContext.enumerator.scanOnceForTest();
+
+            FileSourceSplit rewrittenSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals(0L, rewrittenSplit.getStart());
+            Assertions.assertEquals(Files.size(srcFile), rewrittenSplit.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingLatestDiscardsExistingPartialRow() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_latest_partial"));
+        Path srcFile = srcDir.resolve("application.log");
+        String existingPartial = "existing-partial";
+        Files.write(srcFile, existingPartial.getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    0, enumeratorWithContext.enumerator.currentUnassignedSplitSize());
+
+            Files.write(srcFile, "-done\nnext\n".getBytes(), StandardOpenOption.APPEND);
+            enumeratorWithContext.enumerator.scanOnceForTest();
+
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals(
+                    (existingPartial + "-done\n").getBytes().length, split.getStart());
+            Assertions.assertEquals("next\n".getBytes().length, split.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingPrunesMissingFileState() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_prune"));
+        Path srcFile = srcDir.resolve("application.log");
+        Files.write(srcFile, new byte[0]);
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    1,
+                    enumeratorWithContext.enumerator.snapshotState(1L).getFileTailStates().size());
+
+            Files.delete(srcFile);
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.scanOnceForTest();
+
+            Assertions.assertTrue(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(2L)
+                            .getFileTailStates()
+                            .isEmpty());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingContinuesAfterFileDisappearsDuringScan() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_partial_scan"));
+        Path staleFile = srcDir.resolve("stale.log");
+        Path activeFile = srcDir.resolve("active.log");
+        Files.write(staleFile, new byte[0]);
+        Files.write(activeFile, "first\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                    enumeratorWithContext.enumerator;
+            enumerator.scanOnceForTest();
+            FileSourceSplit firstSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            enumerator.handleSourceEvent(0, new FileSplitFinishedEvent(firstSplit.splitId()));
+
+            HadoopFileSystemProxy sourceFs = getTableScanContextFileSystem(enumerator, "sourceFs");
+            FileStatus staleStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "stale.log");
+
+            Files.delete(staleFile);
+            Files.write(activeFile, "second\n".getBytes(), StandardOpenOption.APPEND);
+            FileStatus activeStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "active.log");
+
+            HadoopFileSystemProxy sourceFsSpy = Mockito.spy(sourceFs);
+            Mockito.doReturn(new FileStatus[] {staleStatus, activeStatus})
+                    .when(sourceFsSpy)
+                    .listStatus(srcDir.toString());
+            setTableScanContextFileSystem(enumerator, "sourceFs", sourceFsSpy);
+
+            enumerator.scanOnceForTest();
+
+            FileSourceSplit appendedSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals("first\n".getBytes().length, appendedSplit.getStart());
+            Assertions.assertEquals("second\n".getBytes().length, appendedSplit.getLength());
+            Assertions.assertEquals(
+                    2,
+                    enumerator.snapshotState(1L).getFileTailStates().size(),
+                    "an incomplete scan must not prune state for a file that disappeared");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingContinuesAfterFileInspectionRuntimeFailure() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_runtime_failure"));
+        Path failedFile = srcDir.resolve("failed.log");
+        Path activeFile = srcDir.resolve("active.log");
+        Files.write(failedFile, "failed\n".getBytes());
+        Files.write(activeFile, "active\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                    enumeratorWithContext.enumerator;
+            HadoopFileSystemProxy sourceFs = getTableScanContextFileSystem(enumerator, "sourceFs");
+            FileStatus failedStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "failed.log");
+            FileStatus activeStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "active.log");
+
+            HadoopFileSystemProxy sourceFsSpy = Mockito.spy(sourceFs);
+            Mockito.doReturn(new FileStatus[] {failedStatus, activeStatus})
+                    .when(sourceFsSpy)
+                    .listStatus(srcDir.toString());
+            Mockito.doThrow(new IllegalStateException("failed to inspect file"))
+                    .when(sourceFsSpy)
+                    .getInputStream(failedStatus.getPath().toString());
+            setTableScanContextFileSystem(enumerator, "sourceFs", sourceFsSpy);
+
+            Assertions.assertDoesNotThrow(enumerator::scanOnceForTest);
+
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals(activeStatus.getPath().toString(), split.getFilePath());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingLatestRetainsBaselineAfterPartialScanFailure() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_latest_retry"));
+        Path failedFile = srcDir.resolve("failed.log");
+        Path activeFile = srcDir.resolve("active.log");
+        Files.write(failedFile, "existing-failed\n".getBytes());
+        Files.write(activeFile, "existing-active\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        try {
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                    enumeratorWithContext.enumerator;
+            HadoopFileSystemProxy sourceFs = getTableScanContextFileSystem(enumerator, "sourceFs");
+            FileStatus failedStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "failed.log");
+            FileStatus activeStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "active.log");
+
+            HadoopFileSystemProxy sourceFsSpy = Mockito.spy(sourceFs);
+            Mockito.doReturn(new FileStatus[] {failedStatus, activeStatus})
+                    .doCallRealMethod()
+                    .when(sourceFsSpy)
+                    .listStatus(srcDir.toString());
+            Mockito.doThrow(new IllegalStateException("failed to inspect file"))
+                    .doCallRealMethod()
+                    .when(sourceFsSpy)
+                    .getInputStream(failedStatus.getPath().toString());
+            setTableScanContextFileSystem(enumerator, "sourceFs", sourceFsSpy);
+
+            enumerator.scanOnceForTest();
+            enumerator.scanOnceForTest();
+
+            Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+
+            Files.write(failedFile, "new\n".getBytes(), StandardOpenOption.APPEND);
+            enumerator.scanOnceForTest();
+
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals(
+                    Files.size(failedFile) - "new\n".getBytes().length, split.getStart());
+            Assertions.assertEquals("new\n".getBytes().length, split.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testContinuousDiscoveryRetriesAfterScanRuntimeFailure() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("scan_runtime_retry"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("scan_runtime_retry_dst"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Files.write(srcFile, "content".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext = createEnumerator(srcDir, dstDir);
+        try {
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                    enumeratorWithContext.enumerator;
+            HadoopFileSystemProxy sourceFs = getTableScanContextFileSystem(enumerator, "sourceFs");
+            FileStatus[] statuses = sourceFs.listStatus(srcDir.toString());
+            HadoopFileSystemProxy sourceFsSpy = Mockito.spy(sourceFs);
+            Mockito.doThrow(new IllegalStateException("scan failed"))
+                    .doReturn(statuses)
+                    .when(sourceFsSpy)
+                    .listStatus(srcDir.toString());
+            setTableScanContextFileSystem(enumerator, "sourceFs", sourceFsSpy);
+
+            Assertions.assertDoesNotThrow(enumerator::safeScanOnce);
+            enumerator.safeScanOnce();
+
+            Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingDoesNotCommitDeletedInFlightRange() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_deleted_inflight"));
+        Path srcFile = srcDir.resolve("application.log");
+        Files.write(srcFile, "first\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Files.delete(srcFile);
+            enumeratorWithContext.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(split.splitId(), null, 0L));
+
+            FileSourceState state = enumeratorWithContext.enumerator.snapshotState(1L);
+            Assertions.assertEquals(
+                    0L, state.getFileTailStates().values().iterator().next().getCommittedOffset());
+
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            Assertions.assertTrue(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(2L)
+                            .getFileTailStates()
+                            .isEmpty());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingRestoresInFlightRangeAfterRotation() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_restore_rotation"));
+        Path activeFile = srcDir.resolve("application.log");
+        Path rotatedFile = srcDir.resolve("application.log.1");
+        Files.write(activeFile, "first\n".getBytes());
+
+        FileSourceState checkpointState;
+        FileSourceSplit originalSplit;
+        EnumeratorWithContext first =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            first.enumerator.scanOnceForTest();
+            originalSplit = assignAndCaptureSingleSplit(first);
+            checkpointState = first.enumerator.snapshotState(1L);
+        } finally {
+            first.enumerator.close();
+        }
+
+        Files.write(activeFile, "last-old\n".getBytes(), StandardOpenOption.APPEND);
+        Files.move(activeFile, rotatedFile);
+        Files.write(activeFile, "first-new\n".getBytes());
+
+        EnumeratorWithContext restored =
+                createTextTailingEnumerator(srcDir, "earliest", checkpointState);
+        try {
+            restored.enumerator.scanOnceForTest();
+            List<FileSourceSplit> assigned = assignAndCaptureSplits(restored);
+            FileSourceSplit staleRecoveredSplit =
+                    assigned.stream()
+                            .filter(
+                                    split ->
+                                            originalSplit
+                                                    .getFileIdentity()
+                                                    .equals(split.getFileIdentity()))
+                            .findFirst()
+                            .orElseThrow(AssertionError::new);
+            restored.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(staleRecoveredSplit.splitId(), null, 0L));
+
+            restored.enumerator.scanOnceForTest();
+            FileSourceSplit rotatedSplit = assignAndCaptureSingleSplit(restored);
+            Assertions.assertTrue(rotatedSplit.getFilePath().endsWith("application.log.1"));
+            Assertions.assertEquals(0L, rotatedSplit.getStart());
+            Assertions.assertEquals(Files.size(rotatedFile), rotatedSplit.getLength());
+        } finally {
+            restored.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingSupportsRepeatedPrefixDelimiter() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_delimiter"));
+        Files.write(srcDir.resolve("application.log"), "oneababtwoababpartial".getBytes());
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.ROW_DELIMITER.key(), "abab");
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            enumeratorWithContext.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals("oneababtwoabab".getBytes().length, split.getLength());
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLocalTextTailingRejectsEmptyDelimiterAndNonUtf8Encoding() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_validation"));
+        Map<String, Object> emptyDelimiter = new HashMap<>();
+        emptyDelimiter.put(FileBaseSourceOptions.ROW_DELIMITER.key(), "");
+        FileConnectorException delimiterException =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                createTextTailingEnumerator(
+                                        srcDir,
+                                        "earliest",
+                                        new FileSourceState(Collections.emptySet()),
+                                        emptyDelimiter));
+        Assertions.assertTrue(delimiterException.getMessage().contains("row_delimiter"));
+
+        Map<String, Object> utf16Encoding = new HashMap<>();
+        utf16Encoding.put(FileBaseSourceOptions.ENCODING.key(), "UTF-16");
+        FileConnectorException encodingException =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                createTextTailingEnumerator(
+                                        srcDir,
+                                        "earliest",
+                                        new FileSourceState(Collections.emptySet()),
+                                        utf16Encoding));
+        Assertions.assertTrue(encodingException.getMessage().contains("encoding=UTF-8"));
+    }
+
+    @Test
+    void testLocalTextTailingReportsMissingSourcePath() {
+        Path missingPath = tempDir.resolve("missing_text_tail_path");
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                createTextTailingEnumerator(
+                                        missingPath,
+                                        "earliest",
+                                        new FileSourceState(Collections.emptySet())));
+
+        Assertions.assertTrue(exception.getMessage().contains("path does not exist"));
+        Assertions.assertTrue(exception.getMessage().contains(missingPath.toString()));
     }
 
     @Test
@@ -1846,6 +2410,86 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         return new EnumeratorWithContext(enumerator, context);
     }
 
+    private EnumeratorWithContext createTextTailingEnumerator(
+            Path srcDir, String startMode, FileSourceState checkpointState) throws IOException {
+        return createTextTailingEnumerator(
+                srcDir, startMode, checkpointState, Collections.emptyMap());
+    }
+
+    private EnumeratorWithContext createTextTailingEnumerator(
+            Path srcDir,
+            String startMode,
+            FileSourceState checkpointState,
+            Map<String, Object> extraConfig)
+            throws IOException {
+        Map<String, Object> config = new HashMap<>();
+        config.put(FileBaseSourceOptions.FILE_PATH.key(), srcDir.toString());
+        config.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "text");
+        config.put(FileBaseSourceOptions.DISCOVERY_MODE.key(), "continuous");
+        config.put(FileBaseSourceOptions.START_MODE.key(), startMode);
+        config.put(FileBaseSourceOptions.SYNC_MODE.key(), "full");
+        config.putAll(extraConfig);
+
+        BaseFileSourceConfig baseFileSourceConfig = Mockito.mock(BaseFileSourceConfig.class);
+        Mockito.when(baseFileSourceConfig.getBaseFileSourceConfig())
+                .thenReturn(ReadonlyConfig.fromMap(config));
+        Mockito.when(baseFileSourceConfig.getHadoopConfig())
+                .thenReturn(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
+        Mockito.when(baseFileSourceConfig.getPluginName())
+                .thenReturn(FileSystemType.LOCAL.getFileSystemPluginName());
+
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "db", "table"),
+                        null,
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        null);
+        Mockito.when(baseFileSourceConfig.getCatalogTable()).thenReturn(catalogTable);
+
+        BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig =
+                Mockito.mock(BaseMultipleTableFileSourceConfig.class);
+        Mockito.when(multipleTableFileSourceConfig.getFileSourceConfigs())
+                .thenReturn(Collections.singletonList(baseFileSourceConfig));
+
+        SourceSplitEnumerator.Context<FileSourceSplit> context =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        Mockito.when(context.currentParallelism()).thenReturn(1);
+
+        ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                new ContinuousMultipleTableFileSourceSplitEnumerator(
+                        context,
+                        multipleTableFileSourceConfig,
+                        new DefaultFileSplitStrategy(),
+                        checkpointState);
+        return new EnumeratorWithContext(enumerator, context);
+    }
+
+    private static FileSourceSplit assignAndCaptureSingleSplit(
+            EnumeratorWithContext enumeratorWithContext) {
+        enumeratorWithContext.enumerator.handleSplitRequest(0);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                ArgumentCaptor.forClass((Class) List.class);
+        Mockito.verify(enumeratorWithContext.context, Mockito.atLeastOnce())
+                .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+        List<FileSourceSplit> latestAssignment =
+                splitsCaptor.getAllValues().get(splitsCaptor.getAllValues().size() - 1);
+        Assertions.assertEquals(1, latestAssignment.size());
+        return latestAssignment.get(0);
+    }
+
+    private static List<FileSourceSplit> assignAndCaptureSplits(
+            EnumeratorWithContext enumeratorWithContext) {
+        enumeratorWithContext.enumerator.handleSplitRequest(0);
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<FileSourceSplit>> splitsCaptor =
+                ArgumentCaptor.forClass((Class) List.class);
+        Mockito.verify(enumeratorWithContext.context, Mockito.atLeastOnce())
+                .assignSplit(Mockito.eq(0), splitsCaptor.capture());
+        return splitsCaptor.getAllValues().get(splitsCaptor.getAllValues().size() - 1);
+    }
+
     private static List<String> assignAndCaptureFilePaths(
             EnumeratorWithContext enumeratorWithContext) {
         enumeratorWithContext.enumerator.handleSplitRequest(0);
@@ -1943,6 +2587,15 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Field fileSystemField = tableScanContext.getClass().getDeclaredField(fieldName);
         fileSystemField.setAccessible(true);
         return (HadoopFileSystemProxy) fileSystemField.get(tableScanContext);
+    }
+
+    private static FileStatus findFileStatus(FileStatus[] statuses, String fileName) {
+        for (FileStatus status : statuses) {
+            if (fileName.equals(status.getPath().getName())) {
+                return status;
+            }
+        }
+        throw new AssertionError("File status not found: " + fileName);
     }
 
     private static void setTableScanContextFileSystem(

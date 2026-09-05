@@ -497,7 +497,7 @@ null_format 定义哪些字符串可以表示为 null。
 - `once`：启动时枚举一次文件并结束（有界）。
 - `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
 
-当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+对于 binary 文件，`discovery_mode=continuous` 需要配合 `sync_mode=update`。对于仅追加的 text 文件，请使用 `sync_mode=full`；SeaTunnel 会保存最后一条完整记录的偏移量，并且只读取新追加的完整记录。
 
 ### scan_interval [string]
 
@@ -828,7 +828,7 @@ sink {
 
 `discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
 
-**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+对于 binary 文件，持续发现需要配合 `sync_mode="update"` 使用；`target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
 
 ```hocon
 env {
@@ -861,6 +861,42 @@ sink {
     path = "/seatunnel/watch/dst/"
     tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
+  }
+}
+```
+
+仅追加的 text 文件可以使用 `sync_mode="full"` 持续读取。source 会等待完整的 `row_delimiter` 后再发送记录，并在 checkpoint 中保存已提交的字节偏移量、本地文件标识和有界内容锚点。`start_mode="earliest"` 会读取已有的完整记录。`start_mode="latest"` 会忽略首次扫描时已有的内容（包括未完成的记录），并从之后新增的完整记录开始读取。
+
+此模式有以下运行约束：
+
+- 仅支持未压缩的 UTF-8 text 文件，并且必须设置 `post_sync_action="none"`。
+- 采用至少一次投递语义。reader 确认完整读取一个范围后，source 才会提交该范围。
+- 单个文件按顺序读取。source 并行度用于并行读取多个文件，不会拆分同一个文件并行读取。
+- 当轮转后的文件仍位于配置路径下并且符合文件过滤条件时，支持重命名后新建文件的轮转方式。通过内容锚点识别 copy-truncate 重写，并从配置的 header 边界重新读取。
+- source 文件系统必须为配置路径提供稳定的 `BasicFileAttributes.fileKey()`。如果无法提供（包括默认的 Windows 文件系统 provider），connector 会在启动时拒绝 text tailing，因为创建时间无法安全地区分被替换的文件。
+- 内容锚点最多对已提交偏移量之前的前 2 KiB 和后 2 KiB 计算哈希。它可以检测常见的 copy-truncate 重写，但不会检查两个采样区间之间未变化的内容。
+- enumerator 和 reader 节点必须能看到相同的文件和文件标识。如果它们可能运行在不同节点，请使用共享挂载目录。
+- 文件消失后，其状态会保留三个成功的扫描周期；如果该文件没有等待或运行中的 split，之后会删除该状态。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/var/log/application.log"
+    file_format_type = "text"
+    schema {
+      fields {
+        message = "string"
+      }
+    }
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+    sync_mode = "full"
+    encoding = "UTF-8"
   }
 }
 ```

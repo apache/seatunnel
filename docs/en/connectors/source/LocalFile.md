@@ -497,7 +497,7 @@ File discovery mode. Supported values: `once` (default), `continuous`.
 - `once`: enumerate current files once and finish (bounded).
 - `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
 
-In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+For binary files, `discovery_mode=continuous` requires `sync_mode=update`. For append-only text files, use `sync_mode=full`; SeaTunnel checkpoints the last complete row offset and reads only newly appended complete rows.
 
 ### scan_interval [string]
 
@@ -829,7 +829,7 @@ sink {
 
 `discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
 
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+For binary files, continuous discovery requires `sync_mode="update"`; `target_path` should align with the sink `path` on the same filesystem.
 
 ```hocon
 env {
@@ -862,6 +862,42 @@ sink {
     path = "/seatunnel/watch/dst/"
     tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
+  }
+}
+```
+
+Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset with the local file identity and a bounded content anchor. `start_mode="earliest"` reads existing complete rows. `start_mode="latest"` ignores content present during the initial scan, including an incomplete row, and reads new complete rows after that point.
+
+This mode has the following operational constraints:
+
+- Only uncompressed UTF-8 text files with `post_sync_action="none"` are supported.
+- Delivery is at least once. A range is committed after the reader reports that the complete range was consumed.
+- A file is read serially. Source parallelism is used across files, not within one file.
+- Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Copy-truncate rewrites are detected by the content anchor and restarted from the configured header boundary.
+- The source filesystem must expose a stable `BasicFileAttributes.fileKey()` for the configured path. The connector rejects tailing at startup when this is unavailable, including on the default Windows file provider, because creation time cannot safely distinguish a replaced file.
+- The content anchor hashes at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect unchanged content between those samples.
+- The source path must expose the same files and file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
+- State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/var/log/application.log"
+    file_format_type = "text"
+    schema {
+      fields {
+        message = "string"
+      }
+    }
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+    sync_mode = "full"
+    encoding = "UTF-8"
   }
 }
 ```

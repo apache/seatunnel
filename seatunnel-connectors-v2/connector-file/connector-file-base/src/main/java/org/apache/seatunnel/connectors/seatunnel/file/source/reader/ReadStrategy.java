@@ -55,6 +55,10 @@ public interface ReadStrategy extends Serializable, Closeable {
         return null;
     }
 
+    default long getLastReadBytes() {
+        return -1L;
+    }
+
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
     default SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)
