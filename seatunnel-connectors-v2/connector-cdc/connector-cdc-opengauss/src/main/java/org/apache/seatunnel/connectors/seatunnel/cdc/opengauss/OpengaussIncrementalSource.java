@@ -27,7 +27,7 @@ import java.util.List;
 
 /**
  * OpenGauss source entry point that reuses the shared PG-base PostgreSQL implementation while
- * preserving the existing Apache OpenGauss runtime behavior.
+ * preserving the existing OpenGauss runtime behavior.
  */
 public class OpengaussIncrementalSource<T> extends PostgresIncrementalSource<T> {
 
@@ -48,8 +48,14 @@ public class OpengaussIncrementalSource<T> extends PostgresIncrementalSource<T> 
 
     /**
      * Resolves startup mode against the OpenGauss option instead of the PostgreSQL one, so this
-     * connector keeps the three modes it has always accepted rather than inheriting PostgreSQL's
-     * WAL-slot-specific additions. See {@link OpengaussSourceOptions#STARTUP_MODE}.
+     * connector does not inherit PostgreSQL's replication-slot-specific {@code committed-offset}
+     * mode. See {@link OpengaussSourceOptions#STARTUP_MODE}.
+     *
+     * <p>Initialization-order constraint: {@code IncrementalSource}'s constructor calls this hook
+     * while resolving the startup config, before this class's own constructor body has run. It is
+     * safe only because it returns a stateless static constant. It must never read instance state;
+     * doing so would silently resolve the wrong option, the same class of bug that once disabled
+     * {@code require-replica-identity-full} in the PostgreSQL source.
      */
     @Override
     public Option<StartupMode> getStartupModeOption() {

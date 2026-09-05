@@ -88,6 +88,10 @@ public class PostgresIncrementalSourceTest {
 
         Assertions.assertTrue(exception.getMessage().contains("full replica identity"));
         Assertions.assertTrue(exception.getMessage().contains("public.orders"));
+        // Both remediations must be named: on enumerator restore the config cannot be edited.
+        Assertions.assertTrue(exception.getMessage().contains("REPLICA IDENTITY FULL"));
+        Assertions.assertTrue(
+                exception.getMessage().contains("require-replica-identity-full = false"));
     }
 
     @Test

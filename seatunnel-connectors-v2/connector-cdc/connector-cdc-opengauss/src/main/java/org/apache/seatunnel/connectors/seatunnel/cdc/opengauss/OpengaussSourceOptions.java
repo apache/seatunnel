@@ -28,29 +28,36 @@ import java.util.Arrays;
  * Startup-mode contract owned by the OpenGauss CDC connector.
  *
  * <p>OpenGauss reuses the PostgreSQL runtime through the PG base, but it must not inherit
- * PostgreSQL's startup-mode surface: {@code snapshot-only} and {@code committed-offset} are backed
- * by PostgreSQL-specific behavior (the latter reads {@code confirmed_flush_lsn} and {@code
- * active_pid} from {@code pg_replication_slots}), which OpenGauss is not verified to serve. Owning
- * the option here keeps OpenGauss pinned to the three modes it has always accepted, so a later
- * addition on the PostgreSQL side cannot silently widen this connector again.
+ * PostgreSQL's startup-mode surface wholesale. {@code committed-offset} is excluded: it resolves
+ * its start position through {@code LsnOffsetFactory#committedOffset()}, which reads {@code
+ * confirmed_flush_lsn} and {@code active_pid} from {@code pg_replication_slots}, columns OpenGauss
+ * is not verified to expose. {@code snapshot-only} is kept: it is served entirely by the
+ * dialect-agnostic incremental framework ({@code SnapshotOnlySplitAssigner}, gated only on {@code
+ * StartupMode} in {@code IncrementalSource}), touches nothing PostgreSQL-specific, and was already
+ * accepted by this connector through the shared PostgreSQL option. Owning the option here means a
+ * later PostgreSQL-only addition cannot silently widen this connector again.
  *
  * <p>{@code stop.mode} is deliberately still taken from the PostgreSQL options: it has a single
  * legal value ({@code never}) with no dialect-specific behavior behind it.
  */
 public class OpengaussSourceOptions {
 
-    /** Startup modes OpenGauss CDC accepts; intentionally narrower than PostgreSQL CDC. */
+    /**
+     * Startup modes OpenGauss CDC accepts: everything PostgreSQL CDC accepts except {@code
+     * committed-offset}. No cast is needed here because the single-choice builder already returns a
+     * {@link SingleChoiceOption} of the chosen enum type.
+     */
     public static final SingleChoiceOption<StartupMode> STARTUP_MODE =
-            (SingleChoiceOption)
-                    Options.key(SourceOptions.STARTUP_MODE_KEY)
-                            .singleChoice(
-                                    StartupMode.class,
-                                    Arrays.asList(
-                                            StartupMode.INITIAL,
-                                            StartupMode.EARLIEST,
-                                            StartupMode.LATEST))
-                            .defaultValue(StartupMode.INITIAL)
-                            .withDescription(
-                                    "Optional startup mode for Opengauss CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\"");
+            Options.key(SourceOptions.STARTUP_MODE_KEY)
+                    .singleChoice(
+                            StartupMode.class,
+                            Arrays.asList(
+                                    StartupMode.INITIAL,
+                                    StartupMode.SNAPSHOT_ONLY,
+                                    StartupMode.EARLIEST,
+                                    StartupMode.LATEST))
+                    .defaultValue(StartupMode.INITIAL)
+                    .withDescription(
+                            "Optional startup mode for Opengauss CDC source, valid enumerations are "
+                                    + "\"initial\", \"snapshot-only\", \"earliest\", \"latest\"");
 }

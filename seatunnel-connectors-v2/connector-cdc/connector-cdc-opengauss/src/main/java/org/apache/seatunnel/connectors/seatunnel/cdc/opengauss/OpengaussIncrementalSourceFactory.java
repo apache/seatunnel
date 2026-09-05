@@ -78,12 +78,18 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.INVERSE_SAMPLING_RATE,
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.TABLE_NAMES_CONFIG)
-                // startup.mode is OpenGauss-owned so PostgreSQL-only modes cannot leak in here;
-                // stop.mode stays shared because "never" is its only legal value.
+                // startup.mode is OpenGauss-owned so the PostgreSQL-only committed-offset mode
+                // cannot leak in here; stop.mode stays shared because "never" is its only legal
+                // value. exactly_once applies to the snapshot phase, so it is offered for both
+                // modes that run one, mirroring the PostgreSQL rule.
                 .optional(OpengaussSourceOptions.STARTUP_MODE, PostgresSourceOptions.STOP_MODE)
                 .conditional(
                         OpengaussSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
+                        JdbcSourceOptions.EXACTLY_ONCE)
+                .conditional(
+                        OpengaussSourceOptions.STARTUP_MODE,
+                        StartupMode.SNAPSHOT_ONLY,
                         JdbcSourceOptions.EXACTLY_ONCE)
                 .build();
     }

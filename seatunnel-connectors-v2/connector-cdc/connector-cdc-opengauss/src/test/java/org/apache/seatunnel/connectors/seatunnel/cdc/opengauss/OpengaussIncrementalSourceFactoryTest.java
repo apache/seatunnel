@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -65,31 +69,66 @@ public class OpengaussIncrementalSourceFactoryTest {
     }
 
     /**
-     * OpenGauss shares the PostgreSQL runtime but not its startup-mode surface. snapshot-only and
-     * committed-offset are PostgreSQL-specific (committed-offset reads confirmed_flush_lsn and
-     * active_pid from pg_replication_slots), so they must not become selectable here just because
-     * the PostgreSQL option gained them.
+     * OpenGauss shares the PostgreSQL runtime but owns its startup-mode surface. committed-offset
+     * is PostgreSQL-specific (it reads confirmed_flush_lsn and active_pid from
+     * pg_replication_slots) and must not become selectable here just because the PostgreSQL option
+     * has it. snapshot-only is served by the dialect-agnostic framework and stays available, so an
+     * existing OpenGauss job configured with it keeps passing validation.
      */
     @Test
     public void testOptionRuleExposesOnlyOpengaussStartupModes() {
-        SingleChoiceOption<StartupMode> startupMode =
-                (SingleChoiceOption<StartupMode>)
-                        new OpengaussIncrementalSourceFactory()
-                                .optionRule().getOptionalOptions().stream()
-                                        .filter(
-                                                option ->
-                                                        SourceOptions.STARTUP_MODE_KEY.equals(
-                                                                option.key()))
-                                        .findFirst()
-                                        .orElseThrow(
-                                                () ->
-                                                        new AssertionError(
-                                                                "startup.mode missing from the Opengauss option rule"));
+        SingleChoiceOption<StartupMode> startupMode = startupModeFromRule();
 
         Assertions.assertEquals(
-                Arrays.asList(StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST),
+                Arrays.asList(
+                        StartupMode.INITIAL,
+                        StartupMode.SNAPSHOT_ONLY,
+                        StartupMode.EARLIEST,
+                        StartupMode.LATEST),
                 startupMode.getOptionValues());
+        Assertions.assertFalse(
+                startupMode.getOptionValues().contains(StartupMode.COMMITTED_OFFSET));
         Assertions.assertEquals(StartupMode.INITIAL, startupMode.defaultValue());
+    }
+
+    /** Locates the startup.mode option the OpenGauss factory actually advertises in its rule. */
+    private static SingleChoiceOption<StartupMode> startupModeFromRule() {
+        return (SingleChoiceOption<StartupMode>)
+                new OpengaussIncrementalSourceFactory()
+                        .optionRule().getOptionalOptions().stream()
+                                .filter(
+                                        option ->
+                                                SourceOptions.STARTUP_MODE_KEY.equals(option.key()))
+                                .findFirst()
+                                .orElseThrow(
+                                        () ->
+                                                new AssertionError(
+                                                        "startup.mode missing from the Opengauss option rule"));
+    }
+
+    /**
+     * exactly_once governs the snapshot phase, and both initial and snapshot-only run one, so the
+     * OpenGauss rule must offer it under both modes exactly as the PostgreSQL rule does. Pinning
+     * this keeps a future edit from restoring snapshot-only in the choice list but forgetting the
+     * conditional that makes exactly_once configurable with it.
+     */
+    @Test
+    public void testOptionRuleOffersExactlyOnceForBothSnapshotModes() {
+        OptionRule rule = new OpengaussIncrementalSourceFactory().optionRule();
+
+        for (StartupMode snapshotMode :
+                Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT_ONLY)) {
+            Assertions.assertTrue(
+                    rule.getRequiredOptions()
+                            .contains(
+                                    RequiredOption.ConditionalRequiredOptions.of(
+                                            Condition.of(
+                                                    OpengaussSourceOptions.STARTUP_MODE,
+                                                    snapshotMode),
+                                            Collections.<Option<?>>singletonList(
+                                                    JdbcSourceOptions.EXACTLY_ONCE))),
+                    "exactly_once conditional missing for startup.mode " + snapshotMode);
+        }
     }
 
     /**
