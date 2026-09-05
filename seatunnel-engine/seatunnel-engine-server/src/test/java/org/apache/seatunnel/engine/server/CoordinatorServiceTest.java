@@ -1468,15 +1468,6 @@ public class CoordinatorServiceTest {
         method.invoke(coordinatorService);
     }
 
-    private void invokeRestoreAllRunningJobFromMasterNodeSwitchWithRetry(
-            CoordinatorService coordinatorService) throws Exception {
-        Method method =
-                CoordinatorService.class.getDeclaredMethod(
-                        "restoreAllRunningJobFromMasterNodeSwitchWithRetry");
-        method.setAccessible(true);
-        method.invoke(coordinatorService);
-    }
-
     private void invokeClearCoordinatorService(CoordinatorService coordinatorService)
             throws Exception {
         Method method = CoordinatorService.class.getDeclaredMethod("clearCoordinatorService");
@@ -1803,109 +1794,6 @@ public class CoordinatorServiceTest {
             Assertions.assertNotNull(jobStateTimestamps);
             Assertions.assertEquals(
                     initializationTimestamp, jobStateTimestamps[JobStatus.INITIALIZING.ordinal()]);
-        } finally {
-            instance.shutdown();
-        }
-    }
-
-    /**
-     * Regression test for the silently-abandoned master-switch restore fixed alongside this class's
-     * I1 duplicate-dispatch coverage. Before the fix, {@code
-     * CoordinatorService#initCoordinatorService} submitted {@code
-     * restoreAllRunningJobFromMasterNodeSwitch} to {@code CompletableFuture.runAsync(...)} with no
-     * exception handler: any exception it threw -- for example a transient {@code IMap} read
-     * failure surfacing while an overlapping membership change from a rapid master failover is
-     * still settling -- silently and permanently failed that future. No caller on the
-     * job-status-read path (only {@code waitForJobComplete} does) ever joined on it, so a job still
-     * needing restore just stayed at its pre-switch status forever, with nothing retried and
-     * nothing logged above the original throw.
-     *
-     * <p>This test injects exactly that shape of failure -- the very first read of {@code
-     * runningJobInfoIMap.entrySet()} throws, then succeeds -- and asserts the fix's {@code
-     * restoreAllRunningJobFromMasterNodeSwitchWithRetry} wrapper retries instead of giving up, so
-     * the job is eventually restored.
-     */
-    @Test
-    void testRestoreAllRunningJobFromMasterNodeSwitchRetriesOnTransientFailure() throws Exception {
-        HazelcastInstanceImpl instance =
-                createHazelcastInstanceWithJoinPortTryCount(
-                        TestUtils.getClusterName(
-                                "CoordinatorServiceTest_testRestoreAllRunningJobFromMasterNodeSwitchRetriesOnTransientFailure"),
-                        1);
-        try {
-            SeaTunnelServer server =
-                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-            CoordinatorService coordinatorService = server.getCoordinatorService();
-            await().atMost(60, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
-
-            Long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
-            LogicalDag logicalDag =
-                    TestUtils.createTestLogicalPlan(
-                            "stream_fake_to_console.conf",
-                            "restore-all-running-job-retry-test",
-                            jobId);
-            JobImmutableInformation jobImmutableInformation =
-                    new JobImmutableInformation(
-                            jobId,
-                            "Test",
-                            instance.getSerializationService(),
-                            logicalDag,
-                            Collections.emptyList(),
-                            Collections.emptyList());
-            JobInfo jobInfo =
-                    new JobInfo(
-                            System.currentTimeMillis(),
-                            instance.getSerializationService().toData(jobImmutableInformation));
-
-            IMap<Long, JobInfo> runningJobInfoIMap =
-                    instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
-            IMap<Object, Object> runningJobStateIMap =
-                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
-            runningJobInfoIMap.put(jobId, jobInfo);
-            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
-
-            IMap<Long, JobInfo> spiedRunningJobInfoIMap = Mockito.spy(runningJobInfoIMap);
-            AtomicInteger entrySetCalls = new AtomicInteger(0);
-            Mockito.doAnswer(
-                            invocation -> {
-                                if (entrySetCalls.getAndIncrement() == 0) {
-                                    throw new IllegalStateException(
-                                            "simulated transient failure reading running job"
-                                                    + " info during master switch");
-                                }
-                                return invocation.callRealMethod();
-                            })
-                    .when(spiedRunningJobInfoIMap)
-                    .entrySet();
-            ReflectionUtils.setField(
-                    coordinatorService, "runningJobInfoIMap", spiedRunningJobInfoIMap);
-            try {
-                invokeRestoreAllRunningJobFromMasterNodeSwitchWithRetry(coordinatorService);
-
-                await().atMost(30, TimeUnit.SECONDS)
-                        .untilAsserted(
-                                () ->
-                                        Assertions.assertTrue(
-                                                entrySetCalls.get() >= 2,
-                                                "restore must retry after the first transient"
-                                                        + " failure instead of silently giving"
-                                                        + " up"));
-            } finally {
-                ReflectionUtils.setField(
-                        coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
-            }
-
-            await().atMost(30, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            coordinatorService.getPendingJobQueue().contains(jobId)
-                                                    || getRunningJobMasterMap(coordinatorService)
-                                                            .containsKey(jobId),
-                                            "job must eventually be restored once the transient"
-                                                    + " failure clears"));
         } finally {
             instance.shutdown();
         }

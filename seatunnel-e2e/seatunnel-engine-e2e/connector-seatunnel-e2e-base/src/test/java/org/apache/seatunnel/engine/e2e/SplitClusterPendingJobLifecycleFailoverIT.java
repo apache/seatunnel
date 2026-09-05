@@ -300,6 +300,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         int flapRounds = 4;
 
         HazelcastInstanceImpl workerNode = null;
+        HazelcastInstanceImpl extraWorkerNode = null;
         SeaTunnelClient engineClient = null;
         List<HazelcastInstanceImpl> masterNodes = new ArrayList<>();
 
@@ -385,17 +386,33 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                     engineClient.createJobClient().getJobProxy(pendingJobId);
             assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.PENDING, 60);
 
-            ClientJobProxy holderJobAfterFlapping =
-                    engineClient.createJobClient().getJobProxy(holderJob.getJobId());
-            holderJobAfterFlapping.cancelJob();
-            assertEventuallyCanceled(holderJobAfterFlapping);
-
-            // The active master restored both jobs while all worker slots were occupied. Hand off
-            // once more after releasing the holder's slots so the new coordinator rebuilds the
-            // pending entry from distributed state and schedules it with the newly available
-            // resources. This also verifies that the final recovery cannot revive a stale copy.
+            // Hand off one final time while every worker slot is still occupied by the holder, so
+            // a coordinator that never saw the original submission has to rebuild the pending entry
+            // purely from distributed state. It must still be a single pending copy afterwards; a
+            // stale generation revived here would show up as a second dispatch below.
             currentActive.shutdown();
             awaitCoordinatorActive(currentStandby, 30);
+            assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.PENDING, 60);
+
+            // Free capacity by growing the cluster rather than by cancelling the holder. Cancelling
+            // the holder and immediately shutting its master down would additionally require the
+            // terminal job's worker slots to be reclaimed by the next coordinator, which is a
+            // separate resource-lifecycle concern from the duplicate-dispatch invariant under test.
+            // Adding a worker keeps the assertions below attributable to scheduling alone, and
+            // matches how testPendingJobLifecycleAcrossMasterFailover releases a pending job.
+            SeaTunnelConfig extraWorkerConfig = getSeaTunnelConfig(testClusterName);
+            configurePendingLifecycleTest(extraWorkerConfig);
+            extraWorkerNode =
+                    SeaTunnelServerStarter.createWorkerHazelcastInstance(extraWorkerConfig);
+
+            HazelcastInstanceImpl finalCoordinator = currentStandby;
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalCoordinator.getCluster().getMembers().size()));
+
             assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.FINISHED, 180);
 
             Long finalLineCount =
@@ -411,6 +428,9 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             }
             if (workerNode != null) {
                 workerNode.shutdown();
+            }
+            if (extraWorkerNode != null) {
+                extraWorkerNode.shutdown();
             }
             for (HazelcastInstanceImpl masterNode : masterNodes) {
                 if (masterNode.getLifecycleService().isRunning()) {
