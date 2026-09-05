@@ -4,6 +4,13 @@
 
 ## dev
 
+### Transform 依赖解析
+
+- **行为变更：拒绝多 Transform 作业中无法解析的输入**
+  - **影响范围**：Zeta 作业配置解析和 `--dry-run connect`。
+  - **变更说明**：Transform 现在会等待所有声明的 `plugin_input` 依赖就绪。多 Transform 配置中存在无法解析的输入时，会被拒绝，而不再静默丢弃不可用的输入，或将最后一个未解析的 Transform 连接到非预期的上游表。此前导致无限重试的循环依赖或无法解析的依赖图，现在会报配置错误。
+  - **迁移指南**：修正 `plugin_input`，使其引用预期的 Source 或 Transform 的 `plugin_output`，并消除循环依赖。对于依赖关系本身有效的图，无需调整 Transform 的声明顺序。原有的单 Transform 回退逻辑和末尾显式空输入列表的回退逻辑仍然保留，并非全面移除隐式串联。此前能够正确解析依赖的有效图，其求值顺序和默认 Transform Action 名称保持不变。 (#12079)
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**

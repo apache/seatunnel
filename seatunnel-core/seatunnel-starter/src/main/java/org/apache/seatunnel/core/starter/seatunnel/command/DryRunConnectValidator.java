@@ -46,11 +46,12 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Objects;
-import java.util.Queue;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
@@ -209,57 +210,153 @@ class DryRunConnectValidator {
         if (configs.isEmpty()) {
             return;
         }
-        Queue<Config> remainingTransforms = new LinkedList<>(configs);
-        int index = 0;
-        while (!remainingTransforms.isEmpty()) {
-            Config transformConfig = remainingTransforms.poll();
-            if (!validateTransform(
-                    index++,
-                    transformConfig,
-                    remainingTransforms,
-                    classLoader,
-                    tableWithSchemas,
-                    results)) {
-                index--;
-                remainingTransforms.offer(transformConfig);
-            }
+        List<ScheduledTransform> scheduledTransforms =
+                scheduleTransforms(configs, tableWithSchemas.keySet());
+        int evaluationIndex = 0;
+        for (ScheduledTransform scheduledTransform : scheduledTransforms) {
+            results.add(
+                    validateTransform(
+                            evaluationIndex++,
+                            scheduledTransform.config,
+                            scheduledTransform.legacyFallback,
+                            classLoader,
+                            tableWithSchemas));
         }
     }
 
-    private boolean validateTransform(
+    static List<ScheduledTransform> scheduleTransforms(
+            List<? extends Config> configs, Set<String> initialOutputIds) {
+        // Index missing inputs once, then release dependents in the legacy queue's evaluation
+        // order as each transform output becomes available.
+        List<ScheduledTransform> transforms = new ArrayList<>(configs.size());
+        Map<String, List<ScheduledTransform>> waitingByInputId = new LinkedHashMap<>();
+        NavigableSet<Integer> readyTransformIndexes = new TreeSet<>();
+        NavigableSet<Integer> remainingTransformIndexes = new TreeSet<>();
+        Set<String> availableOutputIds = new LinkedHashSet<>(initialOutputIds);
+
+        for (int index = 0; index < configs.size(); index++) {
+            ScheduledTransform transform = new ScheduledTransform(index, configs.get(index));
+            transforms.add(transform);
+            Set<String> missingInputIds = new LinkedHashSet<>(transform.inputIds);
+            missingInputIds.removeAll(availableOutputIds);
+            transform.unresolvedInputCount = missingInputIds.size();
+            // Explicit empty input lists are fallback-only and are considered after every other
+            // transform resolves.
+            if (!transform.inputIds.isEmpty()) {
+                if (missingInputIds.isEmpty()) {
+                    readyTransformIndexes.add(index);
+                } else {
+                    for (String missingInputId : missingInputIds) {
+                        waitingByInputId
+                                .computeIfAbsent(missingInputId, ignored -> new ArrayList<>())
+                                .add(transform);
+                    }
+                }
+            }
+            remainingTransformIndexes.add(index);
+        }
+
+        List<ScheduledTransform> orderedTransforms = new ArrayList<>(transforms.size());
+        int queueHeadIndex = 0;
+        while (!readyTransformIndexes.isEmpty()) {
+            Integer transformIndex = readyTransformIndexes.ceiling(queueHeadIndex);
+            if (transformIndex == null) {
+                transformIndex = readyTransformIndexes.first();
+            }
+            ScheduledTransform transform = transforms.get(transformIndex);
+            transform.scheduled = true;
+            orderedTransforms.add(transform);
+            readyTransformIndexes.remove(transformIndex);
+            remainingTransformIndexes.remove(transformIndex);
+            if (!remainingTransformIndexes.isEmpty()) {
+                Integer nextQueueHead = remainingTransformIndexes.ceiling(transformIndex);
+                queueHeadIndex =
+                        nextQueueHead == null ? remainingTransformIndexes.first() : nextQueueHead;
+            }
+            availableOutputIds.add(transform.outputId);
+            for (ScheduledTransform dependent :
+                    waitingByInputId.getOrDefault(transform.outputId, Collections.emptyList())) {
+                dependent.unresolvedInputCount--;
+                if (dependent.unresolvedInputCount == 0) {
+                    readyTransformIndexes.add(dependent.configIndex);
+                }
+            }
+        }
+
+        List<ScheduledTransform> unresolvedTransforms =
+                transforms.stream()
+                        .filter(transform -> !transform.scheduled)
+                        .collect(Collectors.toList());
+        if (unresolvedTransforms.isEmpty()) {
+            return orderedTransforms;
+        }
+
+        if (unresolvedTransforms.size() == 1) {
+            ScheduledTransform transform = unresolvedTransforms.get(0);
+            boolean anyInputAvailable =
+                    transform.inputIds.stream().anyMatch(availableOutputIds::contains);
+            boolean emptyInputFallback = transform.inputIds.isEmpty();
+            boolean singleTransformLegacyFallback = transforms.size() == 1 && !anyInputAvailable;
+            if (emptyInputFallback || singleTransformLegacyFallback) {
+                transform.legacyFallback = true;
+                orderedTransforms.add(transform);
+                return orderedTransforms;
+            }
+        }
+        throw unresolvedTransformDependencies(unresolvedTransforms, availableOutputIds);
+    }
+
+    private static ConfigCheckException unresolvedTransformDependencies(
+            List<ScheduledTransform> transforms, Set<String> availableOutputIds) {
+        String unresolvedTransforms =
+                transforms.stream()
+                        .map(transform -> transform.outputId + " <- " + transform.inputIds)
+                        .collect(Collectors.joining(", "));
+        return new ConfigCheckException(
+                "Unable to resolve transform dependencies: ["
+                        + unresolvedTransforms
+                        + "]. Available output IDs: "
+                        + availableOutputIds
+                        + ". Check 'plugin_input' and 'plugin_output' options.");
+    }
+
+    private PluginResult validateTransform(
             int configIndex,
             Config transformConfig,
-            Queue<Config> remainingTransforms,
+            boolean legacyFallback,
             ClassLoader classLoader,
-            LinkedHashMap<String, SchemaInfo> tableWithSchemas,
-            List<PluginResult> results) {
+            LinkedHashMap<String, SchemaInfo> tableWithSchemas) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(transformConfig);
         String factoryId = ConfigParserUtil.getFactoryId(readonlyConfig);
         String outputId = readonlyConfig.getOptional(PLUGIN_OUTPUT).orElse(DEFAULT_ID);
         try {
-            List<SchemaInfo> inputSchemas =
-                    getInputIds(readonlyConfig).stream()
-                            .map(tableWithSchemas::get)
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList());
-            if (inputSchemas.isEmpty()) {
-                if (remainingTransforms.isEmpty()) {
-                    inputSchemas = Collections.singletonList(findLast(tableWithSchemas));
-                } else {
-                    // Upstream transform not resolved yet; retry after the rest of the queue.
-                    return false;
+            List<String> inputIds = getInputIds(readonlyConfig);
+            List<SchemaInfo> inputSchemas;
+            if (legacyFallback) {
+                inputSchemas = Collections.singletonList(findLast(tableWithSchemas));
+            } else {
+                List<String> missingInputIds =
+                        inputIds.stream()
+                                .filter(inputId -> !tableWithSchemas.containsKey(inputId))
+                                .collect(Collectors.toList());
+                if (!missingInputIds.isEmpty()) {
+                    throw new ConfigCheckException(
+                            "Transform '"
+                                    + outputId
+                                    + "' is missing scheduled inputs "
+                                    + missingInputIds);
                 }
+                inputSchemas =
+                        inputIds.stream().map(tableWithSchemas::get).collect(Collectors.toList());
             }
 
             if (inputSchemas.stream().anyMatch(SchemaInfo::isUnknown)) {
                 tableWithSchemas.put(outputId, SchemaInfo.unknown());
-                results.add(
-                        PluginResult.skipped(
-                                PluginType.TRANSFORM,
-                                configIndex,
-                                factoryId,
-                                "upstream schema not available; schema wiring NOT verified"));
-                return true;
+                return PluginResult.skipped(
+                        PluginType.TRANSFORM,
+                        configIndex,
+                        factoryId,
+                        "upstream schema not available; schema wiring NOT verified");
             }
 
             List<CatalogTable> inputCatalogTables =
@@ -277,15 +374,43 @@ class DryRunConnectValidator {
                             factoryId);
             tableWithSchemas.put(
                     outputId, SchemaInfo.trusted(transform.getProducedCatalogTables()));
-            results.add(
-                    PluginResult.validated(
-                            PluginType.TRANSFORM,
-                            configIndex,
-                            factoryId,
-                            "schema wiring validated"));
-            return true;
+            return PluginResult.validated(
+                    PluginType.TRANSFORM, configIndex, factoryId, "schema wiring validated");
         } catch (Exception e) {
             throw wrap(PluginType.TRANSFORM, configIndex, factoryId, e);
+        }
+    }
+
+    private static String getTransformOutputId(Config transformConfig) {
+        return ReadonlyConfig.fromConfig(transformConfig)
+                .getOptional(PLUGIN_OUTPUT)
+                .orElse(DEFAULT_ID);
+    }
+
+    private static List<String> getTransformInputIds(Config transformConfig) {
+        return ReadonlyConfig.fromConfig(transformConfig)
+                .getOptional(PLUGIN_INPUT)
+                .orElse(Collections.singletonList(DEFAULT_ID));
+    }
+
+    static final class ScheduledTransform {
+        private final int configIndex;
+        private final Config config;
+        private final String outputId;
+        private final List<String> inputIds;
+        private int unresolvedInputCount;
+        private boolean scheduled;
+        private boolean legacyFallback;
+
+        private ScheduledTransform(int configIndex, Config config) {
+            this.configIndex = configIndex;
+            this.config = config;
+            this.outputId = getTransformOutputId(config);
+            this.inputIds = getTransformInputIds(config);
+        }
+
+        String getOutputId() {
+            return outputId;
         }
     }
 
