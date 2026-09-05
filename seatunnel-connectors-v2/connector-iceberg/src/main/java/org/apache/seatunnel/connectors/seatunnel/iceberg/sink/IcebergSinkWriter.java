@@ -118,14 +118,18 @@ public class IcebergSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        // Waiting cdc connector support schema change event
-        if (config.isTableSchemaEvolutionEnabled()) {
-            log.info("changed rowType before: {}", fieldsInfo(rowType));
-            this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
-            log.info("changed rowType after: {}", fieldsInfo(rowType));
-            tryCreateRecordWriter();
-            writer.applySchemaChange(this.rowType, event);
+        if (!config.isTableSchemaEvolutionEnabled()) {
+            throw new UnsupportedOperationException(
+                    String.format(
+                            "Iceberg sink received schema change event for table %s, but "
+                                    + "iceberg.table.schema-evolution-enabled is false.",
+                            event.tablePath()));
         }
+        log.info("changed rowType before: {}", fieldsInfo(rowType));
+        this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
+        log.info("changed rowType after: {}", fieldsInfo(rowType));
+        tryCreateRecordWriter();
+        writer.applySchemaChange(this.rowType, event);
     }
 
     @Override

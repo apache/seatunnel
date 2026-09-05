@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Assertions;
@@ -125,6 +126,41 @@ class FlinkSinkWriterTest {
         Assertions.assertEquals(Collections.emptyList(), delegate.prepareCommitCalls);
         Assertions.assertEquals(1, delegate.appliedSchemaChanges.size());
         Assertions.assertEquals(event, delegate.appliedSchemaChanges.get(0));
+    }
+
+    @Test
+    void testUnsupportedSchemaChangeSinkFailsFast() {
+        RecordingSinkWriter delegate = new RecordingSinkWriter();
+        RecordingContext context = new RecordingContext();
+
+        FlinkSinkWriter<SeaTunnelRow, String, String> flinkSinkWriter =
+                new FlinkSinkWriter<>(delegate, 7L, context);
+
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        PhysicalColumn.of(
+                                "added_col",
+                                org.apache.seatunnel.api.table.type.BasicType.STRING_TYPE,
+                                64L,
+                                true,
+                                null,
+                                null));
+        event.setJobId("job-under-test");
+        SeaTunnelRow schemaEvent = new SeaTunnelRow(0);
+        Map<String, Object> options = new LinkedHashMap<>();
+        options.put("schema_change_event", event);
+        options.put("schema_subtask_id", 0L);
+        schemaEvent.setOptions(options);
+
+        SinkWriterSchemaException exception =
+                Assertions.assertThrows(
+                        SinkWriterSchemaException.class,
+                        () -> flinkSinkWriter.write(schemaEvent, null));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("Failed to apply schema change in Flink sink"));
+        Assertions.assertEquals(Collections.emptyList(), delegate.writtenRows);
     }
 
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
