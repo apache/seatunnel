@@ -1283,11 +1283,17 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
-        pendingJobScheduleEpoch.incrementAndGet();
+pendingJobScheduleEpoch.incrementAndGet();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();
         pendingJobQueue.release();
+
+        // Deregister IMap listeners BEFORE any cleanup that can throw,
+        // ensuring listener leak is always prevented on master-role switch.
+        if (jobHistoryService != null) {
+            jobHistoryService.shutdown();
+        }
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         // Interrupt and discard every JobMaster currently sitting in pendingJobQueue. This is
