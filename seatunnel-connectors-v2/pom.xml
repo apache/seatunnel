@@ -73,6 +73,7 @@
         <module>connector-google-sheets</module>
         <module>connector-google-firestore</module>
         <module>connector-google-pubsub</module>
+        <module>connector-azure-event-hubs</module>
         <module>connector-azure-queue-storage</module>
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>

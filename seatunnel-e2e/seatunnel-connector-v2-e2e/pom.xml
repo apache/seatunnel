@@ -73,6 +73,7 @@
         <module>connector-google-firestore-e2e</module>
         <module>connector-google-pubsub-e2e</module>
         <module>connector-azure-queue-storage-e2e</module>
+        <module>connector-azure-event-hubs-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
