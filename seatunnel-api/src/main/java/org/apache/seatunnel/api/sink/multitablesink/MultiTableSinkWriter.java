@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -34,6 +36,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -41,6 +44,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
@@ -79,11 +83,14 @@ public class MultiTableSinkWriter
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
+    private final ConcurrentMap<SinkIdentifier, SinkContextProxy> proxyContexts =
+            new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
             new ConcurrentHashMap<>();
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
             sinkWritersWithIndex;
     private final List<MultiTableWriterRunnable> runnable = new ArrayList<>();
+    private final List<SinkWriterTemplate> sinkWriterTemplates = new ArrayList<>();
     private final Random random = new Random();
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues =
             new ArrayList<>();
@@ -92,11 +99,15 @@ public class MultiTableSinkWriter
     private final JobMode jobMode;
     private final int tableRetryTimes;
     private final int tableRetryIntervalSeconds;
+    private final RuntimeSinkWriterFactory runtimeSinkWriterFactory;
     private final Map<String, List<SinkIdentifier>> sinkIdentifiersByTable =
+            new ConcurrentHashMap<>();
+    private final ConcurrentMap<String, CatalogTable> runtimeCreatedTables =
             new ConcurrentHashMap<>();
     private final ConcurrentMap<String, MultiTableFailedTable> failedTables =
             new ConcurrentHashMap<>();
     private MultiTableResourceManager resourceManager;
+    private boolean resourceManagerInitialized;
     private volatile MultiTableRowErrorHandler rowErrorHandler;
     private volatile boolean submitted = false;
     private volatile Throwable fatalThrowable;
@@ -193,12 +204,93 @@ public class MultiTableSinkWriter
             Collection<MultiTableFailedTable> initialFailedTables,
             int tableRetryTimes,
             int tableRetryIntervalSeconds) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                Collections.emptyList(),
+                null);
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            List<SinkWriterTemplate> sinkWriterTemplates) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                sinkWriterTemplates,
+                null);
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            List<SinkWriterTemplate> sinkWriterTemplates,
+            RuntimeSinkWriterFactory runtimeSinkWriterFactory) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                sinkWriterTemplates,
+                runtimeSinkWriterFactory,
+                Collections.emptyMap());
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            List<SinkWriterTemplate> sinkWriterTemplates,
+            RuntimeSinkWriterFactory runtimeSinkWriterFactory,
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts) {
+        if (!sinkWriterTemplates.isEmpty() && sinkWriterTemplates.size() != queueSize) {
+            throw new IllegalArgumentException(
+                    "The runtime sink writer template count must match the queue count");
+        }
         this.sinkWriters = sinkWriters;
         this.sinkWritersContext = sinkWritersContext;
         this.failurePolicy = failurePolicy;
         this.jobMode = jobMode;
         this.tableRetryTimes = Math.max(0, tableRetryTimes);
         this.tableRetryIntervalSeconds = Math.max(0, tableRetryIntervalSeconds);
+        this.runtimeSinkWriterFactory = runtimeSinkWriterFactory;
+        if (proxyContexts != null) {
+            this.proxyContexts.putAll(proxyContexts);
+        }
         AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 MDCTracer.tracing(
@@ -241,6 +333,21 @@ public class MultiTableSinkWriter
                             });
 
             sinkWritersWithIndex.add(sinkIdentifierMap);
+            if (sinkWriterTemplates.isEmpty()) {
+                this.sinkWriterTemplates.add(
+                        sinkIdentifierMap.entrySet().stream()
+                                .findFirst()
+                                .map(
+                                        entry ->
+                                                new SinkWriterTemplate(
+                                                        (SupportMultiTableSinkWriter<?>)
+                                                                entry.getValue(),
+                                                        sinkWritersContext.get(entry.getKey()),
+                                                        entry.getKey().getIndex()))
+                                .orElse(null));
+            } else {
+                this.sinkWriterTemplates.add(sinkWriterTemplates.get(i));
+            }
             blockingQueues.add(queue);
             MultiTableWriterRunnable r =
                     new MultiTableWriterRunnable(
@@ -270,6 +377,16 @@ public class MultiTableSinkWriter
         }
     }
 
+    void registerRestoredRuntimeCreatedTables(Collection<CatalogTable> catalogTables) {
+        if (catalogTables == null || catalogTables.isEmpty()) {
+            return;
+        }
+        catalogTables.forEach(
+                catalogTable ->
+                        runtimeCreatedTables.put(
+                                catalogTable.getTablePath().getFullName(), catalogTable));
+    }
+
     /**
      * Initializes the shared {@link MultiTableResourceManager} from the first available writer and
      * broadcasts it to all sub-writers.
@@ -283,12 +400,18 @@ public class MultiTableSinkWriter
      * @param queueSize the number of queues, passed to the resource manager for sizing
      */
     private void initResourceManager(int queueSize) {
-        for (SinkIdentifier tableIdentifier : sinkWriters.keySet()) {
-            SinkWriter<SeaTunnelRow, ?, ?> sink = sinkWriters.get(tableIdentifier);
+        Optional<SinkWriterTemplate> resourceTemplate =
+                sinkWriterTemplates.stream()
+                        .filter(Objects::nonNull)
+                        .filter(template -> template.getWriter() != null)
+                        .findFirst();
+        if (resourceTemplate.isPresent()) {
             resourceManager =
-                    ((SupportMultiTableSinkWriter<?>) sink)
+                    resourceTemplate
+                            .get()
+                            .getWriter()
                             .initMultiTableResourceManager(sinkWriters.size(), queueSize);
-            break;
+            resourceManagerInitialized = true;
         }
 
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
@@ -375,6 +498,21 @@ public class MultiTableSinkWriter
      */
     private boolean hasSourceMatchedWriter(SchemaChangeEvent event) {
         String tableId = event.tablePath().getFullName();
+        if (event instanceof CreateTableEvent) {
+            // Runtime table creation is driven by the configured factory and the writer templates,
+            // not by the startup writer map. A job that starts with no tables at all has an empty
+            // startup map, so gating only on it would drop the CreateTableEvent for the very first
+            // runtime table and leave it permanently unregistered.
+            if (runtimeSinkWriterFactory != null) {
+                return true;
+            }
+            return sinkWriters.values().stream()
+                    .anyMatch(
+                            writer ->
+                                    writer instanceof SupportMultiTableSinkWriter
+                                            && ((SupportMultiTableSinkWriter<?>) writer)
+                                                    .supportsNewlyCreatedTable());
+        }
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
                     sinkWritersWithIndex.get(i).entrySet()) {
@@ -390,15 +528,34 @@ public class MultiTableSinkWriter
      * Collects every sub-writer that must observe this schema change event. We first route by the
      * source table identifier carried by the event, then fan the same event out to sibling
      * sub-writers that report the same physical sink table identifier.
+     *
+     * @throws IOException when registering a newly created table fails and the configured failure
+     *     policy does not allow the job to continue with the remaining tables
      */
     private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(
-            SchemaChangeEvent event) {
+            SchemaChangeEvent event) throws IOException {
         String tableId = event.tablePath().getFullName();
         if (isTableFailed(tableId)) {
             log.warn("Skip schema change for failed table {}", tableId);
             return Collections.emptyList();
         }
-
+        if (event instanceof CreateTableEvent) {
+            try {
+                executeWithTableRetry(
+                        tableId,
+                        MultiTableFailurePhase.CHECKPOINT,
+                        () -> {
+                            registerNewlyCreatedTable((CreateTableEvent) event);
+                            return null;
+                        });
+            } catch (Throwable error) {
+                if (failurePolicy.continueOtherTables()) {
+                    handleTableFailure(tableId, MultiTableFailurePhase.CHECKPOINT, error);
+                    return Collections.emptyList();
+                }
+                throwAsIOException(error);
+            }
+        }
         Set<String> primarySharedSinkIds = new HashSet<>();
         Set<SinkIdentifier> primaryDispatchedKeys = new HashSet<>();
         List<SchemaChangeDispatchTarget> dispatchTargets = new ArrayList<>();
@@ -551,6 +708,126 @@ public class MultiTableSinkWriter
             return physicalSinkIdentifier == null ? Optional.empty() : physicalSinkIdentifier;
         }
         return Optional.empty();
+    }
+
+    /**
+     * Creates one per-queue sink writer for a table discovered after job startup.
+     *
+     * <p>The table identifier stored in the multi-table writer map always follows the upstream
+     * source table path. Individual sink writers are responsible for translating it to their
+     * physical target naming rules.
+     */
+    private void registerNewlyCreatedTable(CreateTableEvent event) throws IOException {
+        CatalogTable catalogTable = event.getChangeAfter();
+        if (catalogTable == null) {
+            throw new IOException(
+                    "CreateTableEvent must carry changeAfter when registering a new sink writer");
+        }
+        String tableIdentifier = event.tablePath().getFullName();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            SinkWriterTemplate sinkWriterTemplate = sinkWriterTemplates.get(i);
+            if (sinkWriterTemplate == null) {
+                throw new IOException(
+                        "Cannot register newly created table because no explicit sink writer template exists");
+            }
+            SinkIdentifier sinkIdentifier =
+                    SinkIdentifier.of(tableIdentifier, sinkWriterTemplate.getWriterIndex());
+            boolean alreadyRegistered;
+            synchronized (runnable.get(i)) {
+                alreadyRegistered = sinkWritersWithIndex.get(i).containsKey(sinkIdentifier);
+            }
+            if (alreadyRegistered) {
+                continue;
+            }
+            SinkWriter.Context baseContext = sinkWriterTemplate.getContext();
+            if (baseContext == null) {
+                throw new IOException("Missing sink writer context for runtime table template");
+            }
+            SinkContextProxy context =
+                    new SinkContextProxy(
+                            sinkWriterTemplate.getWriterIndex(),
+                            sinkWritersWithIndex.size(),
+                            baseContext);
+            SinkWriter<SeaTunnelRow, ?, ?> newWriter =
+                    createRuntimeSinkWriter(
+                            catalogTable, tableIdentifier, sinkWriterTemplate, context);
+            SupportMultiTableSinkWriter<?> newMultiTableWriter =
+                    (SupportMultiTableSinkWriter<?>) newWriter;
+            initializeResourceManagerIfNeeded(newMultiTableWriter);
+            newMultiTableWriter.setMultiTableResourceManager(resourceManager, i);
+            boolean installed = false;
+            synchronized (runnable.get(i)) {
+                if (!sinkWritersWithIndex.get(i).containsKey(sinkIdentifier)) {
+                    sinkWriters.put(sinkIdentifier, newWriter);
+                    sinkWritersWithIndex.get(i).put(sinkIdentifier, newWriter);
+                    proxyContexts.put(sinkIdentifier, context);
+                    sinkIdentifiersByTable
+                            .computeIfAbsent(
+                                    tableIdentifier,
+                                    key -> Collections.synchronizedList(new ArrayList<>()))
+                            .add(sinkIdentifier);
+                    sinkWritersContext.put(sinkIdentifier, baseContext);
+                    runnable.get(i).registerWriter(tableIdentifier, newWriter);
+                    sinkPrimaryKeys.put(tableIdentifier, newMultiTableWriter.primaryKey());
+                    runtimeCreatedTables.put(tableIdentifier, catalogTable);
+                    log.info(
+                            "Registered runtime sink writer for newly created table {} on sub-writer {}",
+                            tableIdentifier,
+                            i);
+                    installed = true;
+                }
+            }
+            if (!installed) {
+                newWriter.close();
+            }
+        }
+    }
+
+    private SinkWriter<SeaTunnelRow, ?, ?> createRuntimeSinkWriter(
+            CatalogTable catalogTable,
+            String tableIdentifier,
+            SinkWriterTemplate sinkWriterTemplate,
+            SinkContextProxy context)
+            throws IOException {
+        SinkWriter<SeaTunnelRow, ?, ?> newWriter;
+        if (runtimeSinkWriterFactory != null) {
+            newWriter = runtimeSinkWriterFactory.create(catalogTable, context);
+        } else {
+            SupportMultiTableSinkWriter<?> templateWriter = sinkWriterTemplate.getWriter();
+            if (templateWriter == null || !templateWriter.supportsNewlyCreatedTable()) {
+                throw new IOException(
+                        String.format(
+                                "Sink writer template does not support runtime newly created table %s",
+                                tableIdentifier));
+            }
+            newWriter = templateWriter.createSinkWriter(catalogTable, context);
+        }
+        if (!(newWriter instanceof SupportMultiTableSinkWriter)) {
+            throw new IOException(
+                    String.format(
+                            "New sink writer %s must implement SupportMultiTableSinkWriter",
+                            newWriter.getClass().getName()));
+        }
+        SupportMultiTableSinkWriter<?> newMultiTableWriter =
+                (SupportMultiTableSinkWriter<?>) newWriter;
+        if (!newMultiTableWriter.supportsNewlyCreatedTable()) {
+            throw new IOException(
+                    String.format(
+                            "New sink writer %s does not support runtime newly created tables",
+                            newWriter.getClass().getName()));
+        }
+        return newWriter;
+    }
+
+    private synchronized void initializeResourceManagerIfNeeded(
+            SupportMultiTableSinkWriter<?> writer) {
+        if (resourceManagerInitialized) {
+            return;
+        }
+        resourceManager =
+                writer.initMultiTableResourceManager(
+                        Math.max(1, sinkWriters.size() + 1), sinkWritersWithIndex.size());
+        resourceManagerInitialized = true;
     }
 
     /**
@@ -713,7 +990,10 @@ public class MultiTableSinkWriter
         waitRuntimeTableFailuresHandled();
         subSinkErrorCheck();
         multiTableStates.add(
-                new MultiTableState(snapshotStates, new ArrayList<>(failedTables.values())));
+                new MultiTableState(
+                        snapshotStates,
+                        new ArrayList<>(failedTables.values()),
+                        new ArrayList<>(runtimeCreatedTables.values())));
         return multiTableStates;
     }
 
@@ -948,9 +1228,11 @@ public class MultiTableSinkWriter
      * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then calls
      * each sub-writer's flush action under the corresponding {@link MultiTableWriterRunnable} lock
      * to prevent concurrent writes.
-     *
-     * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
      */
+    void aggregatedFlush() throws Exception {
+        aggregatedFlush(proxyContexts);
+    }
+
     void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
         checkQueueRemain();
         subSinkErrorCheck();
@@ -1211,8 +1493,63 @@ public class MultiTableSinkWriter
                 }
             }
             sinkWriters.remove(sinkIdentifier);
+            proxyContexts.remove(sinkIdentifier);
         }
         sinkPrimaryKeys.remove(tableId);
+        runtimeCreatedTables.remove(tableId);
+    }
+
+    /** Creation template retained independently from the current per-table writer registry. */
+    static class SinkWriterTemplate {
+        private final SupportMultiTableSinkWriter<?> writer;
+        private final SinkWriter.Context context;
+        private final int writerIndex;
+
+        SinkWriterTemplate(
+                SupportMultiTableSinkWriter<?> writer,
+                SinkWriter.Context context,
+                int writerIndex) {
+            this.writer = writer;
+            this.context = context;
+            this.writerIndex = writerIndex;
+        }
+
+        SupportMultiTableSinkWriter<?> getWriter() {
+            return writer;
+        }
+
+        SinkWriter.Context getContext() {
+            return context;
+        }
+
+        int getWriterIndex() {
+            return writerIndex;
+        }
+    }
+
+    /**
+     * Creates runtime sink writers while remaining serializable with the enclosing multi-table
+     * sink.
+     *
+     * <p>Sink actions cross the engine serialization boundary before reaching workers, so a factory
+     * implementation must not introduce a non-serializable callback into that object graph.
+     */
+    @FunctionalInterface
+    interface RuntimeSinkWriterFactory extends Serializable {
+        SinkWriter<SeaTunnelRow, ?, ?> create(CatalogTable catalogTable, SinkWriter.Context context)
+                throws IOException;
+
+        /**
+         * Restores a runtime-created writer from checkpoint state.
+         *
+         * <p>The default preserves existing factory implementations that only support fresh writer
+         * creation.
+         */
+        default SinkWriter<SeaTunnelRow, ?, ?> restore(
+                CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
+                throws IOException {
+            return create(catalogTable, context);
+        }
     }
 
     @FunctionalInterface

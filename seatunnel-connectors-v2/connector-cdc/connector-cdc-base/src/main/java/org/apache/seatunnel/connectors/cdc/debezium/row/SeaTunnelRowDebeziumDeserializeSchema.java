@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.AbstractDebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
 
@@ -44,14 +46,17 @@ import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.data.Envelope;
 import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.Accessors;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -76,8 +81,22 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     private final SchemaChangeResolver schemaChangeResolver;
     private final SchemaChangeEventFilter schemaChangeEventFilter;
     private final TableSchemaChangeEventHandler tableSchemaChangeHandler;
+
+    /**
+     * Whether CREATE TABLE records from the binlog should register tables that were not known when
+     * the reader was initialized.
+     */
+    private final boolean scanBinlogNewlyAddedTableEnabled;
+
+    /**
+     * Converts Debezium table metadata from a schema change record to a SeaTunnel catalog table.
+     */
+    private final TableChangeCatalogTableConverter tableChangeCatalogTableConverter;
+
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
+    /** Tables discovered from CREATE TABLE records that still need create-table events emitted. */
+    private final List<CatalogTable> pendingCreateTables = new ArrayList<>();
 
     SeaTunnelRowDebeziumDeserializeSchema(
             MetadataConverter[] metadataConverters,
@@ -86,6 +105,8 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             DebeziumDeserializationConverterFactory userDefinedConverterFactory,
             SchemaChangeResolver schemaChangeResolver,
             SchemaChangeEventFilter schemaChangeEventFilter,
+            boolean scanBinlogNewlyAddedTableEnabled,
+            TableChangeCatalogTableConverter tableChangeCatalogTableConverter,
             Map<TableId, Struct> tableIdTableChangeMap) {
         super(tableIdTableChangeMap);
         this.metadataConverters = metadataConverters;
@@ -94,10 +115,55 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         this.tables = checkNotNull(tables);
         this.schemaChangeResolver = schemaChangeResolver;
         this.schemaChangeEventFilter = schemaChangeEventFilter;
+        this.scanBinlogNewlyAddedTableEnabled = scanBinlogNewlyAddedTableEnabled;
+        this.tableChangeCatalogTableConverter = tableChangeCatalogTableConverter;
         this.tableSchemaChangeHandler = new TableSchemaChangeEventDispatcher();
         this.tableRowConverters =
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
+    }
+
+    @Override
+    protected void handleTableChangeStruct(Struct tableChangeStruct) {
+        if (!scanBinlogNewlyAddedTableEnabled || tableChangeCatalogTableConverter == null) {
+            return;
+        }
+        TableChanges tableChanges =
+                new ConnectTableChangeSerializer()
+                        .deserialize(Collections.singletonList(tableChangeStruct), false);
+        tableChanges.forEach(
+                tableChange -> {
+                    if (tableChange.getType() != TableChanges.TableChangeType.CREATE) {
+                        return;
+                    }
+                    CatalogTable catalogTable =
+                            tableChangeCatalogTableConverter.convert(tableChange);
+                    if (catalogTable == null) {
+                        return;
+                    }
+                    if (containsTable(catalogTable.getTablePath())) {
+                        return;
+                    }
+                    tables.add(catalogTable);
+                    pendingCreateTables.add(catalogTable);
+                    tableRowConverters =
+                            createTableRowConverters(
+                                    tables,
+                                    metadataConverters,
+                                    serverTimeZone,
+                                    userDefinedConverterFactory);
+                    log.info("Registered newly added CDC table {}", catalogTable.getTablePath());
+                });
+    }
+
+    /**
+     * Checks whether the current deserializer has already built converters for the given table.
+     *
+     * <p>This protects repeated CREATE TABLE schema records from rebuilding converters
+     * unnecessarily.
+     */
+    private boolean containsTable(TablePath tablePath) {
+        return tables.stream().anyMatch(table -> table.getTablePath().equals(tablePath));
     }
 
     @Override
@@ -128,6 +194,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
 
     private void deserializeSchemaChangeRecord(
             SourceRecord record, Collector<SeaTunnelRow> collector) {
+        if (emitPendingCreateTableEvents(record, collector)) {
+            return;
+        }
         SchemaChangeEvent schemaChangeEvent = null;
         try {
             if (schemaChangeResolver != null) {
@@ -218,6 +287,38 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         collector.collect(schemaChangeEvent);
     }
 
+    /**
+     * Emits create-table schema events for tables that were registered from Debezium CREATE TABLE
+     * metadata earlier in the same source record.
+     */
+    private boolean emitPendingCreateTableEvents(
+            SourceRecord record, Collector<SeaTunnelRow> collector) {
+        if (pendingCreateTables.isEmpty()) {
+            return false;
+        }
+        String ddl = SourceRecordUtils.getDdl(record);
+        List<CatalogTable> createTables = new ArrayList<>(pendingCreateTables);
+        pendingCreateTables.clear();
+        for (CatalogTable catalogTable : createTables) {
+            CreateTableEvent createTableEvent =
+                    new CreateTableEvent(catalogTable.getTableId(), catalogTable);
+            createTableEvent.setStatement(ddl);
+            createTableEvent.setSourceDialectName(catalogTable.getTableId().getCatalogName());
+            SchemaChangeEvent schemaChangeEvent = createTableEvent;
+            if (schemaChangeEventFilter != null) {
+                schemaChangeEvent = schemaChangeEventFilter.filter(schemaChangeEvent);
+            }
+            if (schemaChangeEvent == null) {
+                log.debug(
+                        "Create table event {} is filtered out by schema-changes.include/exclude.",
+                        catalogTable.getTablePath());
+                continue;
+            }
+            collector.collect(schemaChangeEvent);
+        }
+        return true;
+    }
+
     private String getChangeAfterTableComment(
             CatalogTable changeBefore, SchemaChangeEvent schemaChangeEvent) {
         if (schemaChangeEvent instanceof AlterTableCommentEvent) {
@@ -237,10 +338,19 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         if (tables.size() > 1) {
             converters = tableRowConverters.get(tableId);
             if (converters == null) {
-                log.debug("Ignore newly added table {}", tableId);
+                log.debug(
+                        "Ignore newly added table {} because scan.binlog.newly-added-table.enabled is disabled or the table schema has not been registered yet",
+                        tableId);
                 return;
             }
         } else {
+            if (tables.isEmpty() || !tables.get(0).getTablePath().equals(tablePath)) {
+                log.debug(
+                        "Ignore table {} because the single-table deserializer is initialized for {}",
+                        tablePath,
+                        tables.isEmpty() ? "<empty>" : tables.get(0).getTablePath());
+                return;
+            }
             converters = tableRowConverters.get(DEFAULT_TABLE_NAME_KEY);
         }
         Long fetchTimestamp = SourceRecordUtils.getFetchTimestamp(record);
@@ -421,6 +531,19 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         private SchemaChangeResolver schemaChangeResolver;
         private SchemaChangeEventFilter schemaChangeEventFilter;
 
+        /**
+         * Enables table converter registration from CREATE TABLE binlog schema records.
+         *
+         * <p>The default remains disabled so existing jobs keep ignoring unknown binlog tables.
+         */
+        private boolean scanBinlogNewlyAddedTableEnabled;
+
+        /**
+         * Connector-specific converter used because Debezium table metadata does not contain a
+         * SeaTunnel catalog table directly.
+         */
+        private TableChangeCatalogTableConverter tableChangeCatalogTableConverter;
+
         public SeaTunnelRowDebeziumDeserializeSchema build() {
             return new SeaTunnelRowDebeziumDeserializeSchema(
                     metadataConverters,
@@ -429,7 +552,24 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     userDefinedConverterFactory,
                     schemaChangeResolver,
                     schemaChangeEventFilter,
+                    scanBinlogNewlyAddedTableEnabled,
+                    tableChangeCatalogTableConverter,
                     tableIdTableChangeMap);
         }
+    }
+
+    /**
+     * Converts a Debezium table change into the SeaTunnel table metadata required by row
+     * converters.
+     */
+    @FunctionalInterface
+    public interface TableChangeCatalogTableConverter extends Serializable {
+
+        /**
+         * Converts one Debezium table change into one SeaTunnel catalog table.
+         *
+         * <p>The returned catalog table is used immediately to build runtime row converters.
+         */
+        CatalogTable convert(TableChanges.TableChange tableChange);
     }
 }

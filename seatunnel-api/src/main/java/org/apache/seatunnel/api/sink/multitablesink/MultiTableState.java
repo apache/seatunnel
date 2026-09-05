@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -35,12 +36,22 @@ public class MultiTableState implements Serializable {
 
     private Map<SinkIdentifier, List<?>> states;
     private List<MultiTableFailedTable> failedTables;
+    private List<CatalogTable> runtimeCreatedTables;
 
     public MultiTableState(Map<SinkIdentifier, List<?>> states) {
         this(states, Collections.emptyList());
     }
 
+    public MultiTableState(
+            Map<SinkIdentifier, List<?>> states, List<MultiTableFailedTable> failedTables) {
+        this(states, failedTables, Collections.emptyList());
+    }
+
     public List<MultiTableFailedTable> getFailedTables() {
         return failedTables == null ? Collections.emptyList() : failedTables;
+    }
+
+    public List<CatalogTable> getRuntimeCreatedTables() {
+        return runtimeCreatedTables == null ? Collections.emptyList() : runtimeCreatedTables;
     }
 }

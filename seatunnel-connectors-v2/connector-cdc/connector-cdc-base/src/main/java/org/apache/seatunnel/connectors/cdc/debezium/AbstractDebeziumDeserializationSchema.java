@@ -72,9 +72,18 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
                         tableChangesStructMap.put(
                                 TableId.parse(tableChangeStruct.getString("id")),
                                 serializeStruct(tableChangeStruct));
+                        handleTableChangeStruct(tableChangeStruct);
                     });
         }
     }
+
+    /**
+     * Allows format-specific deserializers to react to Debezium table metadata updates.
+     *
+     * <p>The default implementation only records history metadata and does not mutate the runtime
+     * deserializer state.
+     */
+    protected void handleTableChangeStruct(Struct tableChangeStruct) {}
 
     private byte[] serializeStruct(Struct struct) {
         if (converter == null) {

@@ -43,6 +43,7 @@ import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
 import java.sql.SQLException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -127,11 +128,28 @@ public class MySqlDialect implements JdbcDataSourceDialect {
 
     @Override
     public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId) {
-        return Optional.ofNullable(tableMap.get(tableId).getTableSchema().getPrimaryKey());
+        CatalogTable catalogTable = tableMap.get(tableId);
+        if (catalogTable != null) {
+            return Optional.ofNullable(catalogTable.getTableSchema().getPrimaryKey());
+        }
+        // Newly discovered tables during restore are not part of the original catalog table map.
+        // Query MySQL directly so snapshot splitting can still use the table primary key.
+        List<String> primaryKeys =
+                queryTableSchema(jdbcConnection, tableId).getTable().primaryKeyColumnNames();
+        if (primaryKeys.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                PrimaryKey.of(
+                        "pk_" + (tableId.toString().hashCode() & Integer.MAX_VALUE), primaryKeys));
     }
 
     @Override
     public List<ConstraintKey> getConstraintKeys(JdbcConnection jdbcConnection, TableId tableId) {
-        return tableMap.get(tableId).getTableSchema().getConstraintKeys();
+        CatalogTable catalogTable = tableMap.get(tableId);
+        if (catalogTable != null) {
+            return catalogTable.getTableSchema().getConstraintKeys();
+        }
+        return Collections.emptyList();
     }
 }

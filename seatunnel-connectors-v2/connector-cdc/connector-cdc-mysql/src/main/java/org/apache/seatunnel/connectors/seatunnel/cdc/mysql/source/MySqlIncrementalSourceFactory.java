@@ -80,6 +80,8 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        MySqlIncrementalSourceOptions.SCAN_NEWLY_ADDED_TABLE_ENABLED,
+                        MySqlIncrementalSourceOptions.SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED,
                         MySqlIncrementalSourceOptions.INT_TYPE_NARROWING,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
@@ -93,6 +95,11 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         SourceOptions.EXACTLY_ONCE)
+                .conditional(
+                        MySqlIncrementalSourceOptions.STARTUP_MODE,
+                        StartupMode.SPECIFIC,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,
