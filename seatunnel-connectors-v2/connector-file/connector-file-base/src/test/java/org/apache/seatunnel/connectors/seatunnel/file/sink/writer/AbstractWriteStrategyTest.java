@@ -17,12 +17,22 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
+import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
@@ -31,7 +41,14 @@ import org.mockito.Mockito;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 class AbstractWriteStrategyTest {
 
@@ -83,6 +100,83 @@ class AbstractWriteStrategyTest {
         Mockito.verify(fs, Mockito.never()).deleteEmptyDirectory(Mockito.anyString());
     }
 
+    @Test
+    void shouldNotCloseTextOutputStreamWhileWriteIsInProgress() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        BlockingOutputStream blockingOutputStream = new BlockingOutputStream();
+        FSDataOutputStream outputStream = new FSDataOutputStream(blockingOutputStream, null);
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(fs.getOutputStream(Mockito.anyString())).thenReturn(outputStream);
+
+        TestTextWriteStrategy writeStrategy =
+                new TestTextWriteStrategy(newTextFileSinkConfig(rowType));
+        writeStrategy.setFileSystemProxy(fs);
+        writeStrategy.setCatalogTable(CatalogTableUtil.getCatalogTable("test", rowType));
+        writeStrategy.setTransactionContext(JOB_ID, UUID_PREFIX);
+        writeStrategy.beginTransaction(1L);
+
+        CompletableFuture<Void> writeFuture =
+                CompletableFuture.runAsync(
+                        () -> writeStrategy.write(new SeaTunnelRow(new Object[] {"alice"})));
+        Assertions.assertTrue(blockingOutputStream.writeStarted.await(5, TimeUnit.SECONDS));
+
+        CompletableFuture<Void> closeFuture =
+                CompletableFuture.runAsync(writeStrategy::finishAndCloseFile);
+        Assertions.assertFalse(
+                blockingOutputStream.closeCalled.await(200, TimeUnit.MILLISECONDS),
+                "finishAndCloseFile must wait for the active write to finish before closing files");
+
+        blockingOutputStream.releaseWrite.countDown();
+        writeFuture.get(5, TimeUnit.SECONDS);
+        closeFuture.get(5, TimeUnit.SECONDS);
+        Assertions.assertTrue(blockingOutputStream.closed.get());
+    }
+
+    @Test
+    void shouldNotAbortPrepareWhileWriteIsInProgress() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        BlockingOutputStream blockingOutputStream = new BlockingOutputStream();
+        FSDataOutputStream outputStream = new FSDataOutputStream(blockingOutputStream, null);
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(fs.getOutputStream(Mockito.anyString())).thenReturn(outputStream);
+        CountDownLatch deleteCalled = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            deleteCalled.countDown();
+                            return null;
+                        })
+                .when(fs)
+                .deleteFile(Mockito.anyString());
+
+        TestTextWriteStrategy writeStrategy =
+                new TestTextWriteStrategy(newTextFileSinkConfig(rowType));
+        writeStrategy.setFileSystemProxy(fs);
+        writeStrategy.setCatalogTable(CatalogTableUtil.getCatalogTable("test", rowType));
+        writeStrategy.setTransactionContext(JOB_ID, UUID_PREFIX);
+        writeStrategy.beginTransaction(1L);
+
+        CompletableFuture<Void> writeFuture =
+                CompletableFuture.runAsync(
+                        () -> writeStrategy.write(new SeaTunnelRow(new Object[] {"alice"})));
+        Assertions.assertTrue(blockingOutputStream.writeStarted.await(5, TimeUnit.SECONDS));
+
+        CompletableFuture<Void> abortFuture =
+                CompletableFuture.runAsync(() -> writeStrategy.abortPrepare(TRANSACTION_ID));
+        Assertions.assertFalse(
+                deleteCalled.await(200, TimeUnit.MILLISECONDS),
+                "abortPrepare must wait for the active write to finish before deleting the"
+                        + " transaction directory");
+
+        blockingOutputStream.releaseWrite.countDown();
+        writeFuture.get(5, TimeUnit.SECONDS);
+        abortFuture.get(5, TimeUnit.SECONDS);
+        Assertions.assertTrue(deleteCalled.await(5, TimeUnit.SECONDS));
+    }
+
     private static TestWriteStrategy newTestWriteStrategy(HadoopFileSystemProxy fs) {
         TestWriteStrategy writeStrategy = new TestWriteStrategy(newFileSinkConfig());
         writeStrategy.setFileSystemProxy(fs);
@@ -98,6 +192,15 @@ class AbstractWriteStrategyTest {
         Mockito.when(fileSinkConfig.isSingleFileMode()).thenReturn(false);
         Mockito.when(fileSinkConfig.getTmpPath()).thenReturn(TMP_PATH);
         return fileSinkConfig;
+    }
+
+    private static FileSinkConfig newTextFileSinkConfig(SeaTunnelRowType rowType) {
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", TMP_PATH);
+        writeConfig.put("path", "/tmp/seatunnel-target");
+        writeConfig.put("file_format_type", FileFormat.TEXT.name());
+        return new FileSinkConfig(
+                ReadonlyConfig.fromConfig(ConfigFactory.parseMap(writeConfig)), rowType);
     }
 
     private static TransactionPath newTransactionPath() {
@@ -148,5 +251,57 @@ class AbstractWriteStrategyTest {
 
         @Override
         public void finishAndCloseFile() {}
+    }
+
+    private static class TestTextWriteStrategy extends TextWriteStrategy {
+
+        private TestTextWriteStrategy(FileSinkConfig fileSinkConfig) {
+            super(fileSinkConfig);
+        }
+
+        private void setFileSystemProxy(HadoopFileSystemProxy proxy) {
+            this.hadoopFileSystemProxy = proxy;
+        }
+
+        private void setTransactionContext(String jobId, String uuidPrefix) {
+            this.jobId = jobId;
+            this.uuidPrefix = uuidPrefix;
+        }
+    }
+
+    private static class BlockingOutputStream extends OutputStream {
+        private final CountDownLatch writeStarted = new CountDownLatch(1);
+        private final CountDownLatch releaseWrite = new CountDownLatch(1);
+        private final CountDownLatch closeCalled = new CountDownLatch(1);
+        private final AtomicBoolean closed = new AtomicBoolean(false);
+
+        @Override
+        public void write(int b) throws IOException {
+            blockWrite();
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            blockWrite();
+        }
+
+        private void blockWrite() throws IOException {
+            writeStarted.countDown();
+            try {
+                releaseWrite.await(5, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException(e);
+            }
+            if (closed.get()) {
+                throw new IOException("stream was closed");
+            }
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
+            closeCalled.countDown();
+        }
     }
 }
