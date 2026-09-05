@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -31,6 +32,7 @@ import java.util.Collections;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+/** Verifies Hive dialect metadata behavior for query rewriting and partition discovery. */
 class HiveDialectTest {
 
     @Test
@@ -99,5 +101,30 @@ class HiveDialectTest {
         Assertions.assertEquals(
                 Collections.emptyList(),
                 hiveDialect.getPartitionKeys(connection, TablePath.of("test_db.test_table")));
+    }
+
+    /** Simple SELECT queries can be wrapped so metadata discovery reads at most one row. */
+    @Test
+    void testModifySqlToLimit1WrapsSimpleSelect() throws Exception {
+        Assertions.assertEquals(
+                "SELECT * FROM (SELECT id FROM users) s LIMIT 1",
+                modifySQLToLimit1("SELECT id FROM users;"));
+    }
+
+    /**
+     * Top-level CTE queries must not be wrapped because Hive rejects WITH inside subquery blocks.
+     */
+    @Test
+    void testModifySqlToLimit1KeepsTopLevelWithQuery() throws Exception {
+        String withQuery = "WITH t AS (SELECT 1 AS id) SELECT * FROM t";
+
+        Assertions.assertEquals(withQuery, modifySQLToLimit1(withQuery));
+    }
+
+    /** Invokes the private rewrite helper without requiring a live Hive connection. */
+    private String modifySQLToLimit1(String sql) throws Exception {
+        Method method = HiveDialect.class.getDeclaredMethod("modifySQLToLimit1", String.class);
+        method.setAccessible(true);
+        return (String) method.invoke(new HiveDialect(), sql);
     }
 }
