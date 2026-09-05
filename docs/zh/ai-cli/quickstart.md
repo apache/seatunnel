@@ -12,6 +12,7 @@ sidebar_position: 2
   - **AWS Bedrock** —— AWS 凭证（profile、环境变量或 IAM 角色）
   - **Anthropic API** —— `ANTHROPIC_API_KEY`
   - **OpenAI API**（或兼容 API）—— `OPENAI_API_KEY`
+  - **OrcaRouter** —— `ORCAROUTER_API_KEY`
 - （可选）SeaTunnel 安装目录，用于引擎级校验和作业执行
 
 ## 安装
@@ -57,7 +58,40 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export AI_PROVIDER=openai
 export OPENAI_API_KEY=sk-...
 # export OPENAI_BASE_URL=https://...   # Azure OpenAI、DeepSeek、本地 vLLM 等
+
+# 方式 D：OrcaRouter AI 网关
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+# 模型 ID 使用 provider/model 命名空间（如 deepseek/deepseek-v4-pro）；
+# `orcarouter/auto` 会自动评级并路由每个请求。
+# export ORCAROUTER_MODEL=orcarouter/auto
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
 ```
+
+### OrcaRouter AI 网关
+
+[OrcaRouter](https://www.orcarouter.ai) 是一个 OpenAI 兼容的 AI 网关，在单个端点
+（`https://api.orcarouter.ai/v1`）之后暴露众多模型——Claude、GPT、Gemini、
+DeepSeek、Qwen 等。模型 ID 使用 `provider/model` 命名空间，特殊的
+`orcarouter/auto` 模型会自动为每个请求选择最佳模型。作为一等提供商配置：
+
+```bash
+# 需要 openai 包（复用 ".[openai]" extra）
+pip install -e ".[openai]"
+
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+# export ORCAROUTER_MODEL=deepseek/deepseek-v4-pro    # 可选覆盖
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto  # 可选覆盖
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true       # 可选：回传 reasoning_content
+
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+该提供商使用 OpenAI Chat Completions 协议，因此完全支持 CLI 内部的工具调用循环
+（规划期间的连接器查询）、流式输出、多轮会话，以及兼容推理模型的
+reasoning_content 回放。
 
 ### bedrock-mantle：Bedrock 上的 OpenAI 系模型
 

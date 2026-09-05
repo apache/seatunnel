@@ -623,6 +623,7 @@ public class CoordinatorServiceTest {
         EngineConfig engineConfig = new EngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        CountDownLatch firstScheduleStarted = new CountDownLatch(1);
         CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
         try {
             JobMaster blockedJobMaster =
@@ -630,6 +631,7 @@ public class CoordinatorServiceTest {
             Mockito.when(blockedJobMaster.preApplyResources())
                     .thenAnswer(
                             invocation -> {
+                                firstScheduleStarted.countDown();
                                 allowFirstScheduleToFinish.await();
                                 return true;
                             });
@@ -637,12 +639,9 @@ public class CoordinatorServiceTest {
             ReflectionUtils.setField(coordinatorService, "isActive", true);
             invokePendingJobScheduler(coordinatorService);
 
-            // Wait until the scheduler thread is parked inside preApplyResources().
-            await().atMost(5, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Mockito.verify(blockedJobMaster, Mockito.atLeastOnce())
-                                            .preApplyResources());
+            Assertions.assertTrue(
+                    firstScheduleStarted.await(30, TimeUnit.SECONDS),
+                    "Pending job scheduler did not enter preApplyResources");
 
             // Simulate a master step-down. The blocked JobMaster is interrupted; the
             // PendingJobInfo must be dropped from the queue so a later restore cannot
@@ -760,10 +759,22 @@ public class CoordinatorServiceTest {
     private void stopCoordinatorSchedulers(CoordinatorService coordinatorService) {
         ReflectionUtils.getField(coordinatorService, "masterActiveListener")
                 .map(ScheduledExecutorService.class::cast)
-                .ifPresent(ScheduledExecutorService::shutdownNow);
+                .ifPresent(this::shutdownScheduler);
         ReflectionUtils.getField(coordinatorService, "pipelineCleanupScheduler")
                 .map(ScheduledExecutorService.class::cast)
-                .ifPresent(ScheduledExecutorService::shutdownNow);
+                .ifPresent(this::shutdownScheduler);
+    }
+
+    private void shutdownScheduler(ScheduledExecutorService scheduler) {
+        scheduler.shutdownNow();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Scheduler did not stop in time");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while stopping scheduler", e);
+        }
     }
 
     private void invokePendingJobScheduler(CoordinatorService coordinatorService) throws Exception {

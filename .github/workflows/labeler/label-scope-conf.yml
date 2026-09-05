@@ -84,6 +84,11 @@ amazonsqs:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazonsqs/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazonsqs)/**'
+azurecosmosdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-azurecosmosdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azurecosmosdb)/**'
 cassandra:
   - all:
       - changed-files:
@@ -94,6 +99,11 @@ salesforce:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
+deeplake:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-deeplake/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(deeplake)/**'
 cdc:
   - all:
       - changed-files:
@@ -254,6 +264,13 @@ neo4j:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-neo4j/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(neo4j)/**'
+nebulagraph:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-nebulagraph/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-nebulagraph-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(nebulagraph)/**'
 openmldb:
   - all:
       - changed-files:
@@ -390,3 +407,8 @@ nats-jetstream:
           - all-globs-to-all-files:
               - '!seatunnel-connectors-v2/connector-!(nats-jetstream)/**'
               - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(nats-jetstream)-e2e/**'
+firebase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'

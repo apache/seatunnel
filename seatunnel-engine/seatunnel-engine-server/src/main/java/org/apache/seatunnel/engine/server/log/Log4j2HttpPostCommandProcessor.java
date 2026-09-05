@@ -73,7 +73,7 @@ public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPos
      * <p>your_username&your_password&com.example.logger1&ERROR
      *
      * <p>An unknown level name is rejected with {@code 400} instead of being applied as a {@code
-     * null} level, which log4j2 silently ignores.
+     * null} level, which clears the logger's explicit level rather than leaving it unchanged.
      */
     @SuppressWarnings("MagicNumber")
     private void setLoggerLevel(HttpPostCommand request) {

@@ -16,7 +16,7 @@ The v2 API and the Web UI are both served by the embedded Jetty server. Jetty st
 
 There are two different "default" sources that are easy to mix up:
 
-- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`
 - The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
 
 As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
@@ -58,6 +58,21 @@ seatunnel:
       enable-http: true
       port: 8080
       context-path: /seatunnel
+```
+
+The size of an uploaded config file is bounded, so a single request cannot fill the master's temp
+directory or exhaust its heap. Both limits apply to `/submit-job/upload` only, and a value of `0`
+or below means unlimited:
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      upload-max-file-size-mb: 10
+      upload-max-request-size-mb: 10
 ```
 
 ## Web UI and Port 8080 Troubleshooting
@@ -253,6 +268,68 @@ Please refer [security](security.md)
 
 ------------------------------------------------------------------------------------------
 
+### Query Worker Resources
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(Returns the current resource snapshot for registered workers.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    },
+    {
+      "address": "10.0.0.9:5801",
+      "tags": {},
+      "totalSlots": 2,
+      "freeSlots": 0,
+      "usedSlots": 2,
+      "dynamicSlot": true,
+      "totalCpuCores": 8,
+      "availableCpuCores": 4,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 8589934592,
+      "cpuUsage": 0.35,
+      "memUsage": 0.41,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**Notes:**
+
+- Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
+- Dynamic-slot workers do not have a fixed slot capacity. For them, `totalSlots` is the number of currently tracked assigned and unassigned slots, while `freeSlots` is the currently unassigned count. Use `dynamicSlot` together with the CPU and heap fields when interpreting capacity.
+- `available` is `false` when the master resource snapshot cannot be read, including the master-election window. In that case, `workers` is empty and clients should retry instead of interpreting the response as an empty cluster.
+- `collectedAt` is the timestamp in milliseconds when the master built this response. Worker values come from the latest resource-manager heartbeat and are not an atomic sample with `/system-monitoring-information`.
+- Resource and usage fields are omitted until the worker heartbeat contains those values.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Query An Overview And State Of Running Jobs
 
 <details>
@@ -343,7 +420,12 @@ Please refer [security](security.md)
         },
         "totalSlots": 4,
         "freeSlots": 0,
+        "usedSlots": 4,
         "dynamicSlot": false,
+        "totalCpuCores": 8,
+        "availableCpuCores": 2,
+        "totalHeapMemoryBytes": 17179869184,
+        "availableHeapMemoryBytes": 4294967296,
         "cpuUsage": 0.83,
         "memUsage": 0.64,
         "runningJobIds": [
@@ -960,6 +1042,10 @@ The name of the uploaded file key is config_file, and supports the following for
 - `.json` files: parsed in JSON format
 - `.conf` or `.config` files: parsed in HOCON format
 - `.sql` files: parsed in SQL format, supports CREATE TABLE and INSERT INTO syntax
+
+The upload is limited to `seatunnel.engine.http.upload-max-file-size-mb` (10 MB by default) per
+file and `upload-max-request-size-mb` (10 MB by default) per request. A larger upload is rejected
+before the config is parsed.
 
 curl Example :
 ```bash

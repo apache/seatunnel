@@ -168,6 +168,12 @@ public final class ConfigShadeUtils {
                 "Miss <Sink> config! Please check the config file.");
         try {
             ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
+            if (Base64ConfigShade.IDENTIFIER.equals(identifier)) {
+                log.warn(
+                        "Config shade '{}' encodes sensitive options, it does not encrypt them:"
+                                + " anyone who reads the config can decode the values.",
+                        Base64ConfigShade.IDENTIFIER);
+            }
             // call open method before the encrypt/decrypt
             configShade.open(props);
 
