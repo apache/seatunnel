@@ -178,7 +178,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                                     String oldComment = table.getComment();
                                     AlterTableCommentEvent newEvent =
                                             AlterTableCommentEvent.of(
-                                                    commentEvent.getTableIdentifier(),
+                                                    table.getTableId(),
                                                     oldComment,
                                                     commentEvent.getNewComment());
                                     newEvent.setSourceDialectName(getSourceDialectName());

@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaRefreshSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -37,6 +39,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,6 +66,42 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
 
     /** Unrelated physical sink used to verify strict isolation. */
     private static final String PHYSICAL_SINK_OTHER = "catalog.other.users";
+
+    /** Verifies that the composite writer exposes refresh capability to the engine. */
+    @Test
+    void refreshSchemaDelegatesToEveryAffectedSubWriter() throws IOException {
+        CoordinatedRecordingSinkWriter sinkForA =
+                new CoordinatedRecordingSinkWriter(PHYSICAL_SINK_SHARED);
+        CoordinatedRecordingSinkWriter sinkForB =
+                new CoordinatedRecordingSinkWriter(PHYSICAL_SINK_SHARED);
+        CoordinatedRecordingSinkWriter sinkForC =
+                new CoordinatedRecordingSinkWriter(PHYSICAL_SINK_OTHER);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
+        writers.put(SinkIdentifier.of("dbA.users", 0), sinkForA);
+        writers.put(SinkIdentifier.of("dbB.users", 0), sinkForB);
+        writers.put(SinkIdentifier.of("dbC.users", 0), sinkForC);
+        MultiTableSinkWriter coordinator =
+                new MultiTableSinkWriter(writers, 1, buildContextMap(writers));
+        CatalogTable evolvedSchema = createCatalogTable(TablePath.of("dbA", null, "users"));
+
+        coordinator.refreshSchema(evolvedSchema);
+
+        assertEquals(1, sinkForA.getRefreshCount());
+        assertEquals(1, sinkForB.getRefreshCount());
+        assertEquals(0, sinkForC.getRefreshCount());
+        assertEquals(evolvedSchema, sinkForA.getRefreshedSchema());
+        assertEquals(evolvedSchema, sinkForB.getRefreshedSchema());
+    }
+
+    private static CatalogTable createCatalogTable(TablePath tablePath) {
+        return CatalogTable.of(
+                TableIdentifier.of("test", tablePath),
+                TableSchema.builder().build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
+    }
 
     /**
      * Verifies the classic multi-table template case: the source-matched writer receives the event
@@ -577,6 +616,32 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         /** Returns the number of schema-change invocations received by this writer. */
         int getInvocationCount() {
             return invocationCount.get();
+        }
+    }
+
+    /** Records local refreshes independently from the legacy combined schema-change callback. */
+    private static class CoordinatedRecordingSinkWriter extends RecordingSinkWriter
+            implements SupportSchemaRefreshSinkWriter {
+
+        private final AtomicInteger refreshCount = new AtomicInteger();
+        private CatalogTable refreshedSchema;
+
+        private CoordinatedRecordingSinkWriter(String physicalSinkIdentifier) {
+            super(physicalSinkIdentifier);
+        }
+
+        @Override
+        public void refreshSchema(CatalogTable evolvedSchema) {
+            refreshedSchema = evolvedSchema;
+            refreshCount.incrementAndGet();
+        }
+
+        private int getRefreshCount() {
+            return refreshCount.get();
+        }
+
+        private CatalogTable getRefreshedSchema() {
+            return refreshedSchema;
         }
     }
 

@@ -281,4 +281,16 @@ You need to check this document before you upgrade to related version.
 
 ### Engine Behavior Changes
 
+- **Breaking Change: Unconfigured Flink sink parallelism now follows the Flink execution environment**
+  - **Affected component**: Flink streaming jobs that configure neither sink-level nor environment-level `parallelism`.
+  - **Description**: Flink sink parallelism resolution is now consistent across supported Flink versions. The sink operator and schema-refresh barrier inherit the Flink execution environment's default parallelism, and the same resolved value is exposed through `SinkWriter.Context#getNumberOfParallelSubtasks()`. Previously, Flink 1.13 forced such sinks to parallelism `1`, while some other Flink paths created multiple sink writers but reported `1` to the connector.
+  - **Impact**: After upgrading, Flink 1.13 may create more sink writers, and connectors may observe a value greater than `1` from `getNumberOfParallelSubtasks()`. This can increase sink connections and external-system concurrency.
+  - **Migration Guide**: Set sink-level `parallelism = 1` explicitly to preserve the previous single-writer behavior. Otherwise, verify that the Flink execution environment's default parallelism provides the desired sink concurrency.
+
+- **Breaking Change: Flink schema-evolution jobs use a coordinated operator topology**
+  - **Affected component**: Flink streaming jobs that restore an older checkpoint or savepoint while using a sink that opts into coordinated schema evolution, including JDBC sinks.
+  - **Description**: Schema evolution now separates external DDL application from writer-local schema refresh and adds checkpointed coordination operators to the Flink job graph. Checkpoints and savepoints created with the previous schema-evolution topology are not guaranteed to restore into the new topology.
+  - **Impact**: An upgrade from an earlier SeaTunnel version may reject an existing checkpoint or savepoint because the Flink operator graph and operator state have changed.
+  - **Migration Guide**: Test checkpoint or savepoint restoration before upgrading a production job. If restoration is rejected, continue running the previous SeaTunnel version or start a new job from an explicitly selected source offset or startup position appropriate for that source connector.
+
 ### Dependency Upgrades

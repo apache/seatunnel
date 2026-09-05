@@ -23,10 +23,9 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.BroadcastSchemaSinkOperator;
+import org.apache.seatunnel.translation.flink.schema.SchemaEvolutionSinkFlow;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 import org.apache.flink.streaming.api.transformations.SinkV1Adapter;
@@ -49,20 +48,17 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
 
     @Override
     protected DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
-            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig) {
+            DataStreamTableInfo stream,
+            SeaTunnelSink sink,
+            int parallelism,
+            boolean parallelismConfigured,
+            Config sinkConfig) {
         boolean isStreaming =
                 envConfig.hasPath("job.mode")
                         && STREAMING.toString().equalsIgnoreCase(envConfig.getString("job.mode"));
         DataStream<SeaTunnelRow> ds = stream.getDataStream();
         if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
-            // Insert broadcast-based schema operator to handle schema changes
-            ds =
-                    ds.transform(
-                                    "BroadcastSchemaHandler",
-                                    TypeInformation.of(SeaTunnelRow.class),
-                                    new BroadcastSchemaSinkOperator())
-                            .name("BroadcastSchemaHandler")
-                            .setParallelism(parallelism);
+            ds = SchemaEvolutionSinkFlow.coordinate(ds, sink, parallelism, parallelismConfigured);
         }
         return ds.sinkTo(
                         SinkV1Adapter.wrap(

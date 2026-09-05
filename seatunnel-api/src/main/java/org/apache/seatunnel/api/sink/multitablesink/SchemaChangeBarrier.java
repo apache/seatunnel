@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,11 +36,11 @@ final class SchemaChangeBarrier {
     @FunctionalInterface
     interface Dispatcher {
 
-        void dispatch(SchemaChangeEvent event) throws IOException;
+        void dispatch() throws IOException;
     }
 
-    /** Schema-change event being coordinated across every queue worker. */
-    private final SchemaChangeEvent event;
+    /** Table path used for log messages and queue diagnostics. */
+    private final String tablePath;
     /** Number of queue workers that must reach the barrier before the mutation can run. */
     private final int participantCount;
     /** Callback that performs the actual schema mutation once all queues are parked. */
@@ -56,9 +54,8 @@ final class SchemaChangeBarrier {
     /** Stores the first failure that should be surfaced back to the coordinator thread. */
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
 
-    SchemaChangeBarrier(
-            SchemaChangeEvent event, int participantCount, Dispatcher schemaChangeDispatcher) {
-        this.event = event;
+    SchemaChangeBarrier(String tablePath, int participantCount, Dispatcher schemaChangeDispatcher) {
+        this.tablePath = tablePath;
         this.participantCount = participantCount;
         this.schemaChangeDispatcher = schemaChangeDispatcher;
     }
@@ -71,7 +68,7 @@ final class SchemaChangeBarrier {
         if (arrivedQueues.incrementAndGet() == participantCount
                 && completedOrFailed.compareAndSet(false, true)) {
             try {
-                schemaChangeDispatcher.dispatch(event);
+                schemaChangeDispatcher.dispatch();
             } catch (Throwable throwable) {
                 failure.compareAndSet(null, throwable);
             } finally {
@@ -109,7 +106,7 @@ final class SchemaChangeBarrier {
 
     /** Returns the source table path for log messages and queue debug output. */
     String getTablePath() {
-        return event.tablePath().getFullName();
+        return tablePath;
     }
 
     private void rethrowFailureIfNeeded() throws IOException {

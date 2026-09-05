@@ -119,13 +119,16 @@ public abstract class AbstractSourceExecuteProcessor
                     && enableSchemaChange
                     && sourceTableInfo.getSource() instanceof SupportSchemaEvolution) {
                 evolvedStream =
-                        sourceStream.transform(
-                                "schema-evolution",
-                                TypeInformation.of(SeaTunnelRow.class),
-                                createSchemaOperator(
-                                        jobContext.getJobId(),
-                                        (SupportSchemaEvolution) sourceTableInfo.getSource(),
-                                        pluginConfig));
+                        sourceStream
+                                .transform(
+                                        "schema-evolution",
+                                        TypeInformation.of(SeaTunnelRow.class),
+                                        createSchemaOperator(
+                                                jobContext.getJobId(),
+                                                (SupportSchemaEvolution)
+                                                        sourceTableInfo.getSource(),
+                                                pluginConfig))
+                                .setParallelism(sourceStream.getParallelism());
             }
 
             if (evolvedStream != null) {

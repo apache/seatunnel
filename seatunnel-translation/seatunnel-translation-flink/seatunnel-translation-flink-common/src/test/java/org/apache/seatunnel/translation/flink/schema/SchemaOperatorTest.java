@@ -26,11 +26,8 @@ import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
-import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.api.common.state.BroadcastState;
@@ -65,21 +62,13 @@ import java.util.Set;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SchemaOperatorTest {
 
     @Test
     void testWaitRoundBeforeReleasingBufferedRecords() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
-
         OperatorTestContext context = createOperator(false);
-        setField(context.operator, "coordinator", coordinator);
 
         AlterTableAddColumnEvent event = createSchemaChangeEvent();
         SeaTunnelRow row = createDataRow("row-after-schema");
@@ -92,18 +81,23 @@ public class SchemaOperatorTest {
         assertTrue(context.output.records.isEmpty());
         assertEquals(10L, getLongField(context.operator, "firstSeenCheckpointId"));
         assertEquals(2, getPendingQueue(context.operator).size());
-        Mockito.verifyNoInteractions(coordinator);
 
         context.operator.notifyCheckpointComplete(11L);
 
-        assertEquals(2, context.output.records.size());
+        assertEquals(1, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(11L, getLongField(context.operator, "schemaChangeDispatchedCheckpointId"));
+        assertEquals(2, getPendingQueue(context.operator).size());
+
+        context.operator.notifyCheckpointComplete(12L);
+
+        assertEquals(2, context.output.records.size());
         assertEquals(row, context.output.records.get(1).getValue());
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
         assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
+        assertEquals(-1L, getLongField(context.operator, "schemaChangeDispatchedCheckpointId"));
         assertTrue(getPendingQueue(context.operator).isEmpty());
-        Mockito.verify(coordinator)
-                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
     }
 
     @Test
@@ -117,62 +111,41 @@ public class SchemaOperatorTest {
         originalContext.operator.processElement(new StreamRecord<>(createSchemaRow(event), 200L));
         originalContext.operator.processElement(new StreamRecord<>(row, 201L));
         originalContext.operator.notifyCheckpointComplete(20L);
-        originalContext.operator.snapshotState(snapshotContext(20L));
-
-        LocalSchemaCoordinator restoredCoordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        restoredCoordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
+        originalContext.operator.notifyCheckpointComplete(21L);
+        originalContext.operator.snapshotState(snapshotContext(22L));
 
         OperatorTestContext restoredContext = createOperator(stateStore, true);
-        setField(restoredContext.operator, "coordinator", restoredCoordinator);
 
         assertEquals(20L, getLongField(restoredContext.operator, "firstSeenCheckpointId"));
+        assertEquals(
+                21L, getLongField(restoredContext.operator, "schemaChangeDispatchedCheckpointId"));
         assertEquals(2, getPendingQueue(restoredContext.operator).size());
         assertTrue(getBooleanField(restoredContext.operator, "schemaChangePending"));
 
-        restoredContext.operator.notifyCheckpointComplete(21L);
+        restoredContext.operator.notifyCheckpointComplete(22L);
 
-        assertEquals(2, restoredContext.output.records.size());
-        assertSchemaBroadcast(restoredContext.output.records.get(0), event);
-        assertEquals(row, restoredContext.output.records.get(1).getValue());
+        assertEquals(1, restoredContext.output.records.size());
+        assertEquals(row, restoredContext.output.records.get(0).getValue());
         assertTrue(getPendingQueue(restoredContext.operator).isEmpty());
         assertFalse(getBooleanField(restoredContext.operator, "schemaChangePending"));
-        Mockito.verify(restoredCoordinator)
-                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
     }
 
     @Test
-    void testCoordinationFailureKeepsBufferedRecordsBlocked() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
+    void testDispatchedSchemaChangeKeepsBufferedRecordsBlocked() throws Exception {
         AlterTableAddColumnEvent event = createSchemaChangeEvent();
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenThrow(
-                        SchemaCoordinationException.timeout(
-                                event.tableIdentifier(),
-                                "job-under-test",
-                                1L,
-                                new RuntimeException("timeout")));
-
         OperatorTestContext context = createOperator(false);
-        setField(context.operator, "coordinator", coordinator);
 
         SeaTunnelRow row = createDataRow("must-stay-buffered");
         context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 300L));
         context.operator.processElement(new StreamRecord<>(row, 301L));
         context.operator.notifyCheckpointComplete(30L);
-
-        assertThrows(
-                SchemaEvolutionException.class,
-                () -> context.operator.notifyCheckpointComplete(31L));
+        context.operator.notifyCheckpointComplete(31L);
 
         assertEquals(1, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
         assertEquals(30L, getLongField(context.operator, "firstSeenCheckpointId"));
+        assertEquals(31L, getLongField(context.operator, "schemaChangeDispatchedCheckpointId"));
         Queue<SchemaOperator.BufferedRecord> pendingQueue = getPendingQueue(context.operator);
         assertEquals(2, pendingQueue.size());
         assertTrue(pendingQueue.peek().isSchemaChange);
@@ -194,6 +167,7 @@ public class SchemaOperatorTest {
         context.operator.processElement(new StreamRecord<>(row, 401L));
         context.operator.notifyCheckpointComplete(40L);
         context.operator.notifyCheckpointComplete(41L);
+        context.operator.notifyCheckpointComplete(42L);
 
         assertEquals(2, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
@@ -214,14 +188,7 @@ public class SchemaOperatorTest {
      */
     @Test
     void testFallbackTimerRespectsCheckpointSafetyFence() throws Exception {
-        LocalSchemaCoordinator coordinator = Mockito.mock(LocalSchemaCoordinator.class);
-        Mockito.when(
-                        coordinator.requestSchemaChange(
-                                Mockito.any(), Mockito.anyLong(), Mockito.anyLong()))
-                .thenReturn(true);
-
         OperatorTestContext context = createOperator(false);
-        setField(context.operator, "coordinator", coordinator);
 
         AlterTableAddColumnEvent event = createSchemaChangeEvent();
         SeaTunnelRow row = createDataRow("row-released-after-fallback");
@@ -238,7 +205,6 @@ public class SchemaOperatorTest {
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
         assertEquals(2, getPendingQueue(context.operator).size());
         assertEquals(-1L, getLongField(context.operator, "firstSeenCheckpointId"));
-        Mockito.verifyNoInteractions(coordinator);
 
         // Complete the first post-DDL checkpoint — sets firstSeenCheckpointId, not yet safe to
         // apply (need one additional round, so notifyCheckpointComplete stops here).
@@ -247,7 +213,6 @@ public class SchemaOperatorTest {
         assertTrue(context.output.records.isEmpty());
         assertEquals(40L, getLongField(context.operator, "firstSeenCheckpointId"));
         assertTrue(getBooleanField(context.operator, "schemaChangePending"));
-        Mockito.verifyNoInteractions(coordinator);
 
         // Simulate checkpoint stall: move lastCheckpointCompletedMs into the past beyond
         // CHECKPOINT_STALL_TIMEOUT_MS (15 s). This mirrors the Flink 1.13 behaviour where
@@ -258,16 +223,21 @@ public class SchemaOperatorTest {
                 System.currentTimeMillis() - 20_000L);
 
         // Simulate timer firing again. firstSeenCheckpointId >= 0 and checkpoint has stalled,
-        // so the safety fence is satisfied — the DDL can now be applied.
+        // so the safety fence is satisfied — the DDL can now be dispatched. Data must remain
+        // buffered until a later checkpoint confirms downstream processing.
         invokeNoArgMethod(context.operator, "handleFallbackTimerOnTaskThread");
 
-        assertEquals(2, context.output.records.size());
+        assertEquals(1, context.output.records.size());
         assertSchemaBroadcast(context.output.records.get(0), event);
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(40L, getLongField(context.operator, "schemaChangeDispatchedCheckpointId"));
+
+        context.operator.notifyCheckpointComplete(41L);
+
+        assertEquals(2, context.output.records.size());
         assertEquals(row, context.output.records.get(1).getValue());
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
         assertTrue(getPendingQueue(context.operator).isEmpty());
-        Mockito.verify(coordinator)
-                .requestSchemaChange(event.tableIdentifier(), event.getCreatedTime(), 300_000L);
     }
 
     private static OperatorTestContext createOperator(boolean restored) throws Exception {

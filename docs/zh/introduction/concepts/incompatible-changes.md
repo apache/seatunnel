@@ -254,4 +254,16 @@
 
 ### 引擎行为变更
 
+- **破坏性变更：未显式配置的 Flink Sink 并行度现在遵循 Flink 执行环境**
+  - **影响范围**：未在 Sink 或环境级别配置 `parallelism` 的 Flink 流式作业。
+  - **变更说明**：Flink Sink 的并行度解析现在在各个受支持的 Flink 版本之间保持一致。Sink 算子和 schema refresh barrier 会继承 Flink 执行环境的默认并行度，并通过 `SinkWriter.Context#getNumberOfParallelSubtasks()` 暴露相同的解析结果。此前 Flink 1.13 会将此类 Sink 强制设为并行度 `1`，而其他部分 Flink 路径虽然创建了多个 Sink Writer，却向连接器报告并行度 `1`。
+  - **影响**：升级后，Flink 1.13 可能创建更多 Sink Writer，连接器也可能从 `getNumberOfParallelSubtasks()` 获取大于 `1` 的值。这可能增加 Sink 连接数以及外部系统的并发量。
+  - **迁移指南**：如需保留原有的单 Writer 行为，请在 Sink 中显式设置 `parallelism = 1`。否则，请确认 Flink 执行环境的默认并行度符合预期的 Sink 并发量。
+
+- **破坏性变更：Flink schema evolution 作业使用新的协调算子拓扑**
+  - **影响范围**：使用支持 coordinated schema evolution 的 Sink（包括 JDBC Sink），并尝试从旧 checkpoint 或 savepoint 恢复的 Flink 流式作业。
+  - **变更说明**：Schema evolution 现在将外部 DDL 执行与 Writer 本地 schema refresh 分离，并在 Flink 作业图中增加带 checkpoint 状态的协调算子。使用旧 schema evolution 拓扑创建的 checkpoint 和 savepoint 不保证能够恢复到新拓扑。
+  - **影响**：从旧版本 SeaTunnel 升级时，由于 Flink 算子图和算子状态发生变化，已有 checkpoint 或 savepoint 可能被拒绝恢复。
+  - **迁移指南**：升级生产作业前，请先测试 checkpoint 或 savepoint 恢复。如果恢复被拒绝，请继续使用旧版本 SeaTunnel，或者根据 source connector 的能力，从明确指定的 source offset 或 startup position 启动新作业。
+
 ### 依赖升级
