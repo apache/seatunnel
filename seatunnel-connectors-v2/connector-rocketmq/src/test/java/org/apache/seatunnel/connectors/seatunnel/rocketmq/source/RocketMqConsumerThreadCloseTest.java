@@ -41,18 +41,18 @@ import static org.mockito.Mockito.verify;
 
 /**
  * Covers the close-ordering fix for {@link RocketMqConsumerThread} and {@link
- * RocketMqSourceReader}: a reader must stop the underlying RocketMQ client of every consumer
- * thread it owns before it interrupts the thread pool. {@code DefaultLitePullConsumer#poll(long)}
- * blocks on network I/O that plain thread interruption does not reliably unblock, so relying on
- * {@code ExecutorService#shutdownNow()} alone could leave a consumer thread stuck mid-poll instead
- * of returning promptly through {@link RocketMqConsumerThread#run()}'s {@code finally} block.
+ * RocketMqSourceReader}: a reader must stop the underlying RocketMQ client of every consumer thread
+ * it owns before it interrupts the thread pool. {@code DefaultLitePullConsumer#poll(long)} blocks
+ * on network I/O that plain thread interruption does not reliably unblock, so relying on {@code
+ * ExecutorService#shutdownNow()} alone could leave a consumer thread stuck mid-poll instead of
+ * returning promptly through {@link RocketMqConsumerThread#run()}'s {@code finally} block.
  */
 class RocketMqConsumerThreadCloseTest {
 
     /**
-     * {@link RocketMqConsumerThread#close()} must shut down its RocketMQ client directly, not
-     * only rely on the run-loop's own {@code finally} block, which only fires once the thread
-     * notices the interrupt - something a blocking {@code poll()} call is not guaranteed to do.
+     * {@link RocketMqConsumerThread#close()} must shut down its RocketMQ client directly, not only
+     * rely on the run-loop's own {@code finally} block, which only fires once the thread notices
+     * the interrupt - something a blocking {@code poll()} call is not guaranteed to do.
      */
     @Test
     void closeShutsDownUnderlyingConsumerClient() throws Exception {
