@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -137,6 +139,31 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
         Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
         Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
+    }
+
+    @Test
+    void multiTableSinkMetricsPreserveSchemaFirstSourceTableId() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        TablePath sourceTable = TablePath.of("PDC_SCHEMA.CUSTOMER", true);
+        TablePath targetTable = TablePath.of("target_db", "CUSTOMER");
+        MultiTableSink multiTableSink = Mockito.mock(MultiTableSink.class);
+        Mockito.when(multiTableSink.getSinkTables())
+                .thenReturn(Collections.singletonList(targetTable));
+        Mockito.when(multiTableSink.getSinkTableMapping())
+                .thenReturn(Collections.singletonMap(sourceTable, targetTable));
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createMultiTableFlow(metrics, new TestSinkWriter(false), multiTableSink);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1});
+        row.setTableId("PDC_SCHEMA.CUSTOMER");
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(
+                1L, metrics.counter(SINK_WRITE_COUNT + "#" + targetTable.getFullName()).getCount());
+        Assertions.assertEquals(
+                0L,
+                metrics.counter(SINK_WRITE_COUNT + "#" + TablePath.DEFAULT.getFullName())
+                        .getCount());
     }
 
     @Test
@@ -439,6 +466,38 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                         metrics);
         setField(flow, "writer", writer);
         setField(flow, "stageErrorHandler", handler);
+        setField(flow, "stainTraceMaxEntriesPerTrace", 32);
+        setField(flow, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("truncated"));
+        return flow;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createMultiTableFlow(
+            SeaTunnelMetricsContext metrics,
+            SinkWriter<SeaTunnelRow, String, String> writer,
+            MultiTableSink multiTableSink)
+            throws Exception {
+        SinkAction<SeaTunnelRow, String, String, String> action =
+                new SinkAction<>(
+                        7L,
+                        "sink",
+                        (SeaTunnelSink) multiTableSink,
+                        Collections.emptySet(),
+                        Collections.emptySet());
+        SeaTunnelTask task = Mockito.mock(SeaTunnelTask.class);
+        Mockito.when(task.getTaskID()).thenReturn(2L);
+        Mockito.when(task.isObservabilityEnabled()).thenReturn(true);
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                new SinkFlowLifeCycle<>(
+                        action,
+                        TASK_LOCATION,
+                        0,
+                        task,
+                        null,
+                        false,
+                        new CompletableFuture<>(),
+                        metrics);
+        setField(flow, "writer", writer);
         setField(flow, "stainTraceMaxEntriesPerTrace", 32);
         setField(flow, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("truncated"));
         return flow;
