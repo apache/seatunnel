@@ -72,6 +72,7 @@
         <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-google-pubsub-e2e</module>
+        <module>connector-snmp-e2e</module>
         <module>connector-azure-queue-storage-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->

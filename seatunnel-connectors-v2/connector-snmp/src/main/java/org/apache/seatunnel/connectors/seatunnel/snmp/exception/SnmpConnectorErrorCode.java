@@ -21,7 +21,11 @@ import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 
 public enum SnmpConnectorErrorCode implements SeaTunnelErrorCode {
     CONNECTION_FAILED("SNMP-01", "SNMP client initialization failed"),
-    POLL_FAILED("SNMP-02", "SNMP poll failed");
+    POLL_FAILED("SNMP-02", "SNMP poll failed"),
+    WRITE_FAILED("SNMP-03", "SNMP SET request failed"),
+    INVALID_CONFIG("SNMP-04", "Invalid SNMP connector configuration"),
+    INVALID_ROW("SNMP-05", "Invalid SNMP sink row"),
+    CLOSE_FAILED("SNMP-06", "SNMP client close failed");
 
     private final String code;
     private final String description;

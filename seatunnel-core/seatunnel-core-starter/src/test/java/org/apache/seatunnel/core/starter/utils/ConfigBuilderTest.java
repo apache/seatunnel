@@ -102,6 +102,25 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testConfigDesensitizationMasksSnmpCommunity() {
+        Map<String, Object> sink = new LinkedHashMap<>();
+        sink.put("host", "127.0.0.1");
+        sink.put("community", "private-community");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("sink", Arrays.asList(sink));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sinks = (List<?>) desensitized.get("sink");
+        Map<?, ?> desensitizedSink = (Map<?, ?>) sinks.get(0);
+
+        Assertions.assertEquals("******", desensitizedSink.get("community"));
+        Assertions.assertEquals("127.0.0.1", desensitizedSink.get("host"));
+    }
+
+    @Test
     public void testConfigDesensitizationMasksS3CredentialOptions() {
         Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
         accessKeyConfig.put("key", "access-key");

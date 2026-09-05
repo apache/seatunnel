@@ -22,11 +22,25 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ObjectInputStream;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
 class SnmpSourceConfigTest {
+
+    private static final String LEGACY_SERIALIZED_CONFIG =
+            "rO0ABXNyAEZvcmcuYXBhY2hlLnNlYXR1bm5lbC5jb25uZWN0b3JzLnNlYXR1bm5lbC5zbm1wLmNv"
+                    + "bmZpZy5Tbm1wU291cmNlQ29uZmlnAAAAAAAAAAECAAdKABJwb2xsSW50ZXJ2YWxNaWxsaXNJAARw"
+                    + "b3J0SQAHcmV0cmllc0oADXRpbWVvdXRNaWxsaXNMAAljb21tdW5pdHl0ABJMamF2YS9sYW5nL1N0"
+                    + "cmluZztMAARob3N0cQB+AAFMAARvaWRzdAAQTGphdmEvdXRpbC9MaXN0O3hwAAAAAAAA6mAAAACh"
+                    + "AAAAAQAAAAAAABOIdAAGcHVibGljdAAJMTI3LjAuMC4xc3IAI2phdmEudXRpbC5Db2xsZWN0aW9u"
+                    + "cyRTaW5nbGV0b25MaXN0Ku8pEDynm5cCAAFMAAdlbGVtZW50dAASTGphdmEvbGFuZy9PYmplY3Q7"
+                    + "eHBzcgASb3JnLnNubXA0ai5zbWkuT0lEaGJUgLBTOnQCAAFbAAV2YWx1ZXQAAltJeHIAH29yZy5z"
+                    + "bm1wNGouc21pLkFic3RyYWN0VmFyaWFibGUTXwXE8DKuiAIAAHhwdXIAAltJTbpgJnbqsqUCAAB4"
+                    + "cAAAAAQAAAABAAAAAwAAAAYAAAAB";
 
     @Test
     void testDefaultsAndOidNormalization() {
@@ -115,6 +129,26 @@ class SnmpSourceConfigTest {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () -> new SnmpSourceConfig(ReadonlyConfig.fromMap(interval)));
+    }
+
+    @Test
+    void testDeserializesLegacySerializedLayout() throws Exception {
+        byte[] serialized = Base64.getDecoder().decode(LEGACY_SERIALIZED_CONFIG);
+
+        SnmpSourceConfig config;
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            config = (SnmpSourceConfig) input.readObject();
+        }
+
+        Assertions.assertEquals("127.0.0.1", config.getHost());
+        Assertions.assertEquals(161, config.getPort());
+        Assertions.assertEquals("public", config.getCommunity());
+        Assertions.assertEquals(5000L, config.getTimeoutMillis());
+        Assertions.assertEquals(1, config.getRetries());
+        Assertions.assertEquals(60000L, config.getPollIntervalMillis());
+        Assertions.assertEquals(1, config.getOids().size());
+        Assertions.assertEquals("1.3.6.1", config.getOids().get(0).toString());
     }
 
     static Map<String, Object> baseConfig() {
