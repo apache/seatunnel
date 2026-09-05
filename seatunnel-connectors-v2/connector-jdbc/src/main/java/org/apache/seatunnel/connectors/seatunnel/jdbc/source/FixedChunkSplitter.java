@@ -44,6 +44,8 @@ import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -199,16 +201,11 @@ public class FixedChunkSplitter extends ChunkSplitter {
     private Collection<JdbcSourceSplit> getJdbcSourceSplits(
             JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
             throws SQLException {
-        BigDecimal partitionStart =
-                StringUtils.isBlank(table.getPartitionStart())
-                        ? null
-                        : new BigDecimal(table.getPartitionStart());
-        BigDecimal partitionEnd =
-                StringUtils.isBlank(table.getPartitionEnd())
-                        ? null
-                        : new BigDecimal(table.getPartitionEnd());
+        BigDecimal partitionStart = parsePartitionBound(table.getPartitionStart(), splitKeyType);
+        BigDecimal partitionEnd = parsePartitionBound(table.getPartitionEnd(), splitKeyType);
         if (partitionStart == null || partitionEnd == null) {
-            Pair<BigDecimal, BigDecimal> range = findSplitColumnRange(table, splitKeyName);
+            Pair<BigDecimal, BigDecimal> range =
+                    findSplitColumnRange(table, splitKeyName, splitKeyType);
             partitionStart = range.getLeft();
             partitionEnd = range.getRight();
         }
@@ -424,8 +421,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
                             table.getQuery(),
                             splitKeyName,
                             splitKeyType,
-                            parameterValues[i][0],
-                            parameterValues[i][1]);
+                            convertSplitBoundary(splitKeyType, parameterValues[i][0]),
+                            convertSplitBoundary(splitKeyType, parameterValues[i][1]));
             splits.add(split);
         }
         return splits;
@@ -521,18 +518,106 @@ public class FixedChunkSplitter extends ChunkSplitter {
         return Pair.of(((String) min), ((String) max));
     }
 
+    /** Converts temporal DATE min/max values to epoch days before numeric range arithmetic. */
     private Pair<BigDecimal, BigDecimal> findSplitColumnRange(
-            JdbcSourceTable table, String columnName) throws SQLException {
+            JdbcSourceTable table, String columnName, SeaTunnelDataType splitKeyType)
+            throws SQLException {
         Pair<Object, Object> splitColumnRange = queryMinMax(table, columnName);
         Object min = splitColumnRange.getLeft();
         Object max = splitColumnRange.getRight();
         if (min != null) {
-            min = convertToBigDecimal(min);
+            min = convertToBigDecimal(min, splitKeyType);
         }
         if (max != null) {
-            max = convertToBigDecimal(max);
+            max = convertToBigDecimal(max, splitKeyType);
         }
         return Pair.of(((BigDecimal) min), ((BigDecimal) max));
+    }
+
+    /**
+     * Parses partition bounds into the unit used by the numeric splitter.
+     *
+     * <p>DATE values use epoch days. The numeric fallback preserves compatibility with existing
+     * configurations that supplied raw epoch-day values.
+     */
+    private BigDecimal parsePartitionBound(String bound, SeaTunnelDataType splitKeyType) {
+        if (StringUtils.isBlank(bound)) {
+            return null;
+        }
+        SqlType sqlType = splitKeyType.getSqlType();
+        boolean temporalSplitKey =
+                SqlType.DATE.equals(sqlType)
+                        || SqlType.TIME.equals(sqlType)
+                        || SqlType.TIMESTAMP.equals(sqlType)
+                        || SqlType.TIMESTAMP_TZ.equals(sqlType);
+        if (SqlType.DATE.equals(sqlType)) {
+            try {
+                return BigDecimal.valueOf(LocalDate.parse(bound).toEpochDay());
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+        try {
+            BigDecimal numericBound = new BigDecimal(bound);
+            if (temporalSplitKey && numericBound.stripTrailingZeros().scale() > 0) {
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Temporal partition bounds must be whole numbers: " + bound);
+            }
+            return numericBound;
+        } catch (NumberFormatException e) {
+            if (temporalSplitKey) {
+                String expectedFormat =
+                        SqlType.DATE.equals(sqlType)
+                                ? "yyyy-MM-dd or a whole epoch-day number."
+                                : "a whole epoch-millisecond number.";
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Invalid "
+                                + sqlType
+                                + " partition bound '"
+                                + bound
+                                + "'. Expected "
+                                + expectedFormat,
+                        e);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Converts numeric split boundaries back to JDBC temporal values before parameter binding. DATE
+     * uses epoch days; TIME and TIMESTAMP use epoch milliseconds.
+     */
+    private Serializable convertSplitBoundary(
+            SeaTunnelDataType splitKeyType, Serializable splitBoundary) {
+        if (!(splitBoundary instanceof BigDecimal)) {
+            return splitBoundary;
+        }
+        BigDecimal boundary = (BigDecimal) splitBoundary;
+        if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
+            return Date.valueOf(LocalDate.ofEpochDay(boundary.longValueExact()));
+        } else if (SqlType.TIME.equals(splitKeyType.getSqlType())) {
+            return new Time(boundary.longValueExact());
+        } else if (SqlType.TIMESTAMP.equals(splitKeyType.getSqlType())
+                || SqlType.TIMESTAMP_TZ.equals(splitKeyType.getSqlType())) {
+            return new Timestamp(boundary.longValueExact());
+        }
+        return splitBoundary;
+    }
+
+    /**
+     * Converts DATE min/max results to epoch days, including drivers returning DATE as TIMESTAMP.
+     */
+    private BigDecimal convertToBigDecimal(Object o, SeaTunnelDataType splitKeyType) {
+        if (SqlType.DATE.equals(splitKeyType.getSqlType())) {
+            if (o instanceof Date) {
+                return BigDecimal.valueOf(((Date) o).toLocalDate().toEpochDay());
+            } else if (o instanceof Timestamp) {
+                return BigDecimal.valueOf(
+                        ((Timestamp) o).toLocalDateTime().toLocalDate().toEpochDay());
+            }
+        }
+        return convertToBigDecimal(o);
     }
 
     private BigDecimal convertToBigDecimal(Object o) {
