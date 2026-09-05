@@ -36,7 +36,9 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.catalog.PaimonCatalog;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfiguration;
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkWriter;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
 
 import org.junit.jupiter.api.AfterEach;
@@ -225,6 +227,26 @@ public class PaimonWriteTest {
                         return null;
                     }
                 };
+    }
+
+    @Test
+    void testWriterStateSerializerIsRegistered() throws Exception {
+        PaimonSink sink =
+                new PaimonSink(
+                        readonlyConfig,
+                        CatalogTable.of(
+                                TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, TABLE_NAME),
+                                schemaBuilder.build(),
+                                new HashMap<>(),
+                                new ArrayList<>(),
+                                "test table"));
+
+        Assertions.assertTrue(sink.getWriterStateSerializer().isPresent());
+        PaimonSinkState state = new PaimonSinkState(new ArrayList<>(), "commit-user", 42L);
+        PaimonSinkState restored =
+                sink.getWriterStateSerializer().get().deserialize(
+                        sink.getWriterStateSerializer().get().serialize(state));
+        Assertions.assertEquals(state, restored);
     }
 
     @Test
