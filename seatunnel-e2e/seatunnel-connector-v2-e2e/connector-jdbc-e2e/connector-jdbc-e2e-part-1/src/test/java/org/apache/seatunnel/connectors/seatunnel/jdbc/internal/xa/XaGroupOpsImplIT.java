@@ -35,6 +35,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -70,6 +71,14 @@ class XaGroupOpsImplIT {
         mc =
                 new MySQLContainer<>(DockerImageName.parse(MYSQL_DOCKER_IMAGE))
                         .withUsername("root")
+                        // AbstractJdbcIT#tearDown removes the database image from the Docker
+                        // daemon after every JDBC IT (JdbcMysqlIT uses this same image and runs
+                        // in the same surefire JVM right before this class). Testcontainers
+                        // caches "image is present" per JVM, so the default pull policy skips
+                        // the pull and container creation fails with
+                        // "No such image: mysql:8.0.43". Always pull so the image is re-fetched
+                        // whenever a previous test removed it.
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(MYSQL_DOCKER_IMAGE)));
