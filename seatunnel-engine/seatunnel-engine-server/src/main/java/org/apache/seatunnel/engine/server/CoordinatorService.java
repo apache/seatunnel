@@ -658,67 +658,7 @@ public class CoordinatorService {
         restoreAllJobFromMasterNodeSwitchFuture =
                 new PassiveCompletableFuture(
                         CompletableFuture.runAsync(
-                                this::restoreAllRunningJobFromMasterNodeSwitchWithRetry,
-                                executorService));
-    }
-
-    /**
-     * Retries {@link #restoreAllRunningJobFromMasterNodeSwitch()} until it succeeds or this
-     * activation is superseded, instead of running it once, fire-and-forget.
-     *
-     * <p>Before this method existed, {@code initCoordinatorService} submitted {@code
-     * restoreAllRunningJobFromMasterNodeSwitch} directly to {@code CompletableFuture.runAsync(...)}
-     * with no exception handler attached. Any exception it threw -- for example a transient {@code
-     * IMap} read failure surfacing while an overlapping membership change from a rapid master
-     * failover is still settling, or any other exception that {@code
-     * RetryUtils.retryWithException}'s own retriable-exception allowlist does not cover -- silently
-     * and permanently failed that future. Job-status read paths such as {@link #getJobMaster(long)}
-     * and the client-facing {@code getJobStatus} RPC never join on this future (only {@link
-     * #waitForJobComplete(long)} does), so callers observed no error at all: every job still
-     * needing restore simply stayed at whatever status {@code runningJobStateIMap} already held
-     * before the switch -- typically PENDING or RUNNING -- forever, with nothing retried and
-     * nothing logged above the original throw.
-     *
-     * <p>This wrapper brings restore up to the same retry-on-transient-error standard the
-     * pending-job scheduler loop in {@link #startPendingJobScheduleThread()} already applies to
-     * itself. It is guarded by {@link #coordinatorServiceCleared} -- cleared to {@code false} at
-     * the very start of the activation that starts this task, in {@link #initCoordinatorService()},
-     * and set by {@link #clearCoordinatorService()} once this node steps down -- rather than an
-     * epoch counter, because that flag already exists specifically to answer "is the activation
-     * that started me still the current one," with no epoch parameter to thread through.
-     *
-     * <p>Retrying the whole method is safe to repeat because {@link
-     * #restoreAllRunningJobFromMasterNodeSwitch()} now also excludes jobs already sitting in {@code
-     * pendingJobQueue} (not only jobs already in {@code runningJobMasterMap}) from the set it
-     * (re)restores: {@link org.apache.seatunnel.engine.server.utils.PeekBlockingQueue#put} appends
-     * unconditionally to an internal queue that is not deduplicated by job id, so without that
-     * exclusion a retry landing after a prior, partially-completed attempt had already re-enqueued
-     * some jobs would construct a second, independent {@link JobMaster} for the same job id --
-     * reintroducing the exact class of duplicate-dispatch bug this regression test suite exists to
-     * catch.
-     */
-    private void restoreAllRunningJobFromMasterNodeSwitchWithRetry() {
-        while (!coordinatorServiceCleared.get()) {
-            try {
-                restoreAllRunningJobFromMasterNodeSwitch();
-                return;
-            } catch (Throwable e) {
-                if (coordinatorServiceCleared.get()) {
-                    return;
-                }
-                logger.severe(
-                        "Restore running jobs from master node switch failed, will retry in 3s."
-                                + " Until this succeeds, jobs needing restore stay stuck in"
-                                + " their pre-switch state.",
-                        e);
-                try {
-                    Thread.sleep(3000L);
-                } catch (InterruptedException ex) {
-                    Thread.currentThread().interrupt();
-                    return;
-                }
-            }
-        }
+                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
     }
 
     private void reschedulePendingJobCleanup() {
@@ -1045,13 +985,6 @@ public class CoordinatorService {
      * local coordinator, waits for workers to register, and then recreates each missing {@link
      * JobMaster}. Each restored job is re-enqueued as a pending job so it can re-enter the normal
      * scheduling path on the new master.
-     *
-     * <p>Safe to call more than once for the same activation: {@link
-     * #restoreAllRunningJobFromMasterNodeSwitchWithRetry()} retries this method on failure, so the
-     * job-selection filter below excludes jobs already in {@code pendingJobQueue} (in addition to
-     * jobs already in {@code runningJobMasterMap}) to keep a retry from constructing a second,
-     * independent {@link JobMaster} for a job a prior, partially-completed attempt already
-     * restored.
      */
     private void restoreAllRunningJobFromMasterNodeSwitch() {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
@@ -1063,9 +996,7 @@ public class CoordinatorService {
                                             .filter(
                                                     entry ->
                                                             !runningJobMasterMap.containsKey(
-                                                                            entry.getKey())
-                                                                    && !pendingJobQueue.contains(
-                                                                            entry.getKey()))
+                                                                    entry.getKey()))
                                             .collect(Collectors.toList()),
                             new RetryUtils.RetryMaterial(
                                     Constant.OPERATION_RETRY_TIME,

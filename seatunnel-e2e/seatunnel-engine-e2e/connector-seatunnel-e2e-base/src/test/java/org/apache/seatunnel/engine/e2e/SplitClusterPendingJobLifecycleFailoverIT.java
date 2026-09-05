@@ -623,7 +623,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
     }
 
     /**
-     * Regression test for the terminal-zombie-job restore gate fixed by <
+     * Regression test for the terminal-zombie-job restore gate fixed by <a
      * href="https://github.com/apache/seatunnel/pull/10692">#10692</a> ("[Fix][Zeta] Prevent
      * terminal-state zombie jobs from being restored after master switch"). Before that fix, {@code
      * CoordinatorService#restoreAllRunningJobFromMasterNodeSwitch} funneled every entry found in
