@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
@@ -67,6 +68,24 @@ public abstract class AbstractCollector extends Collector {
 
     protected CoordinatorService getCoordinatorService() {
         return getServer().getCoordinatorService();
+    }
+
+    /**
+     * Gets the coordinator after a readiness check without failing a metrics scrape during a master
+     * transition.
+     *
+     * @return the active coordinator, or {@code null} when the coordinator is unavailable
+     */
+    protected CoordinatorService getReadyCoordinatorService() {
+        try {
+            return getCoordinatorService();
+        } catch (SeaTunnelEngineException e) {
+            getLogger(getClass())
+                    .fine(
+                            "Coordinator service is unavailable while collecting metrics; skipping this scrape",
+                            e);
+            return null;
+        }
     }
 
     // Non-blocking coordinator readiness check; call before getCoordinatorService() in collect().

@@ -18,6 +18,9 @@ target/
 /logs
 logs.zip
 
+# Local BOS integration test configs (may reference credentials)
+config/bos-local-test/
+
 # Intellij Idea files
 .idea/
 *.iml
