@@ -20,10 +20,16 @@ package org.apache.seatunnel.common.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import java.util.LinkedHashSet;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PlaceholderUtils {
+
+    private static final Pattern PLACEHOLDER_PATTERN =
+            Pattern.compile("\\$\\{\\??(?:\"([^\"]+)\"|([^{}:]+))(?::([^{}\\[\\]]*))?\\}");
 
     public static String replacePlaceholders(String input, String placeholderName, String value) {
         return replacePlaceholders(input, placeholderName, value, null);
@@ -64,5 +70,49 @@ public class PlaceholderUtils {
             }
         }
         return input;
+    }
+
+    public static Set<String> extractPlaceholderKeys(String input) {
+        Set<String> keys = new LinkedHashSet<>();
+        if (StringUtils.isBlank(input)) {
+            return keys;
+        }
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(input);
+        while (matcher.find()) {
+            String key = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            if (StringUtils.isNotBlank(key)) {
+                keys.add(key);
+            }
+        }
+        return keys;
+    }
+
+    public static String replaceAllPlaceholders(
+            String input, Function<String, String> valueResolver) {
+        if (StringUtils.isBlank(input)) {
+            return input;
+        }
+        Matcher matcher = PLACEHOLDER_PATTERN.matcher(input);
+        StringBuffer result = new StringBuffer();
+
+        while (matcher.find()) {
+            String pureKey = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
+            String defaultValue = matcher.group(3);
+
+            String resolvedValue = valueResolver.apply(pureKey);
+            String replacement;
+
+            if (resolvedValue != null) {
+                replacement = resolvedValue;
+            } else if (defaultValue != null) {
+                replacement = defaultValue;
+            } else {
+                replacement = matcher.group(0);
+            }
+
+            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+        }
+        matcher.appendTail(result);
+        return result.toString();
     }
 }
