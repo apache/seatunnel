@@ -284,6 +284,22 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
+    public String getLimitClause(int limit) {
+        return " OFFSET 0 ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
+    public String getOffsetLimitClause(int offset, int limit) {
+        return " OFFSET " + offset + " ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit() {
+        // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table)
+        return true;
+    }
+
+    @Override
     public void applySchemaChange(
             Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
             throws SQLException {
