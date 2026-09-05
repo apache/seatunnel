@@ -33,6 +33,7 @@ import org.apache.seatunnel.core.starter.utils.CompressionUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
+import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 
 import java.io.File;
 import java.io.FileNotFoundException;
@@ -149,12 +150,14 @@ public class SparkStarter implements Starter {
                 new SeaTunnelSourcePluginDiscovery();
         SeaTunnelSinkPluginDiscovery seaTunnelSinkPluginDiscovery =
                 new SeaTunnelSinkPluginDiscovery();
+        SeaTunnelTransformPluginDiscovery seaTunnelTransformPluginDiscovery =
+                new SeaTunnelTransformPluginDiscovery();
         pluginJars.addAll(
                 seaTunnelSourcePluginDiscovery.getPluginJarAndDependencyPaths(
                         getPluginIdentifiers(config, PluginType.SOURCE)));
         if (config.hasPath(PluginType.TRANSFORM.getType())) {
             pluginJars.addAll(
-                    seaTunnelSinkPluginDiscovery.getPluginJarAndDependencyPaths(
+                    seaTunnelTransformPluginDiscovery.getPluginJarAndDependencyPaths(
                             getPluginIdentifiers(config, PluginType.TRANSFORM)));
         }
         pluginJars.addAll(

@@ -11,7 +11,12 @@ This document will guide you through the usage of these parameters and how to le
 
 > SeaTunnel Zeta<br/>
 > Flink<br/>
-> Spark<br/>
+
+:::note
+
+The Spark engine does **not** support `read_limit.rows_per_second` or `read_limit.bytes_per_second` at this time. Use Zeta or Flink if you need built-in speed control.
+
+:::
 
 ## Configuration
 

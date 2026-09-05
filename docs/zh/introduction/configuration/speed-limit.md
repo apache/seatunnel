@@ -10,7 +10,12 @@ SeaTunnel提供了强大的速度控制功能允许你管理数据同步的速�
 
 > SeaTunnel Zeta<br/>
 > Flink<br/>
-> Spark<br/>
+
+:::note
+
+Spark 引擎目前**不支持** `read_limit.rows_per_second` 和 `read_limit.bytes_per_second`。如需内置限速能力，请使用 Zeta 或 Flink 引擎。
+
+:::
 
 ## 配置
 

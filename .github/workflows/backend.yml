@@ -1869,3 +1869,67 @@ jobs:
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-sensorsdata-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
+
+  spark-4-1-unit-test:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: build and test spark 4.1 modules
+        run: |
+          ./mvnw -B -T 1 install -pl :seatunnel-spark-4.1-starter,:seatunnel-translation-spark-4.1 -am -DskipTests -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ./mvnw -B -T 1 test -pl :seatunnel-spark-4.1-starter -Dtest=SparkStarterSubmitCommandTest -DfailIfNoTests=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  dist-spark41:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: build spark 4.1 dist tarball
+        run: |
+          ./mvnw -B -T 1 package -pl :seatunnel-dist -am -Pspark41-dist -Dmaven.test.skip=true -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ls seatunnel-dist/target/*-spark41-bin.tar.gz
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  spark-4-1-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      RUN_SPARK_41_CONTAINER: true
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run spark 4.1 integration test
+        run: |
+          ./mvnw -B -T 1 package -pl :seatunnel-spark-4.1-starter -am -DskipTests -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci
+          ./mvnw -B -T 1 verify -pl :connector-fake-e2e -am -DskipUT=true -DskipIT=false -DfailIfNoTests=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Pci -Dit.test=FakeSpark41IT
+        env:
+          MAVEN_OPTS: -Xmx4096m
