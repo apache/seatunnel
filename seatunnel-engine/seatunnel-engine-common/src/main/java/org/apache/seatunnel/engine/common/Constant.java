@@ -59,6 +59,18 @@ public class Constant {
 
     public static final String IMAP_PENDING_JOB_CLEANUP = "engine_pendingJobCleanup";
 
+    /**
+     * Stores best-effort timestamps published before a graceful shutdown so coordinators can
+     * distinguish intentional scale-down from an unproven member loss.
+     */
+    public static final String IMAP_GRACEFUL_MEMBER_REMOVAL = "engine_gracefulMemberRemoval";
+
+    /**
+     * Bounds stale graceful-shutdown markers while allowing delayed member-removed events to
+     * consume them.
+     */
+    public static final long GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS = 5 * 60 * 1000L;
+
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
     /**

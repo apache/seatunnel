@@ -219,6 +219,12 @@ public class CoordinatorService {
 
     private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
 
+    /**
+     * Stores one-time graceful-shutdown markers; a missing or stale marker keeps member removal at
+     * ERROR.
+     */
+    private IMap<Address, Long> gracefulMemberRemovalIMap;
+
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
@@ -238,6 +244,13 @@ public class CoordinatorService {
     private EventProcessor eventProcessor;
 
     private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
+
+    /**
+     * True when this coordinator has restored running jobs after taking over as the active master.
+     * Graceful-removal markers are retained for their TTL in that generation because restored jobs
+     * enter the pending scheduler before their PhysicalVertex instances inspect the marker.
+     */
+    private volatile boolean restoringRunningJobsFromMasterSwitch;
 
     private final boolean isWaitStrategy;
 
@@ -610,6 +623,7 @@ public class CoordinatorService {
 
     private void initCoordinatorService() {
         coordinatorServiceCleared.set(false);
+        restoringRunningJobsFromMasterSwitch = false;
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         runningJobStateIMap =
@@ -622,6 +636,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        gracefulMemberRemovalIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -1043,6 +1059,7 @@ public class CoordinatorService {
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
         }
+        restoringRunningJobsFromMasterSwitch = true;
         // waiting have worker registered
         while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
             try {
@@ -2096,8 +2113,81 @@ public class CoordinatorService {
         return isActive;
     }
 
+    /**
+     * Builds the offline-node message used when a deployed worker leaves the cluster. This is the
+     * single source of truth for that message: the membership-callback path in this class and the
+     * master-failover restore path in {@code PhysicalVertex} both call it, so the two consumers can
+     * never drift apart.
+     */
+    public static String buildMemberRemovedOfflineMessage(
+            @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
+        return String.format(
+                "The taskGroup(%s) deployed node(%s) offline", taskGroupLocation, lostAddress);
+    }
+
+    /**
+     * Preserves the original JobException payload shape for both graceful and unproven member
+     * removals.
+     */
+    @VisibleForTesting
+    static TaskExecutionState buildMemberRemovedFailureState(
+            @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
+        String offlineMessage = buildMemberRemovedOfflineMessage(taskGroupLocation, lostAddress);
+        return new TaskExecutionState(
+                taskGroupLocation, ExecutionState.FAILED, new JobException(offlineMessage));
+    }
+
+    /**
+     * Rejects absent and stale markers so address reuse cannot silently downgrade a later failure.
+     * This is the single TTL rule shared by the membership-callback path in this class and the
+     * master-failover restore path in {@code PhysicalVertex}; both must classify the same marker
+     * the same way.
+     */
+    public static boolean isGracefulMemberRemovalMarkerValid(Long markedAt, long nowMillis) {
+        return markedAt != null
+                && Math.abs(nowMillis - markedAt)
+                        <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS;
+    }
+
+    /**
+     * Clears a marker only after initial recovery completes and when this coordinator did not take
+     * over running jobs. A recovered job is first queued, then scheduled asynchronously, so it can
+     * inspect the marker after the recovery future completes.
+     */
+    @VisibleForTesting
+    static boolean canClearGracefulMemberRemovalMarker(
+            Long markedAt, boolean jobRestoreInProgress, boolean restoringRunningJobs) {
+        return markedAt != null && !jobRestoreInProgress && !restoringRunningJobs;
+    }
+
+    /**
+     * Reads the marker without clearing it so a failover can still reclassify the same event. The
+     * clear is decided separately by {@link #canClearGracefulMemberRemovalMarker} once recovery has
+     * finished and no restored job still needs to inspect the marker.
+     */
+    private Long getGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
+        if (gracefulMemberRemovalIMap == null) {
+            return null;
+        }
+        return gracefulMemberRemovalIMap.get(lostAddress);
+    }
+
+    /**
+     * Clears the marker after classification so later failures on the same address start clean.
+     * This complements the Hazelcast TTL and the restarting member's own clear on startup, so a
+     * reused address can never inherit a stale graceful classification.
+     */
+    private void clearGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
+        if (gracefulMemberRemovalIMap != null) {
+            gracefulMemberRemovalIMap.remove(lostAddress);
+        }
+    }
+
     public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
         Address lostAddress = event.getMember().getAddress();
+        Long markedAt = getGracefulMemberRemovalMarker(lostAddress);
+        boolean gracefulMemberRemoval =
+                isGracefulMemberRemovalMarkerValid(markedAt, System.currentTimeMillis());
         runningJobMasterMap.forEach(
                 (aLong, jobMaster) -> {
                     jobMaster
@@ -2106,15 +2196,28 @@ public class CoordinatorService {
                             .forEach(
                                     subPlan -> {
                                         makeTasksFailed(
-                                                subPlan.getCoordinatorVertexList(), lostAddress);
+                                                subPlan.getCoordinatorVertexList(),
+                                                lostAddress,
+                                                gracefulMemberRemoval);
                                         makeTasksFailed(
-                                                subPlan.getPhysicalVertexList(), lostAddress);
+                                                subPlan.getPhysicalVertexList(),
+                                                lostAddress,
+                                                gracefulMemberRemoval);
                                     });
                 });
+        boolean jobRestoreInProgress =
+                restoreAllJobFromMasterNodeSwitchFuture != null
+                        && !restoreAllJobFromMasterNodeSwitchFuture.isDone();
+        if (canClearGracefulMemberRemovalMarker(
+                markedAt, jobRestoreInProgress, restoringRunningJobsFromMasterSwitch)) {
+            clearGracefulMemberRemovalMarker(lostAddress);
+        }
     }
 
     private void makeTasksFailed(
-            @NonNull List<PhysicalVertex> physicalVertexList, @NonNull Address lostAddress) {
+            @NonNull List<PhysicalVertex> physicalVertexList,
+            @NonNull Address lostAddress,
+            boolean gracefulMemberRemoval) {
         physicalVertexList.forEach(
                 physicalVertex -> {
                     Address deployAddress = physicalVertex.getCurrentExecutionAddress();
@@ -2126,13 +2229,8 @@ public class CoordinatorService {
                                     || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
-                                new TaskExecutionState(
-                                        taskGroupLocation,
-                                        ExecutionState.FAILED,
-                                        new JobException(
-                                                String.format(
-                                                        "The taskGroup(%s) deployed node(%s) offline",
-                                                        taskGroupLocation, lostAddress))));
+                                buildMemberRemovedFailureState(taskGroupLocation, lostAddress),
+                                gracefulMemberRemoval);
                     }
                 });
     }
