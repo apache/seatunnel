@@ -19,15 +19,25 @@ package org.apache.seatunnel.connectors.cdc.base.schema;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 
 import org.apache.kafka.connect.source.SourceRecord;
 
 import java.io.Serializable;
 import java.util.List;
 
+/** Converts a Debezium schema-change record into a SeaTunnel schema-change event. */
 public interface SchemaChangeResolver extends Serializable {
 
     boolean support(SourceRecord record);
 
+    /**
+     * Resolve one schema-change record against SeaTunnel's currently tracked tables.
+     *
+     * <p>Implementations must throw {@link SchemaEvolutionException} when continuing after a
+     * resolution failure could make the produced row schema diverge from the source schema. The
+     * shared deserializer treats other exceptions as recoverable parser failures for backward
+     * compatibility and may log and skip them.
+     */
     SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables);
 }

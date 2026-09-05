@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -28,8 +30,10 @@ import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
@@ -50,6 +54,7 @@ import io.debezium.relational.history.TableChanges;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.time.ZoneId;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -57,7 +62,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism {
+        implements SupportParallelism, SupportSchemaEvolution {
 
     static final String IDENTIFIER = "Postgres-CDC";
 
@@ -67,6 +72,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         super(options, catalogTables);
         this.requireReplicaIdentityFull =
                 options.get(PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL);
+        validateSchemaEvolutionOptions(options);
     }
 
     @Override
@@ -123,6 +129,8 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
+                        .setSchemaChangeResolver(new PostgresRelationSchemaChangeResolver())
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .build();
     }
 
@@ -145,6 +153,11 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         return Optional.of("org.postgresql.Driver");
     }
 
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Collections.singletonList(SchemaChangeType.ADD_COLUMN);
+    }
+
     private void validateStartupOptions(ReadonlyConfig options, StartupConfig startupConfig) {
         if (startupConfig.getStartupMode() != StartupMode.COMMITTED_OFFSET) {
             return;
@@ -159,6 +172,19 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
                             "PostgreSQL-CDC startup.mode '%s' requires an explicit '%s' option.",
                             StartupMode.COMMITTED_OFFSET,
                             PostgresIncrementalSourceOptions.SLOT_NAME.key()));
+        }
+    }
+
+    private void validateSchemaEvolutionOptions(ReadonlyConfig options) {
+        if (options.get(SourceOptions.SCHEMA_CHANGES_ENABLED)
+                && !"pgoutput"
+                        .equalsIgnoreCase(
+                                options.get(
+                                        PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME))) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "PostgreSQL-CDC schema evolution requires '%s = pgoutput' because PostgreSQL RELATION messages provide the changed schema.",
+                            PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.key()));
         }
     }
 
