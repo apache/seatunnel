@@ -68,6 +68,15 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
     // failure can roll back only the failed batch without moving the durable commit boundary.
     private Savepoint lastSuccessfulBatchSavepoint;
+    // Tracks the Connection instance that owns the current transaction (i.e., the
+    // connection on which auto-flushed batches and savepoints were created since the
+    // last commit). When ConnectionPoolManager silently swaps the underlying connection
+    // (e.g., due to HikariCP eviction), any savepoint becomes invalid per the JDBC
+    // contract and the swapped connection has no pending work to commit — tracking the
+    // connection lets us detect the swap and either fall back to a full rollback
+    // (rollbackIfNeeded) or fail the checkpoint explicitly (commitIfNeeded) so the
+    // framework can retry from the last durable checkpoint.
+    private Connection transactionConnection;
     private Boolean supportsSavepoints;
     private boolean savepointUnsupportedLogged;
 
@@ -152,18 +161,123 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
         ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
         applyConnectionValidation(ds, jdbcSinkConfig.getJdbcConnectionConfig());
-        jdbcSinkConfig.getJdbcConnectionConfig().getProperties().forEach(ds::addDataSourceProperty);
+        // Forward remaining properties to the JDBC DataSource, excluding HikariCP pool-level
+        // properties that were already applied in applyConnectionValidation() above.
+        jdbcSinkConfig
+                .getJdbcConnectionConfig()
+                .getProperties()
+                .forEach(
+                        (key, value) -> {
+                            if (!isHikariPoolProperty(key)) {
+                                ds.addDataSourceProperty(key, value);
+                            }
+                        });
         return new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds));
     }
 
     /**
      * Configures pool-level validation for JDBC drivers that cannot pass Hikari's default
-     * Connection.isValid(timeout) probe.
+     * Connection.isValid(timeout) probe, and applies user-specified HikariCP pool-level properties
+     * from the {@code properties} configuration block.
+     *
+     * <p>HikariCP pool-level properties (e.g. {@code maxLifetime}, {@code keepaliveTime}, {@code
+     * validationTimeout}) must be set via {@code HikariDataSource} setter methods. Passing them
+     * through {@code addDataSourceProperty()} routes them to the underlying JDBC {@code
+     * DataSource}, where they are silently ignored. This method ensures all user-configured
+     * pool-level properties are properly applied.
      */
     static void applyConnectionValidation(
             HikariDataSource dataSource, JdbcConnectionConfig jdbcConnectionConfig) {
         JdbcConnectionValidationUtils.getConnectionValidationQuery(jdbcConnectionConfig)
                 .ifPresent(dataSource::setConnectionTestQuery);
+
+        // Apply HikariCP pool-level properties from the user's properties config.
+        // These properties are silently ignored when passed via addDataSourceProperty(),
+        // so they must be set explicitly on the HikariDataSource.
+        java.util.Map<String, String> props = jdbcConnectionConfig.getProperties();
+        if (props != null && !props.isEmpty()) {
+            applyHikariIntProperty(
+                    props, "maximumPoolSize", "maximum-pool-size", dataSource::setMaximumPoolSize);
+            applyHikariIntProperty(
+                    props, "minimumIdle", "minimum-idle", dataSource::setMinimumIdle);
+            applyHikariLongProperty(
+                    props,
+                    "connectionTimeout",
+                    "connection-timeout",
+                    dataSource::setConnectionTimeout);
+            applyHikariLongProperty(
+                    props, "idleTimeout", "idle-timeout", dataSource::setIdleTimeout);
+            applyHikariLongProperty(
+                    props, "maxLifetime", "max-lifetime", dataSource::setMaxLifetime);
+            applyHikariLongProperty(
+                    props, "keepaliveTime", "keepalive-time", dataSource::setKeepaliveTime);
+            applyHikariLongProperty(
+                    props,
+                    "validationTimeout",
+                    "validation-timeout",
+                    dataSource::setValidationTimeout);
+        }
+    }
+
+    private static void applyHikariIntProperty(
+            java.util.Map<String, String> props,
+            String camelKey,
+            String kebabKey,
+            java.util.function.IntConsumer setter) {
+        String value = props.get(camelKey);
+        if (value == null) {
+            value = props.get(kebabKey);
+        }
+        if (value != null) {
+            try {
+                setter.accept(Integer.parseInt(value));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid integer value for HikariCP property '{}': {}", camelKey, value);
+            }
+        }
+    }
+
+    private static void applyHikariLongProperty(
+            java.util.Map<String, String> props,
+            String camelKey,
+            String kebabKey,
+            java.util.function.LongConsumer setter) {
+        String value = props.get(camelKey);
+        if (value == null) {
+            value = props.get(kebabKey);
+        }
+        if (value != null) {
+            try {
+                setter.accept(Long.parseLong(value));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid long value for HikariCP property '{}': {}", camelKey, value);
+            }
+        }
+    }
+
+    private static final java.util.Set<String> HIKARI_POOL_PROPERTIES =
+            java.util.Collections.unmodifiableSet(
+                    new java.util.HashSet<>(
+                            java.util.Arrays.asList(
+                                    "connectionTestQuery",
+                                    "connection-test-query",
+                                    "maximumPoolSize",
+                                    "maximum-pool-size",
+                                    "minimumIdle",
+                                    "minimum-idle",
+                                    "connectionTimeout",
+                                    "connection-timeout",
+                                    "idleTimeout",
+                                    "idle-timeout",
+                                    "maxLifetime",
+                                    "max-lifetime",
+                                    "keepaliveTime",
+                                    "keepalive-time",
+                                    "validationTimeout",
+                                    "validation-timeout")));
+
+    private static boolean isHikariPoolProperty(String key) {
+        return HIKARI_POOL_PROPERTIES.contains(key);
     }
 
     @Override
@@ -393,6 +507,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             Connection connection = connectionProvider.getConnection();
             Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
             lastSuccessfulBatchSavepoint = connection.setSavepoint();
+            transactionConnection = connection;
             releaseSavepointSilently(connection, previousSavepoint);
             return true;
         } catch (SQLException e) {
@@ -438,7 +553,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
         try {
-            connection.releaseSavepoint(savepoint);
+            Connection currentConnection = connectionProvider.getConnection();
+            if (currentConnection == transactionConnection) {
+                currentConnection.releaseSavepoint(savepoint);
+            }
         } catch (SQLException e) {
             log.debug("Failed to release JDBC savepoint after moving row-error batch boundary.", e);
         }
@@ -498,19 +616,26 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (connection.getAutoCommit()) {
             return;
         }
-        if (lastSuccessfulBatchSavepoint != null) {
+        if (lastSuccessfulBatchSavepoint != null && connection == transactionConnection) {
             connection.rollback(lastSuccessfulBatchSavepoint);
         } else {
             connection.rollback();
         }
         lastSuccessfulBatchSavepoint = null;
+        transactionConnection = null;
     }
 
     private void commitIfNeeded() throws SQLException {
         Connection connection = connectionProvider.getConnection();
         if (!connection.getAutoCommit()) {
+            if (transactionConnection != null && connection != transactionConnection) {
+                throw new SQLException(
+                        "Connection was silently swapped; "
+                                + "uncommitted data from the previous connection may be lost.");
+            }
             connection.commit();
             lastSuccessfulBatchSavepoint = null;
+            transactionConnection = null;
         }
     }
 
