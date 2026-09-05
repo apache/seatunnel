@@ -47,6 +47,14 @@ public class JdbcSourceConfigTest {
         assertEquals(StringSplitStrategy.RANGE, sourceConfig.getStringSplitStrategy());
     }
 
+    @Test
+    public void testSplitAssignBatchSizeDefault() {
+        JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(ReadonlyConfig.fromMap(baseConfig()));
+        assertEquals(
+                JdbcSourceOptions.SPLIT_ASSIGN_BATCH_SIZE.defaultValue(),
+                sourceConfig.getSplitAssignBatchSize());
+    }
+
     private Map<String, Object> baseConfig() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("url", "jdbc:postgresql://localhost:5432/test");

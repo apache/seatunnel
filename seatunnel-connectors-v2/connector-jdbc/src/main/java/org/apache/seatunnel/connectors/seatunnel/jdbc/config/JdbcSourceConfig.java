@@ -47,6 +47,9 @@ public class JdbcSourceConfig implements Serializable {
     private int splitSampleShardingThreshold;
     private int splitInverseSamplingRate;
     private boolean splitSampleShardingAllow;
+    /** Max splits assigned to a reader in one handoff; see split.assign.batch-size. */
+    private int splitAssignBatchSize;
+
     private boolean decimalTypeNarrowing;
     private boolean handleBlobAsString;
     private MultiTableFailurePolicy multiTableFailurePolicy;
@@ -87,6 +90,7 @@ public class JdbcSourceConfig implements Serializable {
                 config.get(JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD));
         builder.splitInverseSamplingRate(config.get(JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE));
         builder.splitSampleShardingAllow(config.get(JdbcSourceOptions.SPLIT_ALLOW_SAMPLING));
+        builder.splitAssignBatchSize(config.get(JdbcSourceOptions.SPLIT_ASSIGN_BATCH_SIZE));
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
