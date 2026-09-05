@@ -50,6 +50,18 @@ public class FinishedJobsServlet extends PageBaseServlet {
             state = "";
         }
 
-        writeJsonWithPagination(req, resp, jobInfoService.getJobsByStateJson(state));
+        PageParams pageParams = pageParams(req);
+        if (pageParams == null) {
+            writeJson(resp, jobInfoService.getJobsByStateJson(state));
+            return;
+        }
+
+        // slice at the source: building the whole listing and paginating afterwards would do the
+        // per-job metrics and DAG lookups for every retained job just to discard all but one page
+        JobInfoService.JobPage jobPage =
+                jobInfoService.getJobsByStateJson(
+                        state, pageParams.getStart(), pageParams.getRows());
+        checkPageInRange(pageParams, jobPage.getTotal());
+        writeJsonPage(resp, jobPage.getData(), jobPage.getTotal());
     }
 }
