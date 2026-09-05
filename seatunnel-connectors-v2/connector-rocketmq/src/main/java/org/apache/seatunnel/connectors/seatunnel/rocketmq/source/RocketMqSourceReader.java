@@ -86,8 +86,6 @@ public class RocketMqSourceReader implements SourceReader<SeaTunnelRow, RocketMq
 
     @Override
     public void close() throws IOException {
-        running = false;
-        consumerThreads.values().forEach(RocketMqConsumerThread::close);
         if (executorService != null) {
             executorService.shutdownNow();
         }
