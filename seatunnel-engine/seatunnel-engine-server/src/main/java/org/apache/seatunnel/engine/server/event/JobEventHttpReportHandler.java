@@ -29,13 +29,13 @@ import com.hazelcast.ringbuffer.OverflowPolicy;
 import com.hazelcast.ringbuffer.ReadResultSet;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.ringbuffer.impl.RingbufferProxy;
-import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.Response;
-import com.squareup.okhttp.ResponseBody;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.ConnectionPool;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -59,6 +59,8 @@ public class JobEventHttpReportHandler implements EventHandler {
     public static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     public static final Duration REPORT_INTERVAL = Duration.ofSeconds(10);
     private static final int LOCAL_EVENT_BUFFER_CAPACITY = 2000;
+    private static final int MAX_IDLE_CONNECTIONS = 5;
+    private static final long KEEP_ALIVE_DURATION_MINUTES = 5;
 
     private final String httpEndpoint;
     private final Map<String, String> httpHeaders;
@@ -93,7 +95,9 @@ public class JobEventHttpReportHandler implements EventHandler {
         this.httpEndpoint = httpEndpoint;
         this.httpHeaders = httpHeaders;
         this.ringbuffer = ringbuffer;
-        this.committedEventIndex = ringbuffer.headSequence();
+        // Avoid a distributed operation on the coordinator initialization thread.
+        // The reporting task initializes this index from the current ringbuffer head.
+        this.committedEventIndex = -1;
         this.httpClient = createHttpClient();
         this.scheduledExecutorService =
                 Executors.newSingleThreadScheduledExecutor(
@@ -138,7 +142,9 @@ public class JobEventHttpReportHandler implements EventHandler {
 
     private boolean reportFromRingbuffer() throws IOException {
         long headSequence = ringbuffer.headSequence();
-        if (headSequence > committedEventIndex) {
+        if (committedEventIndex < 0) {
+            committedEventIndex = headSequence;
+        } else if (headSequence > committedEventIndex) {
             log.warn(
                     "The head sequence {} is greater than the committed event index {}",
                     headSequence,
@@ -185,14 +191,16 @@ public class JobEventHttpReportHandler implements EventHandler {
         Request.Builder requestBuilder =
                 new Request.Builder()
                         .url(httpEndpoint)
-                        .post(RequestBody.create(httpMediaType, events));
+                        .post(RequestBody.create(events, httpMediaType));
         httpHeaders.forEach(requestBuilder::header);
-        Response response = httpClient.newCall(requestBuilder.build()).execute();
-        try (ResponseBody closeable = response.body()) {
+        try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
             if (response.isSuccessful()) {
                 return true;
             }
-            log.error("Failed to request http server: {}", response);
+            log.error(
+                    "Failed to report events, http status: {} {}",
+                    response.code(),
+                    response.message());
             return false;
         }
     }
@@ -204,46 +212,65 @@ public class JobEventHttpReportHandler implements EventHandler {
     public void close() {
         log.info("Close http report handler");
         closing.set(true);
-        scheduledExecutorService.shutdown();
-        boolean schedulerTerminated = false;
+        boolean interrupted = false;
         try {
-            schedulerTerminated = scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        if (!schedulerTerminated) {
-            scheduledExecutorService.shutdownNow();
+            scheduledExecutorService.shutdown();
+            boolean schedulerTerminated = false;
             try {
                 schedulerTerminated =
-                        scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+                        scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
+                interrupted = true;
+            }
+            if (!schedulerTerminated) {
+                scheduledExecutorService.shutdownNow();
+                if (!interrupted) {
+                    try {
+                        schedulerTerminated =
+                                scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        interrupted = true;
+                    }
+                }
+            }
+            if (schedulerTerminated && !interrupted) {
+                try {
+                    // Flush all remaining events before closing.
+                    reportFromRingbuffer();
+                } catch (Exception e) {
+                    log.error("Failed to flush events from ringbuffer on close", e);
+                }
+                try {
+                    reportFromLocalBuffer();
+                } catch (Exception e) {
+                    log.error("Failed to flush events from local buffer on close", e);
+                }
+            } else {
+                log.warn("Skip final event flush because the http report scheduler did not stop");
+            }
+        } finally {
+            httpClient.connectionPool().evictAll();
+            if (interrupted) {
                 Thread.currentThread().interrupt();
             }
-        }
-        try {
-            if (schedulerTerminated) {
-                // Flush all remaining events before closing.
-                reportFromRingbuffer();
-            } else {
-                log.warn("Timed out waiting for http report scheduler to stop");
-            }
-        } catch (HazelcastInstanceNotActiveException ignore) {
-            // Hazelcast is shutting down, ringbuffer is not available. Flush from local buffer.
-        } catch (IOException e) {
-            log.error("Failed to flush events from ringbuffer on close", e);
-        }
-        try {
-            reportFromLocalBuffer();
-        } catch (IOException e) {
-            log.error("Failed to flush events from local buffer on close", e);
         }
     }
 
     private OkHttpClient createHttpClient() {
-        OkHttpClient client = new OkHttpClient();
-        client.setConnectTimeout(30, TimeUnit.SECONDS);
-        client.setWriteTimeout(10, TimeUnit.SECONDS);
-        return client;
+        // Timeouts match the previous client. The okhttp3 pool is private to this handler and is
+        // released on close; legacy http.keepAlive system properties do not configure it.
+        return new OkHttpClient.Builder()
+                .connectionPool(
+                        new ConnectionPool(
+                                MAX_IDLE_CONNECTIONS,
+                                KEEP_ALIVE_DURATION_MINUTES,
+                                TimeUnit.MINUTES))
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .writeTimeout(10, TimeUnit.SECONDS)
+                .followRedirects(false)
+                .followSslRedirects(false)
+                .build();
     }
 
     private void addToLocalBuffer(Event event) {

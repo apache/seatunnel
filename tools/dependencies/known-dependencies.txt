@@ -73,6 +73,14 @@ javax.servlet-api-3.1.0.jar
 jna-5.15.0.jar
 jna-platform-5.15.0.jar
 oshi-core-6.6.5.jar
+annotations-13.0.jar
+kotlin-stdlib-1.8.21.jar
+kotlin-stdlib-common-1.9.10.jar
+kotlin-stdlib-jdk7-1.8.21.jar
+kotlin-stdlib-jdk8-1.8.21.jar
+okhttp-4.12.0.jar
+okio-3.6.0.jar
+okio-jvm-3.6.0.jar
 arrow-format-15.0.1.jar
 arrow-memory-core-15.0.1.jar
 arrow-memory-netty-15.0.1.jar
