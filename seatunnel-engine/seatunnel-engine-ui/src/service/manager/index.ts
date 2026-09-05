@@ -15,10 +15,13 @@
  * limitations under the License.
  */
 
-import { get } from '@/service/service'
-import type { Monitor } from './types'
+import { get, post } from '@/service/service'
+import type { Monitor, UpdateTagsRequest, UpdateTagsResponse } from './types'
 
 export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')
+export const updateTags = (request: UpdateTagsRequest) =>
+  post<UpdateTagsResponse>('/update-local-member-tags', request)
 export const managerService = {
-  getMonitors
+  getMonitors,
+  updateTags
 }

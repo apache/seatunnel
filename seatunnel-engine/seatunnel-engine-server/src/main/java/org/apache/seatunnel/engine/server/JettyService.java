@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.CheckpointOverviewServlet
 import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.HttpServiceStatusServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.LoggersServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
@@ -52,6 +53,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.ThreadDumpServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.UpdateLocalMemberTagsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.WorkerResourceServlet;
 
@@ -73,6 +75,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_CHEC
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_HTTP_SERVICE_STATUS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGGERS;
@@ -94,6 +97,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBM
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_WORKER_RESOURCES;
 
@@ -207,6 +211,8 @@ public class JettyService {
         ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(nodeEngine));
         ServletHolder encryptConfigHolder = new ServletHolder(new EncryptConfigServlet(nodeEngine));
         ServletHolder updateTagsHandler = new ServletHolder(new UpdateTagsServlet(nodeEngine));
+        ServletHolder updateLocalMemberTagsHandler =
+                new ServletHolder(new UpdateLocalMemberTagsServlet(nodeEngine));
 
         ServletHolder runningThreadsHolder =
                 new ServletHolder(new RunningThreadsServlet(nodeEngine));
@@ -226,6 +232,9 @@ public class JettyService {
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
+        ServletHolder httpServiceStatusHolder =
+                new ServletHolder(
+                        new HttpServiceStatusServlet(nodeEngine, seaTunnelConfig, server));
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -248,6 +257,8 @@ public class JettyService {
         context.addServlet(stopJobsHolder, convertUrlToPath(REST_URL_STOP_JOBS));
         context.addServlet(encryptConfigHolder, convertUrlToPath(REST_URL_ENCRYPT_CONFIG));
         context.addServlet(updateTagsHandler, convertUrlToPath(REST_URL_UPDATE_TAGS));
+        context.addServlet(
+                updateLocalMemberTagsHandler, convertUrlToPath(REST_URL_UPDATE_LOCAL_MEMBER_TAGS));
 
         context.addServlet(runningThreadsHolder, convertUrlToPath(REST_URL_RUNNING_THREADS));
 
@@ -262,6 +273,7 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
+        context.addServlet(httpServiceStatusHolder, convertUrlToPath(REST_URL_HTTP_SERVICE_STATUS));
 
         server.setHandler(context);
 

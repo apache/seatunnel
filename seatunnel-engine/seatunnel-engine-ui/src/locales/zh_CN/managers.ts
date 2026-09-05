@@ -16,5 +16,21 @@
  */
 
 export default {
-    managers: '管理者'
+  managers: '管理者',
+  tags: {
+    title: 'Worker Tags',
+    content: 'Tags',
+    placeholder: '每行一个 tag，例如：zone=prod',
+    update: '更新 Tags',
+    clear: '清空 Tags',
+    success: '节点 Tags 已更新。',
+    failed: '更新节点 Tags 失败。',
+    invalid: '每行 tag 必须使用 key=value 格式。',
+    select: '选择',
+    local: '当前节点',
+    remote: '远端节点',
+    remoteHint: '请打开目标节点自己的 Web UI 更新该 Worker。',
+    noWorkerSelected: '未选择 Worker',
+    workerRequired: '请先选择一个 Worker。'
+  }
 }

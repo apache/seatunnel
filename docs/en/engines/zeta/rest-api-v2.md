@@ -1321,16 +1321,31 @@ For more information about customize encryption, please refer to the documentati
 
 ### Update the tags of running node
 
-<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Updates the tags of the current REST node with the legacy flat-map request body</code><code>(If the update is successful, return a success message)</code></summary>
 
 
 #### update node tags
 ##### Body
-If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
+`/update-tags` keeps the legacy flat `Map` contract without reserving tag names or values:
+
 ```json
 {
   "tag1": "dev_1",
-  "tag2": "dev_2"
+  "tags": {
+    "nested": "legacy-value"
+  }
+}
+```
+
+The Web UI uses `POST /update-local-member-tags` for the target-validated request format. It sends the request to its own REST origin, so open the UI from the target worker's REST address and use the member `uuid` from `/system-monitoring-information`; remote rows remain read-only and a mismatched UUID returns an error instead of updating a different node.
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {
+    "tag1": "dev_1",
+    "tag2": "dev_2"
+  }
 }
 ```
 ##### Responses
@@ -1343,7 +1358,17 @@ If the request parameter is a `Map` object, it indicates that the tags of the cu
 ```
 #### remove node tags
 ##### Body
-If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+Use an empty `tags` map with `POST /update-local-member-tags` to clear target node tags:
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {}
+}
+```
+
+An empty flat `Map` sent to `POST /update-tags` clears the current REST node:
+
 ```json
 {}
 ```
@@ -1623,6 +1648,36 @@ changed in that case.
 To get the metrics, you need to open `Telemetry` first, or you will get an empty response.  
 
 More information about `Telemetry` can be found in the [Telemetry](telemetry.md) documentation.
+
+</details>
+
+### Get HTTP Service Status
+
+<details>
+ <summary><code>GET</code> <code><b>/http-service/status</b></code> <code>(Return HTTP service runtime status.)</code></summary>
+
+#### Response
+
+Returns the HTTP service switches, configured ports, effective connector ports, context path, and authentication mode for the current node.
+Sensitive values such as passwords and keystore or truststore paths are not returned.
+
+#### Response Example
+
+```json
+{
+  "httpEnabled": true,
+  "httpsEnabled": false,
+  "contextPath": "/",
+  "configuredHttpPort": 5801,
+  "configuredHttpsPort": 58443,
+  "httpPort": 5801,
+  "httpsPort": 58443,
+  "dynamicPortEnabled": false,
+  "portRange": 100,
+  "basicAuthEnabled": false,
+  "mutualTlsEnabled": false
+}
+```
 
 </details>
 

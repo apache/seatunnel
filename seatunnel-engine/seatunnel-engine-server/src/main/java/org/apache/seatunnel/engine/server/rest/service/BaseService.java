@@ -1420,7 +1420,21 @@ public abstract class BaseService {
 
                                         log.error("Failed to get cluster health metrics", e);
                                     }
-                                    return parseSystemMonitoringMetrics(input, address);
+                                    JsonObject memberMetrics =
+                                            parseSystemMonitoringMetrics(input, address);
+                                    // Include identity so the UI can target the local REST node
+                                    // explicitly instead of updating the wrong worker.
+                                    memberMetrics.add("uuid", member.getUuid().toString());
+                                    memberMetrics.add("localMember", member.localMember());
+                                    JsonObject tags = new JsonObject();
+                                    member.getAttributes()
+                                            .forEach(
+                                                    (key, value) ->
+                                                            tags.add(
+                                                                    key,
+                                                                    value == null ? "" : value));
+                                    memberMetrics.add("tags", tags);
+                                    return memberMetrics;
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         return jsonValues;
