@@ -22,6 +22,7 @@ import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JobStatusTest {
@@ -36,5 +37,33 @@ public class JobStatusTest {
         } finally {
             Locale.setDefault(originalLocale);
         }
+    }
+
+    /**
+     * {@code JobStatus}'s ordinal is relied on directly: it is transported raw over the internal
+     * RPC (see {@code GetJobStatusOperation}/{@code ClientJobProxy}/{@code JobClient}) and used to
+     * index the {@code stateTimestamps} array in {@code PhysicalPlan}. Reordering or inserting a
+     * new constant would silently corrupt both without this test failing. If this test breaks
+     * because a new state was intentionally added, update the expected array below to match and
+     * double check every ordinal-based array index and RPC decode site still lines up.
+     */
+    @Test
+    void testOrdinalTableIsPinned() {
+        JobStatus[] expected = {
+            JobStatus.INITIALIZING,
+            JobStatus.CREATED,
+            JobStatus.PENDING,
+            JobStatus.SCHEDULED,
+            JobStatus.RUNNING,
+            JobStatus.FAILING,
+            JobStatus.FAILED,
+            JobStatus.DOING_SAVEPOINT,
+            JobStatus.SAVEPOINT_DONE,
+            JobStatus.CANCELING,
+            JobStatus.CANCELED,
+            JobStatus.FINISHED,
+            JobStatus.UNKNOWABLE
+        };
+        assertArrayEquals(expected, JobStatus.values());
     }
 }
