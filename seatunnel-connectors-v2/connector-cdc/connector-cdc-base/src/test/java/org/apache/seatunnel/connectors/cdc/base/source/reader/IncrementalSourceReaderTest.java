@@ -155,6 +155,7 @@ class IncrementalSourceReaderTest {
             DataSourceDialect<SourceConfig> dialect,
             SourceConfig sourceConfig,
             SourceReader.Context context) {
+        Mockito.when(dialect.getName()).thenReturn("TestCDC");
         @SuppressWarnings("unchecked")
         IncrementalSourceSplitReader<SourceConfig> splitReader =
                 Mockito.mock(IncrementalSourceSplitReader.class);

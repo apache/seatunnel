@@ -37,9 +37,9 @@ payload 只能包含 binlog position、GTID、LSN 或时间戳等 offset 坐标�
 ## 运行时采集
 
 Reader 报告在执行节点上定期采样、批量发送到活动 Coordinator。Enumerator 报告使用独立的
-Coordinator 所有采集路径。部署 Coordinator Task Group 时会注册 Enumerator 报告源。活动
-Coordinator 向已注册的节点请求报告；如果 Enumerator 运行在 Master 上，则直接更新 Coordinator
-本地报告。通过校验的报告会写入 Coordinator 侧的最新值存储。
+Coordinator 所有采集路径。活动 Coordinator 根据运行中的作业计划和自身管理的 slot 分配，确定
+Enumerator Task Group 所在的节点，并向这些节点请求报告，包括 Enumerator 运行在自身节点上的
+情况。通过校验的报告会写入 Coordinator 侧的最新值存储。
 
 Enumerator Task 可能运行在活动 Coordinator 之外的节点上。这一传输细节不会把所有权交给 Worker
 采样器：由 Coordinator 选择要轮询的 Enumerator、发起采集并负责排序和存储。Master 故障转移后，

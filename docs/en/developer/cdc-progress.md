@@ -40,10 +40,10 @@ contain credentials, connection URLs, or other authentication material.
 ## Runtime collection
 
 Reader reports are sampled on execution members, batched, and sent to the active coordinator.
-Enumerator reports use a separate coordinator-owned collection path. Enumerator report sources are
-registered when coordinator task groups are deployed. The active coordinator requests reports from
-the registered member, or updates the coordinator-local report directly when the enumerator runs on
-the master, and writes accepted reports to the coordinator-side latest-only store.
+Enumerator reports use a separate coordinator-owned collection path. The active coordinator derives
+enumerator task group locations from running job plans and coordinator-owned slot assignments. It
+requests reports from the assigned members, including itself when applicable, and writes accepted
+reports to the coordinator-side latest-only store.
 
 Enumerator tasks can be placed on a member other than the active coordinator. This transport detail
 does not transfer ownership to the worker sampler: the coordinator selects the enumerators to poll,
