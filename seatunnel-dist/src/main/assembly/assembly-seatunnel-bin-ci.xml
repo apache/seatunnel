@@ -75,6 +75,11 @@
             <fileMode>0755</fileMode>
         </fileSet>
         <fileSet>
+            <directory>../seatunnel-core/seatunnel-spark-starter/seatunnel-spark-3.5-starter/src/main/bin</directory>
+            <outputDirectory>/bin</outputDirectory>
+            <fileMode>0755</fileMode>
+        </fileSet>
+        <fileSet>
             <directory>../seatunnel-core/seatunnel-starter/src/main/bin</directory>
             <outputDirectory>/bin</outputDirectory>
             <fileMode>0755</fileMode>
@@ -161,6 +166,7 @@
                 <!-- Spark V2 starter -->
                 <include>org.apache.seatunnel:seatunnel-spark-2-starter:jar</include>
                 <include>org.apache.seatunnel:seatunnel-spark-3-starter:jar</include>
+                <include>org.apache.seatunnel:seatunnel-spark-3.5-starter:jar</include>
                 <!-- SeaTunnel Engine starter -->
                 <include>org.apache.seatunnel:seatunnel-starter:jar</include>
             </includes>

@@ -10,6 +10,12 @@ Use this path if you want to run SeaTunnel on Spark:
 - [Quick Start With Spark](../getting-started/locally/quick-start-spark.md)
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md)
 
+SeaTunnel provides separate Spark 3 starters so existing Spark 3.3 deployments can remain on
+their current runtime while Spark 3.5 deployments use the Spark 3.5.8 starter:
+
+- `seatunnel-spark-3-starter.jar` for Spark 3.3.x
+- `seatunnel-spark-3.5-starter.jar` for Spark 3.5.x
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:
@@ -48,6 +54,8 @@ Spark on YARN client mode:
 ```shell
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
+
+For Spark 3.5, use `start-seatunnel-spark-3.5-connector-v2.sh` with the same options.
 
 ## Minimal Example Job
 

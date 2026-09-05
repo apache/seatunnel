@@ -180,6 +180,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3.5-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -1256,6 +1262,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>seatunnel-spark-3-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-spark-3.5-starter</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>

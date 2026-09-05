@@ -42,9 +42,8 @@ import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.sql.Dataset;
+import org.apache.spark.sql.Encoder;
 import org.apache.spark.sql.Row;
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
-import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
 
 import lombok.extern.slf4j.Slf4j;
@@ -177,7 +176,7 @@ public class TransformExecuteProcessor
                         (CatalogTable[])
                                 transform.getProducedCatalogTables().toArray(new CatalogTable[0]));
         Dataset<Row> stream = tableInfo.getDataset();
-        ExpressionEncoder<Row> encoder = RowEncoder.apply(outputManager.getTableSchema());
+        Encoder<Row> encoder = SparkRowEncoder.create(outputManager.getTableSchema());
         return stream.flatMap(
                         new TransformMapPartitionsFunction(transform, inputManager, outputManager),
                         encoder)

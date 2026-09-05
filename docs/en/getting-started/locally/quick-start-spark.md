@@ -89,11 +89,21 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-Spark3.x.x
+Spark 3.3.x
 
 ```shell
 cd "apache-seatunnel-${version}"
 ./bin/start-seatunnel-spark-3-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/v2.streaming.conf.template
+```
+
+Spark 3.5.x
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-spark-3.5-connector-v2.sh \
 --master local[4] \
 --deploy-mode client \
 --config ./config/v2.streaming.conf.template
