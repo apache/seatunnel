@@ -28,6 +28,8 @@ seatunnel:
         checkpoint:
             interval: 6000
             timeout: 7000
+            restore-progress-timeout: 8000
+            restore-progress-fail-fast: true
             storage:
                 type: hdfs
                 max-retained: 3

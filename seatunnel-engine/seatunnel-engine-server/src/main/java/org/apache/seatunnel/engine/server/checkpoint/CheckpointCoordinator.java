@@ -70,7 +70,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -187,6 +189,31 @@ public class CheckpointCoordinator {
     private final IMap<Object, Object> runningJobStateIMap;
 
     private final CheckpointMonitorService checkpointMonitorService;
+
+    /** Timestamp of the latest restore that resumed this pipeline into RUNNING. */
+    @Getter private final AtomicLong lastRestoreTimestamp = new AtomicLong(0);
+
+    /** Timestamp when all tasks became READY_START after the latest restore. */
+    @Getter private final AtomicLong allTasksReadyAfterRestoreTimestamp = new AtomicLong(0);
+
+    /** Timestamp of the first completed checkpoint after the latest restore. */
+    @Getter
+    private final AtomicLong firstPostRestoreCheckpointCompletedTimestamp = new AtomicLong(0);
+
+    /** Timestamp when the latest restore was diagnosed as stalled. */
+    @Getter private final AtomicLong restoreStalledTimestamp = new AtomicLong(0);
+
+    /** Whether the coordinator is currently tracking post-restore progress. */
+    @Getter private final AtomicBoolean restoreProgressTracking = new AtomicBoolean(false);
+
+    /** Whether the latest restore has already been diagnosed as stalled. */
+    @Getter private final AtomicBoolean restoreProgressStalled = new AtomicBoolean(false);
+
+    private volatile ScheduledFuture<?> restoreProgressTimeoutFuture;
+
+    // Serializes diagnostic state; never acquire the coordinator monitor while holding this lock.
+    private final Object restoreProgressLock = new Object();
+    private long restoreProgressGeneration;
 
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
@@ -448,6 +475,7 @@ public class CheckpointCoordinator {
             LOG.info("all task already ready, skip notify task start");
             return;
         }
+        markAllTasksReadyAfterRestore();
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
         if (!notifyCompleted(latestCompletedCheckpoint)) {
@@ -671,9 +699,8 @@ public class CheckpointCoordinator {
     }
 
     protected void restoreCoordinator(boolean alreadyStarted) {
+        prepareRestoreProgressTracking();
         LOG.info("received restore CheckpointCoordinator with alreadyStarted: {}", alreadyStarted);
-        errorByPhysicalVertex = new AtomicReference<>();
-        checkpointCoordinatorFuture = new CompletableFuture<>();
         updateStatus(CheckpointCoordinatorStatus.RUNNING);
 
         Set<TaskLocation> restoredReadyToClose = loadReadyToCloseStartingTask();
@@ -691,6 +718,8 @@ public class CheckpointCoordinator {
                     jobId,
                     pipelineId);
         }
+
+        startRestoreProgressTracking(alreadyStarted);
 
         if (alreadyStarted) {
             isAllTaskReady.set(true);
@@ -1161,62 +1190,87 @@ public class CheckpointCoordinator {
      *     monitoring and cleanup are handled
      */
     protected void cleanPendingCheckpoint(CheckpointCloseReason closedReason) {
-        shutdown = true;
-        isAllTaskReady.set(false);
+        cleanPendingCheckpoint(closedReason, null);
+    }
+
+    /**
+     * Discards cleanup from a timeout whose coordinator has already been restored. Set shutdown
+     * before taking the checkpoint lock so a pending savepoint can leave its wait loop.
+     */
+    private void cleanPendingCheckpoint(
+            CheckpointCloseReason closedReason, Long expectedGeneration) {
+        long cleanupGeneration;
+        synchronized (restoreProgressLock) {
+            if (expectedGeneration != null && expectedGeneration != restoreProgressGeneration) {
+                return;
+            }
+            shutdown = true;
+            isAllTaskReady.set(false);
+            cancelRestoreProgressTimeoutCheck();
+            restoreProgressTracking.set(false);
+            cleanupGeneration = restoreProgressGeneration;
+        }
         synchronized (lock) {
-            LOG.info("start clean pending checkpoint cause {}", closedReason.message());
-            if (!pendingCheckpoints.isEmpty()) {
-                pendingCheckpoints
-                        .values()
-                        .forEach(
-                                pendingCheckpoint -> {
-                                    if (checkpointMonitorService != null
-                                            && closedReason
-                                                    != CheckpointCloseReason
-                                                            .CHECKPOINT_COORDINATOR_RESET) {
-                                        checkpointMonitorService.onCheckpointFailed(
-                                                jobId,
-                                                plan.getPipelineId(),
-                                                pendingCheckpoint.getCheckpointId(),
-                                                pendingCheckpoint.getCheckpointType(),
-                                                closedReason,
-                                                null,
-                                                pendingCheckpoint.getCheckpointTimestamp());
-                                    }
-                                    pendingCheckpoint.abortCheckpoint(closedReason, null);
+            synchronized (restoreProgressLock) {
+                if (cleanupGeneration != restoreProgressGeneration) {
+                    return;
+                }
+                LOG.info("start clean pending checkpoint cause {}", closedReason.message());
+                if (!pendingCheckpoints.isEmpty()) {
+                    pendingCheckpoints
+                            .values()
+                            .forEach(
+                                    pendingCheckpoint -> {
+                                        if (checkpointMonitorService != null
+                                                && closedReason
+                                                        != CheckpointCloseReason
+                                                                .CHECKPOINT_COORDINATOR_RESET) {
+                                            checkpointMonitorService.onCheckpointFailed(
+                                                    jobId,
+                                                    plan.getPipelineId(),
+                                                    pendingCheckpoint.getCheckpointId(),
+                                                    pendingCheckpoint.getCheckpointType(),
+                                                    closedReason,
+                                                    null,
+                                                    pendingCheckpoint.getCheckpointTimestamp());
+                                        }
+                                        pendingCheckpoint.abortCheckpoint(closedReason, null);
+                                    });
+                    // TODO: clear related future & scheduler task
+                    pendingCheckpoints.clear();
+                }
+                pipelineTaskStatus.clear();
+                readyToCloseStartingTask.clear();
+                readyToCloseIdleTask.clear();
+                closedIdleTask.clear();
+                pendingCounter.set(0);
+                schemaChanging.set(false);
+                // Only remove the persisted ready-to-close state when the coordinator truly ends
+                // (completed/failed/cancelled). During a reset (master failover), the IMap entry
+                // must be preserved so restoreCoordinator() can recover from it.
+                if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                    runningJobStateIMap.remove(readyToCloseImapKey);
+                }
+                scheduler.shutdownNow();
+                scheduler =
+                        Executors.newScheduledThreadPool(
+                                2,
+                                runnable -> {
+                                    Thread thread = new Thread(runnable);
+                                    thread.setName(
+                                            String.format(
+                                                    "checkpoint-coordinator-%s/%s",
+                                                    pipelineId, jobId));
+                                    return thread;
                                 });
-                // TODO: clear related future & scheduler task
-                pendingCheckpoints.clear();
             }
-            pipelineTaskStatus.clear();
-            readyToCloseStartingTask.clear();
-            readyToCloseIdleTask.clear();
-            closedIdleTask.clear();
-            pendingCounter.set(0);
-            schemaChanging.set(false);
-            // Only remove the persisted ready-to-close state when the coordinator truly ends
-            // (completed/failed/cancelled). During a reset (master failover), the IMap entry
-            // must be preserved so restoreCoordinator() can recover from it.
-            if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
-                runningJobStateIMap.remove(readyToCloseImapKey);
-            }
-            scheduler.shutdownNow();
-            scheduler =
-                    Executors.newScheduledThreadPool(
-                            2,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setName(
-                                        String.format(
-                                                "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                                return thread;
-                            });
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
             checkpointMonitorService.clearInProgress(jobId, pipelineId);
         }
     }
+
     /**
      * Processes a checkpoint acknowledgment from a task.
      *
@@ -1313,6 +1367,10 @@ public class CheckpointCoordinator {
      * @throws RuntimeException if checkpoint state serialization or storage fails
      */
     public synchronized void completePendingCheckpoint(CompletedCheckpoint completedCheckpoint) {
+        CompletableFuture<CheckpointCoordinatorState> completionFuture;
+        synchronized (restoreProgressLock) {
+            completionFuture = checkpointCoordinatorFuture;
+        }
         LOG.debug(
                 "pending checkpoint completed, job id: {}, pipeline id: {}, checkpoint id: {}, "
                         + "cost: {}, trigger: {}, completed: {}",
@@ -1362,7 +1420,17 @@ public class CheckpointCoordinator {
                 completedCheckpoint.getJobId(),
                 completedCheckpoint.getPipelineId(),
                 completedCheckpoint.getCheckpointId());
-        latestCompletedCheckpoint = completedCheckpoint;
+        synchronized (restoreProgressLock) {
+            // Claim progress after storage, atomically with timeout failure, before notifying
+            // tasks.
+            if (completionFuture != checkpointCoordinatorFuture
+                    || completionFuture.isDone()
+                    || shutdown) {
+                return;
+            }
+            markPostRestoreCheckpointProgress(completedCheckpoint);
+            latestCompletedCheckpoint = completedCheckpoint;
+        }
         if (checkpointMonitorService != null) {
             long stateSize = CheckpointMonitorService.calculateStateSize(completedCheckpoint);
             checkpointMonitorService.onCheckpointCompleted(completedCheckpoint, stateSize);
@@ -1443,6 +1511,246 @@ public class CheckpointCoordinator {
         return latestCompletedCheckpoint.getCheckpointType().isSavepoint();
     }
 
+    /**
+     * Returns the effective timeout used for post-restore progress diagnosis.
+     *
+     * <p>If the explicit restore progress timeout is not configured, the timeout falls back to the
+     * checkpoint interval plus the checkpoint timeout so that restored RUNNING pipelines are still
+     * expected to complete at least one checkpoint within a normal checkpoint cycle.
+     */
+    @VisibleForTesting
+    long getEffectiveRestoreProgressTimeout() {
+        if (coordinatorConfig.getRestoreProgressTimeout() > 0) {
+            return coordinatorConfig.getRestoreProgressTimeout();
+        }
+        return coordinatorConfig.getCheckpointInterval() + coordinatorConfig.getCheckpointTimeout();
+    }
+
+    /**
+     * Retires the old diagnostic window before replacing coordinator state. Timeout failures
+     * recheck this generation at the pipeline state transition.
+     */
+    private void prepareRestoreProgressTracking() {
+        synchronized (restoreProgressLock) {
+            cancelRestoreProgressTimeoutCheck();
+            restoreProgressTracking.set(false);
+            errorByPhysicalVertex = new AtomicReference<>();
+            checkpointCoordinatorFuture = new CompletableFuture<>();
+        }
+    }
+
+    private void startRestoreProgressTracking(boolean alreadyStarted) {
+        synchronized (restoreProgressLock) {
+            if (!coordinatorConfig.isCheckpointEnable()) {
+                resetRestoreProgressState();
+                return;
+            }
+
+            long restoreTimestamp = Instant.now().toEpochMilli();
+            lastRestoreTimestamp.set(restoreTimestamp);
+            allTasksReadyAfterRestoreTimestamp.set(alreadyStarted ? restoreTimestamp : 0);
+            firstPostRestoreCheckpointCompletedTimestamp.set(0);
+            restoreStalledTimestamp.set(0);
+            restoreProgressTracking.set(true);
+            restoreProgressStalled.set(false);
+            cancelRestoreProgressTimeoutCheck();
+            if (alreadyStarted) {
+                scheduleRestoreProgressTimeoutCheck(
+                        restoreTimestamp, "the first post-restore checkpoint progress");
+            } else {
+                scheduleRestoreProgressTimeoutCheck(
+                        restoreTimestamp, "all tasks reaching READY_START after restore");
+            }
+        }
+    }
+
+    private void resetRestoreProgressState() {
+        synchronized (restoreProgressLock) {
+            lastRestoreTimestamp.set(0);
+            allTasksReadyAfterRestoreTimestamp.set(0);
+            firstPostRestoreCheckpointCompletedTimestamp.set(0);
+            restoreStalledTimestamp.set(0);
+            restoreProgressTracking.set(false);
+            restoreProgressStalled.set(false);
+            cancelRestoreProgressTimeoutCheck();
+        }
+    }
+
+    private void cancelRestoreProgressTimeoutCheck() {
+        synchronized (restoreProgressLock) {
+            restoreProgressGeneration++;
+            if (restoreProgressTimeoutFuture != null) {
+                restoreProgressTimeoutFuture.cancel(false);
+                restoreProgressTimeoutFuture = null;
+            }
+        }
+    }
+
+    private void markAllTasksReadyAfterRestore() {
+        synchronized (restoreProgressLock) {
+            if (restoreProgressTracking.get()
+                    && allTasksReadyAfterRestoreTimestamp.compareAndSet(
+                            0, Instant.now().toEpochMilli())) {
+                long readyTimestamp = allTasksReadyAfterRestoreTimestamp.get();
+                LOG.info(
+                        "All tasks are ready after restore for pipeline({}@{}) at {}",
+                        pipelineId,
+                        jobId,
+                        readyTimestamp);
+                scheduleRestoreProgressTimeoutCheck(
+                        readyTimestamp, "the first post-restore checkpoint progress");
+            }
+        }
+    }
+
+    private void markPostRestoreCheckpointProgress(CompletedCheckpoint completedCheckpoint) {
+        synchronized (restoreProgressLock) {
+            if (!restoreProgressTracking.get()) {
+                return;
+            }
+            if (firstPostRestoreCheckpointCompletedTimestamp.compareAndSet(
+                    0, completedCheckpoint.getCompletedTimestamp())) {
+                cancelRestoreProgressTimeoutCheck();
+                restoreProgressTracking.set(false);
+                restoreProgressStalled.set(false);
+                LOG.info(
+                        "Observed first post-restore checkpoint progress for pipeline({}@{}), checkpointId={}, restoreTs={}, completedTs={}, elapsed={}ms",
+                        pipelineId,
+                        jobId,
+                        completedCheckpoint.getCheckpointId(),
+                        lastRestoreTimestamp.get(),
+                        completedCheckpoint.getCompletedTimestamp(),
+                        completedCheckpoint.getCompletedTimestamp() - lastRestoreTimestamp.get());
+            }
+        }
+    }
+
+    private void handleRestoreProgressTimeout(long generation) {
+        String diagnosis;
+        long stalledAt = Instant.now().toEpochMilli();
+        boolean failFast = coordinatorConfig.isRestoreProgressFailFast();
+        synchronized (restoreProgressLock) {
+            if (generation != restoreProgressGeneration
+                    || !restoreProgressTracking.get()
+                    || checkpointCoordinatorFuture.isDone()
+                    || firstPostRestoreCheckpointCompletedTimestamp.get() > 0) {
+                return;
+            }
+
+            long allTasksReadyTimestamp = allTasksReadyAfterRestoreTimestamp.get();
+            if (allTasksReadyTimestamp == 0) {
+                diagnosis =
+                        String.format(
+                                "Restore readiness stalled for pipeline(%s@%s): restoreTs=%s, allTasksReadyTs=%s, stalledTs=%s, latestTriggerTs=%s, pendingCount=%s, latestCompletedCheckpointId=%s, isAllTaskReady=%s",
+                                pipelineId,
+                                jobId,
+                                lastRestoreTimestamp.get(),
+                                allTasksReadyTimestamp,
+                                stalledAt,
+                                latestTriggerTimestamp.get(),
+                                pendingCounter.get(),
+                                latestCompletedCheckpoint == null
+                                        ? "null"
+                                        : latestCompletedCheckpoint.getCheckpointId(),
+                                isAllTaskReady.get());
+            } else {
+                diagnosis =
+                        String.format(
+                                "Post-restore checkpoint progress stalled for pipeline(%s@%s): restoreTs=%s, allTasksReadyTs=%s, stalledTs=%s, latestTriggerTs=%s, pendingCount=%s, latestCompletedCheckpointId=%s, isAllTaskReady=%s",
+                                pipelineId,
+                                jobId,
+                                lastRestoreTimestamp.get(),
+                                allTasksReadyTimestamp,
+                                stalledAt,
+                                latestTriggerTimestamp.get(),
+                                pendingCounter.get(),
+                                latestCompletedCheckpoint == null
+                                        ? "null"
+                                        : latestCompletedCheckpoint.getCheckpointId(),
+                                isAllTaskReady.get());
+            }
+            if (!failFast) {
+                restoreStalledTimestamp.compareAndSet(0, stalledAt);
+                restoreProgressStalled.set(true);
+                restoreProgressTracking.set(false);
+                cancelRestoreProgressTimeoutCheck();
+            }
+        }
+
+        if (failFast) {
+            if (checkpointManager.handleRestoreProgressTimeout(
+                    pipelineId,
+                    () -> failRestoreProgressIfCurrent(generation, diagnosis, stalledAt))) {
+                cleanPendingCheckpoint(CheckpointCloseReason.RESTORE_PROGRESS_TIMEOUT, generation);
+            }
+        } else {
+            LOG.warn(diagnosis);
+        }
+    }
+
+    /**
+     * Called while the pipeline state machine excludes a concurrent restore. Do not acquire the
+     * coordinator monitor or checkpoint lock here: checkpoint completion can need the pipeline.
+     */
+    private boolean failRestoreProgressIfCurrent(
+            long generation, String diagnosis, long stalledAt) {
+        synchronized (restoreProgressLock) {
+            if (generation != restoreProgressGeneration
+                    || !restoreProgressTracking.get()
+                    || checkpointCoordinatorFuture.isDone()
+                    || firstPostRestoreCheckpointCompletedTimestamp.get() > 0) {
+                return false;
+            }
+            restoreStalledTimestamp.compareAndSet(0, stalledAt);
+            restoreProgressStalled.set(true);
+            restoreProgressTracking.set(false);
+            CheckpointException error =
+                    new CheckpointException(
+                            CheckpointCloseReason.RESTORE_PROGRESS_TIMEOUT,
+                            new SeaTunnelException(diagnosis));
+            errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(error));
+            persistStatus(CheckpointCoordinatorStatus.FAILED);
+            checkpointCoordinatorFuture.complete(
+                    new CheckpointCoordinatorState(
+                            CheckpointCoordinatorStatus.FAILED, errorByPhysicalVertex.get()));
+            LOG.error(diagnosis, error);
+            return true;
+        }
+    }
+
+    /**
+     * Schedules the current restore-progress timeout window and resets any prior window from the
+     * previous phase.
+     */
+    private void scheduleRestoreProgressTimeoutCheck(long phaseStartTimestamp, String phaseName) {
+        long timeout = getEffectiveRestoreProgressTimeout();
+        cancelRestoreProgressTimeoutCheck();
+        LOG.info(
+                "Start tracking restore progress for pipeline({}@{}), phase={}, phaseStartTs={}, timeout={}ms",
+                pipelineId,
+                jobId,
+                phaseName,
+                phaseStartTimestamp,
+                timeout);
+        long generation = restoreProgressGeneration;
+        try {
+            restoreProgressTimeoutFuture =
+                    scheduler.schedule(
+                            () -> handleRestoreProgressTimeout(generation),
+                            timeout,
+                            TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+            restoreProgressTracking.set(false);
+            cancelRestoreProgressTimeoutCheck();
+            LOG.warn(
+                    "Unable to schedule restore progress diagnosis for pipeline({}@{}), phase={}; task recovery will continue",
+                    pipelineId,
+                    jobId,
+                    phaseName,
+                    e);
+        }
+    }
+
     public PassiveCompletableFuture<CheckpointCoordinatorState>
             waitCheckpointCoordinatorComplete() {
         return new PassiveCompletableFuture<>(checkpointCoordinatorFuture);
@@ -1462,6 +1770,10 @@ public class CheckpointCoordinator {
     }
 
     private synchronized void updateStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
+        persistStatus(targetStatus);
+    }
+
+    private void persistStatus(@NonNull CheckpointCoordinatorStatus targetStatus) {
         try {
             RetryUtils.retryWithException(
                     () -> {

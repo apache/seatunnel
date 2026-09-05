@@ -118,6 +118,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BooleanSupplier;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -435,13 +436,17 @@ public class JobMaster {
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
     // read engine and env config.
-    private CheckpointConfig createJobCheckpointConfig(
+    static CheckpointConfig createJobCheckpointConfig(
             CheckpointConfig defaultCheckpointConfig, JobConfig jobConfig) {
         Map<String, Object> jobEnv = jobConfig.getEnvOptions();
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setRestoreProgressTimeout(
+                defaultCheckpointConfig.getRestoreProgressTimeout());
+        jobCheckpointConfig.setRestoreProgressFailFast(
+                defaultCheckpointConfig.isRestoreProgressFailFast());
         jobCheckpointConfig.setRetainAfterJobCancelled(
                 defaultCheckpointConfig.isRetainAfterJobCancelled());
 
@@ -762,6 +767,20 @@ public class JobMaster {
                                         failedTables)));
             }
         }
+    }
+
+    /**
+     * Routes a conditional restore failure to the owning pipeline lifecycle, where timeout
+     * ownership is checked before allowing task cancellation.
+     */
+    public boolean handleRestoreProgressTimeout(
+            long pipelineId, BooleanSupplier failCurrentWindow) {
+        for (SubPlan pipeline : physicalPlan.getPipelineList()) {
+            if (pipeline.getPipelineLocation().getPipelineId() == pipelineId) {
+                return pipeline.handleRestoreProgressTimeout(failCurrentWindow);
+            }
+        }
+        return false;
     }
 
     public void handleCheckpointError(long pipelineId, boolean neverRestore) {

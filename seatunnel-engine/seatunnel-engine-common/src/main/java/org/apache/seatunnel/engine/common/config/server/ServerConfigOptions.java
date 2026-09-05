@@ -214,6 +214,24 @@ public class ServerConfigOptions {
                                 "The minimum pause (in milliseconds) between consecutive checkpoints. "
                                         + "This ensures that checkpoints are not triggered too frequently and provides.");
 
+        public static final Option<Integer> RESTORE_PROGRESS_TIMEOUT =
+                Options.key("restore-progress-timeout")
+                        .intType()
+                        .defaultValue(0)
+                        .withDescription(
+                                "The timeout (in milliseconds) applied separately to task readiness and the first completed checkpoint after restore. "
+                                        + "Each phase gets a full timeout window, so diagnosis can take nearly twice this value. "
+                                        + "A value less than or equal to 0 derives the timeout from checkpoint interval plus checkpoint timeout. "
+                                        + "Account for the worst-case state restore duration before enabling fail-fast.");
+
+        public static final Option<Boolean> RESTORE_PROGRESS_FAIL_FAST =
+                Options.key("restore-progress-fail-fast")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to fail the pipeline when either restore progress phase times out. "
+                                        + "The default logs one warning per restore without failing the pipeline.");
+
         public static final Option<String> CHECKPOINT_STORAGE_TYPE =
                 Options.key("type")
                         .stringType()

@@ -60,6 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1134,6 +1135,189 @@ public class CheckpointCoordinatorTest
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    @Test
+    void testRestoreProgressTimeoutShouldWarnWithoutFailFast() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = null;
+        try {
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setRestoreProgressTimeout(1000);
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            coordinator =
+                    buildRestoreProgressCoordinator(
+                            executorService,
+                            checkpointConfig,
+                            Mockito.mock(CheckpointManager.class));
+
+            coordinator.restoreCoordinator(false);
+            ReflectionUtils.invoke(
+                    coordinator,
+                    "handleRestoreProgressTimeout",
+                    new Class<?>[] {long.class},
+                    new Object[] {
+                        ReflectionUtils.getField(coordinator, "restoreProgressGeneration").get()
+                    });
+
+            Assertions.assertTrue(coordinator.getRestoreProgressStalled().get());
+            Assertions.assertFalse(coordinator.getRestoreProgressTracking().get());
+        } finally {
+            if (coordinator != null) {
+                coordinator.cleanPendingCheckpoint(
+                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testRestoreProgressTimeoutShouldFailFastWhenEnabled() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = null;
+        try {
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setRestoreProgressTimeout(1000);
+            checkpointConfig.setRestoreProgressFailFast(true);
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            CheckpointManager checkpointManager = Mockito.mock(CheckpointManager.class);
+            Mockito.doAnswer(
+                            invocation ->
+                                    ((java.util.function.BooleanSupplier) invocation.getArgument(1))
+                                            .getAsBoolean())
+                    .when(checkpointManager)
+                    .handleRestoreProgressTimeout(Mockito.eq(1), Mockito.any());
+            coordinator =
+                    buildRestoreProgressCoordinator(
+                            executorService, checkpointConfig, checkpointManager);
+
+            coordinator.restoreCoordinator(false);
+            ReflectionUtils.invoke(
+                    coordinator,
+                    "handleRestoreProgressTimeout",
+                    new Class<?>[] {long.class},
+                    new Object[] {
+                        ReflectionUtils.getField(coordinator, "restoreProgressGeneration").get()
+                    });
+
+            Assertions.assertTrue(coordinator.getRestoreProgressStalled().get());
+            Mockito.verify(checkpointManager)
+                    .handleRestoreProgressTimeout(Mockito.eq(1), Mockito.any());
+        } finally {
+            if (coordinator != null) {
+                coordinator.cleanPendingCheckpoint(
+                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testRestoreProgressTimeoutShouldRestartAfterTasksBecomeReady() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = null;
+        try {
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setRestoreProgressTimeout(1000);
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            coordinator =
+                    Mockito.spy(
+                            buildRestoreProgressCoordinator(
+                                    executorService,
+                                    checkpointConfig,
+                                    Mockito.mock(CheckpointManager.class)));
+            Mockito.doReturn(new InvocationFuture<?>[0]).when(coordinator).notifyTaskStart();
+            Mockito.doReturn(true).when(coordinator).notifyCompleted(Mockito.any());
+
+            coordinator.restoreCoordinator(false);
+            ScheduledFuture<?> initialTimeoutFuture =
+                    (ScheduledFuture<?>)
+                            ReflectionUtils.getField(coordinator, "restoreProgressTimeoutFuture")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "restore progress timeout future not found"));
+            coordinator.getPipelineTaskStatus().put(1L, SeaTunnelTaskState.READY_START);
+            ReflectionUtils.invoke(coordinator, "allTaskReady");
+
+            Assertions.assertTrue(initialTimeoutFuture.isCancelled());
+            Assertions.assertTrue(coordinator.getAllTasksReadyAfterRestoreTimestamp().get() > 0);
+        } finally {
+            if (coordinator != null) {
+                coordinator.cleanPendingCheckpoint(
+                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCompletedCheckpointStopsRestoreProgressTracking() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        CheckpointCoordinator coordinator = null;
+        try {
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setRestoreProgressTimeout(1000);
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            coordinator =
+                    Mockito.spy(
+                            buildRestoreProgressCoordinator(
+                                    executorService,
+                                    checkpointConfig,
+                                    Mockito.mock(CheckpointManager.class)));
+            Mockito.doReturn(true).when(coordinator).notifyCompleted(Mockito.any());
+            coordinator.restoreCoordinator(false);
+
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            1L,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+            coordinator.completePendingCheckpoint(completedCheckpoint);
+
+            Assertions.assertFalse(coordinator.getRestoreProgressTracking().get());
+            Assertions.assertEquals(
+                    completedCheckpoint.getCompletedTimestamp(),
+                    coordinator.getFirstPostRestoreCheckpointCompletedTimestamp().get());
+        } finally {
+            if (coordinator != null) {
+                coordinator.cleanPendingCheckpoint(
+                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    private CheckpointCoordinator buildRestoreProgressCoordinator(
+            ExecutorService executorService,
+            CheckpointConfig checkpointConfig,
+            CheckpointManager checkpointManager) {
+        TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+        CheckpointPlan plan =
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(Collections.singleton(taskLocation))
+                        .startingSubtasks(Collections.singleton(taskLocation))
+                        .build();
+        @SuppressWarnings("unchecked")
+        IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+        return new CheckpointCoordinator(
+                checkpointManager,
+                Mockito.mock(CheckpointStorage.class),
+                checkpointConfig,
+                1L,
+                plan,
+                Mockito.mock(CheckpointIDCounter.class),
+                null,
+                executorService,
+                runningJobStateIMap,
+                false,
+                null);
     }
 }
 
