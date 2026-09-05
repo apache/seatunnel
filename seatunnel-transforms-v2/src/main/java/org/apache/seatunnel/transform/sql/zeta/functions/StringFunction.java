@@ -42,6 +42,7 @@ import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.regex.Matcher;
@@ -260,7 +261,7 @@ public class StringFunction {
         if (arg == null) {
             return null;
         }
-        return arg.toLowerCase();
+        return arg.toLowerCase(Locale.ROOT);
     }
 
     public static String upper(List<Object> args) {
@@ -268,7 +269,7 @@ public class StringFunction {
         if (arg == null) {
             return null;
         }
-        return arg.toUpperCase();
+        return arg.toUpperCase(Locale.ROOT);
     }
 
     public static String left(List<Object> args) {

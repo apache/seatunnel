@@ -26,8 +26,13 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceCon
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.antlr.AntlrDdlParserListener;
+import io.debezium.ddl.parser.mysql.generated.MySqlParserBaseListener;
 import io.debezium.relational.Tables;
+import io.debezium.text.ParsingException;
 
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class CustomMySqlAntlrDdlParserTest {
@@ -84,5 +89,39 @@ public class CustomMySqlAntlrDdlParserTest {
         Assertions.assertTrue(events.get(0) instanceof AlterTableCommentEvent);
         AlterTableCommentEvent event = (AlterTableCommentEvent) events.get(0);
         Assertions.assertEquals("Product catalog table", event.getNewComment());
+    }
+
+    @Test
+    void testParsePropagatesDdlErrors() {
+        CustomMySqlAntlrDdlParser parser = new ParserWithTreeWalkError();
+
+        Assertions.assertThrows(
+                ParsingException.class,
+                () ->
+                        parser.parse(
+                                "ALTER TABLE products COMMENT = 'Product catalog table'",
+                                new Tables()));
+    }
+
+    private static class ParserWithTreeWalkError extends CustomMySqlAntlrDdlParser {
+        private ParserWithTreeWalkError() {
+            super(null);
+        }
+
+        @Override
+        protected AntlrDdlParserListener createParseTreeWalkerListener() {
+            return new ListenerWithError();
+        }
+    }
+
+    private static class ListenerWithError extends MySqlParserBaseListener
+            implements AntlrDdlParserListener {
+        private final Collection<ParsingException> errors =
+                Collections.singletonList(new ParsingException(null, "listener failure"));
+
+        @Override
+        public Collection<ParsingException> getErrors() {
+            return errors;
+        }
     }
 }

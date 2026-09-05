@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.Lsn
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.connector.sqlserver.Lsn;
-import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.connector.sqlserver.SqlServerConnection;
 import io.debezium.connector.sqlserver.SqlServerConnectorConfig;
 import io.debezium.connector.sqlserver.SqlServerDatabaseSchema;
@@ -272,7 +271,7 @@ public class SqlServerUtils {
             offsetStrMap.put(
                     entry.getKey(), entry.getValue() == null ? null : entry.getValue().toString());
         }
-        return LsnOffset.valueOf(offsetStrMap.get(SourceInfo.COMMIT_LSN_KEY));
+        return LsnOffset.valueOf(offsetStrMap);
     }
 
     /** Fetch current largest log sequence number (LSN) of the database. */
@@ -331,7 +330,7 @@ public class SqlServerUtils {
                                 timestampMs,
                                 new Timestamp(timestampMs),
                                 lsn);
-                        return LsnOffset.valueOf(lsn.toString());
+                        return LsnOffset.timestampBoundary(lsn.toString());
                     });
         } catch (SQLException e) {
             throw new SeaTunnelException(

@@ -104,6 +104,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -447,6 +448,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "received deploying task executionId [%s]",
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
+        // References owned by this deployment attempt until TaskGroupContext is published.
+        List<Collection<URL>> acquiredClassLoaderJars = new ArrayList<>();
         try {
             List<Set<ConnectorJarIdentifier>> connectorJarIdentifiersList =
                     taskImmutableInfo.getConnectorJarIdentifiers();
@@ -469,9 +472,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars().get(i))) {
                     jars = taskImmutableInfo.getJars().get(i);
                 }
+                List<URL> classLoaderJars = Lists.newArrayList(jars);
                 ClassLoader classLoader =
                         classLoaderService.getClassLoader(
-                                taskImmutableInfo.getJobId(), Lists.newArrayList(jars));
+                                taskImmutableInfo.getJobId(), classLoaderJars);
+                acquiredClassLoaderJars.add(classLoaderJars);
                 Task task;
                 if (jars.isEmpty()) {
                     task = nodeEngine.getSerializationService().toObject(taskData.get(i));
@@ -484,7 +489,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 tasks.add(task);
                 classLoaders.put(task.getTaskID(), classLoader);
-                taskJars.put(task.getTaskID(), jars);
+                taskJars.put(task.getTaskID(), classLoaderJars);
             }
             taskGroup =
                     TaskGroupUtils.createTaskGroup(
@@ -516,12 +521,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         classLoaderService.releaseClassLoader(
                                 taskImmutableInfo.getJobId(), entry.getValue());
                     }
+                    acquiredClassLoaderJars.clear();
                     return TaskDeployState.success();
                 }
-                deployLocalTask(taskGroup, classLoaders, taskJars);
+                AtomicBoolean classLoaderOwnershipTransferred = new AtomicBoolean();
+                deployLocalTask(
+                        taskGroup,
+                        classLoaders,
+                        taskJars,
+                        () -> classLoaderOwnershipTransferred.set(true),
+                        failure -> {
+                            releaseClassLoadersAfterFailedDeployment(
+                                    taskImmutableInfo.getJobId(), acquiredClassLoaderJars, failure);
+                            acquiredClassLoaderJars.clear();
+                        });
+                // Publication is a monotonic ownership transfer. The context may already have
+                // completed and left executionContexts by the time deployment returns.
+                if (classLoaderOwnershipTransferred.get()) {
+                    acquiredClassLoaderJars.clear();
+                }
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
+            releaseClassLoadersAfterFailedDeployment(
+                    taskImmutableInfo.getJobId(), acquiredClassLoaderJars, t);
             logger.severe(
                     String.format(
                             "TaskGroupID : %s  deploy error with Exception: %s",
@@ -530,6 +553,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     : "taskGroupLocation is null",
                             ExceptionUtils.getMessage(t)));
             return TaskDeployState.failed(t);
+        }
+    }
+
+    /**
+     * Releases classloader references acquired by the current deployment attempt.
+     *
+     * <p>This cleanup only releases references that have not been transferred to a published {@link
+     * TaskGroupContext}. Cleanup failures are added to the deployment failure so all references are
+     * attempted without replacing the original error.
+     */
+    private void releaseClassLoadersAfterFailedDeployment(
+            long jobId,
+            List<Collection<URL>> acquiredClassLoaderJars,
+            Throwable deploymentFailure) {
+        // Release in reverse acquisition order, matching the ownership stack built above.
+        for (int i = acquiredClassLoaderJars.size() - 1; i >= 0; i--) {
+            Collection<URL> jars = acquiredClassLoaderJars.get(i);
+            try {
+                classLoaderService.releaseClassLoader(jobId, jars);
+            } catch (Throwable cleanupFailure) {
+                deploymentFailure.addSuppressed(cleanupFailure);
+                logger.severe(
+                        "Release classloader after failed task deployment failed", cleanupFailure);
+            }
         }
     }
 
@@ -546,7 +593,42 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars) {
+        return deployLocalTask(taskGroup, classLoaders, jars, () -> {}, failure -> {});
+    }
+
+    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            @NonNull TaskGroup taskGroup,
+            @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
+            ConcurrentHashMap<Long, Collection<URL>> jars,
+            Runnable onContextPublished,
+            Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        resultFuture.whenCompleteAsync(
+                withTryCatch(
+                        logger,
+                        (r, s) -> {
+                            if (s != null) {
+                                logger.severe(
+                                        String.format(
+                                                "Task %s complete with error %s",
+                                                taskGroup.getTaskGroupLocation(),
+                                                ExceptionUtils.getMessage(s)));
+                            }
+                            if (r == null) {
+                                r =
+                                        new TaskExecutionState(
+                                                taskGroup.getTaskGroupLocation(),
+                                                ExecutionState.FAILED,
+                                                s);
+                            }
+                            logger.info(
+                                    String.format(
+                                            "Task %s complete with state %s",
+                                            r.getTaskGroupLocation(), r.getExecutionState()));
+                            notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
+                        }),
+                MDCTracer.tracing(executorService));
+        boolean contextPublished = false;
         try {
             taskGroup.init();
             logger.info(
@@ -591,6 +673,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(),
                     new TaskGroupContext(taskGroup, classLoaders, jars));
+            contextPublished = true;
+            onContextPublished.run();
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
@@ -600,33 +684,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
+            if (!contextPublished) {
+                onFailureBeforeContextPublished.accept(t);
+            }
             resultFuture.completeExceptionally(t);
         }
-        resultFuture.whenCompleteAsync(
-                withTryCatch(
-                        logger,
-                        (r, s) -> {
-                            if (s != null) {
-                                logger.severe(
-                                        String.format(
-                                                "Task %s complete with error %s",
-                                                taskGroup.getTaskGroupLocation(),
-                                                ExceptionUtils.getMessage(s)));
-                            }
-                            if (r == null) {
-                                r =
-                                        new TaskExecutionState(
-                                                taskGroup.getTaskGroupLocation(),
-                                                ExecutionState.FAILED,
-                                                s);
-                            }
-                            logger.info(
-                                    String.format(
-                                            "Task %s complete with state %s",
-                                            r.getTaskGroupLocation(), r.getExecutionState()));
-                            notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
-                        }),
-                MDCTracer.tracing(executorService));
         return new PassiveCompletableFuture<>(resultFuture);
     }
 
@@ -637,7 +699,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * @param taskGroupLocation the location of the task group
      * @param taskExecutionState the execution state to report
      */
-    private void notifyTaskStatusToMaster(
+    void notifyTaskStatusToMaster(
             TaskGroupLocation taskGroupLocation, TaskExecutionState taskExecutionState) {
         long sleepTime = 1000;
         boolean notifyStateSuccess = false;

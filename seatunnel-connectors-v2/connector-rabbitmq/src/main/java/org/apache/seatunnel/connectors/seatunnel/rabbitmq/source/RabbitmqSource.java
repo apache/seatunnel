@@ -74,13 +74,6 @@ public class RabbitmqSource
                 config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent();
         boolean hasSchema = config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent();
 
-        // Mutually exclusive check: Users cannot define both root-level schema and table_configs
-        if (hasTableConfigs && hasSchema) {
-            throw new RabbitmqConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "Cannot specify both 'table_configs' and 'schema'.");
-        }
-
         if (hasTableConfigs) {
             // Multi-Table Mode: Parse multiple queue configurations
             List<Map<String, Object>> tableConfigList =
@@ -90,17 +83,8 @@ public class RabbitmqSource
                 CatalogTable table = CatalogTableUtil.buildWithConfig(tableConfig);
                 String queueName = tableConfig.get(RabbitmqBaseOptions.QUEUE_NAME);
 
-                // Ensure queue_name is explicitly defined
-                if (queueName == null || queueName.trim().isEmpty()) {
-                    throw new RabbitmqConnectorException(
-                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                            "The 'queue_name' is missing or empty inside one of the 'table_configs' items.");
-                }
-
-                String splitId = queueName;
-
                 this.catalogTables.add(table);
-                this.queueToTableMap.put(splitId, table);
+                this.queueToTableMap.put(queueName, table);
             }
         } else if (hasSchema) {
             CatalogTable table = CatalogTableUtil.buildWithConfig(config);
@@ -110,10 +94,6 @@ public class RabbitmqSource
             }
             this.catalogTables.add(table);
             this.queueToTableMap.put(queueName, table);
-        } else {
-            throw new RabbitmqConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "No 'schema' or 'table_configs' found.");
         }
     }
 

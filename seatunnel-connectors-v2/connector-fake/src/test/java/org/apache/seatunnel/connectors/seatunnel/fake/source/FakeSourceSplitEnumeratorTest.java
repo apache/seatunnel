@@ -77,6 +77,40 @@ class FakeSourceSplitEnumeratorTest {
     }
 
     @Test
+    void restoreDoesNotRediscoverAssignedSplitsWithPartialProgress() throws Exception {
+        MultipleTableFakeSourceConfig sourceConfig = loadSingleTableFakeSourceConfig();
+
+        TestingEnumeratorContext firstContext =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        FakeSourceSplitEnumerator firstRunEnumerator =
+                new FakeSourceSplitEnumerator(firstContext, sourceConfig, Collections.emptySet());
+        firstRunEnumerator.run();
+
+        Set<FakeSourceSplit> assignedWithPartialProgress =
+                firstContext.getAllAssignedSplits().stream()
+                        .map(
+                                split ->
+                                        new FakeSourceSplit(
+                                                split.getTableId(),
+                                                split.getSplitId(),
+                                                Math.max(0, split.getRowNum() - 1)))
+                        .collect(Collectors.toSet());
+        Assertions.assertFalse(
+                assignedWithPartialProgress.isEmpty(), "Expected assigned splits in first run");
+
+        TestingEnumeratorContext restoredContext =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        FakeSourceSplitEnumerator restoredEnumerator =
+                new FakeSourceSplitEnumerator(
+                        restoredContext, sourceConfig, assignedWithPartialProgress);
+        restoredEnumerator.run();
+
+        Assertions.assertTrue(
+                restoredContext.getAllAssignedSplits().isEmpty(),
+                "Expected no duplicate split assignments when restored progress row counts differ");
+    }
+
+    @Test
     void assignAndSignalOnLateRegisterReaderAfterDiscovery() throws Exception {
         MultipleTableFakeSourceConfig sourceConfig = loadSingleTableFakeSourceConfig();
 

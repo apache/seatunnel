@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md) 仅适用于 batch 模式
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
@@ -40,7 +40,11 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | sequence_number_column      | string  | 否      | -       | 用于 CDC 去重的序列号列名。仅在 `write_mode` 为 `streaming` 时适用                                                |
 | batch_size                  | int     | 否      | 1000    | 发送到 BigQuery 之前批量处理的行数                                                                               |
 | emulator_host               | string  | 否      | -       | BigQuery emulator 地址，例如 `localhost:9050`。该参数仅用于测试。                                                |
-| multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数；但该连接器仍只写入配置中的单个 BigQuery 表。                    |
+| universe_domain             | string  | 否      | -       | Google Cloud 宇宙域/环境域名，例如主权云 S3NS 环境配置为 `s3nsapis.fr`。                                          |
+| schema_save_mode            | enum    | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema 保存模式。详见下文。                                                                           |
+| data_save_mode              | enum    | 否      | APPEND_DATA | Data 保存模式。详见下文。                                                                                 |
+| custom_sql                  | string  | 否      | -       | 当 `data_save_mode` 选择 `CUSTOM_PROCESSING` 时，需要填写的自定义 SQL 语句。                                    |
+| multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数。                                                          |
 | common-options              |         | 否      | -       | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                            |
 
 ### 认证参数
@@ -53,10 +57,31 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 ### 表选项
 
-目标 BigQuery 表必须已经存在。
-连接器会在 writer 初始化时读取已有的表 schema，并且不会自动创建 BigQuery 表。
+目标 BigQuery 表可以通过 SeaTunnel SaveMode 自动创建。
+通过将 `schema_save_mode` 配置为 `CREATE_SCHEMA_WHEN_NOT_EXIST`（默认值）或 `RECREATE_SCHEMA`，连接器在初始化时可以基于上游 schema 信息自动创建 BigQuery 数据集和数据表。
 
-该连接器会写入一个固定的目标表：`project_id.dataset_id.table_id`。它不会按上游表自动创建或切换 BigQuery 目标表。如果任务里有多张表，请配置多个 BigQuery sink，或者在写入 BigQuery 前先完成表路由。
+连接器写入的目标表由 `project_id.dataset_id.table_id` 决定。
+在多表同步场景下，您可以将 `table_id` 配置为包含 `${table_name}` 的表达式（例如 `table_id = "${table_name}"` 或 `table_id = "prefix_${table_name}"`），从而将数据动态路由到不同的 BigQuery 表中。在这种多表设置下，连接器将根据上游表信息自动在 BigQuery 中创建相应的目标表。
+
+### schema_save_mode [Enum]
+
+在同步任务启动之前，控制如何处理目标表的结构。
+- `RECREATE_SCHEMA` ：如果目标表存在，则先删除该表然后重新创建；如果不存在则直接创建。
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` ：如果目标表不存在则创建它；如果已存在则跳过创建。
+- `ERROR_WHEN_SCHEMA_NOT_EXIST` ：如果目标表不存在，则抛出异常并报错。
+- `IGNORE` ：忽略目标表结构的处理，不执行任何与结构相关的检查或 DDL 动作。
+
+### data_save_mode [Enum]
+
+在同步任务启动之前，控制如何处理目标表中的已有数据。
+- `DROP_DATA` ：删除目标表中的已有数据。
+- `APPEND_DATA` ：保留目标表中的已有数据，并将新数据追加写入。
+- `CUSTOM_PROCESSING` ：执行用户自定义的处理。此选项需要配合 `custom_sql` 参数。
+- `ERROR_WHEN_DATA_EXISTS` ：如果目标表已包含数据，则抛出异常并报错。
+
+### custom_sql [String]
+
+当 `data_save_mode` 被设置为 `CUSTOM_PROCESSING` 时，此参数中填写的自定义 SQL 语句将在数据开始写入前被执行。
 
 ### 写入模式
 

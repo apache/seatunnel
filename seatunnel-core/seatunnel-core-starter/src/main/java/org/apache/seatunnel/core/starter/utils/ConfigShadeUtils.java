@@ -54,6 +54,9 @@ public final class ConfigShadeUtils {
     public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
             new String[] {"password", "username", "auth", "token", "access_key", "secret_key"};
 
+    private static final String[] DEFAULT_LOG_MASK_ONLY_KEYWORDS =
+            new String[] {"sasl.jaas.config"};
+
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 
     private static final ConfigShade DEFAULT_SHADE = new DefaultConfigShade();
@@ -165,6 +168,12 @@ public final class ConfigShadeUtils {
                 "Miss <Sink> config! Please check the config file.");
         try {
             ConfigShade configShade = CONFIG_SHADES.getOrDefault(identifier, DEFAULT_SHADE);
+            if (Base64ConfigShade.IDENTIFIER.equals(identifier)) {
+                log.warn(
+                        "Config shade '{}' encodes sensitive options, it does not encrypt them:"
+                                + " anyone who reads the config can decode the values.",
+                        Base64ConfigShade.IDENTIFIER);
+            }
             // call open method before the encrypt/decrypt
             configShade.open(props);
 
@@ -237,6 +246,19 @@ public final class ConfigShadeUtils {
                                 SHADE_OPTIONS_OPTION,
                                 new ArrayList<>()));
         sensitiveOptions.addAll(Arrays.asList(DEFAULT_SENSITIVE_KEYWORDS));
+        return sensitiveOptions;
+    }
+
+    /**
+     * Returns option names used only for parsed-config log masking.
+     *
+     * <p>This method extends the encryption/decryption option list with log-only option names.
+     * Adding entries here changes only the rendered log output and does not change how existing
+     * configs are encrypted or decrypted.
+     */
+    public static Set<String> getLogDesensitizationOptions(Config config) {
+        Set<String> sensitiveOptions = getSensitiveOptions(config);
+        sensitiveOptions.addAll(Arrays.asList(DEFAULT_LOG_MASK_ONLY_KEYWORDS));
         return sensitiveOptions;
     }
 

@@ -259,6 +259,8 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DATABEND_CONTAINER_HOST)
+                        // The nightly image can reset JDBC while its object storage becomes ready.
+                        .withStartupAttempts(3)
                         .withUsername("root")
                         .withPassword("")
                         .withEnv("STORAGE_TYPE", "s3")

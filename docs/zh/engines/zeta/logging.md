@@ -94,6 +94,24 @@ SeaTunnel 提供了一个 API，用于查询日志。
 
 有关收集、脱敏和分析运行日志的流程，请参阅[使用 AI 辅助诊断运行日志](log-analysis-with-ai.md)。
 
+### 运行期修改日志级别
+
+修改日志级别有两种方式，二者行为不同：
+
+- **修改 `log4j2.properties`**：Log4j 2 在下一次扫描配置文件时生效（默认 60 秒一次，由
+  `monitorInterval` 控制），重启后依然有效，但需要在每个节点上分发。
+- **调用 `/loggers` REST 接口**：立即在接收请求的节点上生效，使用 `?scope=cluster` 时在所有节点上生效，
+  但节点重启后丢失。
+
+**使用样例：**
+- 查看某个节点的 logger 列表以及各自级别的来源：`http://localhost:8080/loggers`
+- 在整个集群上把某个连接器调整为 `DEBUG`：
+  `curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG&scope=cluster'`
+- 撤销该覆盖：`curl -X DELETE 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?scope=cluster'`
+
+通过接口修改过的 logger 会返回 `"origin": "runtime-override"`，因此运行时覆盖不会被误认为是配置文件中的
+级别。完整的请求与响应格式请参阅 [REST-API](rest-api-v2.md)。
+
 ## SeaTunnel 日志配置
 
 ### 定时删除旧日志

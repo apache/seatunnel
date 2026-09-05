@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.mongodb.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -56,8 +57,10 @@ public class MongodbSourceFactory implements TableSourceFactory {
                         MongodbSourceOptions.SPLIT_SIZE,
                         MongodbSourceOptions.SPLIT_KEY,
                         MongodbSourceOptions.CURSOR_NO_TIMEOUT,
-                        MongodbSourceOptions.FETCH_SIZE,
                         MongodbSourceOptions.MAX_TIME_MIN)
+                .optional(
+                        MongodbSourceOptions.FETCH_SIZE,
+                        Conditions.greaterThan(MongodbSourceOptions.FETCH_SIZE, 0))
                 .build();
     }
 
