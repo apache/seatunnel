@@ -160,6 +160,96 @@ sink {
 }
 ```
 
+### 带鉴权头的 GraphQL 查询
+
+GraphQL 服务需要鉴权时，可以把 bearer token 等放在 `headers` 里。底层 HTTP 客户端
+支持的任何请求头都可以通过这个参数传递。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_auth"
+    url = "https://graphql.example.com/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    headers = {
+      Authorization = "Bearer ${secret}"
+      X-Tenant = "acme"
+    }
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_auth"
+  }
+}
+```
+
+### 流式轮询查询
+
+对于只提供 HTTP 接口、但会持续发布新数据的服务，可以用流模式周期性地重复执行
+同一条查询。SeaTunnel 按 `poll_interval_millis` 发送请求，并把新行转发给下游算子。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_streaming"
+    url = "http://graphql:8080/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    poll_interval_millis = 10000
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+          val_double
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+        val_double = "double"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_streaming"
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
