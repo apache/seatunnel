@@ -40,6 +40,7 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only
                                               --encrypt will take effect (default:
                                               false)
+    --format                                  校验输出格式。支持：[text, json]（默认：text）
     --get_running_job_metrics                 Gets metrics for running jobs (default:
                                               false)
     -h, --help                                Show the usage message
@@ -85,6 +86,12 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 ```
 
 使用 `--dry-run static`（或者 `--check`）参数可以在**不提交作业**的前提下静态校验配置文件（包括 HOCON/YAML 语法、插件可加载性、DAG 拓扑、必填项与未知配置键等）。它不会执行完整的数据管道。插件加载可能读取本地 JAR，因此这是配置文件的离线校验，不是严格的零 I/O 沙箱。
+
+需要机器可读的校验结果时，可在 `--check`、`--dry-run static` 或 `--dry-run connect` 后添加 `--format json`。无论校验成功还是失败，JSON 文档都会写入标准输出；校验失败仍会以非零状态码退出。
+
+```shell
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --check --format json
+```
 
 ```shell
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect

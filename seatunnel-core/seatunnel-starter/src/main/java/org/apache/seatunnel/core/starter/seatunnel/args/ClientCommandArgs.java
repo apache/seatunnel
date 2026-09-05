@@ -25,6 +25,7 @@ import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
 import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
 import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
 import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
@@ -50,6 +51,12 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                     "Validate or preview without running sinks. Supported modes: [static, connect, sample].",
             converter = DryRunConverter.class)
     protected DryRun dryRun = null;
+
+    @Parameter(
+            names = {"--format"},
+            description = "Validation output format. Supported values: [text, json].",
+            converter = OutputFormatConverter.class)
+    private OutputFormat outputFormat = OutputFormat.TEXT;
 
     @Parameter(
             names = {"--sample-limit"},
@@ -249,6 +256,24 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         }
     }
 
+    public static class OutputFormatConverter implements IStringConverter<OutputFormat> {
+        @Override
+        public OutputFormat convert(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                throw new IllegalArgumentException("Output format must not be empty.");
+            }
+            try {
+                return OutputFormat.valueOf(value.trim().toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Unsupported output format '"
+                                + value
+                                + "'. Currently only [text, json] are supported.",
+                        e);
+            }
+        }
+    }
+
     /** Returns the configured sample limit, or the default limit when it was not specified. */
     public int getSampleLimit() {
         return sampleLimit == null ? DryRunSampleConfig.DEFAULT_LIMIT : sampleLimit;
@@ -257,6 +282,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     /** Validates options that depend on other command-line arguments. */
     public void validateCommandOptions() {
         validateSampleOptions();
+        if (outputFormat == OutputFormat.JSON
+                && (!checkConfig && dryRun == null || dryRun == DryRun.SAMPLE)) {
+            throw new ParameterException(
+                    "--format json requires --check, --dry-run static, or --dry-run connect.");
+        }
         if (dryRun == DryRun.SAMPLE) {
             validateSampleMode();
         }
