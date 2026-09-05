@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventType;
+import org.apache.seatunnel.connectors.cdc.base.schema.TableOperationEventType;
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 
 import java.util.Collections;
@@ -145,6 +146,37 @@ public class SourceOptions {
                                     + "Valid values: "
                                     + SchemaChangeEventType.validNames()
                                     + " (update.columns is a group alias for all column-level changes). ");
+
+    public static final Option<Boolean> TABLE_OPERATIONS_ENABLED =
+            Options.key("table-operations.enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Enable sending table-operation events such as TRUNCATE TABLE. Disabled by default. "
+                                    + "This is independent of schema-changes.enabled. When true, Debezium schema-history "
+                                    + "capture is also turned on so the DDL can be observed.");
+
+    public static final Option<List<String>> TABLE_OPERATIONS_INCLUDE =
+            Options.key("table-operations.include")
+                    .listType()
+                    .defaultValue(Collections.emptyList())
+                    .withDescription(
+                            "Only table-operation event types listed here are sent downstream when table-operations.enabled is true. "
+                                    + "Empty means all event types are eligible. "
+                                    + "Valid values: "
+                                    + TableOperationEventType.validNames()
+                                    + ".");
+
+    public static final Option<List<String>> TABLE_OPERATIONS_EXCLUDE =
+            Options.key("table-operations.exclude")
+                    .listType()
+                    .defaultValue(Collections.emptyList())
+                    .withDescription(
+                            "Table-operation event types listed here are NOT sent downstream. Applied after table-operations.include; "
+                                    + "exclude wins when a type appears in both lists. "
+                                    + "Valid values: "
+                                    + TableOperationEventType.validNames()
+                                    + ".");
 
     public static final Option<Boolean> ENABLE_CONCURRENT_READ =
             Options.key("enable_concurrent_read")

@@ -963,6 +963,10 @@ sink {
 
 使用 `table = "${table_name}"`、`database = "${schema_name}"` 占位符，SeaTunnel 会从上游记录的元数据中解析实际值（与 CDC 数据源或多表配置配合使用）。搭配 `generate_sink_sql = true` 可实现全自动 SQL 生成。
 
+### JDBC Sink 是否会执行 MySQL-CDC 的 `TRUNCATE TABLE`？
+
+会，但仅限 Zeta 引擎。在 MySQL-CDC source 上设置 `table-operations.enabled = true`。JDBC Sink 会先刷出该表的缓冲行，再对物理 sink 表执行 `TRUNCATE TABLE`。表结构不变，因此不会重建 writer。该能力与 schema evolution（`schema-changes.*`）相互独立。JDBC sink 必须保持 `exactly_once = false`（默认）；`is_exactly_once = true` 不支持表操作，会直接失败。Flink / Spark 不会执行表操作事件。
+
 ### 为什么提示 JDBC 驱动未找到？
 
 SeaTunnel 不内置所有 JDBC 驱动。Spark 和 Flink 需要把 JAR 放到每个执行节点的 `${SEATUNNEL_HOME}/plugins/Jdbc/lib/`；Zeta 需要放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的进程。常见驱动文件名包括：

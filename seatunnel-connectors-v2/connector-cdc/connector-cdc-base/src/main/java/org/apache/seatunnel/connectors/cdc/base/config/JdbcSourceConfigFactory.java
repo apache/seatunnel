@@ -298,7 +298,11 @@ public abstract class JdbcSourceConfigFactory implements SourceConfig.Factory<Jd
         this.connectMaxRetries = config.get(JdbcSourceOptions.CONNECT_MAX_RETRIES);
         this.connectionPoolSize = config.get(JdbcSourceOptions.CONNECTION_POOL_SIZE);
         this.exactlyOnce = config.get(JdbcSourceOptions.EXACTLY_ONCE);
-        this.schemaChangeEnabled = config.get(JdbcSourceOptions.SCHEMA_CHANGES_ENABLED);
+        // OR table-operations into Debezium include.schema.changes so TRUNCATE DDL is visible in
+        // the binlog. Structural ALTER is still gated by schema-changes.enabled in the resolver.
+        this.schemaChangeEnabled =
+                Boolean.TRUE.equals(config.get(JdbcSourceOptions.SCHEMA_CHANGES_ENABLED))
+                        || Boolean.TRUE.equals(config.get(SourceOptions.TABLE_OPERATIONS_ENABLED));
         this.dbzProperties = new Properties();
         config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
                 .ifPresent(map -> dbzProperties.putAll(map));

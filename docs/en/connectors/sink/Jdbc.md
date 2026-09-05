@@ -970,6 +970,15 @@ This option is mainly for high-volume PostgreSQL imports, and it has three impor
 
 Use `table = "${table_name}"` and `database = "${schema_name}"` as placeholders. SeaTunnel resolves these from the upstream record's metadata when used with CDC sources or multi-table configurations. Pair with `generate_sink_sql = true` for fully automatic SQL generation.
 
+### Does JDBC Sink apply MySQL-CDC `TRUNCATE TABLE`?
+
+Yes, on the Zeta engine. Enable `table-operations.enabled = true` on the MySQL-CDC source. JDBC Sink
+flushes buffered rows for the target table, then executes `TRUNCATE TABLE` against the physical sink
+table. The table schema is unchanged, so the writer is not rebuilt. This is independent of schema
+evolution (`schema-changes.*`). The JDBC sink must keep `exactly_once = false` (the default);
+`is_exactly_once = true` is not supported for table operations and fails fast. Flink and Spark do
+not apply table-operation events.
+
 ### Why is my JDBC driver not found?
 
 SeaTunnel does not bundle all JDBC drivers. For Spark and Flink, place the JAR in `${SEATUNNEL_HOME}/plugins/Jdbc/lib/` on every execution node. For Zeta, place it in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node and restart the affected processes. Common driver file names include:

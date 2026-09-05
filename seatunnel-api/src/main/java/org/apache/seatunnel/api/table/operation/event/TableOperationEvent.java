@@ -15,31 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.cdc.base.schema;
+package org.apache.seatunnel.api.table.operation.event;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.operation.TableOperationType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
-import org.apache.kafka.connect.source.SourceRecord;
+/**
+ * A table-level operation that is not a structural {@link SchemaChangeEvent}.
+ *
+ * <p>{@code TRUNCATE TABLE} belongs here: the table object and schema stay in place, only the data
+ * is removed.
+ */
+public interface TableOperationEvent extends Event {
 
-import java.io.Serializable;
-import java.util.List;
+    TableIdentifier tableIdentifier();
 
-public interface SchemaChangeResolver extends Serializable {
-
-    boolean support(SourceRecord record);
-
-    SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables);
-
-    /**
-     * Resolve a table-operation event such as {@code TRUNCATE TABLE}. Default is unsupported.
-     *
-     * @return the operation event, or {@code null} when the record is not a captured table
-     *     operation
-     */
-    default TableOperationEvent resolveTableOperation(
-            SourceRecord record, List<CatalogTable> catalogTables) {
-        return null;
+    default TablePath tablePath() {
+        return tableIdentifier().toTablePath();
     }
+
+    TableOperationType operationType();
+
+    String getStatement();
+
+    void setStatement(String statement);
 }

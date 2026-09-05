@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -46,6 +47,11 @@ public class TableIdInjectingCollector<T> implements Collector<T> {
 
     @Override
     public void collect(SchemaChangeEvent event) {
+        delegate.collect(event);
+    }
+
+    @Override
+    public void collect(TableOperationEvent event) {
         delegate.collect(event);
     }
 

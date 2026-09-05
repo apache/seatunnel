@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.source;
 
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 /**
@@ -31,6 +32,8 @@ public interface Collector<T> {
     default void markSchemaChangeBeforeCheckpoint() {}
 
     default void collect(SchemaChangeEvent event) {}
+
+    default void collect(TableOperationEvent event) {}
 
     default void markSchemaChangeAfterCheckpoint() {}
 

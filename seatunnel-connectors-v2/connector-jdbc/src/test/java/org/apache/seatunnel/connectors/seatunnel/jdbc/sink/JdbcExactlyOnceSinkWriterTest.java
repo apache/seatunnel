@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.operation.event.TruncateTableEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
@@ -65,6 +67,20 @@ class JdbcExactlyOnceSinkWriterTest {
         Assertions.assertEquals(3, txIds.size());
         Assertions.assertTrue(txIds.get(1) > txIds.get(0));
         Assertions.assertTrue(txIds.get(2) > txIds.get(1));
+    }
+
+    @Test
+    void applyTableOperationIsRejectedOnXaWriter() throws Exception {
+        TestContext context = createWriter();
+        UnsupportedOperationException exception =
+                Assertions.assertThrows(
+                        UnsupportedOperationException.class,
+                        () ->
+                                context.writer.applyTableOperation(
+                                        TruncateTableEvent.of(
+                                                TableIdentifier.of("mysql", "shop", "products"))));
+        Assertions.assertTrue(exception.getMessage().contains("exactly-once"));
+        verify(context.xaFacade, never()).endAndPrepare(any());
     }
 
     @Test

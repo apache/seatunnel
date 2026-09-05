@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
@@ -160,6 +161,20 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
         checkState(currentXid != null, "current xid must not be null");
         SeaTunnelRow copy = SerializationUtils.clone(element);
         outputFormat.writeRecord(copy);
+    }
+
+    /**
+     * XA/exactly-once cannot apply {@code TRUNCATE TABLE}. {@code prepareCommit()} only XA-prepares
+     * the current transaction; executing TRUNCATE (DDL) on a second connection while that prepared
+     * transaction still holds table locks can hang, and a later XA commit would resurrect the
+     * truncated rows. Use {@code exactly_once = false} on the JDBC sink instead.
+     */
+    @Override
+    public void applyTableOperation(TableOperationEvent event) {
+        throw new UnsupportedOperationException(
+                "JDBC exactly-once (XA) sink cannot apply table operations such as TRUNCATE TABLE. "
+                        + "TRUNCATE is DDL and cannot join a prepared XA transaction. "
+                        + "Set exactly_once=false on the JDBC sink, or set table-operations.enabled=false on the CDC source.");
     }
 
     @Override
