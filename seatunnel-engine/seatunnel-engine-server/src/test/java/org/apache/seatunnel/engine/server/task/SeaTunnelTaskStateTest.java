@@ -52,6 +52,7 @@ public class SeaTunnelTaskStateTest {
 
     private SeaTunnelTask task;
     private TaskExecutionService mockTaskExecutionService;
+    private TaskExecutionContext mockTaskExecutionContext;
     private SourceFlowLifeCycle<?, ?> sourceLifeCycle;
 
     @BeforeEach
@@ -62,8 +63,11 @@ public class SeaTunnelTaskStateTest {
         when(mockTaskExecutionService.registerTimerFlushTask(any(), any(), anyLong()))
                 .thenReturn(mock(ScheduledFuture.class));
 
-        TaskExecutionContext mockContext = mock(TaskExecutionContext.class);
-        when(mockContext.getTaskExecutionService()).thenReturn(mockTaskExecutionService);
+        mockTaskExecutionContext = mock(TaskExecutionContext.class);
+        when(mockTaskExecutionContext.getTaskExecutionService())
+                .thenReturn(mockTaskExecutionService);
+        when(mockTaskExecutionContext.registerTimerFlushTask(any(), any(), anyLong()))
+                .thenReturn(mock(ScheduledFuture.class));
 
         sourceLifeCycle = mock(SourceFlowLifeCycle.class);
         doCallRealMethod().when(sourceLifeCycle).hook();
@@ -75,7 +79,7 @@ public class SeaTunnelTaskStateTest {
                 sourceLifeCycle,
                 mock(TaskLocation.class));
 
-        when(task.getExecutionContext()).thenReturn(mockContext);
+        when(task.getExecutionContext()).thenReturn(mockTaskExecutionContext);
 
         List<FlowLifeCycle> cycles = new ArrayList<>();
         cycles.add(sourceLifeCycle);
@@ -284,32 +288,32 @@ public class SeaTunnelTaskStateTest {
     void testTimerRegistrationOnlyAtStartingToRunning() throws Exception {
         // INIT → WAITING_RESTORE
         task.stateProcess();
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
 
         // WAITING_RESTORE → READY_START
         task.stateProcess();
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
 
         // READY_START stays (startCalled = false)
         task.stateProcess();
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
 
         task.startCall();
         // READY_START → STARTING
         task.stateProcess();
         Assertions.assertEquals(SeaTunnelTaskState.STARTING, getState());
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
 
         // STARTING → RUNNING (hook → startFlushTimer → registerTimerFlushTask)
         task.stateProcess();
         Assertions.assertEquals(SeaTunnelTaskState.RUNNING, getState());
-        verify(mockTaskExecutionService, times(1)).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, times(1)).registerTimerFlushTask(any(), any(), anyLong());
 
         // Multiple RUNNING iterations — registerTimerFlushTask stays at 1
         task.stateProcess();
         task.stateProcess();
         task.stateProcess();
-        verify(mockTaskExecutionService, times(1)).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, times(1)).registerTimerFlushTask(any(), any(), anyLong());
     }
 
     @Test
@@ -320,7 +324,7 @@ public class SeaTunnelTaskStateTest {
         task.stateProcess();
 
         Assertions.assertEquals(SeaTunnelTaskState.READY_START, getState());
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
     }
 
     @Test
@@ -330,7 +334,7 @@ public class SeaTunnelTaskStateTest {
         advanceTo(SeaTunnelTaskState.STARTING);
         task.stateProcess();
         Assertions.assertEquals(SeaTunnelTaskState.RUNNING, getState());
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
     }
 
     @Test
@@ -340,7 +344,7 @@ public class SeaTunnelTaskStateTest {
         advanceTo(SeaTunnelTaskState.STARTING);
         task.stateProcess();
         Assertions.assertEquals(SeaTunnelTaskState.RUNNING, getState());
-        verify(mockTaskExecutionService, never()).registerTimerFlushTask(any(), any(), anyLong());
+        verify(mockTaskExecutionContext, never()).registerTimerFlushTask(any(), any(), anyLong());
     }
 
     @Test
@@ -351,7 +355,7 @@ public class SeaTunnelTaskStateTest {
         advanceTo(SeaTunnelTaskState.STARTING);
         task.stateProcess();
 
-        verify(mockTaskExecutionService, times(1))
+        verify(mockTaskExecutionContext, times(1))
                 .registerTimerFlushTask(
                         any(TaskLocation.class), any(Runnable.class), Mockito.eq(expectedInterval));
     }

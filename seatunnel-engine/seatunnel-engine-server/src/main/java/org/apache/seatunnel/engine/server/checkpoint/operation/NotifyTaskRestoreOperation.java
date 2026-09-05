@@ -92,7 +92,6 @@ public class NotifyTaskRestoreOperation extends TaskOperation {
                     try {
                         ClassLoader classLoader = Thread.currentThread().getContextClassLoader();
                         task.getExecutionContext()
-                                .getTaskExecutionService()
                                 .asyncExecuteFunction(
                                         taskLocation.getTaskGroupLocation(),
                                         () -> {

@@ -372,7 +372,6 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         flushFuture =
                 runningTask
                         .getExecutionContext()
-                        .getTaskExecutionService()
                         .registerTimerFlushTask(
                                 currentTaskLocation, this::onTimerTick, flushIntervalMs);
         log.info(
@@ -386,10 +385,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             return;
         }
         try {
-            runningTask
-                    .getExecutionContext()
-                    .getTaskExecutionService()
-                    .closeTimerFlushTask(currentTaskLocation);
+            runningTask.getExecutionContext().closeTimerFlushTask(currentTaskLocation);
         } catch (Exception e) {
             log.warn("Failed to close flush timer for task {}", currentTaskLocation, e);
         }
