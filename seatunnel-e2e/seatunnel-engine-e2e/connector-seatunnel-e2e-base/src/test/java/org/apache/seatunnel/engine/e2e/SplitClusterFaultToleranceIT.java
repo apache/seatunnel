@@ -727,38 +727,43 @@ public class SplitClusterFaultToleranceIT {
      * PhysicalVertex#initStateFuture()} restores each vertex's persisted {@link ExecutionState}
      * from the running-job IMap and, for a persisted state of RUNNING or DEPLOYING, pings the
      * worker via {@code checkTaskGroupIsExecuting} to self-heal a state that no longer matches
-     * reality. For RUNNING, a confirmed-alive task is simply left as RUNNING and {@code
-     * SubPlan#stateProcess}'s {@code case RUNNING} does nothing, so no redeploy call is ever made.
-     * For DEPLOYING, that same confirmation still leaves the state as DEPLOYING (the check only
-     * ever downgrades to FAILING, it never upgrades to RUNNING), and {@code stateProcess}'s {@code
-     * case DEPLOYING} unconditionally calls {@code deploy()} again — this is the exact pre-fix
-     * crash site. DEPLOYING only persists in the IMap for the duration of one worker deploy RPC
-     * round trip (typically low single-digit milliseconds), so hitting it needs a deliberately
-     * constructed trigger rather than a blind sleep.
+     * reality. The restored state is then replayed per vertex through {@code
+     * PhysicalVertex#restoreExecutionState()}, which calls {@code PhysicalVertex#stateProcess()} —
+     * the vertex-level switch on {@link ExecutionState}, not the pipeline-level one in {@code
+     * SubPlan}. For RUNNING, a confirmed-alive task is simply left as RUNNING and {@code
+     * PhysicalVertex#stateProcess}'s {@code case RUNNING} does nothing, so no redeploy call is ever
+     * made. For DEPLOYING, that same confirmation still leaves the state as DEPLOYING (the check
+     * only ever downgrades to FAILING, it never upgrades to RUNNING), and {@code
+     * PhysicalVertex#stateProcess}'s {@code case DEPLOYING} unconditionally calls {@code deploy()}
+     * again — this is the exact pre-fix crash site. DEPLOYING only persists in the IMap for the
+     * duration of one worker deploy RPC round trip (typically low single-digit milliseconds), so
+     * hitting it needs a deliberately constructed trigger rather than a blind sleep.
      *
      * <p>This test builds that trigger directly instead of gambling on timing. It submits a bounded
      * batch job with {@code testParallelism} FakeSource/LocalFile task groups and, on a dedicated
      * watcher thread, tight-polls (1 millisecond between checks, no blind sleep) the active
      * master's own in-JVM {@link JobMaster#getPhysicalPlan()} for any vertex reporting {@link
-     * ExecutionState#DEPLOYING}. {@code SubPlan#stateProcess} dispatches deploys to its vertices
-     * one at a time on a single thread: each vertex only becomes visibly DEPLOYING once its RPC to
-     * the worker is in flight, and stays that way until the ack returns, so raising the parallelism
-     * does not widen any single vertex's window — it multiplies how many independent windows the
-     * watcher gets to land in across the pipeline's whole deploy fan-out. The instant any vertex is
-     * caught mid-deploy, the watcher shuts the active master down, which is what a real master
-     * crash inside that window looks like to the rest of the cluster. The watcher's own poll is a
-     * plain in-JVM field read with no network cost, while the state it races against is gated by a
-     * real IMap write plus a real deploy RPC, so the watcher can sample many times inside a window
-     * it does not control. That asymmetry, not luck, is what makes the trigger reliable.
+     * ExecutionState#DEPLOYING}. {@code SubPlan#stateProcess}'s {@code case DEPLOYING} drives that
+     * fan-out one vertex at a time on a single thread — each vertex's {@code makeTaskGroupDeploy()}
+     * synchronously runs {@code PhysicalVertex#stateProcess} and its deploy RPC before the next
+     * vertex is touched. A vertex therefore becomes visibly DEPLOYING just before its RPC to the
+     * worker goes out, and stays that way until the ack returns, so raising the parallelism does
+     * not widen any single vertex's window — it multiplies how many independent windows the watcher
+     * gets to land in across the pipeline's whole deploy fan-out. The instant any vertex is caught
+     * mid-deploy, the watcher shuts the active master down, which is what a real master crash
+     * inside that window looks like to the rest of the cluster. The watcher's own poll is a plain
+     * in-JVM field read with no network cost, while the state it races against is gated by a real
+     * IMap write plus a real deploy RPC, so the watcher can sample many times inside a window it
+     * does not control. That asymmetry, not luck, is what makes the trigger reliable.
      *
      * <p>Observing DEPLOYING at kill time guarantees the persisted state driving restore is
-     * DEPLOYING, which is necessary to reach {@code stateProcess}'s redeploy branch, but it does
-     * not by itself guarantee the worker had already finished deploying that vertex — the other
-     * ingredient the pre-fix crash needs. Both sub-cases are legitimate outcomes of this trigger,
-     * and this test's assertions are written to hold cleanly on either one: if the worker had
-     * already succeeded, the fixed code makes the redeploy a no-op and that vertex needs no restore
-     * at all; if it had not, the same self-heal check correctly drives it to FAILING and the
-     * pipeline restores exactly once, which is ordinary, expected recovery rather than a
+     * DEPLOYING, which is necessary to reach {@code PhysicalVertex#stateProcess}'s redeploy branch,
+     * but it does not by itself guarantee the worker had already finished deploying that vertex —
+     * the other ingredient the pre-fix crash needs. Both sub-cases are legitimate outcomes of this
+     * trigger, and this test's assertions are written to hold cleanly on either one: if the worker
+     * had already succeeded, the fixed code makes the redeploy a no-op and that vertex needs no
+     * restore at all; if it had not, the same self-heal check correctly drives it to FAILING and
+     * the pipeline restores exactly once, which is ordinary, expected recovery rather than a
      * regression. What must never happen on either sub-case is a client-visible failure or more
      * than one pipeline restore for the whole scenario. A pre-fix run instead throws on the worker,
      * fails that one vertex, and — since a single failed vertex fails its whole pipeline — forces a
@@ -831,8 +836,12 @@ public class SplitClusterFaultToleranceIT {
                             () ->
                                     killActiveMasterWhileAnyVertexDeploying(
                                             finalActiveMaster, jobId, 30));
+            // Wait past the watcher's own 30s deadline on purpose. Sharing that deadline here
+            // would race the watcher's normal `false` return and surface a bare TimeoutException
+            // instead of the diagnostic message below, which is what tells a future maintainer the
+            // trigger window was missed rather than the fix being broken.
             Assertions.assertTrue(
-                    deployingObserved.get(30, TimeUnit.SECONDS),
+                    deployingObserved.get(60, TimeUnit.SECONDS),
                     "Never observed any task vertex in DEPLOYING state before the job's initial "
                             + "deploy fan-out completed; the deploy-idempotency trigger window was "
                             + "missed on this run, so this test did not exercise the fix and needs "
