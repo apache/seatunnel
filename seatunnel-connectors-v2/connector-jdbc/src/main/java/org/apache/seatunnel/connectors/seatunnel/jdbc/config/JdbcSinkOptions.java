@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 
 import java.util.List;
+import java.util.Map;
 
 public class JdbcSinkOptions extends JdbcCommonOptions {
 
@@ -107,6 +108,17 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
 
     public static final Option<List<String>> PRIMARY_KEYS =
             Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
+
+    public static final Option<Map<String, Object>> MULTI_TABLE_CONFIG =
+            Options.key("multi-table_config")
+                    .mapObjectType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Per-table primary key mapping for multi-table generated-SQL sinks. "
+                                    + "When a table matches one of the patterns under primary_keys, "
+                                    + "that mapping takes precedence over the top-level `primary_keys` "
+                                    + "option. Value shape: { primary_keys = { \"<regex>\" = "
+                                    + "[\"col1\", \"${primary_key}\"] } }.");
 
     public static final Option<Boolean> IS_PRIMARY_KEY_UPDATED =
             Options.key("is_primary_key_updated")
