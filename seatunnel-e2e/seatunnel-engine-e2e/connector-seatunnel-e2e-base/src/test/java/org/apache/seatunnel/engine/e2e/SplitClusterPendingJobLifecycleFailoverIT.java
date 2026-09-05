@@ -49,17 +49,33 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.logging.Level;
 
+@Slf4j
 public class SplitClusterPendingJobLifecycleFailoverIT {
     private static final String JOB_CONFIG_FILE = "pending_jobs_streaming_lifecycle.conf";
+
+    /**
+     * Number of rapid kill-and-replace rounds used by {@link
+     * #testMasterElectionLoopRecoversFromRapidFailoverChurn()}. Each round is a real Hazelcast
+     * membership delta (one join, one leave) fired back-to-back without waiting for the cluster to
+     * settle first, so more rounds means more chances for {@code checkNewActiveMaster()}'s 100ms
+     * poll to observe still-settling cluster state.
+     */
+    private static final int MASTER_ELECTION_CHURN_ROUNDS = 6;
 
     @Test
     public void testPendingJobLifecycleInMasterFailover() {
@@ -493,6 +509,190 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
         }
     }
 
+    /**
+     * Regression test for the master-election poll loop permanently dying, fixed by <a
+     * href="https://github.com/apache/seatunnel/commit/d635407ac3dc509b5b25f2c3e3738df2faa27f94">
+     * d635407ac3d</a> ("[Fix] [Zeta] CoordinatorService initialization retry on failure (#10580)").
+     * Before that fix, {@code CoordinatorService#checkNewActiveMaster()} (scheduled every 100ms via
+     * {@code masterActiveListener.scheduleAtFixedRate}) rethrew any exception it caught during
+     * master election/init. {@code ScheduledThreadPoolExecutor} semantics mean an uncaught
+     * exception escaping a periodic task silently and permanently cancels every future execution of
+     * that task, with no watchdog to re-arm it, so the only recovery was a full node restart. The
+     * fix replaced the rethrow with a caught-and-logged retry: {@code catch (Exception e)} now
+     * clears local coordinator state and lets the next 100ms tick try again.
+     *
+     * <p>This test proves that retry invariant holds under real, unmocked cluster churn rather than
+     * a synthetically thrown exception. It repeatedly kills the active master and starts its
+     * replacement from an independent thread at (almost) the same instant, without waiting for the
+     * previous round to settle first, so several real Hazelcast membership deltas land back-to-back
+     * while {@code checkNewActiveMaster()} is mid-poll on the surviving node. This mirrors the fix
+     * author's own description of the original failure ("e.g. Hazelcast RegistrationOperation
+     * timeout") -- a transient exception surfacing from {@code initCoordinatorService()}'s IMap and
+     * service setup while the cluster has not fully settled -- without asserting a specific
+     * exception type, since the exact transient fault Hazelcast surfaces under real timing pressure
+     * cannot be dictated from outside the process. A log listener on every master-eligible node
+     * records whether {@code checkNewActiveMaster()}'s retry-path log line actually fired during
+     * the run, purely as diagnostic evidence (logged, never asserted on) that a given run exercised
+     * the exact catch block under regression test, since a black-box E2E test has no reliable way
+     * to force that deterministically.
+     *
+     * <p>The hard, always-enforced assertion is the invariant the fix guarantees regardless of
+     * whether the retry-path log fires on a given run: after the churn, exactly one master-eligible
+     * node converges on an active, genuinely functional coordinator (proven by actually running a
+     * job through it, not just an internal flag check) within a bounded time and with no external
+     * restart of any node. The pre-fix code could get permanently stuck the moment any qualifying
+     * exception occurred anywhere in the loop, requiring a full node restart to recover.
+     *
+     * <p><b>Known open gap not covered by this test:</b> as of this test's authoring, {@code
+     * checkNewActiveMaster()} still catches {@code Exception}, not {@code Throwable}. A {@code
+     * Throwable} that is not an {@code Exception} (e.g. {@code NoClassDefFoundError} from a broken
+     * plugin jar, or {@code OutOfMemoryError}) would still permanently kill this scheduled task
+     * today, for the exact same {@code ScheduledThreadPoolExecutor} reason described above. That
+     * gap cannot be closed by a black-box test: constructing a real, non-mocked {@code Error} on
+     * demand inside this exact method without modifying production code is not achievable from
+     * outside the process. See this test's originating PR description for the follow-up
+     * recommendation.
+     */
+    @Test
+    public void testMasterElectionLoopRecoversFromRapidFailoverChurn() throws Exception {
+        String testClusterName =
+                "SplitClusterPendingJobLifecycleFailoverIT_"
+                        + "testMasterElectionLoopRecoversFromRapidFailoverChurn";
+
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        List<HazelcastInstanceImpl> liveMasterNodes = new ArrayList<>();
+        AtomicBoolean sawRetryPathLog = new AtomicBoolean(false);
+
+        try {
+            SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+            SeaTunnelConfig masterNode2Config = getSeaTunnelConfig(testClusterName);
+            SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+            configurePendingLifecycleTest(masterNode1Config);
+            configurePendingLifecycleTest(masterNode2Config);
+            configurePendingLifecycleTest(workerNodeConfig);
+
+            HazelcastInstanceImpl masterNode1 =
+                    SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+            HazelcastInstanceImpl masterNode2 =
+                    SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);
+            liveMasterNodes.add(masterNode1);
+            liveMasterNodes.add(masterNode2);
+            installRetryPathLogListener(masterNode1, sawRetryPathLog);
+            installRetryPathLogListener(masterNode2, sawRetryPathLog);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalWorkerNode = workerNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalWorkerNode.getCluster().getMembers().size()));
+            HazelcastInstanceImpl initialActive = waitAndFindActiveMaster(masterNode1, masterNode2);
+
+            HazelcastInstanceImpl currentActive = initialActive;
+            HazelcastInstanceImpl currentStandby =
+                    initialActive == masterNode1 ? masterNode2 : masterNode1;
+
+            for (int round = 0; round < MASTER_ELECTION_CHURN_ROUNDS; round++) {
+                SeaTunnelConfig replacementConfig = getSeaTunnelConfig(testClusterName);
+                configurePendingLifecycleTest(replacementConfig);
+
+                // Start the replacement master on an independent thread and kill the current
+                // active master from the main thread without waiting for either step to settle
+                // first, so the join and the departure land as two overlapping, real Hazelcast
+                // membership deltas instead of two cleanly separated ones. This is what gives
+                // checkNewActiveMaster's 100ms poll a plausible chance to observe cluster state
+                // that has not finished settling.
+                CompletableFuture<HazelcastInstanceImpl> replacementFuture =
+                        CompletableFuture.supplyAsync(
+                                () ->
+                                        SeaTunnelServerStarter.createMasterHazelcastInstance(
+                                                replacementConfig));
+                currentActive.shutdown();
+                liveMasterNodes.remove(currentActive);
+
+                HazelcastInstanceImpl replacement = replacementFuture.get(60, TimeUnit.SECONDS);
+                liveMasterNodes.add(replacement);
+                installRetryPathLogListener(replacement, sawRetryPathLog);
+
+                currentActive = currentStandby;
+                currentStandby = replacement;
+            }
+
+            HazelcastInstanceImpl finalActiveCandidate = currentActive;
+            HazelcastInstanceImpl finalStandbyCandidate = currentStandby;
+            final HazelcastInstanceImpl[] stableActiveRef = new HazelcastInstanceImpl[1];
+            // The churn loop above deliberately never waits for convergence between rounds, so
+            // give the cluster a generous bounded ceiling here to digest the backlog of six
+            // stacked membership deltas. This is the assertion that would fail forever (not just
+            // slowly) against the pre-fix code once any round happened to hit a qualifying
+            // exception: with no retry, the node that should have taken over would never try
+            // again on its own.
+            Awaitility.await()
+                    .atMost(90, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                stableActiveRef[0] =
+                                        findActiveMaster(
+                                                finalActiveCandidate, finalStandbyCandidate);
+                                Assertions.assertNotNull(
+                                        stableActiveRef[0],
+                                        "Cluster must converge on exactly one active coordinator "
+                                                + "after rapid failover churn, with no external "
+                                                + "restart of any node");
+                            });
+            HazelcastInstanceImpl stableActive = stableActiveRef[0];
+            HazelcastInstanceImpl stableStandby =
+                    stableActive == finalActiveCandidate
+                            ? finalStandbyCandidate
+                            : finalActiveCandidate;
+
+            // Secondary sanity check: the churn must not leave two nodes each believing they are
+            // the active master.
+            Awaitility.await()
+                    .during(3, TimeUnit.SECONDS)
+                    .atMost(15, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertFalse(isCoordinatorActive(stableStandby)));
+
+            // Prove the coordinator that emerged is genuinely functional, not just internally
+            // flagged active: submit and run a real job through it. This is the concrete,
+            // user-visible recovery the fix restores; the pre-fix failure mode required a full
+            // node restart to reach this state again.
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobProxy recoveryProbeJob =
+                    submitJob(
+                            engineClient,
+                            masterNode1Config,
+                            "master_election_recovery_probe",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            assertJobStatusWithTimeout(recoveryProbeJob, JobStatus.RUNNING, 120);
+            recoveryProbeJob.cancelJob();
+            assertEventuallyCanceled(recoveryProbeJob);
+
+            log.info(
+                    "checkNewActiveMaster retry-path log observed during churn: {}",
+                    sawRetryPathLog.get());
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+            for (HazelcastInstanceImpl masterNode : liveMasterNodes) {
+                if (masterNode.getLifecycleService().isRunning()) {
+                    masterNode.shutdown();
+                }
+            }
+        }
+    }
+
     @NotNull private static SeaTunnelConfig getSeaTunnelConfig(String testClusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         seaTunnelConfig
@@ -637,6 +837,29 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             return masterNode2;
         }
         return null;
+    }
+
+    /**
+     * Registers a listener that records whether {@code CoordinatorService#checkNewActiveMaster()}'s
+     * retry-path log line ("check new active master error") fired on this node. This is diagnostic
+     * evidence only, logged but never asserted on, that a given run of {@link
+     * #testMasterElectionLoopRecoversFromRapidFailoverChurn()} actually exercised the catch block
+     * under regression test; a black-box E2E test has no reliable way to force a specific transient
+     * exception deterministically, so the test's hard assertions must not depend on this listener
+     * having fired.
+     */
+    private static void installRetryPathLogListener(
+            HazelcastInstanceImpl node, AtomicBoolean sawRetryPathLog) {
+        node.getLoggingService()
+                .addLogListener(
+                        Level.SEVERE,
+                        logEvent -> {
+                            String message = logEvent.getLogRecord().getMessage();
+                            if (message != null
+                                    && message.contains("check new active master error")) {
+                                sawRetryPathLog.set(true);
+                            }
+                        });
     }
 
     private static boolean isCoordinatorActive(HazelcastInstanceImpl masterNode) {
