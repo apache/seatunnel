@@ -38,22 +38,47 @@ public class AvroDeserializationSchema implements DeserializationSchema<SeaTunne
     private final SeaTunnelRowType rowType;
     private final AvroToRowConverter converter;
     private final CatalogTable catalogTable;
+    private final boolean stripSchemaRegistryHeader;
 
     public AvroDeserializationSchema(CatalogTable catalogTable) {
-        this.catalogTable = catalogTable;
-        this.rowType = catalogTable.getSeaTunnelRowType();
-        this.converter = new AvroToRowConverter(rowType);
+        this(catalogTable, null, false);
     }
 
     public AvroDeserializationSchema(CatalogTable catalogTable, String writerSchema) {
+        this(catalogTable, writerSchema, false);
+    }
+
+    public AvroDeserializationSchema(
+            CatalogTable catalogTable, String writerSchema, boolean stripSchemaRegistryHeader) {
         this.catalogTable = catalogTable;
         this.rowType = catalogTable.getSeaTunnelRowType();
-        this.converter = new AvroToRowConverter(rowType, writerSchema);
+        this.converter =
+                writerSchema == null
+                        ? new AvroToRowConverter(rowType)
+                        : new AvroToRowConverter(rowType, writerSchema);
+        this.stripSchemaRegistryHeader = stripSchemaRegistryHeader;
     }
 
     @Override
     public SeaTunnelRow deserialize(byte[] message) throws IOException {
-        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, null);
+        if (stripSchemaRegistryHeader && hasSchemaRegistryHeader(message)) {
+            try {
+                return deserializePayload(message, 5, message.length - 5);
+            } catch (IOException | RuntimeException framedFailure) {
+                // A raw Avro payload can legally begin with zero. Preserve compatibility by
+                // retrying the complete message when the framed interpretation is not decodable.
+            }
+        }
+        return deserializePayload(message, 0, message.length);
+    }
+
+    private static boolean hasSchemaRegistryHeader(byte[] message) {
+        return message != null && message.length >= 5 && message[0] == 0;
+    }
+
+    private SeaTunnelRow deserializePayload(byte[] message, int offset, int length)
+            throws IOException {
+        BinaryDecoder decoder = DecoderFactory.get().binaryDecoder(message, offset, length, null);
         GenericRecord record = this.converter.getReader().read(null, decoder);
         SeaTunnelRow seaTunnelRow = converter.converter(record, rowType);
         Optional<TablePath> tablePath =
