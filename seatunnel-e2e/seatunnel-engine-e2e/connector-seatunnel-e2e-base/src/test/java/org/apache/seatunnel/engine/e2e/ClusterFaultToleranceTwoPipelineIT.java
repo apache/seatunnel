@@ -28,7 +28,12 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -44,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -59,6 +65,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
 
     public static final String TEST_TEMPLATE_FILE_NAME =
             "cluster_batch_fake_to_localfile_two_pipeline_template.conf";
+
+    /**
+     * Two independent pipelines: table_healthy is an ordinary bounded FakeSource -> LocalFile
+     * pipeline, table_doomed's Assert sink always throws so its pipeline permanently fails. Used by
+     * {@link #testOneUnrecoverablePipelineForceCancelsHealthySiblingPipeline()}.
+     */
+    public static final String ONE_PIPELINE_PERMANENTLY_FAILED_TEMPLATE_FILE_NAME =
+            "cluster_batch_one_pipeline_permanently_failed_template.conf";
 
     public static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -794,5 +808,180 @@ public class ClusterFaultToleranceTwoPipelineIT {
                 node2.shutdown();
             }
         }
+    }
+
+    /**
+     * Documents PhysicalPlan's current, hardcoded cascade-cancel behavior: {@code
+     * PhysicalPlan#makeJobEndWhenPipelineEnded} is unconditionally {@code true} (no config or
+     * setter exists for it), so the moment ANY pipeline in a multi-pipeline job exhausts its
+     * restore budget ({@code SubPlan#canRestorePipeline}, gated by {@code job.retry.times}) and
+     * reaches a terminal {@link PipelineStatus#FAILED}, {@code PhysicalPlan#addPipelineEndCallback}
+     * unconditionally calls {@code updateJobState(JobStatus.FAILING)}. That job-level transition's
+     * {@code stateProcess()} then calls {@code jobMaster.neverNeedRestore()} followed by {@code
+     * SubPlan#cancelPipeline} on every pipeline of the job, including ones that never touched the
+     * failure and are still healthily RUNNING.
+     *
+     * <p>This is a documentation-of-current-behavior test, not a regression test for a fix: nothing
+     * in the engine today isolates one pipeline's terminal failure from its siblings, so this test
+     * intentionally PASSES by observing the cascade happen exactly as coded. If a future change
+     * makes pipeline failures isolated (for example by making {@code makeJobEndWhenPipelineEnded}
+     * configurable or conditional), this test will start failing and must be revisited deliberately
+     * instead of silently.
+     *
+     * <p>The job submitted here has two independent pipelines built from {@link
+     * #ONE_PIPELINE_PERMANENTLY_FAILED_TEMPLATE_FILE_NAME}: table_healthy is an ordinary bounded
+     * FakeSource -> LocalFile pipeline that is paced (via {@code split.read-interval}) to still be
+     * RUNNING for tens of seconds, and table_doomed's Assert sink always throws on its first row,
+     * so it permanently fails and exhausts its (deliberately small, explicit) {@code
+     * job.retry.times} restore budget within a few seconds. A single embedded node is enough here,
+     * unlike the sibling tests in this class: this test targets {@code PhysicalPlan}'s
+     * pipeline-level cascade logic, not cross-node fault tolerance, and {@code
+     * slot-service.dynamic-slot} (see seatunnel.yaml) lets one node run both pipelines concurrently
+     * without resource contention.
+     */
+    @Test
+    public void testOneUnrecoverablePipelineForceCancelsHealthySiblingPipeline() throws Exception {
+        String testCaseName = "testOneUnrecoverablePipelineForceCancelsHealthySiblingPipeline";
+        String testClusterName = "ClusterFaultToleranceTwoPipelineIT_" + testCaseName;
+        long testRowNumber = 500;
+        int testParallelism = 2;
+
+        HazelcastInstanceImpl node = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .setClusterName(TestUtils.getClusterName(testClusterName));
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
+
+        try {
+            node = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(
+                            testCaseName,
+                            JobMode.BATCH,
+                            testRowNumber,
+                            testParallelism,
+                            ONE_PIPELINE_PERMANENTLY_FAILED_TEMPLATE_FILE_NAME);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+            // Resolve the physical plan now, while the job is confirmedly RUNNING, and keep this
+            // reference for the post-completion assertions below instead of re-resolving it via
+            // CoordinatorService#getJobMaster(jobId) after the job ends. SubPlan#getPipelineState
+            // reads a volatile field on the SubPlan instance itself, so holding this reference is
+            // race-free; re-resolving after completion would not be. The client observing
+            // completion (via the waitForJobComplete RPC round trip below) and the server
+            // forgetting the job (CoordinatorService#runningJobMasterMap.remove, in JobMaster#run's
+            // finally block, once JobMaster#jobMasterCompleteFuture completes) are both triggered
+            // by the same completion event with no ordering guarantee between them, so
+            // getJobMaster(jobId) can already return null by the time a caller reacts to job
+            // completion.
+            PhysicalPlan physicalPlan = getPhysicalPlan(node, jobId);
+            Assertions.assertNotNull(
+                    physicalPlan, "Physical plan should be reachable while RUNNING");
+            List<SubPlan> pipelines = physicalPlan.getPipelineList();
+            Assertions.assertEquals(2, pipelines.size(), "Job should have exactly two pipelines");
+
+            CompletableFuture<JobStatus> jobCompleteFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+
+            // job.retry.times=2 and job.retry.interval.seconds=1 in the template bound table_
+            // doomed to 3 attempts (1 original + 2 restores) and 2 one-second sleeps between
+            // them; each attempt fails instantly on the Assert sink's first row. 120s is a
+            // generous bound even on a heavily loaded machine.
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(jobCompleteFuture.isDone());
+                                // Documents today's actual, hardcoded outcome: the job ends
+                                // FAILED, not a partial success, even though one of its two
+                                // pipelines was healthy and would otherwise have finished on its
+                                // own.
+                                Assertions.assertEquals(JobStatus.FAILED, jobCompleteFuture.get());
+                            });
+
+            SubPlan doomedPipeline =
+                    pipelines.stream()
+                            .filter(p -> p.getPipelineState() == PipelineStatus.FAILED)
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Expected exactly one pipeline (table_doomed) to end FAILED"));
+            SubPlan healthyPipeline =
+                    pipelines.stream()
+                            .filter(p -> p != doomedPipeline)
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Expected a second pipeline (table_healthy)"));
+
+            // This is the crux of the documented behavior: the healthy pipeline never reached its
+            // own natural FINISHED state. PhysicalPlan#stateProcess (case FAILING/CANCELING)
+            // force-cancelled it purely as a side effect of the sibling pipeline's failure.
+            // SubPlan#cancelPipeline() is a no-op on an already-terminal pipeline, so seeing
+            // CANCELED here (rather than FINISHED) also proves it had not already finished on its
+            // own before the cascade reached it.
+            Assertions.assertEquals(
+                    PipelineStatus.CANCELED,
+                    healthyPipeline.getPipelineState(),
+                    "Healthy pipeline should have been force-cancelled by the doomed sibling's cascade, not left to finish");
+
+            // Corroborate from the data plane: the healthy pipeline's transactional LocalFile
+            // sink only commits when the pipeline reaches its own natural completion. No periodic
+            // checkpoint fires within this test's runtime (the cluster default checkpoint.interval
+            // is 300s, see seatunnel.yaml), so a force-cancel before that point commits nothing,
+            // and the committed line count must stay below the full expected total.
+            long healthyPipelineLineCount =
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+            Assertions.assertTrue(
+                    healthyPipelineLineCount < testRowNumber * testParallelism,
+                    "Healthy pipeline output should be incomplete because it was cancelled before "
+                            + "it could finish, but found "
+                            + healthyPipelineLineCount
+                            + " lines");
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (node != null) {
+                node.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Reads the current job master's physical plan from the SeaTunnel server embedded in the given
+     * Hazelcast instance, so a test can inspect per-pipeline state directly rather than only the
+     * aggregate job-level status.
+     */
+    private static PhysicalPlan getPhysicalPlan(HazelcastInstanceImpl node, long jobId) {
+        SeaTunnelServer server = node.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        return jobMaster == null ? null : jobMaster.getPhysicalPlan();
     }
 }
