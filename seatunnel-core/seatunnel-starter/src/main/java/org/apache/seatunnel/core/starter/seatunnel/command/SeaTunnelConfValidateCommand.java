@@ -39,6 +39,8 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.FileUtils;
+import org.apache.seatunnel.core.starter.validation.ConfigValidationError;
+import org.apache.seatunnel.core.starter.validation.ConfigValidationResult;
 import org.apache.seatunnel.engine.core.parse.ConfigParserUtil;
 import org.apache.seatunnel.engine.core.parse.JobPluginClasspathHelper;
 
@@ -50,6 +52,9 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 
@@ -82,6 +87,11 @@ import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAM
  */
 @Slf4j
 public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> {
+
+    private static final Pattern PLUGIN_LOCATION_PATTERN =
+            Pattern.compile("((?:source|transform|sink)\\[\\d+\\]\\([^)]*\\))");
+    private static final Pattern OPTION_PATH_PATTERN =
+            Pattern.compile("(?m)^\\s*options?:\\s*([^\\r\\n]+)");
 
     private final ClientCommandArgs clientCommandArgs;
 
@@ -184,6 +194,86 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                 throw new ConfigCheckException(validationMode + " failed: " + message);
             }
             throw new ConfigCheckException(validationMode + " failed: " + message, e);
+        }
+    }
+
+    /**
+     * Validate the configuration and return a reusable result for non-CLI integrations.
+     *
+     * <p>The result is deliberately config-level and does not claim runtime-equivalent validation.
+     */
+    public ConfigValidationResult validateResult() {
+        try {
+            execute();
+            return ConfigValidationResult.success(validationPhase());
+        } catch (ConfigCheckException e) {
+            String message = e.getMessage();
+            String prefix = validationMode() + " failed: ";
+            if (message != null && message.startsWith(prefix)) {
+                message = message.substring(prefix.length());
+            }
+            // The result is intended for programmatic consumers, so never expose credentials
+            // even when the underlying validation phase is static.
+            message = DryRunConnectFailureMessageSanitizer.sanitize(message);
+            return ConfigValidationResult.failure(
+                    validationPhase(),
+                    toValidationError(message == null ? "Validation failed" : message));
+        }
+    }
+
+    private String validationPhase() {
+        return clientCommandArgs.getDryRun() == DryRun.CONNECT ? "connectivity" : "static";
+    }
+
+    private String validationMode() {
+        return clientCommandArgs.getDryRun() == DryRun.CONNECT
+                ? "Connectivity check"
+                : "Static analysis";
+    }
+
+    private ConfigValidationError toValidationError(String message) {
+        String location = null;
+        String plugin = null;
+        Matcher locationMatcher = PLUGIN_LOCATION_PATTERN.matcher(message);
+        if (locationMatcher.find()) {
+            location = locationMatcher.group(1);
+            int open = location.lastIndexOf('(');
+            plugin = location.substring(open + 1, location.length() - 1);
+        }
+
+        Matcher optionPathMatcher = OPTION_PATH_PATTERN.matcher(message);
+        String optionPath = optionPathMatcher.find() ? optionPathMatcher.group(1).trim() : null;
+
+        String lower = message.toLowerCase(Locale.ROOT);
+        ValidationRuleCategory ruleCategory;
+        if (lower.contains("parse") || lower.contains("syntax") || lower.contains("hocon")) {
+            ruleCategory = ValidationRuleCategory.PARSE;
+        } else if (lower.contains("option")
+                || lower.contains("required")
+                || lower.contains("unknown key")
+                || lower.contains("type")) {
+            ruleCategory = ValidationRuleCategory.OPTION;
+        } else if (lower.contains("plugin")
+                || lower.contains("factory")
+                || lower.contains("classloader")) {
+            ruleCategory = ValidationRuleCategory.PLUGIN;
+        } else {
+            ruleCategory = ValidationRuleCategory.VALIDATION;
+        }
+        return new ConfigValidationError(location, plugin, optionPath, ruleCategory.value, message);
+    }
+
+    /** Closed categories exposed by the current structured validation result schema. */
+    private enum ValidationRuleCategory {
+        PARSE("parse"),
+        OPTION("option"),
+        PLUGIN("plugin"),
+        VALIDATION("validation");
+
+        private final String value;
+
+        ValidationRuleCategory(String value) {
+            this.value = value;
         }
     }
 

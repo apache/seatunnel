@@ -55,6 +55,50 @@ class RegressionReportTest(unittest.TestCase):
         self.assertIn("+10.00%", markdown)
         self.assertIn("ops/ms", markdown)
 
+    def test_jmh_comparison_reports_score_cv_error_and_changes(self):
+        baseline_one = self.jmh_metric(100.0, "ops/s")
+        baseline_one.update({"score_error": 10.0, "sample_standard_deviation": 20.0})
+        baseline_two = self.jmh_metric(100.0, "ops/s")
+        baseline_two.update({"score_error": 10.0, "sample_standard_deviation": 10.0})
+        candidate_one = self.jmh_metric(110.0, "ops/s")
+        candidate_one.update({"score_error": 22.0, "sample_standard_deviation": 11.0})
+        candidate_two = self.jmh_metric(110.0, "ops/s")
+        candidate_two.update({"score_error": 22.0, "sample_standard_deviation": 11.0})
+        baselines = [
+            self.report("dev", baseline_one),
+            self.report("dev", baseline_two),
+        ]
+        candidates = [
+            self.report("PR #123", candidate_one),
+            self.report("PR #123", candidate_two),
+        ]
+
+        markdown = "\n".join(
+            regression_report.jmh_comparison_lines(baselines, candidates)
+        )
+
+        self.assertIn(
+            "> `B` = Baseline, `C` = Candidate. Score is the median benchmark result; CV measures "
+            "variability and Error represents the relative JMH confidence interval, both "
+            "aggregated as medians across runs.",
+            markdown,
+        )
+        self.assertIn(
+            "> Score Change is direction-adjusted so positive is favorable; CV and Error changes "
+            "are relative changes.",
+            markdown,
+        )
+        self.assertIn(
+            "| Benchmark | Parameters | Score B | Score C | Score Change | CV B | CV C | "
+            "CV Change | Error B | Error C | Error Change | Unit |",
+            markdown,
+        )
+        self.assertIn(
+            "| `Queue.publish` | `capacity=1024` | 100.000 | 110.000 | +10.00% | "
+            "15.00% | 10.00% | -33.33% | 10.00% | 20.00% | +100.00% | ops/s |",
+            markdown,
+        )
+
     def test_lower_is_better_change_is_reported_as_positive(self):
         metric = self.jmh_metric(10.0, "ms/op", direction="lower")
         baseline = self.report("dev", metric)
