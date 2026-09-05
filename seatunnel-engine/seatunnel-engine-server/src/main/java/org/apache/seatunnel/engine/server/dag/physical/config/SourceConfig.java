@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 public class SourceConfig implements FlowConfig {
 
     private TaskLocation enumeratorTask;
+    private boolean dynamicLookupFactGate;
+    private IntermediateQueueConfig dynamicLookupGateCommandQueue;
 
     public TaskLocation getEnumeratorTask() {
         return enumeratorTask;
@@ -29,5 +31,22 @@ public class SourceConfig implements FlowConfig {
 
     public void setEnumeratorTask(TaskLocation enumeratorTask) {
         this.enumeratorTask = enumeratorTask;
+    }
+
+    public boolean isDynamicLookupFactGate() {
+        return dynamicLookupFactGate;
+    }
+
+    public void setDynamicLookupFactGate(boolean dynamicLookupFactGate) {
+        this.dynamicLookupFactGate = dynamicLookupFactGate;
+    }
+
+    public IntermediateQueueConfig getDynamicLookupGateCommandQueue() {
+        return dynamicLookupGateCommandQueue;
+    }
+
+    public void setDynamicLookupGateCommandQueue(
+            IntermediateQueueConfig dynamicLookupGateCommandQueue) {
+        this.dynamicLookupGateCommandQueue = dynamicLookupGateCommandQueue;
     }
 }

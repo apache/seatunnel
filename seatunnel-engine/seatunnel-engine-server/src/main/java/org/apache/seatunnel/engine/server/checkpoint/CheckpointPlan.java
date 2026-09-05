@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.engine.server.dag.physical.InputPortDescriptor;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -26,6 +27,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.ToString;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -48,6 +50,9 @@ public class CheckpointPlan {
     /** All starting task of a pipeline. */
     private final Set<TaskLocation> startingSubtasks;
 
+    /** Coordinator tasks that receive checkpoint triggers but are not source completion roots. */
+    private final Set<TaskLocation> coordinatorCheckpointRoots;
+
     /**
      * All actions in this pipeline. <br>
      * key: the action state key; <br>
@@ -62,12 +67,23 @@ public class CheckpointPlan {
      */
     private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
+    /** Stable operator coordinator identity to physical task mapping. */
+    private final Map<CoordinatorStateKey, TaskLocation> coordinatorTasks;
+
+    /** Input-port topology used by dynamic lookup tasks for checkpoint barrier ownership. */
+    private final Map<TaskLocation, List<InputPortDescriptor>> inputPortsByTask;
+
     public static final class Builder {
         private final Set<TaskLocation> pipelineSubtasks = new CopyOnWriteArraySet<>();
         private final Set<TaskLocation> startingSubtasks = new CopyOnWriteArraySet<>();
+        private final Set<TaskLocation> coordinatorCheckpointRoots = new CopyOnWriteArraySet<>();
         private final Map<ActionStateKey, Integer> pipelineActions = new ConcurrentHashMap<>();
 
         private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions =
+                new ConcurrentHashMap<>();
+        private final Map<CoordinatorStateKey, TaskLocation> coordinatorTasks =
+                new ConcurrentHashMap<>();
+        private final Map<TaskLocation, List<InputPortDescriptor>> inputPortsByTask =
                 new ConcurrentHashMap<>();
 
         private Builder() {}
@@ -82,6 +98,11 @@ public class CheckpointPlan {
             return this;
         }
 
+        public Builder coordinatorCheckpointRoots(Set<TaskLocation> coordinatorRoots) {
+            this.coordinatorCheckpointRoots.addAll(coordinatorRoots);
+            return this;
+        }
+
         public Builder pipelineActions(Map<ActionStateKey, Integer> pipelineActions) {
             this.pipelineActions.putAll(pipelineActions);
             return this;
@@ -90,6 +111,17 @@ public class CheckpointPlan {
         public Builder subtaskActions(
                 Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions) {
             this.subtaskActions.putAll(subtaskActions);
+            return this;
+        }
+
+        public Builder coordinatorTasks(Map<CoordinatorStateKey, TaskLocation> coordinatorTasks) {
+            this.coordinatorTasks.putAll(coordinatorTasks);
+            return this;
+        }
+
+        public Builder inputPortsByTask(
+                Map<TaskLocation, List<InputPortDescriptor>> inputPortsByTask) {
+            this.inputPortsByTask.putAll(inputPortsByTask);
             return this;
         }
     }

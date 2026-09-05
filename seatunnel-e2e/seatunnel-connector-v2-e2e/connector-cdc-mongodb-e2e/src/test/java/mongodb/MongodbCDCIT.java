@@ -38,6 +38,7 @@ import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpointCodec;
 
 import org.bson.Document;
 import org.bson.types.ObjectId;
@@ -496,7 +497,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         PipelineState pipelineState =
                 hdfsStorage.getLatestCheckpointByJobIdAndPipelineId(jobId, "1");
         CompletedCheckpoint checkpoint =
-                serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+                CompletedCheckpointCodec.decode(pipelineState.getStates(), serializer);
 
         Map<ActionStateKey, ActionState> taskStates = checkpoint.getTaskStates();
 
