@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -216,7 +217,15 @@ public class PhysicalVertex {
         stateProcess();
     }
 
-    private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
+    /**
+     * Checks whether a task group believed to be running is still executing on its assigned worker
+     * during master-failover restoration. When that worker has already left the cluster, the
+     * failure is classified here, before any membership callback runs, using the same marker rules
+     * as {@link CoordinatorService#failedTaskOnMemberRemoved}. Package-visible so the restore-path
+     * classification can be exercised directly by tests.
+     */
+    @VisibleForTesting
+    boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
         IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         SlotProfile slotProfile =
@@ -710,7 +719,11 @@ public class PhysicalVertex {
         return failureClassification == null ? null : failureClassification.getErrorMessage();
     }
 
-    /** Only coordinator-classified graceful member removals should be downgraded to warn logs. */
+    /**
+     * Only coordinator-classified graceful member removals should be downgraded to warn logs. Every
+     * other failure keeps the pre-existing error level, so an unproven departure (crash, kill,
+     * partition) is never hidden as routine scale-down noise.
+     */
     @VisibleForTesting
     static boolean shouldLogFailureAsWarn(boolean gracefulMemberRemovalFailure) {
         return gracefulMemberRemovalFailure;
@@ -738,8 +751,10 @@ public class PhysicalVertex {
 
     /**
      * Records the same structured member-removal failure emitted after a membership callback. It is
-     * also used by the master failover recovery path, where a task can be found on a worker that
-     * has already left before the callback is processed.
+     * used by the master failover recovery path, where a task can be found on a worker that has
+     * already left before the callback is processed. The message and the TTL rule are deliberately
+     * not re-implemented here: both are delegated to the coordinator's shared helpers so this
+     * second consumer of the graceful-removal marker can never drift from the callback path.
      */
     @VisibleForTesting
     static void recordMemberRemovedFailure(
@@ -750,12 +765,8 @@ public class PhysicalVertex {
             long nowMillis) {
         recordFailureClassification(
                 failureClassificationSlot,
-                String.format(
-                        "The taskGroup(%s) deployed node(%s) offline",
-                        taskGroupLocation, lostAddress),
-                markedAt != null
-                        && Math.abs(nowMillis - markedAt)
-                                <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS);
+                CoordinatorService.buildMemberRemovedOfflineMessage(taskGroupLocation, lostAddress),
+                CoordinatorService.isGracefulMemberRemovalMarkerValid(markedAt, nowMillis));
     }
 
     /**
@@ -768,7 +779,11 @@ public class PhysicalVertex {
     @VisibleForTesting
     static final class FailureClassification {
 
-        /** The failure message recorded for this physical vertex. */
+        /**
+         * The failure message recorded for this physical vertex. It is stored next to its
+         * classification in this immutable holder so a reader can never pair the message of one
+         * write with the graceful flag of another.
+         */
         private final String errorMessage;
 
         /**

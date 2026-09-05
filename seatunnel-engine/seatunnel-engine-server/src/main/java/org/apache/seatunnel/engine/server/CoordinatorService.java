@@ -1991,9 +1991,13 @@ public class CoordinatorService {
         return isActive;
     }
 
-    /** Builds the shared offline-node message used when a deployed worker leaves the cluster. */
-    @VisibleForTesting
-    static String buildMemberRemovedOfflineMessage(
+    /**
+     * Builds the offline-node message used when a deployed worker leaves the cluster. This is the
+     * single source of truth for that message: the membership-callback path in this class and the
+     * master-failover restore path in {@code PhysicalVertex} both call it, so the two consumers can
+     * never drift apart.
+     */
+    public static String buildMemberRemovedOfflineMessage(
             @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
         return String.format(
                 "The taskGroup(%s) deployed node(%s) offline", taskGroupLocation, lostAddress);
@@ -2013,9 +2017,11 @@ public class CoordinatorService {
 
     /**
      * Rejects absent and stale markers so address reuse cannot silently downgrade a later failure.
+     * This is the single TTL rule shared by the membership-callback path in this class and the
+     * master-failover restore path in {@code PhysicalVertex}; both must classify the same marker
+     * the same way.
      */
-    @VisibleForTesting
-    static boolean isGracefulMemberRemovalMarkerValid(Long markedAt, long nowMillis) {
+    public static boolean isGracefulMemberRemovalMarkerValid(Long markedAt, long nowMillis) {
         return markedAt != null
                 && Math.abs(nowMillis - markedAt)
                         <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS;
@@ -2032,7 +2038,11 @@ public class CoordinatorService {
         return markedAt != null && !jobRestoreInProgress && !restoringRunningJobs;
     }
 
-    /** Reads the marker without clearing it so a failover can still reclassify the same event. */
+    /**
+     * Reads the marker without clearing it so a failover can still reclassify the same event. The
+     * clear is decided separately by {@link #canClearGracefulMemberRemovalMarker} once recovery has
+     * finished and no restored job still needs to inspect the marker.
+     */
     private Long getGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
         if (gracefulMemberRemovalIMap == null) {
             return null;
@@ -2040,7 +2050,11 @@ public class CoordinatorService {
         return gracefulMemberRemovalIMap.get(lostAddress);
     }
 
-    /** Clears the marker after classification so later failures on the same address start clean. */
+    /**
+     * Clears the marker after classification so later failures on the same address start clean.
+     * This complements the Hazelcast TTL and the restarting member's own clear on startup, so a
+     * reused address can never inherit a stale graceful classification.
+     */
     private void clearGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
         if (gracefulMemberRemovalIMap != null) {
             gracefulMemberRemovalIMap.remove(lostAddress);

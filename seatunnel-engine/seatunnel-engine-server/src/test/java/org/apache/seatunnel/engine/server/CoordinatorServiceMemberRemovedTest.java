@@ -27,8 +27,17 @@ import org.junit.jupiter.api.Test;
 
 import com.hazelcast.cluster.Address;
 
+/**
+ * Covers the coordinator-side helpers of the graceful member-removal classification: the failure
+ * payload shape kept for departed workers, the marker TTL rule shared with the restore path, and
+ * when a consumed marker may be cleared during master failover.
+ */
 class CoordinatorServiceMemberRemovedTest {
 
+    /**
+     * The failure state built for a departed worker must keep wrapping the offline message in a
+     * {@code JobException}, matching the payload shape that existed before graceful classification.
+     */
     @Test
     void shouldKeepThrowablePayloadForMemberRemovedFailureState() throws Exception {
         TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
@@ -47,6 +56,10 @@ class CoordinatorServiceMemberRemovedTest {
                                         taskGroupLocation, address)));
     }
 
+    /**
+     * Markers exactly at the TTL edge on either side are still graceful; anything beyond it, or a
+     * missing marker, is treated as an unproven removal.
+     */
     @Test
     void shouldValidateGracefulMemberRemovalMarkerWithinTtl() {
         long now = System.currentTimeMillis();
@@ -67,7 +80,11 @@ class CoordinatorServiceMemberRemovedTest {
         Assertions.assertFalse(CoordinatorService.isGracefulMemberRemovalMarkerValid(null, now));
     }
 
-    /** Ensures master failover retains the marker until its TTL rather than racing scheduling. */
+    /**
+     * Ensures master failover retains the marker until its TTL rather than racing scheduling: a
+     * restored job is queued first and its vertices inspect the marker only after the recovery
+     * future completes, so clearing it during restore would misclassify the same departure.
+     */
     @Test
     void shouldRetainGracefulMemberRemovalMarkerDuringMasterSwitchRecovery() {
         Assertions.assertFalse(
