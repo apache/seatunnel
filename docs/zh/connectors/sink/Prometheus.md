@@ -47,7 +47,7 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 | key_value                   | String | 是       | -      | 上游数据中保存 Prometheus 指标值的字段名。推荐使用 `double` 类型字段。 |
 | key_timestamp               | String | 否       | -      | 上游数据中保存 Prometheus 指标时间戳的字段名。不配置时使用当前系统时间。 |
 | headers                     | Map    | 否       | -      | HTTP 请求头。 |
-| retry                       | Int    | 否       | -      | HTTP 请求出现 `IOException` 时的最大重试次数。 |
+| retry                       | Int    | 否       | 3      | remote-write 请求失败时的最大重试次数。会重试传输层 `IOException` 以及可重试的 HTTP 状态码（`5xx` 和 `429`）；其他 `4xx` 响应会快速失败。设为 `0` 可禁用重试。 |
 | retry_backoff_multiplier_ms | Int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
 | retry_backoff_max_ms        | Int    | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
 | batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前缓存的行数，必须大于 0。 |
@@ -96,8 +96,8 @@ env {
 
 检查点刷新是一次 remote-write 请求，刷新失败会让检查点失败，而不会丢弃这批数据。有两点需要了解：
 
-- **瞬时失败会导致检查点失败。** 网络抖动、接收端重启或 `5xx` 响应都会让当前检查点失败。Flink 的 `tolerableCheckpointFailureNumber` 默认是 `0`，因此一次失败就会重启作业；在 Spark 和 Flink 上，对于低吞吐作业你可能需要调高引擎的可容忍检查点失败次数。刷新内部的有界重试（带退避）作为后续项跟踪在 [#11911](https://github.com/apache/seatunnel/issues/11911)。
-- **重放的安全性取决于接收端。** 检查点失败后作业会重启，Source 从上一次成功的检查点重放，因此缓存的采样点会被重新发送。只有当 remote-write 接收端接受完全相同的重复样本（相同的 labels、timestamp 和 value）时，这才是安全的。如果接收端拒绝相同 timestamp 但 value 不同的样本，或拒绝乱序样本（Prometheus TSDB，以及 Cortex、Mimir、Thanos 等接收端对这些情况会返回 `400`），重放的刷新就会失败并持续让检查点失败。如果这对你的部署很重要，请启用接收端的乱序窗口，或确保重放的是完全相同的重复样本。
+- **瞬时失败会被重试。** 传输层错误（连接被拒、重置、超时）或可重试的 HTTP 状态码（`5xx` 或 `429`）会按 `retry` 次数进行重试，采用指数退避（`retry_backoff_multiplier_ms`，上限为 `retry_backoff_max_ms`）；只有在重试耗尽后，刷新才会让检查点失败。其他 `4xx` 响应不可重试，会快速失败。Flink 的 `tolerableCheckpointFailureNumber` 默认是 `0`，因此重试耗尽后的失败会重启作业；在 Spark 和 Flink 上，对于低吞吐作业你可能还需要调高该引擎设置。
+- **检查点失败后的重放会被容忍。** 检查点失败后作业会重启，Source 从上一次成功的检查点重放，因此缓存的采样点会被重新发送。如果 remote-write 接收端把重新发送的样本作为重复（相同的 labels 和 timestamp）或乱序样本拒绝（Prometheus TSDB，以及 Cortex、Mimir、Thanos 等接收端对这些情况会返回 `400`），Sink 会把该 `400` 视为已投递而不失败，因此重放不会让作业陷入循环。投递语义仍为 at-least-once。这是基于接收端特定错误文案的尽力而为匹配；如果某个接收端以不同文案返回 `400`，则不会被识别，刷新会像其他 `4xx` 一样失败；每次被容忍的拒绝都会以 `WARN` 记录日志。
 
 ## 示例
 

@@ -227,10 +227,168 @@ class PrometheusWriterTest {
         }
     }
 
+    /** A retryable failure (HTTP 5xx) is retried, and a following success delivers the batch. */
+    @Test
+    void shouldRetryRetryableFailureThenSucceed() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse unavailable =
+                new HttpResponse(HttpStatus.SC_SERVICE_UNAVAILABLE, "unavailable");
+        HttpResponse ok = new HttpResponse(HttpStatus.SC_NO_CONTENT);
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(unavailable, ok))) {
+
+            PrometheusWriter writer = createWriter(context, 3);
+            writer.write(newPoint());
+
+            // First attempt is 503 (retryable), second is 204: no exception, batch delivered.
+            writer.prepareCommit();
+            verify(writer.httpClient, times(2))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            // Buffer cleared after delivery: a second flush sends nothing more.
+            writer.prepareCommit();
+            verify(writer.httpClient, times(2))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
+    /** After the retries are exhausted, the flush throws and the batch is not cleared. */
+    @Test
+    void shouldThrowAfterRetriesExhausted() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse unavailable =
+                new HttpResponse(HttpStatus.SC_SERVICE_UNAVAILABLE, "unavailable");
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(unavailable))) {
+
+            PrometheusWriter writer = createWriter(context, 3);
+            writer.write(newPoint());
+
+            Assertions.assertThrows(
+                    PrometheusConnectorException.class, () -> writer.prepareCommit());
+            // retry is the total attempt budget, so retry=3 means 3 doPost calls.
+            verify(writer.httpClient, times(3))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
+    /**
+     * After the retries are exhausted the batch stays buffered (not cleared), so a later flush
+     * re-sends the same records. This pins down the at-least-once guarantee explicitly.
+     */
+    @Test
+    void shouldRetainBufferAfterRetriesExhausted() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse unavailable =
+                new HttpResponse(HttpStatus.SC_SERVICE_UNAVAILABLE, "unavailable");
+        HttpResponse ok = new HttpResponse(HttpStatus.SC_NO_CONTENT);
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(unavailable, ok))) {
+
+            // retry=1 means a single attempt, so the first flush exhausts immediately.
+            PrometheusWriter writer = createWriter(context, 1);
+            writer.write(newPoint());
+
+            Assertions.assertThrows(
+                    PrometheusConnectorException.class, () -> writer.prepareCommit());
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            // The row is still buffered: a second flush re-sends it and now succeeds.
+            writer.prepareCommit();
+            verify(writer.httpClient, times(2))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
+    /** A non-retryable response (other 4xx) fails fast without retrying. */
+    @Test
+    void shouldFailFastOnNonRetryable4xx() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse forbidden = new HttpResponse(HttpStatus.SC_FORBIDDEN, "forbidden");
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(forbidden))) {
+
+            PrometheusWriter writer = createWriter(context, 5);
+            writer.write(newPoint());
+
+            Assertions.assertThrows(
+                    PrometheusConnectorException.class, () -> writer.prepareCommit());
+            // Non-retryable: exactly one attempt despite retry=5.
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
+    /**
+     * A 400 the receiver reports as a duplicate/out-of-order sample is treated as delivered, so a
+     * replay after restore does not fail the checkpoint or loop the job.
+     */
+    @Test
+    void shouldTreatDuplicateOrOutOfOrder400AsDelivered() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse duplicate =
+                new HttpResponse(HttpStatus.SC_BAD_REQUEST, "duplicate sample for timestamp");
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(duplicate))) {
+
+            PrometheusWriter writer = createWriter(context, 3);
+            writer.write(newPoint());
+
+            // No throw: the duplicate rejection is tolerated as delivered.
+            writer.prepareCommit();
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            // And the buffer is cleared, so a second flush sends nothing more.
+            writer.prepareCommit();
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
     private PrometheusWriter createWriter(SinkWriter.Context context) {
+        return createWriter(context, 0);
+    }
+
+    private PrometheusWriter createWriter(SinkWriter.Context context, int retry) {
         HttpParameter httpParameter = new HttpParameter();
         httpParameter.setUrl("http://localhost:9090/api/v1/write");
         httpParameter.setHeaders(new HashMap<>());
+        httpParameter.setRetry(retry);
+        // No backoff sleep in tests so retries run instantly and deterministically.
+        httpParameter.setRetryBackoffMultiplierMillis(0);
+        httpParameter.setRetryBackoffMaxMillis(0);
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"value"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
