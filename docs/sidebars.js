@@ -273,6 +273,7 @@ const sidebars = {
                                 },
                                 "engines/zeta/web-ui",
                                 "engines/zeta/runtime-execution-graph",
+                                "engines/zeta/task-failure-history",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
