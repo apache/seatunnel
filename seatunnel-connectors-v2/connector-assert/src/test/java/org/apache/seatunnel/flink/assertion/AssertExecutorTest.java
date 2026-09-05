@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.VectorType;
 import org.apache.seatunnel.connectors.seatunnel.assertion.excecutor.AssertExecutor;
 import org.apache.seatunnel.connectors.seatunnel.assertion.rule.AssertFieldRule;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
@@ -235,6 +236,15 @@ public class AssertExecutorTest {
                 ConfigFactory.parseString("{equals_to = { k0 = v0 } }").getValue("equals_to"),
                 new MapType<String, String>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
                 map);
+    }
+
+    @Test
+    public void testSparseFloatVectorTypeCheck() {
+        Map<Integer, Float> vector = new HashMap<>();
+        vector.put(0, 0.1F);
+        vector.put(3, 0.5F);
+
+        assertFieldRuleNotNull(VectorType.VECTOR_SPARSE_FLOAT_TYPE, vector);
     }
 
     @Test
