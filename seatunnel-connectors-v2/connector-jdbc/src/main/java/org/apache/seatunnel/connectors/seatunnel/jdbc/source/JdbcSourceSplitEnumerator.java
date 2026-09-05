@@ -19,10 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
 
 import org.slf4j.Logger;
@@ -33,11 +32,20 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+/**
+ * JDBC Source split enumerator.
+ *
+ * <p>Split generation keeps the existing chunking predicates and split IDs. Assignment is batched
+ * so each reader only receives up to {@code split.assign.batch-size} splits per handoff. Readers
+ * pull the next batch through {@link #handleSplitRequest(int)} until enumeration is finished and
+ * that reader's pending queue is empty, then {@code NoMoreSplits} is signaled.
+ */
 public class JdbcSourceSplitEnumerator
         implements SourceSplitEnumerator<JdbcSourceSplit, JdbcSourceState> {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcSourceSplitEnumerator.class);
@@ -45,9 +53,12 @@ public class JdbcSourceSplitEnumerator
     private final Map<TablePath, JdbcSourceTable> tables;
     private final ConcurrentLinkedQueue<TablePath> pendingTables;
     private final Map<Integer, List<JdbcSourceSplit>> pendingSplits;
+    private final Set<Integer> noMoreSplitsSignaled;
     private final ChunkSplitter splitter;
     private final Context<JdbcSourceSplit> context;
+    private final int assignBatchSize;
     private final Object stateLock = new Object();
+    private volatile boolean enumerationFinished;
 
     public JdbcSourceSplitEnumerator(
             Context<JdbcSourceSplit> context,
@@ -57,12 +68,20 @@ public class JdbcSourceSplitEnumerator
         this.context = context;
         this.tables = tables;
         this.splitter = ChunkSplitter.create(jdbcSourceConfig);
+        int configuredBatchSize = jdbcSourceConfig.getSplitAssignBatchSize();
+        this.assignBatchSize =
+                configuredBatchSize > 0
+                        ? configuredBatchSize
+                        : JdbcSourceOptions.SPLIT_ASSIGN_BATCH_SIZE.defaultValue();
+        this.noMoreSplitsSignaled = new HashSet<>();
         if (sourceState == null) {
             this.pendingTables = new ConcurrentLinkedQueue<>(tables.keySet());
             this.pendingSplits = new HashMap<>();
+            this.enumerationFinished = false;
         } else {
             this.pendingTables = new ConcurrentLinkedQueue<>(sourceState.getPendingTables());
             this.pendingSplits = new HashMap<>(sourceState.getPendingSplits());
+            this.enumerationFinished = this.pendingTables.isEmpty();
         }
     }
 
@@ -71,7 +90,7 @@ public class JdbcSourceSplitEnumerator
 
     @Override
     public void run() throws Exception {
-        LOG.info("Starting split enumerator.");
+        LOG.info("Starting split enumerator with assign batch size {}.", assignBatchSize);
 
         Set<Integer> readers = context.registeredReaders();
         while (!pendingTables.isEmpty()) {
@@ -92,8 +111,12 @@ public class JdbcSourceSplitEnumerator
 
         splitter.close();
 
-        LOG.info("No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
-        readers.forEach(context::signalNoMoreSplits);
+        synchronized (stateLock) {
+            enumerationFinished = true;
+            assignSplit(readers);
+            maybeSignalNoMoreSplits(readers);
+        }
+        LOG.info("Split enumeration finished for readers {}.", readers);
     }
 
     @Override
@@ -104,14 +127,17 @@ public class JdbcSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<JdbcSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            addPendingSplit(splits, subtaskId);
-            if (context.registeredReaders().contains(subtaskId)) {
-                assignSplit(Collections.singletonList(subtaskId));
-            } else {
-                LOG.warn(
-                        "Reader {} is not registered. Pending splits {} are not assigned.",
-                        subtaskId,
-                        splits);
+            synchronized (stateLock) {
+                addPendingSplit(splits, subtaskId);
+                if (context.registeredReaders().contains(subtaskId)) {
+                    assignSplit(Collections.singletonList(subtaskId));
+                    maybeSignalNoMoreSplits(Collections.singletonList(subtaskId));
+                } else {
+                    LOG.warn(
+                            "Reader {} is not registered. Pending splits {} are not assigned.",
+                            subtaskId,
+                            splits.size());
+                }
             }
         }
         LOG.info("Add back splits {} to JdbcSourceSplitEnumerator.", splits.size());
@@ -119,28 +145,41 @@ public class JdbcSourceSplitEnumerator
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingTables.isEmpty() && pendingSplits.isEmpty() ? 0 : 1;
+        synchronized (stateLock) {
+            if (!pendingTables.isEmpty()) {
+                return 1;
+            }
+            for (List<JdbcSourceSplit> splits : pendingSplits.values()) {
+                if (splits != null && !splits.isEmpty()) {
+                    return splits.size();
+                }
+            }
+            return 0;
+        }
     }
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        throw new JdbcConnectorException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                String.format("Unsupported handleSplitRequest: %d", subtaskId));
+        synchronized (stateLock) {
+            assignSplit(Collections.singletonList(subtaskId));
+            maybeSignalNoMoreSplits(Collections.singletonList(subtaskId));
+        }
     }
 
     @Override
     public void registerReader(int subtaskId) {
         LOG.info("Register reader {} to JdbcSourceSplitEnumerator.", subtaskId);
-        if (!pendingSplits.isEmpty()) {
+        synchronized (stateLock) {
             assignSplit(Collections.singletonList(subtaskId));
+            maybeSignalNoMoreSplits(Collections.singletonList(subtaskId));
         }
     }
 
     @Override
     public JdbcSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new JdbcSourceState(new ArrayList(pendingTables), new HashMap<>(pendingSplits));
+            return new JdbcSourceState(
+                    new ArrayList<>(pendingTables), new HashMap<>(pendingSplits));
         }
     }
 
@@ -148,13 +187,40 @@ public class JdbcSourceSplitEnumerator
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     private void assignSplit(Collection<Integer> readers) {
-        LOG.debug("Assign pendingSplits to readers {}", readers);
-
         for (int reader : readers) {
-            List<JdbcSourceSplit> assignmentForReader = pendingSplits.remove(reader);
-            if (assignmentForReader != null && !assignmentForReader.isEmpty()) {
-                LOG.debug("Assign splits {} to reader {}", assignmentForReader, reader);
-                context.assignSplit(reader, assignmentForReader);
+            List<JdbcSourceSplit> ownedPending =
+                    pendingSplits.computeIfAbsent(reader, r -> new ArrayList<>());
+            if (ownedPending.isEmpty()) {
+                continue;
+            }
+
+            int batchCount = Math.min(assignBatchSize, ownedPending.size());
+            List<JdbcSourceSplit> assignment = new ArrayList<>(ownedPending.subList(0, batchCount));
+            ownedPending.subList(0, batchCount).clear();
+            if (ownedPending.isEmpty()) {
+                pendingSplits.remove(reader);
+            }
+
+            LOG.debug(
+                    "Assign {} splits (batch size {}) to reader {}; {} still pending.",
+                    assignment.size(),
+                    assignBatchSize,
+                    reader,
+                    ownedPending.size());
+            context.assignSplit(reader, assignment);
+        }
+    }
+
+    private void maybeSignalNoMoreSplits(Collection<Integer> readers) {
+        if (!enumerationFinished) {
+            return;
+        }
+        for (int reader : readers) {
+            List<JdbcSourceSplit> ownedPending = pendingSplits.get(reader);
+            boolean hasPending = ownedPending != null && !ownedPending.isEmpty();
+            if (!hasPending && noMoreSplitsSignaled.add(reader)) {
+                LOG.info("Sending NoMoreSplitsEvent to reader {}.", reader);
+                context.signalNoMoreSplits(reader);
             }
         }
     }
@@ -164,7 +230,6 @@ public class JdbcSourceSplitEnumerator
         for (JdbcSourceSplit split : splits) {
             int ownerReader = getSplitOwner(split.splitId(), readerCount);
             LOG.debug("Assigning {} to {} reader.", split, ownerReader);
-
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
     }

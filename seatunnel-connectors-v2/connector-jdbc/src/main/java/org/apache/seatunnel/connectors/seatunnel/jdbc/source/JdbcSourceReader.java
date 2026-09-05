@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 
 import lombok.extern.slf4j.Slf4j;
@@ -34,22 +35,39 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+/**
+ * JDBC Source reader.
+ *
+ * <p>Keeps only a bounded local split queue. When the queue runs low and the enumerator has not
+ * signaled {@code NoMoreSplits}, the reader requests the next assignment batch.
+ */
 @Slf4j
 public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
     private final Context context;
     private final JdbcInputFormat inputFormat;
     private final Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
+    private final int assignBatchSize;
+    private final int requestWatermark;
     private volatile boolean noMoreSplit;
+    private volatile boolean splitRequestPending;
 
     public JdbcSourceReader(
             Context context, JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
         this.inputFormat = new JdbcInputFormat(config, tables);
         this.context = context;
+        int configuredBatchSize = config.getSplitAssignBatchSize();
+        this.assignBatchSize =
+                configuredBatchSize > 0
+                        ? configuredBatchSize
+                        : JdbcSourceOptions.SPLIT_ASSIGN_BATCH_SIZE.defaultValue();
+        // Request the next batch before the local queue is fully drained to reduce idle gaps.
+        this.requestWatermark = Math.max(1, assignBatchSize / 2);
     }
 
     @Override
     public void open() throws Exception {
         inputFormat.openInputFormat();
+        requestSplitsIfNeeded();
     }
 
     @Override
@@ -61,6 +79,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
+            requestSplitsIfNeeded();
             JdbcSourceSplit split = splits.poll();
             if (null != split) {
                 try {
@@ -72,12 +91,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                 } finally {
                     inputFormat.close();
                 }
+                requestSplitsIfNeeded();
             } else if (noMoreSplit && splits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded jdbc source");
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                Thread.sleep(100L);
             }
         }
     }
@@ -90,13 +110,27 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     @Override
     public void addSplits(List<JdbcSourceSplit> splits) {
         this.splits.addAll(splits);
+        splitRequestPending = false;
+        requestSplitsIfNeeded();
     }
 
     @Override
     public void handleNoMoreSplits() {
         noMoreSplit = true;
+        splitRequestPending = false;
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+
+    private void requestSplitsIfNeeded() {
+        if (noMoreSplit || splitRequestPending) {
+            return;
+        }
+        if (splits.size() >= requestWatermark) {
+            return;
+        }
+        splitRequestPending = true;
+        context.sendSplitRequest();
+    }
 }
