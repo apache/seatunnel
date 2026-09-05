@@ -1155,7 +1155,15 @@ public class CoordinatorService {
         }
 
         PendingJobInfo pendingJobInfo = new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
-        pendingJobQueue.put(pendingJobInfo);
+        try {
+            pendingJobQueue.put(pendingJobInfo);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new SeaTunnelEngineException(
+                    String.format(
+                            "Job id %s restore interrupted while entering pending queue", jobId),
+                    e);
+        }
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
     }

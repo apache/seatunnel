@@ -115,7 +115,7 @@ public class PeekBlockingQueueTest {
     }
 
     @Test
-    public void testClear() {
+    public void testClear() throws InterruptedException {
         queue.put("1");
         queue.put("2");
         queue.put("3");
