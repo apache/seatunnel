@@ -249,6 +249,47 @@ public class CheckpointManager {
     }
 
     /**
+     * Returns whether this checkpoint manager's exact job generation may mutate distributed state.
+     *
+     * <p>The JobMaster checks both the durable owner token and pending cleanup fence.
+     */
+    boolean isStatePersistenceAllowed() {
+        return jobMaster.isStatePersistenceAllowed();
+    }
+
+    /**
+     * Returns whether this manager is attached to a production job generation.
+     *
+     * <p>Standalone coordinator tests intentionally omit a JobMaster and retain legacy in-memory
+     * behavior.
+     */
+    boolean hasJobMaster() {
+        return jobMaster != null;
+    }
+
+    /**
+     * Locks the owning job's cleanup fence before checkpoint state creates a missing key.
+     *
+     * <p>Existing checkpoint keys remain independently synchronized by their state-key locks.
+     */
+    void lockStatePersistenceFence() {
+        if (jobMaster != null) {
+            jobMaster.lockStatePersistenceFence();
+        }
+    }
+
+    /**
+     * Releases the missing-key checkpoint persistence fence.
+     *
+     * <p>The caller releases its checkpoint state-key lock first to preserve lock ordering.
+     */
+    void unlockStatePersistenceFence() {
+        if (jobMaster != null) {
+            jobMaster.unlockStatePersistenceFence();
+        }
+    }
+
+    /**
      * Called by the {@link Task}. <br>
      * used by Task to report the {@link SeaTunnelTaskState} of the state machine.
      */

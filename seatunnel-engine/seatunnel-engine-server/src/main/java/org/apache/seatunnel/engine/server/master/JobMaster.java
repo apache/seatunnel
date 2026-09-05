@@ -827,7 +827,23 @@ public class JobMaster {
         JobCleanupRecord cleanupRecord = createJobCleanupRecord();
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
-        pendingJobCleanupIMap.put(jobId, cleanupRecord);
+        pendingJobCleanupIMap.lock(jobId);
+        try {
+            JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
+            if (currentJobInfo == null
+                    || !Objects.equals(
+                            currentJobInfo.getInitializationTimestamp(),
+                            cleanupRecord.getOwnerInitializationTimestamp())) {
+                LOGGER.warning(
+                        String.format(
+                                "Skip delayed cleanup registration for obsolete job generation %s",
+                                jobId));
+                return;
+            }
+            pendingJobCleanupIMap.put(jobId, cleanupRecord);
+        } finally {
+            pendingJobCleanupIMap.unlock(jobId);
+        }
 
         CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
         if (coordinatorService == null) {
@@ -968,6 +984,52 @@ public class JobMaster {
         jobHistoryService.storeJobInfo(jobImmutableInformation.getJobId(), getJobDAGInfo());
         jobHistoryService.storeFinishedJobState(this);
         scheduleRemoveJobStateMaps();
+    }
+
+    /**
+     * Returns whether this exact job generation still owns distributed state persistence.
+     *
+     * <p>Every late job, pipeline, task, and checkpoint writer checks both the durable owner and
+     * pending cleanup record. After cleanup removes the owner, an old in-memory generation cannot
+     * recreate a deleted key even when the cleanup record itself has already been removed.
+     */
+    public boolean isStatePersistenceAllowed() {
+        JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
+        if (currentJobInfo == null
+                || !Objects.equals(
+                        currentJobInfo.getInitializationTimestamp(), initializationTimestamp)) {
+            return false;
+        }
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        JobCleanupRecord cleanupRecord = pendingJobCleanupIMap.get(jobId);
+        return cleanupRecord == null
+                || !Objects.equals(
+                        cleanupRecord.getOwnerInitializationTimestamp(), initializationTimestamp);
+    }
+
+    /**
+     * Locks this generation's cleanup fence before a writer attempts to create a missing key.
+     *
+     * <p>Terminal cleanup holds the same per-job lock while it snapshots state keys and publishes
+     * its durable cleanup record. Existing-key updates stay independent and use only their state
+     * key lock; a missing-key writer must use this lock before reacquiring its state key lock.
+     */
+    public void lockStatePersistenceFence() {
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        pendingJobCleanupIMap.lock(jobId);
+    }
+
+    /**
+     * Releases the missing-key persistence fence acquired by {@link #lockStatePersistenceFence()}.
+     *
+     * <p>Writers call this only after releasing the state-key lock.
+     */
+    public void unlockStatePersistenceFence() {
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        pendingJobCleanupIMap.unlock(jobId);
     }
 
     public void storeJobEndState() {

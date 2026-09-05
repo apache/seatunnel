@@ -124,7 +124,7 @@ public class PhysicalPlanGenerator {
 
     private final IMap<Object, Object> runningJobStateIMap;
 
-    private final IMap<Object, Object> runningJobStateTimestampsIMap;
+    private final IMap<Object, Long[]> runningJobStateTimestampsIMap;
 
     private final QueueType queueType;
 
@@ -138,8 +138,8 @@ public class PhysicalPlanGenerator {
             @NonNull ExecutorService executorService,
             @NonNull ClassLoaderService classLoaderService,
             @NonNull FlakeIdGenerator flakeIdGenerator,
-            @NonNull IMap runningJobStateIMap,
-            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull IMap<Object, Object> runningJobStateIMap,
+            @NonNull IMap<Object, Long[]> runningJobStateTimestampsIMap,
             @NonNull QueueType queueType) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;

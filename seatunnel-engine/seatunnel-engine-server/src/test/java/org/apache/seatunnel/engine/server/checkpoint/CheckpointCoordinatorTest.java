@@ -101,6 +101,89 @@ public class CheckpointCoordinatorTest
     }
 
     @Test
+    void testGenerationFencePreventsCheckpointStateRecreation() {
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(new CheckpointStorageConfig());
+        TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+        CheckpointPlan plan =
+                CheckpointPlan.builder()
+                        .pipelineId(1)
+                        .pipelineSubtasks(Collections.singleton(taskLocation))
+                        .startingSubtasks(Collections.singleton(taskLocation))
+                        .build();
+        IMap<Object, Object> stateMap =
+                nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE);
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        CheckpointManager fencedManager = Mockito.mock(CheckpointManager.class);
+        Mockito.when(fencedManager.hasJobMaster()).thenReturn(true);
+        Mockito.when(fencedManager.isStatePersistenceAllowed()).thenReturn(false);
+        CheckpointCoordinator fencedCoordinator =
+                Mockito.spy(
+                        new CheckpointCoordinator(
+                                fencedManager,
+                                Mockito.mock(CheckpointStorage.class),
+                                checkpointConfig,
+                                1L,
+                                plan,
+                                Mockito.mock(CheckpointIDCounter.class),
+                                null,
+                                executorService,
+                                stateMap,
+                                false,
+                                null));
+        Mockito.doNothing()
+                .when(fencedCoordinator)
+                .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+        String checkpointKey = fencedCoordinator.getCheckpointStateImapKey();
+        String readyToCloseKey = fencedCoordinator.getReadyToCloseImapKey();
+        stateMap.set(checkpointKey, CheckpointCoordinatorStatus.RUNNING);
+        stateMap.remove(readyToCloseKey);
+        try {
+            ReflectionUtils.invoke(
+                    fencedCoordinator, "updateStatus", CheckpointCoordinatorStatus.CANCELED);
+            fencedCoordinator.readyToClose(taskLocation);
+
+            Assertions.assertEquals(
+                    CheckpointCoordinatorStatus.RUNNING, stateMap.get(checkpointKey));
+            Assertions.assertFalse(stateMap.containsKey(readyToCloseKey));
+            Mockito.verify(fencedCoordinator, Mockito.never())
+                    .tryTriggerPendingCheckpoint(Mockito.any(CheckpointType.class));
+
+            CheckpointManager currentManager = Mockito.mock(CheckpointManager.class);
+            Mockito.when(currentManager.hasJobMaster()).thenReturn(true);
+            Mockito.when(currentManager.isStatePersistenceAllowed()).thenReturn(true);
+            stateMap.remove(checkpointKey);
+            CheckpointCoordinator currentCoordinator =
+                    new CheckpointCoordinator(
+                            currentManager,
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            stateMap,
+                            false,
+                            null);
+            try {
+                ReflectionUtils.invoke(
+                        currentCoordinator, "updateStatus", CheckpointCoordinatorStatus.RUNNING);
+                Assertions.assertFalse(
+                        stateMap.containsKey(checkpointKey),
+                        "A missing checkpoint state must not be recreated by a late update");
+            } finally {
+                currentCoordinator.cancelCheckpoint();
+            }
+        } finally {
+            fencedCoordinator.cancelCheckpoint();
+            stateMap.remove(checkpointKey);
+            stateMap.remove(readyToCloseKey);
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
     void testSchedulerThreadShouldNotBeInterruptedBeforeJobMasterCleaned()
             throws ExecutionException, InterruptedException, TimeoutException {
         CheckpointConfig checkpointConfig = new CheckpointConfig();

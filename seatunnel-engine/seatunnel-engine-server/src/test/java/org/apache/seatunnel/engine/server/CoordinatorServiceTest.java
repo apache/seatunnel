@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -112,7 +113,7 @@ public class CoordinatorServiceTest {
 
         // instance1: initial master
         HazelcastInstanceImpl instance1 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 50);
         SeaTunnelServer server1 =
                 instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
@@ -126,7 +127,7 @@ public class CoordinatorServiceTest {
 
         // instance2: survives the master switch
         HazelcastInstanceImpl instance2 =
-                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 50);
         SeaTunnelServer server2 =
                 instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
 
@@ -275,6 +276,124 @@ public class CoordinatorServiceTest {
                         });
 
         instance2.shutdown();
+    }
+
+    @Test
+    void testMissingJobStateShouldBeRepairedAfterMasterSwitch() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testMissingJobStateShouldBeRepairedAfterMasterSwitch");
+        HazelcastInstanceImpl instance1 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 50);
+        HazelcastInstanceImpl instance2 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 50);
+        SeaTunnelServer server1 =
+                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        SeaTunnelServer server2 =
+                instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        try {
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(server1.isMasterNode());
+                                Assertions.assertTrue(
+                                        server1.getCoordinatorService().isCoordinatorActive());
+                                Assertions.assertEquals(
+                                        2, instance1.getCluster().getMembers().size());
+                            });
+
+            long jobId =
+                    instance1.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf",
+                            "missing-state-master-switch-test",
+                            jobId);
+            JobImmutableInformation jobImmutableInfo =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance1.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            Data jobData = instance1.getSerializationService().toData(jobImmutableInfo);
+            server1.getCoordinatorService()
+                    .submitJob(jobId, jobData, jobImmutableInfo.isStartWithSavePoint())
+                    .join();
+            await().atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING,
+                                            server1.getCoordinatorService().getJobStatus(jobId)));
+
+            IMap<Object, Object> runningJobStateIMap =
+                    instance1.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            IMap<Long, JobInfo> runningJobInfoIMap =
+                    instance1.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            Assertions.assertTrue(runningJobInfoIMap.containsKey(jobId));
+            runningJobStateIMap.remove(jobId);
+            Assertions.assertNull(runningJobStateIMap.get(jobId));
+
+            instance1.shutdown();
+
+            IMap<Object, Object> restoredJobStateIMap =
+                    instance2.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            IMap<Long, JobInfo> restoredJobInfoIMap =
+                    instance2.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(server2.isMasterNode());
+                                Assertions.assertTrue(
+                                        server2.getCoordinatorService().isCoordinatorActive());
+                                Assertions.assertTrue(restoredJobInfoIMap.containsKey(jobId));
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, restoredJobStateIMap.get(jobId));
+                                JobMaster restoredJobMaster =
+                                        server2.getCoordinatorService().getJobMaster(jobId);
+                                Assertions.assertNotNull(restoredJobMaster);
+                                Assertions.assertTrue(
+                                        anyTaskGroupActive(server2, restoredJobMaster),
+                                        "Restored job must resume task execution on the new master");
+                            });
+            server2.getCoordinatorService().cancelJob(jobId).join();
+        } finally {
+            if (instance1.getLifecycleService().isRunning()) {
+                instance1.shutdown();
+            }
+            if (instance2.getLifecycleService().isRunning()) {
+                instance2.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Verifies that recovery progressed beyond state repair and resumed real task execution.
+     *
+     * <p>The assertion waits for a non-initial lifecycle state instead of accepting map repair as
+     * sufficient recovery evidence.
+     */
+    private boolean anyTaskGroupActive(SeaTunnelServer server, JobMaster jobMaster) {
+        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+            List<PhysicalVertex> vertices = new ArrayList<>();
+            vertices.addAll(subPlan.getCoordinatorVertexList());
+            vertices.addAll(subPlan.getPhysicalVertexList());
+            for (PhysicalVertex vertex : vertices) {
+                try {
+                    if (server.getTaskExecutionService()
+                                    .getActiveExecutionContext(vertex.getTaskGroupLocation())
+                            != null) {
+                        return true;
+                    }
+                } catch (Exception ignored) {
+                    // The task group can be registering while the await assertion retries.
+                }
+            }
+        }
+        return false;
     }
 
     private boolean allTaskGroupsInactive(
@@ -1772,6 +1891,7 @@ public class CoordinatorServiceTest {
 
             IMap<Long, JobInfo> spiedRunningJobInfoIMap = Mockito.spy(runningJobInfoIMap);
             doThrow(new RetryableHazelcastException("loading"))
+                    .doReturn(jobInfo)
                     .when(spiedRunningJobInfoIMap)
                     .get(jobId);
             ReflectionUtils.setField(

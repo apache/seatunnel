@@ -26,14 +26,18 @@ import org.apache.seatunnel.engine.common.exception.JobException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -44,11 +48,13 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.mockito.Mockito;
 
+import com.hazelcast.core.IndeterminateOperationStateException;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.HashMap;
@@ -56,17 +62,21 @@ import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.awaitility.Awaitility.await;
-import static org.mockito.Mockito.doThrow;
 
 class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
     @AfterEach
     void clearPendingCleanupRecords() {
         nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP).clear();
+        nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP).clear();
     }
 
     @Test
@@ -115,6 +125,90 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertNull(runningJobStateTimestampsIMap.get(jobId));
         Assertions.assertNull(runningJobStateTimestampsIMap.get(pipelineLocation));
         Assertions.assertNull(runningJobStateTimestampsIMap.get(taskGroupLocation));
+        Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+    }
+
+    @Test
+    void testCleanupWaitsForInFlightStateWriterAndDeletesBothMaps() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long initializationTimestamp = 100L;
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(jobId, JobStatus.FINISHED);
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId, pipelineLocation),
+                        stateKeys(jobId),
+                        System.currentTimeMillis()));
+
+        ExecutorService cleanupExecutor = Executors.newSingleThreadExecutor();
+        boolean pipelineUnlocked = false;
+        runningJobStateIMap.lock(pipelineLocation);
+        try {
+            Future<?> cleanup =
+                    cleanupExecutor.submit(coordinatorService::runPendingJobCleanupOnce);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId)));
+
+            runningJobStateTimestampsIMap.set(pipelineLocation, new Long[] {1L});
+            runningJobStateIMap.set(pipelineLocation, "late-writer");
+            runningJobStateIMap.unlock(pipelineLocation);
+            pipelineUnlocked = true;
+            cleanup.get(10, TimeUnit.SECONDS);
+
+            Assertions.assertFalse(runningJobStateIMap.containsKey(pipelineLocation));
+            Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(pipelineLocation));
+            Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+        } finally {
+            if (!pipelineUnlocked) {
+                runningJobStateIMap.unlock(pipelineLocation);
+            }
+            cleanupExecutor.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCleanupRemovesBothMapsForTimestampOnlySnapshotKey() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        PipelineLocation timestampOnlyKey = new PipelineLocation(jobId, 7);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        // Model a state entry that appears after the state-key snapshot but before timestamp scan.
+        runningJobStateIMap.put(timestampOnlyKey, "late-state");
+        runningJobStateTimestampsIMap.put(timestampOnlyKey, new Long[] {1L});
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        100L,
+                        JobStatus.FINISHED,
+                        Collections.emptySet(),
+                        stateKeys(timestampOnlyKey),
+                        System.currentTimeMillis()));
+
+        coordinatorService.runPendingJobCleanupOnce();
+
+        Assertions.assertFalse(runningJobStateIMap.containsKey(timestampOnlyKey));
+        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(timestampOnlyKey));
         Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
     }
 
@@ -285,7 +379,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    void testSubmitStartWithSavePointAllowedWhenCleanupStillPending() {
+    void testSubmitStartWithSavePointBlockedWhenCleanupStillPending() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
         long initializationTimestamp = 100L;
@@ -296,6 +390,20 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineCleanupRecord pipelineCleanupRecord =
+                new PipelineCleanupRecord(
+                        pipelineLocation,
+                        PipelineStatus.FINISHED,
+                        false,
+                        Collections.emptyMap(),
+                        Collections.emptySet(),
+                        false,
+                        System.currentTimeMillis(),
+                        0L,
+                        0);
 
         runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
         runningJobStateIMap.put(jobId, JobStatus.FINISHED);
@@ -307,13 +415,29 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         stateKeys(jobId),
                         stateKeys(jobId),
                         System.currentTimeMillis()));
+        pendingPipelineCleanupIMap.put(pipelineLocation, pipelineCleanupRecord);
 
-        Assertions.assertDoesNotThrow(
-                () -> coordinatorService.submitJob(jobId, createJobData(jobId, true), true).join());
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () ->
+                                coordinatorService
+                                        .submitJob(jobId, createJobData(jobId, true), true)
+                                        .join());
+
+        Assertions.assertInstanceOf(JobException.class, exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
+        Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
+        Assertions.assertTrue(pendingJobCleanupIMap.containsKey(jobId));
+        Assertions.assertEquals(
+                pipelineCleanupRecord,
+                pendingPipelineCleanupIMap.get(pipelineLocation),
+                "failed submit must retain cleanup for the previous pipeline generation");
     }
 
     @Test
-    void testSubmitStartWithSavePointClearsStaleTerminalState() {
+    void testSubmitStartWithSavePointRetriesAfterCleanupCompletes() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
         long initializationTimestamp = 100L;
@@ -326,6 +450,20 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingPipelineCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        PipelineCleanupRecord pipelineCleanupRecord =
+                new PipelineCleanupRecord(
+                        pipelineLocation,
+                        PipelineStatus.FINISHED,
+                        false,
+                        Collections.emptyMap(),
+                        Collections.emptySet(),
+                        false,
+                        System.currentTimeMillis(),
+                        0L,
+                        0);
 
         runningJobInfoIMap.put(jobId, new JobInfo(initializationTimestamp, null));
         runningJobStateIMap.put(jobId, JobStatus.SAVEPOINT_DONE);
@@ -338,6 +476,29 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         stateKeys(jobId),
                         stateKeys(jobId),
                         System.currentTimeMillis()));
+        pendingPipelineCleanupIMap.put(pipelineLocation, pipelineCleanupRecord);
+
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () ->
+                                coordinatorService
+                                        .submitJob(
+                                                jobId,
+                                                createJobData(
+                                                        jobId, true, "stream_fake_to_console.conf"),
+                                                true)
+                                        .join());
+        Assertions.assertInstanceOf(JobException.class, exception.getCause());
+        Assertions.assertEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+        Assertions.assertEquals(
+                pipelineCleanupRecord,
+                pendingPipelineCleanupIMap.get(pipelineLocation),
+                "blocked restore must not invalidate cleanup for the previous pipeline generation");
+
+        coordinatorService.runPendingJobCleanupOnce();
+        Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+        Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
 
         Assertions.assertDoesNotThrow(
                 () ->
@@ -348,10 +509,143 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                                         true)
                                 .join());
 
-        Assertions.assertFalse(
-                pendingJobCleanupIMap.containsKey(jobId),
-                "restore submit should consume stale pending cleanup record");
         Assertions.assertNotEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+        Assertions.assertFalse(
+                pendingPipelineCleanupIMap.containsKey(pipelineLocation),
+                "successful restore must invalidate cleanup for the previous pipeline generation");
+    }
+
+    @Test
+    void testTerminalZombieCleanupRegistersFenceAfterSideEffects() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        JobInfo jobInfo =
+                new JobInfo(100L, createJobData(jobId, false, "stream_fake_to_console.conf"));
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, jobInfo);
+        runningJobStateIMap.put(jobId, JobStatus.CANCELED);
+        JobDAGInfo staleDAG = new JobDAGInfo();
+        staleDAG.setJobId(-1L);
+        coordinatorService.getJobHistoryService().storeJobInfo(jobId, staleDAG);
+        coordinatorService
+                .getJobHistoryService()
+                .storeFinishedJobState(
+                        new JobHistoryService.JobState(
+                                jobId,
+                                "old-generation",
+                                JobStatus.FINISHED,
+                                1L,
+                                2L,
+                                3L,
+                                Collections.emptyMap(),
+                                null));
+        server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(60000L);
+
+        try {
+            Method method =
+                    CoordinatorService.class.getDeclaredMethod(
+                            "cleanupTerminalZombieJob", long.class, JobInfo.class, JobStatus.class);
+            method.setAccessible(true);
+            method.invoke(coordinatorService, jobId, jobInfo, JobStatus.CANCELED);
+
+            Assertions.assertTrue(
+                    pendingJobCleanupIMap.containsKey(jobId),
+                    "Concurrent owner removal must not discard the durable cleanup fence");
+            Assertions.assertEquals(
+                    jobInfo.getInitializationTimestamp(),
+                    pendingJobCleanupIMap.get(jobId).getOwnerInitializationTimestamp());
+            Assertions.assertEquals(
+                    Long.valueOf(jobId),
+                    coordinatorService.getJobHistoryService().getJobDAGInfo(jobId).getJobId());
+            Assertions.assertEquals(
+                    JobStatus.CANCELED,
+                    coordinatorService
+                            .getJobHistoryService()
+                            .getJobDetailState(jobId)
+                            .getJobStatus());
+            Assertions.assertEquals(
+                    "Test",
+                    coordinatorService
+                            .getJobHistoryService()
+                            .getJobDetailState(jobId)
+                            .getJobName());
+
+            method.invoke(coordinatorService, jobId, jobInfo, JobStatus.CANCELED);
+            Assertions.assertEquals(
+                    JobStatus.CANCELED,
+                    coordinatorService
+                            .getJobHistoryService()
+                            .getJobDetailState(jobId)
+                            .getJobStatus());
+        } finally {
+            server.getSeaTunnelConfig().getEngineConfig().setStateCleanupDelayMillis(0L);
+        }
+    }
+
+    @Test
+    void testTerminalZombieSideEffectFailureKeepsRecoverableOwner() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        JobInfo jobInfo =
+                new JobInfo(100L, createJobData(jobId, false, "stream_fake_to_console.conf"));
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        JobHistoryService originalHistoryService = coordinatorService.getJobHistoryService();
+        JobHistoryService failingHistoryService = Mockito.spy(originalHistoryService);
+        Mockito.doThrow(new RuntimeException("history unavailable"))
+                .when(failingHistoryService)
+                .storeJobInfo(Mockito.eq(jobId), Mockito.any(JobDAGInfo.class));
+
+        runningJobInfoIMap.put(jobId, jobInfo);
+        runningJobStateIMap.put(jobId, JobStatus.CANCELED);
+        ReflectionUtils.setField(coordinatorService, "jobHistoryService", failingHistoryService);
+        Method cleanupMethod =
+                CoordinatorService.class.getDeclaredMethod(
+                        "cleanupTerminalZombieJob", long.class, JobInfo.class, JobStatus.class);
+        cleanupMethod.setAccessible(true);
+
+        try {
+            InvocationTargetException failure =
+                    Assertions.assertThrows(
+                            InvocationTargetException.class,
+                            () ->
+                                    cleanupMethod.invoke(
+                                            coordinatorService,
+                                            jobId,
+                                            jobInfo,
+                                            JobStatus.CANCELED));
+            Assertions.assertEquals("history unavailable", failure.getCause().getMessage());
+            Assertions.assertEquals(jobInfo, runningJobInfoIMap.get(jobId));
+            Assertions.assertEquals(JobStatus.CANCELED, runningJobStateIMap.get(jobId));
+            Assertions.assertFalse(
+                    pendingJobCleanupIMap.containsKey(jobId),
+                    "Destructive cleanup must not be registered before side effects complete");
+        } finally {
+            ReflectionUtils.setField(
+                    coordinatorService, "jobHistoryService", originalHistoryService);
+        }
+
+        cleanupMethod.invoke(coordinatorService, jobId, jobInfo, JobStatus.CANCELED);
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId));
+                            Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
+                            Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
+                        });
+        Assertions.assertNotNull(originalHistoryService.getJobDAGInfo(jobId));
+        Assertions.assertEquals(
+                JobStatus.CANCELED, originalHistoryService.getJobDetailState(jobId).getJobStatus());
     }
 
     @Test
@@ -467,14 +761,24 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
         method.invoke(coordinatorService, jobId, runningJobInfoIMap.get(jobId));
 
-        Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId));
-        Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
-        Assertions.assertFalse(runningJobStateIMap.containsKey(pipelineLocation));
-        Assertions.assertFalse(runningJobStateIMap.containsKey(taskGroupLocation));
-        Assertions.assertFalse(runningJobStateIMap.containsKey(checkpointStateKey));
-        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(jobId));
-        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(pipelineLocation));
-        Assertions.assertFalse(runningJobStateTimestampsIMap.containsKey(taskGroupLocation));
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertFalse(runningJobInfoIMap.containsKey(jobId));
+                            Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
+                            Assertions.assertFalse(
+                                    runningJobStateIMap.containsKey(pipelineLocation));
+                            Assertions.assertFalse(
+                                    runningJobStateIMap.containsKey(taskGroupLocation));
+                            Assertions.assertFalse(
+                                    runningJobStateIMap.containsKey(checkpointStateKey));
+                            Assertions.assertFalse(
+                                    runningJobStateTimestampsIMap.containsKey(jobId));
+                            Assertions.assertFalse(
+                                    runningJobStateTimestampsIMap.containsKey(pipelineLocation));
+                            Assertions.assertFalse(
+                                    runningJobStateTimestampsIMap.containsKey(taskGroupLocation));
+                        });
         Assertions.assertNotNull(coordinatorService.getJobHistoryService().getJobDAGInfo(jobId));
         Assertions.assertEquals(
                 JobStatus.CANCELED,
@@ -562,17 +866,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         runningJobInfoIMap.put(jobId, jobInfo);
         runningJobStateIMap.put(jobId, JobStatus.RUNNING);
 
-        IMap<Long, JobInfo> spiedRunningJobInfoIMap = Mockito.spy(runningJobInfoIMap);
-        doThrow(new RetryableHazelcastException("loading"))
-                .when(spiedRunningJobInfoIMap)
-                .get(jobId);
-        ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", spiedRunningJobInfoIMap);
-
-        try {
-            invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, jobInfo);
-        } finally {
-            ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
-        }
+        invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, jobInfo);
 
         Long[] jobStateTimestamps = runningJobStateTimestampsIMap.get(jobId);
         Assertions.assertNotNull(jobStateTimestamps);
@@ -581,6 +875,128 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertTrue(
                 coordinatorService.getPendingJobQueue().contains(jobId)
                         || getRunningJobMasterMap(coordinatorService).containsKey(jobId));
+    }
+
+    @Test
+    void testRestoreOwnerRetryStopsWhenGenerationChanged() throws Exception {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        JobInfo staleJobInfo =
+                new JobInfo(100L, createJobData(jobId, false, "stream_fake_to_console.conf"));
+        JobInfo currentJobInfo =
+                new JobInfo(200L, createJobData(jobId, false, "stream_fake_to_console.conf"));
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        runningJobInfoIMap.put(jobId, currentJobInfo);
+        runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+
+        IMap<Long, JobInfo> spiedRunningJobInfoIMap = Mockito.spy(runningJobInfoIMap);
+        Mockito.doThrow(new RetryableHazelcastException("owner loading"))
+                .doReturn(currentJobInfo)
+                .when(spiedRunningJobInfoIMap)
+                .get(jobId);
+        ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", spiedRunningJobInfoIMap);
+        try {
+            invokeRestoreJobFromMasterActiveSwitch(coordinatorService, jobId, staleJobInfo);
+        } finally {
+            ReflectionUtils.setField(coordinatorService, "runningJobInfoIMap", runningJobInfoIMap);
+        }
+
+        Assertions.assertFalse(coordinatorService.getPendingJobQueue().contains(jobId));
+        Assertions.assertFalse(getRunningJobMasterMap(coordinatorService).containsKey(jobId));
+        Assertions.assertNull(runningJobStateTimestampsIMap.get(jobId));
+        Assertions.assertEquals(JobStatus.RUNNING, runningJobStateIMap.get(jobId));
+    }
+
+    @Test
+    void testMissingStateRepairKeepsTimestampWhenRetryObservesCreated() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        JobInfo jobInfo =
+                new JobInfo(100L, createJobData(jobId, false, "stream_fake_to_console.conf"));
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Object, Object> spiedRunningJobStateIMap = Mockito.spy(runningJobStateIMap);
+        Mockito.doReturn(null).when(spiedRunningJobStateIMap).get(jobId);
+        Mockito.doReturn(JobStatus.CREATED)
+                .when(spiedRunningJobStateIMap)
+                .putIfAbsent(jobId, JobStatus.CREATED);
+        runningJobInfoIMap.put(jobId, jobInfo);
+        ReflectionUtils.setField(
+                coordinatorService, "runningJobStateIMap", spiedRunningJobStateIMap);
+
+        try {
+            Assertions.assertEquals(
+                    JobStatus.CREATED,
+                    coordinatorService.repairMissingJobStateForRestore(jobId, jobInfo));
+            assertCreatedRepairTimestamps(
+                    runningJobStateTimestampsIMap.get(jobId), jobInfo.getInitializationTimestamp());
+        } finally {
+            ReflectionUtils.setField(
+                    coordinatorService, "runningJobStateIMap", runningJobStateIMap);
+            runningJobInfoIMap.remove(jobId);
+            runningJobStateIMap.remove(jobId);
+            runningJobStateTimestampsIMap.remove(jobId);
+        }
+    }
+
+    @Test
+    void testMissingStateRepairKeepsTimestampWhenIndeterminateWriteCommitted() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        JobInfo jobInfo =
+                new JobInfo(100L, createJobData(jobId, false, "stream_fake_to_console.conf"));
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Object, Object> spiedRunningJobStateIMap = Mockito.spy(runningJobStateIMap);
+        AtomicReference<Object> persistedState = new AtomicReference<>();
+        Mockito.doAnswer(invocation -> persistedState.get())
+                .when(spiedRunningJobStateIMap)
+                .get(jobId);
+        Mockito.doAnswer(
+                        invocation -> {
+                            persistedState.set(JobStatus.CREATED);
+                            throw new IndeterminateOperationStateException("reply lost");
+                        })
+                .when(spiedRunningJobStateIMap)
+                .putIfAbsent(jobId, JobStatus.CREATED);
+        runningJobInfoIMap.put(jobId, jobInfo);
+        ReflectionUtils.setField(
+                coordinatorService, "runningJobStateIMap", spiedRunningJobStateIMap);
+
+        try {
+            Assertions.assertEquals(
+                    JobStatus.CREATED,
+                    coordinatorService.repairMissingJobStateForRestore(jobId, jobInfo));
+            assertCreatedRepairTimestamps(
+                    runningJobStateTimestampsIMap.get(jobId), jobInfo.getInitializationTimestamp());
+        } finally {
+            ReflectionUtils.setField(
+                    coordinatorService, "runningJobStateIMap", runningJobStateIMap);
+            runningJobInfoIMap.remove(jobId);
+            runningJobStateIMap.remove(jobId);
+            runningJobStateTimestampsIMap.remove(jobId);
+        }
+    }
+
+    private void assertCreatedRepairTimestamps(Long[] timestamps, long initializationTimestamp) {
+        Assertions.assertNotNull(timestamps);
+        Assertions.assertEquals(
+                Long.valueOf(initializationTimestamp),
+                timestamps[JobStatus.INITIALIZING.ordinal()]);
+        Assertions.assertNotNull(timestamps[JobStatus.CREATED.ordinal()]);
     }
 
     @SuppressWarnings("unchecked")
