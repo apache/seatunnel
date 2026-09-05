@@ -82,11 +82,19 @@ public class DorisErrorIT extends AbstractDorisIT {
                 future.get()
                         .getStderr()
                         .contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getCode()));
+        // The failure must surface through the sink's stream-load layer. Which internal frame
+        // raises STREAM_LOAD_FAILED depends on how quickly the stopped container's network alias
+        // disappears: an HTTP-level error is reported via
+        // RecordBuffer#checkErrorMessageByStreamLoad,
+        // while a connect/DNS-level error is wrapped by DorisStreamLoad (stopLoad/abortPreCommit/
+        // startStreamLoad). Both are the same contract; pinning one frame made this test race.
+        String stderr = future.get().getStderr();
         Assertions.assertTrue(
-                future.get()
-                        .getStderr()
-                        .contains(
-                                "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad"));
+                stderr.contains(
+                                "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad")
+                        || stderr.contains(
+                                "at org.apache.seatunnel.connectors.doris.sink.writer.DorisStreamLoad."),
+                "STREAM_LOAD_FAILED was not raised from the Doris stream-load layer:\n" + stderr);
         log.info("doris error log: \n" + future.get().getStderr());
         super.container.start();
         // wait for the container to restart
