@@ -32,5 +32,6 @@ public class PersistiqSourceParameter extends HttpParameter {
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(X_API_KEY, pluginConfig.get(PersistiqSourceOptions.PASSWORD));
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }

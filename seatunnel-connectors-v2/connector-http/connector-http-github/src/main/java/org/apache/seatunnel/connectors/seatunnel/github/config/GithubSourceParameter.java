@@ -38,6 +38,7 @@ public class GithubSourceParameter extends HttpParameter {
             headers.put(GithubSourceOptions.AUTHORIZATION_KEY, oauthToken);
         }
         setHeaders(headers);
+        validateCredentialScheme();
     }
 
     // Format the access token into oauth2 format.

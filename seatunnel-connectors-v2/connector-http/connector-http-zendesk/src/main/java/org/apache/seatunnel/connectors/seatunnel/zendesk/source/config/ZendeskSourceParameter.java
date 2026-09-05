@@ -41,5 +41,6 @@ public class ZendeskSourceParameter extends HttpParameter {
                 Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
         this.headers.put(ZendeskSourceOptions.AUTHORIZATION, ZendeskSourceOptions.BASIC + encoded);
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }

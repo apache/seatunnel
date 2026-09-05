@@ -35,5 +35,6 @@ public class OneSignalSourceParameter extends HttpParameter {
                         + " "
                         + pluginConfig.get(OneSignalSourceOptions.PASSWORD));
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }
