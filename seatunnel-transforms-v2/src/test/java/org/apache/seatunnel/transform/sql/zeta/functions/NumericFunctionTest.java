@@ -91,6 +91,10 @@ public class NumericFunctionTest {
 
     @Test
     public void testAbsForDifferentNumberTypes() {
+        Assertions.assertEquals(
+                (byte) 10, NumericFunction.abs(Collections.singletonList((byte) -10)));
+        Assertions.assertEquals(
+                (short) 10, NumericFunction.abs(Collections.singletonList((short) -10)));
         Assertions.assertEquals(10, NumericFunction.abs(Collections.singletonList(-10)));
         Assertions.assertEquals(10L, NumericFunction.abs(Collections.singletonList(-10L)));
         Assertions.assertEquals(1.5f, NumericFunction.abs(Collections.singletonList(-1.5f)));
@@ -99,6 +103,13 @@ public class NumericFunctionTest {
         BigDecimal decimal = new BigDecimal("-123.45");
         Assertions.assertEquals(
                 new BigDecimal("123.45"), NumericFunction.abs(Collections.singletonList(decimal)));
+
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> NumericFunction.abs(Collections.singletonList(Byte.MIN_VALUE)));
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> NumericFunction.abs(Collections.singletonList(Short.MIN_VALUE)));
 
         Assertions.assertNull(NumericFunction.abs(Collections.singletonList(null)));
 
@@ -191,6 +202,18 @@ public class NumericFunctionTest {
 
         // negative scale for integer rounding
         Assertions.assertEquals(1200, NumericFunction.round(Arrays.asList(1234, -2)).intValue());
+        Assertions.assertEquals((byte) 40, NumericFunction.round(Arrays.asList((byte) 44, -1)));
+        Assertions.assertEquals((byte) 50, NumericFunction.ceil(Arrays.asList((byte) 44, -1)));
+        Assertions.assertEquals((byte) 40, NumericFunction.floor(Arrays.asList((byte) 44, -1)));
+        Assertions.assertEquals((byte) 40, NumericFunction.trunc(Arrays.asList((byte) 44, -1)));
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> NumericFunction.round(Arrays.asList(Byte.MAX_VALUE, -1)));
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () ->
+                        NumericFunction.round(
+                                Collections.singletonList(new java.math.BigInteger("1"))));
 
         // Long inputs preserve Long return type (fix for #11696)
         Assertions.assertEquals(10000000000L, NumericFunction.ceil(Arrays.asList(10000000000L)));
@@ -264,6 +287,8 @@ public class NumericFunctionTest {
 
     @Test
     public void testSignForDifferentTypes() {
+        Assertions.assertEquals(1, NumericFunction.sign(Collections.singletonList((byte) 10)));
+        Assertions.assertEquals(-1, NumericFunction.sign(Collections.singletonList((short) -10)));
         Assertions.assertEquals(1, NumericFunction.sign(Collections.singletonList(10)));
         Assertions.assertEquals(-1, NumericFunction.sign(Collections.singletonList(-10L)));
         Assertions.assertEquals(0, NumericFunction.sign(Collections.singletonList(0)));
@@ -276,6 +301,10 @@ public class NumericFunctionTest {
         Assertions.assertEquals(
                 0,
                 NumericFunction.sign(Collections.singletonList(new BigDecimal("0.0000")))
+                        .intValue());
+        Assertions.assertEquals(
+                1,
+                NumericFunction.sign(Collections.singletonList(new BigDecimal("1E-400")))
                         .intValue());
     }
 
