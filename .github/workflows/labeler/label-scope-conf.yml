@@ -74,6 +74,11 @@ transform-v2:
       - any-glob-to-any-file: seatunnel-transforms-v2/**
 
 # Connectors
+amazondocumentdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazondocumentdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazondocumentdb)/**'
 amazondynamodb:
   - all:
       - changed-files:

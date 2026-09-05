@@ -37,6 +37,7 @@
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>
         <module>connector-amazondynamodb-e2e</module>
+        <module>connector-amazondocumentdb-e2e</module>
         <module>connector-azurecosmosdb-e2e</module>
         <module>connector-amazonsqs-e2e</module>
         <module>connector-file-local-e2e</module>
