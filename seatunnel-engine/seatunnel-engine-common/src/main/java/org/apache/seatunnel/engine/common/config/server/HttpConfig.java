@@ -78,6 +78,14 @@ public class HttpConfig implements Serializable {
     private String basicAuthPassword =
             ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD.defaultValue();
 
+    /** The maximum size in MB of a single uploaded file. A value <= 0 means unlimited. */
+    private int uploadMaxFileSizeMb =
+            ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_FILE_SIZE_MB.defaultValue();
+
+    /** The maximum total size in MB of a multipart request. A value <= 0 means unlimited. */
+    private int uploadMaxRequestSizeMb =
+            ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB.defaultValue();
+
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;

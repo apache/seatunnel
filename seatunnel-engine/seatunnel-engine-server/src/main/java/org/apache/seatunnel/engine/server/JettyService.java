@@ -53,6 +53,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.ThreadDumpServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.WorkerResourceServlet;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -94,6 +95,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBM
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_WORKER_RESOURCES;
 
 /** The Jetty service for SeaTunnel engine server. */
 @Slf4j
@@ -158,6 +160,12 @@ public class JettyService {
         log.info("SeaTunnel REST service will start on https port {}", httpsPort);
     }
 
+    private static long toBytes(int megabytes) {
+        // Jetty reads a negative limit as unlimited, which is what this server did before the
+        // limit became configurable. Keep that available instead of scaling it into bytes.
+        return megabytes <= 0 ? -1L : megabytes * 1024L * 1024L;
+    }
+
     public void createJettyServer() {
 
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
@@ -191,6 +199,8 @@ public class JettyService {
         ServletHolder finishedJobsHolder = new ServletHolder(new FinishedJobsServlet(nodeEngine));
         ServletHolder systemMonitoringHolder =
                 new ServletHolder(new SystemMonitoringServlet(nodeEngine));
+        ServletHolder workerResourceHolder =
+                new ServletHolder(new WorkerResourceServlet(nodeEngine));
         ServletHolder jobInfoHolder = new ServletHolder(new JobInfoServlet(nodeEngine));
         ServletHolder threadDumpHolder = new ServletHolder(new ThreadDumpServlet(nodeEngine));
 
@@ -230,10 +240,16 @@ public class JettyService {
         context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));
         context.addServlet(
                 systemMonitoringHolder, convertUrlToPath(REST_URL_SYSTEM_MONITORING_INFORMATION));
+        context.addServlet(workerResourceHolder, convertUrlToPath(REST_URL_WORKER_RESOURCES));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_JOB_INFO));
         context.addServlet(jobInfoHolder, convertUrlToPath(REST_URL_RUNNING_JOB));
         context.addServlet(threadDumpHolder, convertUrlToPath(REST_URL_THREAD_DUMP));
-        MultipartConfigElement multipartConfigElement = new MultipartConfigElement("");
+        // Bound the upload: the whole part is buffered by Jetty and then read into a String, so an
+        // unbounded body lets a single request fill the temp directory and exhaust the master heap.
+        long maxFileSize = toBytes(httpConfig.getUploadMaxFileSizeMb());
+        long maxRequestSize = toBytes(httpConfig.getUploadMaxRequestSizeMb());
+        MultipartConfigElement multipartConfigElement =
+                new MultipartConfigElement("", maxFileSize, maxRequestSize, 0);
         submitJobByUploadFileHolder.getRegistration().setMultipartConfig(multipartConfigElement);
         context.addServlet(
                 submitJobByUploadFileHolder, convertUrlToPath(REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE));

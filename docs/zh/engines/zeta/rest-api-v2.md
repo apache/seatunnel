@@ -13,7 +13,7 @@ v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相�
 
 这里需要区分两个容易混淆的“默认值”来源：
 
-- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`
+- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`、`upload-max-file-size-mb = 10`、`upload-max-request-size-mb = 10`
 - 发行包自带的 `seatunnel.yaml` 示例：默认写入了 `enable-http: true` 和 `port: 8080`
 
 因此，直接使用发行包自带配置启动时，Web UI 和 REST API 通常会监听
@@ -54,6 +54,20 @@ seatunnel:
       enable-http: true
       port: 8080
       context-path: /seatunnel
+```
+
+上传的配置文件有大小上限，避免单个请求把 Master 的临时目录写满或把堆内存吃光。这两个配置只作用于
+`/submit-job/upload`，取值小于等于 `0` 表示不限制：
+
+```yaml
+
+seatunnel:
+  engine:
+    http:
+      enable-http: true
+      port: 8080
+      upload-max-file-size-mb: 10
+      upload-max-request-size-mb: 10
 ```
 
 ## Web UI 与 8080 排查
@@ -249,6 +263,68 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
+### 查询 Worker 资源
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(返回已注册 Worker 的当前资源快照。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    },
+    {
+      "address": "10.0.0.9:5801",
+      "tags": {},
+      "totalSlots": 2,
+      "freeSlots": 0,
+      "usedSlots": 2,
+      "dynamicSlot": true,
+      "totalCpuCores": 8,
+      "availableCpuCores": 4,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 8589934592,
+      "cpuUsage": 0.35,
+      "memUsage": 0.41,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**说明：**
+
+- 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
+- 动态 Slot 模式的 Worker 没有固定的 Slot 容量。此时，`totalSlots` 表示当前已跟踪的已分配和未分配 Slot 总数，`freeSlots` 表示当前未分配数量。解释容量时，请结合 `dynamicSlot` 以及 CPU 和堆内存字段。
+- 当无法读取 Master 端的资源快照时（包括 Master 选举期间），`available` 为 `false`。此时 `workers` 为空，客户端应重试，而不应将该响应解释为空集群。
+- `collectedAt` 是 Master 构建本次响应时的毫秒时间戳。Worker 字段来自资源管理器收到的最近一次心跳，并不与 `/system-monitoring-information` 构成原子快照。
+- 如果最近一次 Worker 心跳尚未包含资源或使用率数据，对应字段不会返回。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 查询作业及其当前状态的概览
 
 <details>
@@ -337,7 +413,12 @@ seatunnel:
         },
         "totalSlots": 4,
         "freeSlots": 0,
+        "usedSlots": 4,
         "dynamicSlot": false,
+        "totalCpuCores": 8,
+        "availableCpuCores": 2,
+        "totalHeapMemoryBytes": 17179869184,
+        "availableHeapMemoryBytes": 4294967296,
         "cpuUsage": 0.83,
         "memUsage": 0.64,
         "runningJobIds": [
@@ -934,6 +1015,9 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 - `.json` 文件：按照 JSON 格式解析
 - `.conf` 或 `.config` 文件：按照 HOCON 格式解析
 - `.sql` 文件：按照 SQL 格式解析，支持 CREATE TABLE 和 INSERT INTO 语法
+
+单个文件大小受 `seatunnel.engine.http.upload-max-file-size-mb`（默认 10 MB）限制，单个请求的总大小受
+`upload-max-request-size-mb`（默认 10 MB）限制。超出上限的请求会在解析配置之前被拒绝。
 
 curl Example
 

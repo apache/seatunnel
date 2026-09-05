@@ -111,6 +111,12 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
+  - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
+  - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
+  - **Impact**: Upgrading existing pipelines targeting a non-existent table will now automatically create the table in BigQuery with the source schema instead of failing fast at the BigQuery API layer.
+  - **Migration Guide**: To preserve the legacy fail-fast behavior, explicitly configure `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` in your BigQuery sink configuration.
+
 - **Breaking Change: ORC file sink preserves case of nested struct field names**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (used by all File/HDFS/S3/OSS ORC sinks that share `OrcWriteStrategy`)
   - **Description**: Previously, `OrcWriteStrategy.buildFieldWithRowType(...)` forced every nested `ROW` (struct) field name to lowercase when building the ORC schema, so a nested field declared as `MD5` was persisted as `md5` in the file footer. Downstream consumers that read the column by its declared original-case name received null/missing values. The `.toLowerCase()` call has been removed from the recursive nested-field branch, so nested struct field names are now written verbatim in the file schema.
@@ -125,6 +131,11 @@ You need to check this document before you upgrade to related version.
   - **Description**: The enumerator now partitions a table (or the configured `start_rowkey` / `end_rowkey` range) into tablet-sized splits via `sampleRowKeys`. `scan_row_limit` is still applied with `query.limit(...)` once per split in the reader. Before this change the source always produced exactly one split, so `scan_row_limit` acted as a table-wide row cap. After this change a table with multiple tablets yields multiple splits even when `parallelism = 1` (the single reader is assigned every split), and the job-level upper bound is about `scan_row_limit × split count`. See [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int).
   - **Impact**: Existing jobs that set `scan_row_limit` to bound total output (sampling, testing, cost control, or downstream capacity) can read far more rows after upgrade with no config change.
   - **Migration Guide**: If you need a table-wide cap, narrow the scan with `start_rowkey` / `end_rowkey`, or lower `scan_row_limit` so that `scan_row_limit × expected split count` stays within the previous budget. To keep the previous single-split behavior, the connector still falls back to one split when sampling fails, returns no keys, or the intersection is empty — that is not a supported way to pin the old cap. (#11876)
+- **CDC Connector: restored state for tables removed from the capture set is no longer reused**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/connector-cdc-base` and CDC connectors built on it.
+  - **Description**: When a CDC job restores from a checkpoint or savepoint, SeaTunnel now filters per-table incremental state against the currently captured table set before assigning the restored split. State for tables that have been removed from the job's capture configuration is not reused. If table discovery is unavailable or returns no tables, SeaTunnel keeps the restored state unchanged to avoid discarding checkpoint metadata during a transient source-database problem.
+  - **Impact**: A job that removes captured tables and then restores from an older checkpoint no longer attempts to resume incremental state for those removed tables. This avoids restore failures caused by stale table metadata. The behavior applies only during checkpoint/savepoint restore; newly started jobs are unchanged.
+  - **Migration Guide**: No configuration change is required. Before restoring an existing CDC job after changing its capture table set, verify that the removed tables are intentionally no longer part of the job.
 
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
@@ -219,6 +230,54 @@ You need to check this document before you upgrade to related version.
   - Dividing by a zero `DECIMAL` now fails with a `TransformException` naming the operation, where the underlying cause was previously `java.lang.ArithmeticException("/ by zero")`. The failing expression was already reported either way, since the SQL engine wraps anything thrown while evaluating an expression; only the cause type changed. This matches how `MOD` by zero has always been reported.
 
   **Migration Guide**: Results that were previously inflated by the old rounding mode, or truncated by the `double` conversion, will change. Multiplication results may now carry *fewer* decimal places than before: the old conversion sometimes emitted a value wider than the declared column scale, and that value is now rounded down to it, so a job reading `38.4375` from a `DECIMAL(38,2)` column will read `38.44` after upgrading. Any code that inspects the *cause* of a division failure and matches on `ArithmeticException` should be updated to expect `TransformException`. If a downstream system was reconciled against the old values, re-baseline it after upgrading. Any workaround that compensated for the old behavior (for example subtracting a correction term after a division) should be removed.
+- **[BREAKING]** SQL Transform `ABS`, and `ROUND` / `CEIL` / `CEILING` / `FLOOR` with a negative digit count, now
+  fail with a `TransformException` when the result does not fit the argument's own data type, instead of silently
+  wrapping around to a wrong — usually negative — value:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ABS(-2147483648)` | `INT` | `-2147483648` | `TransformException` |
+  | `ABS(-9223372036854775808)` | `BIGINT` | `-9223372036854775808` | `TransformException` |
+  | `ROUND(2147483647, -1)` | `INT` | `-2147483646` | `TransformException` |
+  | `ROUND(9223372036854775807, -1)` | `BIGINT` | `-9223372036854775806` | `TransformException` |
+  | `CEIL(32767, -1)` | `SMALLINT` | `-32766` | `TransformException` |
+  | `FLOOR(-2147483648, -1)` | `INT` | `2147483646` | `TransformException` |
+
+  `ABS` has always been documented this way — "ABS(-2147483648) should be 2147483648, but this value is not allowed
+  for this data type. It leads to an exception" — the implementation simply never did it. `TRUNC` / `TRUNCATE` round
+  toward zero and so can never grow a value out of its own range; they are unaffected, as are `FLOAT`, `DOUBLE` and
+  `DECIMAL` arguments.
+
+  **Migration Guide**: A job that previously emitted these wrapped values now fails on the row that overflows. Cast
+  the argument to a wider type to keep the job running — `ABS(CAST(int_col AS BIGINT))` or
+  `ROUND(CAST(int_col AS BIGINT), -1)` — or filter the offending rows out upstream. If a downstream system was
+  reconciled against the old wrapped values, re-baseline it after upgrading.
+
+- **[BREAKING]** SQL Transform now dispatches `TINYINT` and `SMALLINT` arguments correctly in the numeric
+  functions that previously omitted them. `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` had no
+  `TINYINT` branch, so a `TINYINT` argument fell through the type switch and was returned unrounded, with no
+  exception and no log line. `ABS` and `SIGN` had no `TINYINT` or `SMALLINT` branch and rejected those columns
+  outright:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`, silently not rounded | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`, silently not rounded | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`, silently not rounded | `TransformException`, `130` exceeds `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`, "Unsupported arg type" | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `-1` |
+
+  The same type switch also gained a `default` branch, so any numeric type it does not handle now fails with a
+  `TransformException` instead of being returned unrounded. `SIGN` on a `DECIMAL` argument now uses
+  `BigDecimal.signum()` rather than a `double` conversion, so a value smaller than `Double.MIN_VALUE` reports its
+  true sign instead of `0`.
+
+  **Migration Guide**: A job with a `TINYINT` column that silently skipped rounding now receives the rounded value;
+  if a downstream system was reconciled against the old unrounded output, re-baseline it after upgrading. If a
+  rounded `TINYINT` no longer fits its own type, cast the argument to a wider type — `ROUND(CAST(tiny_col AS INT), -1)`
+  — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
+  (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
 
 ### Engine Behavior Changes
 

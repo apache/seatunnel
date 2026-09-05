@@ -26,6 +26,8 @@ public class StorageFactory {
             return new OSSStorage();
         } else if (hiveSdLocation.startsWith(StorageType.COS.name().toLowerCase())) {
             return new COSStorage();
+        } else if (hiveSdLocation.startsWith(StorageType.BOS.name().toLowerCase())) {
+            return new BOSStorage();
         } else if (hiveSdLocation.startsWith(StorageType.FILE.name().toLowerCase())) {
             // Currently used in e2e, When Hive uses local files as storage, "file:" needs to be
             // replaced with "file:/" to avoid being recognized as HDFS storage.

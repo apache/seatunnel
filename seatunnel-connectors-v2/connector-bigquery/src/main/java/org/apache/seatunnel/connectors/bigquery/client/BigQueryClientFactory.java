@@ -71,11 +71,15 @@ public class BigQueryClientFactory {
 
             GoogleCredentials credentials = getCredentials(config);
 
-            BigQueryWriteSettings settings =
+            BigQueryWriteSettings.Builder settingsBuilder =
                     BigQueryWriteSettings.newBuilder()
-                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials))
-                            .build();
-            return BigQueryWriteClient.create(settings);
+                            .setCredentialsProvider(FixedCredentialsProvider.create(credentials));
+
+            if (config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN) != null) {
+                settingsBuilder.setUniverseDomain(config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+            }
+
+            return BigQueryWriteClient.create(settingsBuilder.build());
         } catch (IOException e) {
             throw new BigQueryConnectorException(
                     BigQueryConnectorErrorCode.CLIENT_CREATE_FAILED,
@@ -97,11 +101,14 @@ public class BigQueryClientFactory {
 
         GoogleCredentials credentials = getCredentials(config);
 
-        return BigQueryOptions.newBuilder()
-                .setProjectId(projectId)
-                .setCredentials(credentials)
-                .build()
-                .getService();
+        BigQueryOptions.Builder builder =
+                BigQueryOptions.newBuilder().setProjectId(projectId).setCredentials(credentials);
+
+        if (config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN) != null) {
+            builder.setUniverseDomain(config.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+        }
+
+        return builder.build().getService();
     }
 
     public static GoogleCredentials getCredentials(ReadonlyConfig config) {

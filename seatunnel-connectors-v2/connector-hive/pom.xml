@@ -67,6 +67,11 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>connector-file-bos</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>provided</scope>
             <exclusions>

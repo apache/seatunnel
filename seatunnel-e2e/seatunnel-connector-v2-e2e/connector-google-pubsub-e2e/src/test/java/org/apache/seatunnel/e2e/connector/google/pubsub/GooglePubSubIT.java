@@ -23,7 +23,10 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -46,6 +49,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
@@ -60,10 +64,16 @@ public class GooglePubSubIT extends TestSuiteBase implements TestResource {
     private static final String PROJECT_ID = "seatunnel-test";
     private static final String TOPIC_ID = "events";
     private static final String SUBSCRIPTION_ID = "events-test";
+    private static final String SOURCE_TOPIC_ID = "source-events";
+    private static final String SOURCE_SUBSCRIPTION_ID = "source-events-test";
     private static final int EMULATOR_PORT = 8085;
     private static final String EMULATOR_HOST = "pubsub-emulator";
     private static final String JOB_CONFIG = "/pubsub/fake_to_google_pubsub.conf";
+    private static final String SOURCE_JOB_CONFIG = "/pubsub/google_pubsub_to_console.conf";
     private static final String EXPECTED_MESSAGE = "{\"name\":\"alice\",\"age\":30}";
+    private static final String EXPECTED_SOURCE_EVENT_ID = "pubsub-source-checkpoint-event";
+    private static final String SOURCE_MESSAGE =
+            "{\"event_id\":\"" + EXPECTED_SOURCE_EVENT_ID + "\",\"event_type\":\"created\"}";
 
     private GenericContainer<?> emulator;
     private String emulatorEndpoint;
@@ -94,12 +104,20 @@ public class GooglePubSubIT extends TestSuiteBase implements TestResource {
         emulatorEndpoint =
                 "http://" + emulator.getHost() + ":" + emulator.getMappedPort(EMULATOR_PORT);
         createResource("/v1/projects/" + PROJECT_ID + "/topics/" + TOPIC_ID, "{}");
+        createResource("/v1/projects/" + PROJECT_ID + "/topics/" + SOURCE_TOPIC_ID, "{}");
         createResource(
                 "/v1/projects/" + PROJECT_ID + "/subscriptions/" + SUBSCRIPTION_ID,
                 "{\"topic\":\"projects/"
                         + PROJECT_ID
                         + "/topics/"
                         + TOPIC_ID
+                        + "\",\"ackDeadlineSeconds\":10}");
+        createResource(
+                "/v1/projects/" + PROJECT_ID + "/subscriptions/" + SOURCE_SUBSCRIPTION_ID,
+                "{\"topic\":\"projects/"
+                        + PROJECT_ID
+                        + "/topics/"
+                        + SOURCE_TOPIC_ID
                         + "\",\"ackDeadlineSeconds\":10}");
     }
 
@@ -146,6 +164,85 @@ public class GooglePubSubIT extends TestSuiteBase implements TestResource {
                         StandardCharsets.UTF_8);
         Assertions.assertEquals(EXPECTED_MESSAGE, payload);
         acknowledge(message.path("ackId").asText());
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "The source checkpoint assertion uses the Zeta REST job status and server logs")
+    public void testGooglePubSubSourceAcknowledgesAfterCheckpoint(TestContainer container)
+            throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(SOURCE_JOB_CONFIG, jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                            });
+
+            long checkpointCount = container.getCompletedCheckpointCount(jobId);
+            publish(SOURCE_TOPIC_ID, SOURCE_MESSAGE);
+
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains(EXPECTED_SOURCE_EVENT_ID),
+                                        "Published Pub/Sub message was not emitted by the source");
+                            });
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(jobId)
+                                                > checkpointCount,
+                                        "No checkpoint completed after the Pub/Sub message was emitted");
+                            });
+        } finally {
+            if (!jobFuture.isDone()) {
+                Container.ExecResult cancelResult = container.cancelJob(jobId);
+                Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+            }
+        }
+
+        Container.ExecResult jobResult = jobFuture.get(120, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
+    }
+
+    private void publish(String topicId, String payload) throws IOException {
+        String data = Base64.getEncoder().encodeToString(payload.getBytes(StandardCharsets.UTF_8));
+        request(
+                "POST",
+                "/v1/projects/" + PROJECT_ID + "/topics/" + topicId + ":publish",
+                "{\"messages\":[{\"data\":\"" + data + "\"}]}");
+    }
+
+    private void assertJobStillRunning(CompletableFuture<Container.ExecResult> jobFuture)
+            throws Exception {
+        if (jobFuture.isDone()) {
+            Container.ExecResult result = jobFuture.get();
+            Assertions.fail("Streaming source job terminated early:\n" + result.getStderr());
+        }
     }
 
     private void acknowledge(String ackId) throws IOException {

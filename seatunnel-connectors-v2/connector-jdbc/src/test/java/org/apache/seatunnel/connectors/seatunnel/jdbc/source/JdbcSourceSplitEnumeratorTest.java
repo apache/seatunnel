@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 
@@ -194,7 +195,7 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertEquals(tables.size(), assignedSplitOwners.size());
         assignedSplitOwners.forEach(
                 (splitId, owner) -> {
-                    int expectedOwner = (splitId.hashCode() & Integer.MAX_VALUE) % parallelism;
+                    int expectedOwner = HashUtils.bucketIndex(splitId.hashCode(), parallelism);
                     Assertions.assertEquals(expectedOwner, owner);
                 });
 

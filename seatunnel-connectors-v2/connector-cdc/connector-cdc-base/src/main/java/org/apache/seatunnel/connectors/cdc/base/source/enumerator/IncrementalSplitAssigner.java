@@ -246,6 +246,12 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
         i = 0;
         List<IncrementalSplit> incrementalSplits = new ArrayList<>();
         for (List<TableId> capturedTable : capturedTables) {
+            // Restored split pruning can shrink the captured-table set below the configured
+            // parallelism, so some round-robin buckets may legitimately stay empty.
+            if (capturedTable == null || capturedTable.isEmpty()) {
+                i++;
+                continue;
+            }
             incrementalSplits.add(
                     createIncrementalSplit(capturedTable, i++, startWithSnapshotMinimumOffset));
         }
