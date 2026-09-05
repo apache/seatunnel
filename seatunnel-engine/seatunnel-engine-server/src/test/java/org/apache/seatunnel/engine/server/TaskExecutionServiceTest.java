@@ -627,11 +627,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     /**
-     * Verifies the FAILED-fallthrough path in {@code taskDone()}: a stale tracker whose task
-     * fails (not just finishes normally) must still not tear down a newer generation's shared,
-     * TaskGroupLocation-keyed resources via {@code cancelAllTask()}. Uses a two-task old group
-     * and fails only the first task so {@code completionLatch} does not reach zero, isolating
-     * this path from {@code finishOwnedResources()}'s already-guarded completionLatch==0 branch.
+     * Verifies the FAILED-fallthrough path in {@code taskDone()}: a stale tracker whose task fails
+     * (not just finishes normally) must still not tear down a newer generation's shared,
+     * TaskGroupLocation-keyed resources via {@code cancelAllTask()}. Uses a two-task old group and
+     * fails only the first task so {@code completionLatch} does not reach zero, isolating this path
+     * from {@code finishOwnedResources()}'s already-guarded completionLatch==0 branch.
      */
     @Test
     public void testStaleFailedTaskDoneDoesNotCleanupNewerGenerationResources() throws Exception {
