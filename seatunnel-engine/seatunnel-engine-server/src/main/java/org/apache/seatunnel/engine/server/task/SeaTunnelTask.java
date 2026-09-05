@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
@@ -568,9 +569,38 @@ public abstract class SeaTunnelTask extends AbstractTask {
         tryClose(checkpointId);
     }
 
+    /**
+     * Notifies all action lifecycles that a checkpoint with its type has completed.
+     *
+     * @param checkpointId completed checkpoint id
+     * @param checkpointType completed checkpoint type
+     * @throws Exception if any action lifecycle fails while handling the notification
+     */
+    @Override
+    public void notifyCheckpointComplete(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
+        notifyAllAction(
+                listener -> listener.notifyCheckpointComplete(checkpointId, checkpointType));
+        tryClose(checkpointId);
+    }
+
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
         notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId));
+        tryClose(checkpointId);
+    }
+
+    /**
+     * Notifies all action lifecycles that a checkpoint with its type has been aborted.
+     *
+     * @param checkpointId aborted checkpoint id
+     * @param checkpointType aborted checkpoint type
+     * @throws Exception if any action lifecycle fails while handling the notification
+     */
+    @Override
+    public void notifyCheckpointAborted(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
+        notifyAllAction(listener -> listener.notifyCheckpointAborted(checkpointId, checkpointType));
         tryClose(checkpointId);
     }
 
