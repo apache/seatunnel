@@ -111,6 +111,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 BindMode.READ_WRITE);
+        applyJavaToolOptions(jobManager);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
@@ -134,6 +135,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 BindMode.READ_WRITE);
+        applyJavaToolOptions(taskManager);
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
@@ -142,6 +144,16 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     protected List<String> getFlinkProperties() {
         return DEFAULT_FLINK_PROPERTIES;
+    }
+
+    /**
+     * Returns test-scoped JVM options injected through the standard launcher hook for every Java
+     * process started in the Flink containers.
+     *
+     * @return JVM option string or {@code null} when no extra options are required
+     */
+    protected String getJavaToolOptions() {
+        return null;
     }
 
     @Override
@@ -208,6 +220,19 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return jobManager.execInContainer("bash", "-c", command).getStdout();
     }
 
+    /**
+     * Executes a shell command inside the TaskManager container after the cluster has started.
+     *
+     * @param command shell command evaluated by bash
+     * @return standard output captured from the TaskManager container
+     * @throws IOException when docker exec fails
+     * @throws InterruptedException when the docker exec call is interrupted
+     */
+    public String executeTaskManagerInnerCommand(String command)
+            throws IOException, InterruptedException {
+        return taskManager.execInContainer("bash", "-c", command).getStdout();
+    }
+
     public String getJobManagerHost() {
         return jobManager.getHost();
     }
@@ -225,5 +250,18 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     @Override
     public void copyAbsolutePathToContainer(String path, String targetPath) {
         ContainerUtil.copyFileIntoContainers(Paths.get(path), targetPath, jobManager);
+    }
+
+    /**
+     * Uses the standard JVM launcher environment hook so both Flink daemons and helper Java
+     * processes observe the same system properties in E2E tests.
+     *
+     * @param container Flink runtime container being prepared before startup
+     */
+    protected void applyJavaToolOptions(GenericContainer<?> container) {
+        String javaToolOptions = getJavaToolOptions();
+        if (javaToolOptions != null && !javaToolOptions.trim().isEmpty()) {
+            container.withEnv("JAVA_TOOL_OPTIONS", javaToolOptions);
+        }
     }
 }

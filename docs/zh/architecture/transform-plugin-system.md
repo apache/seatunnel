@@ -113,6 +113,7 @@ Transform 体系主要围绕下面这些契约构建：
 ### 可编程或 AI 相关处理
 
 - [DynamicCompile](../transforms/dynamic-compile.md)
+- [Python](../transforms/python.md)
 - [LLM](../transforms/llm.md)
 - [Embedding](../transforms/embedding.md)
 
