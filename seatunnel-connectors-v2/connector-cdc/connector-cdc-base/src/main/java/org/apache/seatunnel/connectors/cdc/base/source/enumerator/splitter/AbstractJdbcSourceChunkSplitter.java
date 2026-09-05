@@ -414,9 +414,14 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         String tableSc =
                 splitColumnsConfig.getOrDefault(tableId.catalog() + "." + tableId.table(), null);
 
+        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (StringUtils.isNotEmpty(tableSc)) {
-            // Is tableSc（table split column） the unique key
-            AtomicBoolean isUniqueKey = new AtomicBoolean(false);
+            // Is tableSc (table split column) in the primary key or a unique key
+            AtomicBoolean isPrimaryOrUniqueKey =
+                    new AtomicBoolean(
+                            primaryKey
+                                    .map(key -> key.getColumnNames().contains(tableSc))
+                                    .orElse(false));
             dialect.getUniqueKeys(jdbc, tableId)
                     .forEach(
                             ck ->
@@ -424,11 +429,11 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                                             .forEach(
                                                     ckc -> {
                                                         if (tableSc.equals(ckc.getColumnName())) {
-                                                            isUniqueKey.set(true);
+                                                            isPrimaryOrUniqueKey.set(true);
                                                         }
                                                     }));
 
-            if (isUniqueKey.get()) {
+            if (isPrimaryOrUniqueKey.get()) {
                 Column column = table.columnWithName(tableSc);
                 if (isEvenlySplitColumn(column)) {
                     return column;
@@ -438,13 +443,14 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                             tableId);
                 }
             } else {
-                log.warn("Config snapshotSplitColumn not unique key for table {}", tableId);
+                log.warn(
+                        "Config snapshotSplitColumn not primary or unique key for table {}",
+                        tableId);
             }
         } else {
             log.info("Config snapshotSplitColumn not exists for table {}", tableId);
         }
 
-        Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
         if (primaryKey.isPresent()) {
             Column firstColumn = table.columnWithName(primaryKey.get().getColumnNames().get(0));
             if (isEvenlySplitColumn(firstColumn)) {

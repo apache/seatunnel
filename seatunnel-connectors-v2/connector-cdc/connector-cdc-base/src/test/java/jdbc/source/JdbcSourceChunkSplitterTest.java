@@ -45,8 +45,12 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class JdbcSourceChunkSplitterTest {
 
@@ -78,6 +82,20 @@ class JdbcSourceChunkSplitterTest {
                 testJdbcSourceChunkSplitter.getSplitColumn(
                         null, new TestSourceDialectWithUniqueKey_2(), new TableId("", "", ""));
         Assertions.assertEquals("int", splitColumn.typeName());
+    }
+
+    @Test
+    void splitColumnTestWithConfiguredPrimaryKey() throws SQLException {
+        JdbcSourceConfig sourceConfig = mock(JdbcSourceConfig.class);
+        when(sourceConfig.getSplitColumn()).thenReturn(Collections.singletonMap(".", "bigint_col"));
+        TestSourceDialect dialect = new TestSourceDialect();
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(sourceConfig, dialect);
+
+        Column splitColumn =
+                testJdbcSourceChunkSplitter.getSplitColumn(null, dialect, new TableId("", "", ""));
+
+        Assertions.assertEquals("bigint", splitColumn.typeName());
     }
 
     private class TestJdbcSourceChunkSplitter extends AbstractJdbcSourceChunkSplitter {
