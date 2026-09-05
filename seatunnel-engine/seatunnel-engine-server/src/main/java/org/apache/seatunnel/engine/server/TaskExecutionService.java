@@ -57,6 +57,7 @@ import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -68,7 +69,9 @@ import com.hazelcast.internal.metrics.MetricsRegistry;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.jet.impl.execution.init.CustomClassLoadedObject;
 import com.hazelcast.logging.ILogger;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
@@ -147,6 +150,9 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
  */
 public class TaskExecutionService implements DynamicMetricsProvider {
 
+    /** Maximum time a cancelled task group waits for the final metrics flush. */
+    private static final long CANCEL_METRICS_FLUSH_TIMEOUT_SECONDS = 1L;
+
     /** The name of the Hazelcast instance this service runs on. */
     private final String hzInstanceName;
 
@@ -221,9 +227,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
-    /** Client for managing connector packages on the server. */
+    /**
+     * Worker pool for flushing task timers without blocking cooperative task execution.
+     *
+     * <p>The pool remains owned by the worker-side task service.
+     */
     private final ScheduledThreadPoolExecutor timerFlushWorker;
 
+    /**
+     * Shared server client for connector package reads and cleanup during task execution.
+     *
+     * <p>The same client is created by the role-independent server lifecycle.
+     */
     private final ServerConnectorPackageClient serverConnectorPackageClient;
 
     /** Service for reporting events. */
@@ -234,13 +249,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      *
      * @param classLoaderService service for managing class loaders
      * @param nodeEngine the Hazelcast node engine
+     * @param engineContext shared engine context
      * @param eventService service for reporting events
+     * @param serverConnectorPackageClient client for managing connector packages
      */
     public TaskExecutionService(
             ClassLoaderService classLoaderService,
             NodeEngineImpl nodeEngine,
             SeaTunnelEngineContext engineContext,
-            EventService eventService) {
+            EventService eventService,
+            ServerConnectorPackageClient serverConnectorPackageClient) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
@@ -261,8 +279,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
 
-        serverConnectorPackageClient =
-                new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
+        this.serverConnectorPackageClient = serverConnectorPackageClient;
 
         this.eventService = eventService;
 
@@ -704,16 +721,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         long sleepTime = 1000;
         boolean notifyStateSuccess = false;
         while (isRunning && !notifyStateSuccess) {
-            InvocationFuture<Object> invoke =
-                    nodeEngine
-                            .getOperationService()
-                            .createInvocationBuilder(
-                                    SeaTunnelServer.SERVICE_NAME,
-                                    new NotifyTaskStatusOperation(
-                                            taskGroupLocation, taskExecutionState),
-                                    nodeEngine.getMasterAddress())
-                            .invoke();
             try {
+                InvocationFuture<Object> invoke =
+                        sendOperationToMaster(
+                                new NotifyTaskStatusOperation(
+                                        taskGroupLocation, taskExecutionState));
                 invoke.get();
                 notifyStateSuccess = true;
             } catch (InterruptedException e) {
@@ -750,6 +762,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         logger.severe(e);
                     }
                 }
+            } catch (RetryableHazelcastException e) {
+                logger.info(ExceptionUtils.getMessage(e));
+                logger.info(
+                        String.format(
+                                "active master unavailable while notifying task(%s), retry in %s millis",
+                                taskGroupLocation, sleepTime));
+                try {
+                    Thread.sleep(sleepTime);
+                } catch (InterruptedException ex) {
+                    Thread.currentThread().interrupt();
+                    logger.severe(ex);
+                }
             }
         }
     }
@@ -780,8 +804,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      *
      * @param taskGroupLocation the task group location
      * @param task the Runnable to execute
+     * @return the future that completes when the asynchronous function finishes
      */
-    public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
+    public CompletableFuture<?> asyncExecuteFunction(
+            TaskGroupLocation taskGroupLocation, Runnable task) {
         String id = UUID.randomUUID().toString();
         logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
         if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
@@ -799,6 +825,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     + " with id "
                                     + id);
                 });
+        return future;
     }
 
     /**
@@ -854,7 +881,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    private void updateMetricsContextInImap() {
+    /**
+     * Publishes the current worker metrics snapshot to the active coordinator.
+     *
+     * <p>All coordinator lookup and invocation failures are contained so scheduled executions are
+     * not suppressed during coordinator election.
+     */
+    void updateMetricsContextInImap() {
+        updateMetricsContextInImap(0, null);
+    }
+
+    /**
+     * Publishes the current worker metrics snapshot to the active coordinator with an optional wait
+     * timeout.
+     *
+     * @param timeout maximum time to wait for the metrics report when positive
+     * @param timeoutUnit timeout unit, or {@code null} to wait without a timeout
+     */
+    void updateMetricsContextInImap(long timeout, TimeUnit timeoutUnit) {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
@@ -867,17 +911,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         long invocationStartNanos = System.nanoTime();
         HashMap<TaskLocation, SeaTunnelMetricsContext> localMetricsMap = collectLocalMetricsMap();
         int payloadTaskCount = localMetricsMap.size();
-        InvocationFuture<Object> invoke =
-                nodeEngine
-                        .getOperationService()
-                        .createInvocationBuilder(
-                                SeaTunnelServer.SERVICE_NAME,
-                                new ReportMetricsOperation(localMetricsMap),
-                                nodeEngine.getMasterAddress())
-                        .invoke();
 
         try {
-            invoke.get();
+            InvocationFuture<Object> invoke =
+                    sendOperationToMaster(new ReportMetricsOperation(localMetricsMap));
+            if (timeoutUnit == null) {
+                invoke.get();
+            } else {
+                invoke.get(timeout, timeoutUnit);
+            }
             recordReportMetricsOperationSuccess(
                     payloadTaskCount, elapsedMillisSince(invocationStartNanos));
         } catch (InterruptedException e) {
@@ -901,6 +943,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     e);
         }
         this.printTaskExecutionRuntimeInfo();
+    }
+
+    /**
+     * Sends a control-plane operation to the currently active coordinator.
+     *
+     * <p>The coordinator lookup can fail synchronously during election, so callers must invoke this
+     * method inside their retry or scheduling exception boundary.
+     *
+     * @param operation control-plane operation
+     * @return invocation future
+     */
+    InvocationFuture<Object> sendOperationToMaster(Operation operation) {
+        return NodeEngineUtil.sendOperationToMasterNode(nodeEngine, operation);
     }
 
     private void recordReportMetricsOperationSuccess(int payloadTaskCount, long elapsedMillis) {
@@ -1470,7 +1525,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     logger.severe("cancel timer-flush tasks failed", t);
                 }
                 try {
-                    updateMetricsContextInImap();
+                    if (isCancel.get()) {
+                        // Keep cancellation completion bounded while still giving the final local
+                        // metrics snapshot a chance to reach the active coordinator.
+                        updateMetricsContextInImap(
+                                CANCEL_METRICS_FLUSH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    } else {
+                        updateMetricsContextInImap();
+                    }
                 } catch (Throwable t) {
                     logger.severe("update metrics context in imap failed", t);
                 }

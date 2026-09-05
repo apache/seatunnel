@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.service.jar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.RefCount;
 
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
 import com.hazelcast.map.IMap;
 
 import java.util.Iterator;
@@ -33,6 +35,8 @@ import static org.apache.curator.shaded.com.google.common.base.Preconditions.che
 Cleanup task for shared connector jar package.
  */
 public class SharedConnectorJarCleanupTask extends TimerTask {
+
+    private static final ILogger LOGGER = Logger.getLogger(SharedConnectorJarCleanupTask.class);
 
     private final Consumer<ConnectorJarIdentifier> cleanupCallback;
 
@@ -55,7 +59,17 @@ public class SharedConnectorJarCleanupTask extends TimerTask {
                 Map.Entry<ConnectorJarIdentifier, RefCount> entry = iterator.next();
                 if (entry.getValue().getReferences() <= 0) {
                     ConnectorJarIdentifier connectorJarIdentifier = entry.getKey();
-                    cleanupCallback.accept(connectorJarIdentifier);
+                    try {
+                        cleanupCallback.accept(connectorJarIdentifier);
+                    } catch (RuntimeException e) {
+                        // Continue processing other jars and let the restored tombstone retry on
+                        // the next timer cycle.
+                        LOGGER.warning(
+                                String.format(
+                                        "Failed to clean up connector jar %s, retry later.",
+                                        connectorJarIdentifier),
+                                e);
+                    }
                 }
             }
         }

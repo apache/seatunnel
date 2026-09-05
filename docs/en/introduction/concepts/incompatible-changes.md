@@ -276,4 +276,10 @@ You need to check this document before you upgrade to related version.
 
 ### Engine Behavior Changes
 
+- **Breaking Change: Zeta master health and telemetry fields now report the active SeaTunnel coordinator**
+  - **Affected component**: SeaTunnel Zeta health output, REST cluster health responses, and Prometheus `cluster_info` metrics.
+  - **Description**: In separated master/worker deployments, worker-only nodes can temporarily hold Hazelcast mastership even though they cannot act as the SeaTunnel coordinator. The legacy `isMaster` health field and the Prometheus `cluster_info{master=...}` label now report the active SeaTunnel coordinator instead of the raw Hazelcast master. The REST cluster health response also exposes `nodeRole`, `coordinator`, and `worker` fields to show the statically configured node capability.
+  - **Impact**: Existing dashboards, alert rules, or scripts that treated `isMaster` or `cluster_info{master=...}` as Hazelcast mastership may observe a value change after upgrade in separated master/worker clusters.
+  - **Migration Guide**: Use `isMaster` and `cluster_info{master=...}` for active SeaTunnel coordinator routing. Use `nodeRole`, `coordinator`, and `worker` from the cluster health response when you need to distinguish configured node capability from the active coordinator.
+
 ### Dependency Upgrades

@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.CommonPluginJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
@@ -31,6 +32,7 @@ import com.hazelcast.map.IMap;
 import java.io.File;
 import java.util.List;
 import java.util.Timer;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -65,27 +67,44 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                 cleanupInterval);
     }
 
+    /**
+     * Stores a shared connector jar and reserves its first reference.
+     *
+     * <p>The distributed identifier lock fences stale coordinator cleanup while the local file and
+     * shared reference are rebuilt.
+     *
+     * @param jobId job identifier
+     * @param connectorJar connector jar payload
+     * @return connector jar storage identifier
+     */
     @Override
     public ConnectorJarIdentifier storageConnectorJarFile(long jobId, ConnectorJar connectorJar) {
         ConnectorJarIdentifier connectorJarIdentifier =
                 ConnectorJarIdentifier.of(
                         connectorJar, getStorageLocationPath(jobId, connectorJar));
-        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
-        if (refCount == null) {
-            refCount = new RefCount();
-            File storageLocation = getStorageLocation(jobId, connectorJar);
-            try {
-                readWriteLock.writeLock().lock();
-                storageConnectorJarFileInternal(connectorJar, storageLocation);
-            } finally {
-                readWriteLock.writeLock().unlock();
+        connectorJarRefCounters.lock(connectorJarIdentifier);
+        try {
+            readWriteLock.writeLock().lock();
+            RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
+            if (refCount == null) {
+                refCount = new RefCount();
             }
+            File storageLocation = getStorageLocation(jobId, connectorJar);
+            if (!storageLocation.exists()) {
+                if (!storageConnectorJarFileInternal(connectorJar, storageLocation).isPresent()) {
+                    throw new SeaTunnelEngineException(
+                            String.format(
+                                    "Failed to store shared connector jar %s.", storageLocation));
+                }
+            }
+            Long references = refCount.getReferences();
+            refCount.setReferences(++references);
+            connectorJarRefCounters.put(connectorJarIdentifier, refCount);
+            return connectorJarIdentifier;
+        } finally {
+            readWriteLock.writeLock().unlock();
+            connectorJarRefCounters.unlock(connectorJarIdentifier);
         }
-        // increment reference counts for connector jar
-        Long references = refCount.getReferences();
-        refCount.setReferences(++references);
-        connectorJarRefCounters.put(connectorJarIdentifier, refCount);
-        return connectorJarIdentifier;
     }
 
     @Override
@@ -94,32 +113,81 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                 ConnectorJarIdentifier.of(
                         connectorJar, getStorageLocationPath(jobId, connectorJar));
         RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
-        return refCount != null;
+        return refCount != null && new File(connectorJarIdentifier.getStoragePath()).exists();
     }
 
-    public void increaseRefCountForConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
-        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
-        if (refCount != null) {
-            // increment reference counts for connector jar
-            Long references = refCount.getReferences();
-            refCount.setReferences(++references);
-            connectorJarRefCounters.put(connectorJarIdentifier, refCount);
+    /**
+     * Atomically reserves one reference before cluster replication starts.
+     *
+     * @param connectorJarIdentifier connector jar storage identifier
+     * @return {@code true} when the existing reference was reserved, or {@code false} when cleanup
+     *     already removed the record
+     */
+    public boolean increaseRefCountForConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
+        connectorJarRefCounters.lock(connectorJarIdentifier);
+        try {
+            readWriteLock.writeLock().lock();
+            AtomicBoolean referenceReserved = new AtomicBoolean();
+            connectorJarRefCounters.compute(
+                    connectorJarIdentifier,
+                    (identifier, refCount) -> {
+                        if (refCount == null) {
+                            return null;
+                        }
+                        if (!new File(connectorJarIdentifier.getStoragePath()).exists()) {
+                            return refCount;
+                        }
+                        refCount.setReferences(refCount.getReferences() + 1);
+                        referenceReserved.set(true);
+                        return refCount;
+                    });
+            return referenceReserved.get();
+        } finally {
+            readWriteLock.writeLock().unlock();
+            connectorJarRefCounters.unlock(connectorJarIdentifier);
         }
     }
 
+    /**
+     * Atomically claims and deletes an unreferenced shared connector jar.
+     *
+     * <p>If an upload reserves a provisional reference before the claim, cleanup leaves the map
+     * entry and files untouched.
+     *
+     * @param connectorJarIdentifier connector jar storage identifier
+     */
     @Override
     public void deleteConnectorJar(ConnectorJarIdentifier connectorJarIdentifier) {
-        RefCount refCount = connectorJarRefCounters.get(connectorJarIdentifier);
-        if (refCount != null) {
-            try {
-                File storageLocation = new File(connectorJarIdentifier.getStoragePath());
-                readWriteLock.writeLock().lock();
-                deleteConnectorJarInternal(storageLocation);
-                deleteConnectorJarInExecutionNode(connectorJarIdentifier);
-                connectorJarRefCounters.remove(connectorJarIdentifier);
-            } finally {
-                readWriteLock.writeLock().unlock();
+        AtomicBoolean cleanupClaimed = new AtomicBoolean();
+        connectorJarRefCounters.lock(connectorJarIdentifier);
+        try {
+            readWriteLock.writeLock().lock();
+            connectorJarRefCounters.compute(
+                    connectorJarIdentifier,
+                    (identifier, refCount) -> {
+                        if (refCount != null && refCount.getReferences() <= 0) {
+                            cleanupClaimed.set(true);
+                            return null;
+                        }
+                        return refCount;
+                    });
+            if (!cleanupClaimed.get()) {
+                return;
             }
+            File storageLocation = new File(connectorJarIdentifier.getStoragePath());
+            deleteConnectorJarInternal(storageLocation);
+            deleteConnectorJarInExecutionNode(connectorJarIdentifier);
+        } catch (RuntimeException e) {
+            if (cleanupClaimed.get()) {
+                // Keep a zero-reference tombstone so the next cleanup cycle retries any local or
+                // remote deletion that did not acknowledge.
+                RefCount retryCleanup = new RefCount();
+                connectorJarRefCounters.put(connectorJarIdentifier, retryCleanup);
+            }
+            throw e;
+        } finally {
+            readWriteLock.writeLock().unlock();
+            connectorJarRefCounters.unlock(connectorJarIdentifier);
         }
     }
 
@@ -144,15 +212,63 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         connectorJarIdentifierList.forEach(this::decreaseConnectorJarRefCount);
     }
 
+    /**
+     * Decreases one committed shared connector jar reference.
+     *
+     * <p>The distributed identifier lock serializes the update with upload and cleanup across
+     * coordinator generations.
+     *
+     * @param connectorJarIdentifier connector jar storage identifier
+     */
     public void decreaseConnectorJarRefCount(ConnectorJarIdentifier connectorJarIdentifier) {
-        connectorJarRefCounters.compute(
-                connectorJarIdentifier,
-                (connectorJarIdentifier1, refCount) -> {
-                    if (refCount != null) {
-                        Long references = refCount.getReferences();
-                        refCount.setReferences(--references);
-                    }
-                    return refCount;
-                });
+        connectorJarRefCounters.lock(connectorJarIdentifier);
+        try {
+            readWriteLock.writeLock().lock();
+            connectorJarRefCounters.compute(
+                    connectorJarIdentifier,
+                    (connectorJarIdentifier1, refCount) -> {
+                        if (refCount != null) {
+                            Long references = refCount.getReferences();
+                            refCount.setReferences(--references);
+                        }
+                        return refCount;
+                    });
+        } finally {
+            readWriteLock.writeLock().unlock();
+            connectorJarRefCounters.unlock(connectorJarIdentifier);
+        }
+    }
+
+    /**
+     * Rolls back one reference after cluster replication fails.
+     *
+     * <p>When no committed reference remains, a zero-reference tombstone keeps partially replicated
+     * remote copies visible to the cleanup timer. A retry can reserve the tombstone before cleanup
+     * claims it and idempotently repair any missing replicas.
+     *
+     * @param connectorJarIdentifier connector jar storage identifier
+     */
+    public void rollbackConnectorJarRefCount(ConnectorJarIdentifier connectorJarIdentifier) {
+        connectorJarRefCounters.lock(connectorJarIdentifier);
+        try {
+            readWriteLock.writeLock().lock();
+            connectorJarRefCounters.compute(
+                    connectorJarIdentifier,
+                    (identifier, refCount) -> {
+                        if (refCount == null) {
+                            return null;
+                        }
+                        long references = refCount.getReferences() - 1;
+                        if (references <= 0) {
+                            refCount.setReferences(0L);
+                            return refCount;
+                        }
+                        refCount.setReferences(references);
+                        return refCount;
+                    });
+        } finally {
+            readWriteLock.writeLock().unlock();
+            connectorJarRefCounters.unlock(connectorJarIdentifier);
+        }
     }
 }

@@ -34,7 +34,7 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 
 | MetricName                                | Type  | Labels                                                                                                     | 描述                                  |
 |-------------------------------------------|-------|------------------------------------------------------------------------------------------------------------|-------------------------------------|
-| cluster_info                              | Gauge | **hazelcastVersion**，hazelcast 的版本。**master**，seatunnel 主地址。                                               | 集群信息                                |
+| cluster_info                              | Gauge | **hazelcastVersion**，hazelcast 的版本。**master**，当前激活的 SeaTunnel coordinator 地址。                               | 集群信息                                |
 | cluster_time                              | Gauge | **hazelcastVersion**，hazelcast 的版本。                                                                        | 集群时间                                |
 | node_count                                | Gauge | -                                                                                                          | 集群节点总数                              |
 | node_state                                | Gauge | **address**，服务器实例地址，例如："127.0.0.1:5801"                                                                    | seatunnel 节点是否正常                    |
@@ -49,6 +49,9 @@ OpenMetrics 的指标文本可通过 `http://{instanceHost}:5801/hazelcast/rest/
 | hazelcast_partition_activePartition       | Gauge | -                                                                                                          | seatunnel 集群节点的活跃分区数量               |
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                          | 分区是否安全                              |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                          | 本地成员是否安全                            |
+
+`cluster_info{master=...}` 上报的是当前激活的 SeaTunnel coordinator 地址。在 master / worker
+分离部署中，这个标签可能与 Hazelcast master 身份不同。
 
 ### 引擎状态存储指标
 
@@ -175,6 +178,9 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 - `no_slot`：请求到达 worker 并正常完成，但 worker 未返回合适的 slot。若该结果持续增加，可能表示 master 侧的
   worker 资源视图与 worker 当前 slot 状态存在偏差，或者在 pre-check 与请求执行之间并发分配消耗了 slot。
 - `failure`：master 到 worker 的调用失败，或 operation 异常完成。
+
+在取消流程中，SeaTunnel 会用有界超时尝试最后一次 best-effort 的 `ReportMetricsOperation` 刷新。如果
+激活中的 coordinator 不可用，或有界刷新未能及时完成，最终上报的 metrics 仍可能落后于任务本地最新进度。
 
 ### 作业信息详细
 

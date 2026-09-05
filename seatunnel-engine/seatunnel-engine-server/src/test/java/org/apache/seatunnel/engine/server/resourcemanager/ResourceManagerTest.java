@@ -17,21 +17,29 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReleaseSlotOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.operationservice.Operation;
 
 import java.net.UnknownHostException;
 import java.util.ArrayList;
@@ -42,6 +50,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceManagerTest> {
@@ -223,6 +232,57 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         Assertions.assertEquals(0, stats.getSuccessCount());
         Assertions.assertEquals(0, stats.getNoSlotCount());
         Assertions.assertEquals(1, stats.getFailureCount());
+    }
+
+    /**
+     * Verifies that local slot release stays on the local worker path instead of going through a
+     * self-targeted Hazelcast operation.
+     */
+    @Test
+    public void testReleaseResourceOnLocalWorkerShouldBypassOperationInvocation()
+            throws ExecutionException, InterruptedException, UnknownHostException {
+        Address localAddress = new Address("localhost", 5801);
+        NodeEngine mockNodeEngine = Mockito.mock(NodeEngine.class);
+        SeaTunnelServer mockServer = Mockito.mock(SeaTunnelServer.class);
+        SlotService mockSlotService = Mockito.mock(SlotService.class);
+        SlotProfile slotProfile = new SlotProfile(localAddress, 1, new ResourceProfile(), "slot-1");
+        WorkerProfile workerProfile =
+                new WorkerProfile(
+                        localAddress,
+                        new ResourceProfile(),
+                        new ResourceProfile(),
+                        true,
+                        new SlotProfile[] {},
+                        new SlotProfile[] {},
+                        Collections.emptyMap());
+
+        Mockito.when(mockNodeEngine.getThisAddress()).thenReturn(localAddress);
+        Mockito.when(mockNodeEngine.getService(SeaTunnelServer.SERVICE_NAME))
+                .thenReturn(mockServer);
+        Mockito.when(mockServer.getSlotService()).thenReturn(mockSlotService);
+        Mockito.when(mockSlotService.getWorkerProfile()).thenReturn(workerProfile);
+        AtomicBoolean releaseSlotSentToMember = new AtomicBoolean(false);
+
+        AbstractResourceManager resourceManager =
+                new AbstractResourceManager(mockNodeEngine, new EngineConfig()) {
+                    @Override
+                    protected <E> CompletableFuture<E> sendToMember(
+                            Operation operation, Address address) {
+                        if (operation instanceof ReleaseSlotOperation) {
+                            releaseSlotSentToMember.set(true);
+                            return (CompletableFuture<E>)
+                                    CompletableFuture.completedFuture(workerProfile);
+                        }
+                        return CompletableFuture.completedFuture(null);
+                    }
+                };
+
+        resourceManager.releaseResource(jobId, slotProfile).get();
+
+        Mockito.verify(mockSlotService).releaseSlot(jobId, slotProfile);
+        Assertions.assertFalse(releaseSlotSentToMember.get());
+        Assertions.assertEquals(
+                workerProfile, resourceManager.getRegisterWorker().get(localAddress));
     }
 
     @Test

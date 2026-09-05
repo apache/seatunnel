@@ -249,4 +249,10 @@
 
 ### 引擎行为变更
 
+- **破坏性变更：Zeta master 健康检查与遥测字段现在表示激活中的 SeaTunnel coordinator**
+  - **影响范围**：SeaTunnel Zeta 健康检查输出、REST 集群健康接口响应，以及 Prometheus `cluster_info` 指标。
+  - **变更说明**：在 master / worker 分离部署中，worker-only 节点可能暂时持有 Hazelcast master 身份，但它不能作为 SeaTunnel coordinator。遗留的 `isMaster` 健康检查字段和 Prometheus `cluster_info{master=...}` 标签现在表示激活中的 SeaTunnel coordinator，而不是原始 Hazelcast master。REST 集群健康接口同时暴露 `nodeRole`、`coordinator` 和 `worker` 字段，用于展示节点的静态配置能力。
+  - **影响**：如果已有仪表盘、告警规则或脚本将 `isMaster` 或 `cluster_info{master=...}` 当作 Hazelcast master 身份使用，在 master / worker 分离集群升级后可能观察到取值变化。
+  - **迁移指南**：使用 `isMaster` 和 `cluster_info{master=...}` 判断激活中的 SeaTunnel coordinator 路由目标。如果需要区分节点配置能力与激活 coordinator，请使用集群健康接口中的 `nodeRole`、`coordinator` 和 `worker` 字段。
+
 ### 依赖升级

@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelProperties;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJar;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -138,21 +139,26 @@ public abstract class AbstractConnectorJarStorageStrategy implements ConnectorJa
     @Override
     public void deleteConnectorJarInternal(File storageFile) {
         if (!storageFile.delete() && storageFile.exists()) {
-            LOGGER.warning(String.format("Failed to delete connector jar file %s", storageFile));
+            throw new SeaTunnelEngineException(
+                    String.format("Failed to delete connector jar file %s", storageFile));
         }
     }
 
     @Override
     public void deleteConnectorJarInExecutionNode(ConnectorJarIdentifier connectorJarIdentifier) {
-        Address masterNodeAddress = nodeEngine.getMasterAddress();
+        Address masterNodeAddress = NodeEngineUtil.getActiveMasterAddress(nodeEngine);
         Collection<Member> memberList = nodeEngine.getClusterService().getMembers();
         memberList.forEach(
                 member -> {
                     if (!member.getAddress().equals(masterNodeAddress)) {
+                        // Wait for deletion acknowledgement before cleanup releases its lifecycle
+                        // fence, otherwise a delayed delete can remove a retried upload.
                         NodeEngineUtil.sendOperationToMemberNode(
-                                nodeEngine,
-                                new DeleteConnectorJarInExecutionNode(connectorJarIdentifier),
-                                member.getAddress());
+                                        nodeEngine,
+                                        new DeleteConnectorJarInExecutionNode(
+                                                connectorJarIdentifier),
+                                        member.getAddress())
+                                .join();
                     }
                 });
     }
