@@ -35,6 +35,19 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * Converts a Debezium {@link SourceRecord} to the JSON representation used by the
+ * COMPATIBLE_DEBEZIUM_JSON format, delegating the Struct→JSON conversion to Kafka Connect's {@link
+ * JsonConverter}.
+ *
+ * <p>The {@code org.apache.kafka.connect.json.JsonConverter} bundled in this module (same package,
+ * official 3.2.0 sources with the two upstream backports from Kafka Connect 3.9.0: struct fields
+ * read with {@code Struct#getWithoutDefault} and the {@code replace.null.with.default} config,
+ * default {@code true} upstream) keeps explicit NULLs when configured accordingly. This converter
+ * configures it with {@code replace.null.with.default=false}, so an explicit NULL is never
+ * substituted with the schema default; pass {@code replaceNullWithDefault=true} to reproduce the
+ * exact upstream default.
+ */
 @RequiredArgsConstructor
 public class DebeziumJsonConverter implements Serializable {
     private static final String INCLUDE_SCHEMA_METHOD = "convertToJsonWithEnvelope";
@@ -42,10 +55,15 @@ public class DebeziumJsonConverter implements Serializable {
 
     private final boolean keySchemaEnable;
     private final boolean valueSchemaEnable;
+    private final boolean replaceNullWithDefault;
     private transient volatile JsonConverter keyConverter;
     private transient volatile JsonConverter valueConverter;
     private transient Method keyConverterMethod;
     private transient Method valueConverterMethod;
+
+    public DebeziumJsonConverter(boolean keySchemaEnable, boolean valueSchemaEnable) {
+        this(keySchemaEnable, valueSchemaEnable, false);
+    }
 
     public String serializeKey(SourceRecord record)
             throws InvocationTargetException, IllegalAccessException {
@@ -70,6 +88,10 @@ public class DebeziumJsonConverter implements Serializable {
                 (JsonNode)
                         valueConverterMethod.invoke(
                                 valueConverter, record.valueSchema(), record.value());
+        // Mirrors JsonConverter#fromConnectData: a null schema with a null value yields null.
+        if (Objects.isNull(jsonNode)) {
+            return null;
+        }
         return jsonNode.toString();
     }
 
@@ -83,6 +105,9 @@ public class DebeziumJsonConverter implements Serializable {
                     configs.put(
                             JsonConverterConfig.DECIMAL_FORMAT_CONFIG,
                             DecimalFormat.NUMERIC.name());
+                    configs.put(
+                            JsonConverterConfig.REPLACE_NULL_WITH_DEFAULT_CONFIG,
+                            replaceNullWithDefault);
                     keyConverter.configure(configs, true);
                     keyConverterMethod =
                             ReflectionUtils.getDeclaredMethod(
@@ -105,6 +130,9 @@ public class DebeziumJsonConverter implements Serializable {
                     configs.put(
                             JsonConverterConfig.DECIMAL_FORMAT_CONFIG,
                             DecimalFormat.NUMERIC.name());
+                    configs.put(
+                            JsonConverterConfig.REPLACE_NULL_WITH_DEFAULT_CONFIG,
+                            replaceNullWithDefault);
                     valueConverter.configure(configs, false);
                     valueConverterMethod =
                             ReflectionUtils.getDeclaredMethod(
