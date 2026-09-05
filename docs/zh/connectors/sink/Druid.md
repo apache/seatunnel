@@ -8,6 +8,12 @@ import ChangeLog from '../changelog/connector-druid.md';
 
 通过 Druid 索引任务 API 将数据写入 Apache Druid。
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)

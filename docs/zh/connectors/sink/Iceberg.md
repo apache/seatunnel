@@ -261,7 +261,7 @@ sink {
 
 ### Kerberos 认证
 
-以下示例演示了在使用 Hadoop Catalog 和 HDFS 时如何配置 Iceberg Sink 的 Kerberos 认证：
+以下示例展示在使用 Hadoop Catalog 并写入 HDFS 时如何配置 Iceberg Sink 的 Kerberos 认证。该环境下需要同时配置这三个 Kerberos 选项。
 
 ```hocon
 sink {
@@ -277,27 +277,21 @@ sink {
       write.format.default = "parquet"
       write.target-file-size-bytes = 536870912
     }
-    krb5_path = "/etc/krb5.conf"
-    kerberos_principal = "hive/your_host@EXAMPLE.COM"
-    kerberos_keytab_path = "/path/to/your.keytab"
     iceberg.table.primary-keys = "id"
     iceberg.table.partition-keys = "f_datetime"
     iceberg.table.upsert-mode-enabled = true
     iceberg.table.schema-evolution-enabled = true
     case_sensitive = true
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
   }
 }
 ```
 
-说明：
-
-- `krb5_path`：用于 Kerberos 认证的 `krb5.conf` 文件路径。
-- `kerberos_principal`：Kerberos 认证的 principal，格式为 `primary/instance@REALM`。
-- `kerberos_keytab_path`：Kerberos 认证的 keytab 文件路径。
-
 ### Multiple table（多表写入）
 
-#### 示例1
+#### 示例 1：MySQL CDC 多表写入
 
 ```hocon
 env {
@@ -321,14 +315,22 @@ transform {
 
 sink {
   Iceberg {
-    ...
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
     namespace = "${database_name}_test"
     table = "${table_name}_test"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 ```
 
-#### 示例2
+#### 示例 2：JDBC 源 + schema 占位符
 
 ```hocon
 env {
@@ -359,9 +361,17 @@ transform {
 
 sink {
   Iceberg {
-    ...
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
     namespace = "${schema_name}_test"
     table = "${table_name}_test"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 ```

@@ -288,7 +288,7 @@ sink {
 
 ### Kerberos Authentication
 
-The following example demonstrates how to configure Iceberg sink with Kerberos authentication when using Hadoop catalog with HDFS:
+The following example shows how to configure the Iceberg sink with Kerberos authentication when writing to a Hadoop catalog backed by HDFS. `kerberos_principal` and `kerberos_keytab_path` must be set together to enable keytab-based Kerberos login; `krb5_path` is optional and defaults to `/etc/krb5.conf`.
 
 ```hocon
 sink {
@@ -304,27 +304,21 @@ sink {
       write.format.default = "parquet"
       write.target-file-size-bytes = 536870912
     }
-    krb5_path = "/etc/krb5.conf"
-    kerberos_principal = "hive/your_host@EXAMPLE.COM"
-    kerberos_keytab_path = "/path/to/your.keytab"
     iceberg.table.primary-keys = "id"
     iceberg.table.partition-keys = "f_datetime"
     iceberg.table.upsert-mode-enabled = true
     iceberg.table.schema-evolution-enabled = true
     case_sensitive = true
+    krb5_path = "/etc/krb5.conf"
+    kerberos_principal = "hive/your_host@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your.keytab"
   }
 }
 ```
 
-Description:
+### Multiple Tables
 
-- `krb5_path`: The path to the `krb5.conf` file used for Kerberos authentication.
-- `kerberos_principal`: The principal for Kerberos authentication in the format `primary/instance@REALM`.
-- `kerberos_keytab_path`: The keytab file path for Kerberos authentication.
-
-### Multiple table
-
-#### example1
+#### Example 1: MySQL CDC With Multiple Tables
 
 ```hocon
 env {
@@ -338,7 +332,7 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
+
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }
@@ -348,14 +342,22 @@ transform {
 
 sink {
   Iceberg {
-    ...
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
     namespace = "${database_name}_test"
     table = "${table_name}_test"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 ```
 
-#### example2
+#### Example 2: JDBC Source With Schema Placeholder
 
 ```hocon
 env {
@@ -386,9 +388,17 @@ transform {
 
 sink {
   Iceberg {
-    ...
+    catalog_name = "seatunnel_test"
+    iceberg.catalog.config = {
+      type = "hadoop"
+      warehouse = "file:///tmp/seatunnel/iceberg/hadoop-sink/"
+    }
     namespace = "${schema_name}_test"
     table = "${table_name}_test"
+    iceberg.table.primary-keys = "id"
+    iceberg.table.upsert-mode-enabled = true
+    iceberg.table.schema-evolution-enabled = true
+    case_sensitive = true
   }
 }
 ```

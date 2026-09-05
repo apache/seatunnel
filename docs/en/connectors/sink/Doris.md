@@ -409,43 +409,43 @@ sink {
 
 ```
 
-### Use JSON format to import data
+### Use JSON Format to Import Data
 
 ```hocon
 sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "test"
-        table = "e2e_table_sink"
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_json"
-        doris.config = {
-            format="json"
-            read_json_by_line="true"
-        }
+  Doris {
+    fenodes = "e2e_dorisdb:8030"
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_json"
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
     }
+  }
 }
 ```
 
-### Use CSV format to import data
+### Use CSV Format to Import Data
 
 ```hocon
 sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "test"
-        table = "e2e_table_sink"
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_csv"
-        doris.config = {
-          format = "csv"
-          column_separator = ","
-        }
+  Doris {
+    fenodes = "e2e_dorisdb:8030"
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_csv"
+    doris.config = {
+      format = "csv"
+      column_separator = ","
     }
+  }
 }
 ```
 
@@ -453,20 +453,20 @@ sink {
 
 ```hocon
 sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "Test_DB"  # Original case will be preserved
-        table = "Test_Table"  # Original case will be preserved
-        case_sensitive = true # Default value, preserves original case
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_case_sensitive"
-        doris.config = {
-          format = "json"
-          read_json_by_line = "true"
-        }
+  Doris {
+    fenodes = "e2e_dorisdb:8030"
+    username = root
+    password = ""
+    database = "Test_DB"  # Original case will be preserved
+    table = "Test_Table"  # Original case will be preserved
+    case_sensitive = true # Default value, preserves original case
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_case_sensitive"
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
     }
+  }
 }
 ```
 
@@ -559,9 +559,9 @@ sink {
 }
 ```
 
-### Multiple table
+### Multiple Tables
 
-#### example1
+#### Example 1: MySQL CDC With Multiple Tables
 
 ```hocon
 env {
@@ -575,7 +575,7 @@ source {
     url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
     username = "root"
     password = "******"
-    
+
     table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
   }
 }
@@ -601,7 +601,7 @@ sink {
 }
 ```
 
-#### example2
+#### Example 2: JDBC Source With Schema Placeholder
 
 ```hocon
 env {

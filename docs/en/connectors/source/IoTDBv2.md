@@ -4,17 +4,21 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDBv2 source connector
 
-## Support Those Engines
+## Description
+
+Used to read data from IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
+
+The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, default) and the table model (`sql_dialect = "table"`). It executes the configured SQL query against IoTDB and produces rows whose schema is defined by the `schema` option.
+
+For the tree model the connector relies on the IoTDB `align by device` clause (the example queries below use it). For the table model, queries are plain `SELECT` statements against an IoTDB table; if the SQL itself names the database, `database` does not need to be configured.
+
+## Supported Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Description
-
-Used to read data from IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
-
-## Key features
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
@@ -32,7 +36,7 @@ Used to read data from IoTDB 2.x. The connector name in job configuration is `Io
 
 ## Data Type Mapping
 
-| IotDB Data Type | SeaTunnel Data Type |
+| IoTDB Data Type | SeaTunnel Data Type |
 |-----------------|---------------------|
 | BOOLEAN         | BOOLEAN             |
 | INT32           | TINYINT             |
@@ -58,7 +62,7 @@ Used to read data from IoTDB 2.x. The connector name in job configuration is `Io
 | sql_dialect                | String  | No       | tree          | The SQL dialect of IoTDB. Available values are `"tree"` and `"table"`.                                            |
 | database                   | String  | No       | -             | The selected database. This option is only valid when `sql_dialect` is `"table"`.                                 |
 | sql                        | String  | Yes      | -             | The sql statement to be executed                                                                                  |
-| schema                     | Config  | Yes      | -             | The data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                   |
+| schema                     | Config  | Yes      | -             | The data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).|
 | fetch_size                 | Integer | No       | -             | The number of rows fetched from IoTDB in one request.                                                             |
 | lower_bound                | Long    | No       | -             | The lower bound of the time range used for source partition splitting.                                            |
 | upper_bound                | Long    | No       | -             | The upper bound of the time range used for source partition splitting.                                            |
@@ -66,34 +70,83 @@ Used to read data from IoTDB 2.x. The connector name in job configuration is `Io
 | default_thrift_buffer_size | Integer | No       | -             | The default Thrift buffer size used by the IoTDB client.                                                          |
 | max_thrift_frame_size      | Integer | No       | -             | The thrift max frame size                                                                                         |
 | enable_cache_leader        | Boolean | No       | -             | Whether to enable leader cache in the IoTDB client.                                                               |
-| common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
+| common-options             |         | No       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
 You can use the time column to split a source query into multiple partitions. To enable this, set `lower_bound`, `upper_bound`, and `num_partitions` together.
 
-#### num_partitions [int]
+### node_urls [Array]
 
-the number of partitions
+The IoTDB cluster endpoints. Each entry must be in the form `host:port`, for example `["iotdb-1:6667"]` or `["iotdb-1:6667","iotdb-2:6667"]`.
 
-### upper_bound [long]
+### username [String]
 
-the upper bound of the time range
+The IoTDB username used to authenticate against the cluster.
 
-### lower_bound [long]
+### password [String]
 
-the lower bound of the time range
+The IoTDB password used to authenticate against the cluster.
 
+### sql_dialect [String]
+
+The IoTDB model the connector talks to. The default value is `"tree"`, which uses the IoTDB tree model and expects queries like `SELECT ... FROM root.x.y align by device`. Set it to `"table"` to query the IoTDB table model with plain `SELECT` statements.
+
+### database [String]
+
+The IoTDB database (catalog) used by table-model queries. Only valid when `sql_dialect = "table"`. When the SQL statement itself fully qualifies the database, this option is not required.
+
+### sql [String]
+
+The SQL query to execute against IoTDB.
+
+For the tree model, the query must include `align by device` so the connector can read each device's measurements as separate rows. For the table model, plain `SELECT ... FROM <table>` queries are used.
+
+### schema [Config]
+
+Defines the SeaTunnel row type that the connector should produce. Each field in the schema maps to one column returned by the query. See [Schema Feature](../../introduction/concepts/schema-feature.md) for the full schema syntax.
+
+### fetch_size [Integer]
+
+The number of rows fetched from IoTDB in a single request. When unset, the IoTDB client default is used.
+
+### lower_bound [Long]
+
+The lower bound (inclusive) of the time range used for source partition splitting, expressed as a millisecond timestamp. Must be used together with `upper_bound` and `num_partitions`.
+
+### upper_bound [Long]
+
+The upper bound (exclusive) of the time range used for source partition splitting, expressed as a millisecond timestamp. Must be used together with `lower_bound` and `num_partitions`.
+
+### num_partitions [Integer]
+
+The number of partitions the source splits the time range into. Must be used together with `lower_bound` and `upper_bound`.
+
+The split behavior is:
+
+- When `num_partitions = 1`, the entire time range is used as a single partition.
+- When `num_partitions < (upper_bound - lower_bound)`, the connector uses `(upper_bound - lower_bound)` as the actual number of partitions.
+
+For example, with `lower_bound = 1`, `upper_bound = 10`, `num_partitions = 2`, and `sql = "select * from test where age > 0 and age < 10"`, the connector rewrites the SQL into:
+
+```sql
+split 1: select * from test where (time >= 1  and time < 6)  and (age > 0 and age < 10)
+split 2: select * from test where (time >= 6  and time < 11) and (age > 0 and age < 10)
 ```
-     split the time range into numPartitions parts
-     if numPartitions = 1, the whole time range will be used
-     if numPartitions < (upper_bound - lower_bound), will use (upper_bound - lower_bound) as numPartitions
-     
-     eg: lower_bound = 1, upper_bound = 10, numPartitions = 2
-     sql = "select * from test where age > 0 and age < 10"
-     
-     split result:
-     split 1: select * from test  where (time >= 1 and time < 6)  and (  age > 0 and age < 10 )
-     split 2: select * from test  where (time >= 6 and time < 11) and (  age > 0 and age < 10 )
-```
+
+### default_thrift_buffer_size [Integer]
+
+The default Thrift buffer size used by the IoTDB client. Leave unset to use the client default.
+
+### max_thrift_frame_size [Integer]
+
+The maximum Thrift frame size used by the IoTDB client. Increase this when reading very large rows. Leave unset to use the client default.
+
+### enable_cache_leader [Boolean]
+
+Whether to enable leader caching in the IoTDB client. When unset, the client default is used.
+
+### common-options
+
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
 
 ## Examples
 
@@ -153,9 +206,9 @@ The data format loaded to SeaTunnelRow is as follows:
 |---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|
 | 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
-| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 1.0d     | abc      | true      |
 
-### Example 2：Read data from IoTDB-table
+### Example 2: Read data from IoTDB-table
 
 ```hocon
 env {
@@ -211,10 +264,9 @@ The data format loaded to SeaTunnelRow is as follows:
 
 | ts                      | sn     | type | bidprice | bidsize            | domain | buyno | askprice    |
 |-------------------------|--------|------|----------|--------------------|--------|-------|-------------|
-| 2025-07-30T17:52:34.851 | 0700HK | L1   | 9        | 10.323907796459721 | true   | 10    | -1064754527 |
-| 2025-07-30T17:52:34.951 | 0700HK | L1   | 10       | 9.844574317657585  | false  | 9     | -1088662576 |
-| 2025-07-30T17:52:35.051 | 0700HK | L1   | 9        | 9.272974132434069  | true   | 9     | 402003616   |
-
+| 2025-07-30T17:52:34.851 | 0700HK | L1   | 9        | 10.323907796459721 | true | 10    | -1064754527 |
+| 2025-07-30T17:52:34.951 | 0700HK | L1   | 10       | 9.844574317657585  | false | 9    | -1088662576 |
+| 2025-07-30T17:52:35.051 | 0700HK | L1   | 9        | 9.272974132434069  | true | 9     | 402003616   |
 
 ## Changelog
 

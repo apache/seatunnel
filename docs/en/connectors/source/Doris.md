@@ -76,10 +76,8 @@ Base configuration:
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
-| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization.                                               |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization. The key name is the literal runtime option key (it is a known typo in the connector source); use this exact key when tuning the queue size. |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
-
-The `doris.request.retriesdoris.deserialize.queue.size` key is the current runtime option name. Use this exact key when tuning the asynchronous Arrow deserialization queue.
 
 Table list configuration:
 
@@ -97,138 +95,146 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### Tips
 
-> It is not recommended to modify advanced parameters at will
+> It is not recommended to modify advanced parameters unless you understand the underlying behavior. The values listed under **Default** above are tuned for typical workloads.
 
 ## Example
 
-### single table
-> This is an example of reading a Doris table and writing to Console.
+### Single Table
 
-```
+> This example reads a single Doris table and writes the result to Console.
+
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+
+source {
   Doris {
-      fenodes = "doris_e2e:8030"
-      username = root
-      password = ""
-      database = "e2e_source"
-      table = "doris_e2e_table"
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_source"
+    table = "doris_e2e_table"
   }
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
 
-Use the 'doris.read.field' parameter to select the doris table columns to read
+Use the `doris.read.field` parameter to select the Doris table columns to read:
 
-```
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+
+source {
   Doris {
-      fenodes = "doris_e2e:8030"
-      username = root
-      password = ""
-      database = "e2e_source"
-      table = "doris_e2e_table"
-      doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT"
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_source"
+    table = "doris_e2e_table"
+    doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT"
   }
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
 
-Use 'doris.filter.query' to filter the data, and the parameter values are passed directly to doris
+Use `doris.filter.query` to filter the data. The parameter value is passed directly to Doris as a predicate:
 
-```
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+
+source {
   Doris {
-      fenodes = "doris_e2e:8030"
-      username = root
-      password = ""
-      database = "e2e_source"
-      table = "doris_e2e_table"
-      doris.filter.query = "F_ID > 2"
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_source"
+    table = "doris_e2e_table"
+    doris.filter.query = "F_ID > 2"
   }
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
+  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
-### Multiple table
-```
-env{
+
+### Multiple Tables
+
+> This example reads from multiple Doris tables and writes them to a Doris sink. The `${table_name}` placeholder is expanded from each `table_list` entry.
+
+```hocon
+env {
   parallelism = 1
   job.mode = "BATCH"
 }
 
-source{
+source {
   Doris {
-      fenodes = "xxxx:8030"
-      username = root
-      password = ""
-      table_list = [
-          {
-            database = "st_source_0"
-            table = "doris_table_0"
-            doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT"
-            doris.filter.query = "F_ID >= 50"
-            doris.request.tablet.size = 1
-            doris.exec.mem.limit = 2147483648
-          },
-          {
-            database = "st_source_1"
-            table = "doris_table_1"
-          }
-      ]
+    fenodes = "xxxx:8030"
+    username = root
+    password = ""
+    table_list = [
+      {
+        database = "st_source_0"
+        table = "doris_table_0"
+        doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT"
+        doris.filter.query = "F_ID >= 50"
+        doris.request.tablet.size = 1
+        doris.exec.mem.limit = 2147483648
+      },
+      {
+        database = "st_source_1"
+        table = "doris_table_1"
+      }
+    ]
   }
 }
 
 transform {}
 
-sink{
+sink {
   Doris {
-      fenodes = "xxxx:8030"
-      schema_save_mode = "RECREATE_SCHEMA"
-      username = root
-      password = ""
-      database = "st_sink"
-      table = "${table_name}"
-      sink.enable-2pc = "true"
-      sink.label-prefix = "test_json"
-      doris.config = {
-          format="json"
-          read_json_by_line="true"
-      }
+    fenodes = "xxxx:8030"
+    schema_save_mode = "RECREATE_SCHEMA"
+    username = root
+    password = ""
+    database = "st_sink"
+    table = "${table_name}"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_json"
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```

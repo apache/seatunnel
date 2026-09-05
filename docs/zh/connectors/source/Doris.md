@@ -76,10 +76,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
-| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。该键名是连接器源码中实际的运行时选项 key（源代码存在已知拼写问题）；调优队列大小时请使用此精确 key。 |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
-
-`doris.request.retriesdoris.deserialize.queue.size` 是当前运行时实际使用的配置名。调整异步 Arrow 反序列化队列大小时，请按这个完整名称配置。
 
 表清单配置:
 
@@ -97,138 +95,146 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 ### 提示
 
-> 不建议随意修改高级参数
+> 不建议随意修改高级参数，除非你清楚其底层行为。上表中的默认值已经针对常见负载做了调优。
 
 ## 例子
 
 ### 单表
-> 这是一个从doris读取数据后，输出到控制台的例子：
 
-```
+> 该示例从 Doris 单表读取数据，并写入 Console。
+
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+
+source {
   Doris {
-      fenodes = "doris_e2e:8030"
-      username = root
-      password = ""
-      database = "e2e_source"
-      table = "doris_e2e_table"
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_source"
+    table = "doris_e2e_table"
   }
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+  # 如果想了解如何配置 SeaTunnel 以及完整 transform 插件列表，请参考
+  # https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
 
-使用`doris.read.field`参数来选择需要读取的Doris表字段：
+使用 `doris.read.field` 参数选择 Doris 表中需要读取的列：
 
-```
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+
+source {
   Doris {
-      fenodes = "doris_e2e:8030"
-      username = root
-      password = ""
-      database = "e2e_source"
-      table = "doris_e2e_table"
-      doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT"
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_source"
+    table = "doris_e2e_table"
+    doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT,F_SMALLINT"
   }
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+  # 如果想了解如何配置 SeaTunnel 以及完整 transform 插件列表，请参考
+  # https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
 
-使用`doris.filter.query`来过滤数据，参数值将作为过滤条件直接传递到doris：
+使用 `doris.filter.query` 过滤数据，该参数会作为谓词直接下推到 Doris：
 
-```
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+
+source {
   Doris {
-      fenodes = "doris_e2e:8030"
-      username = root
-      password = ""
-      database = "e2e_source"
-      table = "doris_e2e_table"
-      doris.filter.query = "F_ID > 2"
+    fenodes = "doris_e2e:8030"
+    username = root
+    password = ""
+    database = "e2e_source"
+    table = "doris_e2e_table"
+    doris.filter.query = "F_ID > 2"
   }
 }
 
 transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms/sql
+  # 如果想了解如何配置 SeaTunnel 以及完整 transform 插件列表，请参考
+  # https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
-    Console {}
+  Console {}
 }
 ```
+
 ### 多表
-```
-env{
+
+> 该示例同时读取多张 Doris 表并写入 Doris Sink，`${table_name}` 占位符会按 `table_list` 中每条记录进行展开。
+
+```hocon
+env {
   parallelism = 1
   job.mode = "BATCH"
 }
 
-source{
+source {
   Doris {
-      fenodes = "xxxx:8030"
-      username = root
-      password = ""
-      table_list = [
-          {
-            database = "st_source_0"
-            table = "doris_table_0"
-            doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT"
-            doris.filter.query = "F_ID >= 50"
-            doris.request.tablet.size = 1
-            doris.exec.mem.limit = 2147483648
-          },
-          {
-            database = "st_source_1"
-            table = "doris_table_1"
-          }
-      ]
+    fenodes = "xxxx:8030"
+    username = root
+    password = ""
+    table_list = [
+      {
+        database = "st_source_0"
+        table = "doris_table_0"
+        doris.read.field = "F_ID,F_INT,F_BIGINT,F_TINYINT"
+        doris.filter.query = "F_ID >= 50"
+        doris.request.tablet.size = 1
+        doris.exec.mem.limit = 2147483648
+      },
+      {
+        database = "st_source_1"
+        table = "doris_table_1"
+      }
+    ]
   }
 }
 
 transform {}
 
-sink{
+sink {
   Doris {
-      fenodes = "xxxx:8030"
-      schema_save_mode = "RECREATE_SCHEMA"
-      username = root
-      password = ""
-      database = "st_sink"
-      table = "${table_name}"
-      sink.enable-2pc = "true"
-      sink.label-prefix = "test_json"
-      doris.config = {
-          format="json"
-          read_json_by_line="true"
-      }
+    fenodes = "xxxx:8030"
+    schema_save_mode = "RECREATE_SCHEMA"
+    username = root
+    password = ""
+    database = "st_sink"
+    table = "${table_name}"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_json"
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
+    }
   }
 }
 ```
