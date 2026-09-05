@@ -13,6 +13,11 @@
 
 ### JDBC Connector
 
+- **行为变更：仅配置 `query` 的 JDBC Source 会合并底表的注释和表选项**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`（Source）
+  - **变更说明**：当源表仅通过 `query` 定义（未配置 `table_path`），且 JDBC 元数据报告所有结果列均来自同一张物理表时，SeaTunnel 现在会解析该底表，并默认把它的字段注释、表注释和表选项合并进查询推导出的 schema。此前 schema 仅来自 `ResultSetMetaData`，不携带上述元数据。主键、约束键和分区键默认有意不合并，因为它们会改变运行时行为；配置新的 Source 选项 `query_table_metadata_merge = ALL` 可以同时合并这些键（效果等同于同时配置 `table_path` 与 `query`——配置了 `generate_sink_sql` 的 Sink 可能从 insert 切换为 upsert，切分规划也可能使用合并出的主键），配置 `NONE` 则完全恢复旧行为。(#11971)
+  - **影响**：默认情况下，行结构、字段顺序、主键、Sink 的 insert/upsert 语义、切分规划及 checkpoint/savepoint 兼容性均不变。默认唯一的差异是：带自动建表能力的 Sink（MySQL、Doris、StarRocks 等）在升级后的首次运行会带上源表的注释和表选项创建目标表；已存在的 Sink 表不会被修改。多表查询以及列来源无法确认的查询（例如包含表达式列）不受影响——它们会跳过合并。
+
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`、`seatunnel-connectors-v2/connector-iceberg`、`seatunnel-connectors-v2/connector-cdc-base`、`seatunnel-connectors-v2/connector-cdc-tidb`、`seatunnel-connectors-v2/connector-starrocks`、`seatunnel-connectors-v2/connector-hudi`、`seatunnel-connectors-v2/connector-snowflake`（通过 JDBC 方言）
   - **变更说明**：以前，JDBC Source 将无时区（如 MySQL `DATETIME`）和带时区（如 MySQL `TIMESTAMP`）的时间戳列都映射为 SeaTunnel 内部的 `TIMESTAMP` 类型。现在，带时区的列（如 MySQL `TIMESTAMP`、PostgreSQL `timestamptz`、Oracle `TIMESTAMP WITH LOCAL TIME ZONE`、SQL Server `datetimeoffset`、Snowflake `TIMESTAMP_LTZ/TZ` 等）被显式映射为 `TIMESTAMP_TZ`。这确保了在写入 Iceberg 等格式时，时区语义得到准确保留（在 Iceberg 中 `TIMESTAMP` 存为无时区的 `timestamp`，`TIMESTAMP_TZ` 存为带时区的 `timestamptz`）。
