@@ -759,8 +759,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         + (srcEndAfterAll - srcEndBeforeStart));
 
         // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        // for a savepoint. Restore only after both dynamic topics are visible again: the restored
+        // job's sink publishes to sinkTopic first, and a dropped sink route fails every send with
+        // "No topic route info in name server" until the route is re-published.
         waitForTopicRoute(sourceTopic);
+        waitForTopicRoute(sinkTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {
