@@ -115,6 +115,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -132,6 +133,13 @@ import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMet
 /** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
 public class CoordinatorService {
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
+    /**
+     * Time budget for {@link #redriveSavepointAfterMasterFailover} to observe a job restored from a
+     * master failover reach {@link JobStatus#RUNNING} before giving up. Bounded so a job that fails
+     * to redeploy after a master failover does not leave this background poll running indefinitely.
+     */
+    private static final long REDRIVE_SAVEPOINT_WAIT_MILLIS = TimeUnit.MINUTES.toMillis(5);
+
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
     private final ILogger logger;
@@ -488,6 +496,9 @@ public class CoordinatorService {
                                     String.format(
                                             "The %s %s is in %s state, restore pipeline and take over this job running",
                                             pendingSourceState, jobFullName, jobStatus));
+                            if (jobMaster.consumeRedriveSavepointAfterRestore()) {
+                                redriveSavepointAfterMasterFailover(jobMaster, mdcExecutorService);
+                            }
                             jobMaster.run();
                         } finally {
                             if (jobMasterCompletedSuccessfully(jobMaster, pendingSourceState)) {
@@ -1154,10 +1165,133 @@ public class CoordinatorService {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
+        if (jobState == JobStatus.DOING_SAVEPOINT) {
+            // The generic restore path below (updateJobState(PENDING), which PhysicalPlan's
+            // state machine unconditionally cascades through to RUNNING) discards the
+            // DOING_SAVEPOINT marker, and CheckpointCoordinator#restoreCoordinator separately
+            // discards the in-flight savepoint's PendingCheckpoint without ever re-deriving that
+            // a savepoint had been requested. Left alone, the client's original savepoint request
+            // is silently and permanently dropped: the job keeps running and periodically
+            // checkpointing as if the savepoint had never been asked for, reproducing the "stuck
+            // permanently, unable to complete" symptom for this specific shutdown-during-failover
+            // scenario. Flag this job so CoordinatorService re-issues the savepoint once it
+            // stabilizes back to RUNNING (see markRedriveSavepointAfterRestore's javadoc and
+            // redriveSavepointAfterMasterFailover below).
+            jobMaster.markRedriveSavepointAfterRestore();
+        }
+
         PendingJobInfo pendingJobInfo = new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
         pendingJobQueue.put(pendingJobInfo);
         jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
         logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+    }
+
+    /**
+     * Re-issues a savepoint for a job restored from a master failover that hit while the job's
+     * original savepoint request was still in flight (see {@link
+     * JobMaster#markRedriveSavepointAfterRestore()} for the full root-cause trace).
+     *
+     * <p>Must run concurrently with, not after, {@link JobMaster#run()}: that call blocks until the
+     * job reaches a terminal state, so scheduling this only after it returns would never run while
+     * the job is still active.
+     *
+     * <p>This retries {@link JobMaster#savePoint()} rather than calling it once: the job's
+     * top-level status reaching {@code RUNNING} does not by itself mean {@code
+     * CheckpointCoordinator} is ready to accept a savepoint. {@code
+     * CheckpointCoordinator#restoreCoordinator} resets its own {@code isAllTaskReady} flag to false
+     * whenever the restored pipeline's tasks were not already confirmed running (for example
+     * because the node hosting them also died), and that flag only flips back to true once every
+     * task independently re-reports {@code READY_START} through the ordinary task lifecycle --
+     * which happens on its own schedule, strictly after the coarser-grained top-level job status
+     * has already cascaded to {@code RUNNING}. A single attempt timed off only the top-level status
+     * raced this and lost during development of this fix: {@code savePoint()} returned/threw for
+     * {@code CheckpointCloseReason#TASK_NOT_ALL_READY_WHEN_SAVEPOINT} (a precondition {@code
+     * CheckpointCoordinator#startSavepoint} guards, and {@code JobMaster#savePoint()} already
+     * recovers from without failing the job -- see {@code
+     * JobMaster#restoreRunningAfterSavepointStartFailure}), and with no retry the redrive simply
+     * gave up, leaving the job silently running with no savepoint in progress. Retrying at a fixed
+     * interval until either {@code savePoint()} reports true or the job reaches a terminal state
+     * some other way closes that gap without needing this class to reach into {@code
+     * CheckpointCoordinator}'s private readiness bookkeeping.
+     *
+     * <p>If the job reaches a terminal state on its own first (for example a task permanently fails
+     * to redeploy), or no attempt succeeds within {@link #REDRIVE_SAVEPOINT_WAIT_MILLIS}, the
+     * redrive gives up: this is a best-effort recovery of the client's original request, not a new
+     * source of failures for the job, and a skipped redrive leaves the job no worse off than before
+     * this method existed.
+     *
+     * @param jobMaster the restored job to redrive
+     * @param mdcExecutorService the MDC-traced executor already tied to this job's log context
+     */
+    private void redriveSavepointAfterMasterFailover(
+            JobMaster jobMaster, ExecutorService mdcExecutorService) {
+        long jobId = jobMaster.getJobId();
+        try {
+            mdcExecutorService.submit(
+                    () -> {
+                        long deadline = System.currentTimeMillis() + REDRIVE_SAVEPOINT_WAIT_MILLIS;
+                        while (System.currentTimeMillis() < deadline) {
+                            JobStatus status = jobMaster.getPhysicalPlan().getJobStatus();
+                            if (status.isEndState()) {
+                                return;
+                            }
+                            if (status == JobStatus.RUNNING) {
+                                try {
+                                    logger.info(
+                                            String.format(
+                                                    "Re-driving savepoint for job %s: master"
+                                                            + " failover restored it to RUNNING"
+                                                            + " after its original savepoint"
+                                                            + " request was left in flight.",
+                                                    jobId));
+                                    if (Boolean.TRUE.equals(jobMaster.savePoint().get())) {
+                                        return;
+                                    }
+                                    logger.info(
+                                            String.format(
+                                                    "Savepoint redrive attempt for job %s did"
+                                                            + " not complete (checkpoint"
+                                                            + " coordinator likely not yet ready"
+                                                            + " after task redeployment);"
+                                                            + " retrying.",
+                                                    jobId));
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    return;
+                                } catch (Exception e) {
+                                    logger.info(
+                                            String.format(
+                                                    "Savepoint redrive attempt for job %s did"
+                                                            + " not complete: %s; retrying.",
+                                                    jobId, ExceptionUtils.getMessage(e)));
+                                }
+                            }
+                            try {
+                                Thread.sleep(500);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                                return;
+                            }
+                        }
+                        logger.warning(
+                                String.format(
+                                        "Job %s did not complete its redriven savepoint within"
+                                                + " %d ms after master failover; skipping"
+                                                + " further retries. The client's original"
+                                                + " savepoint request will need to be retried"
+                                                + " manually.",
+                                        jobId, REDRIVE_SAVEPOINT_WAIT_MILLIS));
+                    });
+        } catch (RejectedExecutionException e) {
+            // Best-effort: under extreme executor load this redrive may not get a thread. The
+            // job itself is unaffected (jobMaster.run() below does not depend on this task), the
+            // client's savepoint request simply remains dropped exactly as it was before this
+            // redrive existed, so this must not propagate and block that call.
+            logger.warning(
+                    String.format(
+                            "Failed to schedule savepoint redrive for job %s: %s",
+                            jobId, ExceptionUtils.getMessage(e)));
+        }
     }
 
     private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
