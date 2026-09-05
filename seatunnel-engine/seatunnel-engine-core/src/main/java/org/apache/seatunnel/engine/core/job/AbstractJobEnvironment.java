@@ -42,8 +42,6 @@ import java.util.stream.Collectors;
 public abstract class AbstractJobEnvironment {
     protected static ILogger LOGGER = null;
 
-    protected final boolean isStartWithSavePoint;
-
     protected final RestoreMode restoreMode;
 
     protected final List<Action> actions = new ArrayList<>();
@@ -66,7 +64,6 @@ public abstract class AbstractJobEnvironment {
         LOGGER = Logger.getLogger(getClass().getName());
         this.jobConfig = jobConfig;
         this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
-        this.isStartWithSavePoint = this.restoreMode == RestoreMode.SAVEPOINT;
         this.idGenerator = new IdGenerator();
         this.commonPluginJars.addAll(searchPluginJars());
     }

@@ -93,6 +93,18 @@ class JobImmutableInformationCompatibilityTest {
     }
 
     @Test
+    void checkpointRestore_shouldBeRestoreJobButNotSavepointRestore() throws Exception {
+        JobImmutableInformation jobImmutableInformation = new JobImmutableInformation();
+        setField(jobImmutableInformation, "restoreMode", RestoreMode.CHECKPOINT);
+        setField(jobImmutableInformation, "restoreSourceJobId", 456L);
+
+        Assertions.assertTrue(jobImmutableInformation.isRestoreJob());
+        Assertions.assertTrue(jobImmutableInformation.isCheckpointRestore());
+        Assertions.assertFalse(jobImmutableInformation.isSavepointRestore());
+        Assertions.assertFalse(jobImmutableInformation.isStartWithSavePoint());
+    }
+
+    @Test
     void shouldReadLegacyPayloadWithUnsafeInput() throws Exception {
         long jobId = 321L;
         byte[] payload =

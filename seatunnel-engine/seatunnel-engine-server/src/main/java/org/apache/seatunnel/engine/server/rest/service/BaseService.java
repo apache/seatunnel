@@ -1360,7 +1360,7 @@ public abstract class BaseService {
                             new SubmitJobOperation(
                                     jobId,
                                     node.nodeEngine.toData(jobImmutableInformation),
-                                    jobImmutableInformation.isStartWithSavePoint()))
+                                    jobImmutableInformation.isSavepointRestore()))
                     .join();
 
         } else {
@@ -1394,7 +1394,7 @@ public abstract class BaseService {
                 coordinatorService.submitJob(
                         Long.parseLong(jobConfig.getJobContext().getJobId()),
                         data,
-                        jobImmutableInformation.isStartWithSavePoint());
+                        jobImmutableInformation.isSavepointRestore());
         voidPassiveCompletableFuture.join();
     }
 

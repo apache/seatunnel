@@ -60,7 +60,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private final Long restoreSourceJobId;
 
-    /** If the JobId is not empty, it is used to restore job from savePoint */
+    /** Legacy constructor for savepoint restore compatibility. */
     public ClientJobExecutionEnvironment(
             JobConfig jobConfig,
             String jobFilePath,
@@ -143,7 +143,7 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                restoreMode.isRestore(),
+                restoreMode,
                 pipelineCheckpoints,
                 metaDataConfig);
     }
