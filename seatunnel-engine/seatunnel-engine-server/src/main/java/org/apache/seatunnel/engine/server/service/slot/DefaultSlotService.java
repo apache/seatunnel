@@ -173,7 +173,9 @@ public class DefaultSlotService implements SlotService {
         initStatus = false;
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
-            profile.assign(jobId);
+            // A fixed slot can return to the same job after release, so every assignment needs a
+            // new identity instead of reusing the worker-service sequence.
+            profile.assign(jobId, UUID.randomUUID().toString());
             assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
             unassignedResource.accumulateAndGet(
                     profile.getResourceProfile(), ResourceProfile::subtract);
@@ -204,31 +206,32 @@ public class DefaultSlotService implements SlotService {
         LOGGER.info(
                 String.format(
                         "received slot release request, jobID: %d, slot: %s", jobId, profile));
-        if (!assignedSlots.containsKey(profile.getSlotID())) {
+        SlotProfile assignedSlot = assignedSlots.get(profile.getSlotID());
+        if (assignedSlot == null) {
             throw new WrongTargetSlotException(
                     "Not exist this slot in slot service, slot profile: " + profile);
         }
 
-        if (!assignedSlots.get(profile.getSlotID()).getSequence().equals(profile.getSequence())) {
+        if (!assignedSlot.getSequence().equals(profile.getSequence())) {
             throw new WrongTargetSlotException(
                     "Wrong slot sequence in profile, slot profile: " + profile);
         }
 
-        if (assignedSlots.get(profile.getSlotID()).getOwnerJobID() != jobId) {
+        if (assignedSlot.getOwnerJobID() != jobId) {
             throw new WrongTargetSlotException(
-                    String.format(
-                            "The profile %s not belong with job %d",
-                            assignedSlots.get(profile.getSlotID()), jobId));
+                    String.format("The profile %s not belong with job %d", assignedSlot, jobId));
         }
 
-        assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::subtract);
-        unassignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
-        profile.unassigned();
+        assignedResource.accumulateAndGet(
+                assignedSlot.getResourceProfile(), ResourceProfile::subtract);
+        unassignedResource.accumulateAndGet(
+                assignedSlot.getResourceProfile(), ResourceProfile::merge);
+        assignedSlot.unassigned();
         if (!config.isDynamicSlot()) {
-            unassignedSlots.put(profile.getSlotID(), profile);
+            unassignedSlots.put(assignedSlot.getSlotID(), assignedSlot);
         }
-        assignedSlots.remove(profile.getSlotID());
-        contexts.remove(profile.getSlotID());
+        assignedSlots.remove(assignedSlot.getSlotID());
+        contexts.remove(assignedSlot.getSlotID());
     }
 
     @Override

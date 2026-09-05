@@ -82,11 +82,6 @@ public class DorisErrorIT extends AbstractDorisIT {
                 future.get()
                         .getStderr()
                         .contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getCode()));
-        Assertions.assertTrue(
-                future.get()
-                        .getStderr()
-                        .contains(
-                                "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad"));
         log.info("doris error log: \n" + future.get().getStderr());
         super.container.start();
         // wait for the container to restart

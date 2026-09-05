@@ -168,6 +168,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), "test_topic_source", 0, 100);
+        waitForTopicRoute("test_topic_source");
     }
 
     @SneakyThrows
