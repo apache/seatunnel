@@ -270,7 +270,11 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 log.trace(
                         "The table {} is not support exactly-once, so ignore the watermark check",
                         tableId);
-                return position.isAfter(splitStartWatermark);
+                log.debug(
+                        "Non-exactly-once boundary check: position={} vs splitStartWatermark={}",
+                        position,
+                        splitStartWatermark);
+                return position.isAtOrAfter(splitStartWatermark);
             }
             // check whether the pure binlog mode has been entered
             if (hasEnterPureBinlogPhase(tableId, position)) {

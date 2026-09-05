@@ -392,6 +392,42 @@ public class IncrementalSourceStreamFetcherTest {
         return record;
     }
 
+    static SourceRecord createDataEventWithSource() {
+        Schema sourceSchema =
+                SchemaBuilder.struct()
+                        .name("io.debezium.connector.postgresql.Source")
+                        .field("db", Schema.STRING_SCHEMA)
+                        .field("schema", Schema.STRING_SCHEMA)
+                        .field("table", Schema.STRING_SCHEMA)
+                        .field(DEBEZIUM_CONNECTOR_KEY, Schema.STRING_SCHEMA)
+                        .build();
+        Struct sourceStruct = new Struct(sourceSchema);
+        sourceStruct.put("db", "testdb");
+        sourceStruct.put("schema", "public");
+        sourceStruct.put("table", "test_table");
+        sourceStruct.put(DEBEZIUM_CONNECTOR_KEY, "postgresql");
+
+        Schema valueSchema =
+                SchemaBuilder.struct()
+                        .field(Envelope.FieldName.SOURCE, sourceSchema)
+                        .field(Envelope.FieldName.OPERATION, Schema.STRING_SCHEMA)
+                        .build();
+        Struct value = new Struct(valueSchema);
+        value.put(Envelope.FieldName.SOURCE, sourceStruct);
+        value.put(Envelope.FieldName.OPERATION, "c");
+        SourceRecord record =
+                new SourceRecord(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        "testdb.public.test_table",
+                        null,
+                        null,
+                        valueSchema,
+                        value);
+        Assertions.assertTrue(SourceRecordUtils.isDataChangeRecord(record));
+        return record;
+    }
+
     static SourceRecord createHeartbeatEvent() throws InterruptedException {
         TestConnectorConfig testConnectorConfig = new TestConnectorConfig(dezConf, "test", 1000);
         HeartbeatFactory<TableId> heartbeatFactory =
@@ -516,6 +552,50 @@ public class IncrementalSourceStreamFetcherTest {
         IncrementalSourceStreamFetcher spy = spy(fetcher);
         doReturn(true).when(spy).shouldEmit(any());
         return spy;
+    }
+
+    static IncrementalSourceStreamFetcher createPlainFetcher() {
+        return new IncrementalSourceStreamFetcher(null, 0, null);
+    }
+
+    @Test
+    public void testShouldEmitAtOrAfterWatermark() throws Exception {
+        IncrementalSourceStreamFetcher fetcher = createPlainFetcher();
+
+        FetchTask.Context taskContext = mock(FetchTask.Context.class);
+        when(taskContext.isDataChangeRecord(any())).thenReturn(true);
+        when(taskContext.isExactlyOnce()).thenReturn(false);
+
+        Offset splitStartWatermark = mock(Offset.class);
+        Offset position = mock(Offset.class);
+        when(position.isAtOrAfter(splitStartWatermark)).thenReturn(true);
+        when(taskContext.getStreamOffset(any())).thenReturn(position);
+
+        setField(fetcher, "taskContext", taskContext);
+        setField(fetcher, "splitStartWatermark", splitStartWatermark);
+
+        SourceRecord record = createDataEventWithSource();
+        Assertions.assertTrue(fetcher.shouldEmit(record));
+    }
+
+    @Test
+    public void testShouldEmitBeforeWatermarkFiltered() throws Exception {
+        IncrementalSourceStreamFetcher fetcher = createPlainFetcher();
+
+        FetchTask.Context taskContext = mock(FetchTask.Context.class);
+        when(taskContext.isDataChangeRecord(any())).thenReturn(true);
+        when(taskContext.isExactlyOnce()).thenReturn(false);
+
+        Offset splitStartWatermark = mock(Offset.class);
+        Offset position = mock(Offset.class);
+        when(position.isAtOrAfter(splitStartWatermark)).thenReturn(false);
+        when(taskContext.getStreamOffset(any())).thenReturn(position);
+
+        setField(fetcher, "taskContext", taskContext);
+        setField(fetcher, "splitStartWatermark", splitStartWatermark);
+
+        SourceRecord record = createDataEventWithSource();
+        Assertions.assertFalse(fetcher.shouldEmit(record));
     }
 
     public static class TestConnectorConfig extends CommonConnectorConfig {
