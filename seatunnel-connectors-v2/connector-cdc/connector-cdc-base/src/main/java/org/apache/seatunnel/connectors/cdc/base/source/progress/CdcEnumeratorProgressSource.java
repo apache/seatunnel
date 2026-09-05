@@ -15,30 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.connectors.cdc.base.source.progress;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 
-import java.net.URL;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
+/** Internal bridge from mutable split-assigner state to an immutable enumerator report. */
+public interface CdcEnumeratorProgressSource {
 
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
-
-    private long executionId;
-
-    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
-    private ConcurrentHashMap<Long, Collection<URL>> jars;
-
-    public ClassLoader getClassLoader(long taskId) {
-        if (classLoaders != null) {
-            return classLoaders.get(taskId);
-        } else {
-            return null;
-        }
-    }
+    CdcEnumeratorProgressReport getCdcEnumeratorProgress(String connectorType, String positionType);
 }

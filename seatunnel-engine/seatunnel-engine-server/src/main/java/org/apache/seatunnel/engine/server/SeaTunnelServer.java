@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -100,6 +101,7 @@ public class SeaTunnelServer
     @Getter private CheckpointMonitorService checkpointMonitorService;
     @Getter private ScheduledExecutorService monitorService;
     private volatile RealtimeMetricsService realtimeMetricsService;
+    @Getter private final CdcProgressService cdcProgressService;
     private JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
@@ -113,6 +115,7 @@ public class SeaTunnelServer
 
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
+        this.cdcProgressService = new CdcProgressService();
         this.seaTunnelConfig = seaTunnelConfig;
         LOGGER.info("SeaTunnel server start...");
     }
@@ -382,6 +385,7 @@ public class SeaTunnelServer
     private void printExecutionInfo() {
         coordinatorService.printExecutionInfo();
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
+            coordinatorService.collectCdcEnumeratorProgress();
             coordinatorService.printJobDetailInfo();
         }
     }
@@ -396,6 +400,7 @@ public class SeaTunnelServer
         MetricsSnapshotStateStore metricsSnapshotStateStore =
                 engineContext.getStateStores().metricsSnapshotStore();
         metricsSnapshotStateStore.removePipeline(pipelineLocation);
+        cdcProgressService.removePipeline(pipelineLocation);
     }
 
     public boolean isCoordinatorActive() {

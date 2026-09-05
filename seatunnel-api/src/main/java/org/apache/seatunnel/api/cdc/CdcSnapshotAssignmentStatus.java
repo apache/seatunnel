@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * The ASF licenses this file to you under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -15,30 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.api.cdc;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.net.URL;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
-
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
-
-    private long executionId;
-
-    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
-    private ConcurrentHashMap<Long, Collection<URL>> jars;
-
-    public ClassLoader getClassLoader(long taskId) {
-        if (classLoaders != null) {
-            return classLoaders.get(taskId);
-        } else {
-            return null;
-        }
-    }
+/** Snapshot assignment state owned and observed by a CDC source enumerator. */
+@Experimental
+public enum CdcSnapshotAssignmentStatus {
+    NOT_APPLICABLE,
+    DISCOVERING,
+    ASSIGNING,
+    COMPLETED
 }
