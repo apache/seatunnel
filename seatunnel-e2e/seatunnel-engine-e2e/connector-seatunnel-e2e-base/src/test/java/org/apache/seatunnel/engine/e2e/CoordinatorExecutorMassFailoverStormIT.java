@@ -26,7 +26,9 @@ import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
@@ -41,7 +43,9 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
@@ -346,33 +350,59 @@ public class CoordinatorExecutorMassFailoverStormIT {
                         });
     }
 
+    /**
+     * Cancels every job and waits for each one's own terminal result.
+     *
+     * <p>The cancel request and the wait for that same job's completion future are issued
+     * back-to-back, per job, while it is still known to be tracked by the coordinator (it was just
+     * observed RUNNING by the caller). {@link ClientJobProxy#doWaitForJobComplete()} resolves off
+     * that job's own {@code JobMaster#jobMasterCompleteFuture} on the server -- server-side {@code
+     * CoordinatorService#waitForJobComplete(long)} looks the job up the same way {@code
+     * cancelJob}/{@code getJobMaster} do (pending queue, then the running-job map) and, as long as
+     * the {@code JobMaster} instance is found either way, hands back that instance's own
+     * event-driven completion future instead of re-deriving a status from separate tracking
+     * structures. This is the same primitive {@code
+     * SplitClusterPendingJobLifecycleFailoverIT#assertEventuallyCanceled} already relies on for the
+     * identical "cancel right after a master failover" scenario, per its own Javadoc: cancellation
+     * can leave the client-observed status at CANCELING after the cancel request has already
+     * completed, so the terminal *result* must be awaited rather than sampled.
+     *
+     * <p>A raw repeated {@code getJobStatus()} poll, by contrast, takes a fresh point-in-time
+     * snapshot of the pending queue / running-job map / finished-job history on every attempt, and
+     * can observe the {@code UNKNOWABLE} sentinel (job absent from all three) in the narrow window
+     * before those structures settle under this test's mass-cancel load -- even though the job's
+     * own completion future already carries the real terminal result throughout that window.
+     */
     private static void cancelAllAndAwaitTerminal(SeaTunnelClient engineClient, List<Long> jobIds) {
+        Map<Long, PassiveCompletableFuture<JobResult>> completeFutures = new LinkedHashMap<>();
         for (Long jobId : jobIds) {
+            ClientJobProxy proxy = engineClient.createJobClient().getJobProxy(jobId);
             try {
-                engineClient.createJobClient().getJobProxy(jobId).cancelJob();
+                proxy.cancelJob();
             } catch (Exception e) {
                 log.warn("Failed to send cancel for job {} during teardown", jobId, e);
             }
+            completeFutures.put(jobId, proxy.doWaitForJobComplete());
         }
-        Awaitility.await()
-                .atMost(120, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> {
-                            for (Long jobId : jobIds) {
-                                JobStatus actual =
-                                        engineClient
-                                                .createJobClient()
-                                                .getJobProxy(jobId)
-                                                .getJobStatus();
-                                Assertions.assertTrue(
-                                        actual == JobStatus.CANCELED
-                                                || actual == JobStatus.FINISHED,
-                                        "Job "
-                                                + jobId
-                                                + " should have reached a terminal status, was "
-                                                + actual);
-                            }
-                        });
+
+        for (Map.Entry<Long, PassiveCompletableFuture<JobResult>> entry :
+                completeFutures.entrySet()) {
+            JobResult jobResult;
+            try {
+                jobResult = entry.getValue().get(150, TimeUnit.SECONDS);
+            } catch (Exception e) {
+                Assertions.fail(
+                        "Job " + entry.getKey() + " did not reach a terminal status in time", e);
+                return;
+            }
+            JobStatus actual = jobResult.getStatus();
+            Assertions.assertTrue(
+                    actual == JobStatus.CANCELED || actual == JobStatus.FINISHED,
+                    "Job "
+                            + entry.getKey()
+                            + " should have reached a terminal status, was "
+                            + actual);
+        }
     }
 
     private static CoordinatorService getCoordinatorService(HazelcastInstanceImpl node) {
