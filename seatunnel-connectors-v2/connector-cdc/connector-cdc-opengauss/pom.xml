@@ -31,6 +31,13 @@
 
     <properties>
         <opengauss.version>5.1.0</opengauss.version>
+        <!--
+            This connector recompiles Debezium's PostgreSQL connection internals (see
+            src/main/java/io/debezium/connector/postgresql), so its Debezium version must stay in
+            step with connector-cdc-postgres. It is declared here rather than inherited so that the
+            coupling is visible at the point where it has to be maintained.
+        -->
+        <debezium.version>1.9.8.Final</debezium.version>
     </properties>
 
     <dependencies>
@@ -39,6 +46,24 @@
             <artifactId>connector-cdc-base</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!--
+            Debezium runtime owned by this connector. connector-cdc-base declares these as provided,
+            so the copies packaged into connector-cdc-opengauss are the ones this connector runs on,
+            at the ${debezium.version} declared above.
+        -->
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.debezium</groupId>
+            <artifactId>debezium-embedded</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.luben</groupId>
+            <artifactId>zstd-jni</artifactId>
         </dependency>
 
         <dependency>
@@ -85,6 +110,25 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                                <!--
+                                    Restated here because this execution declares its own filter
+                                    list, which takes precedence over the one inherited from the
+                                    connector-cdc parent. See that pom for why the stock copies of
+                                    connector-cdc-base's patched Debezium classes must be dropped.
+                                -->
+                                <filter>
+                                    <artifact>io.debezium:debezium-core</artifact>
+                                    <excludes>
+                                        <exclude>io/debezium/connector/base/ChangeEventQueue.class</exclude>
+                                        <exclude>io/debezium/connector/base/ChangeEventQueue$*.class</exclude>
+                                        <exclude>io/debezium/relational/TableId.class</exclude>
+                                        <exclude>io/debezium/relational/TableId$*.class</exclude>
+                                        <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig.class</exclude>
+                                        <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig$*.class</exclude>
+                                        <exclude>io/debezium/heartbeat/HeartbeatFactory.class</exclude>
+                                        <exclude>io/debezium/heartbeat/HeartbeatFactory$*.class</exclude>
                                     </excludes>
                                 </filter>
                             </filters>

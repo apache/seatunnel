@@ -250,3 +250,10 @@
 ### 引擎行为变更
 
 ### 依赖升级
+
+- **不兼容变更：Debezium 运行时所有权从 `connector-cdc-base` 移出**
+  - **影响组件**：`seatunnel-connectors-v2/connector-cdc/*`
+  - **说明**：`connector-cdc-base` 现在将 `debezium-api`、`debezium-embedded` 和 `zstd-jni` 声明为 `provided`，每个 CDC 连接器通过自己的 `debezium.version` 属性声明所打包的 Debezium 版本。此前所有 CDC 连接器都从 `connector-cdc-base` 传递依赖 Debezium，因此共享的 `connector-cdc-base` jar 就是整个项目唯一的 Debezium 版本；由于 `connector-cdc-base` 会被加载进每个 CDC 连接器的类加载器，任何连接器都无法覆盖它。现在标准 Debezium 运行时改为随各连接器自身的 jar 一起打包，而 `connector-cdc-base` 仍然保留 5 个打过补丁的 `io.debezium` 类。其中 4 个（`ChangeEventQueue`、`TableId`、`HeartbeatFactory`、`HistorizedRelationalDatabaseConnectorConfig`）替换了 `debezium-core` 中的标准类；`DefaultHeartbeatConnectionProvider` 是 SeaTunnel 专有实现，不存在需要排除的标准 Debezium 类。
+  - **影响**：CDC 作业配置、运行时行为和 checkpoint 兼容性均不受影响——所有内置连接器仍然解析到 Debezium `1.9.8.Final`，CDC 作业类加载器上的类集合保持不变。必须将 `connector-cdc-base` jar 和所有已部署的基于 Debezium 的 CDC 连接器 jar 作为同一个 SeaTunnel 发行版本的一组进行升级；在同一个插件目录中混用变更前后的 jar 不受支持，可能导致运行时缺少或重复 Debezium 类。基于 `connector-cdc-base` 构建、并依赖它间接提供 Debezium 的第三方 CDC 连接器，现在需要自行声明 `debezium-api`、`debezium-embedded`、`zstd-jni` 以及对应的 Debezium 连接器依赖。如果第三方连接器会打包 `io.debezium:debezium-core`，其 `maven-shade-plugin` 配置必须同时排除 `ChangeEventQueue`、`TableId`、`HistorizedRelationalDatabaseConnectorConfig`、`HeartbeatFactory` 的外部类和内部类；否则，base 中的补丁类和连接器中的标准类会按类路径顺序竞争。若连接器声明了自己的 shade filter，也必须重复声明这些排除规则。不要排除 `DefaultHeartbeatConnectionProvider`，因为它只由 `connector-cdc-base` 提供。
+  - **打包说明**：Debezium 运行时（Debezium 及其 Kafka Connect、压缩库、Jetty 等依赖）不再共享，而是复制进每个基于 Debezium 的连接器 jar 中，二进制发行包体积会因此增大。
+  - **连接器实际可以偏离到什么程度**：连接器现在可以解析到不同的 Debezium 版本，但 `connector-cdc-base` 仍然只针对单一基线编译，并且会被加载进每个 CDC 连接器的类加载器。它使用了约 85 个 Debezium 类型，覆盖 `io.debezium.relational`、`io.debezium.pipeline`、`io.debezium.schema`、`io.debezium.config` 和 `io.debezium.jdbc`，并且还打包了 `ChangeEventQueue`、`TableId`、`HeartbeatFactory`、`HistorizedRelationalDatabaseConnectorConfig`、`DefaultHeartbeatConnectionProvider` 的补丁版本。因此，只有在这些 API 保持二进制兼容的 Debezium 版本线内偏离才是安全的。若要把某个连接器升级到会改动这些 API 的 Debezium 版本，还需要先把 `connector-cdc-base` 中的 Debezium 用法迁移到 `DebeziumAdapter` SPI 之后，这一步目前尚未完成。

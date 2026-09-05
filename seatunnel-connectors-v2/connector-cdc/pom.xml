@@ -43,6 +43,12 @@
     </modules>
 
     <properties>
+        <!--
+            Baseline Debezium version. Every CDC connector module is expected to re-declare this
+            property so that its Debezium version is owned by the connector rather than inherited
+            implicitly from this parent. The value here is only the fallback for modules that have
+            not opted into an explicit declaration yet.
+        -->
         <debezium.version>1.9.8.Final</debezium.version>
         <antlr.version>4.8</antlr.version>
     </properties>
@@ -53,6 +59,42 @@
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4</artifactId>
                 <version>${antlr.version}</version>
+            </dependency>
+            <!--
+                Debezium dependencies are managed here but deliberately not declared here. Inherited
+                dependency management is interpolated against the effective properties of the module
+                being built, so each connector resolves these artifacts at its own
+                ${debezium.version} while sharing a single copy of the exclusion rules.
+            -->
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-api</artifactId>
+                <version>${debezium.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>io.debezium</groupId>
+                <artifactId>debezium-embedded</artifactId>
+                <version>${debezium.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.apache.kafka</groupId>
+                        <artifactId>kafka-log4j-appender</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.glassfish.jersey.core</groupId>
+                        <artifactId>*</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <!--The lower version is no longer compatible with Apple M1-->
+                        <groupId>com.github.luben</groupId>
+                        <artifactId>zstd-jni</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+            <dependency>
+                <groupId>com.github.luben</groupId>
+                <artifactId>zstd-jni</artifactId>
+                <version>1.5.5-5</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -81,5 +123,58 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <!--
+                        connector-cdc-base recompiles a small set of Debezium classes under
+                        src/main/java/io/debezium and ships its patched copies. While Debezium was
+                        packaged inside connector-cdc-base, the shade plugin resolved that overlap at
+                        build time and the patched copies were the only ones that existed.
+
+                        Now that each connector packages its own Debezium, the stock copies would
+                        arrive in the connector jar while the patched ones stay in
+                        connector-cdc-base, and both jars are on the same class loader. Which copy
+                        wins would come down to the order File#listFiles returns them in
+                        AbstractPluginDiscovery, so the patches could silently stop applying.
+                        Dropping the stock copies keeps connector-cdc-base's patched classes the
+                        single definition, exactly as before.
+
+                        These class names are pinned to connector-cdc-base/src/main/java/io/debezium
+                        and must be kept in step with it.
+                    -->
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>io.debezium:debezium-core</artifact>
+                            <excludes>
+                                <exclude>io/debezium/connector/base/ChangeEventQueue.class</exclude>
+                                <exclude>io/debezium/connector/base/ChangeEventQueue$*.class</exclude>
+                                <exclude>io/debezium/relational/TableId.class</exclude>
+                                <exclude>io/debezium/relational/TableId$*.class</exclude>
+                                <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig.class</exclude>
+                                <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig$*.class</exclude>
+                                <exclude>io/debezium/heartbeat/HeartbeatFactory.class</exclude>
+                                <exclude>io/debezium/heartbeat/HeartbeatFactory$*.class</exclude>
+                            </excludes>
+                        </filter>
+                        <!--
+                            Restated from the root pom so the signature files stay excluded whether
+                            or not the inherited filter list is merged into this one.
+                        -->
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>
