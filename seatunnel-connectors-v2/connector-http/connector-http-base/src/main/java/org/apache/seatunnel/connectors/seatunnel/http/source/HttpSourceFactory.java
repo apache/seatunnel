@@ -52,8 +52,16 @@ public class HttpSourceFactory implements TableSourceFactory {
     }
 
     public OptionRule.Builder getHttpBuilder() {
-        return OptionRule.builder()
+        return getHttpOptionBuilder()
                 .required(HttpSourceOptions.URL)
+                .conditional(
+                        HttpSourceOptions.FORMAT,
+                        HttpConfig.ResponseFormat.JSON,
+                        ConnectorCommonOptions.SCHEMA);
+    }
+
+    protected OptionRule.Builder getHttpOptionBuilder() {
+        return OptionRule.builder()
                 .optional(
                         HttpSourceOptions.METHOD,
                         HttpSourceOptions.HEADERS,
@@ -63,15 +71,17 @@ public class HttpSourceFactory implements TableSourceFactory {
                         HttpSourceOptions.PAGEING,
                         HttpSourceOptions.JSON_FIELD,
                         HttpSourceOptions.CONTENT_FIELD,
+                        HttpSourceOptions.BINARY_CHUNK_SIZE,
                         HttpSourceOptions.POLL_INTERVAL_MILLS,
                         HttpSourceOptions.RETRY,
                         HttpSourceOptions.RETRY_BACKOFF_MULTIPLIER_MS,
                         HttpSourceOptions.RETRY_BACKOFF_MAX_MS,
-                        HttpSourceOptions.JSON_FILED_MISSED_RETURN_NULL)
-                .conditional(
-                        HttpSourceOptions.FORMAT,
-                        HttpConfig.ResponseFormat.JSON,
-                        ConnectorCommonOptions.SCHEMA);
+                        HttpSourceOptions.ENABLE_MULTI_LINES,
+                        HttpSourceOptions.CONNECT_TIMEOUT_MS,
+                        HttpSourceOptions.SOCKET_TIMEOUT_MS,
+                        HttpSourceOptions.KEEP_PARAMS_AS_FORM,
+                        HttpSourceOptions.KEEP_PAGE_PARAM_AS_HTTP_PARAM,
+                        HttpSourceOptions.JSON_FILED_MISSED_RETURN_NULL);
     }
 
     @Override

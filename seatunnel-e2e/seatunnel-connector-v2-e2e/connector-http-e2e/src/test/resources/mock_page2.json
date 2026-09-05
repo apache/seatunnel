@@ -1,0 +1,6 @@
+{
+  "results": [
+    {"id": "3", "properties": {"firstname": "Charlie"}},
+    {"id": "4", "properties": {"firstname": "David"}}
+  ]
+}
