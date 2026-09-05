@@ -28,15 +28,19 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
+import org.testcontainers.shaded.org.awaitility.core.ConditionTimeoutException;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.BuildImageCmd;
+import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.Info;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.Configuration;
 import io.kubernetes.client.openapi.apis.AppsV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
+import io.kubernetes.client.openapi.models.V1Pod;
+import io.kubernetes.client.openapi.models.V1PodList;
 import io.kubernetes.client.openapi.models.V1Service;
 import io.kubernetes.client.openapi.models.V1StatefulSet;
 import io.kubernetes.client.util.Config;
@@ -50,6 +54,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
@@ -94,7 +99,14 @@ public class KubernetesIT {
         Info info = dockerClient.infoCmd().exec();
         log.info("Docker's environmental information");
         log.info(info.toString());
-        if (dockerClient.listImagesCmd().withImageNameFilter(tag).exec().isEmpty()) {
+        List<Image> matchedImages = dockerClient.listImagesCmd().withReferenceFilter(tag).exec();
+        log.info(
+                "Check image existence with withReferenceFilter({}): matched {} images, isEmpty={}",
+                tag,
+                matchedImages.size(),
+                matchedImages.isEmpty());
+        if (matchedImages.isEmpty()) {
+            log.info("Image '{}' not found in Docker daemon, starting manual docker build...", tag);
             copyFileToCurrentResources(hazelCastConfigFile, targetPath);
             File file =
                     new File(
@@ -104,6 +116,12 @@ public class KubernetesIT {
             buildImageCmd.withTags(Collections.singleton(tag));
             String imageId = buildImageCmd.start().awaitImageId();
             Assertions.assertNotNull(imageId);
+            log.info("Image '{}' built successfully, imageId={}", tag, imageId);
+        } else {
+            log.info(
+                    "Image '{}' already exists in Docker daemon (matched {} images), skipping manual build",
+                    tag,
+                    matchedImages.size());
         }
         Configuration.setDefaultApiClient(client);
         V1Service yamlSvc =
@@ -118,20 +136,31 @@ public class KubernetesIT {
                                 new File(
                                         PROJECT_ROOT_PATH
                                                 + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-statefulset.yaml"));
+        // Drop resources left over from a previous (possibly aborted) run so the creates below
+        // do not fail with a 409 Conflict.
+        cleanupResources(appsV1Api, coreV1Api);
         try {
             coreV1Api.createNamespacedService(namespace, yamlSvc, null, null, null, null);
             appsV1Api.createNamespacedStatefulSet(
                     namespace, yamlStatefulSet, null, null, null, null);
-            Awaitility.await()
-                    .atMost(360, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> {
-                                V1StatefulSet v1StatefulSet =
-                                        appsV1Api.readNamespacedStatefulSet(
-                                                stsName, namespace, null);
-                                Assertions.assertEquals(
-                                        2, v1StatefulSet.getStatus().getReadyReplicas());
-                            });
+            try {
+                Awaitility.await()
+                        .atMost(360, TimeUnit.SECONDS)
+                        .untilAsserted(
+                                () -> {
+                                    V1StatefulSet v1StatefulSet =
+                                            appsV1Api.readNamespacedStatefulSet(
+                                                    stsName, namespace, null);
+                                    Assertions.assertEquals(
+                                            2, v1StatefulSet.getStatus().getReadyReplicas());
+                                });
+            } catch (ConditionTimeoutException e) {
+                // Dump pod state so a timeout is diagnosable instead of a bare
+                // "expected: <2> but was: <null>" (the StatefulSet status is not populated
+                // when the pods never become Ready).
+                logPodStates(coreV1Api);
+                throw e;
+            }
             // submit job
             String command =
                     "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
@@ -163,6 +192,86 @@ public class KubernetesIT {
                     stsName, namespace, null, null, null, null, null, null);
             coreV1Api.deleteNamespacedService(
                     svcName, namespace, null, null, null, null, null, null);
+        }
+    }
+
+    private void cleanupResources(AppsV1Api appsV1Api, CoreV1Api coreV1Api) throws ApiException {
+        try {
+            appsV1Api.deleteNamespacedStatefulSet(
+                    stsName, namespace, null, null, null, null, null, null);
+        } catch (ApiException e) {
+            if (e.getCode() != 404) {
+                throw e;
+            }
+        }
+        try {
+            coreV1Api.deleteNamespacedService(
+                    svcName, namespace, null, null, null, null, null, null);
+        } catch (ApiException e) {
+            if (e.getCode() != 404) {
+                throw e;
+            }
+        }
+        // The name stays reserved while the object terminates, so wait for the resources to be
+        // actually gone before re-creating them.
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try {
+                                appsV1Api.readNamespacedStatefulSet(stsName, namespace, null);
+                                return false;
+                            } catch (ApiException e) {
+                                return e.getCode() == 404;
+                            }
+                        });
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try {
+                                coreV1Api.readNamespacedService(svcName, namespace, null);
+                                return false;
+                            } catch (ApiException e) {
+                                return e.getCode() == 404;
+                            }
+                        });
+    }
+
+    private void logPodStates(CoreV1Api coreV1Api) {
+        try {
+            V1PodList podList =
+                    coreV1Api.listNamespacedPod(
+                            namespace,
+                            null,
+                            null,
+                            null,
+                            null,
+                            "app=seatunnel",
+                            null,
+                            null,
+                            null,
+                            null,
+                            null,
+                            null);
+            log.error("Seatunnel pods are not ready. Pod states:");
+            if (podList.getItems() != null) {
+                for (V1Pod pod : podList.getItems()) {
+                    log.error(
+                            "  pod={} phase={} conditions={} containerStatuses={}",
+                            pod.getMetadata().getName(),
+                            pod.getStatus() == null ? null : pod.getStatus().getPhase(),
+                            pod.getStatus() == null ? null : pod.getStatus().getConditions(),
+                            pod.getStatus() == null
+                                    ? null
+                                    : pod.getStatus().getContainerStatuses());
+                }
+            }
+        } catch (Exception e) {
+            // Best effort only - never let the diagnostic mask the real timeout failure.
+            log.error("Failed to fetch pod states for diagnostics", e);
         }
     }
 

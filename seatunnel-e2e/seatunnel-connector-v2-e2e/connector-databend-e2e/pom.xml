@@ -27,7 +27,6 @@
 
     <properties>
         <databend.jdbc.version>0.3.7</databend.jdbc.version>
-        <testcontainer.version>1.20.2</testcontainer.version>
     </properties>
 
     <dependencies>
