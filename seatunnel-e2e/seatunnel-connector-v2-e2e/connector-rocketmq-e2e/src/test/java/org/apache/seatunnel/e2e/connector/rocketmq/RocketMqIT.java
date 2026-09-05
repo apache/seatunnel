@@ -486,6 +486,20 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(
                                     producer.fetchPublishMessageQueues(topic).isEmpty(),
                                     "Topic route is not ready: " + topic);
+                            // The producer above may answer from its own route cache, primed by
+                            // createTopic() against the broker, before the name server has
+                            // published the route. The connector resolves routes through a
+                            // fresh admin client (RocketMqAdminUtil#offsetTopics ->
+                            // examineTopicStats), which is exactly what failed with
+                            // "No topic route info in name server" in CI, so require the route
+                            // to be visible on that path too before returning.
+                            Assertions.assertFalse(
+                                    RocketMqAdminUtil.offsetTopics(
+                                                    newConfiguration(),
+                                                    Collections.singletonList(topic))
+                                            .get(0)
+                                            .isEmpty(),
+                                    "Topic route is not visible in the name server: " + topic);
                         });
     }
 
