@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -27,46 +26,40 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
-import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
-import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
-import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
-import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
-import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.pgbase.source.PgBaseIncrementalSource;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
-import org.apache.kafka.connect.data.Struct;
-
-import io.debezium.jdbc.JdbcConnection;
-import io.debezium.relational.TableId;
-import io.debezium.relational.history.ConnectTableChangeSerializer;
-import io.debezium.relational.history.TableChanges;
-import io.debezium.util.SchemaNameAdjuster;
-
-import java.time.ZoneId;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
-        implements SupportParallelism {
+/**
+ * PostgreSQL incremental source backed by the shared PG-base source behavior.
+ *
+ * <p>Keeps PostgreSQL-specific options, dialect selection and offset handling in this connector.
+ */
+public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, JdbcSourceConfig> {
+
+    /**
+     * Preserves serialized job DAG compatibility with the Postgres source released in 2.3.13.
+     *
+     * <p>Cross-checked with {@code serialver} against the real {@code PostgresIncrementalSource}
+     * class shipped in the {@code connector-cdc-postgres} 2.3.12 and 2.3.13 Maven Central
+     * artifacts, where both versions compute this same default UID (2.3.11 computes a different
+     * one, so it was already incompatible with 2.3.12 before this PR). This constant is not a
+     * guess; do not regenerate it when the class hierarchy or implementation changes.
+     */
+    private static final long serialVersionUID = -9086519839702872016L;
 
     static final String IDENTIFIER = "Postgres-CDC";
 
-    private final boolean requireReplicaIdentityFull;
-
     public PostgresIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
-        this.requireReplicaIdentityFull =
-                options.get(PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL);
     }
 
     @Override
@@ -104,34 +97,12 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         return configFactory;
     }
 
-    @SuppressWarnings("unchecked")
-    @Override
-    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
-            ReadonlyConfig config) {
-        Map<TableId, Struct> tableIdTableChangeMap = tableChanges();
-        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
-                config.get(JdbcSourceOptions.FORMAT))) {
-            return (DebeziumDeserializationSchema<T>)
-                    new DebeziumJsonDeserializeSchema(
-                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
-                            tableIdTableChangeMap);
-        }
-
-        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
-        return (DebeziumDeserializationSchema<T>)
-                SeaTunnelRowDebeziumDeserializeSchema.builder()
-                        .setTables(catalogTables)
-                        .setServerTimeZone(ZoneId.of(zoneId))
-                        .setTableIdTableChangeMap(tableIdTableChangeMap)
-                        .build();
-    }
-
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
         return new PostgresDialect(
                 (PostgresSourceConfigFactory) configFactory,
                 catalogTables,
-                requireReplicaIdentityFull);
+                config.get(PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL));
     }
 
     @Override
@@ -145,6 +116,12 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         return Optional.of("org.postgresql.Driver");
     }
 
+    /**
+     * Validates PostgreSQL committed-offset startup before source config creation.
+     *
+     * <p>Debezium can only resume from a committed LSN when the replication slot is explicit and
+     * stable across job attempts.
+     */
     private void validateStartupOptions(ReadonlyConfig options, StartupConfig startupConfig) {
         if (startupConfig.getStartupMode() != StartupMode.COMMITTED_OFFSET) {
             return;
@@ -159,36 +136,6 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
                             "PostgreSQL-CDC startup.mode '%s' requires an explicit '%s' option.",
                             StartupMode.COMMITTED_OFFSET,
                             PostgresIncrementalSourceOptions.SLOT_NAME.key()));
-        }
-    }
-
-    private Map<TableId, Struct> tableChanges() {
-        JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
-        PostgresDialect dialect =
-                new PostgresDialect(
-                        (PostgresSourceConfigFactory) configFactory,
-                        catalogTables,
-                        requireReplicaIdentityFull);
-        List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
-        SchemaNameAdjuster adjuster = SchemaNameAdjuster.create();
-        ConnectTableChangeSerializer connectTableChangeSerializer =
-                new ConnectTableChangeSerializer(adjuster);
-        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(jdbcSourceConfig)) {
-            return discoverTables.stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Function.identity(),
-                                    (tableId) -> {
-                                        TableChanges tableChanges = new TableChanges();
-                                        tableChanges.create(
-                                                dialect.queryTableSchema(jdbcConnection, tableId)
-                                                        .getTable());
-                                        return connectTableChangeSerializer
-                                                .serialize(tableChanges)
-                                                .get(0);
-                                    }));
-        } catch (Exception e) {
-            throw new SeaTunnelException(e);
         }
     }
 }
