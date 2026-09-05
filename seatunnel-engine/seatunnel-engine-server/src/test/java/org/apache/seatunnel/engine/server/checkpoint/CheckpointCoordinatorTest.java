@@ -18,13 +18,16 @@
 package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
@@ -391,6 +394,200 @@ public class CheckpointCoordinatorTest
         Assertions.assertEquals(1, checkpointManager.operations.size());
 
         executor.shutdownNow();
+    }
+
+    @Test
+    void restoresCheckpointRetentionAfterActiveMasterSwitch() throws Exception {
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(3);
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(storageConfig);
+
+        CheckpointStorage checkpointStorage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(checkpointStorage.getCheckpointsByJobIdAndPipelineId("1", "1"))
+                .thenReturn(
+                        Arrays.asList(
+                                PipelineState.builder().checkpointId(4L).build(),
+                                PipelineState.builder().checkpointId(1L).build(),
+                                PipelineState.builder().checkpointId(5L).build(),
+                                PipelineState.builder().checkpointId(2L).build(),
+                                PipelineState.builder().checkpointId(3L).build()));
+
+        CheckpointPlan plan = CheckpointPlan.builder().pipelineId(1).build();
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+            Mockito.when(runningJobStateIMap.get(Mockito.anyString()))
+                    .thenReturn(CheckpointCoordinatorStatus.RUNNING);
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            checkpointStorage,
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            runningJobStateIMap,
+                            false,
+                            null);
+
+            Mockito.verify(checkpointStorage).deleteCheckpoint("1", "1", Arrays.asList("1", "2"));
+
+            coordinator.completePendingCheckpoint(
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            6L,
+                            1L,
+                            CheckpointType.CHECKPOINT_TYPE,
+                            2L,
+                            new HashMap<>(),
+                            new HashMap<>()));
+
+            Mockito.verify(checkpointStorage).deleteCheckpoint("1", "1", Arrays.asList("3"));
+            Mockito.verify(checkpointStorage).storeCheckPoint(Mockito.any(PipelineState.class));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void doesNotRestoreCheckpointRetentionFromDifferentSourceJob() throws Exception {
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(3);
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(storageConfig);
+
+        CheckpointStorage checkpointStorage = Mockito.mock(CheckpointStorage.class);
+        CheckpointPlan plan = CheckpointPlan.builder().pipelineId(1).build();
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+
+            new CheckpointCoordinator(
+                    Mockito.mock(CheckpointManager.class),
+                    checkpointStorage,
+                    checkpointConfig,
+                    1L,
+                    plan,
+                    Mockito.mock(CheckpointIDCounter.class),
+                    PipelineState.builder()
+                            .jobId("2")
+                            .pipelineId(1)
+                            .checkpointId(3L)
+                            .states(
+                                    new ProtoStuffSerializer()
+                                            .serialize(createCompletedCheckpoint(3L)))
+                            .build(),
+                    executorService,
+                    runningJobStateIMap,
+                    true,
+                    null);
+
+            Mockito.verify(checkpointStorage, Mockito.never())
+                    .getCheckpointsByJobIdAndPipelineId(Mockito.anyString(), Mockito.anyString());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void retriesCheckpointRetentionCleanupAfterDeleteFailure() throws Exception {
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(2);
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(storageConfig);
+
+        CheckpointStorage checkpointStorage = Mockito.mock(CheckpointStorage.class);
+        Mockito.doThrow(new CheckpointStorageException("delete failed"))
+                .doNothing()
+                .when(checkpointStorage)
+                .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            Mockito.mock(CheckpointManager.class),
+                            checkpointStorage,
+                            checkpointConfig,
+                            1L,
+                            CheckpointPlan.builder().pipelineId(1).build(),
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            Mockito.mock(IMap.class),
+                            false,
+                            null);
+
+            coordinator.completePendingCheckpoint(createCompletedCheckpoint(1L));
+            coordinator.completePendingCheckpoint(createCompletedCheckpoint(2L));
+            Assertions.assertDoesNotThrow(
+                    () -> coordinator.completePendingCheckpoint(createCompletedCheckpoint(3L)));
+            coordinator.completePendingCheckpoint(createCompletedCheckpoint(4L));
+
+            Mockito.verify(checkpointStorage).deleteCheckpoint("1", "1", Arrays.asList("1"));
+            Mockito.verify(checkpointStorage).deleteCheckpoint("1", "1", Arrays.asList("1", "2"));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void continuesCoordinatorRecreationWhenRetentionCleanupFails() throws Exception {
+        CheckpointStorageConfig storageConfig = new CheckpointStorageConfig();
+        storageConfig.setMaxRetainedCheckpoints(3);
+        CheckpointConfig checkpointConfig = new CheckpointConfig();
+        checkpointConfig.setStorage(storageConfig);
+
+        CheckpointStorage checkpointStorage = Mockito.mock(CheckpointStorage.class);
+        Mockito.when(checkpointStorage.getCheckpointsByJobIdAndPipelineId("1", "1"))
+                .thenReturn(
+                        Arrays.asList(
+                                PipelineState.builder().checkpointId(1L).build(),
+                                PipelineState.builder().checkpointId(2L).build(),
+                                PipelineState.builder().checkpointId(3L).build(),
+                                PipelineState.builder().checkpointId(4L).build()));
+        Mockito.doThrow(new CheckpointStorageException("delete failed"))
+                .doNothing()
+                .when(checkpointStorage)
+                .deleteCheckpoint(Mockito.eq("1"), Mockito.eq("1"), Mockito.anyList());
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap = Mockito.mock(IMap.class);
+            Mockito.when(runningJobStateIMap.get(Mockito.anyString()))
+                    .thenReturn(CheckpointCoordinatorStatus.RUNNING);
+
+            CheckpointCoordinator coordinator =
+                    Assertions.assertDoesNotThrow(
+                            () ->
+                                    new CheckpointCoordinator(
+                                            Mockito.mock(CheckpointManager.class),
+                                            checkpointStorage,
+                                            checkpointConfig,
+                                            1L,
+                                            CheckpointPlan.builder().pipelineId(1).build(),
+                                            Mockito.mock(CheckpointIDCounter.class),
+                                            null,
+                                            executorService,
+                                            runningJobStateIMap,
+                                            false,
+                                            null));
+
+            coordinator.completePendingCheckpoint(createCompletedCheckpoint(5L));
+
+            Mockito.verify(checkpointStorage)
+                    .deleteCheckpoint("1", "1", Collections.singletonList("1"));
+            Mockito.verify(checkpointStorage).deleteCheckpoint("1", "1", Arrays.asList("1", "2"));
+        } finally {
+            executorService.shutdownNow();
+        }
     }
 
     @Test
@@ -1134,6 +1331,18 @@ public class CheckpointCoordinatorTest
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    private CompletedCheckpoint createCompletedCheckpoint(long checkpointId) {
+        return new CompletedCheckpoint(
+                1L,
+                1,
+                checkpointId,
+                1L,
+                CheckpointType.CHECKPOINT_TYPE,
+                2L,
+                new HashMap<>(),
+                new HashMap<>());
     }
 }
 
