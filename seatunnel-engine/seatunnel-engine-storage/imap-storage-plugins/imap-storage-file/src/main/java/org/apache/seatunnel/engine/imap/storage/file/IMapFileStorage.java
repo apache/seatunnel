@@ -318,10 +318,7 @@ public class IMapFileStorage implements IMapStorage {
     private boolean queryExecuteStatus(long requestId, long timeout) {
         RequestFuture requestFuture = RequestFutureCache.get(requestId);
         try {
-            if (requestFuture.isDone()
-                    || Boolean.TRUE.equals(requestFuture.get(timeout, TimeUnit.MILLISECONDS))) {
-                return true;
-            }
+            return Boolean.TRUE.equals(requestFuture.get(timeout, TimeUnit.MILLISECONDS));
         } catch (Exception e) {
             log.error("wait for write status error", e);
         } finally {
@@ -336,9 +333,13 @@ public class IMapFileStorage implements IMapStorage {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
             try {
-                if (requestFuture.isDone() || Boolean.TRUE.equals(requestFuture.get())) {
-                    success = true;
-                }
+                // Use the same write timeout as single-key store/delete so a dead WAL worker
+                // cannot block batch callers indefinitely after RequestFuture.get() lost its
+                // accidental 1s cap.
+                success =
+                        Boolean.TRUE.equals(
+                                requestFuture.get(
+                                        this.writDataTimeoutMilliseconds, TimeUnit.MILLISECONDS));
             } catch (Exception e) {
                 log.error("wait for write status error", e);
             } finally {

@@ -64,14 +64,15 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             throws Exception {
         if (type == WALEventType.APPEND) {
             boolean writeSuccess = true;
-            // write to current writer
+            // Catch all failures so RequestFuture.done() is always published. Narrowing this to
+            // IOException previously allowed RuntimeException to kill the single WAL worker and
+            // leave callers blocked until their wait timeout.
             try {
                 writer.write(iMapFileData);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 writeSuccess = false;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
             }
-            // return the result to the client
             executeResponse(requestId, writeSuccess);
             return;
         }
