@@ -70,6 +70,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.password", checkNotNull(password));
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
+        props.setProperty("database.include.list", String.join(",", databaseList));
         props.setProperty("plugin.name", decodingPluginName);
         props.setProperty("slot.name", slotName);
 

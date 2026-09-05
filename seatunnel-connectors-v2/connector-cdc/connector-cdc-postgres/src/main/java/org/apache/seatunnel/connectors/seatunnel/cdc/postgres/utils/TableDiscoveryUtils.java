@@ -60,6 +60,10 @@ public class TableDiscoveryUtils {
         // database and not taking them from the user ...
         LOG.info("Read list of available tables in each database");
         for (String dbName : databaseNames) {
+            if (!tableFilters.databaseFilter().test(dbName)) {
+                LOG.info("\t database '{}' is filtered out of capturing", dbName);
+                continue;
+            }
             try {
                 jdbc.query(
                         "SELECT * FROM \""
