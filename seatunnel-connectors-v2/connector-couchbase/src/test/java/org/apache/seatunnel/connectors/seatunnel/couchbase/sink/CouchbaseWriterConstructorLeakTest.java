@@ -68,7 +68,6 @@ class CouchbaseWriterConstructorLeakTest {
                 .withBucket("test-bucket")
                 .withScope("_default")
                 .withCollection("test-collection")
-                .withBatchIntervalMs(-1) // disable background scheduler
                 .build();
     }
 

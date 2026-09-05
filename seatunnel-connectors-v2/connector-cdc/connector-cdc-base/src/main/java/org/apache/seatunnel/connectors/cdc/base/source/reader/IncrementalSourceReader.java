@@ -135,6 +135,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
         List<SourceSplitBase> unfinishedSplits = new ArrayList<>();
+        List<TableId> capturedTables = null;
+        boolean capturedTablesDiscovered = false;
         log.info(
                 "subtask {} add splits: {}",
                 subtaskId,
@@ -152,7 +154,23 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                unfinishedSplits.add(split.asIncrementalSplit());
+                IncrementalSplit incrementalSplit = split.asIncrementalSplit();
+                if (hasRestoredCheckpointMetadata(incrementalSplit)) {
+                    if (!capturedTablesDiscovered) {
+                        capturedTables = discoverCapturedTables();
+                        capturedTablesDiscovered = true;
+                    }
+                    incrementalSplit =
+                            pruneRestoredIncrementalSplit(incrementalSplit, capturedTables);
+                }
+                if (incrementalSplit.getTableIds().isEmpty()) {
+                    log.info(
+                            "subtask {} skip restored incremental split {} because all tables have been removed from current configuration.",
+                            subtaskId,
+                            incrementalSplit.splitId());
+                } else {
+                    unfinishedSplits.add(incrementalSplit);
+                }
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -320,6 +338,50 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         return checkpointTables.stream()
                 .map(table -> table.getTablePath().getFullName())
                 .collect(Collectors.toList());
+    }
+
+    private List<TableId> discoverCapturedTables() {
+        try {
+            return dataSourceDialect.discoverDataCollections(sourceConfig);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to discover captured tables while restoring CDC split. "
+                            + "Keeping restored checkpoint state unchanged.",
+                    e);
+            return null;
+        }
+    }
+
+    private IncrementalSplit pruneRestoredIncrementalSplit(
+            IncrementalSplit incrementalSplit, List<TableId> capturedTables) {
+        if (capturedTables == null) {
+            return incrementalSplit;
+        }
+        if (capturedTables.isEmpty() && !incrementalSplit.getTableIds().isEmpty()) {
+            log.warn(
+                    "Skip pruning restored incremental split {} because captured table discovery returned "
+                            + "an empty result. Keeping restored checkpoint state unchanged.",
+                    incrementalSplit.splitId());
+            return incrementalSplit;
+        }
+        IncrementalSplit prunedSplit =
+                incrementalSplit.pruneTables(capturedTables, dataSourceDialect::toTableId);
+        if (prunedSplit.getTableIds().size() != incrementalSplit.getTableIds().size()) {
+            log.info(
+                    "Pruned restored incremental split {} tables from {} to {} based on current captured tables.",
+                    incrementalSplit.splitId(),
+                    incrementalSplit.getTableIds(),
+                    prunedSplit.getTableIds());
+        }
+        return prunedSplit;
+    }
+
+    private boolean hasRestoredCheckpointMetadata(IncrementalSplit incrementalSplit) {
+        return incrementalSplit.getCheckpointDataType() != null
+                || (incrementalSplit.getCheckpointTables() != null
+                        && !incrementalSplit.getCheckpointTables().isEmpty())
+                || (incrementalSplit.getHistoryTableChanges() != null
+                        && !incrementalSplit.getHistoryTableChanges().isEmpty());
     }
 
     @Override
