@@ -72,4 +72,60 @@ public class PageBaseServlet extends BaseServlet {
             writeJson(resp, jsonArray);
         }
     }
+
+    /** A requested page. Absent when the caller sent no {@code page} parameter. */
+    protected static final class PageParams {
+        private final int page;
+        private final int rows;
+
+        private PageParams(int page, int rows) {
+            this.page = page;
+            this.rows = rows;
+        }
+
+        public int getRows() {
+            return rows;
+        }
+
+        public int getStart() {
+            return (page - 1) * rows;
+        }
+    }
+
+    /**
+     * Reads the pagination parameters, or returns {@code null} when the request does not ask for a
+     * page. For endpoints that can slice at the source, which pay per returned row rather than per
+     * stored row and so cannot use {@link #writeJsonWithPagination}.
+     */
+    protected PageParams pageParams(HttpServletRequest req) {
+        Map<String, String> parameterMap = getParameterMap(req);
+        if (parameterMap == null || !parameterMap.containsKey(pageParam)) {
+            return null;
+        }
+        int page = Integer.parseInt(parameterMap.get(pageParam));
+        int rows =
+                parameterMap.get(rowsParam) != null
+                        ? Integer.parseInt(parameterMap.get(rowsParam))
+                        : 10;
+        if (page < 1) {
+            throw new IllegalArgumentException("Page number must be greater than 0");
+        }
+        return new PageParams(page, rows);
+    }
+
+    /** Rejects a page that starts past the end of the result set. */
+    protected void checkPageInRange(PageParams pageParams, int total) {
+        if (pageParams.getStart() > total) {
+            throw new IllegalArgumentException("Page number exceeds total pages");
+        }
+    }
+
+    /** Writes the {@code {"data": [], "total": n}} envelope for an already-sliced page. */
+    protected void writeJsonPage(HttpServletResponse resp, JsonArray pageData, int total)
+            throws IOException {
+        JsonObject paginatedObj = new JsonObject();
+        paginatedObj.add("data", pageData);
+        paginatedObj.add("total", total);
+        writeJson(resp, paginatedObj);
+    }
 }
