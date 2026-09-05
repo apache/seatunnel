@@ -142,9 +142,47 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     @Override
     public void close() throws IOException {
-        flushWriteBuffer();
-        session.close();
-        driver.close();
+        // writeByQuery rethrows as Neo4jConnectorException, so a failing final flush must not be
+        // allowed to skip the session and the driver, or the driver's connection pool and event
+        // loop are leaked for the lifetime of the task. Every step runs, and the first failure is
+        // the one that propagates: later ones are attached to it as suppressed.
+        Throwable closeFailure = null;
+        try {
+            flushWriteBuffer();
+        } catch (Throwable throwable) {
+            closeFailure = appendSuppressed(closeFailure, throwable);
+        }
+        try {
+            session.close();
+        } catch (Throwable throwable) {
+            closeFailure = appendSuppressed(closeFailure, throwable);
+        }
+        try {
+            driver.close();
+        } catch (Throwable throwable) {
+            closeFailure = appendSuppressed(closeFailure, throwable);
+        }
+        if (closeFailure != null) {
+            rethrowCloseFailure(closeFailure);
+        }
+    }
+
+    private Throwable appendSuppressed(Throwable existingFailure, Throwable newFailure) {
+        if (existingFailure == null) {
+            return newFailure;
+        }
+        existingFailure.addSuppressed(newFailure);
+        return existingFailure;
+    }
+
+    private void rethrowCloseFailure(Throwable throwable) throws IOException {
+        if (throwable instanceof IOException) {
+            throw (IOException) throwable;
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException) throwable;
+        }
+        throw new IOException("Failed to close Neo4j sink writer.", throwable);
     }
 
     private void flushWriteBuffer() {

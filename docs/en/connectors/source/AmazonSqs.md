@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-amazonsqs.md';
 
 > Amazon SQS source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The Amazon SQS source connector reads messages from one Amazon SQS queue URL. Each message body is
@@ -13,12 +19,6 @@ The connector uses a single reader and finishes the job after the current receiv
 processed. It is suitable for bounded reads from a queue.
 
 Each receive request asks SQS for up to 10 messages. If more messages are waiting in the queue, run another job or use a streaming-style upstream design that repeatedly starts bounded reads.
-
-## Support Those Engines
-
-> Spark<br/>
-> Flink<br/>
-> SeaTunnel Zeta<br/>
 
 ## Key Features
 
@@ -40,6 +40,7 @@ Each receive request asks SQS for up to 10 messages. If more messages are waitin
 | secret_access_key              | String  | No       | -       | AWS secret access key. Set it together with `access_key_id` to use static credentials.                                                                       |
 | format                         | String  | No       | json    | Message body format. Supported values are `json`, `text`, `canal_json`, and `debezium_json`.                                                                |
 | field_delimiter                | String  | No       | ,       | Field delimiter used when `format = text`.                                                                                                                  |
+| ignore_parse_errors            | Boolean | No       | false   | Whether to skip messages that cannot be deserialized instead of failing the poll.                                                                            |
 | delete_message                 | Boolean | No       | false   | Whether to delete a message from the queue after it is read and deserialized successfully.                                                                   |
 | message_group_id               | String  | No       | -       | Message group ID option kept for compatibility. It is not required for normal SQS reads.                                                                     |
 | debezium_record_include_schema | Boolean | No       | true    | Whether Debezium JSON messages include a schema. This option is used only when `format = debezium_json`.                                                     |
@@ -53,9 +54,26 @@ Each receive request asks SQS for up to 10 messages. If more messages are waitin
 - `text` splits each message body by `field_delimiter` and maps the values to fields in `schema` order.
 - `canal_json` reads Canal JSON messages. For details, see [Canal JSON](../formats/canal-json.md).
 - `debezium_json` reads Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
+- A `canal_json` or `debezium_json` message can emit multiple rows. For example, an update emits its before and after rows.
+- `ignore_parse_errors = false` fails the poll and retains an unreadable message. When set to `true`, the source skips the message and continues processing the batch.
+- When both `ignore_parse_errors` and `delete_message` are `true`, skipped messages are deleted from SQS. Keep `delete_message = false` if skipped messages should remain available for redelivery.
+- For multi-row messages, deletion happens only after every row has been collected. A collection failure keeps the SQS message available for redelivery.
 - `delete_message = true` removes consumed messages from SQS. Keep the default `false` when you only want to inspect or copy messages without deleting them.
 - `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
 - The source performs one receive request, with up to 10 messages, and then finishes the bounded job.
+
+## Authentication
+
+The connector resolves AWS credentials in the following order:
+
+1. `access_key_id` and `secret_access_key` if both are configured.
+2. Otherwise, the AWS default credential provider chain (environment variables, instance profile, etc.).
+
+For local testing against an SQS-compatible service such as LocalStack or ElasticMQ,
+point `url` at the local endpoint (for example `http://sqs-host:4566/...`) and provide any
+non-empty `access_key_id` / `secret_access_key`. SQS-compatible test services typically
+do not validate the SigV4 signature on incoming requests, so any static credential pair is
+accepted by them.
 
 ## Task Examples
 
@@ -140,6 +158,30 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Read Debezium JSON Messages
+
+When the upstream system (such as Debezium or a CDC source) publishes change
+events as Debezium envelopes, set `format = debezium_json` and use
+`debezium_record_include_schema` to control whether the schema field is expected.
+
+```hocon
+source {
+  AmazonSqs {
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/cdc_events"
+    region = "us-east-1"
+    format = debezium_json
+    debezium_record_include_schema = true
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        score = double
+      }
+    }
+  }
 }
 ```
 

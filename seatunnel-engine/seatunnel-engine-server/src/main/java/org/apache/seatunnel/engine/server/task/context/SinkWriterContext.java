@@ -19,12 +19,14 @@ package org.apache.seatunnel.engine.server.task.context;
 
 import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public class SinkWriterContext implements SinkWriter.Context {
 
@@ -33,13 +35,24 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final int numberOfParallelSubtasks;
     private final MetricsContext metricsContext;
     private final EventListener eventListener;
+    private final transient RowErrorCollector rowErrorCollector;
     private transient volatile RunnableWithException flushAction;
+    private transient volatile boolean deferredTerminalWriteOutcomesEnabled;
 
     public SinkWriterContext(
             int numberOfParallelSubtasks,
             int indexOfSubtask,
             MetricsContext metricsContext,
             EventListener eventListener) {
+        this(numberOfParallelSubtasks, indexOfSubtask, metricsContext, eventListener, null);
+    }
+
+    public SinkWriterContext(
+            int numberOfParallelSubtasks,
+            int indexOfSubtask,
+            MetricsContext metricsContext,
+            EventListener eventListener,
+            RowErrorCollector rowErrorCollector) {
         Preconditions.checkArgument(
                 numberOfParallelSubtasks >= 1, "Parallelism must be a positive number.");
         Preconditions.checkArgument(
@@ -48,6 +61,7 @@ public class SinkWriterContext implements SinkWriter.Context {
         this.indexOfSubtask = indexOfSubtask;
         this.metricsContext = metricsContext;
         this.eventListener = eventListener;
+        this.rowErrorCollector = rowErrorCollector;
     }
 
     @Override
@@ -67,6 +81,21 @@ public class SinkWriterContext implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return eventListener;
+    }
+
+    @Override
+    public Optional<RowErrorCollector> getRowErrorCollector() {
+        return Optional.ofNullable(rowErrorCollector);
+    }
+
+    @Override
+    public void enableDeferredTerminalWriteOutcomes() {
+        this.deferredTerminalWriteOutcomesEnabled = true;
+    }
+
+    @Override
+    public boolean isDeferredTerminalWriteOutcomesEnabled() {
+        return deferredTerminalWriteOutcomesEnabled;
     }
 
     @Override

@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 github:
   description: SeaTunnel is a multimodal, high-performance, distributed, massive data integration tool.
   homepage: https://seatunnel.apache.org/
@@ -41,7 +40,7 @@ github:
     - LeonYoah
     - heye1005
     - SEZ9
-    - boy-xiaozhang
+    - goutamadwant
     - nzw921rx
   dependabot_updates: false
   enabled_merge_buttons:
@@ -50,6 +49,32 @@ github:
     rebase: false
   pull_requests:
     allow_update_branch: true
+  rulesets:
+    - name: Merge Queue
+      target: branch
+      enforcement: active
+      bypass_actors:
+        # apache/root — ASF Infra team.
+        - actor_id: 118420
+          actor_type: Team
+          bypass_mode: always
+      conditions:
+        ref_name:
+          include:
+            - refs/heads/dev
+          exclude: []
+      rules:
+        - type: merge_queue
+          parameters:
+            # Allow enough time for runner scheduling before the 30-minute job starts.
+            check_response_timeout_minutes: 120
+            grouping_strategy: ALLGREEN
+            max_entries_to_build: 5
+            # Phase one merges each PR immediately instead of waiting to form a batch.
+            max_entries_to_merge: 1
+            merge_method: SQUASH
+            min_entries_to_merge: 1
+            min_entries_to_merge_wait_minutes: 0
   protected_branches:
     dev:
       required_status_checks:

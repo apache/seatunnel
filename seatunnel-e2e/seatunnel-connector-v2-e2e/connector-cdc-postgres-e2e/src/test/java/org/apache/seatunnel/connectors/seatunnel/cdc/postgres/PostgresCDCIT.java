@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.kafka.clients.admin.AdminClient;
@@ -57,7 +58,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.jdbc.JdbcConnection;
@@ -68,7 +68,6 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -136,6 +135,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
      */
     private static final long DEBEZIUM_JSON_RECORD_WAIT_TIMEOUT_SECONDS = 180L;
 
+    /**
+     * Budget for assertions made immediately after a savepoint restore.
+     *
+     * <p>The plain 60s used elsewhere in this class only has to cover a CDC round trip on an
+     * already-running job. A post-restore assertion additionally has to absorb the restore itself -
+     * cluster restart, connector re-initialization and replication slot reattach - before the round
+     * trip it asserts on can even begin. On a loaded runner the restore alone can consume the whole
+     * 60s, so these waits get their own budget rather than sharing the round-trip one.
+     */
+    private static final long RESTORE_ASSERT_TIMEOUT_MILLIS = 180000L;
+
     // kafka container
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -180,34 +190,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p " + POSTGRES_CDC_PLUGIN_LIB);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-
-                Path driverJarPath = postgresDriverJarPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        POSTGRES_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
-            };
-
-    private Path postgresDriverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            org.postgresql.Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
-        }
-    }
+            container ->
+                    DependencyJar.of(org.postgresql.Driver.class)
+                            .copyTo(container, POSTGRES_CDC_PLUGIN_LIB);
 
     @BeforeAll
     @Override
@@ -607,7 +592,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            // The completed job can retain the replication slot briefly after savepoint creation.
+            // Wait for that connection to close so the next active state belongs to the restored
+            // job.
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isReplicationSlotActive(committedSlotName)));
 
             committedOffsetJob =
                     CompletableFuture.runAsync(
@@ -625,7 +617,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
-            await().atMost(120, TimeUnit.SECONDS)
+            waitForReplicationSlotActive(committedSlotName);
+            // Insert only after the restored replication connection is active so this CDC record
+            // is not written before the restored slot can consume it.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
@@ -921,7 +917,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertAll(
@@ -1023,7 +1019,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     });
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertAll(

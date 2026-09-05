@@ -67,3 +67,31 @@ If you want to install connector plugins by manually downloading connectors, you
 Now you have completed the download of the SeaTunnel installation package and the download of the connector plugin. Next, you can choose different running modes according to your needs to run or deploy SeaTunnel.
 
 If you use the SeaTunnel Engine (Zeta) that comes with SeaTunnel to run tasks, you need to deploy the SeaTunnel Engine service first. Refer to [Deployment Of SeaTunnel Engine (Zeta) Service](deployment.md).
+
+## Step 4: seatunnel-shade jar package download address
+
+Starting from version 3.0.0, the shade modules have been moved to a separate project [seatunnel-shade](https://github.com/apache/seatunnel-shade). This change brings the following benefits:
+
+- **Independent versioning**: The shade project can release versions independently, without being tied to the main SeaTunnel release cycle
+- **Reduced build time**: Removing shade modules from the main project significantly reduces compilation time
+- **Simplified dependencies**: The main project now uses pre-built shade jars from Maven Central
+
+### Available shade jars
+
+| artifactId                   | version      | Maven                                                                                                        |
+|------------------------------|--------------|--------------------------------------------------------------------------------------------------------------|
+| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.0   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.0/seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar) |
+| seatunnel-shade-hadoop-aws   | 3.1.4-3.0.0 | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop-aws/3.1.4-3.0.0/seatunnel-shade-hadoop-aws-3.1.4-3.0.0.jar)   |
+
+### Important notes
+
+:::warning Important
+When shade jar changes are required, the [seatunnel-shade](https://github.com/apache/seatunnel-shade) project must be released first. The release process is as follows:
+
+1. Make and merge changes in the [seatunnel-shade](https://github.com/apache/seatunnel-shade) project
+2. Release a new version of the shade project
+3. Update the shade version in the main SeaTunnel project's `pom.xml`
+4. Then release the main SeaTunnel project
+
+This ensures that the shade dependencies are available in Maven Central before the main project release.
+:::

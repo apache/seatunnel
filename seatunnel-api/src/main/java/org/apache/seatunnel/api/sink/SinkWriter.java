@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -118,6 +119,30 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
          * @return
          */
         EventListener getEventListener();
+
+        /**
+         * Row-level error collector provided by the engine for reporting errors outside write().
+         */
+        default Optional<RowErrorCollector> getRowErrorCollector() {
+            return Optional.empty();
+        }
+
+        /**
+         * Mark that this writer may report row-level errors after {@link SinkWriter#write(Object)}
+         * returns, for example during timer flush, prepareCommit, or close.
+         *
+         * <p>Engines can use this signal to delay terminal success metrics/tracing until buffered
+         * rows are flushed and no delayed row errors were reported.
+         */
+        default void enableDeferredTerminalWriteOutcomes() {}
+
+        /**
+         * Returns whether a writer requested deferred terminal success reporting through {@link
+         * #enableDeferredTerminalWriteOutcomes()}.
+         */
+        default boolean isDeferredTerminalWriteOutcomesEnabled() {
+            return false;
+        }
 
         /**
          * Register an action to be invoked by the engine when a periodic flush signal arrives.

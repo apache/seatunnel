@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterEach;
@@ -43,13 +44,9 @@ import org.testcontainers.elasticsearch.ElasticsearchContainer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.mysql.cj.jdbc.Driver;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.Statement;
 import java.time.Duration;
@@ -115,29 +112,7 @@ public class ElasticsearchTimerFlushIT extends TestSuiteBase implements TestReso
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Path driverJarPath = driverJarPath();
-                Assertions.assertTrue(
-                        Files.isRegularFile(driverJarPath),
-                        "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
-                                + driverJarPath);
-                Container.ExecResult extraCommands =
-                        container.execInContainer("bash", "-c", "mkdir -p " + MYSQL_CDC_PLUGIN_LIB);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        MYSQL_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
-            };
-
-    private Path driverJarPath() {
-        try {
-            return Paths.get(
-                    Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
+            container -> DependencyJar.of(Driver.class).copyTo(container, MYSQL_CDC_PLUGIN_LIB);
 
     @TestTemplate
     public void testElasticsearchTimerFlush(TestContainer testContainer) throws Exception {

@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 `Source: HugeGraph`
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图数据。
@@ -16,9 +22,9 @@ HugeGraph Source Connector 通过 HugeGraph REST API 读取 Apache HugeGraph 图
 
 ## 主要特性
 
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 
@@ -88,6 +94,8 @@ cardinality 为 `LIST` 或 `SET` 的 HugeGraph 属性会被读为 SeaTunnel 的 
 
 ## 示例
 
+### 显式声明 schema 读取顶点 label
+
 ```hocon
 source {
   HugeGraph {
@@ -97,6 +105,53 @@ source {
     label = "person"
     label_type = "VERTEX"
     page_size = 1000
+    schema = {
+      fields = {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+```
+
+### 读取边 label
+
+读取边时，将 `label_type` 设为 `EDGE`，并在 `schema.fields` 中列出边的属性。输出还会包含保留列 `~source_id`、`~source_label`、`~target_id`、`~target_label`。
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label = "knows"
+    label_type = "EDGE"
+    schema = {
+      fields = {
+        since = "int"
+      }
+    }
+  }
+}
+```
+
+### 使用服务端属性等值过滤
+
+`parallelism = 1` 时，可以通过 `filter` 把属性等值条件推到服务端，只返回匹配全部条件的元素。
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label = "person"
+    label_type = "VERTEX"
+    filter = {
+      country = "US"
+      active = "true"
+    }
     schema = {
       fields = {
         name = "string"

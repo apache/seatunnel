@@ -12,6 +12,7 @@ sidebar_position: 2
   - **AWS Bedrock** — AWS credentials (profile, env vars, or IAM role)
   - **Anthropic API** — `ANTHROPIC_API_KEY`
   - **OpenAI API** (or compatible) — `OPENAI_API_KEY`
+  - **OrcaRouter** — `ORCAROUTER_API_KEY`
 - (Optional) a SeaTunnel installation for engine-level validation and job execution
 
 ## Install
@@ -58,7 +59,43 @@ export ANTHROPIC_API_KEY=sk-ant-...
 export AI_PROVIDER=openai
 export OPENAI_API_KEY=sk-...
 # export OPENAI_BASE_URL=https://...   # Azure OpenAI, DeepSeek, local vLLM, ...
+
+# Option D: OrcaRouter AI gateway
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+# Model IDs use a provider/model namespace (e.g. deepseek/deepseek-v4-pro);
+# `orcarouter/auto` auto-grades and auto-routes each request.
+# export ORCAROUTER_MODEL=orcarouter/auto
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
 ```
+
+### OrcaRouter AI gateway
+
+[OrcaRouter](https://www.orcarouter.ai) is an OpenAI-compatible AI gateway
+that exposes many models — Claude, GPT, Gemini, DeepSeek, Qwen and more —
+behind a single endpoint (`https://api.orcarouter.ai/v1`). Model IDs follow a
+`provider/model` namespace, and the special `orcarouter/auto` model
+automatically selects the best model per request. Configure it as a
+first-class provider:
+
+```bash
+# Requires the openai package (shares the ".[openai]" extra)
+pip install -e ".[openai]"
+
+export AI_PROVIDER=orcarouter
+export ORCAROUTER_API_KEY=orc_...
+# export ORCAROUTER_MODEL=deepseek/deepseek-v4-pro    # optional override
+# export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto  # optional override
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true       # optional: replay reasoning_content
+
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+The provider speaks the OpenAI Chat Completions protocol, so it fully supports
+the CLI's internal tool-calling loop (connector lookups during planning),
+streaming output, multi-turn sessions, and reasoning-content replay for
+compatible reasoning models.
 
 ### bedrock-mantle: OpenAI-family models on Bedrock
 

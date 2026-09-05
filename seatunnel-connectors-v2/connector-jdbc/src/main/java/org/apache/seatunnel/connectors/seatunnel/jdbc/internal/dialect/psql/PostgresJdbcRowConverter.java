@@ -46,7 +46,6 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -71,6 +70,12 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
     @Override
     public String converterName() {
         return DatabaseIdentifier.POSTGRESQL;
+    }
+
+    @Override
+    protected void writeTime(PreparedStatement statement, int index, LocalTime time)
+            throws SQLException {
+        statement.setObject(index, time);
     }
 
     @Override
@@ -145,9 +150,7 @@ public class PostgresJdbcRowConverter extends AbstractJdbcRowConverter {
                             Optional.ofNullable(sqlDate).map(e -> e.toLocalDate()).orElse(null);
                     break;
                 case TIME:
-                    Time sqlTime = JdbcFieldTypeUtils.getTime(rs, resultSetIndex);
-                    fields[fieldIndex] =
-                            Optional.ofNullable(sqlTime).map(e -> e.toLocalTime()).orElse(null);
+                    fields[fieldIndex] = JdbcFieldTypeUtils.getLocalTime(rs, resultSetIndex);
                     break;
                 case TIMESTAMP:
                     // Use getLocalDateTime() which avoids JVM-default-timezone influence.

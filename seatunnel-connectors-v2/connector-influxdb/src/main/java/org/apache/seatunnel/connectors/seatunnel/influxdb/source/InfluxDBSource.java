@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConn
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
@@ -112,7 +114,20 @@ public class InfluxDBSource
         try {
             QueryResult queryResult = influxdb.query(new Query(query, sourceConfig.getDatabase()));
 
-            List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
+            List<QueryResult.Result> results = queryResult.getResults();
+            if (CollectionUtils.isEmpty(results)) {
+                log.warn(
+                        "InfluxDB query returned empty results, using default column index mapping.");
+                return buildDefaultColumnsIndex();
+            }
+
+            List<QueryResult.Series> serieList = results.get(0).getSeries();
+            if (CollectionUtils.isEmpty(serieList)) {
+                log.warn(
+                        "InfluxDB query returned no series (empty data), using default column index mapping.");
+                return buildDefaultColumnsIndex();
+            }
+
             List<String> fieldNames = new ArrayList<>(serieList.get(0).getColumns());
 
             return Arrays.stream(catalogTable.getSeaTunnelRowType().getFieldNames())
@@ -124,6 +139,19 @@ public class InfluxDBSource
                     "Get column index of query result exception",
                     e);
         }
+    }
+
+    /**
+     * Builds a default column index list based on the catalog table schema. Used when the query
+     * returns no data, where actual column indices are not needed since no rows will be read.
+     */
+    private List<Integer> buildDefaultColumnsIndex() {
+        int fieldCount = catalogTable.getSeaTunnelRowType().getTotalFields();
+        List<Integer> defaultIndexList = new ArrayList<>(fieldCount);
+        for (int i = 0; i < fieldCount; i++) {
+            defaultIndexList.add(i);
+        }
+        return defaultIndexList;
     }
 
     private static int containTzFunction(String sql) {

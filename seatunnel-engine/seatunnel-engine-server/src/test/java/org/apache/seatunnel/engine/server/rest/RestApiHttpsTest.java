@@ -47,9 +47,13 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLHandshakeException;
 
 import java.io.BufferedReader;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
+import java.net.ServerSocket;
+import java.nio.file.Paths;
 import java.util.Collections;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -59,13 +63,12 @@ import static org.junit.Assert.assertEquals;
 /** Test for Rest API with HTTPS. */
 @DisabledOnOs(OS.WINDOWS)
 public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
-    private static final int HTTP_PORT = 28080;
-    private static final int HTTPS_PORT = 28443;
-
-    private static final int HTTP_PORT2 = 28088;
-    private static final int HTTPS_PORT2 = 28543;
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
+    private final int httpPort = randomAvailablePort();
+    private final int httpsPort = randomAvailablePort();
+    private final int httpPort2 = randomAvailablePort();
+    private final int httpsPort2 = randomAvailablePort();
 
     @Override
     @BeforeAll
@@ -79,8 +82,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         httpConfig.setEnabled(true);
-        httpConfig.setPort(HTTP_PORT);
-        httpConfig.setHttpsPort(HTTPS_PORT);
+        httpConfig.setPort(httpPort);
+        httpConfig.setHttpsPort(httpsPort);
         httpConfig.setEnableHttps(true);
 
         httpConfig.setKeyStorePath(getPath("server_keystore.jks"));
@@ -94,13 +97,25 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
     }
 
     public String getPath(String confFile) {
-        return System.getProperty("user.dir") + "/src/test/resources/https/" + confFile;
+        try {
+            return Paths.get(
+                            Objects.requireNonNull(
+                                            getClass()
+                                                    .getClassLoader()
+                                                    .getResource("https/" + confFile),
+                                            "Missing HTTPS test resource: " + confFile)
+                                    .toURI())
+                    .toString();
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to resolve HTTPS test resource: " + confFile, e);
+        }
     }
 
     @Test
     public void testRestApiHttp() throws Exception {
         restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT + "/overview",
+                "http://localhost:" + httpPort + "/overview",
                 (code, content) -> {
                     Assertions.assertEquals(200, code);
                     Assertions.assertTrue(content.contains("projectVersion"));
@@ -114,7 +129,7 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
 
         HttpsURLConnection conn =
                 (HttpsURLConnection)
-                        new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview")
+                        new java.net.URL("https://localhost:" + httpsPort + "/overview")
                                 .openConnection();
         conn.setSSLSocketFactory(sslContext.getSocketFactory());
 
@@ -133,7 +148,7 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                 SSLHandshakeException.class,
                 () -> {
                     java.net.URL url =
-                            new java.net.URL("https://localhost:" + HTTPS_PORT + "/overview");
+                            new java.net.URL("https://localhost:" + httpsPort + "/overview");
                     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                     conn.getResponseCode();
                 });
@@ -164,7 +179,7 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         // pagination test
         // page 1
         restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT2 + "/finished-jobs?page=1&rows=" + pageSize,
+                "http://localhost:" + httpPort2 + "/finished-jobs?page=1&rows=" + pageSize,
                 (code, content) -> {
                     Assertions.assertEquals(200, code);
                     JsonObject resultJson = (JsonObject) Json.parse(content);
@@ -176,7 +191,7 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                 });
         // page 2
         restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT2 + "/finished-jobs?page=2&rows=" + pageSize,
+                "http://localhost:" + httpPort2 + "/finished-jobs?page=2&rows=" + pageSize,
                 (code, content) -> {
                     Assertions.assertEquals(200, code);
                     JsonObject resultJson = (JsonObject) Json.parse(content);
@@ -188,7 +203,7 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                 });
         // no pagination test
         restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT2 + "/finished-jobs",
+                "http://localhost:" + httpPort2 + "/finished-jobs",
                 (code, content) -> {
                     Assertions.assertEquals(200, code);
                     JsonArray resultJson = (JsonArray) Json.parse(content);
@@ -220,9 +235,10 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                                                 .getRunningJobMetrics()
                                                 .size()));
 
-        // pagination test
-        restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT2 + "/running-jobs?page=1&rows=" + pageSize,
+        // Wait for the REST view itself because the running metrics map can become visible
+        // slightly earlier than the paginated HTTP response under CI load.
+        awaitRestApiRequestHttp(
+                "http://localhost:" + httpPort2 + "/running-jobs?page=1&rows=" + pageSize,
                 (code, content) -> {
                     Assertions.assertEquals(200, code);
                     JsonObject resultJson = (JsonObject) Json.parse(content);
@@ -233,8 +249,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                     Assertions.assertTrue(total == jobNum && data.size() == pageSize);
                 });
         // no pagination test
-        restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT2 + "/running-jobs",
+        awaitRestApiRequestHttp(
+                "http://localhost:" + httpPort2 + "/running-jobs",
                 (code, content) -> {
                     Assertions.assertEquals(200, code);
                     JsonArray resultJson = (JsonArray) Json.parse(content);
@@ -266,8 +282,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                                                 .getJobCountMetrics()
                                                 .getFinishedJobCount()));
 
-        restApiRequestHttp(
-                "http://localhost:" + HTTP_PORT2 + "/finished-jobs?page=10&rows=" + pageSize,
+        awaitRestApiRequestHttp(
+                "http://localhost:" + httpPort2 + "/finished-jobs?page=10&rows=" + pageSize,
                 (code, content) -> {
                     Assertions.assertEquals(400, code);
                     Assertions.assertTrue(content.contains("Page number exceeds total pages"));
@@ -275,28 +291,35 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         shutdown(jobInformation);
     }
 
+    private void awaitRestApiRequestHttp(String url, RestApiRequestCallback callback) {
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(200, TimeUnit.MILLISECONDS)
+                .untilAsserted(() -> restApiRequestHttp(url, callback));
+    }
+
     private void restApiRequestHttp(String url, RestApiRequestCallback callback) throws Exception {
         HttpURLConnection conn = (HttpURLConnection) new java.net.URL(url).openConnection();
-        if (conn.getResponseCode() != 200) {
-            try (BufferedReader in =
-                    new BufferedReader(new InputStreamReader(conn.getErrorStream()))) {
-                String response = in.lines().collect(Collectors.joining());
-                if (callback != null) {
-                    callback.callback(conn.getResponseCode(), response);
-                }
-            } finally {
-                conn.disconnect();
+        try {
+            int responseCode = conn.getResponseCode();
+            String response = readResponseBody(conn, responseCode);
+            if (callback != null) {
+                callback.callback(responseCode, response);
             }
-        } else {
-            try (BufferedReader in =
-                    new BufferedReader(new InputStreamReader(conn.getInputStream()))) {
-                String response = in.lines().collect(Collectors.joining());
-                if (callback != null) {
-                    callback.callback(conn.getResponseCode(), response);
-                }
-            } finally {
-                conn.disconnect();
-            }
+        } finally {
+            conn.disconnect();
+        }
+    }
+
+    private String readResponseBody(HttpURLConnection conn, int responseCode) throws Exception {
+        InputStream responseStream =
+                responseCode >= HttpURLConnection.HTTP_BAD_REQUEST
+                        ? conn.getErrorStream()
+                        : conn.getInputStream();
+        if (responseStream == null) {
+            return "";
+        }
+        try (BufferedReader in = new BufferedReader(new InputStreamReader(responseStream))) {
+            return in.lines().collect(Collectors.joining());
         }
     }
 
@@ -336,8 +359,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
 
         HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         httpConfig.setEnabled(true);
-        httpConfig.setPort(HTTP_PORT2);
-        httpConfig.setHttpsPort(HTTPS_PORT2);
+        httpConfig.setPort(httpPort2);
+        httpConfig.setHttpsPort(httpsPort2);
         httpConfig.setEnableHttps(false);
 
         HazelcastInstanceImpl healcastInstance =
@@ -356,6 +379,15 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         }
         if (jobInformation.healcastInstance != null) {
             jobInformation.healcastInstance.shutdown();
+        }
+    }
+
+    private int randomAvailablePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            return socket.getLocalPort();
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to allocate a free test port", e);
         }
     }
 

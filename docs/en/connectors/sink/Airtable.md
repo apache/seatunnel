@@ -161,6 +161,46 @@ sink {
 }
 ```
 
+### Stream From Kafka To Airtable
+
+Combine a Kafka source with the Airtable sink to continuously push new events into a tracking
+base. Keep `batch_size` at 10 to respect the Airtable request limit, and tune
+`request_interval_ms` if your topic produces bursts faster than 5 messages per second.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Kafka {
+    bootstrap.servers = "kafka:9092"
+    topic = "orders.events"
+    format = "json"
+    schema = {
+      fields {
+        order_id = string
+        customer = string
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Orders"
+    typecast = true
+    batch_size = 10
+    request_interval_ms = 220
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

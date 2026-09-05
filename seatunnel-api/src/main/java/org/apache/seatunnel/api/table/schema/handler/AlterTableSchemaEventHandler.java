@@ -21,10 +21,12 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
@@ -80,6 +82,13 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
                 newSchema = apply(newSchema, columnEvent);
             }
             return newSchema;
+        }
+        if (alterTableEvent instanceof AlterTableCommentEvent) {
+            // Table comment changes do not affect the physical schema structure
+            return schema;
+        }
+        if (alterTableEvent instanceof AlterColumnCommentEvent) {
+            return applyColumnComment(schema, (AlterColumnCommentEvent) alterTableEvent);
         }
 
         throw new UnsupportedOperationException(
@@ -201,6 +210,24 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
         }
         return TableSchema.builder()
                 .columns(originColumns)
+                .primaryKey(schema.getPrimaryKey())
+                .constraintKey(schema.getConstraintKeys())
+                .build();
+    }
+
+    private TableSchema applyColumnComment(
+            TableSchema schema, AlterColumnCommentEvent columnCommentEvent) {
+        List<String> fieldNames = Arrays.asList(schema.getFieldNames());
+        if (!fieldNames.contains(columnCommentEvent.getColumn())) {
+            return schema;
+        }
+        int columnIndex = fieldNames.indexOf(columnCommentEvent.getColumn());
+        LinkedList<Column> columns = new LinkedList<>(schema.getColumns());
+        columns.set(
+                columnIndex,
+                columns.get(columnIndex).copyWithComment(columnCommentEvent.getNewComment()));
+        return TableSchema.builder()
+                .columns(columns)
                 .primaryKey(schema.getPrimaryKey())
                 .constraintKey(schema.getConstraintKeys())
                 .build();

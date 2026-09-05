@@ -64,6 +64,16 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private final Set<TableId> pureBinlogPhaseTables;
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
+    private volatile boolean taskStarted = false;
+    // Set synchronously in submitTask(), before the fetch task is handed to the background
+    // thread, and cleared in a finally block once execute() returns/throws. isFinished() must
+    // not rely on polling streamFetchTask.isRunning() alone: that flag is owned by the fetch
+    // task and is only flipped to true from inside its own execute() method, which the
+    // (single-threaded) poller can observe as not-yet-run. Without this flag isFinished() could
+    // report the split as finished before the fetch task ever ran, silently truncating the whole
+    // incremental/bounded read (see bug-002/bug-008). Setting it inside the background thread's
+    // lambda instead of synchronously in submitTask() re-opens this exact race.
+    private volatile boolean executing = false;
 
     private FetchTask<SourceSplitBase> streamFetchTask;
 
@@ -97,6 +107,13 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         configureFilter();
         taskContext.configure(currentIncrementalSplit);
         this.queue = taskContext.getQueue();
+        // Set synchronously, before the task is handed to the background thread, so there is no
+        // window in which the (single-threaded) poller can observe taskStarted=true and
+        // executing=false before the background thread has actually started running. Setting
+        // this flag from inside the submitted lambda left a gap between "taskStarted = true" and
+        // the next statement (a log call) that the poller reliably hit on every run.
+        taskStarted = true;
+        executing = true;
         executorService.submit(
                 () -> {
                     try {
@@ -112,13 +129,20 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                                         currentIncrementalSplit),
                                 e);
                         readException = e;
+                    } finally {
+                        executing = false;
                     }
                 });
     }
 
     @Override
     public boolean isFinished() {
-        return currentIncrementalSplit == null || !streamFetchTask.isRunning();
+        // Never report finished while the background thread is still inside
+        // streamFetchTask.execute() -- streamFetchTask.isRunning() is owned by the fetch task
+        // and may not have flipped to true yet even though we are already executing it.
+        return taskStarted
+                && !executing
+                && (currentIncrementalSplit == null || !streamFetchTask.isRunning());
     }
 
     @Override
@@ -126,8 +150,11 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             throws InterruptedException, SeaTunnelException {
         checkReadException();
 
+        // Always drain the queue first, so the last batch produced before the bounded
+        // reader stopped is not dropped. Only after the queue is drained AND the split
+        // is finished do we signal split completion by returning null.
         Iterator<SourceRecords> sourceRecordsIterator = Collections.emptyIterator();
-        if (streamFetchTask.isRunning()) {
+        if (streamFetchTask.isRunning() || isBoundedReadFinished()) {
             List<DataChangeEvent> batch = queue.poll();
             if (!batch.isEmpty()) {
                 if (schemaChangeResolver != null) {
@@ -137,12 +164,29 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 }
             }
         }
+
+        // If the fetch task is finished and this is a bounded read (stop.mode = "specific"),
+        // return null to signal split completion. This is important for bounded reads
+        // to properly terminate the task. For unbounded reads (stop.mode = "never"),
+        // we should never return null even if the task is not running due to errors,
+        // because that would incorrectly mark the job as FINISHED.
+        if (isBoundedReadFinished() && !sourceRecordsIterator.hasNext()) {
+            log.info("Bounded read completed, returning null to signal split completion");
+            return null;
+        }
         return sourceRecordsIterator;
+    }
+
+    private boolean isBoundedReadFinished() {
+        return isFinished()
+                && currentIncrementalSplit != null
+                && currentIncrementalSplit.getStopOffset() != null
+                && !currentIncrementalSplit.getStopOffset().isNeverStop();
     }
 
     private Iterator<SourceRecords> splitNormalStream(List<DataChangeEvent> batchEvents) {
         List<SourceRecord> sourceRecords = new ArrayList<>();
-        if (streamFetchTask.isRunning()) {
+        if (streamFetchTask.isRunning() || isBoundedReadFinished()) {
             for (DataChangeEvent event : batchEvents) {
                 if (shouldEmit(event.getRecord())) {
                     sourceRecords.add(event.getRecord());

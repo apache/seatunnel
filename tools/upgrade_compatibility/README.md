@@ -65,6 +65,12 @@ OLD_SEATUNNEL_VERSION=2.3.13 SCENARIO=mysql-cdc-multitable-localfile \
   bash tools/upgrade_compatibility/run_upgrade_compatibility.sh
 ```
 
+Run the focused runner tests with:
+
+```shell
+bash tools/upgrade_compatibility/run_upgrade_compatibility_test.sh
+```
+
 ## Adding Scenarios
 
 Add a new directory under `scenarios/` with these files:

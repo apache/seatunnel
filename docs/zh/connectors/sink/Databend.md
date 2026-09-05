@@ -233,6 +233,41 @@ sink {
 }
 ```
 
+### 将 MySQL CDC 流式写入 Databend
+
+同一套 CDC 参数同样适用于流式任务。下面的示例将 MySQL CDC 事件持续写入 Databend。流式
+CDC 场景下建议把 `batch_size` 调小一些，让每个 checkpoint 都能反映最新写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "orders"
+    batch_size = 500
+    conflict_key = "id"
+    enable_delete = true
+  }
+}
+```
+
 ## 相关链接
 
 - [Databend 官方网站](https://databend.rs/)

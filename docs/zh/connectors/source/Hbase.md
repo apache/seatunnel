@@ -14,6 +14,8 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 从 Apache HBase 表读取数据。支持普通扫描、行键范围扫描、时间戳范围扫描、二进制行键、自定义命名空间和并行批读取。
 
+本连接器以批处理模式运行，读取的是扫描范围在任务启动时刻的快照状态，并非 CDC 源；扫描启动后发生的新写入不会进入结果。
+
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -113,7 +115,7 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 
 **说明:**
 
-- `start_timestamp` / `end_timestamp` 必须大于等于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
+- `start_timestamp` 必须大于等于 0，`end_timestamp` 必须大于 0；若两者同时配置，需要满足 `start_timestamp < end_timestamp`（遵循 [start, end) 约定，`start_timestamp == end_timestamp` 将导致空扫描）。
 - 当 `start_rowkey` / `end_rowkey` 与 `start_timestamp` / `end_timestamp` 同时配置时，会同时应用行键范围与时间范围限制，最终返回两者的交集。
 
 ### 常用选项
@@ -124,14 +126,14 @@ Source 插件常用参数，具体请参考 [Source 常用选项](../common-opti
 
 ### 按行键和时间范围读取
 
-```bash
+```hocon
 source {
   Hbase {
-    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181" 
-    table = "seatunnel_test" 
-    caching = 1000 
-    batch = 100 
-    cache_blocks = false 
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "seatunnel_test"
+    caching = 1000
+    batch = 100
+    cache_blocks = false
     is_binary_rowkey = false
     start_rowkey = "B"
     end_rowkey = "C"
@@ -139,16 +141,16 @@ source {
     end_timestamp = 1700003600000
     schema = {
       columns = [
-        { 
-          name = "rowkey" 
-          type = string 
+        {
+          name = "rowkey"
+          type = string
         },
         {
           name = "columnFamily1:column1"
           type = boolean
         },
         {
-          name = "columnFamily1:column2" 
+          name = "columnFamily1:column2"
           type = double
         },
         {
@@ -177,6 +179,29 @@ source {
   }
 }
 ```
+
+### 读取二进制行键
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "binary_rowkey_table"
+    is_binary_rowkey = true
+    caching = 500
+    batch = 100
+    schema = {
+      columns = [
+        { name = rowkey, type = bytes },
+        { name = "info:name", type = string },
+        { name = "info:score", type = double }
+      ]
+    }
+  }
+}
+```
+
+当 `is_binary_rowkey = true` 时，请在 `schema` 中把行键列声明为 `bytes`，并在后续的 transform 节点里自行解码。
 
 ## Kerberos 示例
 

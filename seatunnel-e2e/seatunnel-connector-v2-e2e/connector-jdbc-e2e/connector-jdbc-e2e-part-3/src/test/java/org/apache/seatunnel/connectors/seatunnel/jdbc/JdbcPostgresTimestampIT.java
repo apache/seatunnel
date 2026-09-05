@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -75,27 +76,13 @@ public class JdbcPostgresTimestampIT extends TestSuiteBase implements TestResour
     private static final String PG_USER = "postgres";
     private static final String PG_PASSWORD = "postgres";
 
-    private static final String PG_DRIVER_URL =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-
     private PostgreSQLContainer<?> pgContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult result =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib"
-                                        + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
-                                        + " && wget -q "
-                                        + PG_DRIVER_URL);
-                Assertions.assertEquals(
-                        0,
-                        result.getExitCode(),
-                        "Failed to download PostgreSQL driver: " + result.getStderr());
-            };
+            container ->
+                    DependencyJar.ofClassName("org.postgresql.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override

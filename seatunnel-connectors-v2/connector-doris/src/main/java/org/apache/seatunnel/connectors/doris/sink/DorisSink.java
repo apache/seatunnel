@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
-import org.apache.seatunnel.api.sink.DefaultSaveModeHandler;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
@@ -29,18 +28,19 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
-import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.connectors.doris.catalog.DorisCatalog;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfoSerializer;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitter;
+import org.apache.seatunnel.connectors.doris.sink.savemode.DorisSaveModeHandler;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkStateSerializer;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkWriter;
@@ -155,14 +155,17 @@ public class DorisSink
                             getPluginName(), PluginType.SINK, "Cannot find Doris catalog factory"));
         }
 
-        Catalog catalog = catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
+        DorisCatalog catalog =
+                (DorisCatalog)
+                        catalogFactory.createCatalog(catalogFactory.factoryIdentifier(), config);
         return Optional.of(
-                new DefaultSaveModeHandler(
+                new DorisSaveModeHandler(
                         config.get(DorisSinkOptions.SCHEMA_SAVE_MODE),
                         config.get(DorisSinkOptions.DATA_SAVE_MODE),
                         catalog,
                         catalogTable,
-                        config.get(DorisSinkOptions.CUSTOM_SQL)));
+                        config.get(DorisSinkOptions.CUSTOM_SQL),
+                        dorisSinkConfig.getPartitions()));
     }
 
     @Override

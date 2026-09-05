@@ -473,6 +473,17 @@ sink {
 
 Ensure the Kafka broker has transactions enabled and that `transaction.timeout.ms` is aligned with your checkpoint interval.
 
+Under `EXACTLY_ONCE`, a failed send fails the checkpoint instead of silently dropping records. Two
+errors can be reported in that situation:
+
+| Code     | Name                    | Meaning                                                                       | What to do                                                                                                   |
+|----------|-------------------------|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | The transaction carries records but Kafka never registered it on the broker.   | Check broker availability and whether `transaction.timeout.ms` is shorter than the checkpoint interval.       |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | A record of the transaction failed to be sent asynchronously.                  | Read the exception cause; retriable causes usually recover on checkpoint retry, others need broker-side work. |
+
+Both errors abort the current transaction, so the affected records are re-sent from the last
+completed checkpoint rather than lost.
+
 ### How do I configure SASL/Kerberos authentication?
 
 Pass broker authentication settings via `kafka.*` properties:

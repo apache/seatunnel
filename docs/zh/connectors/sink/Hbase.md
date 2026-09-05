@@ -178,6 +178,26 @@ sink {
 }
 ```
 
+### 每次写入前重建目标表
+
+当任务允许在每次运行时删除并重建目标表时，可以使用 `schema_save_mode = "RECREATE_SCHEMA"`。
+配合 `data_save_mode = "DROP_DATA"` 可以同时清空已有数据；如果只想刷新表结构，保留
+`APPEND_DATA` 即可。
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "seatunnel_test_with_recreate_schema"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+    schema_save_mode = "RECREATE_SCHEMA"
+  }
+}
+```
+
 ## Kerberos 示例
 
 备注：

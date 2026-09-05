@@ -140,34 +140,6 @@ public class HiveIT extends TestSuiteBase implements TestResource {
     private static final String HMS_HOST = "metastore";
     private static final String HIVE_SERVER_HOST = "hiveserver2";
 
-    private String hiveExeUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hive/hive-exec/3.1.3/hive-exec-3.1.3.jar";
-    }
-
-    private String libFb303Url() {
-        return "https://repo1.maven.org/maven2/org/apache/thrift/libfb303/0.9.3/libfb303-0.9.3.jar";
-    }
-
-    private String hadoopAwsUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-    }
-
-    private String aliyunSdkOssUrl() {
-        return "https://repo1.maven.org/maven2/com/aliyun/oss/aliyun-sdk-oss/3.4.1/aliyun-sdk-oss-3.4.1.jar";
-    }
-
-    private String jdomUrl() {
-        return "https://repo1.maven.org/maven2/org/jdom/jdom/1.1/jdom-1.1.jar";
-    }
-
-    private String hadoopAliyunUrl() {
-        return "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.1.4/hadoop-aliyun-3.1.4.jar";
-    }
-
-    private String hadoopCosUrl() {
-        return "https://repo1.maven.org/maven2/com/qcloud/cos/hadoop-cos/2.6.5-8.0.2/hadoop-cos-2.6.5-8.0.2.jar";
-    }
-
     private HiveContainer hiveServerContainer;
     private HiveContainer hmsContainer;
     private Connection hiveConnection;
@@ -175,57 +147,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                // The jar of hive-exec
-                Container.ExecResult downloadHiveExeCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p "
-                                        + pluginHiveDir
-                                        + " && cd "
-                                        + pluginHiveDir
-                                        + " && wget "
-                                        + hiveExeUrl());
-                Assertions.assertEquals(
-                        0,
-                        downloadHiveExeCommands.getExitCode(),
-                        downloadHiveExeCommands.getStderr());
-                Container.ExecResult downloadLibFb303Commands =
-                        container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + libFb303Url());
-                Assertions.assertEquals(
-                        0,
-                        downloadLibFb303Commands.getExitCode(),
-                        downloadLibFb303Commands.getStderr());
-                // The jar of s3
-                Container.ExecResult downloadS3Commands =
-                        container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopAwsUrl());
-                Assertions.assertEquals(
-                        0, downloadS3Commands.getExitCode(), downloadS3Commands.getStderr());
-                // The jar of oss
-                Container.ExecResult downloadOssCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "cd "
-                                        + pluginHiveDir
-                                        + " && wget "
-                                        + aliyunSdkOssUrl()
-                                        + " && wget "
-                                        + jdomUrl()
-                                        + " && wget "
-                                        + hadoopAliyunUrl());
-                Assertions.assertEquals(
-                        0, downloadOssCommands.getExitCode(), downloadOssCommands.getStderr());
-                // The jar of cos
-                Container.ExecResult downloadCosCommands =
-                        container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopCosUrl());
-                Assertions.assertEquals(
-                        0, downloadCosCommands.getExitCode(), downloadCosCommands.getStderr());
-            };
+            container -> HiveDependencies.copyTo(container, pluginHiveDir);
 
     @BeforeAll
     @Override

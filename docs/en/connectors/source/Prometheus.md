@@ -178,7 +178,7 @@ source {
     query = "rate(node_cpu_seconds_total{mode!=\"idle\"}[1m])"
     query_type = "Range"
     start = "2026-08-10T00:00:00Z"
-    end = "now"
+    end = CURRENT_TIMESTAMP
     step = "30s"
     content_field = "$.data.result.*"
     format = "json"

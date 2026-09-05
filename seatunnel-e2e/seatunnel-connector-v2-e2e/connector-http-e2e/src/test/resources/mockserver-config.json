@@ -4959,5 +4959,33 @@
         "base64Bytes": "SGVsbG8gV29ybGQgLSBiaW5hcnkgdGVzdCBjb250ZW50"
       }
     }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/api/projects/123/query/",
+      "headers": {
+        "Authorization": ["Bearer phx_test"]
+      },
+      "body": {
+        "type": "JSON",
+        "json": "{\"query\":{\"kind\":\"HogQLQuery\",\"query\":\"SELECT event, distinct_id FROM events LIMIT 2\"},\"refresh\":\"blocking\"}",
+        "matchType": "ONLY_MATCHING_FIELDS"
+      }
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "body": {
+        "columns": ["event", "distinct_id"],
+        "results": [
+          ["signup", "user-1"],
+          ["purchase", "user-2"]
+        ],
+        "query_status": {
+          "complete": true,
+          "error": false
+        }
+      }
+    }
   }
 ]

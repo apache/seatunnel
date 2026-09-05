@@ -283,7 +283,7 @@ seatunnel:
       retain-after-job-cancelled: true
 ```
 
-2. 在 REST 请求体中配置作业级 `env` 覆盖, 仅对当前作业生效: 
+2. 在 REST 请求体中配置作业级 `env` 覆盖, 仅对当前作业生效:
 
 ```json
 {

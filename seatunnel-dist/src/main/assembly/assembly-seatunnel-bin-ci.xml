@@ -212,8 +212,8 @@
                 <include>org.opengauss:opengauss-jdbc:jar</include>
                 <include>org.duckdb:duckdb_jdbc:jar</include>
                 <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
-                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
-                <include>org.apache.seatunnel:seatunnel-hadoop-aws:jar:*:optional</include>
+                <include>org.apache.seatunnel:seatunnel-shade-hadoop3-uber:jar</include>
+                <include>org.apache.seatunnel:seatunnel-shade-hadoop-aws:jar</include>
                 <!--Add hadoop aliyun jar -->
                 <include>org.apache.hadoop:hadoop-aliyun:jar</include>
                 <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>

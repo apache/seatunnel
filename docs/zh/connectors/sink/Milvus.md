@@ -228,6 +228,128 @@ sink {
 }
 ```
 
+### 使用分区键写入
+
+本示例在创建 Milvus 集合时，把 `partition_key` 指定为 SeaTunnel 的一个标量字段。
+SeaTunnel 在创建集合时会把该字段作为 Milvus 分区键，于是 `category` 的每个取值都会
+成为一个独立的分区。
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    schema = {
+      table = "simple_example_with_partitionkey"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+          defaultValue = 0
+          comment = "primary key id"
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+          comment = "vector"
+        },
+        {
+          name = category
+          type = string
+          nullable = false
+          comment = "partition key"
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test"
+    partition_key = "category"
+  }
+}
+```
+
+### 使用可空字段写入
+
+本示例启用 Milvus 可空字段，需要 Milvus 2.5 或更高版本。Schema 中通过
+`nullable = true` 声明可空标量列，并在 Sink 上配置 `enable_nullable_field = true`，
+这样 `null` 值可以被正常写入。
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      table = "simple_example_nullable"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+          comment = "primary key id"
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+          nullable = false
+          comment = "vector"
+        },
+        {
+          name = book_title
+          type = string
+          nullable = true
+          comment = "nullable title"
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, [0.1, 0.2, 0.3, 0.4], null]
+      },
+      {
+        kind = INSERT
+        fields = [2, [0.2, 0.3, 0.4, 0.5], "nullable title"]
+      }
+    ]
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test_nullable"
+    enable_nullable_field = true
+  }
+}
+```
+
 ### 流式写入并通过检查点刷新
 
 ```bash

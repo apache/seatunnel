@@ -178,7 +178,7 @@ source {
 
 **查找更新操作的完整文档**是**更改流**提供的一项功能，它可以配置更改流以返回更新文档的最新多数提交版本。由于此功能，我们可以轻松收集最新的完整文档，并将更改日志转换为Changelog流。
 
-更新流中删除事件捕获的数据格式：[delete 事件](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
+更新流中删除事件捕获的数据格式：[delete 事件](https://www.mongodb.com/docs/manual/reference/change-events/delete/)
 ```
 {
    "_id": { <Resume Token> },

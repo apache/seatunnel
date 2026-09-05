@@ -249,18 +249,30 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
      * Logout and disconnect the given FTPClient. *
      *
      * @param client FTPClient
-     * @throws IOException IOException
      */
-    private void disconnect(FTPClient client) throws IOException {
-        if (client != null) {
-            if (!client.isConnected()) {
-                throw new FTPException("Client not connected");
-            }
+    void disconnect(FTPClient client) {
+        if (client == null || !client.isConnected()) {
+            return;
+        }
+
+        try {
             boolean logoutSuccess = client.logout();
-            client.disconnect();
             if (!logoutSuccess) {
                 LOG.warn(
                         "Logout failed while disconnecting, error code - " + client.getReplyCode());
+            }
+        } catch (IOException e) {
+            // Some FTP servers close the control connection before responding to QUIT. The
+            // preceding operation has already completed, so do not turn a successful operation
+            // into a failure while releasing the connection.
+            LOG.warn("Failed to logout from FTP server while disconnecting", e);
+        } finally {
+            if (client.isConnected()) {
+                try {
+                    client.disconnect();
+                } catch (IOException e) {
+                    LOG.warn("Failed to disconnect from FTP server", e);
+                }
             }
         }
     }
@@ -854,11 +866,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         } catch (IOException ioe) {
             throw new FTPException("Failed to get home directory", ioe);
         } finally {
-            try {
-                disconnect(client);
-            } catch (IOException ioe) {
-                throw new FTPException("Failed to disconnect", ioe);
-            }
+            disconnect(client);
         }
     }
 

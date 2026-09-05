@@ -135,7 +135,12 @@ public class InfluxdbSourceReader implements SourceReader<SeaTunnelRow, InfluxDB
 
     private void read(InfluxDBSourceSplit split, Collector<SeaTunnelRow> output) {
         QueryResult queryResult = influxdb.query(new Query(split.getQuery(), config.getDatabase()));
-        for (QueryResult.Result result : queryResult.getResults()) {
+        List<QueryResult.Result> results = queryResult.getResults();
+        if (CollectionUtils.isEmpty(results)) {
+            log.debug("split[{}] reader influxDB query result is empty.", split.splitId());
+            return;
+        }
+        for (QueryResult.Result result : results) {
             List<QueryResult.Series> serieList = result.getSeries();
             if (CollectionUtils.isNotEmpty(serieList)) {
                 for (QueryResult.Series series : serieList) {

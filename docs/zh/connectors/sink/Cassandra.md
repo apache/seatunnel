@@ -163,6 +163,46 @@ sink {
 }
 ```
 
+### 将 MySQL CDC 事件流式写入 Cassandra
+
+把 MySQL CDC 事件通过 Cassandra sink 写入下游，需要把 CDC 的行类型映射成表字段。Cassandra
+按行执行 `INSERT`，CDC 的 `DELETE` 可以通过写入 `is_deleted` 字段并在下游过滤掉来实现：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    keyspace = "test"
+    table = "orders"
+    fields = ["id", "order_id", "customer", "amount", "is_deleted"]
+    consistency_level = "LOCAL_QUORUM"
+    batch_size = 2000
+    batch_type = "UNLOGGED"
+    async_write = true
+  }
+}
+```
+
+> **注意**：上面示例中的 `is_deleted` 字段不会由 MySQL-CDC 自动产出，也不会被 Cassandra
+> sink 根据 `RowKind` 推导。你需要自行提供——既可以让上游 MySQL 表本身带有 `is_deleted`
+> 列，也可以在 source 和 sink 之间增加一个 Transform-V2（例如 `sql`、`replace`）从 CDC 的
+> `RowKind` 合成该字段。否则 `DELETE` 事件会被当作普通 upsert 写回 Cassandra。
+
 ## 变更日志
 
 <ChangeLog />
