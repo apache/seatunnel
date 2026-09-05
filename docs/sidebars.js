@@ -310,6 +310,7 @@ const sidebars = {
                 "architecture/core-api-design",
                 "architecture/transform-plugin-system",
                 "architecture/cdc-pipeline-architecture",
+                "architecture/schema-evolution-timeline-design",
                 "architecture/data-format-handling",
                 "architecture/table-schema-and-type-system",
                 "architecture/plugin-discovery-and-class-loading",
