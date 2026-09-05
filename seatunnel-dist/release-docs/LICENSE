@@ -416,6 +416,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
      (MIT License) Azure Storage Common (com.azure:azure-storage-common:12.34.0 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure Queue Storage (com.azure:azure-storage-queue:12.30.0 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure XML (com.azure:azure-xml:1.2.1 - https://github.com/Azure/azure-sdk-for-java)
+      (MIT License) Ionicons SVG path data (https://github.com/ionic-team/ionicons)
 
 
 ========================================================================
@@ -425,7 +426,7 @@ MIT-0 License
 The following component is provided under the MIT-0 License.
 The text of the license is included at licenses/LICENSE-reactive-streams.txt.
 
-     (MIT-0 License) reactive-streams (org.reactivestreams:reactive-streams:1.0.4 - https://github.com/reactive-streams/reactive-streams-jvm)
+      (MIT-0 License) reactive-streams (org.reactivestreams:reactive-streams:1.0.4 - https://github.com/reactive-streams/reactive-streams-jvm)
 
 
 ========================================================================
