@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -63,6 +64,8 @@ class JdbcFactoryTest {
         Assertions.assertTrue(jdbcSink.getWriteCatalogTable().isPresent());
         Assertions.assertNull(
                 jdbcSink.getWriteCatalogTable().get().getTableSchema().getPrimaryKey());
+        Assertions.assertTrue(jdbcSink.supports().contains(SchemaChangeType.ALTER_TABLE_COMMENT));
+        Assertions.assertTrue(jdbcSink.supports().contains(SchemaChangeType.ALTER_COLUMN_COMMENT));
     }
 
     private ReadonlyConfig getSimpleReadonlyConfig() {

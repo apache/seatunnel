@@ -46,6 +46,7 @@ import io.debezium.relational.history.HistoryRecord;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
@@ -93,7 +94,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         ddlParser.setCurrentSchema(tablePath.getSchemaName());
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
-        List<AlterTableEvent> parsedEvents = getAndClearParsedSchemaChangeEvents();
+        List<AlterTableEvent> parsedEvents = new ArrayList<>(getAndClearAlterTableEvents());
         parsedEvents = normalizeTableIdentifiers(parsedEvents, tablePath);
         parsedEvents = completeSchemaChangeEvents(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
@@ -334,11 +335,26 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);
 
-    protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
-        return Lists.newArrayList(getAndClearParsedEvents());
+    /**
+     * Returns and clears parsed column events.
+     *
+     * @deprecated Override {@link #getAndClearAlterTableEvents()} to emit table-level events. This
+     *     method remains as a compatibility extension point for downstream CDC connectors.
+     */
+    @Deprecated
+    protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
+        return new ArrayList<>();
     }
 
-    protected abstract List<AlterTableColumnEvent> getAndClearParsedEvents();
+    /**
+     * Returns and clears all parsed alter-table events.
+     *
+     * <p>The default delegates to the legacy column-only extension point so existing downstream
+     * resolvers continue to work without source changes.
+     */
+    protected List<? extends AlterTableEvent> getAndClearAlterTableEvents() {
+        return getAndClearParsedEvents();
+    }
 
     protected abstract String getSourceDialectName();
 }

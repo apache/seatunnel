@@ -113,7 +113,6 @@
     - **混合版本目录**：将目录重新物化，使所有文件都由新版本写入；或将旧版本与新版本文件分别写入不同目录，独立读取。
     - **大小写敏感的下游**：在支持的情况下将 Reader 配置为大小写不敏感的 Schema Evolution，或在读取时重映射该列。
     - **仅大小写不同的同名兄弟字段**（例如同一 struct 中同时存在 `MD5` 和 `md5`）：现在可被表达；大小写不敏感的下游（如 Hive）可能将其视为歧义字段，如需保留请在源头消歧。
-
 - **破坏性变更：Google Bigtable Source 的 `scan_row_limit` 变为每个 split 的上限**
   - **影响范围**：`seatunnel-connectors-v2/connector-google-bigtable`
   - **变更说明**：Enumerator 现在通过 `sampleRowKeys` 按 tablet 边界把表（或配置的 `start_rowkey` / `end_rowkey` 区间）切成多个 split。Reader 仍对每个 split 调用一次 `query.limit(...)`。此前 Source 始终只产生 1 个 split，因此 `scan_row_limit` 等价于整表行数上限。升级后，只要表有多个 tablet，即使 `parallelism = 1`（唯一 reader 会拿到全部 split），作业级上限约为 `scan_row_limit × split 数`。详见 [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int)。
@@ -161,6 +160,14 @@
   - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。
   - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
+
+### CDC 连接器变更
+
+- **弃用说明：兼容窗口结束后将拒绝继承的 CDC Sink schema change no-op**
+  - **影响范围**：`schema-changes.enabled = true` 且 Sink writer 未实现 `SupportSchemaEvolutionSinkWriter` 的 CDC 作业
+  - **变更说明**：在 `evolve` 模式下，Zeta 单表、Zeta 多表以及两个受支持的 Flink sink 路径优先使用 `SupportSchemaEvolutionSinkWriter`，并在调用显式覆写的 deprecated `SinkWriter.applySchemaChange` 时记录告警。在一个版本的兼容窗口内，继承默认 no-op 的 writer 也会记录告警并丢弃事件；该兜底将在下一个版本移除。(#11162)
+  - **影响**：仅继承 deprecated no-op 的现有 CDC 作业在兼容窗口内仍能运行，但 Sink schema 不会演进；兼容兜底移除后此类作业会失败。
+  - **迁移指南**：实现幂等的 `SupportSchemaEvolutionSinkWriter` 以完成端到端 schema evolution。也可以关闭 `schema-changes.enabled`，或排除 Sink 不应接收的事件类型。`schema-changes.behavior = ignore` 只适用于纯注释变更，不能屏蔽行结构变更。
 
 ### 转换变更
 

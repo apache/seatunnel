@@ -4,6 +4,10 @@ Schema Evolution means that the schema of a data table can be changed and the da
 ## Supported engines
 
 - Zeta
+- Flink
+
+Spark does not support schema evolution or enforce `schema-changes.behavior`. Do not enable
+`schema-changes.enabled` for Spark jobs.
 
 ## Supported schema change event types
 
@@ -137,6 +141,54 @@ sink {
 }
 ```
 
+## Schema change behavior
+
+CDC sources can configure `schema-changes.behavior` when `schema-changes.enabled = true`.
+The default value is `evolve`, so existing jobs that only set `schema-changes.enabled = true` keep the closest existing behavior.
+When `schema-changes.enabled = false`, schema change events are not sent downstream and the behavior option does not change the current behavior.
+Values are case-insensitive; the lowercase forms below are canonical in configuration examples.
+
+`schema-changes.include` and `schema-changes.exclude` are evaluated first by the CDC
+deserializer. A fully excluded event is neither applied to the produced row schema nor passed to
+the behavior policy. Therefore, for example, `strict` does not fail for an excluded event.
+
+| Value | Runtime contract |
+| --- | --- |
+| `strict` | Fail the job as soon as a schema change event is observed, before downstream schema coordination or sink-side schema mutation is attempted. |
+| `evolve` | Forward supported schema change events through the normal schema coordination path. Unsupported row-layout changes and sink-side apply failures are fatal. Unsupported comment-only events are logged and dropped on each sink path because they do not affect row encoding. |
+| `ignore` | Drop only `ALTER_TABLE_COMMENT` and `ALTER_COLUMN_COMMENT` before downstream schema coordination and sink-side schema evolution. ADD, DROP, RENAME, and MODIFY COLUMN change the runtime row layout and fail instead of being ignored. |
+
+Behavior matrix:
+
+| Case | `strict` | `evolve` | `ignore` |
+| --- | --- | --- | --- |
+| Source emits supported schema change type | Fail before downstream propagation | Coordinate and apply through the sink | Drop before downstream propagation only if safe to ignore |
+| Source emits unsupported schema change type | Fail before downstream propagation | Per sink path, log and drop comment-only events at the Flink policy gate before coordination or at the Zeta sink lifecycle after coordination; otherwise fail before sink-side apply | Drop `ALTER_TABLE_COMMENT` and `ALTER_COLUMN_COMMENT` before coordination; fail for row-layout changes |
+| Sink supports schema evolution | Not reached | Apply through `SupportSchemaEvolutionSinkWriter` | Not reached |
+| Sink does not support schema evolution | Not reached | Log and drop comment-only events. During the one-release compatibility window, call an explicitly overridden deprecated method, or log and drop for the inherited no-op | Not reached |
+| Sink apply throws at runtime | Not reached | Fail the job with the sink apply error | Not reached |
+
+Upgrade note: in `evolve` mode, sink writers should implement
+`SupportSchemaEvolutionSinkWriter` to receive and apply schema change events. During the deprecation
+window, the Zeta single-table, Zeta multi-table, and both Flink sink paths still invoke a deprecated
+`SinkWriter.applySchemaChange` method when the writer explicitly overrides it, and log a migration
+warning. For one release, an inherited default no-op also logs a warning and drops the event to
+avoid breaking an existing job on upgrade. This fallback will be removed in the next release.
+Migrate the sink writer to `SupportSchemaEvolutionSinkWriter`, disable
+`schema-changes.enabled`, or exclude event types the sink must not receive. Use
+`schema-changes.behavior = ignore` only for comment-only changes.
+
+Policy failures are deterministic. Zeta marks them non-retryable, and Flink wraps them in
+`SuppressRestartsException`, so restoring the same checkpoint does not repeatedly replay the same
+rejected DDL. Change the behavior to `evolve` with a compatible sink, disable
+`schema-changes.enabled`, or adjust the filters before resubmitting the job.
+
+Schema change delivery in `evolve` mode can be repeated after recovery if the external DDL succeeds
+but the following checkpoint does not complete. `SupportSchemaEvolutionSinkWriter` implementations
+must therefore apply events idempotently. The JDBC implementation checks the current sink schema
+before replaying ADD, DROP, and RENAME COLUMN operations; other sink implementations must provide
+the equivalent guarantee for the event types they advertise.
+
 ## Examples
 
 ### Mysql-CDC -> Jdbc-Mysql
@@ -159,6 +211,7 @@ source {
     url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
+    schema-changes.behavior = evolve
   }
 }
 

@@ -125,7 +125,6 @@ You need to check this document before you upgrade to related version.
     - **Mixed-version directories**: Re-materialize the directory so every file is produced by the new version, or write pre- and post-upgrade files into separate directories and read them independently.
     - **Case-sensitive consumers**: Configure the reader for case-insensitive schema evolution where supported, or remap the column at read time.
     - **Case-only sibling fields** (for example `MD5` and `md5` in the same struct): now representable; case-insensitive downstream consumers (such as Hive) may treat them as ambiguous — disambiguate at the source if needed.
-
 - **Breaking Change: Google Bigtable Source `scan_row_limit` is now a per-split cap**
   - **Affected component**: `seatunnel-connectors-v2/connector-google-bigtable`
   - **Description**: The enumerator now partitions a table (or the configured `start_rowkey` / `end_rowkey` range) into tablet-sized splits via `sampleRowKeys`. `scan_row_limit` is still applied with `query.limit(...)` once per split in the reader. Before this change the source always produced exactly one split, so `scan_row_limit` acted as a table-wide row cap. After this change a table with multiple tablets yields multiple splits even when `parallelism = 1` (the single reader is assigned every split), and the job-level upper bound is about `scan_row_limit × split count`. See [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int).
@@ -177,6 +176,14 @@ You need to check this document before you upgrade to related version.
   - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
   - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
+### CDC Connector Changes
+
+- **Deprecation: inherited CDC sink schema-change no-op will be rejected after the compatibility window**
+  - **Affected component**: CDC jobs with `schema-changes.enabled = true` and a sink writer that does not implement `SupportSchemaEvolutionSinkWriter`
+  - **Description**: In `evolve` mode, Zeta single-table, Zeta multi-table, and both supported Flink sink paths prefer `SupportSchemaEvolutionSinkWriter` and retain explicitly overridden deprecated `SinkWriter.applySchemaChange` with a warning. For one release, a writer that inherits the default no-op also logs a warning and drops the event. This fallback will be removed in the next release. (#11162)
+  - **Impact**: Existing CDC jobs whose writer only inherits the deprecated no-op keep running during the compatibility window, but still do not evolve the sink schema and will fail after the fallback is removed.
+  - **Migration Guide**: Implement an idempotent `SupportSchemaEvolutionSinkWriter` for end-to-end evolution. Alternatively disable `schema-changes.enabled`, or exclude event types the sink should not receive. Use `schema-changes.behavior = ignore` only for comment-only changes; it does not suppress row-layout changes.
 
 ### Transform Changes
 

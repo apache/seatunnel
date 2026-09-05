@@ -18,7 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.schema.AbstractSchemaChangeResolver;
@@ -28,7 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import io.debezium.relational.ddl.DdlParser;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class OracleSchemaChangeResolver extends AbstractSchemaChangeResolver {
     public OracleSchemaChangeResolver(SourceConfig.Factory<JdbcSourceConfig> sourceConfigFactory) {
@@ -41,12 +40,8 @@ public class OracleSchemaChangeResolver extends AbstractSchemaChangeResolver {
     }
 
     @Override
-    protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
-        return ((CustomOracleAntlrDdlParser) ddlParser)
-                .getAndClearParsedEvents().stream()
-                        .filter(event -> event instanceof AlterTableColumnEvent)
-                        .map(event -> (AlterTableColumnEvent) event)
-                        .collect(Collectors.toList());
+    protected List<AlterTableEvent> getAndClearAlterTableEvents() {
+        return ((CustomOracleAntlrDdlParser) ddlParser).getAndClearParsedEvents();
     }
 
     @Override
