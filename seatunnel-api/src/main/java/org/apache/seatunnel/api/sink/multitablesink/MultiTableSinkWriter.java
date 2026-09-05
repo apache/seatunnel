@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,6 +70,9 @@ import java.util.stream.Collectors;
  * parallel {@link #prepareCommit(long)} tasks. Synchronization between the consumer threads and
  * checkpoint/commit operations is coordinated through locks on each {@link
  * MultiTableWriterRunnable} instance.
+ *
+ * <p>Writer deduplication is handled upstream in {@link MultiTableSink} — multiple source tables
+ * writing to the same destination reuse one SinkWriter before it reaches this class.
  */
 @Slf4j
 public class MultiTableSinkWriter
@@ -228,12 +232,12 @@ public class MultiTableSinkWriter
                     .filter(entry -> entry.getKey().getIndex() % queueSize == queueIndex)
                     .forEach(
                             entry -> {
-                                tableIdWriterMap.put(
-                                        entry.getKey().getTableIdentifier(), entry.getValue());
+                                String destKey = entry.getKey().getTableIdentifier();
+                                tableIdWriterMap.put(destKey, entry.getValue());
                                 sinkIdentifierMap.put(entry.getKey(), entry.getValue());
                                 sinkIdentifiersByTable
                                         .computeIfAbsent(
-                                                entry.getKey().getTableIdentifier(),
+                                                destKey,
                                                 key ->
                                                         Collections.synchronizedList(
                                                                 new ArrayList<>()))
@@ -302,6 +306,31 @@ public class MultiTableSinkWriter
                 sinkPrimaryKeys.put(entry.getKey().getTableIdentifier(), sink.primaryKey());
             }
         }
+    }
+
+    /**
+     * Groups queue entries by writer instance identity so lifecycle operations drive each distinct
+     * {@link SinkWriter} exactly once.
+     *
+     * <p>When multiple source tables are deduplicated into one shared destination writer upstream
+     * in {@link MultiTableSink}, several {@link SinkIdentifier}s map to the same writer instance.
+     * Iterating per identifier would call {@code snapshotState}/{@code prepareCommit}/ {@code
+     * close} on that writer N times; grouping by identity lets callers invoke it once and fan
+     * results back to every aliased identifier.
+     *
+     * @param writers the identifier-to-writer entries of a single queue
+     * @return writer instances mapped to all identifiers aliasing them, in first-seen order
+     */
+    private static Map<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupByIdentity(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers) {
+        Map<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupedWriters =
+                new IdentityHashMap<>();
+        for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> entry : writers.entrySet()) {
+            groupedWriters
+                    .computeIfAbsent(entry.getValue(), key -> new ArrayList<>())
+                    .add(entry.getKey());
+        }
+        return groupedWriters;
     }
 
     /**
@@ -401,16 +430,22 @@ public class MultiTableSinkWriter
 
         Set<String> primarySharedSinkIds = new HashSet<>();
         Set<SinkIdentifier> primaryDispatchedKeys = new HashSet<>();
+        // One physical writer can be referenced by multiple source-table aliases. Applying the
+        // same DDL more than once would reopen or mutate that physical sink repeatedly.
+        Set<SinkWriter<SeaTunnelRow, ?, ?>> dispatchedWriters =
+                Collections.newSetFromMap(new IdentityHashMap<>());
         List<SchemaChangeDispatchTarget> dispatchTargets = new ArrayList<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
                     sinkWritersWithIndex.get(i).entrySet()) {
                 if (sinkWriterEntry.getKey().getTableIdentifier().equals(tableId)) {
-                    dispatchTargets.add(
-                            new SchemaChangeDispatchTarget(
-                                    sinkWriterEntry.getKey(),
-                                    sinkWriterEntry.getValue(),
-                                    "source-match"));
+                    if (dispatchedWriters.add(sinkWriterEntry.getValue())) {
+                        dispatchTargets.add(
+                                new SchemaChangeDispatchTarget(
+                                        sinkWriterEntry.getKey(),
+                                        sinkWriterEntry.getValue(),
+                                        "source-match"));
+                    }
                     primaryDispatchedKeys.add(sinkWriterEntry.getKey());
                     extractPhysicalSinkIdentifier(sinkWriterEntry.getValue())
                             .ifPresent(primarySharedSinkIds::add);
@@ -431,7 +466,8 @@ public class MultiTableSinkWriter
                 Optional<String> siblingPhysicalSinkId =
                         extractPhysicalSinkIdentifier(sinkWriterEntry.getValue());
                 if (siblingPhysicalSinkId.isPresent()
-                        && primarySharedSinkIds.contains(siblingPhysicalSinkId.get())) {
+                        && primarySharedSinkIds.contains(siblingPhysicalSinkId.get())
+                        && dispatchedWriters.add(sinkWriterEntry.getValue())) {
                     dispatchTargets.add(
                             new SchemaChangeDispatchTarget(
                                     sinkWriterEntry.getKey(),
@@ -476,8 +512,9 @@ public class MultiTableSinkWriter
         }
         schemaChangeBarrier.awaitCompletion();
         for (SchemaChangeFailure schemaChangeFailure : schemaChangeFailures) {
-            handleTableFailure(
+            handleWriterFailure(
                     schemaChangeFailure.getTableId(),
+                    schemaChangeFailure.getWriter(),
                     MultiTableFailurePhase.CHECKPOINT,
                     schemaChangeFailure.getError());
         }
@@ -505,6 +542,7 @@ public class MultiTableSinkWriter
                     schemaChangeFailures.add(
                             new SchemaChangeFailure(
                                     dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                                    dispatchTarget.getWriter(),
                                     error));
                     continue;
                 }
@@ -681,28 +719,33 @@ public class MultiTableSinkWriter
         List<MultiTableState> multiTableStates = new ArrayList<>();
         Map<SinkIdentifier, List<?>> snapshotStates = new HashMap<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
-            for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
-                    new ArrayList<>(sinkWritersWithIndex.get(i).entrySet())) {
-                synchronized (runnable.get(i)) {
+            // Aliased identifiers share one writer instance, so persist its state exactly once.
+            // Older checkpoints can still carry per-alias states and are merged by MultiTableSink.
+            Map<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupedWriters =
+                    groupByIdentity(sinkWritersWithIndex.get(i));
+            synchronized (runnable.get(i)) {
+                for (Map.Entry<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupedEntry :
+                        groupedWriters.entrySet()) {
+                    List<SinkIdentifier> aliasedIdentifiers = groupedEntry.getValue();
+                    SinkIdentifier primaryIdentifier = aliasedIdentifiers.get(0);
                     try {
                         List states =
                                 executeWithTableRetry(
-                                        sinkWriterEntry.getKey().getTableIdentifier(),
+                                        primaryIdentifier.getTableIdentifier(),
                                         MultiTableFailurePhase.CHECKPOINT,
-                                        () ->
-                                                sinkWriterEntry
-                                                        .getValue()
-                                                        .snapshotState(checkpointId));
-                        snapshotStates.put(sinkWriterEntry.getKey(), states);
+                                        () -> groupedEntry.getKey().snapshotState(checkpointId));
+                        snapshotStates.put(primaryIdentifier, states);
                     } catch (InterruptedException error) {
                         Thread.currentThread().interrupt();
                         throwAsIOException(error);
                     } catch (Throwable error) {
                         if (failurePolicy.continueOtherTables()) {
-                            handleTableFailure(
-                                    sinkWriterEntry.getKey().getTableIdentifier(),
-                                    MultiTableFailurePhase.CHECKPOINT,
-                                    error);
+                            for (SinkIdentifier aliasedIdentifier : aliasedIdentifiers) {
+                                handleTableFailure(
+                                        aliasedIdentifier.getTableIdentifier(),
+                                        MultiTableFailurePhase.CHECKPOINT,
+                                        error);
+                            }
                             continue;
                         }
                         throwAsIOException(error);
@@ -751,45 +794,52 @@ public class MultiTableSinkWriter
                     executorService.submit(
                             () -> {
                                 synchronized (runnable.get(subWriterIndex)) {
-                                    for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
-                                            sinkWriterEntry :
-                                                    new ArrayList<>(
-                                                            sinkWritersWithIndex
-                                                                    .get(subWriterIndex)
-                                                                    .entrySet())) {
+                                    // Aliased identifiers share one writer instance, so emit one
+                                    // canonical commit record for that physical destination.
+                                    for (Map.Entry<
+                                                    SinkWriter<SeaTunnelRow, ?, ?>,
+                                                    List<SinkIdentifier>>
+                                            groupedEntry :
+                                                    groupByIdentity(
+                                                                    sinkWritersWithIndex.get(
+                                                                            subWriterIndex))
+                                                            .entrySet()) {
+                                        List<SinkIdentifier> aliasedIdentifiers =
+                                                groupedEntry.getValue();
+                                        SinkIdentifier primaryIdentifier =
+                                                aliasedIdentifiers.get(0);
                                         Optional<?> commit;
                                         try {
-                                            SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
-                                                    sinkWriterEntry.getValue();
                                             commit =
                                                     executeWithTableRetry(
-                                                            sinkWriterEntry
-                                                                    .getKey()
-                                                                    .getTableIdentifier(),
+                                                            primaryIdentifier.getTableIdentifier(),
                                                             MultiTableFailurePhase.CHECKPOINT,
                                                             () ->
-                                                                    sinkWriter.prepareCommit(
-                                                                            checkpointId));
+                                                                    groupedEntry
+                                                                            .getKey()
+                                                                            .prepareCommit(
+                                                                                    checkpointId));
                                         } catch (InterruptedException error) {
                                             Thread.currentThread().interrupt();
                                             throw new RuntimeException(error);
                                         } catch (Throwable error) {
                                             if (failurePolicy.continueOtherTables()) {
-                                                handleTableFailure(
-                                                        sinkWriterEntry
-                                                                .getKey()
-                                                                .getTableIdentifier(),
-                                                        MultiTableFailurePhase.CHECKPOINT,
-                                                        error);
+                                                for (SinkIdentifier aliasedIdentifier :
+                                                        aliasedIdentifiers) {
+                                                    handleTableFailure(
+                                                            aliasedIdentifier.getTableIdentifier(),
+                                                            MultiTableFailurePhase.CHECKPOINT,
+                                                            error);
+                                                }
                                                 continue;
                                             }
                                             throw new RuntimeException(error);
                                         }
                                         commit.ifPresent(
-                                                o ->
+                                                value ->
                                                         multiTableCommitInfo
                                                                 .getCommitInfo()
-                                                                .put(sinkWriterEntry.getKey(), o));
+                                                                .put(primaryIdentifier, value));
                                     }
                                 }
                             }));
@@ -828,7 +878,7 @@ public class MultiTableSinkWriter
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
-                        sinkWritersWithIndex.get(i).values()) {
+                        groupByIdentity(sinkWritersWithIndex.get(i)).keySet()) {
                     try {
                         sinkWriter.abortPrepare();
                     } catch (Throwable e) {
@@ -875,19 +925,17 @@ public class MultiTableSinkWriter
         executorService.shutdownNow();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
-                Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkIdentifierSinkWriterMap =
-                        sinkWritersWithIndex.get(i);
-                sinkIdentifierSinkWriterMap.forEach(
-                        (identifier, sinkWriter) -> {
-                            try {
-                                sinkWriter.close();
-                            } catch (Throwable e) {
-                                if (firstE[0] == null) {
-                                    firstE[0] = e;
-                                }
-                                log.error("close error", e);
-                            }
-                        });
+                for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
+                        groupByIdentity(sinkWritersWithIndex.get(i)).keySet()) {
+                    try {
+                        sinkWriter.close();
+                    } catch (Throwable e) {
+                        if (firstE[0] == null) {
+                            firstE[0] = e;
+                        }
+                        log.error("close error", e);
+                    }
+                }
             }
         }
         try {
@@ -956,24 +1004,28 @@ public class MultiTableSinkWriter
         subSinkErrorCheck();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
-                for (SinkIdentifier id : sinkWritersWithIndex.get(i).keySet()) {
-                    SinkContextProxy proxy = proxyContexts.get(id);
-                    if (proxy != null && proxy.getFlushAction() != null) {
-                        try {
-                            proxy.getFlushAction().run();
-                        } catch (InterruptedException error) {
-                            Thread.currentThread().interrupt();
-                            throw error;
-                        } catch (Exception error) {
-                            if (failurePolicy.continueOtherTables()) {
+                for (List<SinkIdentifier> aliasedIdentifiers :
+                        groupByIdentity(sinkWritersWithIndex.get(i)).values()) {
+                    SinkContextProxy proxy = proxyContexts.get(aliasedIdentifiers.get(0));
+                    if (proxy == null || proxy.getFlushAction() == null) {
+                        continue;
+                    }
+                    try {
+                        proxy.getFlushAction().run();
+                    } catch (InterruptedException error) {
+                        Thread.currentThread().interrupt();
+                        throw error;
+                    } catch (Exception error) {
+                        if (failurePolicy.continueOtherTables()) {
+                            for (SinkIdentifier identifier : aliasedIdentifiers) {
                                 handleTableFailure(
-                                        id.getTableIdentifier(),
+                                        identifier.getTableIdentifier(),
                                         MultiTableFailurePhase.TIMER_FLUSH,
                                         error);
-                                continue;
                             }
-                            throw error;
+                            continue;
                         }
+                        throw error;
                     }
                 }
             }
@@ -1122,6 +1174,39 @@ public class MultiTableSinkWriter
         return tableId != null && failedTables.containsKey(tableId);
     }
 
+    /**
+     * Quarantines every alias of a writer that failed a shared lifecycle operation.
+     *
+     * <p>A schema change mutates the physical writer rather than one row, so continuing any alias
+     * after it fails could reuse a partially updated writer. Runtime row failures intentionally use
+     * {@link #handleTableFailure(String, MultiTableFailurePhase, Throwable)} directly instead: a
+     * rejected row for one table must not close a shared writer that can still write its siblings.
+     */
+    private void handleWriterFailure(
+            String fallbackTableId,
+            SinkWriter<SeaTunnelRow, ?, ?> failedWriter,
+            MultiTableFailurePhase phase,
+            Throwable error) {
+        Set<String> tableIds = new HashSet<>();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            synchronized (runnable.get(i)) {
+                for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> entry :
+                        sinkWritersWithIndex.get(i).entrySet()) {
+                    if (entry.getValue() == failedWriter) {
+                        tableIds.add(entry.getKey().getTableIdentifier());
+                    }
+                }
+            }
+        }
+        if (tableIds.isEmpty()) {
+            handleTableFailure(fallbackTableId, phase, error);
+            return;
+        }
+        for (String tableId : tableIds) {
+            handleTableFailure(tableId, phase, error);
+        }
+    }
+
     private Throwable getFirstFailureCause() {
         return failedTables.values().stream()
                 .map(MultiTableFailedTable::getCause)
@@ -1195,8 +1280,9 @@ public class MultiTableSinkWriter
             for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
                 synchronized (runnable.get(i)) {
                     SinkWriter<SeaTunnelRow, ?, ?> writer =
-                            sinkWritersWithIndex.get(i).get(sinkIdentifier);
-                    if (writer != null) {
+                            sinkWritersWithIndex.get(i).remove(sinkIdentifier);
+                    if (writer != null
+                            && !isWriterStillReferenced(sinkWritersWithIndex.get(i), writer)) {
                         try {
                             writer.close();
                         } catch (Throwable closeError) {
@@ -1206,13 +1292,30 @@ public class MultiTableSinkWriter
                                     closeError);
                         }
                     }
-                    sinkWritersWithIndex.get(i).remove(sinkIdentifier);
-                    runnable.get(i).removeTableWriter(tableId);
+                    if (writer != null) {
+                        runnable.get(i).removeTableWriter(tableId);
+                    }
                 }
             }
             sinkWriters.remove(sinkIdentifier);
         }
         sinkPrimaryKeys.remove(tableId);
+    }
+
+    /**
+     * Determines whether another logical table still owns the same physical writer in this queue.
+     *
+     * <p>Writers are compared by identity because equality does not express lifecycle ownership.
+     */
+    private boolean isWriterStillReferenced(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writerMap,
+            SinkWriter<SeaTunnelRow, ?, ?> writer) {
+        for (SinkWriter<SeaTunnelRow, ?, ?> activeWriter : writerMap.values()) {
+            if (activeWriter == writer) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @FunctionalInterface
@@ -1227,15 +1330,24 @@ public class MultiTableSinkWriter
     private static class SchemaChangeFailure {
 
         private final String tableId;
+        /** Physical writer that failed the schema mutation. */
+        private final SinkWriter<SeaTunnelRow, ?, ?> writer;
+
         private final Throwable error;
 
-        private SchemaChangeFailure(String tableId, Throwable error) {
+        private SchemaChangeFailure(
+                String tableId, SinkWriter<SeaTunnelRow, ?, ?> writer, Throwable error) {
             this.tableId = tableId;
+            this.writer = writer;
             this.error = error;
         }
 
         public String getTableId() {
             return tableId;
+        }
+
+        public SinkWriter<SeaTunnelRow, ?, ?> getWriter() {
+            return writer;
         }
 
         public Throwable getError() {
