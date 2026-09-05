@@ -60,6 +60,28 @@ import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Multi-node failover coverage for the lifecycle of jobs that cannot be dispatched immediately.
+ *
+ * <p>Every scenario here builds a real split cluster (separate master and worker Hazelcast
+ * instances) and changes master ownership while a {@code ScheduleStrategy.WAIT} job is held back by
+ * occupied worker slots. That exercises the coordinator's pending-job bookkeeping against real
+ * membership changes and real resource contention, rather than against mocked coordinator state as
+ * the single-JVM unit tests do.
+ *
+ * <p>Scenarios covered:
+ *
+ * <ul>
+ *   <li>{@code testPendingJobLifecycleInMasterFailover} - a pending job survives a single master
+ *       handoff and is dispatched once the cluster grows enough capacity for it.
+ *   <li>{@code testPendingJobScheduledAfterRunningJobCanceled} - a pending job is dispatched after
+ *       the running job occupying its slots is canceled.
+ *   <li>{@code testPendingJobNotDuplicatedAcrossRepeatedMasterFailover} - repeated master handoffs
+ *       never revive a stale schedule generation, so the job is dispatched exactly once.
+ *   <li>{@code testTerminalJobCleanupSkipsWorkerWaitAfterMasterSwitch} - cleanup of a terminal job
+ *       is not blocked behind the worker-wait gate that live jobs go through after a master switch.
+ * </ul>
+ */
 public class SplitClusterPendingJobLifecycleFailoverIT {
     private static final String JOB_CONFIG_FILE = "pending_jobs_streaming_lifecycle.conf";
 
@@ -399,7 +421,7 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
             // terminal job's worker slots to be reclaimed by the next coordinator, which is a
             // separate resource-lifecycle concern from the duplicate-dispatch invariant under test.
             // Adding a worker keeps the assertions below attributable to scheduling alone, and
-            // matches how testPendingJobLifecycleAcrossMasterFailover releases a pending job.
+            // matches how testPendingJobLifecycleInMasterFailover releases a pending job.
             SeaTunnelConfig extraWorkerConfig = getSeaTunnelConfig(testClusterName);
             configurePendingLifecycleTest(extraWorkerConfig);
             extraWorkerNode =
