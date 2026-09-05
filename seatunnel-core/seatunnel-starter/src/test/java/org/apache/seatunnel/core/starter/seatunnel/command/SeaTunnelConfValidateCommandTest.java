@@ -40,6 +40,8 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.List;
 
+import static com.github.stefanbirkner.systemlambda.SystemLambda.tapSystemOutNormalized;
+
 public class SeaTunnelConfValidateCommandTest {
 
     @Test
@@ -60,6 +62,45 @@ public class SeaTunnelConfValidateCommandTest {
         Assertions.assertTrue(result.isValid());
         Assertions.assertEquals("static", result.getPhase());
         Assertions.assertTrue(result.getErrors().isEmpty());
+    }
+
+    @Test
+    public void testJsonOutputForSuccessfulValidation() throws Exception {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildJsonArgs("config/valid_static_dryrun.json"));
+
+        String output = tapSystemOutNormalized(command::execute);
+
+        Assertions.assertTrue(output.contains("\"valid\":true"), output);
+        Assertions.assertTrue(output.contains("\"phase\":\"static\""), output);
+        Assertions.assertTrue(output.contains("\"errors\":[]"), output);
+    }
+
+    @Test
+    public void testJsonOutputForFailedValidationRetainsFailure() throws Exception {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(
+                        buildJsonArgs("config/invalid_dryrun_missing_required.json"));
+
+        String output =
+                tapSystemOutNormalized(
+                        () ->
+                                Assertions.assertThrows(
+                                        ConfigCheckException.class, command::execute));
+
+        Assertions.assertTrue(output.contains("\"valid\":false"), output);
+        Assertions.assertTrue(output.contains("\"phase\":\"static\""), output);
+        Assertions.assertTrue(output.contains("\"errors\":[{"), output);
+    }
+
+    @Test
+    public void testDefaultOutputDoesNotEmitJson() throws Exception {
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildArgs("config/valid_static_dryrun.json"));
+
+        String output = tapSystemOutNormalized(command::execute);
+
+        Assertions.assertFalse(output.contains("\"schemaVersion\""), output);
     }
 
     @Test
@@ -607,6 +648,13 @@ public class SeaTunnelConfValidateCommandTest {
 
     private ClientCommandArgs buildArgsFromPath(String configPath) {
         String[] args = {"-c", configPath, "--dry-run", "static"};
+        return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
+    }
+
+    private ClientCommandArgs buildJsonArgs(String configFile) {
+        String[] args = {
+            "-c", resolveConfigPath(configFile), "--dry-run", "static", "--format", "json"
+        };
         return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
     }
 

@@ -35,6 +35,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DryRunConnectFailureMessageSanitizer;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.enums.DryRun;
+import org.apache.seatunnel.core.starter.enums.OutputFormat;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -101,9 +102,8 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
 
     @Override
     public void execute() throws ConfigCheckException {
-        Path configPath = FileUtils.getConfigPath(clientCommandArgs);
-
         try {
+            Path configPath = FileUtils.getConfigPath(clientCommandArgs);
             Config config = ConfigBuilder.of(configPath, clientCommandArgs.getVariables());
 
             if (config.hasPath("env")) {
@@ -183,6 +183,8 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                         .validate();
             }
 
+            printJsonResultIfRequested(ConfigValidationResult.success(validationPhase()));
+
         } catch (Exception e) {
             String validationMode =
                     clientCommandArgs.getDryRun() == DryRun.CONNECT
@@ -191,9 +193,28 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
             String message = e.getMessage();
             if (clientCommandArgs.getDryRun() == DryRun.CONNECT) {
                 message = DryRunConnectFailureMessageSanitizer.sanitize(message);
+                printJsonResultIfRequested(
+                        ConfigValidationResult.failure(
+                                validationPhase(),
+                                toValidationError(
+                                        message == null ? "Validation failed" : message)));
                 throw new ConfigCheckException(validationMode + " failed: " + message);
             }
+            String sanitizedMessage = DryRunConnectFailureMessageSanitizer.sanitize(message);
+            printJsonResultIfRequested(
+                    ConfigValidationResult.failure(
+                            validationPhase(),
+                            toValidationError(
+                                    sanitizedMessage == null
+                                            ? "Validation failed"
+                                            : sanitizedMessage)));
             throw new ConfigCheckException(validationMode + " failed: " + message, e);
+        }
+    }
+
+    private void printJsonResultIfRequested(ConfigValidationResult result) {
+        if (clientCommandArgs.getOutputFormat() == OutputFormat.JSON) {
+            System.out.println(result.toJson());
         }
     }
 
