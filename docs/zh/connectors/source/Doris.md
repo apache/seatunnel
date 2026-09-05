@@ -66,22 +66,23 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 |               名称                |  类型   | 是否必须  |  默认值     |                                             描述                                                     |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
-| fenodes                          | string | yes      | -          | FE 地址, 格式：`"fe_host:fe_http_port"`                                                               |
+| fenodes                          | string | yes      | -          | FE 地址, 格式：`"fe_host:fe_http_port"`，多个 FE 可以用逗号分隔。                                                              |
 | username                         | string | yes      | -          | 用户名                                                                                               |
 | password                         | string | yes      | -          | 密码                                                                                                 |
+| database                         | string | no       | -          | Doris 数据库名。单表读取（未使用 `table_list`）时必填。                                                                          |
+| table                            | string | no       | -          | Doris 表名。单表读取（未使用 `table_list`）时必填。                                                                            |
 | doris.request.retries            | int    | no       | 3          | 请求Doris FE的重试次数                                                                                 |
-| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间。                                                                 |
-| doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间。                                                                    |
+| doris.request.read.timeout.ms    | int    | no       | 30000      | 请求 Doris BE 的 socket 读取超时时间（毫秒）。                                                                |
+| doris.request.connect.timeout.ms | int    | no       | 30000      | 请求 Doris FE 或 BE 的连接超时时间（毫秒）。                                                                  |
 | query-port                       | int    | no       | 9030       | Doris 查询端口。                                                                                       |
 | doris.request.query.timeout.s    | int    | no       | 3600       | Doris扫描数据的超时时间，单位秒                                                                          |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | 每个 SeaTunnel split 包含的 Doris tablet 数量，最小值为 `1`。                                  |
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
-| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。注意：这是当前运行时实际使用的配置名，包含历史遗留拼写，调整队列大小时请按这个完整名称配置。                                                          |
+| doris.exec.mem.limit             | long   | no       | 2147483648 | 单个 BE 扫描请求可以使用的最大内存，默认 2G。                                                                                |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
 
-`doris.request.retriesdoris.deserialize.queue.size` 是当前运行时实际使用的配置名。调整异步 Arrow 反序列化队列大小时，请按这个完整名称配置。
-
-表清单配置:
+表清单配置（使用 `table_list` 时）:
 
 |               名称                |  类型   | 是否必须  |  默认值     |                                             描述                                                     |
 |----------------------------------|--------|----------|------------|-----------------------------------------------------------------------------------------------------|
@@ -233,6 +234,21 @@ sink{
 }
 ```
 
+## 常见问题
+
+### 为什么有一个选项叫 `doris.request.retriesdoris.deserialize.queue.size`？
+
+这是历史遗留的运行时配置项名称。为了保持兼容性，名称故意保留不变——调整异步 Arrow 反序列化队列大小时，请使用这个完整的 key（含重复的 `doris.retries` 段）。目前没有更短的别名。
+
+### 如何在一个作业中读取多张 Doris 表？
+
+使用 `table_list` 选项，每张表提供一个条目。每个条目可以覆盖 `database`、`table`、`doris.read.field`、`doris.filter.query`、`doris.request.tablet.size`、`doris.batch.size` 和 `doris.exec.mem.limit`。单表场景下可把这些选项展开到外层 source 并省略 `table_list`。
+
+### 什么时候应该调整 `doris.request.tablet.size`？
+
+值越大，每个 SeaTunnel split 包含的 Doris tablet 越多，split 数量越少，可能影响并行度。值越小（最小 `1`）会产生更多 split，提升并行读取数量。建议和 `env.parallelism` 配合一起调整以平衡 worker 负载。
+
 ## 变更日志
 
 <ChangeLog />
+

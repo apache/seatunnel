@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 > Elasticsearch source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to read data from Elasticsearch.
@@ -18,39 +24,40 @@ support version >= 2.x and <= 8.x.
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-| name                    | type    | required | default value                                                  |
-|-------------------------|---------|----------|----------------------------------------------------------------|
-| hosts                   | array   | yes      | -                                                              |
-| auth_type               | string  | no       | basic                                                          |
-| username                | string  | no       | -                                                              |
-| password                | string  | no       | -                                                              |
-| auth.api_key_id         | string  | no       | -                                                              |
-| auth.api_key            | string  | no       | -                                                              |
-| auth.api_key_encoded    | string  | no       | -                                                              |
-| index                   | string  | no       | Required when `index_list` is not configured                    |
-| index_list              | array   | no       | Used to define a multi-index task                              |
-| source                  | array   | no       | -                                                              |
-| query                   | json    | no       | {"match_all": {}}                                              |
-| search_type             | enum    | no       | Query type, SQL or DSL, default DSL                            |
-| search_api_type         | enum    | no       | Pagination API type, SCROLL or PIT, default SCROLL             |
-| sql_query               | string  | no       | SQL query, required when search_type is SQL                    |
-| scroll_time             | string  | no       | 1m                                                             |
-| scroll_size             | int     | no       | 100                                                            |
-| tls_verify_certificate  | boolean | no       | true                                                           |
-| tls_verify_hostname     | boolean | no       | true                                                           |
-| array_column            | map     | no       |                                                                |
-| tls_keystore_path       | string  | no       | -                                                              |
-| tls_keystore_password   | string  | no       | -                                                              |
-| tls_truststore_path     | string  | no       | -                                                              |
-| tls_truststore_password | string  | no       | -                                                              |
-| pit_keep_alive          | long    | no       | 60000 (1 minute)                                               |
-| pit_batch_size          | int     | no       | 100                                                            |
-| runtime_fields          | array   | no       | -                                                              |
-| slice_max               | int     | no       | 1 (SCROLL: ES >= 5.0, PIT: ES >= 7.10)                        |
-| common-options          |         | no       | -                                                              |
+| name                    | type    | required | default value                                                  | description |
+|-------------------------|---------|----------|----------------------------------------------------------------|-------------|
+| hosts                   | array   | yes      | -                                                              | Elasticsearch cluster HTTP addresses in `host:port` form. Multiple hosts can be specified (for example `["host1:9200", "host2:9200"]`). |
+| auth_type               | string  | no       | basic                                                          | Authentication method. Supported values: `basic`, `api_key`, `api_key_encoded`. |
+| username                | string  | no       | -                                                              | Username for basic authentication (x-pack username). Required when `auth_type=basic`. |
+| password                | string  | no       | -                                                              | Password for basic authentication (x-pack password). Required when `auth_type=basic`. |
+| auth.api_key_id         | string  | no       | -                                                              | Elasticsearch API key ID. Required when `auth_type=api_key`. |
+| auth.api_key            | string  | no       | -                                                              | Elasticsearch API key secret. Required when `auth_type=api_key`. |
+| auth.api_key_encoded    | string  | no       | -                                                              | Base64 encoded API key (`base64(id:api_key)`). Required when `auth_type=api_key_encoded`. |
+| index                   | string  | no       | Required when `index_list` is not configured                    | Single Elasticsearch index or index pattern. Supports `*` fuzzy matching. |
+| index_list              | array   | no       | Used to define a multi-index task                              | List of indexes to read; each entry can override `query`, `source`, `schema`, `scroll_size`, and `scroll_time`. |
+| source                  | array   | no       | -                                                              | Document fields to project. Use the `_id` alias to read the document id. If unset, fields are auto-retrieved from the index mapping. |
+| query                   | json    | no       | `{"match_all": {}}`                                            | Elasticsearch DSL body. Controls which documents are read. |
+| search_type             | enum    | no       | DSL                                                            | Query type: `DSL` (default) or `SQL`. |
+| search_api_type         | enum    | no       | SCROLL                                                         | Pagination API: `SCROLL` (default) or `PIT`. |
+| sql_query               | string  | no       | Required when `search_type=SQL`                                | SQL query used when `search_type=SQL`. Map and array types are not supported. |
+| scroll_time             | string  | no       | 1m                                                             | Time the Elasticsearch scroll context stays alive. |
+| scroll_size             | int     | no       | 100                                                            | Maximum number of hits returned per scroll request. |
+| tls_verify_certificate  | boolean | no       | true                                                           | Enable certificate validation for HTTPS endpoints. |
+| tls_verify_hostname     | boolean | no       | true                                                           | Enable hostname validation for HTTPS endpoints. |
+| array_column            | map     | no       | -                                                              | Map of column names to array element types (for example `c_array = "array<tinyint>"`). |
+| tls_keystore_path       | string  | no       | -                                                              | Path to the PEM or JKS key store. Must be readable by the user running SeaTunnel. |
+| tls_keystore_password   | string  | no       | -                                                              | Password for the key store specified by `tls_keystore_path`. |
+| tls_truststore_path     | string  | no       | -                                                              | Path to the PEM or JKS trust store. Must be readable by the user running SeaTunnel. |
+| tls_truststore_password | string  | no       | -                                                              | Password for the trust store specified by `tls_truststore_path`. |
+| pit_keep_alive          | long    | no       | 60000 (1 minute)                                               | PIT retention time in milliseconds. Only effective when `search_api_type=PIT`. |
+| pit_batch_size          | int     | no       | 100                                                            | Maximum number of hits returned per PIT search request. |
+| runtime_fields          | array   | no       | -                                                              | Runtime fields to compute at query time (Elasticsearch 7.11+). Each entry needs at least `name`, `type`, and `script`. |
+| slice_max               | int     | no       | 1                                                              | Number of slices used to split a single index for parallel reads. Effective for SCROLL/PIT only. SCROLL slicing requires ES >= 5.0; PIT slicing requires ES >= 7.10. Ignored when `search_type=SQL`. |
+| common-options          |         | no       | -                                                              | Source plugin common parameters; see [Source Common Options](../common-options/source-common-options.md). |
 
 
 

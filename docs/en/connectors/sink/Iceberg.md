@@ -20,6 +20,7 @@ Sink connector for Apache Iceberg. It supports CDC writes, automatic table creat
 
 ## Key features
 
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
@@ -75,7 +76,7 @@ libfb303-xxx.jar
 | iceberg.table.auto-create-props        | map     | no       | -                            | Configuration specified by Iceberg during automatic table creation.                                                                                                                                                                                                                                                       |
 | iceberg.table.schema-evolution-enabled | boolean | no       | false                        | Setting to true enables Iceberg tables to support schema evolution during the synchronization process                                                                                                                                                                                                                     |
 | iceberg.table.primary-keys             | string  | no       | -                            | Default comma-separated list of columns that identify a row in tables (primary key)                                                                                                                                                                                                                                       |
-| iceberg.table.partition-keys           | string  | no       | -                            | Default comma-separated list of partition fields to use when creating tables. Supports placeholder `${partition_keys}` for multi-table jobs                                                                                                                                                                                |
+| iceberg.table.partition-keys           | string  | no       | -                            | Default comma-separated list of partition fields to use when creating tables. Applied as a single global default to every auto-created table in a multi-table job.                                                                                                                                                                                |
 | iceberg.table.upsert-mode-enabled      | boolean | no       | false                        | Set to `true` to enable upsert mode, default is `false`                                                                                                                                                                                                                                                                   |
 | schema_save_mode                       | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | the schema save mode, please refer to `schema_save_mode` below                                                                                                                                                                                                                                                            |
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
@@ -94,7 +95,7 @@ When this option is `true`, `iceberg.table.primary-keys` must be configured expl
 
 ### iceberg.table.partition-keys [string]
 
-Use a comma-separated list, for example `dt,region` or Iceberg transforms such as `days(ts)`. In multi-table jobs, `${partition_keys}` can be used as a placeholder from the upstream table metadata.
+Use a comma-separated list, for example `dt,region` or Iceberg transforms such as `days(ts)`. In a multi-table job, the value is read once and applied as a single global default to every auto-created table (the same behavior as `iceberg.table.primary-keys`); there is no per-table placeholder substitution.
 
 ### iceberg.table.commit-branch [string]
 
@@ -392,6 +393,28 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How do I enable upsert mode in Iceberg sink?
+
+Set `iceberg.table.upsert-mode-enabled=true` and configure `iceberg.table.primary-keys` with a comma-separated list of columns. The sink does not inherit primary keys from the source automatically, so the primary key list is required in this mode.
+
+### What does `iceberg.table.partition-keys` accept?
+
+A comma-separated list of column names (for example `dt,region`) or Iceberg transform expressions such as `days(ts)`. This option is read once and applied as a single global default to every auto-created table in a multi-table job — there is no per-table `${partition_keys}` placeholder substitution in the Iceberg sink; for per-table partition keys, configure each table explicitly in its own Iceberg connector instance instead.
+
+### How do I commit to a non-default Iceberg branch?
+
+Set `iceberg.table.commit-branch` to the branch name. Leave it empty to keep committing to the table's default branch.
+
+### When is `custom_sql` required?
+
+`custom_sql` is required only when `data_save_mode = CUSTOM_PROCESSING`. It is the `delete` SQL that runs against the target Iceberg table before the sink writes new rows.
+
+### How does Kerberos authentication work for Iceberg sinks?
+
+Set `krb5_path`, `kerberos_principal`, and `kerberos_keytab_path` to the values described in the source FAQ. These options are evaluated by the Hadoop FileSystem used by the Iceberg writer and apply when the catalog is Hadoop or Hive with HDFS.
 
 ## Changelog
 

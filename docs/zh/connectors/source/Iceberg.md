@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行性](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
 - [x] 数据格式
   - [x] parquet
   - [x] orc
@@ -267,6 +268,24 @@ source {
   }
 }
 ```
+
+## 常见问题
+
+### 如何在一个作业中读取多张 Iceberg 表？
+
+使用 `table_list` 选项，每张表提供一个条目。同时不要配置 `table`。每个条目可以覆盖该表的 `table`、`query` 以及快照/流式扫描相关选项。
+
+### `start_snapshot_id` 和 `use_snapshot_id` 的区别是什么？
+
+`start_snapshot_id` 从指定快照（不含）开始增量读取；`use_snapshot_id` 仅读取指定快照，忽略之后的快照。流式 CDC 场景用 `start_snapshot_id`，一次性历史读取用 `use_snapshot_id`。
+
+### `start_snapshot_timestamp` 应该在什么场景下使用？
+
+当只知道时间而不知道快照 id 时使用 `start_snapshot_timestamp`，它会找到与指定毫秒时间戳最接近的快照并从那里开始增量。如需可重现的批处理任务，更推荐显式的 `start_snapshot_id`。
+
+### Iceberg 源如何配置 Kerberos 认证？
+
+设置 `krb5_path` 为 `krb5.conf` 路径，`kerberos_principal` 为 `primary/instance@REALM`，`kerberos_keytab_path` 为 keytab 文件的绝对路径。这些选项由底层 Hadoop FileSystem 解析，仅在 `iceberg.catalog.config` 使用 Hadoop 或 Hive catalog 并基于 HDFS 时生效。
 
 ## 变更日志
 
