@@ -60,7 +60,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class IncrementalSourceReaderTest {
 
-
     private static final TableId KEPT_TABLE =
             new TableId("alpha_online", null, "account_histories");
     private static final TableId REMOVED_TABLE =
@@ -233,7 +232,6 @@ class IncrementalSourceReaderTest {
                 Collections.emptyList(),
                 "");
     }
-
 
     @Test
     void restoreCheckpointStateRestoresTablesAndHistoryFromNewCheckpointFormat() {
