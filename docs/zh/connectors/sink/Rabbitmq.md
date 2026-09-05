@@ -24,6 +24,8 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | password                   | string  | 否    | -     |
 | queue_name                 | string  | 是    | -     |
 | url                        | string  | 否    | -     |
+| uri                        | string  | 否    | -     |
+| ssl                        | boolean | 否    | false |
 | routing_key                | string  | 否    | -     |
 | exchange                   | string  | 否    | -     |
 | network_recovery_interval  | int     | 否    | -     |
@@ -34,6 +36,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | durable                    | boolean | 否    | true  |
 | exclusive                  | boolean | 否    | false |
 | auto_delete                | boolean | 否    | false |
+| passive                    | boolean | 否    | false |
 | common-options             |         | 否    | -     |
 
 ### host [string]
@@ -62,6 +65,14 @@ virtual host，连接 broker 使用的 vhost
 
 设置host、port、username、password和virtual host的简便方式。
 
+### uri [string]
+
+`url` 的兼容别名。`url` 和 `uri` 只能配置一个。
+
+### ssl [boolean]
+
+使用 `host` 和 `port` 配置连接时启用 SSL/TLS。若 URI 本身提供连接信息，请使用 `amqps://` 开头的 `url`。
+
 ### queue_name [string]
 
 数据写入的队列名。如果没有配置 `routing_key`，连接器会通过默认 exchange 将消息直接写入该队列。
@@ -88,6 +99,11 @@ virtual host，连接 broker 使用的 vhost
 
 - true：队列将在最后一个消费者取消订阅时自动删除。
 - false：队列不会自动删除。
+
+### passive [boolean]
+
+- false：按已配置的 durable、exclusive 和 auto_delete 参数声明队列。
+- true：只校验队列已存在，不创建或修改队列。适用于可发布但没有队列声明权限的账号。
 
 ### network_recovery_interval [int]
 
@@ -118,6 +134,8 @@ Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-comm
 ## 配置说明
 
 - 如果配置了 `username`，也必须配置 `password`，反过来也一样。
+- `url` 和 `uri` 只能配置一个。`uri` 为兼容已有配置保留，新配置请使用 `url`。
+- 使用 `host` 和 `port` 连接 AMQPS 端点时，请设置 `ssl = true`。
 - `host`、`port`、`virtual_host` 和 `queue_name` 是连接器必填项。`url` 可额外提供 RabbitMQ 客户端使用的 AMQP URI。
 - `durable`、`exclusive` 和 `auto_delete` 用于连接器声明目标队列。
 

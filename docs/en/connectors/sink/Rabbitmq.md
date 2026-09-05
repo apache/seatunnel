@@ -23,6 +23,8 @@ Used to write data to RabbitMQ queues.
 | password                   | string  | no       | -             |
 | queue_name                 | string  | yes      | -             |
 | url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
@@ -34,6 +36,7 @@ Used to write data to RabbitMQ queues.
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
 | auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
 
 ### host [string]
 
@@ -60,6 +63,14 @@ the password to use when connecting to the broker
 ### url [string]
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
 
 ### queue_name [string]
 
@@ -114,10 +125,17 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for accounts that can publish but cannot declare queues.
+
 
 ## Configuration Notes
 
 - If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
 - `host`, `port`, `virtual_host`, and `queue_name` are required connector options. `url` can additionally provide the AMQP URI used by the RabbitMQ client.
 - `durable`, `exclusive`, and `auto_delete` are used when the connector declares the target queue.
 

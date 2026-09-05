@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 
@@ -46,6 +47,8 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                 .bundled(RabbitmqSinkOptions.USERNAME, RabbitmqSinkOptions.PASSWORD)
                 .optional(
                         RabbitmqSinkOptions.URL,
+                        RabbitmqBaseOptions.URI,
+                        RabbitmqSinkOptions.SSL,
                         RabbitmqSinkOptions.ROUTING_KEY,
                         RabbitmqSinkOptions.EXCHANGE,
                         RabbitmqSinkOptions.NETWORK_RECOVERY_INTERVAL,
@@ -56,6 +59,7 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
+                        RabbitmqSinkOptions.PASSIVE,
                         RabbitmqSinkOptions.RABBITMQ_CONFIG)
                 .build();
     }
