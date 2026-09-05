@@ -4892,7 +4892,7 @@
       "path": "/v0/appTEST123/TestTable/listRecords",
       "body": {
         "type": "JSON",
-        "json": "{\"pageSize\":2}",
+        "json": "{\"pageSize\":2,\"offset\":null}",
         "matchType": "STRICT"
       }
     },
