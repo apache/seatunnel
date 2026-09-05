@@ -29,8 +29,17 @@ import java.util.List;
 
 public interface XaGroupOps extends Serializable {
 
-    // Commit a batch of transactions
-    public GroupXaOperationResult<XidInfo> commit(
+    /**
+     * Commits a batch of prepared transactions.
+     *
+     * @param xids prepared transactions to commit
+     * @param allowOutOfOrderCommits whether transactions after a failed transaction may be
+     *     committed
+     * @param maxCommitAttempts maximum number of transient commit attempts
+     * @return commit result containing transactions that need another attempt; implementations must
+     *     eventually return an empty retry list or throw once the retry budget is exhausted
+     */
+    GroupXaOperationResult<XidInfo> commit(
             List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts);
 
     void rollback(List<XidInfo> xids);
