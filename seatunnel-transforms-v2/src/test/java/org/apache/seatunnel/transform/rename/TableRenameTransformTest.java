@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class TableRenameTransformTest {
 
@@ -146,5 +147,24 @@ public class TableRenameTransformTest {
                 outputCatalogTable.get(0).getTableId().toTablePath().getFullName());
         Assertions.assertEquals("Database-x.Schema-x.t2-x", outputRow.getTableId());
         Assertions.assertEquals("Database-x.Schema-x.t2-x", outputEvent.tablePath().getFullName());
+    }
+
+    @Test
+    public void testConvertCaseIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            TableRenameConfig config = new TableRenameConfig().setConvertCase(ConvertCase.UPPER);
+            TableRenameTransform transform = new TableRenameTransform(config, DEFAULT_TABLE);
+            Assertions.assertEquals("I", transform.convertCase("i"));
+            Assertions.assertEquals("ABC", transform.convertCase("abc"));
+
+            config = new TableRenameConfig().setConvertCase(ConvertCase.LOWER);
+            transform = new TableRenameTransform(config, DEFAULT_TABLE);
+            Assertions.assertEquals("i", transform.convertCase("I"));
+            Assertions.assertEquals("abc", transform.convertCase("ABC"));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

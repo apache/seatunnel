@@ -40,6 +40,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.LinkedHashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -150,9 +151,9 @@ public class TableRenameTransform extends AbstractCatalogSupportMapTransform {
         if (config.getConvertCase() != null) {
             switch (config.getConvertCase()) {
                 case UPPER:
-                    return name.toUpperCase();
+                    return name.toUpperCase(Locale.ROOT);
                 case LOWER:
-                    return name.toLowerCase();
+                    return name.toLowerCase(Locale.ROOT);
                 default:
                     throw new UnsupportedOperationException(
                             "Unsupported convert case: " + config.getConvertCase());
