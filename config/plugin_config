@@ -46,6 +46,7 @@ connector-file-local
 connector-file-oss
 connector-file-jindo-oss
 connector-file-s3
+connector-file-gcs
 connector-file-sftp
 connector-file-obs
 connector-file-bos
