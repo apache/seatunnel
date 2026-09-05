@@ -20,6 +20,7 @@ package org.apache.seatunnel.transform.common;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -79,6 +80,9 @@ public abstract class AbstractCatalogSupportMapTransform
             // Rebuild all derived field-index state eagerly so the next transformRow() call
             // sees correct indices without needing a lazy trigger.
             transformTableSchema();
+            if (event instanceof RestoreTableSchemaEvent) {
+                event.setChangeAfter(getProducedCatalogTable());
+            }
         }
         return event;
     }

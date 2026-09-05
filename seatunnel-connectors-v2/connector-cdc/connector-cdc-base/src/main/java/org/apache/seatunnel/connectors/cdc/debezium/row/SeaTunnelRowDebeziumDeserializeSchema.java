@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
@@ -52,7 +53,9 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -78,6 +81,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     private final TableSchemaChangeEventHandler tableSchemaChangeHandler;
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
+    private List<CatalogTable> pendingRestoreTables = Collections.emptyList();
 
     SeaTunnelRowDebeziumDeserializeSchema(
             MetadataConverter[] metadataConverters,
@@ -103,6 +107,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     @Override
     public void deserialize(SourceRecord record, Collector<SeaTunnelRow> collector)
             throws Exception {
+        emitPendingRestoreSchemaEvents(collector);
         super.deserialize(record, collector);
 
         if (isSchemaChangeBeforeWatermarkEvent(record)) {
@@ -351,10 +356,17 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         }
 
         Map<TablePath, CatalogTable> latestTableMap =
-                this.tables.stream().collect(Collectors.toMap(CatalogTable::getTablePath, t -> t));
+                this.tables.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        CatalogTable::getTablePath,
+                                        t -> t,
+                                        (left, right) -> right,
+                                        LinkedHashMap::new));
         Map<TablePath, CatalogTable> restoreTableMap =
                 checkpointDataType.stream()
                         .collect(Collectors.toMap(CatalogTable::getTablePath, t -> t));
+        List<CatalogTable> restoreEvents = new ArrayList<>();
         for (TablePath tablePath : restoreTableMap.keySet()) {
             CatalogTable latestTable = latestTableMap.get(tablePath);
             CatalogTable restoreTable = restoreTableMap.get(tablePath);
@@ -366,11 +378,30 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             log.info("Table[{}] restore before: {}", tablePath, latestTable.getSeaTunnelRowType());
             latestTableMap.put(tablePath, restoreTable);
             log.info("Table[{}] restore after: {}", tablePath, restoreTable.getSeaTunnelRowType());
+            if (!latestTable.getSeaTunnelRowType().equals(restoreTable.getSeaTunnelRowType())) {
+                restoreEvents.add(restoreTable);
+            }
         }
         this.tables = new ArrayList<>(latestTableMap.values());
+        this.pendingRestoreTables = restoreEvents;
         this.tableRowConverters =
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
+    }
+
+    private void emitPendingRestoreSchemaEvents(Collector<SeaTunnelRow> collector) {
+        List<CatalogTable> restoreTables = pendingRestoreTables;
+        if (restoreTables.isEmpty()) {
+            return;
+        }
+        pendingRestoreTables = Collections.emptyList();
+        for (CatalogTable restoreTable : restoreTables) {
+            log.info(
+                    "Emit restored schema for table[{}]: {}",
+                    restoreTable.getTablePath(),
+                    restoreTable.getSeaTunnelRowType());
+            collector.collect(new RestoreTableSchemaEvent(restoreTable));
+        }
     }
 
     private static Map<String, SeaTunnelRowDebeziumDeserializationConverters>

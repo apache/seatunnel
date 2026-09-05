@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendSinkConfig;
 
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -61,6 +65,7 @@ public class DatabendSinkWriterTest {
                         });
         when(catalogTable.getSeaTunnelRowType()).thenReturn(rowType);
         setPrivateField(sinkWriter, "catalogTable", catalogTable);
+        setPrivateField(sinkWriter, "runtimeRowType", rowType);
 
         // Call the method
         String mergeSql = sinkWriter.generateMergeSql();
@@ -105,6 +110,7 @@ public class DatabendSinkWriterTest {
                         });
         when(catalogTable.getSeaTunnelRowType()).thenReturn(rowType);
         setPrivateField(sinkWriter, "catalogTable", catalogTable);
+        setPrivateField(sinkWriter, "runtimeRowType", rowType);
 
         // Call the method
         String mergeSql = sinkWriter.generateMergeSql();
@@ -144,6 +150,7 @@ public class DatabendSinkWriterTest {
                         });
         when(catalogTable.getSeaTunnelRowType()).thenReturn(rowType);
         setPrivateField(sinkWriter, "catalogTable", catalogTable);
+        setPrivateField(sinkWriter, "runtimeRowType", rowType);
 
         // Create test row
         Object[] fields = {1, "test", 95.5};
@@ -181,6 +188,7 @@ public class DatabendSinkWriterTest {
                         });
         when(catalogTable.getSeaTunnelRowType()).thenReturn(rowType);
         setPrivateField(sinkWriter, "catalogTable", catalogTable);
+        setPrivateField(sinkWriter, "runtimeRowType", rowType);
 
         // Create test row with null conflict key value
         Object[] fields = {null, "test", 95.5};
@@ -200,6 +208,73 @@ public class DatabendSinkWriterTest {
 
         // Verify the cause is IllegalArgumentException
         assertEquals(IllegalArgumentException.class, exception.getCause().getClass());
+    }
+
+    @Test
+    public void testConvertRowToJsonUsesRestoredRuntimeSchema() throws Exception {
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+
+        SeaTunnelRowType restoredRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        setPrivateField(sinkWriter, "runtimeRowType", restoredRowType);
+        setPrivateField(sinkWriter, "objectMapper", new ObjectMapper());
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "restored"});
+
+        Method method =
+                DatabendSinkWriter.class.getDeclaredMethod("convertRowToJson", SeaTunnelRow.class);
+        method.setAccessible(true);
+
+        assertEquals("{\"id\":1,\"name\":\"restored\"}", method.invoke(sinkWriter, row));
+    }
+
+    @Test
+    public void testPrepareCommitCarriesRuntimeSchema() throws Exception {
+        DatabendSinkWriter sinkWriter = mock(DatabendSinkWriter.class);
+        SeaTunnelRowType runtimeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE
+                        });
+        setPrivateField(sinkWriter, "runtimeRowType", runtimeRowType);
+        when(sinkWriter.prepareCommit()).thenCallRealMethod();
+
+        DatabendSinkCommitterInfo commitInfo = sinkWriter.prepareCommit().get();
+
+        assertEquals(runtimeRowType, commitInfo.getRuntimeRowType());
+    }
+
+    @Test
+    public void testAggregatedCommitterUsesRuntimeSchemaFromCommitInfo() throws Exception {
+        DatabendSinkConfig config = mock(DatabendSinkConfig.class);
+        when(config.isCdcMode()).thenReturn(true);
+        when(config.getConflictKey()).thenReturn("id");
+        when(config.isEnableDelete()).thenReturn(true);
+        DatabendSinkAggregatedCommitter committer =
+                new DatabendSinkAggregatedCommitter(
+                        config, "test_db", "target_table", "raw_table", "cdc_stream");
+        SeaTunnelRowType runtimeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.STRING_TYPE
+                        });
+        committer.combine(
+                Collections.singletonList(
+                        new DatabendSinkCommitterInfo(null, null, runtimeRowType)));
+
+        Method method = DatabendSinkAggregatedCommitter.class.getDeclaredMethod("generateMergeSql");
+        method.setAccessible(true);
+        String mergeSql = (String) method.invoke(committer);
+
+        org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:id as id"));
+        org.junit.jupiter.api.Assertions.assertTrue(mergeSql.contains("raw_data:name as name"));
+        org.junit.jupiter.api.Assertions.assertFalse(mergeSql.contains("raw_data:score as score"));
     }
 
     // Helper method to set private fields using reflection

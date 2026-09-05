@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
@@ -59,6 +60,9 @@ public class DataTypeChangeEventDispatcher implements DataTypeChangeEventHandler
 
     @Override
     public SeaTunnelRowType apply(SchemaChangeEvent event) {
+        if (event instanceof RestoreTableSchemaEvent) {
+            return ((RestoreTableSchemaEvent) event).getRestoredTable().getSeaTunnelRowType();
+        }
         DataTypeChangeEventHandler handler = handlers.get(event.getClass());
         if (handler == null) {
             log.warn("No DataTypeChangeEventHandler for event: {}", event.getClass());

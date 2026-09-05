@@ -77,17 +77,18 @@ public class DorisErrorIT extends AbstractDorisIT {
                 .atMost(15, TimeUnit.SECONDS)
                 .until(() -> !future.isDone());
         super.container.stop();
-        Assertions.assertNotEquals(0, future.get().getExitCode());
+        Container.ExecResult result = future.get();
+        Assertions.assertNotEquals(0, result.getExitCode());
         Assertions.assertTrue(
-                future.get()
-                        .getStderr()
-                        .contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getCode()));
+                result.getStderr().contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getCode()));
         Assertions.assertTrue(
-                future.get()
-                        .getStderr()
+                result.getStderr()
                         .contains(
                                 "at org.apache.seatunnel.connectors.doris.sink.writer.RecordBuffer.checkErrorMessageByStreamLoad"));
-        log.info("doris error log: \n" + future.get().getStderr());
+        Assertions.assertTrue(
+                result.getStderr()
+                        .contains(DorisConnectorErrorCode.STREAM_LOAD_FAILED.getDescription()));
+        log.info("doris error log: \n" + result.getStderr());
         super.container.start();
         // wait for the container to restart
         given().pollInterval(20, TimeUnit.SECONDS)
