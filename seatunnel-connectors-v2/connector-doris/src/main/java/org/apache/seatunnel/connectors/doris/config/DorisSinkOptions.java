@@ -128,6 +128,18 @@ public class DorisSinkOptions extends DorisBaseOptions {
                     .withDescription(
                             "Whether to preserve the original case of table and column names. Default is true (case sensitive)");
 
+    public static final Option<String> SINK_DATETIME_TIMEZONE =
+            Options.key("sink.datetime-timezone")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The session timezone used to convert TIMESTAMP_TZ values into "
+                                    + "wall-clock strings for Doris DATETIME columns. Accepts a "
+                                    + "java.time.ZoneId-compatible ID (for example "
+                                    + "`Asia/Shanghai` or `+08:00`). When unset, the JVM default "
+                                    + "timezone is used (legacy behavior). Set this to the Doris "
+                                    + "session timezone to avoid JVM-default coupling.");
+
     // create table
     public static final Option<String> SAVE_MODE_CREATE_TEMPLATE =
             Options.key("save_mode_create_template")

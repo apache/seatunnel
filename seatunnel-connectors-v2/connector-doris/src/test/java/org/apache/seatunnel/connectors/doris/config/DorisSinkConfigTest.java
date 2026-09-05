@@ -26,12 +26,38 @@ import org.apache.seatunnel.connectors.doris.sink.DorisSinkFactory;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class DorisSinkConfigTest {
+
+    @Test
+    public void testDatetimeTimezoneAcceptsRegionId() {
+        DorisSinkConfig sinkConfig =
+                DorisSinkConfig.of(
+                        createConfig(
+                                Collections.singletonMap(
+                                        "sink.datetime-timezone", "Asia/Shanghai")));
+
+        Assertions.assertEquals(ZoneId.of("Asia/Shanghai"), sinkConfig.getDatetimeTimezone());
+    }
+
+    @Test
+    public void testDatetimeTimezoneRejectsInvalidId() {
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class,
+                        () ->
+                                DorisSinkConfig.of(
+                                        createConfig(
+                                                Collections.singletonMap(
+                                                        "sink.datetime-timezone", "Not/A_Zone"))));
+
+        Assertions.assertTrue(exception.getMessage().contains("sink.datetime-timezone"));
+    }
 
     @Test
     public void testDropDataPartitionsAreNormalized() {
