@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -146,5 +147,20 @@ public class TableRenameTransformTest {
                 outputCatalogTable.get(0).getTableId().toTablePath().getFullName());
         Assertions.assertEquals("Database-x.Schema-x.t2-x", outputRow.getTableId());
         Assertions.assertEquals("Database-x.Schema-x.t2-x", outputEvent.tablePath().getFullName());
+    }
+
+    @Test
+    public void testMapCloseTableEventPreservesSourceProgress() {
+        TableRenameConfig config = new TableRenameConfig().setConvertCase(ConvertCase.LOWER);
+        TableRenameTransform transform = new TableRenameTransform(config, DEFAULT_TABLE);
+        transform.getProducedCatalogTables();
+
+        CloseTableEvent outputEvent =
+                transform.mapCloseTableEvent(
+                        new CloseTableEvent(DEFAULT_TABLE.getTablePath(), 3, 5));
+
+        Assertions.assertEquals("database-x.schema-x.table-x", outputEvent.tableId());
+        Assertions.assertEquals(3, outputEvent.getSourceSubtaskId());
+        Assertions.assertEquals(5, outputEvent.getExpectedSourceEventCount());
     }
 }

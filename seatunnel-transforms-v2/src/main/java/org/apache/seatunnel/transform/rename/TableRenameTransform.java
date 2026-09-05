@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
@@ -144,6 +145,18 @@ public class TableRenameTransform extends AbstractCatalogSupportMapTransform {
             return convertName((AlterTableColumnEvent) event);
         }
         return event;
+    }
+
+    @Override
+    public CloseTableEvent mapCloseTableEvent(CloseTableEvent event) {
+        TablePath inputTablePath = event.getTablePath();
+        if (inputTablePath == null
+                || outputTablePath == null
+                || outputTablePath.equals(inputTablePath)) {
+            return event;
+        }
+        return new CloseTableEvent(
+                outputTablePath, event.getSourceSubtaskId(), event.getExpectedSourceEventCount());
     }
 
     public String convertCase(String name) {

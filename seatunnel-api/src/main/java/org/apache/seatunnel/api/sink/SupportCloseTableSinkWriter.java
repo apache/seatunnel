@@ -15,38 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.table.event.CloseTableEvent;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+import java.io.IOException;
 
-    void collect(T record);
-
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void collect(CloseTableEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
+/** Sink writers that can release per-table resources before the task is fully closed. */
+public interface SupportCloseTableSinkWriter {
 
     /**
-     * Returns the checkpoint lock.
+     * Handle a close-table event emitted by a bounded multi-table source.
      *
-     * @return The object to use as the lock
+     * @param event close-table event with the finished table identifier
      */
-    Object getCheckpointLock();
-
-    default boolean isEmptyThisPollNext() {
-        return false;
-    }
-
-    default void resetEmptyThisPollNext() {}
+    void handleCloseTableEvent(CloseTableEvent event) throws IOException;
 }

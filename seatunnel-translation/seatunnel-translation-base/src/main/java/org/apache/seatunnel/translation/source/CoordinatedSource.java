@@ -220,7 +220,11 @@ public class CoordinatedSource<T, SplitT extends SourceSplit, StateT extends Ser
         for (Map.Entry<Integer, SourceReader<T, SplitT>> entry : readerMap.entrySet()) {
             readerRunningMap.get(entry.getKey()).set(false);
             entry.getValue().close();
-            readerContextMap.get(entry.getKey()).getEventListener().onEvent(new ReaderCloseEvent());
+            // Bounded readers may already remove their context after signaling completion.
+            CoordinatedReaderContext readerContext = readerContextMap.get(entry.getKey());
+            if (readerContext != null) {
+                readerContext.getEventListener().onEvent(new ReaderCloseEvent());
+            }
         }
 
         if (executorService != null) {

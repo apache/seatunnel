@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -86,6 +87,95 @@ public class MultiTableSinkWriterTest {
             byte[] bytes = defaultSerializer.serialize(multiTableSinkWriter.prepareCommit(i).get());
             defaultSerializer.deserialize(bytes);
         }
+    }
+
+    @Test
+    public void testCloseTableEventAllowsInFlightRowsUntilFinalSnapshot() throws IOException {
+        String table1 = TablePath.of("db", "schema", "table1").getFullName();
+        TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(SinkIdentifier.of(table1, 0), table1Writer0);
+        sinkWritersContext.put(SinkIdentifier.of(table1, 0), new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 1, 2));
+
+        Assertions.assertEquals(0, table1Writer0.closeCount.get());
+        SeaTunnelRow lateRow = new SeaTunnelRow(new Object[] {1});
+        lateRow.setTableId(table1);
+        multiTableSinkWriter.write(lateRow);
+
+        multiTableSinkWriter.snapshotState(1L);
+
+        Assertions.assertEquals(1, table1Writer0.writeCount.get());
+        Assertions.assertEquals(1, table1Writer0.closeCount.get());
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> multiTableSinkWriter.write(lateRow));
+        Assertions.assertTrue(exception.getMessage().contains(table1));
+    }
+
+    @Test
+    public void testCloseTableEventDefersCloseUntilFinalSnapshot() throws IOException {
+        String table1 = TablePath.of("db", "schema", "table1").getFullName();
+        String table2 = TablePath.of("db", "schema", "table2").getFullName();
+        TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
+        TrackingSinkWriter table1Writer1 = new TrackingSinkWriter("table1-1");
+        TrackingSinkWriter table2Writer0 = new TrackingSinkWriter("table2-0");
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(SinkIdentifier.of(table1, 0), table1Writer0);
+        sinkWriters.put(SinkIdentifier.of(table1, 1), table1Writer1);
+        sinkWriters.put(SinkIdentifier.of(table2, 0), table2Writer0);
+        sinkWritersContext.put(SinkIdentifier.of(table1, 0), new TestSinkWriterContext());
+        sinkWritersContext.put(SinkIdentifier.of(table1, 1), new TestSinkWriterContext());
+        sinkWritersContext.put(SinkIdentifier.of(table2, 0), new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 2, sinkWritersContext);
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 1, 2));
+
+        Assertions.assertEquals(0, table1Writer0.closeCount.get());
+        Assertions.assertEquals(0, table1Writer1.closeCount.get());
+        Assertions.assertEquals(0, table2Writer0.closeCount.get());
+
+        Optional<MultiTableCommitInfo> beforeSnapshotCommitInfo =
+                multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(beforeSnapshotCommitInfo.isPresent());
+        Assertions.assertEquals(3, beforeSnapshotCommitInfo.get().getCommitInfo().size());
+
+        List<MultiTableState> checkpointStates = multiTableSinkWriter.snapshotState(1L);
+        Assertions.assertEquals(1, checkpointStates.size());
+        Assertions.assertTrue(
+                checkpointStates.get(0).getStates().containsKey(SinkIdentifier.of(table1, 0)));
+        Assertions.assertTrue(
+                checkpointStates.get(0).getStates().containsKey(SinkIdentifier.of(table1, 1)));
+
+        Assertions.assertEquals(1, table1Writer0.closeCount.get());
+        Assertions.assertEquals(1, table1Writer1.closeCount.get());
+        Assertions.assertEquals(0, table2Writer0.closeCount.get());
+
+        Optional<MultiTableCommitInfo> afterSnapshotCommitInfo =
+                multiTableSinkWriter.prepareCommit(2L);
+        Assertions.assertTrue(afterSnapshotCommitInfo.isPresent());
+        Assertions.assertEquals(1, afterSnapshotCommitInfo.get().getCommitInfo().size());
+        Assertions.assertTrue(
+                afterSnapshotCommitInfo
+                        .get()
+                        .getCommitInfo()
+                        .containsKey(SinkIdentifier.of(table2, 0)));
     }
 
     @Test
@@ -1188,6 +1278,31 @@ public class MultiTableSinkWriterTest {
 
         void releasePoll() {
             releasePoll.countDown();
+        }
+    }
+
+    static class TrackingSinkWriter extends TestSinkWriter {
+        private final AtomicInteger writeCount = new AtomicInteger();
+        private final AtomicInteger closeCount = new AtomicInteger();
+        private final String stateValue;
+
+        TrackingSinkWriter(String stateValue) {
+            this.stateValue = stateValue;
+        }
+
+        @Override
+        public void write(SeaTunnelRow element) {
+            writeCount.incrementAndGet();
+        }
+
+        @Override
+        public Optional<TestSinkState> prepareCommit() {
+            return Optional.of(new TestSinkState(stateValue));
+        }
+
+        @Override
+        public void close() {
+            closeCount.incrementAndGet();
         }
     }
 

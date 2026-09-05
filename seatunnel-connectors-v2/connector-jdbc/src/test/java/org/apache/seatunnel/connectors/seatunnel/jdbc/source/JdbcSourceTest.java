@@ -15,38 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
-import org.apache.seatunnel.api.table.event.CloseTableEvent;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.source.SupportCoordinate;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-    void collect(T record);
+public class JdbcSourceTest {
 
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void collect(CloseTableEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
-
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
-
-    default boolean isEmptyThisPollNext() {
-        return false;
+    @Test
+    public void testJdbcSourceSupportsCoordination() {
+        Assertions.assertTrue(SupportCoordinate.class.isAssignableFrom(JdbcSource.class));
     }
-
-    default void resetEmptyThisPollNext() {}
 }

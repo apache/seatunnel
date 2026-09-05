@@ -94,9 +94,9 @@ public class JdbcDb2UpsertIT extends JdbcDb2IT {
             List<List<Object>> updatedAtTimestampsBeforeUpdate =
                     query(
                             String.format(
-                                    // Keep row order stable so repeated reads compare the same
-                                    // records.
-                                    "SELECT C_UPDATED_AT FROM %s ORDER BY C_INT",
+                                    // Keep the primary-key order stable so repeated reads compare
+                                    // the same records instead of an arbitrary DB2 return order.
+                                    "SELECT C_INT, C_UPDATED_AT FROM %s ORDER BY C_INT",
                                     buildTableInfoWithSchema(DB2_DATABASE, DB2_SINK)));
             // step 2: run the job to update the data in the sink.
             // expected: timestamps should not be updated as the data is not changed.
@@ -105,7 +105,7 @@ public class JdbcDb2UpsertIT extends JdbcDb2IT {
             List<List<Object>> updatedAtTimestampsAfterUpdate =
                     query(
                             String.format(
-                                    "SELECT C_UPDATED_AT FROM %s ORDER BY C_INT",
+                                    "SELECT C_INT, C_UPDATED_AT FROM %s ORDER BY C_INT",
                                     buildTableInfoWithSchema(DB2_DATABASE, DB2_SINK)));
             Assertions.assertIterableEquals(
                     updatedAtTimestampsBeforeUpdate, updatedAtTimestampsAfterUpdate);

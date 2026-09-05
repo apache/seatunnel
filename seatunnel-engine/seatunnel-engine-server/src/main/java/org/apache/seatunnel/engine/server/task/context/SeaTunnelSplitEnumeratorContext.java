@@ -24,7 +24,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
@@ -102,7 +104,40 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     @Override
-    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
+        if (event == null) {
+            return;
+        }
+        if (task.getTaskMemberLocationByIndex(subtaskId) == null
+                || task.getTaskMemberAddressByIndex(subtaskId) == null) {
+            log.warn("Reader {} is not registered, skip sending source event {}", subtaskId, event);
+            return;
+        }
+        InvocationFuture<Object> future;
+        try {
+            future =
+                    task.getExecutionContext()
+                            .sendToMember(
+                                    new SourceEnumeratorEventOperation(
+                                            task.getTaskMemberLocationByIndex(subtaskId),
+                                            task.getTaskLocation(),
+                                            event),
+                                    task.getTaskMemberAddressByIndex(subtaskId));
+        } catch (Exception e) {
+            log.warn("Failed to send source event {} to reader {}", event, subtaskId, e);
+            return;
+        }
+        future.whenComplete(
+                (ignored, throwable) -> {
+                    if (throwable != null) {
+                        log.warn(
+                                "Failed to send source event {} to reader {}",
+                                event,
+                                subtaskId,
+                                throwable);
+                    }
+                });
+    }
 
     @Override
     public MetricsContext getMetricsContext() {
