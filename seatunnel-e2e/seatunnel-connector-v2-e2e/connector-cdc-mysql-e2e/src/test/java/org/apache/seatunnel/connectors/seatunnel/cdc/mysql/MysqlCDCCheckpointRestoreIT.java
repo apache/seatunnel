@@ -67,6 +67,17 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table_no_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_checkpoint_restore";
     private static final String CONF_FILE = "/mysqlcdc_to_mysql_with_checkpoint_restore.conf";
+    private static final String SCHEMA_RESTORE_SOURCE_TABLE = "mysql_cdc_e2e_schema_restore_source";
+    private static final String SCHEMA_RESTORE_SINK_TABLE = "mysql_cdc_e2e_schema_restore_sink";
+    private static final String SCHEMA_RESTORE_SINK_BACKUP_TABLE =
+            "mysql_cdc_e2e_schema_restore_sink_backup";
+    private static final String SCHEMA_RESTORE_CONF_FILE =
+            "/mysqlcdc_to_mysql_with_schema_change_checkpoint_restore.conf";
+    private static final String SCHEMA_RESTORE_QUERY =
+            "select id, name, email from %s.%s order by id";
+    private static final String INCREMENTAL_READ_MARKER =
+            "Start incremental read task for incremental split";
+    private static final String PIPELINE_RESTORE_MARKER = "Restore time 1, pipeline";
 
     private static final String SOURCE_SQL_TEMPLATE =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
@@ -293,9 +304,6 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         awaitCompletedCheckpointCountAtLeast(container, sourceJobId, 2);
 
         addPrimaryKeyOnId(MYSQL_DATABASE, SINK_TABLE);
-
-        // Insert a duplicate id after the checkpoint to trigger a sink-side pipeline failure
-        // without deleting already replicated sink data.
         insertCheckpointRestoreRow(MYSQL_DATABASE, SOURCE_TABLE, 12);
         awaitJobStatus(container, sourceJobId, "FAILED");
         Assertions.assertNotEquals(0, sourceJobFuture.get().getExitCode());
@@ -330,6 +338,121 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         container.stopJob(String.valueOf(restoreJobId));
         awaitJobStatus(container, restoreJobId, "CANCELED");
         Assertions.assertEquals(0, restoreFuture.get().getExitCode());
+    }
+
+    /**
+     * Verifies that the source task restores its evolved runtime schema during an automatic
+     * pipeline retry.
+     *
+     * <p>This test deliberately avoids submitting a new restore job because rebuilding the job from
+     * checkpoint metadata would initialize the source collector with the evolved schema and hide
+     * the automatic-retry regression.
+     */
+    @TestTemplate
+    public void testSourceCollectorRestoresSchemaAfterPipelineRetry(TestContainer container)
+            throws Exception {
+        prepareSchemaRestoreTables();
+
+        long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Container.ExecResult> sourceJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        SCHEMA_RESTORE_CONF_FILE, String.valueOf(jobId));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitSchemaRestoreRows("select id, name from %s.%s order by id");
+        awaitIncrementalRead(container, SCHEMA_RESTORE_SOURCE_TABLE);
+
+        executeSql(
+                "ALTER TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SOURCE_TABLE
+                        + " ADD COLUMN email VARCHAR(255)");
+        insertSchemaRestoreRow(2, "after-ddl@example.com");
+        awaitSchemaRestoreRows(SCHEMA_RESTORE_QUERY);
+
+        long completedCheckpointCount =
+                container.getCompletedCheckpointCount(String.valueOf(jobId));
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(String.valueOf(jobId))
+                                                > completedCheckpointCount,
+                                        "A checkpoint completed after ADD COLUMN is required"));
+
+        int restoreMarkerCountBeforeFailure =
+                countOccurrences(container.getServerLogs(), PIPELINE_RESTORE_MARKER);
+        executeSql(
+                "RENAME TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SINK_TABLE
+                        + " TO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SINK_BACKUP_TABLE);
+        insertSchemaRestoreRow(3, "after-restore@example.com");
+
+        awaitPipelineRestore(container, restoreMarkerCountBeforeFailure);
+        executeSql(
+                "RENAME TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SINK_BACKUP_TABLE
+                        + " TO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SINK_TABLE);
+
+        awaitPostRecoveryEmail(container, jobId, "after-restore@example.com");
+        Assertions.assertEquals("RUNNING", container.getJobStatus(String.valueOf(jobId)));
+
+        container.stopJob(String.valueOf(jobId));
+        awaitJobCanceled(container, jobId);
+        Assertions.assertEquals(0, sourceJobFuture.get().getExitCode());
+    }
+
+    /**
+     * Waits until the target job reaches the expected terminal or running state.
+     *
+     * @param container test container hosting the job
+     * @param jobId target job id
+     * @param expectedStatus expected status string from REST polling
+     */
+    private void awaitJobStatus(TestContainer container, long jobId, String expectedStatus) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedStatus,
+                                        container.getJobStatus(String.valueOf(jobId))));
+    }
+
+    /**
+     * Waits until the target job exposes at least the required number of completed checkpoints.
+     *
+     * @param container test container hosting the job
+     * @param jobId target job id
+     * @param expectedCompletedCheckpoints minimum completed checkpoint count
+     */
+    private void awaitCompletedCheckpointCountAtLeast(
+            TestContainer container, long jobId, long expectedCompletedCheckpoints) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container.getCompletedCheckpointCount(String.valueOf(jobId))
+                                                >= expectedCompletedCheckpoints));
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -370,39 +493,149 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
         executeSql("truncate table " + database + "." + tableName);
     }
 
-    /**
-     * Waits until the target job reaches the expected terminal or running state.
-     *
-     * @param container test container hosting the job
-     * @param jobId target job id
-     * @param expectedStatus expected status string from REST polling
-     */
-    private void awaitJobStatus(TestContainer container, long jobId, String expectedStatus) {
+    private void prepareSchemaRestoreTables() {
+        executeSql(
+                "DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + SCHEMA_RESTORE_SINK_BACKUP_TABLE);
+        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + SCHEMA_RESTORE_SINK_TABLE);
+        executeSql("DROP TABLE IF EXISTS " + MYSQL_DATABASE + "." + SCHEMA_RESTORE_SOURCE_TABLE);
+        executeSql(
+                "CREATE TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SOURCE_TABLE
+                        + " (id INT PRIMARY KEY, name VARCHAR(255) NOT NULL)");
+        executeSql(
+                "CREATE TABLE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SINK_TABLE
+                        + " LIKE "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SOURCE_TABLE);
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SOURCE_TABLE
+                        + " (id, name) VALUES (1, 'before-ddl')");
+    }
+
+    private void insertSchemaRestoreRow(int id, String email) {
+        executeSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SCHEMA_RESTORE_SOURCE_TABLE
+                        + " (id, name, email) VALUES ("
+                        + id
+                        + ", 'schema-restore-"
+                        + id
+                        + "', '"
+                        + email
+                        + "')");
+    }
+
+    private void awaitSchemaRestoreRows(String queryTemplate) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(
+                                                String.format(
+                                                        queryTemplate,
+                                                        MYSQL_DATABASE,
+                                                        SCHEMA_RESTORE_SOURCE_TABLE)),
+                                        query(
+                                                String.format(
+                                                        queryTemplate,
+                                                        MYSQL_DATABASE,
+                                                        SCHEMA_RESTORE_SINK_TABLE))));
+    }
+
+    private void awaitPostRecoveryEmail(TestContainer container, long jobId, String expectedEmail) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertNotEquals(
+                                    "FAILED",
+                                    container.getJobStatus(String.valueOf(jobId)),
+                                    "The recovered source task failed before forwarding the "
+                                            + "post-checkpoint row with the evolved schema");
+                            List<List<Object>> rows =
+                                    query(
+                                            String.format(
+                                                    SCHEMA_RESTORE_QUERY,
+                                                    MYSQL_DATABASE,
+                                                    SCHEMA_RESTORE_SINK_TABLE));
+                            List<Object> recoveredRow =
+                                    rows.stream()
+                                            .filter(row -> ((Number) row.get(0)).intValue() == 3)
+                                            .findFirst()
+                                            .orElseThrow(
+                                                    () ->
+                                                            new AssertionError(
+                                                                    "The source collector has not "
+                                                                            + "forwarded the "
+                                                                            + "post-recovery row"));
+                            Assertions.assertEquals(
+                                    expectedEmail,
+                                    recoveredRow.get(2),
+                                    "The recovered JDBC writer used its pre-evolution schema and "
+                                            + "dropped the email field");
+                        });
+    }
+
+    private void awaitIncrementalRead(TestContainer container, String capturedTable) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () -> {
+                            String serverLogs = container.getServerLogs();
+                            Assertions.assertTrue(
+                                    serverLogs.contains(INCREMENTAL_READ_MARKER),
+                                    "Incremental reader has not started yet");
+                            Assertions.assertTrue(
+                                    serverLogs.contains(MYSQL_DATABASE + "." + capturedTable),
+                                    "Incremental reader has not started for " + capturedTable);
+                        });
+    }
+
+    private void awaitPipelineRestore(TestContainer container, int previousRestoreMarkerCount) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        countOccurrences(
+                                                        container.getServerLogs(),
+                                                        PIPELINE_RESTORE_MARKER)
+                                                > previousRestoreMarkerCount,
+                                        "The pipeline retry has not started"));
+    }
+
+    private int countOccurrences(String value, String marker) {
+        int count = 0;
+        int index = 0;
+        while ((index = value.indexOf(marker, index)) >= 0) {
+            count++;
+            index += marker.length();
+        }
+        return count;
+    }
+
+    private void awaitJobCanceled(TestContainer container, long jobId) {
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        expectedStatus,
-                                        container.getJobStatus(String.valueOf(jobId))));
-    }
-
-    /**
-     * Waits until the target job exposes at least the required number of completed checkpoints.
-     *
-     * @param container test container hosting the job
-     * @param jobId target job id
-     * @param expectedCompletedCheckpoints minimum completed checkpoint count
-     */
-    private void awaitCompletedCheckpointCountAtLeast(
-            TestContainer container, long jobId, long expectedCompletedCheckpoints) {
-        Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        container.getCompletedCheckpointCount(String.valueOf(jobId))
-                                                >= expectedCompletedCheckpoints));
+                                        "CANCELED", container.getJobStatus(String.valueOf(jobId))));
     }
 
     private void awaitSourceAndSinkConsistent(

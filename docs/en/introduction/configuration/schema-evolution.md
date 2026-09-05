@@ -41,6 +41,18 @@ Otherwise, If your table name start with `ORA_TEMP_` will also has the same prob
 ## Enable schema evolution
 Schema evolution is disabled by default in CDC source. You need configure `schema-changes.enabled = true` which is only supported in CDC to enable it.
 
+## Checkpoint restore compatibility
+
+For Zeta jobs with CDC schema evolution enabled, a checkpoint records the evolved source schema.
+After restore, Zeta applies that schema to the CDC deserializer and source collector before it
+emits records. JDBC Sink also records its evolved writer schema after it has processed a schema
+change; exactly-once JDBC Sink continues to record XA recovery state on every checkpoint.
+
+Checkpoints from earlier SeaTunnel versions that do not contain the schema record fall back to
+their legacy row-type state or the job's configured schema. A checkpoint written with evolved JDBC
+writer schema is not downgrade-compatible with an earlier SeaTunnel release. Flink and Spark do
+not currently restore this collector schema state.
+
 ## Multi-database and multi-table routing
 
 Schema evolution can work with multi-table jobs as long as each upstream table can be mapped to a

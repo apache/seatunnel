@@ -147,7 +147,7 @@ public class JdbcExactlyOnceSinkWriter extends AbstractJdbcSinkWriter<Void> {
     @Override
     public List<JdbcSinkState> snapshotState(long checkpointId) {
         checkState(prepareXid != null, "prepare xid must not be null");
-        return Collections.singletonList(new JdbcSinkState(prepareXid));
+        return Collections.singletonList(new JdbcSinkState(prepareXid, tableSchema));
     }
 
     @Override

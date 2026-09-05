@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
@@ -55,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_TOTAL;
@@ -351,6 +353,39 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void restoreSchema(List<CatalogTable> catalogTables) {
+        if (rowType instanceof SeaTunnelRowType) {
+            if (catalogTables.size() != 1) {
+                throw new SeaTunnelEngineException(
+                        "Single-table source collector cannot restore multiple table schemas: "
+                                + catalogTables.stream()
+                                        .map(CatalogTable::getTablePath)
+                                        .collect(Collectors.toList()));
+            }
+            this.rowType = catalogTables.get(0).getTableSchema().toPhysicalRowDataType();
+        } else if (rowType instanceof MultipleRowType) {
+            catalogTables.forEach(
+                    table -> {
+                        String tableId = table.getTablePath().toString();
+                        if (!rowTypeMap.containsKey(tableId)) {
+                            throw new SeaTunnelEngineException(
+                                    "Multi-table source collector cannot restore an unknown table schema: "
+                                            + tableId);
+                        }
+                        rowTypeMap.put(tableId, table.getTableSchema().toPhysicalRowDataType());
+                    });
+        } else {
+            throw new SeaTunnelEngineException(
+                    "Unsupported row type: " + rowType.getClass().getName());
+        }
+        log.info(
+                "Restored source collector schema from checkpoint for tables: {}",
+                catalogTables.stream()
+                        .map(CatalogTable::getTablePath)
+                        .collect(Collectors.toList()));
     }
 
     @Override
