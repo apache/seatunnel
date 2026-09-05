@@ -77,11 +77,15 @@ public class CheckpointCoordinatorFailoverIT {
 
     /**
      * Total starting (source) subtasks compiled from {@link #CLOSE_HANDSHAKE_TEMPLATE_CONF}: two
-     * independent FakeSource operators (table_fast, table_slow), each at env.parallelism = 2. Used
-     * to detect a partial close handshake: some, but not all, of these subtasks have reported ready
-     * to close.
+     * independent FakeSource operators (table_fast, table_slow), split by the pipeline generator
+     * into two pipeline-local coordinators. {@code env.parallelism = 2} in that template controls
+     * only the parallelism of each source's *reader* tasks; {@code
+     * PhysicalPlanGenerator#getEnumeratorTask} allocates exactly one starting (split-enumerator
+     * coordinator) subtask per source action regardless of reader parallelism, so the true total
+     * here is one per pipeline, i.e. one for table_fast and one for table_slow. Used to detect a
+     * partial close handshake: some, but not all, of these subtasks have reported ready to close.
      */
-    private static final int CLOSE_HANDSHAKE_STARTING_SUBTASKS = 4;
+    private static final int CLOSE_HANDSHAKE_STARTING_SUBTASKS = 2;
 
     @Test
     public void testBatchJobCompletesAfterMasterFailover() throws Exception {
@@ -396,16 +400,19 @@ public class CheckpointCoordinatorFailoverIT {
      *
      * <p>Trigger construction: {@link #CLOSE_HANDSHAKE_TEMPLATE_CONF} defines two independent
      * FakeSource operators feeding one shared LocalFile sink. The pipeline generator splits this
-     * two-input graph into two pipeline-local coordinators, each with two starting subtasks. One
+     * two-input graph into two pipeline-local coordinators, each with exactly one starting subtask
+     * (the split-enumerator coordinator; see {@link #CLOSE_HANDSHAKE_STARTING_SUBTASKS}). One
      * source is fast ({@code row.num = 5}, a single split) and the other is slow ({@code row.num =
      * 300} spread across 30 splits with a 300ms read interval between them, i.e. at least ~8.7
      * seconds to drain). {@code checkpoint.interval} is set far beyond this test's real runtime so
      * the completing checkpoint is the only checkpoint ever attempted. The test aggregates the two
      * coordinators' entries in {@code runningJobStateIMap}, via {@code
      * CheckpointCoordinator#getReadyToCloseImapKey()}, and waits until the aggregate is strictly
-     * between 0 and {@link #CLOSE_HANDSHAKE_STARTING_SUBTASKS}. The fast source's two subtasks have
-     * then reported ready while the slow source's two have not, so killing the active master
-     * precisely exercises recovery of non-empty, not-yet-complete close sets.
+     * between 0 and {@link #CLOSE_HANDSHAKE_STARTING_SUBTASKS}, i.e. equal to 1: the fast source's
+     * lone starting subtask has reported ready while the slow source's has not, so killing the
+     * active master precisely exercises recovery of a non-empty, not-yet-complete close set. That
+     * aggregate is transient, not stable, once it first turns non-zero -- see the tight poll
+     * interval and accompanying comment on the {@code Awaitility} block below.
      *
      * <p>Unlike this class's other two tests, the cluster here uses two dedicated master-only nodes
      * (started via {@code createMasterHazelcastInstance}) plus a separate worker node (started via
@@ -505,11 +512,25 @@ public class CheckpointCoordinatorFailoverIT {
             int secondPipelineId = secondPipelineIdHolder.get();
 
             // Poll the fix's own persisted bookkeeping until it shows a partial close handshake:
-            // table_fast's subtasks have reported ready to close, table_slow's have not.
+            // table_fast's subtask has reported ready to close, table_slow's has not.
+            //
+            // This window is genuinely transient, not merely "eventually true and then stable":
+            // CheckpointCoordinator#readyToClose persists table_fast's entry and, in the same
+            // call, immediately triggers its COMPLETED_POINT_TYPE checkpoint since that pipeline
+            // has only one starting subtask (see CLOSE_HANDSHAKE_STARTING_SUBTASKS); once that
+            // checkpoint finishes, the pipeline reaches a terminal state and its
+            // CheckpointCoordinator#shutdown removes this same IMap entry (readyToCloseImapKey)
+            // because that path is a real completion, not a master-failover reset. For a 5-row,
+            // one-split source this whole reported->completed->removed sequence can run to
+            // completion inside a single JVM well under this loop's earlier poll interval, so a
+            // sparser poll can sleep through the entire window and observe 0 both before and
+            // after it existed. Polling every millisecond instead of every 20ms does not make the
+            // window itself any wider, but it multiplies how many chances this loop gets to land
+            // inside it before it closes.
             HazelcastInstanceImpl finalMaster1ForPoll = masterNode1;
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
-                    .pollInterval(20, TimeUnit.MILLISECONDS)
+                    .pollInterval(1, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertEquals(
