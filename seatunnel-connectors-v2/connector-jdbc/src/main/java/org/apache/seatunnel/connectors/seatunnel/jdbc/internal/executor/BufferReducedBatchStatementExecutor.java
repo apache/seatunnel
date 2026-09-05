@@ -96,14 +96,8 @@ public class BufferReducedBatchStatementExecutor
 
     @Override
     public void closeStatements() throws SQLException {
-        try {
-            if (!buffer.isEmpty()) {
-                executeBatch();
-            }
-        } finally {
-            upsertExecutor.closeStatements();
-            deleteExecutor.closeStatements();
-        }
+        upsertExecutor.closeStatements();
+        deleteExecutor.closeStatements();
     }
 
     @Override

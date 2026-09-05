@@ -139,10 +139,12 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             jdbcStatementExecutor.clearBatch();
             batchCount = 0;
         } catch (SQLException e) {
-            throw new JdbcConnectorException(
-                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
-                    "Failed to clear JDBC batch after row-level error.",
-                    e);
+            flushException =
+                    new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                            "Failed to clear JDBC batch after row-level error.",
+                            e);
+            throw (JdbcConnectorException) flushException;
         }
     }
 
@@ -151,6 +153,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public synchronized void flush() throws IOException {
+        checkFlushException();
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
             return;
@@ -163,6 +166,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 batchCount = 0;
                 lastFlushTimeMs = System.currentTimeMillis();
                 break;
+            } catch (JdbcConnectorException e) {
+                flushException = e;
+                throw e;
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
                 // In row-error handling mode, data/constraint violations (22XXX/23XXX) are
@@ -172,8 +178,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
                 if (i >= jdbcConnectionConfig.getMaxRetries()) {
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                    throw (JdbcConnectorException) flushException;
                 }
                 try {
                     if (shouldRefreshExecutor(findSqlExceptions(e))) {
@@ -183,19 +191,23 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                     LOG.error(
                             "JDBC connection is not valid, and reestablish connection failed.",
                             exception);
-                    throw new JdbcConnectorException(
-                            JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
-                            "Reestablish JDBC connection failed",
-                            exception);
+                    flushException =
+                            new JdbcConnectorException(
+                                    JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                                    "Reestablish JDBC connection failed",
+                                    exception);
+                    throw (JdbcConnectorException) flushException;
                 }
                 try {
                     Thread.sleep(sleepMs * i);
                 } catch (InterruptedException ex) {
                     Thread.currentThread().interrupt();
-                    throw new JdbcConnectorException(
-                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                            "unable to flush; interrupted while doing another attempt",
-                            e);
+                    flushException =
+                            new JdbcConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "unable to flush; interrupted while doing another attempt",
+                                    e);
+                    throw (JdbcConnectorException) flushException;
                 }
             }
         }
@@ -230,7 +242,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     private void flushBufferedRecords() {
-        if (batchCount > 0) {
+        if (batchCount > 0 && flushException == null) {
             try {
                 flush();
             } catch (Exception e) {
