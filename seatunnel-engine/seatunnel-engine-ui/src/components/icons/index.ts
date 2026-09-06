@@ -15,6 +15,14 @@
  * limitations under the License.
  */
 
+/*
+ * SVG path data in this file is copied from Ionicons
+ * (https://github.com/ionic-team/ionicons), licensed under the MIT License.
+ * See seatunnel-dist/release-docs/licenses/LICENSE-ionicons.txt.
+ *
+ * Copyright (c) 2015-present Ionic (http://ionic.io/)
+ */
+
 import { defineComponent, openBlock, createElementBlock, createStaticVNode } from 'vue'
 
 const svgAttrs = {
