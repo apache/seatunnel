@@ -71,12 +71,26 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     private Long checkpointIdToFinish;
     private final DataSourceDialect<C> dialect;
 
+    /**
+     * Whether this assigner is the last phase of its job, so a durably completed snapshot means the
+     * dialect's enumerator-owned resources (e.g. PostgreSQL's persistent replication slot for an
+     * exactly-once initial snapshot) are safe to release in {@link #close()}.
+     *
+     * <p>{@code false} when this assigner is wrapped by a {@link HybridSplitAssigner}: its
+     * incremental phase keeps depending on those same resources for the rest of the job's lifetime,
+     * and {@link #close()} fires indistinguishably on a genuine final stop or on a Zeta
+     * failover/restart, so releasing them here on a false signal would risk dropping a resource
+     * (like a replication slot) the restarted job still needs to resume from.
+     */
+    private final boolean releasesEnumeratorResourcesOnCompletion;
+
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
             int currentParallelism,
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
-            DataSourceDialect<C> dialect) {
+            DataSourceDialect<C> dialect,
+            boolean releasesEnumeratorResourcesOnCompletion) {
         this(
                 context,
                 currentParallelism,
@@ -88,14 +102,16 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 remainingTables,
                 isTableIdCaseSensitive,
                 true,
-                dialect);
+                dialect,
+                releasesEnumeratorResourcesOnCompletion);
     }
 
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
             int currentParallelism,
             SnapshotPhaseState checkpoint,
-            DataSourceDialect<C> dialect) {
+            DataSourceDialect<C> dialect,
+            boolean releasesEnumeratorResourcesOnCompletion) {
         this(
                 context,
                 currentParallelism,
@@ -107,7 +123,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 checkpoint.getRemainingTables(),
                 checkpoint.isTableIdCaseSensitive(),
                 checkpoint.isRemainingTablesCheckpointed(),
-                dialect);
+                dialect,
+                releasesEnumeratorResourcesOnCompletion);
     }
 
     private SnapshotSplitAssigner(
@@ -121,7 +138,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
             boolean isRemainingTablesCheckpointed,
-            DataSourceDialect<C> dialect) {
+            DataSourceDialect<C> dialect,
+            boolean releasesEnumeratorResourcesOnCompletion) {
         this.context = context;
         this.sourceConfig = context.getSourceConfig();
         this.currentParallelism = currentParallelism;
@@ -134,6 +152,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         this.isRemainingTablesCheckpointed = isRemainingTablesCheckpointed;
         this.isTableIdCaseSensitive = isTableIdCaseSensitive;
         this.dialect = dialect;
+        this.releasesEnumeratorResourcesOnCompletion = releasesEnumeratorResourcesOnCompletion;
 
         LOG.info("SnapshotSplitAssigner created with remaining tables: {}", this.remainingTables);
         LOG.info(
@@ -275,7 +294,14 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void close() {
-        dialect.closeEnumerator(sourceConfig);
+        // See the releasesEnumeratorResourcesOnCompletion field Javadoc: only release
+        // dialect-owned enumerator resources once this assigner owns their entire lifecycle
+        // (no later incremental phase depends on them) AND the snapshot phase has durably,
+        // checkpoint-confirmed completed - not merely because close() was called, since close()
+        // cannot tell a genuine final stop apart from a Zeta failover/restart.
+        if (releasesEnumeratorResourcesOnCompletion && assignerCompleted) {
+            dialect.closeEnumerator(sourceConfig);
+        }
     }
 
     /** Indicates there is no more splits available in this assigner. */
