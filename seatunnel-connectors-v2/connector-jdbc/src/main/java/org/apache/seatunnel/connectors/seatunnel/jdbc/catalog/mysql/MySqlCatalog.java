@@ -73,6 +73,9 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
     public static final String TABLE_OPTION_ENGINE = "engine";
     public static final String TABLE_OPTION_CHARSET = "charset";
     public static final String TABLE_OPTION_COLLATE = "collate";
+    static final String TABLE_OPTION_INDEX_TYPE_PREFIX = "mysql.index.type.";
+    static final String TABLE_OPTION_INDEX_COLUMN_SUB_PART_PREFIX =
+            "mysql.index.column.sub_part.";
 
     private MySqlVersion version;
     private MySqlTypeConverter typeConverter;
@@ -186,7 +189,17 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         CatalogTable catalogTable = super.getTable(tablePath);
         readAndFillTableMetaOptions(
                 tablePath.getDatabaseName(), tablePath.getTableName(), catalogTable.getOptions());
+        readAndFillIndexOptions(
+                tablePath.getDatabaseName(), tablePath.getTableName(), catalogTable.getOptions());
         return catalogTable;
+    }
+
+    static String indexTypeOptionKey(String indexName) {
+        return TABLE_OPTION_INDEX_TYPE_PREFIX + indexName;
+    }
+
+    static String indexColumnSubPartOptionKey(String indexName, int ordinalPosition) {
+        return TABLE_OPTION_INDEX_COLUMN_SUB_PART_PREFIX + indexName + "." + ordinalPosition;
     }
 
     private void readAndFillTableMetaOptions(
@@ -210,6 +223,46 @@ public class MySqlCatalog extends AbstractJdbcCatalog {
         } catch (SQLException e) {
             log.warn(
                     "Failed to read table metadata from information_schema for {}.{}: {}",
+                    database,
+                    tableName,
+                    e.getMessage());
+        }
+    }
+
+    private void readAndFillIndexOptions(
+            String database, String tableName, Map<String, String> options) {
+        String url = getUrlFromDatabaseName(database);
+        String sql =
+                "SELECT INDEX_NAME, SEQ_IN_INDEX, INDEX_TYPE, SUB_PART "
+                        + "FROM INFORMATION_SCHEMA.STATISTICS "
+                        + "WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? AND INDEX_NAME <> 'PRIMARY'";
+        try (PreparedStatement ps = getConnection(url).prepareStatement(sql)) {
+            ps.setString(1, database);
+            ps.setString(2, tableName);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    String indexName = rs.getString("INDEX_NAME");
+                    if (StringUtils.isBlank(indexName)) {
+                        continue;
+                    }
+                    String indexType = rs.getString("INDEX_TYPE");
+                    if (StringUtils.isNotBlank(indexType)) {
+                        options.put(
+                                indexTypeOptionKey(indexName),
+                                indexType.trim().toUpperCase(Locale.ROOT));
+                    }
+                    Object subPart = rs.getObject("SUB_PART");
+                    if (subPart != null) {
+                        options.put(
+                                indexColumnSubPartOptionKey(
+                                        indexName, rs.getInt("SEQ_IN_INDEX")),
+                                String.valueOf(subPart));
+                    }
+                }
+            }
+        } catch (SQLException e) {
+            log.warn(
+                    "Failed to read index metadata from information_schema for {}.{}: {}",
                     database,
                     tableName,
                     e.getMessage());

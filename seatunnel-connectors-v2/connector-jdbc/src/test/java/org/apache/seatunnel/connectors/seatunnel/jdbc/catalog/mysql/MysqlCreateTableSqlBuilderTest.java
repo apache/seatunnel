@@ -183,6 +183,70 @@ public class MysqlCreateTableSqlBuilderTest {
     }
 
     @Test
+    public void testBuildCreateTableSqlWithMysqlFulltextAndPrefixIndexes() {
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 0, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "billing_id",
+                                        BasicType.STRING_TYPE,
+                                        1024,
+                                        true,
+                                        null,
+                                        "billing_id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "destination",
+                                        BasicType.STRING_TYPE,
+                                        128,
+                                        true,
+                                        null,
+                                        "destination"))
+                        .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
+                        .constraintKey(
+                                Arrays.asList(
+                                        ConstraintKey.of(
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
+                                                "idx_billing_id",
+                                                Lists.newArrayList(
+                                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                                "billing_id", null))),
+                                        ConstraintKey.of(
+                                                ConstraintKey.ConstraintType.INDEX_KEY,
+                                                "idx_destination",
+                                                Lists.newArrayList(
+                                                        ConstraintKey.ConstraintKeyColumn.of(
+                                                                "destination", null)))))
+                        .build();
+        Map<String, String> options = new HashMap<>();
+        options.put(MySqlCatalog.indexTypeOptionKey("idx_billing_id"), "FULLTEXT");
+        options.put(MySqlCatalog.indexColumnSubPartOptionKey("idx_destination", 1), "64");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "test_db", "test_table"),
+                        tableSchema,
+                        options,
+                        Collections.emptyList(),
+                        "table with fulltext index");
+
+        String createTableSql =
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, true)
+                        .build(DatabaseIdentifier.MYSQL);
+
+        Assertions.assertTrue(
+                createTableSql.contains("FULLTEXT KEY `idx_billing_id` (`billing_id`)"),
+                createTableSql);
+        Assertions.assertTrue(
+                createTableSql.contains("KEY `idx_destination` (`destination`(64))"),
+                createTableSql);
+        Assertions.assertFalse(
+                createTableSql.contains("KEY `idx_billing_id` (`billing_id`)"), createTableSql);
+    }
+
+    @Test
     public void testColumnSinkType() {
         MysqlCreateTableSqlBuilder sqlBuilder = mock(MysqlCreateTableSqlBuilder.class);
 
