@@ -117,6 +117,7 @@ public class DefaultSlotService implements SlotService {
         AtomicInteger systemLoadSendCountDown = new AtomicInteger(SYSTEM_LOAD_SEND_INTERVAL);
         scheduledExecutorService.scheduleAtFixedRate(
                 () -> {
+                    SystemLoadInfo systemLoadInfo = null;
                     try {
                         LOGGER.fine(
                                 "start send heartbeat to resource manager, this address: "
@@ -130,7 +131,7 @@ public class DefaultSlotService implements SlotService {
                                         && (config.getAllocateStrategy()
                                                         == AllocateStrategy.SYSTEM_LOAD
                                                 || autoscalerConfig.isEnabled());
-                        SystemLoadInfo systemLoadInfo =
+                        systemLoadInfo =
                                 Optional.of(shouldCollectSystemLoad)
                                         .filter(Boolean::booleanValue)
                                         .map(
@@ -152,6 +153,12 @@ public class DefaultSlotService implements SlotService {
                         }
 
                         sendToMaster(new WorkerHeartbeatOperation(workerProfile)).join();
+                    } catch (Exception e) {
+                        LOGGER.warning(
+                                "failed send heartbeat to resource manager, will retry later. this address: "
+                                        + nodeEngine.getClusterService().getThisAddress());
+                    }
+                    try {
                         if (autoscalerConfig.isEnabled() && systemLoadInfo != null) {
                             long sampleTimeMillis = System.currentTimeMillis();
                             sendToMaster(
@@ -164,7 +171,7 @@ public class DefaultSlotService implements SlotService {
                         }
                     } catch (Exception e) {
                         LOGGER.warning(
-                                "failed send heartbeat to resource manager, will retry later. this address: "
+                                "failed send autoscaler metrics to resource manager, will retry later. this address: "
                                         + nodeEngine.getClusterService().getThisAddress());
                     }
                 },

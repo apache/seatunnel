@@ -42,6 +42,11 @@ public final class RecommendationFence {
         return PublicationResult.ACCEPTED;
     }
 
+    public synchronized void reset() {
+        lastMasterEpoch = Long.MIN_VALUE;
+        lastGeneration = Long.MIN_VALUE;
+    }
+
     public enum PublicationResult {
         ACCEPTED,
         DUPLICATE,

@@ -51,6 +51,16 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
     }
 
     @Override
+    public synchronized void clear() {
+        latest = null;
+        history.clear();
+        fence.reset();
+        for (ScalingAction action : ScalingAction.values()) {
+            recommendationCounts.put(action, 0L);
+        }
+    }
+
+    @Override
     public synchronized RecommendationFence.PublicationResult publish(
             ScalingRecommendation recommendation) {
         Objects.requireNonNull(recommendation, "recommendation");

@@ -1406,6 +1406,7 @@ public class CoordinatorService {
         if (!engineConfig.getAutoscalerConfig().isEnabled() || autoscalerRunning) {
             return;
         }
+        autoscalerStateStore.clear();
         long masterEpoch =
                 nodeEngine
                         .getHazelcastInstance()

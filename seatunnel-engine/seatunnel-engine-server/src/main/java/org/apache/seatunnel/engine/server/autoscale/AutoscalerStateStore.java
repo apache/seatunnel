@@ -21,6 +21,8 @@ public interface AutoscalerStateStore {
 
     RecommendationFence.PublicationResult publish(ScalingRecommendation recommendation);
 
+    void clear();
+
     AutoscalerView view(
             boolean enabled,
             boolean running,
