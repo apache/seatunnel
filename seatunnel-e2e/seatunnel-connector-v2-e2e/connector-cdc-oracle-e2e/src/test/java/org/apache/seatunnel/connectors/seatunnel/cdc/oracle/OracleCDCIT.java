@@ -327,24 +327,25 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason =
                     "This case requires obtaining the task health status and manually canceling the canceled task, which is currently only supported by the zeta engine.")
-    public void testOracleCdcMetadataTrans(TestContainer container) throws Exception {
+    public void testOracleCdcMetadataTransStopsAfterCancel(TestContainer container)
+            throws Exception {
 
         clearTable(SCEHMA_NAME, SOURCE_TABLE_NO_PRIMARY_KEY);
         clearTable(SCEHMA_NAME, SINK_TABLE1);
 
         insertSourceTable(SCEHMA_NAME, SOURCE_TABLE_NO_PRIMARY_KEY);
         Long jobId = JobIdGenerator.newJobId();
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/oraclecdc_to_metadata_trans.conf", String.valueOf(jobId));
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/oraclecdc_to_metadata_trans.conf", String.valueOf(jobId));
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
         TimeUnit.SECONDS.sleep(10);
         // insert update delete
         updateSourceTable(SCEHMA_NAME, SOURCE_TABLE_NO_PRIMARY_KEY);
@@ -355,12 +356,17 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
                             Assertions.assertEquals("RUNNING", jobStatus);
                         });
-        try {
-            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
-            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
-        } catch (IOException | InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+        Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "CANCELED",
+                                        container.getJobStatus(String.valueOf(jobId)),
+                                        "Oracle CDC job should reach CANCELED after cancellation."));
+        Container.ExecResult jobResult = jobFuture.get(30, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
     }
 
     @TestTemplate
