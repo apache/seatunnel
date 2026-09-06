@@ -60,6 +60,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -971,6 +972,28 @@ public class CheckpointCoordinatorTest
                     }
                 }
             }
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCancelDoesNotRecreateScheduler() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            coordinator.cancelCheckpoint().join();
+
+            ScheduledExecutorService scheduler =
+                    (ScheduledExecutorService)
+                            ReflectionUtils.getField(coordinator, "scheduler")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "scheduler field not found"));
+            Assertions.assertTrue(
+                    scheduler.isShutdown(),
+                    "terminal cleanup must not replace the shutdown checkpoint scheduler");
         } finally {
             executorService.shutdownNow();
         }
