@@ -189,7 +189,7 @@ class JdbcSourceSplitEnumeratorTest {
 
         Assertions.assertEquals(Collections.singletonList(2), assignmentSizes);
         Assertions.assertEquals(0, noMoreSplitsCallCount.get());
-        Assertions.assertTrue(enumerator.currentUnassignedSplitSize() > 0);
+        Assertions.assertEquals(3, enumerator.currentUnassignedSplitSize());
 
         enumerator.handleSplitRequest(0);
         Assertions.assertEquals(java.util.Arrays.asList(2, 2), assignmentSizes);
@@ -444,6 +444,153 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertEquals(
                 Collections.singletonList("returned-split"), assignedSplitBatches.get(1));
         Assertions.assertEquals(1, noMoreSplitsCallCount.get());
+    }
+
+    @Test
+    void testCurrentUnassignedSplitSizeSumsAcrossReaders() throws Exception {
+        int parallelism = 2;
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        Set<Integer> registeredReaders = ConcurrentHashMap.newKeySet();
+        registeredReaders.add(0);
+        registeredReaders.add(1);
+
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(registeredReaders);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {}
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {}
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:generic://localhost:0/test")
+                                        .driverName("org.example.Driver")
+                                        .build())
+                        .splitAssignBatchSize(1)
+                        .build();
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, null);
+        enumerator.open();
+
+        enumerator.addSplitsBack(
+                java.util.Arrays.asList(
+                        createSplit(tablePath, "r0-a"), createSplit(tablePath, "r0-b")),
+                0);
+        enumerator.addSplitsBack(
+                java.util.Arrays.asList(
+                        createSplit(tablePath, "r1-a"),
+                        createSplit(tablePath, "r1-b"),
+                        createSplit(tablePath, "r1-c")),
+                1);
+
+        // Each reader received one split in the first handoff; 1 + 2 remain unassigned.
+        Assertions.assertEquals(3, enumerator.currentUnassignedSplitSize());
+        enumerator.close();
+    }
+
+    @Test
+    void testHandleSplitRequestIgnoresUnregisteredReader() throws Exception {
+        int parallelism = 1;
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        Set<Integer> registeredReaders = ConcurrentHashMap.newKeySet();
+        registeredReaders.add(0);
+
+        List<Integer> assignmentSizes = new ArrayList<>();
+
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(registeredReaders);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {
+                        assignmentSizes.add(splits.size());
+                    }
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {}
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:generic://localhost:0/test")
+                                        .driverName("org.example.Driver")
+                                        .build())
+                        .splitAssignBatchSize(1)
+                        .build();
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, null);
+        enumerator.open();
+
+        enumerator.addSplitsBack(
+                java.util.Arrays.asList(
+                        createSplit(tablePath, "s0"),
+                        createSplit(tablePath, "s1"),
+                        createSplit(tablePath, "s2")),
+                0);
+        Assertions.assertEquals(Collections.singletonList(1), assignmentSizes);
+        Assertions.assertEquals(2, enumerator.currentUnassignedSplitSize());
+
+        registeredReaders.clear();
+        enumerator.handleSplitRequest(0);
+
+        // Stale request must not drain pending splits for a de-registered reader.
+        Assertions.assertEquals(Collections.singletonList(1), assignmentSizes);
+        Assertions.assertEquals(2, enumerator.currentUnassignedSplitSize());
+        enumerator.close();
     }
 
     private JdbcSourceTable createJdbcSourceTable(TablePath tablePath) {

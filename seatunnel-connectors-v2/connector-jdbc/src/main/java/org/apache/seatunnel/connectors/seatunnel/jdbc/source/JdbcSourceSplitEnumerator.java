@@ -146,21 +146,21 @@ public class JdbcSourceSplitEnumerator
     @Override
     public int currentUnassignedSplitSize() {
         synchronized (stateLock) {
-            if (!pendingTables.isEmpty()) {
-                return 1;
-            }
-            for (List<JdbcSourceSplit> splits : pendingSplits.values()) {
-                if (splits != null && !splits.isEmpty()) {
-                    return splits.size();
-                }
-            }
-            return 0;
+            int unassigned = pendingSplits.values().stream().mapToInt(List::size).sum();
+            // Accurate count of tables still awaiting split generation.
+            return unassigned + pendingTables.size();
         }
     }
 
     @Override
     public void handleSplitRequest(int subtaskId) {
         synchronized (stateLock) {
+            if (!context.registeredReaders().contains(subtaskId)) {
+                LOG.warn(
+                        "Reader {} is not registered. Split request is ignored; pending splits are retained.",
+                        subtaskId);
+                return;
+            }
             assignSplit(Collections.singletonList(subtaskId));
             maybeSignalNoMoreSplits(Collections.singletonList(subtaskId));
         }
