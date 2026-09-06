@@ -54,8 +54,10 @@ Each receive request asks SQS for up to 10 messages. If more messages are waitin
 - `text` splits each message body by `field_delimiter` and maps the values to fields in `schema` order.
 - `canal_json` reads Canal JSON messages. For details, see [Canal JSON](../formats/canal-json.md).
 - `debezium_json` reads Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
+- A `canal_json` or `debezium_json` message can emit multiple rows. For example, an update emits its before and after rows.
 - `ignore_parse_errors = false` fails the poll and retains an unreadable message. When set to `true`, the source skips the message and continues processing the batch.
 - When both `ignore_parse_errors` and `delete_message` are `true`, skipped messages are deleted from SQS. Keep `delete_message = false` if skipped messages should remain available for redelivery.
+- For multi-row messages, deletion happens only after every row has been collected. A collection failure keeps the SQS message available for redelivery.
 - `delete_message = true` removes consumed messages from SQS. Keep the default `false` when you only want to inspect or copy messages without deleting them.
 - `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
 - The source performs one receive request, with up to 10 messages, and then finishes the bounded job.
