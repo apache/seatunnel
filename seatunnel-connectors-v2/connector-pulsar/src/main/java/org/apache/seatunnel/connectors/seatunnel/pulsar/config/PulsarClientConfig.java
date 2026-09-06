@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.pulsar.config;
 
-import org.apache.pulsar.shade.com.google.common.base.Preconditions;
-import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
-
 // TODO: more field
 
 public class PulsarClientConfig extends BasePulsarConfig {
@@ -66,8 +63,6 @@ public class PulsarClientConfig extends BasePulsarConfig {
         }
 
         public PulsarClientConfig build() {
-            Preconditions.checkArgument(
-                    StringUtils.isNotBlank(serviceUrl), "Pulsar service URL is required.");
             return new PulsarClientConfig(authPluginClassName, authParams, serviceUrl);
         }
     }

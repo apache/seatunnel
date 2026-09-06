@@ -43,7 +43,6 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
@@ -125,6 +124,23 @@ public class HttpClientProvider implements AutoCloseable {
             String body,
             boolean keepParamsAsForm)
             throws Exception {
+        // convert method option to uppercase
+        method = method.toUpperCase(Locale.ROOT);
+
+        // Preserve a configured POST body verbatim. Parsing it as HOCON and serializing the
+        // resulting map again flattens nested JSON keys (for example, data.type becomes
+        // data->type) before the request is sent. This only applies when the caller did not
+        // explicitly request a form-encoded body via Content-Type, in which case the legacy
+        // HOCON-to-form-parameter conversion below must still run to keep existing jobs
+        // (which configure a JSON-shaped body together with Content-Type
+        // application/x-www-form-urlencoded) working.
+        if (HttpPost.METHOD_NAME.equals(method)
+                && !keepParamsAsForm
+                && !Strings.isNullOrEmpty(body)
+                && !isFormContentType(headers)) {
+            return doPost(url, headers, params, body);
+        }
+
         Map<String, Object> bodyMap = new HashMap<>();
         // If body is set but bodyMap is not, convert body to bodyMap
         if (!Strings.isNullOrEmpty(body)) {
@@ -137,8 +153,6 @@ public class HttpClientProvider implements AutoCloseable {
                                             (v1, v2) -> v2));
         }
 
-        // convert method option to uppercase
-        method = method.toUpperCase(Locale.ROOT);
         // Keep the original post  logic
         if (HttpPost.METHOD_NAME.equals(method) && keepParamsAsForm) {
             // Compatible with old versions
@@ -483,6 +497,14 @@ public class HttpClientProvider implements AutoCloseable {
         return getResponse(httpPost);
     }
 
+    private HttpResponse doPost(
+            String url, Map<String, String> headers, Map<String, String> params, String body)
+            throws Exception {
+        URIBuilder uriBuilder = new URIBuilder(url);
+        addParameters(uriBuilder, params);
+        return doPost(uriBuilder.build().toString(), headers, body);
+    }
+
     /**
      * Send a post request with request headers and request body
      *
@@ -671,6 +693,17 @@ public class HttpClientProvider implements AutoCloseable {
         headers.forEach(request::addHeader);
     }
 
+    private static boolean isFormContentType(Map<String, String> headers) {
+        if (MapUtils.isEmpty(headers)) {
+            return false;
+        }
+        return headers.entrySet().stream()
+                .filter(entry -> HTTP.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .filter(Objects::nonNull)
+                .anyMatch(value -> APPLICATION_FORM.equalsIgnoreCase(value.trim()));
+    }
+
     static void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)
             throws UnsupportedEncodingException {
         if (MapUtils.isEmpty(body)) {
@@ -706,25 +739,20 @@ public class HttpClientProvider implements AutoCloseable {
         }
     }
 
-    private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {
-        if (request.getEntity() != null && request.getEntity().getContentType() != null) {
-            return HTTP.CONTENT_TYPE.equals(request.getEntity().getContentType().getName());
-        }
-        return false;
-    }
-
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
-        if (checkAlreadyHaveContentType(request)) {
-            return;
-        }
-        request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
-
+        // The caller may have already supplied a Content-Type header via the headers map.
+        // We must not append a second Content-Type, otherwise the outgoing request carries
+        // duplicate Content-Type headers and the behaviour becomes implementation-defined
+        // (RFC 7230 §3.2.2 forbids duplicate non-list headers). Mirror the correct pattern
+        // already used by addBody(Map).
         if (StringUtils.isBlank(body)) {
             body = "";
         }
 
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
-        entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
+        if (!request.containsHeader(HTTP.CONTENT_TYPE)) {
+            request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+        }
         request.setEntity(entity);
     }
 
