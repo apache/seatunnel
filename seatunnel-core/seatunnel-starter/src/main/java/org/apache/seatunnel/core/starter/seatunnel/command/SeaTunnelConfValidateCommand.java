@@ -208,7 +208,7 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                                     sanitizedMessage == null
                                             ? "Validation failed"
                                             : sanitizedMessage)));
-            throw new ConfigCheckException(validationMode + " failed: " + message, e);
+            throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage, e);
         }
     }
 

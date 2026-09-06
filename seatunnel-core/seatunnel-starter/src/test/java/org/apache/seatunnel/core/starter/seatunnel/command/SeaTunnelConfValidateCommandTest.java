@@ -94,6 +94,33 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testJsonStaticFailureSanitizesThrownException() throws Exception {
+        Path configFile = Files.createTempFile("seatunnel-static-sensitive-failure", ".json");
+        Files.write(
+                configFile,
+                ("{\n"
+                                + "  \"env\": {\"parallelism\": 1, \"job.mode\": \"BATCH\"},\n"
+                                + "  \"source\": [{\"plugin_name\": "
+                                + "\"jdbc:mysql://alice:secret-password@db.example.com:3306/orders\", "
+                                + "\"plugin_output\": \"fake\"}],\n"
+                                + "  \"sink\": [{\"plugin_name\": \"Console\", "
+                                + "\"plugin_input\": \"fake\"}]\n"
+                                + "}")
+                        .getBytes(StandardCharsets.UTF_8));
+        configFile.toFile().deleteOnExit();
+
+        SeaTunnelConfValidateCommand command =
+                new SeaTunnelConfValidateCommand(buildJsonArgsFromPath(configFile.toString()));
+        ConfigCheckException exception =
+                Assertions.assertThrows(ConfigCheckException.class, command::execute);
+
+        Assertions.assertFalse(
+                exception.getMessage().contains("secret-password"), exception.getMessage());
+        Assertions.assertTrue(
+                exception.getMessage().contains("the configured JDBC URL"), exception.getMessage());
+    }
+
+    @Test
     public void testDefaultOutputDoesNotEmitJson() throws Exception {
         SeaTunnelConfValidateCommand command =
                 new SeaTunnelConfValidateCommand(buildArgs("config/valid_static_dryrun.json"));
@@ -655,6 +682,11 @@ public class SeaTunnelConfValidateCommandTest {
         String[] args = {
             "-c", resolveConfigPath(configFile), "--dry-run", "static", "--format", "json"
         };
+        return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
+    }
+
+    private ClientCommandArgs buildJsonArgsFromPath(String configPath) {
+        String[] args = {"-c", configPath, "--dry-run", "static", "--format", "json"};
         return CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel.sh", true);
     }
 
