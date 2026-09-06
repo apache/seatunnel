@@ -264,6 +264,9 @@ public class ResourceRequestHandler {
     }
 
     private void recordShortage(ResourceProfile resourceProfile) {
+        if (!resourceManager.getEngineConfig().getAutoscalerConfig().isEnabled()) {
+            return;
+        }
         if (resourceManager.getEngineConfig().getScheduleStrategy() == ScheduleStrategy.WAIT) {
             resourceManager
                     .getResourceShortageStats()

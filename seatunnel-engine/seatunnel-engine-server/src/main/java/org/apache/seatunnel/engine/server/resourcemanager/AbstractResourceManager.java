@@ -264,6 +264,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     private void recordResourceShortage(int taskGroupCount, String resourceShape) {
+        if (!engineConfig.getAutoscalerConfig().isEnabled()) {
+            return;
+        }
         if (engineConfig.getScheduleStrategy() == ScheduleStrategy.WAIT) {
             resourceShortageStats.recordWaitShortage(taskGroupCount, resourceShape);
         } else {

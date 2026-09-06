@@ -40,6 +40,7 @@ public final class DefaultAutoScaler {
 
     private long masterEpoch;
     private long generation;
+    private volatile boolean closed;
 
     public DefaultAutoScaler(
             long masterEpoch,
@@ -77,6 +78,9 @@ public final class DefaultAutoScaler {
     }
 
     public synchronized RecommendationFence.PublicationResult evaluateOnce() {
+        if (closed) {
+            return RecommendationFence.PublicationResult.REJECTED;
+        }
         AutoscalerMetricsSnapshot snapshot = signalCollector.collect();
         AutoscaleEvaluation evaluation = policy.evaluate(snapshot);
         boolean stabilized =
@@ -106,6 +110,10 @@ public final class DefaultAutoScaler {
                         .recommendationOnly(true)
                         .build();
         return stateStore.publish(recommendation);
+    }
+
+    public synchronized void close() {
+        closed = true;
     }
 
     public synchronized void reset(long masterEpoch) {

@@ -1464,7 +1464,7 @@ public class CoordinatorService {
         DefaultAutoScaler current = autoScaler;
         autoScaler = null;
         if (current != null) {
-            current.reset(0L);
+            current.close();
         }
         ScheduledExecutorService scheduler = autoscalerScheduler;
         autoscalerScheduler = null;
