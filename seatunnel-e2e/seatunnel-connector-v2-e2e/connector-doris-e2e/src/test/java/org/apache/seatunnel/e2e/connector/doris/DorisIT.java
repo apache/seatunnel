@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -54,6 +55,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -171,7 +173,13 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult =
                 container.executeJob("/doris_source_and_sink_with_custom_sql.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE));
+        // Same 2pc publish lag as in assertHasData: the count is only complete once Doris has
+        // published the committed transaction (seen as 1 of 101 rows right after the job exit).
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(101, tableCount(sinkDB, UNIQUE_TABLE)));
         clearUniqueTable();
     }
 
@@ -383,13 +391,24 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private void assertHasData(String db, String table) {
-        try (Statement statement = conn.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", db, table);
-            ResultSet source = statement.executeQuery(sql);
-            Assertions.assertTrue(source.next());
-        } catch (Exception e) {
-            throw new RuntimeException("test doris server image error", e);
-        }
+        // The sink jobs run with sink.enable-2pc = true, so the rows only become visible once
+        // Doris has published the committed transaction. That publish step can lag the job's
+        // exit on loaded CI runners (seen on the Spark legs as an empty sink table right after
+        // executeJob returned), so wait for visibility instead of reading once.
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (Statement statement = conn.createStatement()) {
+                                String sql =
+                                        String.format("select * from %s.%s limit 1", db, table);
+                                ResultSet source = statement.executeQuery(sql);
+                                Assertions.assertTrue(source.next());
+                            } catch (SQLException e) {
+                                throw new RuntimeException("test doris server image error", e);
+                            }
+                        });
     }
 
     private void clearUniqueTable() {
