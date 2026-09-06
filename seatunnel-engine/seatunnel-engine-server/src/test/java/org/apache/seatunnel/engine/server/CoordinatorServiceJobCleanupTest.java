@@ -378,8 +378,16 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                 exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
     }
 
+    /**
+     * A savepoint restart whose pending cleanup record is owned by the job's currently published
+     * generation must consume that record inline and let the submission through, instead of failing
+     * - see {@link CoordinatorService#validateJobSubmissionFence}'s Javadoc. This covers the
+     * FINISHED terminal state; {@link
+     * #testSubmitStartWithSavePointConsumesOwnedPendingCleanupFromSavepointDoneState()} covers the
+     * SAVEPOINT_DONE terminal state with the same ownership shape.
+     */
     @Test
-    void testSubmitStartWithSavePointBlockedWhenCleanupStillPending() {
+    void testSubmitStartWithSavePointConsumesOwnedPendingCleanupAndSucceeds() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
         long initializationTimestamp = 100L;
@@ -417,27 +425,27 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         System.currentTimeMillis()));
         pendingPipelineCleanupIMap.put(pipelineLocation, pipelineCleanupRecord);
 
-        CompletionException exception =
-                Assertions.assertThrows(
-                        CompletionException.class,
-                        () ->
-                                coordinatorService
-                                        .submitJob(jobId, createJobData(jobId, true), true)
-                                        .join());
+        Assertions.assertDoesNotThrow(
+                () -> coordinatorService.submitJob(jobId, createJobData(jobId, true), true).join());
 
-        Assertions.assertInstanceOf(JobException.class, exception.getCause());
-        Assertions.assertTrue(
-                exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
-        Assertions.assertEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
-        Assertions.assertTrue(pendingJobCleanupIMap.containsKey(jobId));
-        Assertions.assertEquals(
-                pipelineCleanupRecord,
-                pendingPipelineCleanupIMap.get(pipelineLocation),
-                "failed submit must retain cleanup for the previous pipeline generation");
+        Assertions.assertNotEquals(JobStatus.FINISHED, runningJobStateIMap.get(jobId));
+        Assertions.assertFalse(
+                pendingJobCleanupIMap.containsKey(jobId),
+                "consuming the owned cleanup record inline must remove it");
+        Assertions.assertFalse(
+                pendingPipelineCleanupIMap.containsKey(pipelineLocation),
+                "successful restore must invalidate cleanup for the previous pipeline generation");
     }
 
+    /**
+     * Same ownership shape as {@link
+     * #testSubmitStartWithSavePointConsumesOwnedPendingCleanupAndSucceeds()}, starting from
+     * SAVEPOINT_DONE instead of FINISHED: a savepoint restart consumes its own previous
+     * generation's pending cleanup record inline in the same submission, with no separate {@link
+     * CoordinatorService#runPendingJobCleanupOnce()} pass required first.
+     */
     @Test
-    void testSubmitStartWithSavePointRetriesAfterCleanupCompletes() {
+    void testSubmitStartWithSavePointConsumesOwnedPendingCleanupFromSavepointDoneState() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long jobId = System.currentTimeMillis();
         long initializationTimestamp = 100L;
@@ -478,28 +486,6 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                         System.currentTimeMillis()));
         pendingPipelineCleanupIMap.put(pipelineLocation, pipelineCleanupRecord);
 
-        CompletionException exception =
-                Assertions.assertThrows(
-                        CompletionException.class,
-                        () ->
-                                coordinatorService
-                                        .submitJob(
-                                                jobId,
-                                                createJobData(
-                                                        jobId, true, "stream_fake_to_console.conf"),
-                                                true)
-                                        .join());
-        Assertions.assertInstanceOf(JobException.class, exception.getCause());
-        Assertions.assertEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
-        Assertions.assertEquals(
-                pipelineCleanupRecord,
-                pendingPipelineCleanupIMap.get(pipelineLocation),
-                "blocked restore must not invalidate cleanup for the previous pipeline generation");
-
-        coordinatorService.runPendingJobCleanupOnce();
-        Assertions.assertFalse(pendingJobCleanupIMap.containsKey(jobId));
-        Assertions.assertFalse(runningJobStateIMap.containsKey(jobId));
-
         Assertions.assertDoesNotThrow(
                 () ->
                         coordinatorService
@@ -510,6 +496,9 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                                 .join());
 
         Assertions.assertNotEquals(JobStatus.SAVEPOINT_DONE, runningJobStateIMap.get(jobId));
+        Assertions.assertFalse(
+                pendingJobCleanupIMap.containsKey(jobId),
+                "consuming the owned cleanup record inline must remove it");
         Assertions.assertFalse(
                 pendingPipelineCleanupIMap.containsKey(pipelineLocation),
                 "successful restore must invalidate cleanup for the previous pipeline generation");

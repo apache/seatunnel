@@ -1214,7 +1214,7 @@ public class CoordinatorService {
                             jobInfo.getInitializationTimestamp())) {
                 return;
             }
-            JobCleanupRecord cleanupRecord = pendingJobCleanupIMap.get(jobId);
+            JobCleanupRecord cleanupRecord = getOwnedPendingCleanup(jobId, jobInfo);
             if (cleanupRecord != null) {
                 schedulePendingJobCleanup(jobId, cleanupRecord);
                 return;
