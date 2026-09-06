@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.common.job;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,5 +37,25 @@ public class JobStatusTest {
         } finally {
             Locale.setDefault(originalLocale);
         }
+    }
+
+    @Test
+    void testOrdinalOrderIsStableForInternalRpcCompatibility() {
+        assertEquals(
+                Arrays.asList(
+                        JobStatus.INITIALIZING,
+                        JobStatus.CREATED,
+                        JobStatus.PENDING,
+                        JobStatus.SCHEDULED,
+                        JobStatus.RUNNING,
+                        JobStatus.FAILING,
+                        JobStatus.FAILED,
+                        JobStatus.DOING_SAVEPOINT,
+                        JobStatus.SAVEPOINT_DONE,
+                        JobStatus.CANCELING,
+                        JobStatus.CANCELED,
+                        JobStatus.FINISHED,
+                        JobStatus.UNKNOWABLE),
+                Arrays.asList(JobStatus.values()));
     }
 }
