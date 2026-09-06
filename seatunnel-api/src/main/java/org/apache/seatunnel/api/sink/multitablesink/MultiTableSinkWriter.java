@@ -580,6 +580,20 @@ public class MultiTableSinkWriter
         if (sourceSubtaskId == null
                 || expectedSourceEventCount == null
                 || expectedSourceEventCount <= 1) {
+            Integer requiredCountOnFile = expectedCloseTableEventCounts.get(event.tableId());
+            if (requiredCountOnFile != null && requiredCountOnFile > 1) {
+                // Another, properly attributed event already established that more than one
+                // upstream subtask must report in before this table can close. This event
+                // cannot be attributed to a specific subtask, so it cannot safely count as one
+                // of those votes; closing now would risk cutting off sibling subtasks that are
+                // still writing rows for this table, so wait for the real aggregation to
+                // converge instead.
+                log.debug(
+                        "Ignoring un-attributed close table event for table {} while {} upstream readers are still expected",
+                        event.tableId(),
+                        requiredCountOnFile);
+                return;
+            }
             markTablePendingClose(event.tableId());
             return;
         }
@@ -725,16 +739,15 @@ public class MultiTableSinkWriter
     }
 
     private void closeTable(String tableId) throws IOException {
-        pendingCloseTableIds.remove(tableId);
-        if (!closedTableIds.add(tableId)) {
+        if (closedTableIds.contains(tableId)) {
+            pendingCloseTableIds.remove(tableId);
             log.debug("Table {} is already closed in multi table sink writer", tableId);
             return;
         }
-        closeTableEventSources.remove(tableId);
-        expectedCloseTableEventCounts.remove(tableId);
         waitUntilTableQueueDrained(tableId);
 
         boolean matched = false;
+        boolean allWritersClosed = true;
         Throwable firstError = null;
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
@@ -751,32 +764,48 @@ public class MultiTableSinkWriter
                     continue;
                 }
                 matched = true;
+                boolean partitionFullyClosed = true;
                 for (SinkIdentifier identifier : matchedIdentifiers) {
-                    SinkWriter<SeaTunnelRow, ?, ?> sinkWriter = writerMap.remove(identifier);
-                    sinkWriters.remove(identifier);
+                    SinkWriter<SeaTunnelRow, ?, ?> sinkWriter = writerMap.get(identifier);
                     if (sinkWriter == null) {
                         continue;
                     }
                     try {
                         sinkWriter.close();
+                        // Only drop the writer reference once close() actually succeeds, so a
+                        // failed close leaves the writer in place and retriable on a later
+                        // closeTable() attempt instead of leaking it with no way to retry.
+                        writerMap.remove(identifier);
+                        sinkWriters.remove(identifier);
                     } catch (Throwable e) {
+                        partitionFullyClosed = false;
+                        allWritersClosed = false;
                         if (firstError == null) {
                             firstError = e;
                         }
                         log.error("Failed to close sink writer for table {}", tableId, e);
                     }
                 }
-                runnable.get(i).removeTableWriter(tableId);
+                if (partitionFullyClosed) {
+                    runnable.get(i).removeTableWriter(tableId);
+                }
             }
         }
+        if (!allWritersClosed) {
+            // Keep the table pending so the next checkpoint retries the writers that are still
+            // open, instead of marking it closed with no path back to the leaked writers.
+            pendingCloseTableIds.add(tableId);
+            throw new IOException("Failed to close sink writers for table " + tableId, firstError);
+        }
+        pendingCloseTableIds.remove(tableId);
+        closedTableIds.add(tableId);
+        closeTableEventSources.remove(tableId);
+        expectedCloseTableEventCounts.remove(tableId);
         sinkPrimaryKeys.remove(tableId);
         if (!matched) {
             log.debug("Ignore close table event for unknown table {}", tableId);
         } else {
             log.info("Closed sink writers for table {} after close table event", tableId);
-        }
-        if (firstError != null) {
-            throw new IOException("Failed to close sink writers for table " + tableId, firstError);
         }
     }
 
