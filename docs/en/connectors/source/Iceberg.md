@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-iceberg.md';
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 - [x] data format
   - [x] parquet
   - [x] orc
@@ -254,6 +255,24 @@ source {
   }
 }
 ```
+
+## FAQ
+
+### How do I read multiple Iceberg tables in one job?
+
+Use the `table_list` option and provide one entry per table. Do not set `table` at the same time. Each entry can override `table`, `query`, and the snapshot/stream scan options for that table.
+
+### What is the difference between `start_snapshot_id` and `use_snapshot_id`?
+
+`start_snapshot_id` starts incremental reading from a particular snapshot (exclusive). `use_snapshot_id` reads exactly the given snapshot, ignoring newer snapshots. Use `start_snapshot_id` for streaming change-data capture and `use_snapshot_id` for one-time historical reads.
+
+### When should I use `start_snapshot_timestamp` versus `start_snapshot_id`?
+
+`start_snapshot_timestamp` resolves the snapshot closest to the given millisecond timestamp and starts incremental reading from it. It is friendlier when you only know the time, not the snapshot id. For reproducible batch runs prefer the explicit `start_snapshot_id` form.
+
+### How does Kerberos authentication work for Iceberg sources?
+
+Set `krb5_path` to the path of your `krb5.conf`, `kerberos_principal` to `primary/instance@REALM`, and `kerberos_keytab_path` to the absolute path of the keytab file. These options are evaluated by the underlying Hadoop FileSystem and only apply when the catalog (`iceberg.catalog.config`) uses Hadoop or Hive catalog with HDFS.
 
 ## Changelog
 
