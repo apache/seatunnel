@@ -79,6 +79,15 @@ public class CheckpointFinishedOperation extends TaskOperation {
         super.writeInternal(out);
         out.writeLong(checkpointId);
         out.writeBoolean(successful);
+        if (checkpointType == null) {
+            // Every current construction path (CheckpointCoordinator#notifyCheckpointCompleted,
+            // and readInternal via CheckpointType#fromName, which never returns null) always
+            // supplies a real checkpoint type. Fail clearly here instead of an opaque NPE from
+            // checkpointType.getName() if a future call site ever passes null.
+            throw new IOException(
+                    "Cannot serialize CheckpointFinishedOperation without a checkpoint type, checkpointId="
+                            + checkpointId);
+        }
         out.writeString(checkpointType.getName());
     }
 

@@ -40,6 +40,18 @@ class SchemaChangeDrainGuard {
     private static final long UNKNOWN_CHECKPOINT_ID = -1L;
 
     /**
+     * Default bound on how long {@link #checkSchemaChangeCanApply} waits for a schema-change-before
+     * checkpoint completion that may still be in flight.
+     *
+     * <p>The checkpoint coordinator's completion notification fans out to the source and sink tasks
+     * in parallel with no ordering guarantee between them, so the source's real {@link
+     * SchemaChangeEvent} can reach this sink before this guard's own completion callback has run.
+     * That gap is normally sub-millisecond; a wait this long only matters if the checkpoint
+     * genuinely never completes, which is a real protocol violation this guard must still reject.
+     */
+    private static final long DRAIN_READY_WAIT_TIMEOUT_MILLIS = 30_000L;
+
+    /**
      * Latest schema-change-before checkpoint barrier handled by this sink subtask.
      *
      * <p>The id is used for non-recovery paths where the sink has observed the barrier before the
@@ -60,6 +72,22 @@ class SchemaChangeDrainGuard {
      * changes.
      */
     private boolean schemaChangeDrainReady;
+
+    /** Bound actually applied by {@link #checkSchemaChangeCanApply}; overridable for tests. */
+    private final long drainReadyWaitTimeoutMillis;
+
+    SchemaChangeDrainGuard() {
+        this(DRAIN_READY_WAIT_TIMEOUT_MILLIS);
+    }
+
+    /**
+     * @param drainReadyWaitTimeoutMillis bound used in place of {@link
+     *     #DRAIN_READY_WAIT_TIMEOUT_MILLIS}; package-private so tests can keep the parallel-notify
+     *     race deterministic and fast without waiting out the full production timeout.
+     */
+    SchemaChangeDrainGuard(long drainReadyWaitTimeoutMillis) {
+        this.drainReadyWaitTimeoutMillis = drainReadyWaitTimeoutMillis;
+    }
 
     /**
      * Records schema-change checkpoint ids only after the sink has handled the barrier
@@ -106,6 +134,9 @@ class SchemaChangeDrainGuard {
         if (isSchemaChangeBeforeCheckpoint(checkpointId, checkpointType)) {
             schemaChangeBeforeCheckpointId = checkpointId;
             schemaChangeDrainReady = true;
+            // Wake any checkSchemaChangeCanApply call already waiting on this exact race: the
+            // source's SchemaChangeEvent reached this sink before this completion notification.
+            notifyAll();
         } else if (isSchemaChangeAfterCheckpoint(checkpointId, checkpointType)) {
             schemaChangeAfterCheckpointId = checkpointId;
             reset();
@@ -136,20 +167,41 @@ class SchemaChangeDrainGuard {
     }
 
     /**
-     * Fails fast when a sink tries to apply DDL before the schema-change-before checkpoint
-     * completes.
+     * Waits for the schema-change-before checkpoint to complete before a sink applies DDL, then
+     * fails if it never does.
+     *
+     * <p>The checkpoint coordinator notifies the source and this sink of completion in parallel
+     * with no ordering guarantee, so the source's event can arrive here just ahead of this guard's
+     * own {@link #checkpointCompleted} callback. Waits up to {@link
+     * #DRAIN_READY_WAIT_TIMEOUT_MILLIS} for that in-flight notification before rejecting the event
+     * as a genuine protocol violation.
      *
      * @param event schema change event that is about to be applied by a sink writer
      */
     synchronized void checkSchemaChangeCanApply(SchemaChangeEvent event) {
-        if (!schemaChangeDrainReady) {
-            throw new IllegalStateException(
-                    String.format(
-                            "Schema change event [%s] for table [%s] cannot be applied before a "
-                                    + "schema-change-before checkpoint is completed. Sources must "
-                                    + "call Collector.markSchemaChangeBeforeCheckpoint() and wait "
-                                    + "for the checkpoint to finish before emitting SchemaChangeEvent.",
-                            event.getEventType(), event.tablePath()));
+        long deadline = System.currentTimeMillis() + drainReadyWaitTimeoutMillis;
+        while (!schemaChangeDrainReady) {
+            long remainingMillis = deadline - System.currentTimeMillis();
+            if (remainingMillis <= 0) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Schema change event [%s] for table [%s] cannot be applied before a "
+                                        + "schema-change-before checkpoint is completed. Sources must "
+                                        + "call Collector.markSchemaChangeBeforeCheckpoint() and wait "
+                                        + "for the checkpoint to finish before emitting SchemaChangeEvent.",
+                                event.getEventType(), event.tablePath()));
+            }
+            try {
+                wait(remainingMillis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        String.format(
+                                "Interrupted while waiting for the schema-change-before checkpoint "
+                                        + "to complete for event [%s] on table [%s]",
+                                event.getEventType(), event.tablePath()),
+                        e);
+            }
         }
     }
 
