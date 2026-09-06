@@ -103,6 +103,7 @@
         <module>connector-lance</module>
         <module>connector-bigquery</module>
         <module>connector-edge-socket</module>
+        <module>connector-amazondocumentdb</module>
         <module>connector-azurecosmosdb</module>
         <module>connector-nats-jetstream</module>
         <module>connector-firebase</module>
