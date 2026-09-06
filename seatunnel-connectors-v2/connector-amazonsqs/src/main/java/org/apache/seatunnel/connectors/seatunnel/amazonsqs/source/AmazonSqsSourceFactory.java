@@ -84,14 +84,16 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        MessageFormat format = context.getOptions().get(FORMAT);
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
-                setDeserialization(context.getOptions().toConfig(), catalogTable);
+                setDeserialization(context.getOptions().toConfig(), catalogTable, format);
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new AmazonSqsSource(
                                 new AmazonSqsSourceConfig(context.getOptions()),
                                 catalogTable,
-                                deserializationSchema);
+                                deserializationSchema,
+                                format);
     }
 
     @Override
@@ -100,10 +102,9 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
     }
 
     private DeserializationSchema<SeaTunnelRow> setDeserialization(
-            Config config, CatalogTable catalogTable) {
+            Config config, CatalogTable catalogTable, MessageFormat format) {
         DeserializationSchema<SeaTunnelRow> deserializationSchema;
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
-        MessageFormat format = readonlyConfig.get(FORMAT);
         boolean ignoreParseErrors = readonlyConfig.get(IGNORE_PARSE_ERRORS);
         switch (format) {
             case JSON:
@@ -124,7 +125,7 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
             case CANAL_JSON:
                 deserializationSchema =
                         CanalJsonDeserializationSchema.builder(catalogTable)
-                                .setIgnoreParseErrors(ignoreParseErrors)
+                                .setIgnoreParseErrors(false)
                                 .build();
                 break;
             case DEBEZIUM_JSON:
@@ -133,8 +134,7 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
                     includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
                 }
                 deserializationSchema =
-                        new DebeziumJsonDeserializationSchema(
-                                catalogTable, ignoreParseErrors, includeSchema);
+                        new DebeziumJsonDeserializationSchema(catalogTable, false, includeSchema);
                 break;
             default:
                 throw new SeaTunnelJsonFormatException(

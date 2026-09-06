@@ -56,7 +56,6 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
                 .optional(
                         CouchbaseSinkOptions.SCOPE,
                         CouchbaseSinkOptions.BUFFER_FLUSH_MAX_ROWS,
-                        CouchbaseSinkOptions.BUFFER_FLUSH_INTERVAL,
                         CouchbaseSinkOptions.RETRY_MAX,
                         CouchbaseSinkOptions.RETRY_INTERVAL,
                         CouchbaseSinkOptions.UPSERT_ENABLE,
@@ -94,8 +93,6 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
 
         config.getOptional(CouchbaseSinkOptions.BUFFER_FLUSH_MAX_ROWS)
                 .ifPresent(builder::withFlushSize);
-        config.getOptional(CouchbaseSinkOptions.BUFFER_FLUSH_INTERVAL)
-                .ifPresent(builder::withBatchIntervalMs);
         config.getOptional(CouchbaseSinkOptions.RETRY_MAX).ifPresent(builder::withRetryMax);
         config.getOptional(CouchbaseSinkOptions.RETRY_INTERVAL)
                 .ifPresent(builder::withRetryInterval);
