@@ -60,6 +60,8 @@ import java.util.concurrent.TimeUnit;
 
 public class SplitClusterPendingJobLifecycleFailoverIT {
     private static final String JOB_CONFIG_FILE = "pending_jobs_streaming_lifecycle.conf";
+    private static final String UNSCHEDULABLE_JOB_CONFIG_FILE =
+            "pending_jobs_streaming_unschedulable.conf";
 
     @Test
     public void testPendingJobLifecycleInMasterFailover() {
@@ -252,6 +254,150 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
 
             pendingJob.cancelJob();
             assertEventuallyCanceled(pendingJob);
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (masterNode != null) {
+                masterNode.shutdown();
+            }
+            if (workerNode != null) {
+                workerNode.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Verifies the current (as of this writing) head-of-line blocking behavior of {@code
+     * CoordinatorService#pendingJobSchedule} under {@link ScheduleStrategy#WAIT}: a job whose
+     * resource request can never be satisfied is retried at the queue head forever, and every job
+     * submitted after it -- however trivially schedulable -- is starved for as long as the stuck
+     * head job remains queued.
+     *
+     * <p>{@code pendingJobSchedule} is driven by a single long-lived scheduler thread per master
+     * epoch (see {@code CoordinatorService#startPendingJobScheduleThread}), so under normal
+     * single-master operation (no failover, i.e. no epoch transition) there is never more than one
+     * thread calling {@code reservePendingJobInfo}/{@code releasePendingJobInfo} at a time. Because
+     * {@code releasePendingJobInfo} always runs before the scheduler loop peeks again, {@code
+     * schedulingPendingJobIds} is empty at the start of every peek, so {@link
+     * org.apache.seatunnel.engine.server.utils.PeekBlockingQueue#peekBlocking(java.util.function.Predicate)}
+     * always matches the FIFO head. Under {@code WAIT}, a failed resource pre-check does not
+     * dequeue the head job (unlike {@code REJECT}, which fails and removes it); it just sleeps 3
+     * seconds and retries the same head job next iteration, uncapped -- {@code
+     * PendingJobInfo#checkTimes} is tracked only for diagnostics, never compared against a limit. A
+     * later, easily-schedulable job is never even peeked while the head remains queued.
+     *
+     * <p>This is the same area of code touched by <a
+     * href="https://github.com/apache/seatunnel/pull/11653">#11653</a> ("[Fix][Zeta] Avoid
+     * duplicate pending job scheduling after failover"), which introduced {@code
+     * reservePendingJobInfo}/{@code releasePendingJobInfo} and the predicate-based peek precisely
+     * so a second scheduler generation started after a master flip can skip a head job already
+     * reserved by a stale, still-in-flight generation, avoiding duplicate dispatch. That predicate
+     * only ever excludes a job id present in {@code schedulingPendingJobIds}, which is populated
+     * solely to mark "another concurrent scheduler thread is mid-evaluation of this job id" -- it
+     * is not, and was never intended to be, a "this job already failed its resource check" marker.
+     * {@code clearCoordinatorService} also unconditionally drains the entire queue and bumps the
+     * epoch on every step-down, so two scheduler generations can only ever coexist transiently
+     * around a real master activation/deactivation. Outside that narrow failover window -- which is
+     * exactly the steady-state single-master scenario this test drives -- the mechanism never
+     * triggers, so it does not change the outcome verified here: head-of-line blocking under {@code
+     * WAIT} is still fully reproducible on current {@code dev}.
+     *
+     * <p>The test proves job B was schedulable the entire time -- not merely slow -- by cancelling
+     * the stuck head job (job A) and observing job B reach {@code RUNNING} promptly immediately
+     * afterward, with no other change to cluster resources.
+     */
+    @Test
+    public void testPermanentlyStuckWaitJobBlocksSchedulableJobBehindIt() {
+        String testClusterName =
+                "SplitClusterPendingJobLifecycleFailoverIT_"
+                        + "testPermanentlyStuckWaitJobBlocksSchedulableJobBehindIt";
+        HazelcastInstanceImpl masterNode = null;
+        HazelcastInstanceImpl workerNode = null;
+        SeaTunnelClient engineClient = null;
+        ClientJobProxy neverSchedulableJob = null;
+        ClientJobProxy schedulableJob = null;
+
+        SeaTunnelConfig masterNodeConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNodeConfig = getSeaTunnelConfig(testClusterName);
+        configurePendingLifecycleTest(masterNodeConfig);
+        configurePendingLifecycleTest(workerNodeConfig);
+
+        try {
+            masterNode = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNodeConfig);
+            workerNode = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNodeConfig);
+
+            HazelcastInstanceImpl finalMasterNode = masterNode;
+            Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalMasterNode.getCluster().getMembers().size()));
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode, null);
+            assertPendingQueueState(activeMaster, null, 0);
+
+            // Job A requests 999-way parallelism against a 4-slot, dynamicSlot=false cluster (see
+            // configurePendingLifecycleTest): a shortfall no worker count this suite ever
+            // provisions can close, so its resource pre-check can never succeed, not even
+            // transiently.
+            neverSchedulableJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "hol_blocking_never_schedulable_job",
+                            TestUtils.getResource(UNSCHEDULABLE_JOB_CONFIG_FILE));
+            long neverSchedulableJobId = neverSchedulableJob.getJobId();
+            assertJobStatusWithTimeout(neverSchedulableJob, JobStatus.PENDING, 60);
+            assertPendingQueueState(activeMaster, neverSchedulableJobId, 1);
+
+            // Job B requests parallelism 2, comfortably inside the 4 free slots: job A never holds
+            // any slot (JobMaster#preApplyResources releases every partial grant back on failure),
+            // so the cluster has full capacity available for job B the moment it is submitted.
+            schedulableJob =
+                    submitJob(
+                            engineClient,
+                            masterNodeConfig,
+                            "hol_blocking_schedulable_job",
+                            TestUtils.getResource(JOB_CONFIG_FILE));
+            long schedulableJobId = schedulableJob.getJobId();
+            assertJobStatusWithTimeout(schedulableJob, JobStatus.PENDING, 60);
+            assertPendingQueueContainsJob(activeMaster, schedulableJobId, 2);
+
+            // Current architecture: the scheduler only ever evaluates the queue head, so job B
+            // stays behind the permanently-stuck job A for as long as A remains queued. Hold this
+            // over a stability window, not a single check, before concluding it is truly stuck
+            // rather than merely slow.
+            final ClientJobProxy finalSchedulableJob = schedulableJob;
+            Awaitility.await()
+                    .during(10, TimeUnit.SECONDS)
+                    .atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.PENDING,
+                                        finalSchedulableJob.getJobStatus(),
+                                        "Job B must still be head-of-line blocked by the "
+                                                + "permanently stuck job A");
+                                assertPendingQueueContainsJob(activeMaster, schedulableJobId, 2);
+                            });
+
+            // Remove the stuck head job. If job B was truly schedulable all along -- and not
+            // itself resource-starved -- it must now reach RUNNING quickly with no other change to
+            // cluster resources.
+            neverSchedulableJob.cancelJob();
+            assertEventuallyCanceled(neverSchedulableJob);
+            assertJobStatusWithTimeout(schedulableJob, JobStatus.RUNNING, 60);
+            assertPendingQueueNotContainsJob(activeMaster, schedulableJobId);
+
+            schedulableJob.cancelJob();
+            assertEventuallyCanceled(schedulableJob);
         } finally {
             if (engineClient != null) {
                 engineClient.close();
