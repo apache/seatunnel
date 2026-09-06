@@ -39,15 +39,20 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class PhysicalPlan {
+
+    private static final Set<JobStatus> NOT_STARTED_STATUSES =
+            EnumSet.of(JobStatus.INITIALIZING, JobStatus.CREATED, JobStatus.PENDING);
 
     private final List<SubPlan> pipelineList;
 
@@ -204,7 +209,7 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (NOT_STARTED_STATUSES.contains(runningJobStateIMap.get(jobId))) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
@@ -251,7 +256,7 @@ public class PhysicalPlan {
             return;
         }
 
-        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (NOT_STARTED_STATUSES.contains(jobStatus)) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
