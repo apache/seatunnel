@@ -137,6 +137,118 @@ public class ServerConfigOptions {
                     .type(new TypeReference<MetadataConfig>() {})
                     .defaultValue(new MetadataConfig())
                     .withDescription("The MetaData Center configuration.");
+
+    public static final Option<Boolean> AUTOSCALER_ENABLED =
+            Options.key("enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether to enable the advisory Zeta autoscaler.");
+
+    public static final Option<Integer> AUTOSCALER_EVALUATION_INTERVAL_SECONDS =
+            Options.key("evaluation-interval-seconds")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription("The interval in seconds between autoscaler evaluations.");
+
+    public static final Option<Integer> AUTOSCALER_METRICS_FRESHNESS_SECONDS =
+            Options.key("metrics-freshness-seconds")
+                    .intType()
+                    .defaultValue(120)
+                    .withDescription(
+                            "How long a worker autoscaler metrics sample remains fresh, in seconds.");
+
+    public static final Option<Integer> AUTOSCALER_MAX_FUTURE_SKEW_SECONDS =
+            Options.key("max-future-skew-seconds")
+                    .intType()
+                    .defaultValue(5)
+                    .withDescription(
+                            "Maximum accepted future skew for worker-observed autoscaler metrics timestamps, in seconds.");
+
+    public static final Option<Integer> AUTOSCALER_SCALE_OUT_STABILIZATION_SECONDS =
+            Options.key("scale-out-stabilization-seconds")
+                    .intType()
+                    .defaultValue(300)
+                    .withDescription(
+                            "How long scale-out signals must remain continuous before publishing a scale-out recommendation.");
+
+    public static final Option<Integer> AUTOSCALER_SCALE_IN_STABILIZATION_SECONDS =
+            Options.key("scale-in-stabilization-seconds")
+                    .intType()
+                    .defaultValue(600)
+                    .withDescription(
+                            "How long scale-in signals must remain continuous before publishing a scale-in candidate.");
+
+    public static final Option<Double> AUTOSCALER_SCALE_OUT_CPU_THRESHOLD =
+            Options.key("scale-out-cpu-threshold")
+                    .doubleType()
+                    .defaultValue(0.8d)
+                    .withDescription("CPU utilization threshold for scale-out recommendation.");
+
+    public static final Option<Double> AUTOSCALER_SCALE_OUT_JVM_MEMORY_THRESHOLD =
+            Options.key("scale-out-jvm-memory-threshold")
+                    .doubleType()
+                    .defaultValue(0.8d)
+                    .withDescription(
+                            "JVM memory utilization threshold for scale-out recommendation.");
+
+    public static final Option<Double> AUTOSCALER_SCALE_IN_CPU_THRESHOLD =
+            Options.key("scale-in-cpu-threshold")
+                    .doubleType()
+                    .defaultValue(0.3d)
+                    .withDescription(
+                            "CPU utilization threshold for scale-in candidate recommendation.");
+
+    public static final Option<Double> AUTOSCALER_SCALE_IN_JVM_MEMORY_THRESHOLD =
+            Options.key("scale-in-jvm-memory-threshold")
+                    .doubleType()
+                    .defaultValue(0.3d)
+                    .withDescription(
+                            "JVM memory utilization threshold for scale-in candidate recommendation.");
+
+    public static final Option<Double> AUTOSCALER_FIXED_SLOT_SCALE_OUT_THRESHOLD =
+            Options.key("fixed-slot-scale-out-threshold")
+                    .doubleType()
+                    .defaultValue(0.8d)
+                    .withDescription(
+                            "Fixed-slot utilization threshold retained for diagnostics. Slot pressure cannot trigger scale-out by itself in Phase 1.");
+
+    public static final Option<Double> AUTOSCALER_FIXED_SLOT_SCALE_IN_THRESHOLD =
+            Options.key("fixed-slot-scale-in-threshold")
+                    .doubleType()
+                    .defaultValue(0.3d)
+                    .withDescription(
+                            "Fixed-slot utilization threshold for scale-in candidate recommendation.");
+
+    public static final Option<Integer> AUTOSCALER_SCALE_STEP =
+            Options.key("scale-step")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "Worker-count step used when computing advisory recommendations.");
+
+    public static final Option<Integer> AUTOSCALER_MIN_WORKERS =
+            Options.key("min-workers")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription("Minimum recommended worker count.");
+
+    public static final Option<Integer> AUTOSCALER_MAX_WORKERS =
+            Options.key("max-workers")
+                    .intType()
+                    .defaultValue(Integer.MAX_VALUE)
+                    .withDescription("Maximum recommended worker count.");
+
+    public static final Option<Integer> AUTOSCALER_HISTORY_SIZE =
+            Options.key("history-size")
+                    .intType()
+                    .defaultValue(20)
+                    .withDescription("Maximum in-memory autoscaler recommendation history size.");
+
+    public static final Option<AutoscalerConfig> AUTOSCALER =
+            Options.key("autoscaler")
+                    .type(new TypeReference<AutoscalerConfig>() {})
+                    .defaultValue(new AutoscalerConfig())
+                    .withDescription("The advisory autoscaler configuration.");
     // The options for metrics end
     /////////////////////////////////////////////////
 

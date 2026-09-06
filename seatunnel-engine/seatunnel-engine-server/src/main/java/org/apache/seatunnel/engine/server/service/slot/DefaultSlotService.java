@@ -18,9 +18,11 @@
 package org.apache.seatunnel.engine.server.service.slot;
 
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReportAutoscalerMetricsOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
@@ -69,6 +71,7 @@ public class DefaultSlotService implements SlotService {
     private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
     private final SlotServiceConfig config;
+    private final AutoscalerConfig autoscalerConfig;
     private volatile boolean initStatus;
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
@@ -81,9 +84,11 @@ public class DefaultSlotService implements SlotService {
     public DefaultSlotService(
             NodeEngineImpl nodeEngine,
             TaskExecutionService taskExecutionService,
-            SlotServiceConfig config) {
+            SlotServiceConfig config,
+            AutoscalerConfig autoscalerConfig) {
         this.nodeEngine = nodeEngine;
         this.config = config;
+        this.autoscalerConfig = autoscalerConfig;
         this.taskExecutionService = taskExecutionService;
         this.idGenerator = new IdGenerator();
     }
@@ -119,16 +124,17 @@ public class DefaultSlotService implements SlotService {
                         // Must first obtain SYSTEM_LOAD and then obtain workProfile. If you obtain
                         // workProfile first and then obtain SYSTEM_LOAD, resource information will
                         // be reported inaccurately.
+                        int countdown = systemLoadSendCountDown.decrementAndGet();
+                        boolean shouldCollectSystemLoad =
+                                countdown == 0
+                                        && (config.getAllocateStrategy()
+                                                        == AllocateStrategy.SYSTEM_LOAD
+                                                || autoscalerConfig.isEnabled());
                         SystemLoadInfo systemLoadInfo =
-                                Optional.of(systemLoadSendCountDown.decrementAndGet())
-                                        .filter(
-                                                count ->
-                                                        count == 0
-                                                                && config.getAllocateStrategy()
-                                                                        == AllocateStrategy
-                                                                                .SYSTEM_LOAD)
+                                Optional.of(shouldCollectSystemLoad)
+                                        .filter(Boolean::booleanValue)
                                         .map(
-                                                count -> {
+                                                ignored -> {
                                                     systemLoadSendCountDown.set(
                                                             SYSTEM_LOAD_SEND_INTERVAL);
                                                     SystemLoadInfo info = new SystemLoadInfo();
@@ -140,10 +146,22 @@ public class DefaultSlotService implements SlotService {
                                         .orElse(null);
 
                         WorkerProfile workerProfile = getWorkerProfile();
-                        Optional.ofNullable(systemLoadInfo)
-                                .ifPresent(workerProfile::setSystemLoadInfo);
+                        if (config.getAllocateStrategy() == AllocateStrategy.SYSTEM_LOAD) {
+                            Optional.ofNullable(systemLoadInfo)
+                                    .ifPresent(workerProfile::setSystemLoadInfo);
+                        }
 
                         sendToMaster(new WorkerHeartbeatOperation(workerProfile)).join();
+                        if (autoscalerConfig.isEnabled() && systemLoadInfo != null) {
+                            long sampleTimeMillis = System.currentTimeMillis();
+                            sendToMaster(
+                                            new ReportAutoscalerMetricsOperation(
+                                                    nodeEngine.getClusterService().getThisAddress(),
+                                                    sampleTimeMillis,
+                                                    systemLoadInfo.getCpuPercentage(),
+                                                    systemLoadInfo.getMemPercentage()))
+                                    .join();
+                        }
                     } catch (Exception e) {
                         LOGGER.warning(
                                 "failed send heartbeat to resource manager, will retry later. this address: "

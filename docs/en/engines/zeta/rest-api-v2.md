@@ -1892,3 +1892,19 @@ There is no dedicated `pause`, `resume` or `delete` endpoint. Use the existing j
 
 **Note:** `isStartWithSavePoint: true` requires `jobId` to be provided in the request; submitting
 without a `jobId` in that case fails with `Please provide jobId when start with save point.`
+
+------------------------------------------------------------------------------------------
+
+### Autoscaling Recommendation
+
+Phase 1 autoscaling is advisory-only. These endpoints expose the evaluated state from the Active
+Master and never add, remove, or drain workers.
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| `GET` | `/autoscaler/status` | Current autoscaler status, latest recommendation, current metrics snapshot, and bounded history |
+| `GET` | `/autoscaler/metrics` | Current metrics snapshot used by the latest autoscaler evaluation |
+| `GET` | `/autoscaler/history` | Recent autoscaler recommendation history |
+
+See [Autoscaling Recommendation](autoscaling.md) for configuration, signal semantics, and payload
+behavior.

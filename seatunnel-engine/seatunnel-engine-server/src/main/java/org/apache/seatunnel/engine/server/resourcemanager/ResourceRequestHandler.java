@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
@@ -196,6 +197,7 @@ public class ResourceRequestHandler {
             } else {
                 // if no worker can provide the resource, we should return a failed future
                 LOGGER.fine("pre check worker resource failed, can't apply resource request: " + r);
+                recordShortage(r);
                 allRequestFuture.add(
                         CompletableFuture.supplyAsync(
                                 () -> {
@@ -246,6 +248,7 @@ public class ResourceRequestHandler {
                             } else {
                                 if (slotAndWorkerProfile.getSlotProfile() == null) {
                                     resourceManager.recordRequestSlotOperationNoSlot(elapsedMillis);
+                                    recordShortage(r);
                                 } else {
                                     resourceManager.recordRequestSlotOperationSuccess(
                                             elapsedMillis);
@@ -258,6 +261,20 @@ public class ResourceRequestHandler {
 
     private long elapsedMillisSince(long startNanos) {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
+    }
+
+    private void recordShortage(ResourceProfile resourceProfile) {
+        if (resourceManager.getEngineConfig().getScheduleStrategy() == ScheduleStrategy.WAIT) {
+            resourceManager
+                    .getResourceShortageStats()
+                    .recordWaitShortage(
+                            this.resourceProfile.size(), String.valueOf(resourceProfile));
+        } else {
+            resourceManager
+                    .getResourceShortageStats()
+                    .recordRejectShortage(
+                            this.resourceProfile.size(), String.valueOf(resourceProfile));
+        }
     }
 
     @VisibleForTesting

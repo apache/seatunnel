@@ -31,6 +31,9 @@ import org.apache.seatunnel.engine.server.rest.filter.BasicAuthFilter;
 import org.apache.seatunnel.engine.server.rest.filter.ExceptionHandlingFilter;
 import org.apache.seatunnel.engine.server.rest.servlet.AllLogNameServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.AllNodeLogServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.AutoscalerHistoryServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.AutoscalerMetricsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.AutoscalerStatusServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointHistoryServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CheckpointOverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
@@ -68,6 +71,9 @@ import java.net.ServerSocket;
 import java.net.URL;
 import java.util.EnumSet;
 
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_AUTOSCALER_HISTORY;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_AUTOSCALER_METRICS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_AUTOSCALER_STATUS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_CHECKPOINT_HISTORY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_CHECKPOINT_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
@@ -226,6 +232,12 @@ public class JettyService {
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
+        ServletHolder autoscalerStatusHolder =
+                new ServletHolder(new AutoscalerStatusServlet(nodeEngine));
+        ServletHolder autoscalerMetricsHolder =
+                new ServletHolder(new AutoscalerMetricsServlet(nodeEngine));
+        ServletHolder autoscalerHistoryHolder =
+                new ServletHolder(new AutoscalerHistoryServlet(nodeEngine));
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -262,6 +274,9 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
+        context.addServlet(autoscalerStatusHolder, convertUrlToPath(REST_URL_AUTOSCALER_STATUS));
+        context.addServlet(autoscalerMetricsHolder, convertUrlToPath(REST_URL_AUTOSCALER_METRICS));
+        context.addServlet(autoscalerHistoryHolder, convertUrlToPath(REST_URL_AUTOSCALER_HISTORY));
 
         server.setHandler(context);
 

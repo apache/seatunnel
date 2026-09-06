@@ -270,3 +270,29 @@ the [Installation](https://grafana.com/docs/grafana/latest/setup-grafana/install
   - Import the `Seatunnel Cluster` monitoring dashboard JSON into Grafana.
 
 The [effect image](../../../images/grafana.png) of the dashboard
+
+### Autoscaler Metrics
+
+When Phase 1 autoscaling is enabled, the Active Master exports recommendation-only metrics. The
+scrape path reads the latest published `AutoscalerView`; it does not run policy evaluation or mutate
+recommendation history.
+
+| MetricName | Type | Labels | Description |
+| --- | --- | --- | --- |
+| seatunnel_autoscaler_enabled | Gauge | cluster, address | Whether autoscaling recommendation is enabled |
+| seatunnel_autoscaler_running | Gauge | cluster, address | Whether the master autoscaler loop is running |
+| seatunnel_autoscaler_current_workers | Gauge | cluster, address | Current worker count observed by the autoscaler |
+| seatunnel_autoscaler_recommended_workers | Gauge | cluster, address, action, recommendation_only | Latest recommended worker count |
+| seatunnel_autoscaler_recommended_delta | Gauge | cluster, address | Difference between recommended and current worker count |
+| seatunnel_autoscaler_recommendations_total | Counter | cluster, address, action | Published recommendation count by action |
+| seatunnel_autoscaler_metrics_valid | Gauge | cluster, address | Whether worker metrics are complete and valid for scale-in |
+| seatunnel_autoscaler_worker_samples | Gauge | cluster, address, status | Worker sample counts by status |
+| seatunnel_autoscaler_input_cpu_utilization | Gauge | cluster, address, status | Cluster CPU utilization input |
+| seatunnel_autoscaler_input_jvm_memory_utilization | Gauge | cluster, address, status | Cluster JVM memory utilization input |
+| seatunnel_autoscaler_input_slot_utilization | Gauge | cluster, address, status | Fixed-slot utilization input; omitted when slot mode is Dynamic, Mixed, or Unknown |
+| seatunnel_autoscaler_pending_jobs | Gauge | cluster, address | Pending job count observed by the autoscaler |
+| seatunnel_autoscaler_resource_shortages_total | Gauge | cluster, address, strategy | Cumulative WAIT and REJECT shortage counts |
+| seatunnel_autoscaler_stabilization_seconds | Gauge | cluster, address, direction | Configured scale-out and scale-in stabilization windows |
+| seatunnel_autoscaler_info | Gauge | cluster, address, slot_mode, action | Current recommendation labels |
+
+See [Autoscaling Recommendation](autoscaling.md) for the decision policy and configuration.

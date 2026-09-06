@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
 import org.apache.seatunnel.api.metadata.MetadataOptions;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarHAStorageConfig;
@@ -330,6 +331,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setHttpConfig(parseHttpConfig(node));
             } else if (ServerConfigOptions.METADATA.key().equals(name)) {
                 engineConfig.setMetadataConfig(parseMetadataConfigConfig(node));
+            } else if (ServerConfigOptions.AUTOSCALER.key().equals(name)) {
+                engineConfig.setAutoscalerConfig(parseAutoscalerConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
@@ -344,6 +347,98 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
             engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         }
+    }
+
+    private AutoscalerConfig parseAutoscalerConfig(Node autoscalerNode) {
+        AutoscalerConfig autoscalerConfig = new AutoscalerConfig();
+        for (Node node : childElements(autoscalerNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.AUTOSCALER_ENABLED.key().equals(name)) {
+                autoscalerConfig.setEnabled(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_EVALUATION_INTERVAL_SECONDS
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setEvaluationIntervalSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_EVALUATION_INTERVAL_SECONDS.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_METRICS_FRESHNESS_SECONDS
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setMetricsFreshnessSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_METRICS_FRESHNESS_SECONDS.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_MAX_FUTURE_SKEW_SECONDS.key().equals(name)) {
+                autoscalerConfig.setMaxFutureSkewSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_MAX_FUTURE_SKEW_SECONDS.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_OUT_STABILIZATION_SECONDS
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setScaleOutStabilizationSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_SCALE_OUT_STABILIZATION_SECONDS
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_IN_STABILIZATION_SECONDS
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setScaleInStabilizationSeconds(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_SCALE_IN_STABILIZATION_SECONDS.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_OUT_CPU_THRESHOLD.key().equals(name)) {
+                autoscalerConfig.setScaleOutCpuThreshold(Double.parseDouble(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_OUT_JVM_MEMORY_THRESHOLD
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setScaleOutJvmMemoryThreshold(
+                        Double.parseDouble(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_IN_CPU_THRESHOLD.key().equals(name)) {
+                autoscalerConfig.setScaleInCpuThreshold(Double.parseDouble(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_IN_JVM_MEMORY_THRESHOLD
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setScaleInJvmMemoryThreshold(
+                        Double.parseDouble(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_FIXED_SLOT_SCALE_OUT_THRESHOLD
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setFixedSlotScaleOutThreshold(
+                        Double.parseDouble(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_FIXED_SLOT_SCALE_IN_THRESHOLD
+                    .key()
+                    .equals(name)) {
+                autoscalerConfig.setFixedSlotScaleInThreshold(
+                        Double.parseDouble(getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_SCALE_STEP.key().equals(name)) {
+                autoscalerConfig.setScaleStep(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_SCALE_STEP.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_MIN_WORKERS.key().equals(name)) {
+                autoscalerConfig.setMinWorkers(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_MIN_WORKERS.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_MAX_WORKERS.key().equals(name)) {
+                autoscalerConfig.setMaxWorkers(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_MAX_WORKERS.key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.AUTOSCALER_HISTORY_SIZE.key().equals(name)) {
+                autoscalerConfig.setHistorySize(
+                        getIntegerValue(
+                                ServerConfigOptions.AUTOSCALER_HISTORY_SIZE.key(),
+                                getTextContent(node)));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
+        }
+        autoscalerConfig.validate();
+        return autoscalerConfig;
     }
 
     private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {

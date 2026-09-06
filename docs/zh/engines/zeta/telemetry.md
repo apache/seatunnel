@@ -264,3 +264,28 @@ scrape_configs:
 - 将 `Seatunnel Cluster` 监控仪表板 JSON 导入到 Grafana 中。
 
 监控[效果图](../../../images/grafana.png)
+
+### Autoscaler 指标
+
+启用 Phase 1 自动扩缩容后，Active Master 会导出仅用于推荐的指标。Prometheus scrape
+只读取已经发布的 `AutoscalerView`，不会触发策略评估，也不会修改推荐历史。
+
+| MetricName | Type | Labels | 描述 |
+| --- | --- | --- | --- |
+| seatunnel_autoscaler_enabled | Gauge | cluster, address | 是否启用自动扩缩容推荐 |
+| seatunnel_autoscaler_running | Gauge | cluster, address | Master 上 autoscaler 循环是否运行 |
+| seatunnel_autoscaler_current_workers | Gauge | cluster, address | autoscaler 观察到的当前 Worker 数 |
+| seatunnel_autoscaler_recommended_workers | Gauge | cluster, address, action, recommendation_only | 最新推荐 Worker 数 |
+| seatunnel_autoscaler_recommended_delta | Gauge | cluster, address | 推荐 Worker 数与当前 Worker 数的差值 |
+| seatunnel_autoscaler_recommendations_total | Counter | cluster, address, action | 按 action 统计的已发布推荐数 |
+| seatunnel_autoscaler_metrics_valid | Gauge | cluster, address | Worker 指标是否完整且可用于缩容判断 |
+| seatunnel_autoscaler_worker_samples | Gauge | cluster, address, status | 按状态统计的 Worker 样本数 |
+| seatunnel_autoscaler_input_cpu_utilization | Gauge | cluster, address, status | 集群 CPU 利用率输入 |
+| seatunnel_autoscaler_input_jvm_memory_utilization | Gauge | cluster, address, status | 集群 JVM 内存利用率输入 |
+| seatunnel_autoscaler_input_slot_utilization | Gauge | cluster, address, status | 固定 Slot 利用率输入；Dynamic、Mixed 或 Unknown 模式不输出该数值 |
+| seatunnel_autoscaler_pending_jobs | Gauge | cluster, address | autoscaler 观察到的待调度作业数 |
+| seatunnel_autoscaler_resource_shortages_total | Gauge | cluster, address, strategy | WAIT 和 REJECT 资源短缺累计数 |
+| seatunnel_autoscaler_stabilization_seconds | Gauge | cluster, address, direction | 配置的扩容和缩容稳定窗口 |
+| seatunnel_autoscaler_info | Gauge | cluster, address, slot_mode, action | 当前推荐标签 |
+
+决策策略和配置参见[自动扩缩容推荐](autoscaling.md)。

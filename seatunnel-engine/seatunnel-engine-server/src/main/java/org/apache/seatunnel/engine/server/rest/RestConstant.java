@@ -97,6 +97,9 @@ public class RestConstant {
     public static final String REST_URL_SYSTEM_MONITORING_INFORMATION =
             "/system-monitoring-information";
     public static final String REST_URL_WORKER_RESOURCES = "/resource/workers";
+    public static final String REST_URL_AUTOSCALER_STATUS = "/autoscaler/status";
+    public static final String REST_URL_AUTOSCALER_METRICS = "/autoscaler/metrics";
+    public static final String REST_URL_AUTOSCALER_HISTORY = "/autoscaler/history";
     public static final String REST_URL_SUBMIT_JOB = "/submit-job";
 
     public static final String REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE = "/submit-job/upload";

@@ -18,8 +18,12 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
+import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
+import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
@@ -49,6 +53,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -69,6 +74,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
 
+    @Getter private final LatestWorkerSampleStore autoscalerWorkerSampleStore;
+
+    @Getter private final ResourceShortageStats resourceShortageStats = new ResourceShortageStats();
+
     // Track master-side slot request cost without changing allocation behavior.
     private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
     private final AtomicLong requestSlotOperationNoSlotCount = new AtomicLong();
@@ -81,6 +90,10 @@ public abstract class AbstractResourceManager implements ResourceManager {
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
         this.mode = engineConfig.getMode();
+        this.autoscalerWorkerSampleStore =
+                new LatestWorkerSampleStore(
+                        TimeUnit.SECONDS.toMillis(
+                                engineConfig.getAutoscalerConfig().getMaxFutureSkewSeconds()));
 
         switch (engineConfig.getSlotServiceConfig().getAllocateStrategy()) {
             case SYSTEM_LOAD:
@@ -170,6 +183,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
                         + "Node Address: "
                         + event.getMember().getAddress());
         registerWorker.remove(event.getMember().getAddress());
+        autoscalerWorkerSampleStore.remove(event.getMember().getAddress());
     }
 
     @Override
@@ -180,6 +194,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         ConcurrentMap<Address, WorkerProfile> matchedWorker = filterWorkerByTag(tagFilter);
         if (matchedWorker.isEmpty()) {
             log.error("No matched worker with tag filter {}.", tagFilter);
+            recordResourceShortage(resourceProfile.size(), String.valueOf(tagFilter));
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(
@@ -241,6 +256,19 @@ public abstract class AbstractResourceManager implements ResourceManager {
                 requestSlotOperationFailureCount.get(),
                 requestSlotOperationLastInvocationLatencyMs.get(),
                 requestSlotOperationMaxInvocationLatencyMs.get());
+    }
+
+    @Override
+    public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {
+        autoscalerWorkerSampleStore.record(sample, receiveTimeMillis);
+    }
+
+    private void recordResourceShortage(int taskGroupCount, String resourceShape) {
+        if (engineConfig.getScheduleStrategy() == ScheduleStrategy.WAIT) {
+            resourceShortageStats.recordWaitShortage(taskGroupCount, resourceShape);
+        } else {
+            resourceShortageStats.recordRejectShortage(taskGroupCount, resourceShape);
+        }
     }
 
     @Override

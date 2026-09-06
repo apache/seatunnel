@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.engine.server.NodeExtension;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.AutoscalerExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ClusterMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreLogicalMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.EngineStateStoreMetricExports;
@@ -60,5 +61,7 @@ public final class ExportsInstanceInitializer {
         new EngineStateStoreLogicalMetricExports(node).register(collectorRegistry);
         // Cluster metrics
         new ClusterMetricExports(node).register(collectorRegistry);
+        // Autoscaler recommendation metrics
+        new AutoscalerExports(node).register(collectorRegistry);
     }
 }

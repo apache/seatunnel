@@ -1864,3 +1864,18 @@ Checkpoint 信息字段：
 
 **注意：** 当 `isStartWithSavePoint: true` 时必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
 `Please provide jobId when start with save point.`
+
+------------------------------------------------------------------------------------------
+
+### 自动扩缩容推荐
+
+Phase 1 自动扩缩容仅输出推荐。这些接口暴露 Active Master 上已经评估出的状态，不会增加、
+删除或 drain Worker。
+
+| Method | Endpoint | 说明 |
+| --- | --- | --- |
+| `GET` | `/autoscaler/status` | 当前 autoscaler 状态、最新推荐、当前指标快照和有限历史 |
+| `GET` | `/autoscaler/metrics` | 最新 autoscaler 评估使用的当前指标快照 |
+| `GET` | `/autoscaler/history` | 最近的 autoscaler 推荐历史 |
+
+配置、信号语义和响应行为参见[自动扩缩容推荐](autoscaling.md)。
