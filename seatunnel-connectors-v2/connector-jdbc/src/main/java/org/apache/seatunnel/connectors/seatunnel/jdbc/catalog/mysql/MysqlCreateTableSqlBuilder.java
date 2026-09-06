@@ -282,7 +282,8 @@ public class MysqlCreateTableSqlBuilder {
             Map<String, String> columnTypeMap) {
         String columnName = constraintKeyColumn.getColumnName();
         String indexLength = getMysqlIndexColumnLength(constraintKey, ordinalPosition);
-        boolean fullTextIndex = "FULLTEXT".equals(getMysqlIndexType(constraintKey));
+        String mysqlIndexType = getMysqlIndexType(constraintKey);
+        boolean fullTextIndex = "FULLTEXT".equals(mysqlIndexType);
         if (StringUtils.isBlank(indexLength)
                 && !fullTextIndex
                 && columnTypeMap.containsKey(columnName)) {
@@ -294,6 +295,10 @@ public class MysqlCreateTableSqlBuilder {
         }
         String lengthClause = StringUtils.isBlank(indexLength) ? "" : "(" + indexLength + ")";
         if (constraintKeyColumn.getSortType() == null) {
+            return String.format(
+                    "`%s`%s", CatalogUtils.getFieldIde(columnName, fieldIde), lengthClause);
+        }
+        if (!supportExplicitIndexOrder(mysqlIndexType)) {
             return String.format(
                     "`%s`%s", CatalogUtils.getFieldIde(columnName, fieldIde), lengthClause);
         }
@@ -313,6 +318,12 @@ public class MysqlCreateTableSqlBuilder {
             return "SPATIAL KEY";
         }
         return "KEY";
+    }
+
+    private boolean supportExplicitIndexOrder(String mysqlIndexType) {
+        return !"FULLTEXT".equals(mysqlIndexType)
+                && !"SPATIAL".equals(mysqlIndexType)
+                && !"HASH".equals(mysqlIndexType);
     }
 
     private String getMysqlIndexType(ConstraintKey constraintKey) {

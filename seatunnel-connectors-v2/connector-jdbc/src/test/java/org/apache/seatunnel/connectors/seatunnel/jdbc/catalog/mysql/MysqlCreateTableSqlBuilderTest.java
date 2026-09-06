@@ -212,13 +212,15 @@ public class MysqlCreateTableSqlBuilderTest {
                                                 "idx_billing_id",
                                                 Lists.newArrayList(
                                                         ConstraintKey.ConstraintKeyColumn.of(
-                                                                "billing_id", null))),
+                                                                "billing_id",
+                                                                ConstraintKey.ColumnSortType.ASC))),
                                         ConstraintKey.of(
                                                 ConstraintKey.ConstraintType.INDEX_KEY,
                                                 "idx_destination",
                                                 Lists.newArrayList(
                                                         ConstraintKey.ConstraintKeyColumn.of(
-                                                                "destination", null)))))
+                                                                "destination",
+                                                                ConstraintKey.ColumnSortType.ASC)))))
                         .build();
         Map<String, String> options = new HashMap<>();
         options.put(MySqlCatalog.indexTypeOptionKey("idx_billing_id"), "FULLTEXT");
@@ -240,10 +242,11 @@ public class MysqlCreateTableSqlBuilderTest {
                 createTableSql.contains("FULLTEXT KEY `idx_billing_id` (`billing_id`)"),
                 createTableSql);
         Assertions.assertTrue(
-                createTableSql.contains("KEY `idx_destination` (`destination`(64))"),
+                createTableSql.contains("KEY `idx_destination` (`destination`(64) ASC)"),
                 createTableSql);
         Assertions.assertFalse(
                 createTableSql.contains("KEY `idx_billing_id` (`billing_id`)"), createTableSql);
+        Assertions.assertFalse(createTableSql.contains("`billing_id` ASC"), createTableSql);
     }
 
     @Test
