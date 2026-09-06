@@ -215,6 +215,7 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 });
     }
 
+    /** Checks for a file without collecting the directory listing in memory. */
     public boolean hasAnyFile(@NonNull String path, boolean recursive) throws IOException {
         return execute(
                 () -> {

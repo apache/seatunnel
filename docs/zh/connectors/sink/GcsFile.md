@@ -29,7 +29,10 @@ Checkpoint 提交、多表任务和保存模式复用 SeaTunnel 现有的 File S
 前缀，例如 `/warehouse/orders` 和 `/tmp/seatunnel/orders`。不要把对象路径写入 `bucket`。
 
 启用事务时，Writer 首先在 `tmp_path` 下创建文件，并在提交阶段发布到 `path`。配置的身份
-需要对两个前缀具有创建、列举、删除和移动对象的权限。
+需要对两个前缀具有读取、创建、列举和删除对象的权限；使用驱动的原生移动操作时还需要对象移动
+权限。事务提交不保证外部读取者能原子地看到
+整个目录：Hadoop GCS 连接器可能通过复制和删除操作发布文件。禁用 `is_enable_transaction`
+会禁用 File Sink 的事务提交路径。
 
 ## 依赖
 
@@ -83,6 +86,9 @@ Apache License 2.0，并以 Java 8 为目标版本。shaded GCS Hadoop 库已打
 | common-options | | 否 | - | 参见 [Sink 通用配置](../common-options/sink-common-options.md)。 |
 
 Sink 也支持对应 SeaTunnel 文件格式定义的格式专用配置，包括 Parquet INT96 和 XML 元素配置。
+
+当 `is_partition_field_write_in_file=true` 时，如果读取这些输出文件的 File Source 的 Schema
+已包含分区字段，应设置 `parse_partition_from_path=false`，避免重复添加分区字段。
 
 ## 保存模式
 

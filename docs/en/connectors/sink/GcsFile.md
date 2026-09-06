@@ -31,8 +31,11 @@ that bucket, such as `/warehouse/orders` and `/tmp/seatunnel/orders`. Do not inc
 in `bucket`.
 
 When transactions are enabled, writers first create files under `tmp_path` and publish them to
-`path` during commit. The configured identity therefore needs create, list, delete, and move
-permissions for both prefixes.
+`path` during commit. The configured identity therefore needs read, create, list, and delete
+permissions for both prefixes, plus object move permission when using the driver's native move
+operation. Transactional commits do not provide atomic visibility of an entire
+directory to external readers: the Hadoop GCS connector can publish files using copy and delete
+operations. Disabling `is_enable_transaction` disables the file sink's transactional commit path.
 
 ## Dependency
 
@@ -89,6 +92,9 @@ The explicit `service_account_key_file` option takes precedence over the corresp
 
 The sink also accepts the format-specific file sink options documented by the corresponding
 SeaTunnel file formats, including Parquet INT96 and XML element options.
+
+When `is_partition_field_write_in_file=true`, set `parse_partition_from_path=false` on a file
+source reading that output if its schema already includes those partition columns.
 
 ## Save Modes
 
