@@ -16,6 +16,7 @@ The recipes in this section include concrete prerequisites, complete configurati
 | CDC from MySQL into Elasticsearch with filtering and field shaping | [MySQL CDC to Elasticsearch](./mysql-cdc-to-elasticsearch.md) |
 | Batch migration between relational databases with row transformation | [JDBC to JDBC](./jdbc-to-jdbc.md) |
 | JDBC extraction into object storage | [JDBC to S3](./jdbc-to-s3.md) |
+| Batch MySQL extraction into date-partitioned Parquet on HDFS | [MySQL to HDFS](./mysql-to-hdfs.md) |
 | Streaming from Kafka into Iceberg | [Kafka to Iceberg](./kafka-to-iceberg.md) |
 | CDC from PostgreSQL into Iceberg | [PostgreSQL CDC to Iceberg](./postgresql-cdc-to-iceberg.md) |
 | HTTP ingestion into JDBC | [HTTP to JDBC](./http-to-jdbc.md) |
