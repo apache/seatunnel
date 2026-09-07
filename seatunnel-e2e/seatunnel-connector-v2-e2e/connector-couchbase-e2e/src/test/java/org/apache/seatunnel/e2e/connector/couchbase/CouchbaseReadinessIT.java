@@ -34,6 +34,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.Timeout;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.couchbase.BucketDefinition;
 import org.testcontainers.couchbase.CouchbaseContainer;
@@ -48,12 +49,14 @@ import java.time.Duration;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 /** Factory-level readiness tests; no engine containers are needed for this client contract. */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@Timeout(value = 2, unit = TimeUnit.MINUTES, threadMode = Timeout.ThreadMode.SAME_THREAD)
 @Slf4j
 class CouchbaseReadinessIT {
 
@@ -99,7 +102,7 @@ class CouchbaseReadinessIT {
 
     @Test
     void testReadinessTimeoutAndRecovery() throws Exception {
-        CouchbaseSink unavailableSink = createSink(1, server.getPassword());
+        CouchbaseSink unavailableSink = createSink(5, server.getPassword());
         server.getDockerClient().pauseContainerCmd(server.getContainerId()).exec();
         try {
             assertThrows(
@@ -127,7 +130,7 @@ class CouchbaseReadinessIT {
 
     @Test
     void testInvalidCredentialsStillFailReadiness() {
-        CouchbaseSink sink = createSink(1, "incorrect-password");
+        CouchbaseSink sink = createSink(5, "incorrect-password");
         assertThrows(UnambiguousTimeoutException.class, () -> sink.createWriter(null));
     }
 

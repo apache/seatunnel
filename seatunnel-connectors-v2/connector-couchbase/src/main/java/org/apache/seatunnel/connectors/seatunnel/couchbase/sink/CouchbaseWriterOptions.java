@@ -140,6 +140,13 @@ public class CouchbaseWriterOptions implements Serializable {
             return this;
         }
 
+        /**
+         * Sets the bucket-readiness budget used during writer initialization.
+         *
+         * @param readyTimeout positive readiness timeout in seconds
+         * @return this builder
+         * @throws IllegalArgumentException if the timeout is zero or negative
+         */
         public Builder withReadyTimeout(int readyTimeout) {
             if (readyTimeout <= 0) {
                 throw new IllegalArgumentException("'ready.timeout' must be greater than zero.");

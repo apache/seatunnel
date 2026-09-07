@@ -91,6 +91,10 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 remains 30 seconds. For a cluster that needs more time to become available, set a larger positive
 value, for example `ready.timeout = 60`.
 
+The value is in seconds, not milliseconds. No connector-specific upper limit is enforced;
+choose the smallest budget that covers the cluster's observed recovery time. Excessively large
+values can delay writer-initialization failure when the bucket remains unavailable.
+
 The Couchbase SDK handles connection attempts within this wait; the connector does not add an
 outer bootstrap retry loop. `retry.max` and `retry.interval` still apply only to writes. This
 option does not change individual SDK operation timeouts or the engine's job-startup timeout.

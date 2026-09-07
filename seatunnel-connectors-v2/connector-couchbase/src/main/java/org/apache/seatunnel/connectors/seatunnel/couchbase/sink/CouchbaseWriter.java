@@ -115,6 +115,9 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                         options.getPassword());
         Collection resolvedCollection;
         try {
+            log.debug(
+                    "Waiting up to {} seconds for Couchbase bucket readiness",
+                    options.getReadyTimeout());
             connectedCluster
                     .bucket(options.getBucket())
                     .waitUntilReady(Duration.ofSeconds(options.getReadyTimeout()));
