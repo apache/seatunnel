@@ -58,16 +58,39 @@ class CdcProgressServiceTest {
                 Arrays.asList(
                         readerEnvelope(taskLocation, 10L, 100L, 2L, "newer-sequence"),
                         readerEnvelope(taskLocation, 10L, 100L, 1L, "stale-sequence")));
+        CdcProgressEnvelope<CdcReaderProgressReport> stored =
+                service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals("newer-sequence", stored.getReport().getActiveSplitId());
+
+        service.updateReports(
+                Collections.singletonList(
+                        readerEnvelope(taskLocation, 10L, 100L, 2L, "duplicate-sequence")));
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals("newer-sequence", stored.getReport().getActiveSplitId());
+
+        service.updateReports(
+                Collections.singletonList(
+                        readerEnvelope(taskLocation, 10L, 100L, 3L, "next-sequence")));
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(3L, stored.getReportSequence());
+        Assertions.assertEquals("next-sequence", stored.getReport().getActiveSplitId());
+
         service.updateReports(
                 Collections.singletonList(
                         readerEnvelope(taskLocation, 10L, 101L, 1L, "new-attempt")));
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
+        Assertions.assertEquals("new-attempt", stored.getReport().getActiveSplitId());
+
         service.updateReports(
                 Collections.singletonList(
                         readerEnvelope(taskLocation, 10L, 100L, 3L, "old-attempt")));
-
-        CdcProgressEnvelope<CdcReaderProgressReport> stored =
-                service.getReaderReports(1L, 2, 10L).get(0);
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
         Assertions.assertEquals("new-attempt", stored.getReport().getActiveSplitId());
     }
 
@@ -94,13 +117,33 @@ class CdcProgressServiceTest {
                 Arrays.asList(
                         enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 1_000L),
                         enumeratorEnvelope(taskLocation, 10L, 100L, 1L, 2_000L)));
-        service.updateReports(
-                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1L, 1_000L)));
-        service.updateReports(
-                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 3_000L)));
-
         CdcProgressEnvelope<CdcEnumeratorProgressReport> stored =
                 service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals(1_000L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 3_000L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals(1_000L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 500L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(3L, stored.getReportSequence());
+        Assertions.assertEquals(500L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1L, 1_000L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
+        Assertions.assertEquals(1_000L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 3_000L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
         Assertions.assertEquals(1L, stored.getReportSequence());
         Assertions.assertEquals(1_000L, stored.getObservedAt());
