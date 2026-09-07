@@ -45,11 +45,19 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
     private static final String OP_INSERT = "c"; // insert
     private static final String OP_DELETE = "d"; // delete
     private static final String OP_UPDATE = "u"; // update
+    private static final String EVENT_TIME_KEY = EVENT_TIME.getName();
     public static final String FORMAT = "Debezium";
 
     private final JsonSerializationSchema jsonSerializer;
 
     private transient SeaTunnelRow genericRow;
+
+    private transient Map<String, String> reusableSource;
+
+    private transient String cachedTableId;
+    private transient String cachedDatabase;
+    private transient String cachedSchema;
+    private transient String cachedTable;
 
     boolean mergeUpdateEventFlag;
     SeaTunnelRow cacheUpdateBeforeRow;
@@ -70,11 +78,14 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
     @Override
     public byte[] serialize(SeaTunnelRow row) {
         try {
-            Map<String, String> source = new HashMap<>();
-            if (!StringUtils.isEmpty(row.getTableId())) {
-                source.put("schema", TablePath.of(row.getTableId()).getSchemaName());
-                source.put("database", TablePath.of(row.getTableId()).getDatabaseName());
-                source.put("table", TablePath.of(row.getTableId()).getTableName());
+            if (genericRow == null) {
+                genericRow = new SeaTunnelRow(GENERATE_ROW_SIZE);
+            }
+            fillSource(row);
+            Object eventTime = null;
+            Map<String, Object> options = row.getOptionsOrNull();
+            if (options != null) {
+                eventTime = options.get(EVENT_TIME_KEY);
             }
             switch (row.getRowKind()) {
                 case INSERT:
@@ -87,14 +98,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
                         genericRow.setField(2, OP_INSERT);
                     }
                     genericRow.setField(1, row);
-                    genericRow.setField(3, source);
-
-                    if (row.getOptions() != null
-                            && row.getOptions().containsKey(EVENT_TIME.getName())) {
-                        genericRow.setField(4, row.getOptions().get(EVENT_TIME.getName()));
-                    } else {
-                        genericRow.setField(4, null);
-                    }
+                    genericRow.setField(4, eventTime);
                     return jsonSerializer.serialize(genericRow);
                 case UPDATE_BEFORE:
                     if (mergeUpdateEventFlag) {
@@ -105,11 +109,7 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
                     genericRow.setField(0, row);
                     genericRow.setField(1, null);
                     genericRow.setField(2, OP_DELETE);
-                    genericRow.setField(3, source);
-                    if (row.getOptions() != null
-                            && row.getOptions().containsKey(EVENT_TIME.getName())) {
-                        genericRow.setField(4, row.getOptions().get(EVENT_TIME.getName()));
-                    }
+                    genericRow.setField(4, eventTime);
                     return jsonSerializer.serialize(genericRow);
                 default:
                     throw new UnsupportedOperationException(
@@ -119,6 +119,28 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
         }
+    }
+
+    private void fillSource(SeaTunnelRow row) {
+        if (reusableSource == null) {
+            reusableSource = new HashMap<>(4);
+        } else {
+            reusableSource.clear();
+        }
+        String tableId = row.getTableId();
+        if (!StringUtils.isEmpty(tableId)) {
+            if (!tableId.equals(cachedTableId)) {
+                TablePath tablePath = TablePath.of(tableId);
+                cachedTableId = tableId;
+                cachedDatabase = tablePath.getDatabaseName();
+                cachedSchema = tablePath.getSchemaName();
+                cachedTable = tablePath.getTableName();
+            }
+            reusableSource.put("schema", cachedSchema);
+            reusableSource.put("database", cachedDatabase);
+            reusableSource.put("table", cachedTable);
+        }
+        genericRow.setField(3, reusableSource);
     }
 
     private static SeaTunnelRowType createJsonRowType(SeaTunnelRowType databaseSchema) {
