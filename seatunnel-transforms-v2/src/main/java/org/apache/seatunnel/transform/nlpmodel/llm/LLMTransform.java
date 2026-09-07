@@ -44,6 +44,8 @@ import java.util.Collections;
 import java.util.List;
 
 public class LLMTransform extends SingleFieldOutputTransform {
+    private static final long serialVersionUID = 4711686225005641485L;
+
     private final ReadonlyConfig config;
     private final SeaTunnelDataType<?> outputDataType;
     private final boolean strictBooleanOutput;

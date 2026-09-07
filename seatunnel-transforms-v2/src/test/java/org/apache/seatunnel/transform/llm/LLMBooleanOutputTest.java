@@ -27,9 +27,12 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableTransformFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransform;
 import org.apache.seatunnel.transform.nlpmodel.llm.LLMTransformFactory;
@@ -47,7 +50,10 @@ import org.junit.jupiter.params.provider.ValueSource;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectStreamClass;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.util.Collections;
@@ -205,6 +211,52 @@ class LLMBooleanOutputTest {
                                 .anyMatch(option -> "strict_boolean_output".equals(option.key())));
     }
 
+    @Test
+    void preservesLegacySerializationIdentifier() {
+        Assertions.assertEquals(
+                4711686225005641485L,
+                ObjectStreamClass.lookup(LLMTransform.class).getSerialVersionUID());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    @SuppressWarnings("unchecked")
+    void preservesValidationModeThroughFactoryWrapperSerialization(boolean strict)
+            throws IOException, ClassNotFoundException {
+        TableTransformFactoryContext context =
+                configuration("BOOLEAN", strict ? true : null, false);
+        byte[] serialized =
+                SerializationUtils.serialize(
+                        new LLMTransformFactory().createTransform(context).createTransform());
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(serialized)) {
+                    {
+                        enableResolveObject(true);
+                    }
+
+                    @Override
+                    protected Object resolveObject(Object value) {
+                        if (value instanceof LLMTransform) {
+                            // Retain the child for teardown; the factory wrapper has no close hook.
+                            transform = (LLMTransform) value;
+                        }
+                        return value;
+                    }
+                }) {
+            SeaTunnelMapTransform<SeaTunnelRow> restored =
+                    (SeaTunnelMapTransform<SeaTunnelRow>) input.readObject();
+            Assertions.assertNotNull(transform);
+            if (strict) {
+                Assertions.assertThrows(
+                        TransformException.class, () -> mapResponse("[\"unknown\"]", restored));
+            } else {
+                Assertions.assertEquals(false, mapResponse("[\"unknown\"]", restored).getField(1));
+            }
+            Assertions.assertEquals(true, mapResponse("[\"TrUe\"]", restored).getField(1));
+            Assertions.assertEquals(false, mapResponse("[\"FaLsE\"]", restored).getField(1));
+        }
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {"[\"unknown\"]", "unknown"})
     void validatesCustomArrayStringsAndPlainStrings(String content) throws IOException {
@@ -223,6 +275,14 @@ class LLMBooleanOutputTest {
     }
 
     private void configure(String type, Boolean strict, boolean custom) {
+        TableTransformFactoryContext context = configuration(type, strict, custom);
+        transform = new LLMTransform(context.getOptions(), context.getCatalogTables().get(0));
+        transform.getProducedCatalogTable();
+        transform.open();
+    }
+
+    private TableTransformFactoryContext configuration(
+            String type, Boolean strict, boolean custom) {
         Map<String, Object> options = new HashMap<>();
         options.put("model_provider", custom ? "CUSTOM" : "OPENAI");
         options.put("model", "test-model");
@@ -260,18 +320,24 @@ class LLMBooleanOutputTest {
                         Collections.emptyMap(),
                         Collections.emptyList(),
                         "test input");
-        transform = new LLMTransform(config, table);
-        transform.getProducedCatalogTable();
-        transform.open();
+        return new TableTransformFactoryContext(
+                Collections.singletonList(table),
+                config,
+                Thread.currentThread().getContextClassLoader());
     }
 
     private SeaTunnelRow mapResponse(String content) throws IOException {
+        return mapResponse(content, transform);
+    }
+
+    private SeaTunnelRow mapResponse(String content, SeaTunnelMapTransform<SeaTunnelRow> target)
+            throws IOException {
         ObjectNode response = MAPPER.createObjectNode();
         response.putArray("choices").addObject().putObject("message").put("content", content);
         server.enqueue(new MockResponse().setBody(MAPPER.writeValueAsString(response)));
         SeaTunnelRow input = new SeaTunnelRow(new Object[] {INPUT_VALUE});
         input.setTableId("test.input");
         input.setRowKind(RowKind.UPDATE_AFTER);
-        return transform.map(input);
+        return target.map(input);
     }
 }
