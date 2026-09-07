@@ -45,14 +45,21 @@ public class DingTalkFactoryTest {
     }
 
     @Test
-    void testBlankRequiredOptionsRejected() {
-        Map<String, Object> blankUrlConfig = requiredConfig();
-        blankUrlConfig.put(DingTalkSinkOptions.URL.key(), " ");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(blankUrlConfig));
+    void testEmptyRequiredOptionsRejected() {
+        assertInvalidValue(DingTalkSinkOptions.URL.key(), "");
+        assertInvalidValue(DingTalkSinkOptions.SECRET.key(), "");
+    }
 
-        Map<String, Object> blankSecretConfig = requiredConfig();
-        blankSecretConfig.put(DingTalkSinkOptions.SECRET.key(), "\t");
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(blankSecretConfig));
+    @Test
+    void testWhitespaceOnlyRequiredOptionsRejected() {
+        assertInvalidValue(DingTalkSinkOptions.URL.key(), " ");
+        assertInvalidValue(DingTalkSinkOptions.SECRET.key(), "\t");
+    }
+
+    private void assertInvalidValue(String optionKey, String value) {
+        Map<String, Object> config = requiredConfig();
+        config.put(optionKey, value);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
     }
 
     private void validate(Map<String, Object> config) {
