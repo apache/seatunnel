@@ -49,6 +49,40 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
 
+## Run ProtoStuff serialization microbenchmarks
+
+`ProtoStuffSerializerBenchmark` measures one `IMapFileData` envelope per operation, with a
+pre-serialized Long key and a fixed 1,024-character ASCII String value. It does not measure nested
+key/value conversion, disk I/O, Hazelcast, or cluster startup. Setup prepares the input and warms
+the schema cache; the measured calls retain normal serializer allocations.
+
+The envelope is not a `SerializerDeserializerWrapper`: both measured methods call `getSchema`
+on every invocation. Eight threads are used by default to expose contention on the shared cache.
+Scores are throughput in `ops/ms` (higher is better), with a fixed 4 GiB heap, G1, pre-touch,
+disabled explicit GC, and four JVM-visible processors, matching the pipeline benchmark's JVM limits.
+
+Run both methods with the default eight threads (the static schema cache is shared):
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
+  -rf json -rff seatunnel-benchmarks/target/protostuff.json
+```
+
+For allocation or lock diagnostics, select one method with the existing profiling script:
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile gc \
+  --benchmark 'ProtoStuffSerializerBenchmark.deserializeWalRecord$' -- -t 8
+bash tools/benchmarks/profile_benchmarks.sh profile lock \
+  --benchmark 'ProtoStuffSerializerBenchmark.deserializeWalRecord$' -- -t 8
+```
+
+Compare revisions using the same JDK, hardware, thread count, and JMH settings. Multi-thread
+throughput is the total across threads. Run performance comparisons without profilers and collect
+profiles separately. This is a warm-cache microbenchmark, not a cold schema
+initialization or end-to-end WAL recovery benchmark. The Benchmarks workflow also exposes this
+class; it is not added to the default `benchmarks_core` suite.
+
 ## Run Zeta full-pipeline benchmarks
 
 ```bash

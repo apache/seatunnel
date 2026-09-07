@@ -169,6 +169,37 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 运行 ProtoStuff 序列化微基准
+
+`ProtoStuffSerializerBenchmark` 单独测量一个 `IMapFileData` WAL 外层记录在内存中的序列化和
+反序列化。固定输入包含预先序列化的 Long key 和 1,024 个 ASCII 字符的 String value。
+嵌套 key/value 的转换、文件系统访问和 Hazelcast 不在计时范围内。Setup 准备输入并初始化
+Schema，序列化器每次调用正常产生的内存分配仍计入测量。
+
+`IMapFileData` 不走序列化器的 wrapper 分支：两个被测方法每次调用都会进入 `getSchema`。
+默认使用 8 个线程，以暴露共享 Schema 缓存的锁竞争。
+Score 为吞吐，单位 `ops/ms`，越大越好。JVM 资源限制与 Pipeline 基准一致：4 GiB 堆、
+G1、预触页、禁用显式 GC，以及 4 个可见处理器。
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
+  -rf json -rff seatunnel-benchmarks/target/protostuff.json
+```
+
+各线程独立持有输入，但共享生产序列化器的静态 Schema 缓存。前后版本应使用相同的线程数、
+JDK、机器和 JMH 配置；多线程吞吐是所有线程的总吞吐。两个方法分别是 `serializeWalRecord`
+和 `deserializeWalRecord`。可以单独运行 GC 或 lock 诊断：
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile gc \
+  --benchmark 'ProtoStuffSerializerBenchmark.deserializeWalRecord$' -- -t 8
+bash tools/benchmarks/profile_benchmarks.sh profile lock \
+  --benchmark 'ProtoStuffSerializerBenchmark.deserializeWalRecord$' -- -t 8
+```
+
+性能对比使用不带 profiler 的结果。这里测量 Schema 缓存预热后的性能，不测首次初始化或
+完整恢复耗时。Benchmarks workflow 中也可以选择该类，不增加默认 `benchmarks_core` 套件的范围。
+
 ### 运行 Checkpoint 基准测试
 
 ```bash
