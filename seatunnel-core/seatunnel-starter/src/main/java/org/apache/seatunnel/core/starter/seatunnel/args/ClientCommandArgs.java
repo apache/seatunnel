@@ -283,7 +283,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     public void validateCommandOptions() {
         validateSampleOptions();
         if (outputFormat == OutputFormat.JSON
-                && (!checkConfig && dryRun == null || dryRun == DryRun.SAMPLE)) {
+                && ((!checkConfig && dryRun == null) || dryRun == DryRun.SAMPLE)) {
             throw new ParameterException(
                     "--format json requires --check, --dry-run static, or --dry-run connect.");
         }

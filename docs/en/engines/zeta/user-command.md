@@ -73,6 +73,8 @@ The `--dry-run static` (or `--check`) option validates the configuration file **
 
 For machine-readable validation, add `--format json` to `--check`, `--dry-run static`, or `--dry-run connect`. The JSON document is written to standard output on both success and validation failure; a failed validation still exits with a non-zero status.
 
+The JSON contract contains `schemaVersion`, `valid`, `phase` (`static` or `connectivity`), and `errors`. Each entry in `errors` has `location`, `plugin`, `optionPath`, `ruleCategory`, and a sanitized `message`; unavailable fields are `null`.
+
 ```shell
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --check --format json
 ```

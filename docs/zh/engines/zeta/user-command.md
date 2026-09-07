@@ -89,6 +89,8 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 
 需要机器可读的校验结果时，可在 `--check`、`--dry-run static` 或 `--dry-run connect` 后添加 `--format json`。无论校验成功还是失败，JSON 文档都会写入标准输出；校验失败仍会以非零状态码退出。
 
+JSON 契约包含 `schemaVersion`、`valid`、`phase`（`static` 或 `connectivity`）和 `errors`。`errors` 的每一项包含 `location`、`plugin`、`optionPath`、`ruleCategory` 与已脱敏的 `message`；无法提供的字段为 `null`。
+
 ```shell
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --check --format json
 ```
