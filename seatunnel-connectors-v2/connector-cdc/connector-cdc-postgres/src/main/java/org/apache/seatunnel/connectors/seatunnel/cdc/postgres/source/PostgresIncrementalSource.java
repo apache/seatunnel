@@ -94,7 +94,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         PostgresSourceConfigFactory configFactory = new PostgresSourceConfigFactory();
-        configFactory.fromReadonlyConfig(readonlyConfig);
+        configFactory.fromReadonlyConfig(config);
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(config.get(JdbcCommonOptions.URL));
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
