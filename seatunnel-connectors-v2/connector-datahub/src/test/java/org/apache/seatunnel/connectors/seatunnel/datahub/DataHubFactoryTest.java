@@ -45,11 +45,12 @@ class DataHubFactoryTest {
     }
 
     @Test
-    void testMissingRequiredOptionRejected() {
-        Map<String, Object> config = validConfig();
-        config.remove(DataHubSinkOptions.ENDPOINT.key());
-
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+    void testMissingRequiredOptionsRejected() {
+        for (String key : requiredKeys()) {
+            Map<String, Object> config = validConfig();
+            config.remove(key);
+            Assertions.assertThrows(OptionValidationException.class, () -> validate(config), key);
+        }
     }
 
     @Test
@@ -63,19 +64,21 @@ class DataHubFactoryTest {
     }
 
     private void assertInvalidRequiredValue(String value) {
-        DataHubSinkOptions[] options = null;
-        for (String key :
-                new String[] {
-                    DataHubSinkOptions.ENDPOINT.key(),
-                    DataHubSinkOptions.ACCESS_ID.key(),
-                    DataHubSinkOptions.ACCESS_KEY.key(),
-                    DataHubSinkOptions.PROJECT.key(),
-                    DataHubSinkOptions.TOPIC.key()
-                }) {
+        for (String key : requiredKeys()) {
             Map<String, Object> config = validConfig();
             config.put(key, value);
             Assertions.assertThrows(OptionValidationException.class, () -> validate(config), key);
         }
+    }
+
+    private String[] requiredKeys() {
+        return new String[] {
+            DataHubSinkOptions.ENDPOINT.key(),
+            DataHubSinkOptions.ACCESS_ID.key(),
+            DataHubSinkOptions.ACCESS_KEY.key(),
+            DataHubSinkOptions.PROJECT.key(),
+            DataHubSinkOptions.TOPIC.key()
+        };
     }
 
     private void validate(Map<String, Object> config) {
