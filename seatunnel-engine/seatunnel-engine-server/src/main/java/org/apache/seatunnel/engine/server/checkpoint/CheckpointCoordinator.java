@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
-import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -43,6 +42,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.PipelineCheckpointScheduler;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -69,9 +69,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -150,7 +147,12 @@ public class CheckpointCoordinator {
 
     private final CheckpointConfig coordinatorConfig;
 
-    private transient ScheduledExecutorService scheduler;
+    /**
+     * Timer lease borrowed from the member-wide checkpoint scheduler. Used only to re-arm the
+     * periodic trigger and to arm the checkpoint-timeout watchdog; the heavy barrier work runs on
+     * {@link #executorService}.
+     */
+    private final transient PipelineCheckpointScheduler scheduler;
 
     private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
 
@@ -224,18 +226,7 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
-        this.scheduler =
-                Executors.newScheduledThreadPool(
-                        2,
-                        runnable -> {
-                            Thread thread = new Thread(runnable);
-                            thread.setName(
-                                    String.format(
-                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                            return thread;
-                        });
-        ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
-        this.scheduler = MDCTracer.tracing(scheduler);
+        this.scheduler = manager.leaseCheckpointScheduler(pipelineId);
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
@@ -1148,7 +1139,7 @@ public class CheckpointCoordinator {
      *       caused by a coordinator reset)
      *   <li>Clearing all internal tracking structures
      *   <li>Resetting counters and schema change flags
-     *   <li>Stopping and recreating the scheduler thread pool
+     *   <li>Cancelling this pipeline's outstanding scheduler tasks
      * </ul>
      *
      * <p>If the close reason is {@code CHECKPOINT_COORDINATOR_RESET}, the monitor service will
@@ -1200,17 +1191,9 @@ public class CheckpointCoordinator {
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
-            scheduler.shutdownNow();
-            scheduler =
-                    Executors.newScheduledThreadPool(
-                            2,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setName(
-                                        String.format(
-                                                "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                                return thread;
-                            });
+            // Drops only this pipeline's timers. The lease stays usable, so a coordinator restored
+            // after a master-failover reset can schedule again without rebuilding a thread pool.
+            scheduler.cancelAll();
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
