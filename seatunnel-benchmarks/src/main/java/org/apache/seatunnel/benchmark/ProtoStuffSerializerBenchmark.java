@@ -35,12 +35,12 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>One operation encodes or decodes one IMapFileData envelope, not its nested key/value objects.
  * No filesystem, Hazelcast, or Zeta runtime is started. Thread-local fixtures share the production
- * serializer's static schema cache, so JMH {@code -t 1} and {@code -t 8} can exercise the same
- * cache-hit path without sharing mutable input objects. Eight threads are used by default to expose
- * contention on the shared cache. IMapFileData is not a serializer wrapper type: both measured
- * methods call getSchema on every invocation, even after setup initializes the schema.
+ * serializer's static schema cache without sharing mutable input objects. Four threads are used by
+ * default to exercise concurrent lookup on the standard four-vCPU runner. IMapFileData is not a
+ * serializer wrapper type: both measured methods call getSchema on every invocation, even after
+ * setup initializes the schema.
  */
-@Threads(8)
+@Threads(4)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @Fork(

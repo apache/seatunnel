@@ -176,7 +176,7 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchma
   -rf json -rff seatunnel-benchmarks/target/protostuff.json
 ```
 
-默认使用 8 个线程，测量 `IMapFileData` 的内存序列化和反序列化吞吐（`ops/ms`）。
+默认使用 4 个线程，测量 `IMapFileData` 的内存序列化和反序列化吞吐（`ops/ms`）。
 两个方法均覆盖共享 Schema 缓存的查询路径，不包含文件 I/O 和 Hazelcast 调度。
 
 ### 运行 Checkpoint 基准测试

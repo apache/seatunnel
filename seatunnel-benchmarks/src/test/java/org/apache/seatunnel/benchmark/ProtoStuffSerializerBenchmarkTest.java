@@ -38,7 +38,7 @@ class ProtoStuffSerializerBenchmarkTest {
 
     @Test
     void shouldExerciseConcurrentSchemaLookupByDefault() {
-        assertEquals(8, ProtoStuffSerializerBenchmark.class.getAnnotation(Threads.class).value());
+        assertEquals(4, ProtoStuffSerializerBenchmark.class.getAnnotation(Threads.class).value());
         assertArrayEquals(
                 new Mode[] {Mode.Throughput},
                 ProtoStuffSerializerBenchmark.class.getAnnotation(BenchmarkMode.class).value());

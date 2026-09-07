@@ -185,7 +185,7 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchma
   -rf json -rff seatunnel-benchmarks/target/protostuff.json
 ```
 
-Measures in-memory `IMapFileData` serialization and deserialization throughput (`ops/ms`) with eight
+Measures in-memory `IMapFileData` serialization and deserialization throughput (`ops/ms`) with four
 threads by default. Both methods exercise shared schema-cache lookup, excluding file I/O and
 Hazelcast scheduling.
 
