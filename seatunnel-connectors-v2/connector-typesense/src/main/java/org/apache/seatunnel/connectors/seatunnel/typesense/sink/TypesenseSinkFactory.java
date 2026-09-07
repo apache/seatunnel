@@ -43,8 +43,7 @@ public class TypesenseSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        TypesenseSinkOptions.HOSTS,
-                        Conditions.notEmpty(TypesenseSinkOptions.HOSTS))
+                        TypesenseSinkOptions.HOSTS, Conditions.notEmpty(TypesenseSinkOptions.HOSTS))
                 .required(
                         TypesenseSinkOptions.COLLECTION,
                         Conditions.notBlank(TypesenseSinkOptions.COLLECTION))
