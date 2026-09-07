@@ -35,13 +35,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Asserts that {@link HdfsWriter#flush()} takes exactly one hsync-family path per call.
+ * Asserts method-call-count parity for {@link HdfsWriter#flush()}: exactly one hsync-family
+ * invocation per branch.
  *
- * <p>Unlike {@link HdfsWriterDurableFlushTest}, these checks do not rely on same-process read-back
- * visibility (which {@code hflush()} would also satisfy via the OS page cache). They fail if a
- * branch silently regresses to {@code hflush()}-only or stacks multiple sync calls.
+ * <p>This is not disk-sync-count parity and is not evidence that the reported checkpoint
+ * state-store latency variance is resolved. {@code LocalFileSystem} {@code hsync}/{@code hflush}
+ * may not map 1:1 to a device fsync; these mocks only lock the control-flow / call-count contract.
+ * Use {@link HdfsWriterDurableFlushTest} for same-process read-back visibility (also not a crash
+ * durability proof).
  */
-class HdfsWriterFlushSyncPathTest {
+class HdfsWriterFlushCallCountTest {
 
     private static final EnumSet<HdfsDataOutputStream.SyncFlag> UPDATE_LENGTH =
             EnumSet.of(HdfsDataOutputStream.SyncFlag.UPDATE_LENGTH);

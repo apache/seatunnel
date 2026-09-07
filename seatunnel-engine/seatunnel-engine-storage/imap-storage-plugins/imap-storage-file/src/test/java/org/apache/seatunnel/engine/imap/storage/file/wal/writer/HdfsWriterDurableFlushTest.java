@@ -46,8 +46,9 @@ import static org.junit.jupiter.api.condition.OS.MAC;
  * Verifies mid-stream write-then-read visibility across handles while the writer is still open.
  *
  * <p>This is not a crash-survival / fsync proof: same-process read-back also passes for {@code
- * hflush()}-only data sitting in the OS page cache. Use {@link HdfsWriterFlushSyncPathTest} to
- * assert that {@link HdfsWriter#flush()} still invokes an {@code hsync}-family method exactly once.
+ * hflush()}-only data sitting in the OS page cache. Use {@link HdfsWriterFlushCallCountTest} to
+ * assert method-call-count parity (exactly one {@code hsync}-family invocation per branch), not
+ * disk-sync-count parity or CV resolution.
  */
 @EnabledOnOs({LINUX, MAC})
 class HdfsWriterDurableFlushTest {

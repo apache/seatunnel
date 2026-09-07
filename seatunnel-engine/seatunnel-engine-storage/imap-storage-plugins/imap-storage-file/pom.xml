@@ -68,6 +68,12 @@
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
         </dependency>
+        <!-- Explicit test dep for HdfsWriterFlushCallCountTest (also inherited from root POM). -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Imap storage dependency package  -->
         <dependency>

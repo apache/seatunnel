@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageExcepti
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
@@ -72,7 +73,14 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             } catch (Exception e) {
                 writeSuccess = false;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
+                // Writer reuse after non-IOException: HdfsWriter/CloudWriter serialize before any
+                // stream mutation, so unchecked failures from the current write path do not leave
+                // a torn mid-file record. A blind close/reopen would truncate the fixed wal.txt
+                // path (fs.create) and is intentionally not done here. IOException mid-write can
+                // still leave a partial record; that pre-existing risk is unchanged by this catch
+                // widening.
             }
+            // Never let response publishing kill the sole disruptor consumer.
             executeResponse(requestId, writeSuccess);
             return;
         }
@@ -84,13 +92,14 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
     }
 
     private void executeResponse(long requestId, boolean success) {
-        if (null == RequestFutureCache.get(requestId)) {
-            log.warn("requestId is {} not found in RequestFutureCache", requestId);
-            return;
-        }
         try {
-            RequestFutureCache.get(requestId).done(success);
-        } catch (RuntimeException e) {
+            RequestFuture future = RequestFutureCache.get(requestId);
+            if (future == null) {
+                log.warn("requestId is {} not found in RequestFutureCache", requestId);
+                return;
+            }
+            future.done(success);
+        } catch (Exception e) {
             log.error("response error, requestId is {} ", requestId, e);
         }
     }

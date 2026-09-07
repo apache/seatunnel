@@ -49,6 +49,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.FileConstants.DEFAULT_IMAP_FILE_PATH_SPLIT;
@@ -329,17 +330,27 @@ public class IMapFileStorage implements IMapStorage {
 
     private Set<Object> batchQueryExecuteFailsStatus(
             Map<Long, Object> requestMap, Set<Object> failures) {
+        // Shared deadline across the batch so a stuck worker cannot block storeAll/deleteAll for
+        // N × writDataTimeoutMilliseconds.
+        long deadlineNanos =
+                System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
         for (Map.Entry<Long, Object> entry : requestMap.entrySet()) {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
             try {
-                // Use the same write timeout as single-key store/delete so a dead WAL worker
-                // cannot block batch callers indefinitely after RequestFuture.get() lost its
-                // accidental 1s cap.
-                success =
-                        Boolean.TRUE.equals(
-                                requestFuture.get(
-                                        this.writDataTimeoutMilliseconds, TimeUnit.MILLISECONDS));
+                long remainingNanos = deadlineNanos - System.nanoTime();
+                if (remainingNanos <= 0L) {
+                    log.warn(
+                            "shared batch write deadline exceeded before waiting for requestId {}",
+                            entry.getKey());
+                } else {
+                    success =
+                            Boolean.TRUE.equals(
+                                    requestFuture.get(remainingNanos, TimeUnit.NANOSECONDS));
+                }
+            } catch (TimeoutException e) {
+                // Expected when the shared batch deadline elapses; avoid an ERROR stack per key.
+                log.warn("wait for write status timed out for requestId {}", entry.getKey());
             } catch (Exception e) {
                 log.error("wait for write status error", e);
             } finally {

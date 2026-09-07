@@ -54,12 +54,33 @@ public class RequestFuture implements Future<Boolean> {
         return latch.getCount() == 0L;
     }
 
+    /**
+     * Blocks until the WAL append completes.
+     *
+     * <p>Production call sites use {@link #get(long, TimeUnit)} with the configured write timeout.
+     * This untimed overload exists for {@link Future} contract compliance and must not be used
+     * where an unbounded wait is unacceptable.
+     */
     @Override
     public Boolean get() throws InterruptedException {
         latch.await();
         return success;
     }
 
+    /**
+     * Waits up to {@code timeout} for the WAL append to complete.
+     *
+     * <p>On expiry this throws {@link TimeoutException} instead of returning {@code false},
+     * matching {@link Future#get(long, TimeUnit)}. A timeout does not cancel the in-flight append;
+     * the future remains incomplete until {@link #done(boolean)} runs. Callers must treat timeout
+     * as failure for the waiting key.
+     *
+     * @param timeout the maximum time to wait
+     * @param unit the time unit of the timeout argument
+     * @return whether the durable write succeeded
+     * @throws TimeoutException if the wait times out before completion
+     * @throws InterruptedException if the waiting thread is interrupted
+     */
     @Override
     public Boolean get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
         if (!latch.await(timeout, unit)) {
