@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 > RabbitMQ Sink 连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于将数据写入 RabbitMQ 队列。
@@ -199,6 +205,16 @@ sink {
       }
 }
 ```
+
+## 常见问题
+
+### RabbitMQ Sink 支持路由到指定的 Exchange 和 Routing Key 吗？
+
+支持。Sink 会根据配置的 `queue_name` 及路由参数将消息发布到 RabbitMQ 目标队列或路由规则中。
+
+### RabbitMQ Sink 如何处理网络重连和超时？
+
+可以通过 `rabbitmq.config` 配置块调优客户端连接参数（如 `connection-timeout`、`requested-heartbeat` 等），以应对网络短暂抖动并提高连接稳定性。
 
 ## 变更日志
 
