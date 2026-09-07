@@ -108,8 +108,7 @@ class TypesenseFactoryTest {
 
     private void assertInvalid(Map<String, Object> config, OptionRule optionRule) {
         Assertions.assertThrows(
-                OptionValidationException.class,
-                () -> validate(config, optionRule, "Typesense"));
+                OptionValidationException.class, () -> validate(config, optionRule, "Typesense"));
     }
 
     private void validate(Map<String, Object> config, OptionRule optionRule, String name) {
