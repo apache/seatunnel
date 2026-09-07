@@ -37,7 +37,12 @@ import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 
-/** Fixed-size job-lifecycle growth phases that start from controlled IMap cardinalities. */
+/**
+ * Fixed-size job-lifecycle growth phases that start from controlled IMap cardinalities.
+ *
+ * <p>Each iteration verifies resident IMap growth. A durable FileMapStore reload sample runs once
+ * at trial tear-down so full WAL replay does not run between measured SingleShot samples.
+ */
 @State(Scope.Thread)
 public class IMapJobGrowthBenchmarkWorkload {
 
@@ -68,6 +73,7 @@ public class IMapJobGrowthBenchmarkWorkload {
     private int baselineRunningJobCount;
     private int baselineFinishedJobCount;
     private int baselineFinishedJobMetricsCount;
+    private long growthBatchSequence;
     private GrowthPhase growthPhase = GrowthPhase.NONE;
 
     /** Captures real Zeta lifecycle values and seeds the requested initial storage pressure. */
@@ -143,7 +149,10 @@ public class IMapJobGrowthBenchmarkWorkload {
         return batchJobIds[GROWTH_OPERATIONS_PER_INVOCATION - 1];
     }
 
-    /** Verifies that the non-timed fixture pressure grew by exactly one controlled phase. */
+    /**
+     * Verifies that the non-timed fixture pressure grew by exactly one controlled phase without
+     * replaying the FileMapStore WAL between measured samples.
+     */
     @TearDown(Level.Iteration)
     public void verifyGrowthPhase() {
         if (growthPhase == GrowthPhase.RUNNING) {
@@ -152,7 +161,7 @@ public class IMapJobGrowthBenchmarkWorkload {
                 throw new IllegalStateException(
                         "The running-job growth phase did not retain every entry");
             }
-            verifyLastRunningJobDurability();
+            verifyLastRunningJobResident();
         } else if (growthPhase == GrowthPhase.COMPLETED) {
             if (finishedJobStateMap.size()
                             != baselineFinishedJobCount + GROWTH_OPERATIONS_PER_INVOCATION
@@ -161,14 +170,19 @@ public class IMapJobGrowthBenchmarkWorkload {
                 throw new IllegalStateException(
                         "The completed-job growth phase did not retain every entry");
             }
-            verifyLastCompletedJobDurability();
+            verifyLastCompletedJobResident();
         }
     }
 
     @TearDown(Level.Trial)
     public void tearDown() throws Exception {
-        if (fixtureJob != null) {
-            fixtureJob.close();
+        try {
+            verifyLastGrowthPhaseDurability();
+        } finally {
+            cleanPreviousGrowthPhase();
+            if (fixtureJob != null) {
+                fixtureJob.close();
+            }
         }
     }
 
@@ -194,8 +208,12 @@ public class IMapJobGrowthBenchmarkWorkload {
         batchTaskGroupLocations = new TaskGroupLocation[GROWTH_OPERATIONS_PER_INVOCATION];
         batchStateTimestamps = new Long[GROWTH_OPERATIONS_PER_INVOCATION][];
         batchFinishedJobStates = new JobHistoryService.JobState[GROWTH_OPERATIONS_PER_INVOCATION];
+        // Unique keys per iteration avoid delete/re-put churn on the same WAL keys and match the
+        // transition / DAG store fixtures.
+        long batchJobIdBase =
+                GROWTH_KEY_BASE + growthBatchSequence++ * GROWTH_OPERATIONS_PER_INVOCATION;
         for (int index = 0; index < GROWTH_OPERATIONS_PER_INVOCATION; index++) {
-            long jobId = GROWTH_KEY_BASE + index;
+            long jobId = batchJobIdBase + index;
             TaskGroupLocation location = new TaskGroupLocation(jobId, 1, index);
             Long[] timestamps = new Long[ExecutionState.values().length];
             timestamps[ExecutionState.RUNNING.ordinal()] = finishedJobState.getStartTime();
@@ -230,6 +248,46 @@ public class IMapJobGrowthBenchmarkWorkload {
                 finishedJobStateMap.delete(jobId);
                 finishedJobMetricsMap.delete(jobId);
             }
+        }
+        growthPhase = GrowthPhase.NONE;
+    }
+
+    private void verifyLastRunningJobResident() {
+        int lastIndex = GROWTH_OPERATIONS_PER_INVOCATION - 1;
+        long jobId = batchJobIds[lastIndex];
+        TaskGroupLocation taskGroupLocation = batchTaskGroupLocations[lastIndex];
+        Long[] timestamps = runningJobStateTimestampsMap.get(taskGroupLocation);
+        if (runningJobInfoMap.get(jobId) == null
+                || runningJobStateMap.get(taskGroupLocation) != ExecutionState.RUNNING
+                || timestamps == null
+                || timestamps[ExecutionState.RUNNING.ordinal()] == null) {
+            throw new IllegalStateException(
+                    "The last running-job growth entry was not retained in memory");
+        }
+    }
+
+    private void verifyLastCompletedJobResident() {
+        int lastIndex = GROWTH_OPERATIONS_PER_INVOCATION - 1;
+        long jobId = batchJobIds[lastIndex];
+        TaskGroupLocation taskGroupLocation = batchTaskGroupLocations[lastIndex];
+        if (runningJobInfoMap.get(jobId) != null
+                || runningJobStateMap.get(taskGroupLocation) != null
+                || runningJobStateTimestampsMap.get(taskGroupLocation) != null
+                || finishedJobStateMap.get(jobId) == null
+                || finishedJobMetricsMap.get(jobId) == null) {
+            throw new IllegalStateException(
+                    "The last completed-job lifecycle was not retained correctly");
+        }
+    }
+
+    private void verifyLastGrowthPhaseDurability() {
+        if (batchJobIds == null) {
+            return;
+        }
+        if (growthPhase == GrowthPhase.RUNNING) {
+            verifyLastRunningJobDurability();
+        } else if (growthPhase == GrowthPhase.COMPLETED) {
+            verifyLastCompletedJobDurability();
         }
     }
 
