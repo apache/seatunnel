@@ -264,9 +264,17 @@ public class JobHistoryService {
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
+    /**
+     * Persists finished job metrics with a single write-through IMap put.
+     *
+     * <p>Merges against any existing finished metrics in memory, then stores the result once with
+     * the configured history TTL. Avoids {@code computeIfAbsent} followed by {@code put}, which
+     * would issue two durable MapStore writes for a newly finished job under write-through storage.
+     */
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
-        finishedJobMetricsImap.computeIfAbsent(jobId, key -> JobMetrics.of(new HashMap<>()));
-        JobMetrics newMetrics = finishedJobMetricsImap.get(jobId).merge(metrics);
+        JobMetrics existing = finishedJobMetricsImap.get(jobId);
+        JobMetrics base = existing == null ? JobMetrics.of(new HashMap<>()) : existing;
+        JobMetrics newMetrics = base.merge(metrics);
         finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 

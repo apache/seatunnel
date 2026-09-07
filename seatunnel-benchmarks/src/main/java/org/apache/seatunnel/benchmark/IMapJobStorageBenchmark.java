@@ -104,8 +104,8 @@ public class IMapJobStorageBenchmark extends BenchmarkBase {
      * <p>Starting from a controlled baseline of 0 or 1,000 retained jobs, the measured phase adds
      * 100 unique jobs. Each logical operation writes a real {@code JobInfo}, a RUNNING task-group
      * state, and its state-timestamp array, and deliberately keeps all three entries to model
-     * long-running job growth. Fixture generation, durability validation, and removal of the phase
-     * are outside measured time.
+     * long-running job growth. Fixture generation, resident validation, phase cleanup, and the
+     * trial-scoped durable MapStore sample are outside measured time.
      *
      * <p>{@link Mode#SingleShotTime} fixes the growth phase at 100 jobs, and {@link
      * OperationsPerInvocation} normalizes the result to one retained running job.
@@ -124,7 +124,8 @@ public class IMapJobStorageBenchmark extends BenchmarkBase {
      * running {@code JobInfo}, task-group state, and timestamps; stores finished metrics and
      * finished job state through {@code JobHistoryService}; and finally deletes the three transient
      * running entries. This leaves exactly one finished-state and one finished-metrics entry per
-     * job. Preparation, durability checks, and phase cleanup are not timed.
+     * job. Preparation, resident validation, phase cleanup, and the trial-scoped durable MapStore
+     * sample are not timed.
      *
      * <p>{@link Mode#SingleShotTime} makes every candidate process the same 100 completed jobs.
      * {@link OperationsPerInvocation} reports the normalized cost of one complete storage
