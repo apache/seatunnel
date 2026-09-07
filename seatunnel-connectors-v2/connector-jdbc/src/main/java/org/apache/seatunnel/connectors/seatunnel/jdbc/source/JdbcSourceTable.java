@@ -39,4 +39,18 @@ public class JdbcSourceTable implements Serializable {
     private final Boolean useSelectCount;
     private final Boolean skipAnalyze;
     private final CatalogTable catalogTable;
+
+    public JdbcSourceTable withQuery(String query) {
+        return JdbcSourceTable.builder()
+                .tablePath(this.tablePath)
+                .query(query)
+                .partitionColumn(this.partitionColumn)
+                .partitionNumber(this.partitionNumber)
+                .partitionStart(this.partitionStart)
+                .partitionEnd(this.partitionEnd)
+                .useSelectCount(this.useSelectCount)
+                .skipAnalyze(this.skipAnalyze)
+                .catalogTable(this.catalogTable)
+                .build();
+    }
 }

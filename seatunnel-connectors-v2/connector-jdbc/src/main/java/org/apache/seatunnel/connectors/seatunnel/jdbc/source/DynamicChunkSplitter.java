@@ -486,7 +486,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             Object[] sample =
                     jdbcDialect.sampleDataFromColumn(
                             getOrEstablishConnection(),
-                            table,
+                            applyWhereCondition(table),
                             splitColumnName,
                             inverseSamplingRate,
                             config.getFetchSize());
@@ -501,7 +501,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     }
 
     private Long queryApproximateRowCnt(JdbcSourceTable table) throws SQLException {
-        return jdbcDialect.approximateRowCntStatement(getOrEstablishConnection(), table);
+        return jdbcDialect.approximateRowCntStatement(
+                getOrEstablishConnection(), applyWhereCondition(table));
     }
 
     private double calculateDistributionFactor(
@@ -777,7 +778,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         Object chunkEnd =
                 jdbcDialect.queryNextChunkMax(
                         getOrEstablishConnection(),
-                        table,
+                        applyWhereCondition(table),
                         splitColumnName,
                         chunkSize,
                         previousChunkEnd);
