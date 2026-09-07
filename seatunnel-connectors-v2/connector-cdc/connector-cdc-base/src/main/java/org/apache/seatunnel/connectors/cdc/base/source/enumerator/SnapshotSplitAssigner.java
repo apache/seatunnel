@@ -202,16 +202,16 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         completedSplitWatermarks.forEach(
                 watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
         if (allSplitsCompleted()) {
-            // Skip the waiting checkpoint when current parallelism is 1 which means we do not need
-            // to care about the global output data order of snapshot splits and incremental split.
-            if (currentParallelism == 1) {
-                assignerCompleted = true;
-                LOG.info(
-                        "Snapshot split assigner received all splits completed and the job parallelism is 1, snapshot split assigner is turn into completed status.");
-            } else {
-                LOG.info(
-                        "Snapshot split assigner received all splits completed, waiting for a complete checkpoint to mark the assigner completed.");
-            }
+            // Always wait for a durable checkpoint before declaring the assigner completed, even
+            // when currentParallelism == 1. Skipping the checkpoint on a single parallel job
+            // used to be safe because no other reader could reorder snapshot and incremental
+            // data, but it now interacts badly with the static-slot failover path: a node that
+            // is preempted right after reporting all its completed snapshot splits can lose
+            // the in-memory completion state on restart, and the new owner replays the splits
+            // because no checkpoint pinned them. Let the next notifyCheckpointComplete decide.
+            LOG.info(
+                    "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
+                    currentParallelism);
         }
     }
 
