@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
@@ -30,6 +31,13 @@ public class YarnResourceManager extends AbstractResourceManager
         implements ThirdPartyResourceManager {
     public YarnResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
         super(nodeEngine, engineConfig);
+    }
+
+    public YarnResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
     }
 
     @Override

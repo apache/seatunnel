@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.autoscale;
 
-import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+public final class SystemAutoscalerTimeSource implements AutoscalerTimeSource {
 
-import com.hazelcast.spi.impl.NodeEngine;
-
-public class StandaloneResourceManager extends AbstractResourceManager {
-
-    public StandaloneResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        super(nodeEngine, engineConfig);
+    @Override
+    public long currentTimeMillis() {
+        return System.currentTimeMillis();
     }
 
-    public StandaloneResourceManager(
-            NodeEngine nodeEngine,
-            EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
-        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
+    @Override
+    public long nanoTime() {
+        return System.nanoTime();
     }
 }
