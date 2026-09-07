@@ -41,13 +41,13 @@ class SentryFactoryTest {
 
     @Test
     void testValidDsn() {
-        Assertions.assertDoesNotThrow(() -> validate(configWithDsn("https://public@example.com/1")));
+        Assertions.assertDoesNotThrow(
+                () -> validate(configWithDsn("https://public@example.com/1")));
     }
 
     @Test
     void testEmptyDsnRejected() {
-        Assertions.assertThrows(
-                OptionValidationException.class, () -> validate(configWithDsn("")));
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(configWithDsn("")));
     }
 
     @Test
