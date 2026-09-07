@@ -119,7 +119,7 @@ class TypesenseFactoryTest {
 
     private Map<String, Object> sourceConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put(TypesenseSourceOptions.HOSTS.key(), List.of("localhost:8108"));
+        config.put(TypesenseSourceOptions.HOSTS.key(), Collections.singletonList("localhost:8108"));
         config.put(TypesenseSourceOptions.APIKEY.key(), "source-api-key");
         return config;
     }
