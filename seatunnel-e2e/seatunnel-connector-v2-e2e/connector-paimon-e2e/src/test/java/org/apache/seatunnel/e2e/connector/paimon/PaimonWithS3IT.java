@@ -44,6 +44,7 @@ import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,6 +72,71 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     private PrivilegedCatalog privilegedCatalog;
     private final String DATABASE_NAME = "seatunnel_namespace11";
     private final String TABLE_NAME = "st_test";
+
+    /**
+     * Upper bound for a single {@link #executeJob(String)} call in this class.
+     *
+     * <p>Sized off measured behaviour, not guessed: a green run of this class completes all four
+     * tests — eight job submissions — in about 120 seconds, so a single submission normally costs
+     * roughly 15 seconds. Five minutes leaves an order of magnitude of headroom for a slow or
+     * contended runner while still bounding a hang.
+     */
+    private static final Duration JOB_EXECUTION_TIMEOUT = Duration.ofMinutes(5);
+
+    /**
+     * Bounds every job submission in this class so a job that never returns fails the test in
+     * minutes instead of stalling until the workflow's 180-minute limit.
+     *
+     * <p>This is containment, not a fix. A job cancelled by Paimon's privilege check can leave the
+     * {@code seatunnel.sh} client blocked forever (#11679); when that happens the JUnit thread
+     * parks inside the container exec and the whole {@code paimon-connector-it} job burns a full
+     * runner slot with no {@code Tests run:} line ever printed, which is both expensive and hard to
+     * read. Bounding it converts that into an ordinary, diagnosable test failure — and makes #11679
+     * tractable, since measuring how often the hang reproduces is only affordable once a recurrence
+     * costs minutes.
+     *
+     * <p>Overriding rather than wrapping the eight call sites keeps the bound a property of the
+     * class: a job submission added later is bounded without anyone having to remember to wrap it.
+     *
+     * <p>Three consequences of the timeout path, all confined to the already-abnormal case:
+     *
+     * <ol>
+     *   <li><b>The worker thread stays parked.</b> {@code assertTimeoutPreemptively} does call
+     *       {@code ExecutorService#shutdownNow()}, which interrupts the worker — but the worker is
+     *       blocked in a container exec, i.e. a blocking socket read against the Docker daemon,
+     *       which does not respond to interruption. So the thread survives until the JVM exits.
+     *       That is acceptable: the point is to free the test run and the runner slot, not the
+     *       thread. It also does not hold the JVM open — JUnit's {@code junit-timeout-thread-N} is
+     *       non-daemon, but the Failsafe forked JVM terminates through {@code ForkedBooter}'s
+     *       explicit {@code System.exit}/{@code Runtime.halt}, so a lingering worker cannot stall
+     *       shutdown.
+     *   <li><b>The inherited thread-leak check goes quiet for the rest of the class.</b> {@link
+     *       SeaTunnelContainer} increments a shared {@code runningCount} before the exec and only
+     *       runs its post-job thread-leak assertion when the matching decrement reaches zero. An
+     *       abandoned worker never reaches that decrement, and because this class is {@link
+     *       TestInstance.Lifecycle#PER_CLASS} the counter is shared, so every later submission in
+     *       the run sees a non-zero count and skips the check. This is not a regression — today a
+     *       hang means the later tests never execute at all — but a maintainer chasing a stale
+     *       thread report on this class after a timeout should know the signal was suppressed.
+     *   <li><b>Teardown races the abandoned exec.</b> {@code @AfterAll} closes the same container
+     *       the parked thread is still reading from, which can produce noisy teardown logging.
+     * </ol>
+     */
+    @Override
+    public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
+        return Assertions.assertTimeoutPreemptively(
+                JOB_EXECUTION_TIMEOUT,
+                () -> super.executeJob(confFile),
+                () ->
+                        "Job "
+                                + confFile
+                                + " did not return within "
+                                + JOB_EXECUTION_TIMEOUT.toMinutes()
+                                + " minutes. The cluster may have reached a terminal state without"
+                                + " the seatunnel.sh client observing it - see"
+                                + " https://github.com/apache/seatunnel/issues/11679");
+    }
 
     @Override
     @BeforeAll

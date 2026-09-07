@@ -48,6 +48,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOpe
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileTailState;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
@@ -2412,24 +2413,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 throws IOException {
             try (InputStream sourceIn = sourceFs.getInputStream(sourceFilePath);
                     InputStream targetIn = targetFs.getInputStream(targetFilePath)) {
-                byte[] sourceBuffer = new byte[8 * 1024];
-                byte[] targetBuffer = new byte[8 * 1024];
-
-                while (true) {
-                    int sourceRead = sourceIn.read(sourceBuffer);
-                    int targetRead = targetIn.read(targetBuffer);
-                    if (sourceRead != targetRead) {
-                        return false;
-                    }
-                    if (sourceRead == -1) {
-                        return true;
-                    }
-                    for (int i = 0; i < sourceRead; i++) {
-                        if (sourceBuffer[i] != targetBuffer[i]) {
-                            return false;
-                        }
-                    }
-                }
+                return IOUtils.contentEquals(sourceIn, targetIn);
             }
         }
 

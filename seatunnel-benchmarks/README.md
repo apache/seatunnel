@@ -49,79 +49,80 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
 
-## Benchmark reports
-
-The `Benchmarks` GitHub Actions workflow builds three artifacts for every Java version:
-
-- the original JMH JSON, which preserves all forks and iteration samples;
-- a versioned `*.report.json`, which normalizes benchmark name, parameters, score, error, unit,
-  direction, commit, JVM, CPU, and runner image;
-- a Markdown report, which is also displayed in the GitHub Actions job summary.
-
-The normalized report also includes median pipeline throughput, latency P50/P95/P99/max, latency
-growth, completeness, and the number of sustainable samples. Keeping the raw samples and a schema
-version allows a later Codespeed service or regression checker to consume saved artifacts without
-parsing console logs. The workflow also saves the CPU, kernel, runner image, memory, and JDK
-fingerprint. It does not push benchmark data to a repository branch.
-
-Manual runs provide a `benchmarks` dropdown for common JMH selectors. The optional
-`custom_benchmarks` input accepts any class name, method name, or regular expression and overrides
-the dropdown, so a new benchmark can run before it is added to the common choices. `.*` runs every
-current and future benchmark. An optional PR number compares that PR with `seatunnel_ref` on the
-same worker in `base -> PR -> PR -> base` order. The comparison report uses the median of the two
-baseline and two candidate runs and shows a direction-adjusted percentage; positive means the
-candidate moved in the favorable direction.
-
-JMH treats selectors as regular expressions. Append `$` to an exact method selector when other
-method names share the same prefix.
-
-GitHub-hosted runners can execute the workflow reliably while still having materially different
-host CPU performance. Treat these artifacts as trend and functional-check data, not as a regression
-gate based on one run or on JMH's within-run `scoreError`. A future regression gate should compare
-the base and change on the same worker or use a fixed self-hosted runner.
-
-## IntelliJ IDEA
-
-The benchmark module is behind the inactive `benchmark` Maven profile, so IDEA may not import it
-automatically after opening the SeaTunnel root project.
-
-To make IDEA recognize the module:
-
-1. Open the Maven tool window.
-2. Expand `Profiles`.
-3. Enable the `benchmark` profile.
-4. Click `Reload All Maven Projects`.
-
-If the module is still not shown, right-click `seatunnel-benchmarks/pom.xml` and choose
-`Add as Maven Project`, then reload Maven once more.
-
-## Interpreting results
-
-Benchmark results are sensitive to machine load, JVM warmup, CPU frequency, and runner type. Prefer
-comparing repeated baseline/change runs on the same machine instead of comparing absolute numbers
-from different machines.
-
 ## Run Zeta full-pipeline benchmarks
 
 ```bash
 java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelPipelineBenchmark
 ```
 
-See the [Zeta benchmark guide](../docs/en/engines/zeta/benchmark.md) for architecture, parameters,
-resource settings, and result interpretation.
+## Run Zeta storage benchmarks
 
-## Adding benchmarks
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapJobStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapWalStorageBenchmark
+```
 
-Keep benchmark cases small and focused. Good first targets are hot paths that can run on a single
-machine without external services, such as:
+## Install async-profiler
 
-- `SeaTunnelRow` operations
-- format parsing and serialization
-- transform hot paths
-- connector option parsing
-- split generation logic
+CPU, wall-clock, and lock profiling require async-profiler's library and bundled `jfrconv`.
+Set `ASYNC_PROFILER_HOME` to the complete installation. On macOS with Homebrew:
 
-Common JMH and JVM settings live in the single `BenchmarkBase`. Individual benchmark classes
-extend it and only define their own data setup and benchmark methods. Engine lifecycle and
-engine-level controls belong in `SeaTunnelEnvironmentContext`, so checkpoint, failure-recovery,
-and metrics scenarios can be added without duplicating cluster setup in each benchmark.
+```bash
+brew install async-profiler
+export ASYNC_PROFILER_HOME="$(brew --prefix async-profiler)"
+```
+
+On Linux x64:
+
+```bash
+SEATUNNEL_ASYNC_PROFILER_VERSION=4.5
+SEATUNNEL_ASYNC_PROFILER_HOME="${PWD}/seatunnel-benchmarks/target/async-profiler"
+SEATUNNEL_ASYNC_PROFILER_ARCHIVE="${SEATUNNEL_ASYNC_PROFILER_HOME}.tar.gz"
+
+curl --fail --location --retry 5 --retry-all-errors \
+  --output "${SEATUNNEL_ASYNC_PROFILER_ARCHIVE}" \
+  "https://github.com/async-profiler/async-profiler/releases/download/v${SEATUNNEL_ASYNC_PROFILER_VERSION}/async-profiler-${SEATUNNEL_ASYNC_PROFILER_VERSION}-linux-x64.tar.gz"
+echo "89546fbb9ee0fc5496c7edd4099b0709489bc78b0d8057ccbb4b801f6b032b62  ${SEATUNNEL_ASYNC_PROFILER_ARCHIVE}" \
+  | sha256sum --check --strict
+mkdir -p "${SEATUNNEL_ASYNC_PROFILER_HOME}"
+tar --extract --gzip \
+  --file "${SEATUNNEL_ASYNC_PROFILER_ARCHIVE}" \
+  --directory "${SEATUNNEL_ASYNC_PROFILER_HOME}" \
+  --strip-components=1
+export ASYNC_PROFILER_HOME="${SEATUNNEL_ASYNC_PROFILER_HOME}"
+```
+
+## Profile one benchmark
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile cpu \
+  --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+
+bash tools/benchmarks/profile_benchmarks.sh profile wall \
+  --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+
+bash tools/benchmarks/profile_benchmarks.sh profile lock \
+  --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+
+bash tools/benchmarks/profile_benchmarks.sh profile gc \
+  --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+
+bash tools/benchmarks/profile_benchmarks.sh capture jfr \
+  --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+```
+
+GC and JFR use JMH's built-in profilers and do not require async-profiler. Override JMH warmup and
+measurement settings after `--`:
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile gc \
+  --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$' \
+  -- -wi 1 -i 1 -w 1s -r 1s
+```
+
+The profiling script accepts exactly one benchmark method and always uses one fork.
+
+See the [Zeta benchmark guide](../docs/en/engines/zeta/benchmark.md) for workflow reports, IntelliJ
+IDEA setup, benchmark parameters, metrics, result interpretation, and contribution guidance.

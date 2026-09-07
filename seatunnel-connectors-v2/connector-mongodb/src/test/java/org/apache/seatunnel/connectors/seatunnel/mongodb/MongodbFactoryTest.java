@@ -17,17 +17,85 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mongodb;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.mongodb.config.MongodbSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.sink.MongodbSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.MongodbSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
 class MongodbFactoryTest {
+
+    private final MongodbSourceFactory sourceFactory = new MongodbSourceFactory();
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new MongodbSourceFactory()).optionRule());
-        Assertions.assertNotNull((new MongodbSinkFactory()).optionRule());
+        Assertions.assertNotNull(sourceFactory.optionRule());
+        Assertions.assertNotNull(new MongodbSinkFactory().optionRule());
+    }
+
+    @Test
+    void testDefaultFetchSizePassesOptionValidation() {
+        Assertions.assertDoesNotThrow(() -> validateSourceOptionRule(validSourceConfig()));
+    }
+
+    @Test
+    void testPositiveFetchSizePassesOptionValidation() {
+        Map<String, Object> config = validSourceConfig();
+        config.put(MongodbSourceOptions.FETCH_SIZE.key(), 1);
+
+        Assertions.assertDoesNotThrow(() -> validateSourceOptionRule(config));
+
+        config.put(MongodbSourceOptions.FETCH_SIZE.key(), 2048);
+        Assertions.assertDoesNotThrow(() -> validateSourceOptionRule(config));
+    }
+
+    @Test
+    void testZeroFetchSizeFailsOptionValidation() {
+        Map<String, Object> config = validSourceConfig();
+        config.put(MongodbSourceOptions.FETCH_SIZE.key(), 0);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSourceOptionRule(config));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains(MongodbSourceOptions.FETCH_SIZE.key()));
+    }
+
+    @Test
+    void testNegativeFetchSizeFailsOptionValidation() {
+        Map<String, Object> config = validSourceConfig();
+        config.put(MongodbSourceOptions.FETCH_SIZE.key(), -1);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSourceOptionRule(config));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains(MongodbSourceOptions.FETCH_SIZE.key()));
+    }
+
+    private void validateSourceOptionRule(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sourceFactory.optionRule());
+    }
+
+    private Map<String, Object> validSourceConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(MongodbSourceOptions.URI.key(), "mongodb://localhost:27017");
+        config.put(MongodbSourceOptions.DATABASE.key(), "test_database");
+        config.put(MongodbSourceOptions.COLLECTION.key(), "test_collection");
+        config.put(
+                ConnectorCommonOptions.SCHEMA.key(),
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        return config;
     }
 }

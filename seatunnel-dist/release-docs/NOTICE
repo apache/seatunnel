@@ -873,3 +873,116 @@ The initial codebase was donated to the ASF by HugeGraph Authors, copyright 2017
  + com.couchbase.client:java-client (https://github.com/couchbase/couchbase-jvm-clients)
  + Copyright 2019-2024 Couchbase, Inc.
  + Licensed under the Apache License, Version 2.0
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for GCS file connector:
+ +===============================================================================
+ + com.google.cloud.bigdataoss:gcs-connector (https://github.com/GoogleCloudDataproc/hadoop-connectors)
+ + Copyright 2013 Google Inc.
+ + Licensed under the Apache License, Version 2.0
+
+The shaded GCS connector includes the following notices:
+
+src/test/org/apache/commons/codec/language/DoubleMetaphoneTest.java
+contains test data from http://aspell.net/test/orig/batch0.tab.
+Copyright (C) 2002 Kevin Atkinson (kevina@gnu.org)
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+Apache HttpCore
+Copyright 2005-2021 The Apache Software Foundation
+
+# Jackson JSON processor
+
+Jackson is a high-performance, Free/Open Source JSON processing library.
+It was originally written by Tatu Saloranta (tatu.saloranta@iki.fi), and has
+been in development since 2007.
+It is currently developed by a community of developers.
+
+## Licensing
+
+Jackson 2.x core and extension components are licensed under Apache License 2.0
+To find the details that apply to this artifact see the accompanying LICENSE file.
+
+## Credits
+
+A list of contributors may be found from CREDITS(-2.x) file, which is included
+in some artifacts (usually source distributions); but is always available
+from the source code management (SCM) system project uses.
+
+Apache HttpClient
+Copyright 1999-2020 The Apache Software Foundation
+
+                          The Netty Project
+                            =================
+
+Please visit the Netty web site for more information:
+
+  * http://netty.io/
+
+Copyright 2016 The Netty Project
+
+The Netty Project licenses this file to you under the Apache License,
+version 2.0 (the "License"); you may not use this file except in compliance
+with the License. You may obtain a copy of the License at:
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+License for the specific language governing permissions and limitations
+under the License.
+
+-------------------------------------------------------------------------------
+This product contains a forked and modified version of Tomcat Native
+
+  * LICENSE:
+    * license/LICENSE.tomcat-native.txt (Apache License 2.0)
+  * HOMEPAGE:
+    * http://tomcat.apache.org/native-doc/
+    * https://svn.apache.org/repos/asf/tomcat/native/
+
+This product contains the Maven wrapper scripts from 'Maven Wrapper', that provides an easy way to ensure a user has everything necessary to run the Maven build.
+
+  * LICENSE:
+    * license/LICENSE.mvn-wrapper.txt (Apache License 2.0)
+  * HOMEPAGE:
+    * https://github.com/takari/maven-wrapper
+
+This product contains small piece of code to support AIX, taken from netbsd.
+
+  * LICENSE:
+    * license/LICENSE.aix-netbsd.txt (OpenSSL License)
+  * HOMEPAGE:
+    * https://ftp.netbsd.org/pub/NetBSD/NetBSD-current/src/crypto/external/bsd/openssl/dist
+
+This product contains code from boringssl.
+
+  * LICENSE (Combination ISC and OpenSSL license)
+    * license/LICENSE.boringssl.txt (Combination ISC and OpenSSL license)
+  * HOMEPAGE:
+    * https://boringssl.googlesource.com/boringssl/
+
+Apache Commons Codec
+Copyright 2002-2017 The Apache Software Foundation
+
+===============================================================================
+
+The content of package org.apache.commons.codec.language.bm has been translated
+from the original php source code available at http://stevemorse.org/phoneticinfo.htm
+with permission from the original authors.
+Original source copyright:
+Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for SNMP connector:
+ +===============================================================================
+ + org.snmp4j:snmp4j (https://www.snmp4j.org/)
+ + Copyright Frank Fock and Jochen Katz
+ + Licensed under the Apache License, Version 2.0

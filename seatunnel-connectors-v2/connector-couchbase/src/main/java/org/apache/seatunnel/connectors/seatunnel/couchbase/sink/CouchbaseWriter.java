@@ -46,11 +46,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Writes {@link SeaTunnelRow} records to a Couchbase collection.
@@ -59,8 +55,6 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * <ul>
  *   <li>The buffer reaches {@code buffer-flush.max-rows}, or
- *   <li>A periodic background timer fires every {@code buffer-flush.interval} milliseconds (the
- *       real max-latency guarantee, enforced even when no new rows arrive), or
  *   <li>A checkpoint or shutdown is triggered.
  * </ul>
  *
@@ -80,11 +74,6 @@ import java.util.concurrent.atomic.AtomicReference;
  * pre-assigned ids — no new UUIDs are generated on a second pass, so silent duplicate documents and
  * spurious {@link com.couchbase.client.core.error.DocumentExistsException} collisions on
  * already-committed rows are both eliminated.
- *
- * <p><b>Async-error propagation:</b> when the background timer flush fails the first exception is
- * latched in {@link #asyncFlushError}. Subsequent calls to {@link #write}, {@link #prepareCommit},
- * and {@link #close} check the latch and rethrow the failure so the task cannot continue silently
- * after a broken flush cycle.
  */
 @Slf4j
 public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
@@ -99,25 +88,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final int maxRetries;
     private final long retryIntervalMs;
 
-    /**
-     * Background scheduler that fires a periodic flush at every {@code batchIntervalMs}. This is
-     * the mechanism that enforces the {@code buffer-flush.interval} contract even when no new rows
-     * arrive (low-throughput / idle streaming jobs). {@code null} when the interval is disabled
-     * ({@code batchIntervalMs == -1}).
-     */
-    private final ScheduledExecutorService flushScheduler;
-
-    private final ScheduledFuture<?> flushFuture;
-
-    /**
-     * Latches the first exception thrown by the background timer flush. Checked and rethrown by
-     * {@link #write}, {@link #prepareCommit}, and {@link #close} so that the task lifecycle methods
-     * surface the failure instead of silently continuing after a broken flush.
-     */
-    private final AtomicReference<Throwable> asyncFlushError = new AtomicReference<>();
-
-    // TODO: Reserve context for future parallelism/metrics use.
-    @SuppressWarnings("unused")
     private final SinkWriter.Context context;
 
     public CouchbaseWriter(
@@ -162,39 +132,16 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
         this.cluster = connectedCluster;
         this.collection = resolvedCollection;
 
-        // Start a periodic background flush so that buffer-flush.interval is a true max-latency
-        // guarantee, even when no rows arrive (idle or low-throughput streaming jobs).
-        final long batchIntervalMs = options.getBatchIntervalMs();
-        if (batchIntervalMs > 0) {
-            this.flushScheduler =
-                    Executors.newSingleThreadScheduledExecutor(
-                            r -> {
-                                Thread t = new Thread(r, "couchbase-flush-timer");
-                                t.setDaemon(true);
-                                return t;
-                            });
-            this.flushFuture =
-                    flushScheduler.scheduleAtFixedRate(
-                            () -> {
-                                try {
-                                    doFlush();
-                                } catch (Exception e) {
-                                    // Latch only the first failure; subsequent timer ticks will
-                                    // observe the latch and skip attempting further flushes.
-                                    if (asyncFlushError.compareAndSet(null, e)) {
-                                        log.error(
-                                                "Periodic Couchbase flush failed — task will abort"
-                                                        + " on the next write or checkpoint",
-                                                e);
-                                    }
-                                }
-                            },
-                            batchIntervalMs,
-                            batchIntervalMs,
-                            TimeUnit.MILLISECONDS);
-        } else {
-            this.flushScheduler = null;
-            this.flushFuture = null;
+        // Opt in to engine-level timer flush. On Zeta the engine invokes this action on the normal
+        // Sink input-processing path when a FlushSignal arrives, so there is no connector-owned
+        // scheduler thread and no concurrency with write/checkpoint/close. On Spark and Flink the
+        // Context does not implement registerFlushAction (it keeps the interface's no-op default),
+        // so there is no periodic timer flush there; the buffer is flushed on
+        // buffer-flush.max-rows,
+        // on checkpoint, and on close(). The null-check is defensive for non-standard/test call
+        // sites that may not supply a context.
+        if (context != null) {
+            context.registerFlushAction(this::doFlush);
         }
     }
 
@@ -204,22 +151,17 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * because CDC delete support is out of scope for this initial implementation.
      *
      * <p>The row's document id is assigned here, at buffer-add time, so that every subsequent flush
-     * attempt (including a {@link #close}-triggered re-flush of a buffer that a prior interrupted
-     * periodic flush left un-cleared) uses the same stable id. This prevents silent duplicate
-     * documents when no primary key is configured (UUID path) and prevents spurious {@link
+     * attempt (including a {@link #close}-triggered re-flush of a buffer that a prior flush left
+     * un-cleared) uses the same stable id. This prevents silent duplicate documents when no primary
+     * key is configured (UUID path) and prevents spurious {@link
      * com.couchbase.client.core.error.DocumentExistsException} collisions on already-committed rows
      * when a primary key is configured and insert mode is active.
      *
-     * <p>Checks {@link #asyncFlushError} before buffering and rethrows any latched background
-     * failure so the task cannot continue after a broken periodic flush.
-     *
-     * @param row the incoming row
-     * @throws CouchbaseConnectorException if the row kind is {@code DELETE} or a prior async flush
-     *     failed
+     * @param row the incoming row throws the CouchBaseConnectorException if the row kind is {@code
+     *     DELETE}
      */
     @Override
     public void write(SeaTunnelRow row) {
-        checkAsyncFlushError();
         if (row.getRowKind() == RowKind.UPDATE_BEFORE) {
             return;
         }
@@ -243,7 +185,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     @Override
     public Optional<Void> prepareCommit() {
-        checkAsyncFlushError();
         doFlush();
         return Optional.empty();
     }
@@ -253,36 +194,8 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     @Override
     public void close() {
-        // Cancel the periodic flush timer first so it cannot race with the final flush below.
-        if (flushFuture != null) {
-            flushFuture.cancel(false);
-        }
-        if (flushScheduler != null) {
-            // shutdownNow() interrupts any in-flight periodic doFlush() that is sleeping in its
-            // retry backoff. We then awaitTermination() to ensure the interrupted timer thread
-            // has fully unwound — in particular that its catch/finally has set asyncFlushError
-            // if the flush failed — before we read the latch or attempt our own doFlush().
-            // Without awaitTermination() there is a window where checkAsyncFlushError() sees null
-            // even though the interrupted task's error handler has not yet executed.
-            flushScheduler.shutdownNow();
-            try {
-                if (!flushScheduler.awaitTermination(30, TimeUnit.SECONDS)) {
-                    log.warn(
-                            "Couchbase flush scheduler did not terminate within 30 s; "
-                                    + "proceeding with close anyway.");
-                }
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                log.warn("Interrupted while waiting for Couchbase flush scheduler to terminate.");
-            }
-        }
-        // checkAsyncFlushError() and doFlush() are both inside the try so that the finally
-        // block always disconnects the cluster even when a latched background failure exists.
-        // If doFlush() throws and cluster.disconnect() also throws, attach the disconnect failure
-        // as a suppressed exception so the data-relevant flush error is not masked.
         Throwable primaryThrowable = null;
         try {
-            checkAsyncFlushError();
             doFlush();
         } catch (Throwable t) {
             primaryThrowable = t;
@@ -317,26 +230,6 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     // ---------------------------------------------------------------------------
     // Internal helpers
     // ---------------------------------------------------------------------------
-
-    /**
-     * Throws a {@link CouchbaseConnectorException} wrapping the latched async error if one has been
-     * recorded by the background flush timer.
-     *
-     * <p>The latch is intentionally <em>sticky</em>: it is read with {@link AtomicReference#get()}
-     * rather than {@code getAndSet(null)} so that a fatal background failure remains visible to
-     * every subsequent caller ({@link #write}, {@link #prepareCommit}, {@link #close}) and cannot
-     * be silently consumed and lost.
-     */
-    private void checkAsyncFlushError() {
-        Throwable error = asyncFlushError.get();
-        if (error != null) {
-            throw new CouchbaseConnectorException(
-                    CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
-                    "A background Couchbase flush failed; task cannot continue safely",
-                    error);
-        }
-    }
-
     /** Converts a {@link SeaTunnelRow} to a {@link JsonObject} using the schema field names. */
     private JsonObject toJsonObject(SeaTunnelRow row) {
         JsonObject doc = JsonObject.create();

@@ -117,7 +117,7 @@ End timestamp (exclusive) for scan time range. Unit: milliseconds since epoch. T
 
 **Notes:**
 
-- `start_timestamp` / `end_timestamp` must be >= 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
+- `start_timestamp` must be >= 0 and `end_timestamp` must be > 0. If both are set, `start_timestamp` must be < `end_timestamp` (time range is [start, end), so `start_timestamp == end_timestamp` produces an empty scan).
 - When `start_rowkey` / `end_rowkey` and `start_timestamp` / `end_timestamp` are configured together, both the rowkey range and the time range constraints are applied (intersection).
 
 ### common-options
