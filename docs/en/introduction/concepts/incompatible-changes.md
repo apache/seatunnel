@@ -8,9 +8,10 @@ You need to check this document before you upgrade to related version.
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
-  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`
-    and `GET /running-jobs`
-  - **Description**: Both endpoints now reject a `page` or `rows` value that is not an integer or
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`,
+    `GET /running-jobs` and `GET /running-jobs/summary`. The latter two are served by the same
+    `RunningJobsServlet` instance, so both receive the validation.
+  - **Description**: These endpoints now reject a `page` or `rows` value that is not an integer or
     is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
     Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
     internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
