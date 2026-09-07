@@ -39,7 +39,6 @@ class SentryFactoryTest {
         Assertions.assertNotNull(optionRule);
     }
 
-
     @Test
     void testValidDsn() {
         Assertions.assertDoesNotThrow(
