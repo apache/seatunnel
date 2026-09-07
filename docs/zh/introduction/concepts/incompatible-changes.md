@@ -119,6 +119,11 @@
   - **变更说明**：Enumerator 现在通过 `sampleRowKeys` 按 tablet 边界把表（或配置的 `start_rowkey` / `end_rowkey` 区间）切成多个 split。Reader 仍对每个 split 调用一次 `query.limit(...)`。此前 Source 始终只产生 1 个 split，因此 `scan_row_limit` 等价于整表行数上限。升级后，只要表有多个 tablet，即使 `parallelism = 1`（唯一 reader 会拿到全部 split），作业级上限约为 `scan_row_limit × split 数`。详见 [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int)。
   - **影响**：依赖 `scan_row_limit` 限制总输出量的存量作业（抽样、测试、成本控制、下游容量）在升级后、配置不变的情况下，可能读出远超以前的行数。
   - **迁移指南**：若仍需要整表级上限，请用 `start_rowkey` / `end_rowkey` 收窄扫描范围，或下调 `scan_row_limit`，使 `scan_row_limit × 预期 split 数` 不超过原预算。采样失败、无采样点或求交为空时仍会回退为单个 split，但这不是用来锁定旧语义的受支持方式。(#11876)
+- **CDC Connector：已从捕获集合移除的表不再复用恢复状态**
+  - **影响范围**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-base` 及其构建的 CDC 连接器。
+  - **变更说明**：CDC 任务从 checkpoint 或 savepoint 恢复时，SeaTunnel 现在会在分配恢复后的 split 前，按照当前捕获表集合过滤表级增量状态。已从任务捕获配置中移除的表，其状态不会再被复用；如果表发现不可用或返回空集合，为避免源数据库短暂异常时丢弃 checkpoint 元数据，SeaTunnel 会保持恢复状态不变。
+  - **影响**：任务移除捕获表后再从旧 checkpoint 恢复时，不再尝试恢复这些已移除表的增量状态，从而避免陈旧表元数据导致恢复失败。该行为仅作用于 checkpoint/savepoint 恢复；新启动的任务不受影响。
+  - **迁移指南**：无需修改配置。变更捕获表集合后恢复现有 CDC 任务前，请确认被移除的表确实不应继续参与该任务。
 
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
