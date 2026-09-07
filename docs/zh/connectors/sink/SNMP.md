@@ -44,6 +44,7 @@ V1 范围仅包括 SET 操作，不发送 Trap 或 Inform，也不支持 SNMPv1 
 | oid_field        | String | 否       | oid        | 包含待设置数字 OID 的输入 `STRING` 字段。 |
 | value_field      | String | 否       | value      | 包含待设置值的输入 `STRING` 字段。 |
 | value_type_field | String | 否       | value_type | 包含 SMI 值类型的输入 `STRING` 字段。 |
+| common-options   |        | 否       | -          | [通用 Sink 配置项](../common-options/sink-common-options.md)，包括 `plugin_input`。 |
 
 三个映射字段必须存在于输入 Schema 中、类型必须为 `STRING`，并且不能指向同一个字段。Schema 错误会在创建任务时被拒绝。
 空值以及空白的 OID 或值类型字段会在发送网络请求前被拒绝。值字段会根据其 SMI 类型进行校验；空的 `OctetString` 或 `OctetStringHex` 是有效值，文本 `OctetString` 的前后空白会被保留。
@@ -74,7 +75,6 @@ Sink 同时接受文档中的类型名和 SNMP Source 输出的 SNMP4J 语法字
 env {
   parallelism = 1
   job.mode = "BATCH"
-  shade.options = ["community"]
 }
 
 source {
@@ -105,15 +105,16 @@ sink {
     plugin_input = "snmp_updates"
     host = "192.0.2.10"
     port = 161
-    community = ${SNMP_COMMUNITY}
+    community = "replace-with-your-community"
     timeout_millis = 3000
     retries = 1
   }
 }
 ```
 
-`${SNMP_COMMUNITY}` 通过 SeaTunnel 的标准配置替换机制解析。请在已提交到源码的任务文件之外设置该值。
-在 `shade.options` 中加入 `community`，还可以在记录解析后的任务配置时对该值进行脱敏。
+运行示例前请替换 community 占位值，并在已提交到源码的任务文件之外提供真实凭据。
+记录解析后的任务配置时，`community` 会自动脱敏。无需为日志脱敏将其加入 `shade.options`；
+该选项还参与配置的遮蔽和加密流程。
 
 ## 投递、失败和安全语义
 

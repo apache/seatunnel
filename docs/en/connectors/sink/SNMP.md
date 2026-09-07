@@ -45,6 +45,7 @@ The connector uses SNMP4J and supports SNMPv2c agents reachable over UDP.
 | oid_field        | String | No       | oid          | Input `STRING` field containing the numeric OID to set. |
 | value_field      | String | No       | value        | Input `STRING` field containing the value to set. |
 | value_type_field | String | No       | value_type   | Input `STRING` field containing the SMI value type. |
+| common-options   |        | No       | -            | [Common Sink Options](../common-options/sink-common-options.md), including `plugin_input`. |
 
 The three mapped fields must exist in the input schema, must use `STRING`, and must refer to distinct fields. Schema errors are
 rejected while the job is created. Null values and blank OID or value-type fields are rejected before a network request is sent. The value field is validated according to its SMI type; an empty `OctetString` or `OctetStringHex` is valid, and text `OctetString` whitespace is preserved.
@@ -76,7 +77,6 @@ including `Counter`, `Gauge`, `OCTET STRING`, and `OBJECT IDENTIFIER`.
 env {
   parallelism = 1
   job.mode = "BATCH"
-  shade.options = ["community"]
 }
 
 source {
@@ -107,16 +107,16 @@ sink {
     plugin_input = "snmp_updates"
     host = "192.0.2.10"
     port = 161
-    community = ${SNMP_COMMUNITY}
+    community = "replace-with-your-community"
     timeout_millis = 3000
     retries = 1
   }
 }
 ```
 
-`${SNMP_COMMUNITY}` is resolved through the normal SeaTunnel configuration substitution path.
-Set the value outside the checked-in job file. Adding `community` to `shade.options` also keeps it
-masked if the parsed job configuration is logged.
+Replace the placeholder community before running the example. Supply the real credential outside checked-in job files.
+`community` is automatically masked when the parsed job configuration is logged. There is no need to add it to
+`shade.options` for log masking; that option also participates in configuration shading/encryption.
 
 ## Delivery, Failure, and Security Behavior
 
