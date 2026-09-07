@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 > Milvus数据接收器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Milvus 接收器用于把数据写入 Milvus 或 Zilliz Cloud。它可以根据上游
@@ -404,6 +410,16 @@ sink {
   }
 }
 ```
+
+## 常见问题
+
+### Milvus Sink 是否支持自动创建目标集合？
+
+支持。如果 Milvus 中目标集合尚不存在，Sink 可以根据上游表结构及向量维度信息自动创建目标集合。
+
+### Milvus Sink 的 Upsert 功能如何工作？
+
+当 `enable_upsert` 设置为 `true` 时，若主键已存在，新数据将更新（覆盖）旧数据，避免主键冲突。
 
 ## 变更日志
 
