@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon 数据连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Apache Paimon数据连接器。支持cdc写以及自动建表。
@@ -655,6 +661,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Paimon Sink 连接器是否支持自动建表？
+
+支持。当配置 `paimon.auto-create-table = true` 或 `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"` 时，SeaTunnel 会自动根据上游传递的元数据信息初始化目标 Paimon 表（包含主键与分区配置）。
+
+### Paimon Sink 如何保证精确一次（Exactly-Once）写入？
+
+Paimon Sink 深度集成了 SeaTunnel Zeta、Flink 以及 Spark 的两阶段提交（2PC）检查点机制。在一个 Checkpoint 周期内写入的数据，会在 Checkpoint 屏障对齐并确认成功后作为快照正式提交。
+
+### Paimon Sink 支持哪些表模式（主键表与追加表）？
+
+两种表模式均受支持。若目标表配置了主键（`paimon.table.primary-keys`），Sink 将按主键执行 Upsert/Delete 逻辑；若未声明主键，则以 Append-Only 追加模式写入。
 
 ## 变更日志
 
