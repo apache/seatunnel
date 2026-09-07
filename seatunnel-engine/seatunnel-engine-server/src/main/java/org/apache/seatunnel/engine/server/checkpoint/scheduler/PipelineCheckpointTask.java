@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.scheduler;
 
-import java.util.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+
 import java.util.concurrent.Delayed;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
