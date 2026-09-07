@@ -133,6 +133,18 @@ public class JobInfoService extends BaseService {
      * rather than for every retained job.
      */
     public JobPage getJobsByStateJson(String state, int start, int rows) {
+        // checked here rather than left to Stream.skip/limit, so any caller gets a message naming
+        // the argument instead of an exception from inside the stream pipeline
+        if (state == null) {
+            throw new IllegalArgumentException("state must not be null, use \"\" for any state");
+        }
+        if (start < 0) {
+            throw new IllegalArgumentException("start must not be negative, but was: " + start);
+        }
+        if (rows < 1) {
+            throw new IllegalArgumentException("rows must be greater than 0, but was: " + rows);
+        }
+
         IMap<Long, JobDAGInfo> finishedJobDAGInfo =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
 
@@ -182,7 +194,7 @@ public class JobInfoService extends BaseService {
         private final JsonArray data;
         private final int total;
 
-        private JobPage(JsonArray data, int total) {
+        public JobPage(JsonArray data, int total) {
             this.data = data;
             this.total = total;
         }

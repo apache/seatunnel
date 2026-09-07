@@ -34,8 +34,13 @@ public class FinishedJobsServlet extends PageBaseServlet {
     private final JobInfoService jobInfoService;
 
     public FinishedJobsServlet(NodeEngineImpl nodeEngine) {
+        this(nodeEngine, new JobInfoService(nodeEngine));
+    }
+
+    /** Visible for testing, so the service can be substituted without a running node engine. */
+    FinishedJobsServlet(NodeEngineImpl nodeEngine, JobInfoService jobInfoService) {
         super(nodeEngine);
-        this.jobInfoService = new JobInfoService(nodeEngine);
+        this.jobInfoService = jobInfoService;
     }
 
     @Override

@@ -5,6 +5,21 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta REST Pagination Parameter Validation
+
+- **Behavior change: `page` and `rows` are validated on paginated endpoints**
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`
+    and `GET /running-jobs`
+  - **Description**: Both endpoints now reject a `page` or `rows` value that is not an integer or
+    is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
+    Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
+    internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
+    positive offset and silently return the wrong page.
+  - **Impact**: Requests that relied on `rows=0` returning an empty page now receive `400` with a
+    message naming the offending parameter. Callers passing valid positive values are unaffected.
+    The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
+    starting exactly at `total`, which still returns an empty page, are all unchanged.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
