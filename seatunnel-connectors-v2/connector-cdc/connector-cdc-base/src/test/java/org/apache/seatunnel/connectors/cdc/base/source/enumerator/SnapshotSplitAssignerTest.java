@@ -65,7 +65,7 @@ public class SnapshotSplitAssignerTest {
     }
 
     @Test
-    public void testAddSplitsShouldReplayFinishedSplitWithoutCompletedWatermark() {
+    public void testAddSplitsShouldRestoreFinishedSplitWithoutCompletedWatermark() {
         SnapshotSplit finishedSplit = createFinishedSnapshotSplit("db1.table1.1");
         Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
         assignedSplits.put(finishedSplit.splitId(), finishedSplit);
@@ -76,12 +76,17 @@ public class SnapshotSplitAssignerTest {
         splitAssigner.addSplits(Collections.singletonList(finishedSplit));
 
         SnapshotPhaseState state = splitAssigner.snapshotState(12L);
-        Assertions.assertEquals(1, state.getRemainingSplits().size());
+        // The split was already finished in the reader before the failover but its
+        // completed-watermark was never checkpointed. The assigner must reconstruct the
+        // watermark from the split itself and skip add-back, otherwise the snapshot phase
+        // would never finish.
+        Assertions.assertTrue(state.getRemainingSplits().isEmpty());
         Assertions.assertEquals(
-                finishedSplit.splitId(), state.getRemainingSplits().get(0).splitId());
-        Assertions.assertTrue(state.getAssignedSplits().isEmpty());
-        Assertions.assertTrue(state.getSplitCompletedOffsets().isEmpty());
-        Assertions.assertTrue(splitAssigner.waitingForCompletedSplits());
+                Collections.singleton(finishedSplit.splitId()), state.getAssignedSplits().keySet());
+        Assertions.assertEquals(
+                Collections.singleton(finishedSplit.splitId()),
+                state.getSplitCompletedOffsets().keySet());
+        Assertions.assertFalse(splitAssigner.waitingForCompletedSplits());
     }
 
     @Test
