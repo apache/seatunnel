@@ -126,7 +126,7 @@ class TypesenseFactoryTest {
 
     private Map<String, Object> sinkConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put(TypesenseSinkOptions.HOSTS.key(), List.of("localhost:8108"));
+        config.put(TypesenseSinkOptions.HOSTS.key(), Collections.singletonList("localhost:8108"));
         config.put(TypesenseSinkOptions.COLLECTION.key(), "collection");
         config.put(TypesenseSinkOptions.APIKEY.key(), "sink-api-key");
         return config;
