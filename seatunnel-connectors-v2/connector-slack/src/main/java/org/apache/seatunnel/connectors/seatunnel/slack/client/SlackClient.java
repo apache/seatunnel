@@ -89,6 +89,15 @@ public class SlackClient {
         return publishMessageSuccess;
     }
 
+    /**
+     * Builds a chat.postMessage request authenticated with the configured OAuth token, not the
+     * channel name.
+     *
+     * @param oauthToken OAuth token used to authenticate the request
+     * @param channelId resolved ID of the destination channel
+     * @param text message text to publish
+     * @return the request with authentication and message fields populated
+     */
     static ChatPostMessageRequest createMessageRequest(
             String oauthToken, String channelId, String text) {
         return ChatPostMessageRequest.builder()
