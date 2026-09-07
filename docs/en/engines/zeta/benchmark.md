@@ -180,36 +180,14 @@ sample is not valid performance evidence.
 
 ### Run the ProtoStuff Serializer Microbenchmarks
 
-`ProtoStuffSerializerBenchmark` isolates the in-memory serialization and deserialization of one
-`IMapFileData` WAL envelope. Its fixed fixture contains a pre-serialized Long key and a
-1,024-character ASCII String value. Nested key/value conversion, filesystem access, and Hazelcast
-are outside the measured path. Setup prepares the input and initializes the schema; normal
-per-call serializer allocations remain measured.
-
-`IMapFileData` does not use the serializer's wrapper path: both methods call `getSchema` on
-every invocation. The default is eight threads to expose contention on the shared schema cache.
-Scores are throughput in `ops/ms` (higher is better). JVM limits match the pipeline benchmark:
-4 GiB heap, G1, pre-touch, disabled explicit GC, and four visible processors.
-
 ```bash
 java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
   -rf json -rff seatunnel-benchmarks/target/protostuff.json
 ```
 
-Thread-local fixtures share the production static schema cache. Compare revisions at the same
-thread count, JDK, hardware, and JMH settings; multi-thread throughput is the total across threads.
-The methods are `serializeWalRecord` and `deserializeWalRecord`. For separate GC or lock profiling:
-
-```bash
-bash tools/benchmarks/profile_benchmarks.sh profile gc \
-  --benchmark 'ProtoStuffSerializerBenchmark.deserializeWalRecord$' -- -t 8
-bash tools/benchmarks/profile_benchmarks.sh profile lock \
-  --benchmark 'ProtoStuffSerializerBenchmark.deserializeWalRecord$' -- -t 8
-```
-
-Use unprofiled runs for performance comparisons. This measures warm-schema performance, not cold
-initialization or end-to-end recovery. The class can also be selected in the Benchmarks workflow
-without expanding the default `benchmarks_core` suite.
+Measures in-memory `IMapFileData` serialization and deserialization throughput (`ops/ms`) with eight
+threads by default. Both methods exercise shared schema-cache lookup, excluding file I/O and
+Hazelcast scheduling.
 
 ### Run the Checkpoint Benchmark
 
