@@ -17,15 +17,68 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.slack.sink.SlackSinkFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+
+import java.util.HashMap;
+import java.util.Map;
 
 class SlackFactoryTest {
 
     @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlackSinkFactory()).optionRule());
+    void validConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(validOptions()));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"webhooks_url", "oauth_token", "slack_channel"})
+    void missingRequiredOption(String key) {
+        Map<String, Object> options = validOptions();
+        options.remove(key);
+        assertInvalid(options, key);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"webhooks_url", "oauth_token", "slack_channel"})
+    void blankRequiredOption(String key) {
+        for (String value : new String[] {"", " ", "\t", "\n", " \t\r\n "}) {
+            Map<String, Object> options = validOptions();
+            options.put(key, value);
+            assertInvalid(options, key);
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"webhooks_url", "oauth_token", "slack_channel"})
+    void preserveNonblankValues(String key) {
+        Map<String, Object> options = validOptions();
+        options.put(key, " arbitrary nonblank value ");
+        Assertions.assertDoesNotThrow(() -> validate(options));
+    }
+
+    private void assertInvalid(Map<String, Object> options, String key) {
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(exception.getMessage().contains(key));
+    }
+
+    private void validate(Map<String, Object> options) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new SlackSinkFactory().optionRule());
+    }
+
+    private Map<String, Object> validOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put("webhooks_url", "https://hooks.slack.com/services/test/test/test");
+        options.put("oauth_token", "test-oauth-token");
+        options.put("slack_channel", "seatunnel-alerts");
+        return options;
     }
 }
