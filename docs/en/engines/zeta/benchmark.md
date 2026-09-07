@@ -249,13 +249,27 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar \
 ### Run the IMap DAG Storage Benchmarks
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark -foe true
 ```
 
 `finishedJobDagStore` writes a fixed batch of 100 unique production `JobDAGInfo` values through
 the finished-job DAG IMap and its file-backed MapStore. `finishedJobDagLoad` evicts one value and
 reloads it through MapStore. `pipelineCount=1|10|100` controls the exact number of code-built
 source-to-sink pipelines in each DAG, and `storedDagCount=0|100` controls retained storage pressure.
+
+Store teardown checks the first, middle, and last cached values and deletes the batch outside
+timing. After the final measurement in each fork, those samples are evicted and reloaded from
+MapStore before deletion. Intermediate iterations do not replay the WAL for verification:
+full-WAL scans allocate more as writes and deletion records accumulate, affecting later samples
+even though teardown is not timed. WAL history still grows through the unchanged writes and
+deletes; this is not a storage compaction or steady-state benchmark.
+
+Only the final batch has a persistence read-back in each benchmark fork. Dedicated tests cover
+complete batch round trips. Local-file read-back establishes visible persisted contents, not
+crash durability. Results from the former per-iteration reload fixture are not directly comparable
+to this corrected baseline and must not be reported as a production speedup.
+Use `-foe true` so a verification failure rejects the run. Allocation/GC profiler results may
+include untimed teardown, including the terminal reload; they are not write-only measurements.
 
 ```bash
 java -jar seatunnel-benchmarks/target/benchmarks.jar \
