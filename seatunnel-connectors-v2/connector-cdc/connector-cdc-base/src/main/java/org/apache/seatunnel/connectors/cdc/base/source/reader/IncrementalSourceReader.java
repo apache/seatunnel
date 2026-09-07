@@ -20,9 +20,11 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -218,12 +220,29 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     new CompletedSnapshotSplitsReportEvent();
             reportEvent.setCompletedSnapshotSplitWatermarks(completedSnapshotSplitWatermarks);
             context.sendSourceEventToEnumerator(reportEvent);
-            // TODO need enumerator return ack
-            finishedUnackedSplits.clear();
+            // The splits stay in finishedUnackedSplits until the enumerator returns a
+            // CompletedSnapshotSplitsAckEvent via handleSourceEvent. Clearing them eagerly
+            // here would let a snapshot phase advance without the enumerator ever knowing
+            // which splits the reader finished.
             log.debug(
                     "The subtask {} reports offsets of finished snapshot splits {}.",
                     subtaskId,
                     completedSnapshotSplitWatermarks);
+        }
+    }
+
+    @Override
+    public void handleSourceEvent(SourceEvent sourceEvent) {
+        if (sourceEvent instanceof CompletedSnapshotSplitsAckEvent) {
+            CompletedSnapshotSplitsAckEvent ackEvent =
+                    (CompletedSnapshotSplitsAckEvent) sourceEvent;
+            ackEvent.getCompletedSplits().forEach(finishedUnackedSplits::remove);
+            log.debug(
+                    "The subtask {} receives acknowledgements for finished snapshot splits {}.",
+                    subtaskId,
+                    ackEvent.getCompletedSplits());
+        } else {
+            super.handleSourceEvent(sourceEvent);
         }
     }
 
