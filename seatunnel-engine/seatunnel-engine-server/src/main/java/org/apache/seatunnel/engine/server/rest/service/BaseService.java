@@ -73,6 +73,7 @@ import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -90,6 +91,8 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -1408,15 +1411,32 @@ public abstract class BaseService {
                                 member -> {
                                     Address address = member.getAddress();
                                     String input = null;
+                                    InvocationFuture<Object> invocationFuture = null;
                                     try {
+                                        invocationFuture =
+                                                NodeEngineUtil.sendOperationToMemberNode(
+                                                        nodeEngine,
+                                                        new GetClusterHealthMetricsOperation(),
+                                                        address);
                                         input =
                                                 (String)
-                                                        NodeEngineUtil.sendOperationToMemberNode(
-                                                                        nodeEngine,
-                                                                        new GetClusterHealthMetricsOperation(),
-                                                                        address)
-                                                                .get();
-                                    } catch (InterruptedException | ExecutionException e) {
+                                                        invocationFuture.get(
+                                                                HEALTH_METRICS_TIMEOUT_SECONDS,
+                                                                TimeUnit.SECONDS);
+                                    } catch (TimeoutException e) {
+                                        log.warn(
+                                                "Timeout after {}s waiting for health metrics from {}",
+                                                HEALTH_METRICS_TIMEOUT_SECONDS,
+                                                address);
+                                        if (invocationFuture != null) {
+                                            invocationFuture.cancel(true);
+                                        }
+                                    } catch (InterruptedException e) {
+                                        if (invocationFuture != null) {
+                                            invocationFuture.cancel(true);
+                                        }
+                                        Thread.currentThread().interrupt();
+                                    } catch (ExecutionException e) {
 
                                         log.error("Failed to get cluster health metrics", e);
                                     }
@@ -1425,6 +1445,8 @@ public abstract class BaseService {
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         return jsonValues;
     }
+
+    private static final int HEALTH_METRICS_TIMEOUT_SECONDS = 3;
 
     private JsonObject parseSystemMonitoringMetrics(String input, Address memberAddress) {
         JsonObject jobInfo = new JsonObject();
