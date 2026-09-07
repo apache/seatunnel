@@ -47,6 +47,7 @@ The connector uses SNMP4J and supports SNMPv2c agents reachable over UDP.
 | value_type_field | String | No       | value_type   | Input `STRING` field containing the SMI value type. |
 | common-options   |        | No       | -            | [Common Sink Options](../common-options/sink-common-options.md), including `plugin_input`. |
 
+Factory option validation checks nonblank strings, the port range, a positive timeout, and nonnegative retries before sink construction.
 The three mapped fields must exist in the input schema, must use `STRING`, and must refer to distinct fields. Schema errors are
 rejected while the job is created. Null values and blank OID or value-type fields are rejected before a network request is sent. The value field is validated according to its SMI type; an empty `OctetString` or `OctetStringHex` is valid, and text `OctetString` whitespace is preserved.
 

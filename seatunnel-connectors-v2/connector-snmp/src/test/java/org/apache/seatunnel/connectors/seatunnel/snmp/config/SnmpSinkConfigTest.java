@@ -44,12 +44,16 @@ class SnmpSinkConfigTest {
     @Test
     void testCustomFieldMappingIsTrimmed() {
         Map<String, Object> values = baseConfig();
+        values.put("host", " 127.0.0.1 ");
+        values.put("community", " unit-test-community ");
         values.put("oid_field", " target_oid ");
         values.put("value_field", " target_value ");
         values.put("value_type_field", " target_type ");
 
         SnmpSinkConfig config = new SnmpSinkConfig(ReadonlyConfig.fromMap(values));
 
+        Assertions.assertEquals("127.0.0.1", config.getHost());
+        Assertions.assertEquals(" unit-test-community ", config.getCommunity());
         Assertions.assertEquals("target_oid", config.getOidField());
         Assertions.assertEquals("target_value", config.getValueField());
         Assertions.assertEquals("target_type", config.getValueTypeField());
@@ -89,10 +93,21 @@ class SnmpSinkConfigTest {
                 () -> new SnmpSinkConfig(ReadonlyConfig.fromMap(blank)));
 
         Map<String, Object> duplicate = baseConfig();
-        duplicate.put("value_field", "oid");
+        duplicate.put("value_field", " oid ");
         Assertions.assertThrows(
                 IllegalArgumentException.class,
                 () -> new SnmpSinkConfig(ReadonlyConfig.fromMap(duplicate)));
+    }
+
+    @Test
+    void testDirectConstructionRejectsBlankHostAndCommunity() {
+        for (String key : new String[] {"host", "community"}) {
+            Map<String, Object> values = baseConfig();
+            values.put(key, " \t\n");
+            Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () -> new SnmpSinkConfig(ReadonlyConfig.fromMap(values)));
+        }
     }
 
     public static Map<String, Object> baseConfig() {

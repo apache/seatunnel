@@ -46,6 +46,7 @@ V1 范围仅包括 SET 操作，不发送 Trap 或 Inform，也不支持 SNMPv1 
 | value_type_field | String | 否       | value_type | 包含 SMI 值类型的输入 `STRING` 字段。 |
 | common-options   |        | 否       | -          | [通用 Sink 配置项](../common-options/sink-common-options.md)，包括 `plugin_input`。 |
 
+工厂配置校验会在构造 Sink 之前检查字符串非空、端口范围、超时时间为正数以及重试次数非负。
 三个映射字段必须存在于输入 Schema 中、类型必须为 `STRING`，并且不能指向同一个字段。Schema 错误会在创建任务时被拒绝。
 空值以及空白的 OID 或值类型字段会在发送网络请求前被拒绝。值字段会根据其 SMI 类型进行校验；空的 `OctetString` 或 `OctetStringHex` 是有效值，文本 `OctetString` 的前后空白会被保留。
 

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.snmp.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -39,14 +40,25 @@ public final class SnmpSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SnmpSinkOptions.HOST, SnmpSinkOptions.COMMUNITY)
+                .required(SnmpSinkOptions.HOST, Conditions.notBlank(SnmpSinkOptions.HOST))
+                .required(SnmpSinkOptions.COMMUNITY, Conditions.notBlank(SnmpSinkOptions.COMMUNITY))
                 .optional(
                         SnmpSinkOptions.PORT,
+                        Conditions.greaterOrEqual(SnmpSinkOptions.PORT, 1)
+                                .and(Conditions.lessOrEqual(SnmpSinkOptions.PORT, 65535)))
+                .optional(
                         SnmpSinkOptions.TIMEOUT_MILLIS,
+                        Conditions.greaterThan(SnmpSinkOptions.TIMEOUT_MILLIS, 0L))
+                .optional(
                         SnmpSinkOptions.RETRIES,
-                        SnmpSinkOptions.OID_FIELD,
+                        Conditions.greaterOrEqual(SnmpSinkOptions.RETRIES, 0))
+                .optional(SnmpSinkOptions.OID_FIELD, Conditions.notBlank(SnmpSinkOptions.OID_FIELD))
+                .optional(
                         SnmpSinkOptions.VALUE_FIELD,
-                        SnmpSinkOptions.VALUE_TYPE_FIELD)
+                        Conditions.notBlank(SnmpSinkOptions.VALUE_FIELD))
+                .optional(
+                        SnmpSinkOptions.VALUE_TYPE_FIELD,
+                        Conditions.notBlank(SnmpSinkOptions.VALUE_TYPE_FIELD))
                 .build();
     }
 

@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.snmp.sink;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -39,6 +41,76 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 class SnmpSinkFactoryTest {
+
+    @Test
+    void testOptionRuleAcceptsDefaultsAndNumericBoundaries() {
+        validate(baseConfig());
+        Map<String, Object> values = baseConfig();
+        values.put("port", 1);
+        values.put("timeout_millis", 1L);
+        values.put("retries", 0);
+        validate(values);
+        values.put("port", 65535);
+        values.put("timeout_millis", Long.MAX_VALUE);
+        values.put("retries", Integer.MAX_VALUE);
+        validate(values);
+    }
+
+    @Test
+    void testOptionRuleRejectsMissingRequiredOptions() {
+        for (String key : new String[] {"host", "community"}) {
+            Map<String, Object> values = baseConfig();
+            values.remove(key);
+            Assertions.assertThrows(OptionValidationException.class, () -> validate(values), key);
+        }
+    }
+
+    @Test
+    void testOptionRuleRejectsBlankStrings() {
+        for (String key :
+                new String[] {
+                    "host", "community", "oid_field", "value_field", "value_type_field"
+                }) {
+            assertInvalidOption(key, "");
+            assertInvalidOption(key, " \t\n");
+        }
+    }
+
+    @Test
+    void testOptionRuleRejectsInvalidNumericValuesWithoutDisclosingCommunity() {
+        assertInvalidOption("port", 0);
+        assertInvalidOption("port", 65536);
+        assertInvalidOption("timeout_millis", 0L);
+        assertInvalidOption("timeout_millis", -1L);
+        assertInvalidOption("retries", -1);
+    }
+
+    @Test
+    void testOptionRulePreservesWhitespaceForRuntimeNormalization() {
+        Map<String, Object> values = baseConfig();
+        values.put("host", " 127.0.0.1 ");
+        values.put("community", " unit-test-community ");
+        values.put("oid_field", " oid ");
+        values.put("value_field", " value ");
+        values.put("value_type_field", " value_type ");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(values);
+        ConfigValidator.of(config).validate(new SnmpSinkFactory().optionRule());
+        Assertions.assertEquals(" unit-test-community ", config.get(SnmpSinkOptions.COMMUNITY));
+    }
+
+    private static void assertInvalidOption(String key, Object value) {
+        Map<String, Object> values = baseConfig();
+        values.put(key, value);
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(values));
+        Assertions.assertTrue(exception.getMessage().contains(key));
+        Assertions.assertFalse(exception.getMessage().contains("unit-test-community"));
+    }
+
+    private static void validate(Map<String, Object> values) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(values))
+                .validate(new SnmpSinkFactory().optionRule());
+    }
 
     @Test
     void testFactoryIdentityAndOptions() {
