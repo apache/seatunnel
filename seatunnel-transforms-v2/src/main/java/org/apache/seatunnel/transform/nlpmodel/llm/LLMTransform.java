@@ -25,7 +25,9 @@ import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.transform.common.SingleFieldOutputTransform;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.nlpmodel.ModelProvider;
 import org.apache.seatunnel.transform.nlpmodel.ModelTransformConfig;
 import org.apache.seatunnel.transform.nlpmodel.llm.remote.Model;
@@ -44,6 +46,7 @@ import java.util.List;
 public class LLMTransform extends SingleFieldOutputTransform {
     private final ReadonlyConfig config;
     private final SeaTunnelDataType<?> outputDataType;
+    private final boolean strictBooleanOutput;
     private Model model;
 
     public LLMTransform(@NonNull ReadonlyConfig config, @NonNull CatalogTable inputCatalogTable) {
@@ -52,6 +55,7 @@ public class LLMTransform extends SingleFieldOutputTransform {
         this.outputDataType =
                 SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
                         "output", config.get(LLMTransformConfig.OUTPUT_DATA_TYPE).toString());
+        this.strictBooleanOutput = config.get(LLMTransformConfig.STRICT_BOOLEAN_OUTPUT);
     }
 
     private void tryOpen() {
@@ -141,8 +145,17 @@ public class LLMTransform extends SingleFieldOutputTransform {
     protected Object getOutputFieldValue(SeaTunnelRowAccessor inputRow) {
         tryOpen();
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(inputRow.getFields());
+        List<String> values;
         try {
-            List<String> values = model.inference(Collections.singletonList(seaTunnelRow));
+            values = model.inference(Collections.singletonList(seaTunnelRow));
+        } catch (Exception e) {
+            throw inferenceFailure(seaTunnelRow, e);
+        }
+        // Keep validation outside legacy error wrapping so rejected output does not expose the row.
+        if (strictBooleanOutput && outputDataType.getSqlType() == SqlType.BOOLEAN) {
+            return parseStrictBooleanOutput(values);
+        }
+        try {
             switch (outputDataType.getSqlType()) {
                 case STRING:
                     return String.valueOf(values.get(0));
@@ -159,9 +172,26 @@ public class LLMTransform extends SingleFieldOutputTransform {
                             "Unsupported output data type: " + outputDataType);
             }
         } catch (Exception e) {
-            throw new RuntimeException(
-                    String.format("Failed to inference model with row %s", seaTunnelRow), e);
+            throw inferenceFailure(seaTunnelRow, e);
         }
+    }
+
+    private boolean parseStrictBooleanOutput(List<String> values) {
+        String value = values != null && values.size() == 1 ? values.get(0) : null;
+        if ("true".equalsIgnoreCase(value)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(value)) {
+            return false;
+        }
+        throw TransformCommonError.validationFailed(
+                "LLM strict_boolean_output requires exactly one non-null true or false result "
+                        + "for output_data_type=BOOLEAN, without surrounding whitespace");
+    }
+
+    private RuntimeException inferenceFailure(SeaTunnelRow row, Exception cause) {
+        return new RuntimeException(
+                String.format("Failed to inference model with row %s", row), cause);
     }
 
     @Override
