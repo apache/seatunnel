@@ -41,6 +41,12 @@ Run only the `SeaTunnelRow` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark
 ```
 
+Run only the `ProtoStuffSerializer` benchmarks:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
+```
+
 Write JSON results:
 
 ```bash
@@ -48,17 +54,6 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rf json \
   -rff seatunnel-benchmarks/target/benchmark-result.json
 ```
-
-## Run ProtoStuff serialization microbenchmarks
-
-```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
-  -rf json -rff seatunnel-benchmarks/target/protostuff.json
-```
-
-Measures in-memory `IMapFileData` serialization and deserialization throughput (`ops/ms`) with eight
-threads by default. Both methods exercise shared schema-cache lookup, excluding file I/O and
-Hazelcast scheduling.
 
 ## Run Zeta full-pipeline benchmarks
 
