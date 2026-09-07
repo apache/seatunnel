@@ -53,7 +53,7 @@ public class ProtoStuffSerializer implements Serializer {
 
     @SuppressWarnings("unchecked")
     private static <T> Schema<T> getSchema(Class<T> clazz) {
-        // Avoid computeIfAbsent's cache-hit locking on Java 8.
+        // Return cached schemas directly, using computeIfAbsent only on cache misses.
         Schema<?> schema = SCHEMA_CACHE.get(clazz);
         if (schema == null) {
             return (Schema<T>) SCHEMA_CACHE.computeIfAbsent(clazz, RuntimeSchema::createFrom);
