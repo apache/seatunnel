@@ -46,13 +46,15 @@ class TypesenseFactoryTest {
 
     @Test
     void testValidSourceConfiguration() {
-        Assertions.assertDoesNotThrow(\n                () -> validate(sourceConfig(), sourceOptionRule, "TypesenseSource"));
+        Assertions.assertDoesNotThrow(
+                () -> validate(sourceConfig(), sourceOptionRule, "TypesenseSource"));
     }
 
     @Test
     void testInvalidSourceConnectionOptions() {
         assertMissingRejected(sourceConfig(), TypesenseSourceOptions.HOSTS.key(), sourceOptionRule);
-        assertMissingRejected(\n                sourceConfig(), TypesenseSourceOptions.APIKEY.key(), sourceOptionRule);
+        assertMissingRejected(
+                sourceConfig(), TypesenseSourceOptions.APIKEY.key(), sourceOptionRule);
 
         Map<String, Object> emptyHosts = sourceConfig();
         emptyHosts.put(TypesenseSourceOptions.HOSTS.key(), Collections.emptyList());
@@ -66,7 +68,8 @@ class TypesenseFactoryTest {
 
     @Test
     void testValidSinkConfiguration() {
-        Assertions.assertDoesNotThrow(\n                () -> validate(sinkConfig(), sinkOptionRule, "TypesenseSink"));
+        Assertions.assertDoesNotThrow(
+                () -> validate(sinkConfig(), sinkOptionRule, "TypesenseSink"));
     }
 
     @Test
