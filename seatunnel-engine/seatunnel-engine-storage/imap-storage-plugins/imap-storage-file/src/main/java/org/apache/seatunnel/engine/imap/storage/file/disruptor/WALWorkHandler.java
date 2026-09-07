@@ -86,7 +86,9 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
         }
 
         if (type == WALEventType.CLOSED) {
-            // close writer and archive
+            // close writer and archive. Intentionally unguarded: CLOSED is published once during
+            // WALDisruptor/storage shutdown, so a failure here does not wedge steady-state APPEND
+            // persistence the way an escaping write exception would.
             writer.close();
         }
     }
