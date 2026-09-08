@@ -125,6 +125,11 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         parsePayload(out, tablePath, payload);
     }
 
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.rowType;
+    }
+
     private void parsePayload(Collector<SeaTunnelRow> out, TablePath tablePath, JsonNode payload)
             throws IOException {
         String op = payload.get(OP_KEY).asText();
@@ -170,6 +175,12 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
     }
 
+    /**
+     * Resolves the table id string for the emitted row. Call sites normally pass {@link
+     * #tablePath}; the identity check reuses the cached {@link #tableId}, while the fallback covers
+     * the public {@link #deserializeMessage(byte[], Collector, TablePath)} contract if a different
+     * path is supplied.
+     */
     private String resolveTableId(TablePath tablePath) {
         if (tablePath == null) {
             return null;
@@ -180,6 +191,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         return tablePath.toString();
     }
 
+    /** Applies table id and optional event-time metadata to a newly parsed row. */
     private static void applyRowMeta(SeaTunnelRow row, String tableId, Long eventTime) {
         if (tableId != null) {
             row.setTableId(tableId);
@@ -244,10 +256,5 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
             }
         }
         return payload;
-    }
-
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowType;
     }
 }

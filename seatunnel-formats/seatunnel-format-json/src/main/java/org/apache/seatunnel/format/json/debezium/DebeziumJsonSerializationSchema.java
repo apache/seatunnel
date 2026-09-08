@@ -121,6 +121,10 @@ public class DebeziumJsonSerializationSchema implements SerializationSchema {
         }
     }
 
+    /**
+     * Clears and reuses the envelope {@code source} map for the current row, caching parsed {@link
+     * TablePath} components while {@code tableId} is unchanged.
+     */
     private void fillSource(SeaTunnelRow row) {
         if (reusableSource == null) {
             reusableSource = new HashMap<>(4);

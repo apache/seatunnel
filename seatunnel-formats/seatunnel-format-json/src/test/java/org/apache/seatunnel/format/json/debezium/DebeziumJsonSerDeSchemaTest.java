@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -109,6 +110,48 @@ public class DebeziumJsonSerDeSchemaTest {
     @Test
     public void testSerializationAndSchemaExcludeDeserialization() throws Exception {
         testSerializationDeserialization("debezium-data.txt", false);
+    }
+
+    @Test
+    public void testSerializationAndSchemaIncludeDeserialization() throws Exception {
+        // Existing fixture lines are schema-less envelopes; wrap them so the streaming parser's
+        // schema-included branch (skip schema, read payload) is exercised end-to-end.
+        List<String> lines = readLines("debezium-data.txt");
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(catalogTables, true, true);
+        SimpleCollector collector = new SimpleCollector();
+        for (String line : lines) {
+            String schemaIncluded =
+                    "{\"schema\":{\"type\":\"struct\",\"fields\":[]},\"payload\":" + line + "}";
+            deserializationSchema.deserialize(
+                    schemaIncluded.getBytes(StandardCharsets.UTF_8), collector);
+        }
+        assertEquals(20, collector.getList().size());
+        assertEquals(RowKind.INSERT, collector.getList().get(0).getRowKind());
+        assertEquals(101, collector.getList().get(0).getField(0));
+        assertEquals("scooter", collector.getList().get(0).getField(1));
+    }
+
+    @Test
+    public void testDeserializeSchemaIncludedMissingPayload() throws Exception {
+        final DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(catalogTables, false, true);
+        final SimpleCollector collector = new SimpleCollector();
+        String missingPayloadMsg = "{\"schema\":{\"type\":\"struct\",\"fields\":[]}}";
+        SeaTunnelRuntimeException expected =
+                CommonError.jsonOperationError(FORMAT, missingPayloadMsg);
+        SeaTunnelRuntimeException cause =
+                assertThrows(
+                        expected.getClass(),
+                        () ->
+                                deserializationSchema.deserialize(
+                                        missingPayloadMsg.getBytes(StandardCharsets.UTF_8),
+                                        collector));
+        assertEquals(expected.getMessage(), cause.getMessage());
+        Throwable rootCause = cause.getCause();
+        assertEquals(IOException.class, rootCause.getClass());
+        assertEquals(
+                "Missing payload field in schema-included Debezium JSON", rootCause.getMessage());
     }
 
     @Test
