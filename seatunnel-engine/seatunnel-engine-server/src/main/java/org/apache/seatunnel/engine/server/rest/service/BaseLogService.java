@@ -143,7 +143,7 @@ public class BaseLogService extends BaseService {
         return "<li><a href=\"" + href + "\">" + name + "</a></li>\n";
     }
 
-    protected String buildWebSiteContent(StringBuffer logLink) {
+    protected String buildWebSiteContent(StringBuilder logLink) {
         return "<html><head><title>Seatunnel log</title></head>\n"
                 + "<body>\n"
                 + " <h2>Seatunnel log</h2>\n"
