@@ -19,31 +19,49 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
+import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.pgbase.source.PgBaseIncrementalSource;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
+import org.apache.kafka.connect.data.Struct;
+
+import io.debezium.relational.TableId;
+
+import java.time.ZoneId;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
  * PostgreSQL incremental source backed by the shared PG-base source behavior.
  *
- * <p>Keeps PostgreSQL-specific options, dialect selection and offset handling in this connector.
+ * <p>Keeps PostgreSQL-specific options, dialect selection, offset handling and RELATION-message
+ * schema evolution in this connector.
  */
-public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, JdbcSourceConfig> {
+public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, JdbcSourceConfig>
+        implements SupportSchemaEvolution {
 
     /**
      * Preserves serialized job DAG compatibility with the Postgres source released in 2.3.13.
@@ -60,6 +78,7 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
 
     public PostgresIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
+        validateSchemaEvolutionOptions(options);
     }
 
     @Override
@@ -97,6 +116,38 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
         return configFactory;
     }
 
+    /**
+     * Adds the PostgreSQL RELATION-message schema-change resolver and filter on top of the shared
+     * PG-base deserialization schema.
+     *
+     * <p>These two are kept here rather than in {@link PgBaseIncrementalSource} because they are
+     * specific to how PostgreSQL's {@code pgoutput} plugin reports schema changes; a sibling
+     * PG-base connector is not guaranteed to share the same schema-change wire format.
+     */
+    @SuppressWarnings("unchecked")
+    @Override
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
+        Map<TableId, Struct> tableIdTableChangeMap = loadTableChanges();
+        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
+                config.get(JdbcSourceOptions.FORMAT))) {
+            return (DebeziumDeserializationSchema<T>)
+                    new DebeziumJsonDeserializeSchema(
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
+                            tableIdTableChangeMap);
+        }
+
+        return (DebeziumDeserializationSchema<T>)
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setTables(catalogTables)
+                        .setServerTimeZone(
+                                ZoneId.of(config.get(JdbcSourceOptions.SERVER_TIME_ZONE)))
+                        .setTableIdTableChangeMap(tableIdTableChangeMap)
+                        .setSchemaChangeResolver(new PostgresRelationSchemaChangeResolver())
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
+                        .build();
+    }
+
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
         return new PostgresDialect(
@@ -114,6 +165,11 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
     @Override
     public Optional<String> driverName() {
         return Optional.of("org.postgresql.Driver");
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Collections.singletonList(SchemaChangeType.ADD_COLUMN);
     }
 
     /**
@@ -136,6 +192,25 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
                             "PostgreSQL-CDC startup.mode '%s' requires an explicit '%s' option.",
                             StartupMode.COMMITTED_OFFSET,
                             PostgresIncrementalSourceOptions.SLOT_NAME.key()));
+        }
+    }
+
+    /**
+     * Rejects schema evolution configured with a decoding plugin that cannot report schema changes.
+     *
+     * <p>Only {@code pgoutput} emits Debezium RELATION messages; the other supported plugins give
+     * this connector no signal that a table's schema changed.
+     */
+    private void validateSchemaEvolutionOptions(ReadonlyConfig options) {
+        if (options.get(SourceOptions.SCHEMA_CHANGES_ENABLED)
+                && !"pgoutput"
+                        .equalsIgnoreCase(
+                                options.get(
+                                        PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME))) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "PostgreSQL-CDC schema evolution requires '%s = pgoutput' because PostgreSQL RELATION messages provide the changed schema.",
+                            PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.key()));
         }
     }
 }

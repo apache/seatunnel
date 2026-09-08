@@ -113,6 +113,48 @@ public class PostgresSourceConfigFactoryTest {
                 "custom_slot", factory.create(0).getDbzConfiguration().getString("slot.name"));
     }
 
+    /**
+     * Pins the RELATION-message schema-evolution wiring: {@code include.schema.changes} must
+     * reflect the actual {@code schema-changes.enabled} option instead of being hardcoded, since
+     * Debezium PostgreSQL only emits the RELATION messages {@link PostgresIncrementalSource}'s
+     * schema-change resolver depends on when this flag is set.
+     */
+    @Test
+    public void shouldEnableSchemaChangesWhenSchemaEvolutionIsEnabled() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.schemaChangeEnabled(true);
+
+        Assertions.assertEquals(
+                "true",
+                factory.create(0).getDbzConfiguration().getString("include.schema.changes"));
+    }
+
+    @Test
+    public void shouldDisableSchemaChangesByDefault() {
+        PostgresSourceConfigFactory factory = baseFactory();
+
+        Assertions.assertEquals(
+                "false",
+                factory.create(0).getDbzConfiguration().getString("include.schema.changes"));
+    }
+
+    /**
+     * SeaTunnel's own {@code schema-changes.enabled} option must stay authoritative even if a raw
+     * {@code debezium.*} passthrough property also happens to set {@code include.schema.changes}.
+     */
+    @Test
+    public void shouldKeepSchemaChangesEnabledAuthoritativeOverUserDebeziumProperties() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.schemaChangeEnabled(true);
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("include.schema.changes", "false");
+        factory.debeziumProperties(dbzProperties);
+
+        Assertions.assertEquals(
+                "true",
+                factory.create(0).getDbzConfiguration().getString("include.schema.changes"));
+    }
+
     private PostgresSourceConfigFactory baseFactory() {
         PostgresSourceConfigFactory factory = new PostgresSourceConfigFactory();
         factory.hostname("127.0.0.1");

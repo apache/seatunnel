@@ -65,7 +65,6 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
         props.setProperty("database.tcpKeepAlive", String.valueOf(true));
-        props.setProperty("include.schema.changes", String.valueOf(false));
 
         configureConnectorProperties(props, subtask);
 
@@ -80,6 +79,11 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         if (dbzProperties != null) {
             props.putAll(dbzProperties);
         }
+        // Debezium PostgreSQL-compatible connectors do not emit DDL records, but SeaTunnel uses
+        // this flag to enable synthetic schema records produced from pgoutput RELATION messages.
+        // Apply it after the Debezium pass-through properties so the SeaTunnel option remains
+        // authoritative even if a user's raw debezium.* passthrough also sets this key.
+        props.setProperty("include.schema.changes", String.valueOf(schemaChangeEnabled));
 
         if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
             props.setProperty("snapshot.mode", "initial_only");

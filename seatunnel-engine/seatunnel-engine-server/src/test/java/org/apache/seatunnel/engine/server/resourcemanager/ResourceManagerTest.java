@@ -235,7 +235,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile());
         ConcurrentMap<Address, WorkerProfile> registerWorker = new ConcurrentHashMap<>();
-        Address address1 = new Address("localhost", 5801);
+        Address address1 = new Address("127.0.0.1", 5801);
         WorkerProfile workerProfile1 =
                 new WorkerProfile(
                         address1,
@@ -247,7 +247,7 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
                         Collections.emptyMap());
         registerWorker.put(address1, workerProfile1);
 
-        Address address2 = new Address("localhost", 5802);
+        Address address2 = new Address("127.0.0.1", 5802);
         WorkerProfile workerProfile2 =
                 new WorkerProfile(
                         address2,

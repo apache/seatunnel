@@ -29,22 +29,23 @@ on:
         type: string
         default: 'dev'
       benchmarks:
-        description: 'Common benchmark selector.'
+        description: 'Select a benchmark suite or class.'
         required: true
         type: choice
         options:
-          - '.*'
+          - 'benchmarks_core'
           - 'SeaTunnelRowBenchmark'
           - 'IntermediateQueueBenchmark'
+          - 'DebeziumJsonFormatBenchmark'
           - 'SeaTunnelPipelineBenchmark'
-          - 'sourceSink$'
-          - 'sourceTransformSink$'
-          - 'sourceTransformSinkWithObservability$'
-          - 'sourceTransformSinkWithTrace$'
-          - 'sourceTransformSinkWithObservabilityAndTrace$'
-        default: '.*'
+          - 'CheckpointingTimeBenchmark'
+          - 'CheckpointStorageBenchmark'
+          - 'IMapJobStorageBenchmark'
+          - 'IMapDagStorageBenchmark'
+          - 'IMapWalStorageBenchmark'
+        default: 'benchmarks_core'
       custom_benchmarks:
-        description: 'Optional JMH selector that overrides the choice above.'
+        description: 'Exact JMH selector; overrides the choice. .* may exceed 240 minutes.'
         required: false
         type: string
       pr_number:
@@ -71,11 +72,20 @@ jobs:
         java-version: [ '8', '11' ]
 
     env:
-      BENCHMARKS: ${{ github.event.inputs.custom_benchmarks || github.event.inputs.benchmarks || '.*' }}
+      BENCHMARK_SUITE: ${{ github.event_name == 'schedule' && 'benchmarks_core' || '' }}
+      BENCHMARKS: ${{ github.event.inputs.benchmarks || 'benchmarks_core' }}
+      CUSTOM_BENCHMARKS: ${{ github.event.inputs.custom_benchmarks || '' }}
       JAVA_VERSION: ${{ matrix.java-version }}
       PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
       SEATUNNEL_REF: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
     steps:
+      - name: Checkout benchmark driver
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ github.workflow_sha }}
+          path: benchmark-driver
+
       - name: Checkout baseline
         uses: actions/checkout@v4
         with:
@@ -116,7 +126,7 @@ jobs:
         run: ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
 
       - name: Run benchmarks and build report
-        run: bash baseline/tools/benchmarks/run_benchmarks.sh
+        run: bash benchmark-driver/tools/benchmarks/run_benchmarks.sh
 
       - name: Upload benchmark result
         if: always()
