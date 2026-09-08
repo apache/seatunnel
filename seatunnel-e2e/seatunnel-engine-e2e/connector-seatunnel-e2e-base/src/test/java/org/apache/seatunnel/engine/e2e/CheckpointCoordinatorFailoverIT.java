@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
@@ -963,6 +964,35 @@ public class CheckpointCoordinatorFailoverIT {
      * hazelcast.max.no.heartbeat.seconds} well above that test's recovery wait -- see {@link
      * #BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS} for why this must be set explicitly rather than
      * left to whatever this module's ambient {@code hazelcast.yaml} happens to configure.
+     *
+     * <p><b>Must also force {@link ScheduleStrategy#WAIT}, not just disable dynamic slot:</b> this
+     * module's test {@code seatunnel.yaml} sets {@code dynamic-slot: true}, and {@code
+     * YamlSeaTunnelDomConfigProcessor} reacts to that at parse time -- inside {@code
+     * ConfigProvider.locateAndGetSeaTunnelConfig()}, before this method ever runs -- by
+     * unconditionally setting {@code engineConfig.scheduleStrategy = REJECT} ("if dynamic slot is
+     * enabled, the schedule strategy must be REJECT"). Calling {@code setDynamicSlot(false)}
+     * afterwards does not revert that: {@code scheduleStrategy} is a plain, independent field that
+     * is never re-derived from the slot-service config once parsing has set it. Left uncorrected,
+     * this test's cluster ends up running fixed slots under a fail-fast REJECT strategy instead of
+     * the intended retry-until-ready one -- confirmed on real CI (fork run 34181422045, both JDK 8
+     * and JDK 11): the job is submitted only milliseconds after the workers join the Hazelcast
+     * cluster, which is not enough time for their fixed slot pools to finish registering with the
+     * master's {@code ResourceManager}, so the very first scheduling attempt legitimately finds no
+     * assignable slot ({@code NoEnoughResourceException}); under REJECT that single transient miss
+     * permanently fails the job via {@code CoordinatorService#completeFailJob} instead of retrying,
+     * and {@code CoordinatorService#getJobStatus} then reports {@code UNKNOWABLE} once the job's
+     * short-lived ({@code history-job-expire-minutes: 1} in this same {@code seatunnel.yaml})
+     * FAILED history entry expires -- a status this job can never recover from, since nothing
+     * re-submits or re-schedules it. {@link
+     * #testBatchJobCompletesAfterMasterFailoverDuringCloseHandshake} above does not hit this
+     * because dynamic slot mode does not need workers to pre-register a fixed pool before a job can
+     * be scheduled onto it. {@link ScheduleStrategy#WAIT} is the same fix already used for an
+     * identical non-dynamic-slot setup by {@code
+     * SplitClusterPendingJobLifecycleFailoverIT#configurePendingLifecycleTest} and {@code
+     * PendingJobsRestIT#setUp} in this module: it makes {@code
+     * CoordinatorService#pendingJobSchedule} retry every 3 seconds instead of failing on the first
+     * miss, which is what actually lets this test reach RUNNING once the workers' slots finish
+     * registering (well within its own 2-minute bound).
      */
     private static SeaTunnelConfig getBarrierDispatchTestConfig(String testClusterName) {
         SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
@@ -977,6 +1007,12 @@ public class CheckpointCoordinatorFailoverIT {
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(2);
+        // Must be set explicitly: locateAndGetSeaTunnelConfig() already forced REJECT above
+        // (see the class-level detail in this method's Javadoc), and disabling dynamic slot does
+        // not undo that. Without this, the job's first scheduling attempt can lose a genuine but
+        // transient race against worker slot registration and be permanently failed instead of
+        // retried.
+        seaTunnelConfig.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
         return seaTunnelConfig;
     }
 
