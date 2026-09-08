@@ -64,6 +64,8 @@ When it is `true`, configure `zk_host` and `zk_path`.
 
 ### sql [string]
 
+The required `sql` must not be empty or whitespace-only in either standalone or cluster mode.
+
 The SQL statement to execute against OpenMLDB. The result set columns become the schema of the
 emitted SeaTunnel rows.
 

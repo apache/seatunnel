@@ -28,10 +28,16 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.exception.AmazonSqsConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 
@@ -57,6 +63,20 @@ import java.util.List;
 import java.util.Map;
 
 class AmazonSqsSourceReaderTest {
+
+    private static final String CANAL_UPDATE_MESSAGE =
+            "{\"data\":[{\"value\":\"after\"}],\"old\":[{\"value\":\"before\"}],"
+                    + "\"database\":\"inventory\",\"table\":\"orders\",\"type\":\"UPDATE\"}";
+    private static final String CANAL_QUERY_MESSAGE =
+            "{\"data\":null,\"database\":\"inventory\",\"table\":\"orders\","
+                    + "\"type\":\"QUERY\"}";
+    private static final String CANAL_PARTIALLY_INVALID_MESSAGE =
+            "{\"data\":[{\"value\":\"1\"},{\"value\":\"invalid\"}],"
+                    + "\"database\":\"inventory\",\"table\":\"orders\",\"type\":\"INSERT\"}";
+    private static final String DEBEZIUM_UPDATE_MESSAGE =
+            "{\"schema\":{},\"payload\":{\"before\":{\"value\":\"before\"},"
+                    + "\"after\":{\"value\":\"after\"},\"op\":\"u\","
+                    + "\"ts_ms\":1598944202218}}";
 
     private static final SeaTunnelRowType ROW_TYPE =
             new SeaTunnelRowType(
@@ -254,6 +274,244 @@ class AmazonSqsSourceReaderTest {
         Assertions.assertEquals(1, context.noMoreElementSignals);
     }
 
+    @Test
+    void shouldDeserializeCanalUpdateAsTwoRows() throws Exception {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(CANAL_UPDATE_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReaderFromFactory(context, "canal_json", true, false, sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.pollNext(collector);
+
+        Assertions.assertEquals(Arrays.asList("before", "after"), collector.values());
+        Assertions.assertEquals(
+                Arrays.asList(RowKind.UPDATE_BEFORE, RowKind.UPDATE_AFTER), collector.rowKinds());
+        Assertions.assertEquals(
+                Collections.singletonList("receipt-1"), sqsClient.deletedReceiptHandles());
+    }
+
+    @Test
+    void shouldDeserializeDebeziumUpdateAsTwoRows() throws Exception {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(DEBEZIUM_UPDATE_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReaderFromFactory(context, "debezium_json", true, false, sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.pollNext(collector);
+
+        Assertions.assertEquals(Arrays.asList("before", "after"), collector.values());
+        Assertions.assertEquals(
+                Arrays.asList(RowKind.UPDATE_BEFORE, RowKind.UPDATE_AFTER), collector.rowKinds());
+        Assertions.assertEquals(
+                Collections.singletonList("receipt-1"), sqsClient.deletedReceiptHandles());
+    }
+
+    @Test
+    void shouldDeleteCanalMessageThatProducesNoRows() throws Exception {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(CANAL_QUERY_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReaderFromFactory(context, "canal_json", true, false, sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.pollNext(collector);
+
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertEquals(
+                Collections.singletonList("receipt-1"), sqsClient.deletedReceiptHandles());
+    }
+
+    @Test
+    void shouldNotDeleteCanalMessageWhenSecondCollectionFails() throws Exception {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(CANAL_UPDATE_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReaderFromFactory(context, "canal_json", true, false, sqsClient);
+        RecordingCollector collector = new RecordingCollector("collector rejected row", 1);
+
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertEquals("collector rejected row", exception.getMessage());
+        Assertions.assertEquals(Collections.singletonList("before"), collector.values());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+    }
+
+    @Test
+    void shouldDiscardBufferedRowsWhenLaterCanalRowCannotBeParsed() throws Exception {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(CANAL_PARTIALLY_INVALID_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReaderFromFactory(context, "canal_json", true, true, "int", sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.pollNext(collector);
+
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertEquals(
+                Collections.singletonList("receipt-1"), sqsClient.deletedReceiptHandles());
+    }
+
+    @Test
+    void shouldKeepPartiallyInvalidCanalMessageWhenParseErrorsAreNotIgnored() throws Exception {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(CANAL_PARTIALLY_INVALID_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReaderFromFactory(context, "canal_json", true, false, "int", sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        Assertions.assertThrows(SeaTunnelRuntimeException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+    }
+
+    @Test
+    void shouldNotSwallowUnrelatedRuntimeFailureForMultiRowFormat() {
+        RecordingSqsClient sqsClient =
+                new RecordingSqsClient(message(CANAL_UPDATE_MESSAGE, "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsConnectorException failure =
+                new AmazonSqsConnectorException(
+                        AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED, "unexpected failure");
+        AmazonSqsSourceReader reader =
+                createReader(
+                        context,
+                        true,
+                        true,
+                        new RuntimeFailingDeserializationSchema(failure),
+                        sqsClient,
+                        MessageFormat.CANAL_JSON);
+        RecordingCollector collector = new RecordingCollector();
+
+        AmazonSqsConnectorException actual =
+                Assertions.assertThrows(
+                        AmazonSqsConnectorException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertSame(failure, actual);
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+    }
+
+    private static AmazonSqsSourceReader createReaderFromFactory(
+            RecordingReaderContext context,
+            String format,
+            boolean deleteMessage,
+            boolean ignoreParseErrors,
+            RecordingSqsClient sqsClient)
+            throws Exception {
+        return createReaderFromFactory(
+                context, format, deleteMessage, ignoreParseErrors, "string", sqsClient);
+    }
+
+    private static AmazonSqsSourceReader createReaderFromFactory(
+            RecordingReaderContext context,
+            String format,
+            boolean deleteMessage,
+            boolean ignoreParseErrors,
+            String fieldType,
+            RecordingSqsClient sqsClient)
+            throws Exception {
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("value", fieldType);
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "https://sqs.us-east-1.amazonaws.com/123456789012/orders");
+        options.put("region", "us-east-1");
+        options.put("schema", schema);
+        options.put("format", format);
+        options.put("delete_message", deleteMessage);
+        options.put("ignore_parse_errors", ignoreParseErrors);
+
+        TableSource<?, ?, ?> tableSource =
+                new AmazonSqsSourceFactory()
+                        .createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(options),
+                                        Thread.currentThread().getContextClassLoader()));
+        AmazonSqsSource source = (AmazonSqsSource) tableSource.createSource();
+        AmazonSqsSourceReader reader =
+                (AmazonSqsSourceReader) source.createReader(new SingleSplitReaderContext(context));
+        reader.sqsClient = sqsClient.client;
+        return reader;
+    }
+
+    @Test
+    void shouldWrapJsonParseErrorCreatedByFactory() throws Exception {
+        RecordingSqsClient sqsClient = new RecordingSqsClient(message("invalid", "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("value", "string");
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "https://sqs.us-east-1.amazonaws.com/123456789012/orders");
+        options.put("region", "us-east-1");
+        options.put("schema", schema);
+        options.put("delete_message", true);
+
+        TableSource<?, ?, ?> tableSource =
+                new AmazonSqsSourceFactory()
+                        .createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(options),
+                                        Thread.currentThread().getContextClassLoader()));
+        AmazonSqsSource source = (AmazonSqsSource) tableSource.createSource();
+        AmazonSqsSourceReader reader =
+                (AmazonSqsSourceReader) source.createReader(new SingleSplitReaderContext(context));
+        reader.sqsClient = sqsClient.client;
+        RecordingCollector collector = new RecordingCollector();
+
+        AmazonSqsConnectorException exception =
+                Assertions.assertThrows(
+                        AmazonSqsConnectorException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertEquals(
+                AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("Failed to deserialize Amazon SQS message"));
+        SeaTunnelRuntimeException cause =
+                Assertions.assertInstanceOf(SeaTunnelRuntimeException.class, exception.getCause());
+        Assertions.assertEquals(
+                CommonErrorCode.JSON_OPERATION_FAILED, cause.getSeaTunnelErrorCode());
+        Assertions.assertNotNull(cause.getCause());
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+        Assertions.assertEquals(0, context.noMoreElementSignals);
+    }
+
+    @Test
+    void shouldPropagateNonJsonRuntimeExceptionWhenParseErrorsIgnored() {
+        RecordingSqsClient sqsClient = new RecordingSqsClient(message("invalid", "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReader(
+                        context, true, true, new UnsupportedDeserializationSchema(), sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertFalse(exception instanceof AmazonSqsConnectorException);
+        Assertions.assertEquals(
+                CommonErrorCode.OPERATION_NOT_SUPPORTED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+        Assertions.assertEquals(0, context.noMoreElementSignals);
+    }
+
     private static AmazonSqsSourceReader createReader(
             RecordingReaderContext context,
             boolean deleteMessage,
@@ -268,6 +526,22 @@ class AmazonSqsSourceReaderTest {
             boolean ignoreParseErrors,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             RecordingSqsClient sqsClient) {
+        return createReader(
+                context,
+                deleteMessage,
+                ignoreParseErrors,
+                deserializationSchema,
+                sqsClient,
+                MessageFormat.JSON);
+    }
+
+    private static AmazonSqsSourceReader createReader(
+            RecordingReaderContext context,
+            boolean deleteMessage,
+            boolean ignoreParseErrors,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            RecordingSqsClient sqsClient,
+            MessageFormat format) {
         AmazonSqsSourceConfig config =
                 new AmazonSqsSourceConfig(
                         "https://sqs.us-east-1.amazonaws.com/123456789012/orders",
@@ -283,7 +557,8 @@ class AmazonSqsSourceReaderTest {
                         new SingleSplitReaderContext(context),
                         config,
                         deserializationSchema,
-                        ROW_TYPE);
+                        ROW_TYPE,
+                        format);
         reader.sqsClient = sqsClient.client;
         return reader;
     }
@@ -331,21 +606,48 @@ class AmazonSqsSourceReaderTest {
         }
     }
 
+    private static final class RuntimeFailingDeserializationSchema
+            extends TestDeserializationSchema {
+        private final AmazonSqsConnectorException failure;
+
+        private RuntimeFailingDeserializationSchema(AmazonSqsConnectorException failure) {
+            this.failure = failure;
+        }
+
+        @Override
+        public void deserialize(byte[] message, Collector<SeaTunnelRow> output) {
+            throw failure;
+        }
+    }
+
+    private static final class UnsupportedDeserializationSchema extends TestDeserializationSchema {
+        @Override
+        public SeaTunnelRow deserialize(byte[] message) throws IOException {
+            throw CommonError.unsupportedOperation("AmazonSqs", "deserialize");
+        }
+    }
+
     private static final class RecordingCollector implements Collector<SeaTunnelRow> {
         private final List<SeaTunnelRow> records = new ArrayList<>();
         private final String failureMessage;
+        private final int successfulCollectionsBeforeFailure;
 
         private RecordingCollector() {
-            this(null);
+            this(null, 0);
         }
 
         private RecordingCollector(String failureMessage) {
+            this(failureMessage, 0);
+        }
+
+        private RecordingCollector(String failureMessage, int successfulCollectionsBeforeFailure) {
             this.failureMessage = failureMessage;
+            this.successfulCollectionsBeforeFailure = successfulCollectionsBeforeFailure;
         }
 
         @Override
         public void collect(SeaTunnelRow record) {
-            if (failureMessage != null) {
+            if (failureMessage != null && records.size() >= successfulCollectionsBeforeFailure) {
                 throw new IllegalStateException(failureMessage);
             }
             records.add(record);
@@ -362,6 +664,14 @@ class AmazonSqsSourceReaderTest {
                 values.add(record.getField(0).toString());
             }
             return values;
+        }
+
+        private List<RowKind> rowKinds() {
+            List<RowKind> rowKinds = new ArrayList<>();
+            for (SeaTunnelRow record : records) {
+                rowKinds.add(record.getRowKind());
+            }
+            return rowKinds;
         }
     }
 
