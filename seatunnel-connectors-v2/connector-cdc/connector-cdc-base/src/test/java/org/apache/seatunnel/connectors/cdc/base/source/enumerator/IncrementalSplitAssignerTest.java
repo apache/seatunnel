@@ -152,8 +152,10 @@ class IncrementalSplitAssignerTest {
         assertTrue(reassignedSplit.isPresent());
         assertEquals(Collections.singletonList(tableId), reassignedSplit.get().getTableIds());
         assertSame(startupOffset, reassignedSplit.get().getStartupOffset());
+    }
+
+    @Test
     void shouldResolveLatestStopOffsetOnceAtSplitCreationAndReuseAfterRestore() {
- ([Fix][Connector-CDC] Address all review findings on the latest-stop fix (PR #11885))
         SourceConfig sourceConfig = mock(SourceConfig.class);
         OffsetFactory offsetFactory = mock(OffsetFactory.class);
         Offset committedOffset = mock(Offset.class);
