@@ -768,4 +768,26 @@ public class JsonRowDataSerDeSchemaTest {
         assertEquals(LocalDate.of(2024, 1, 15), row.getField(0));
         assertEquals(LocalDate.of(2024, 6, 20), row.getField(1));
     }
+
+    @Test
+    public void testTimestampFieldSupportsMixedPrecisionAcrossRows() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"timestamp_field"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        SeaTunnelRow secondPrecisionRow =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_field\":\"2022-09-24T22:45:00\"}".getBytes());
+        SeaTunnelRow fractionalPrecisionRow =
+                deserializationSchema.deserialize(
+                        "{\"timestamp_field\":\"2022-09-24T22:45:00.123\"}".getBytes());
+
+        assertEquals(LocalDateTime.of(2022, 9, 24, 22, 45, 0), secondPrecisionRow.getField(0));
+        assertEquals(
+                LocalDateTime.of(2022, 9, 24, 22, 45, 0, 123_000_000),
+                fractionalPrecisionRow.getField(0));
+    }
 }

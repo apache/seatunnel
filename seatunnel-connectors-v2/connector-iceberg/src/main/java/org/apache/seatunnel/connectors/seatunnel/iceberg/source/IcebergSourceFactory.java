@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iceberg.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -70,12 +71,15 @@ public class IcebergSourceFactory implements TableSourceFactory {
                         IcebergSourceOptions.KEY_USE_SNAPSHOT_ID,
                         IcebergSourceOptions.KEY_USE_SNAPSHOT_TIMESTAMP,
                         IcebergSourceOptions.KEY_STREAM_SCAN_STRATEGY,
-                        IcebergSourceOptions.KEY_INCREMENT_SCAN_INTERVAL,
                         IcebergCommonOptions.HADOOP_PROPS,
                         IcebergSourceOptions.HADOOP_CONF_PATH_PROP,
                         IcebergCommonOptions.KERBEROS_PRINCIPAL,
                         IcebergCommonOptions.KERBEROS_KEYTAB_PATH,
                         IcebergCommonOptions.KRB5_PATH)
+                .optional(
+                        IcebergSourceOptions.KEY_INCREMENT_SCAN_INTERVAL,
+                        Conditions.greaterThan(
+                                IcebergSourceOptions.KEY_INCREMENT_SCAN_INTERVAL, 0L))
                 .build();
     }
 

@@ -331,4 +331,75 @@ public class SQLNumericFunctionsTest {
         Assertions.assertEquals(expectedV2, (Double) outRow.getField(1), 1e-9);
         Assertions.assertEquals(expectedV3, (Double) outRow.getField(2), 1e-9);
     }
+
+    @Test
+    public void testIntegralOverflowFailsInsteadOfProducingNegativeValues() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"i", "l"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.LONG_TYPE});
+
+        // ROUND(2147483647, -1) is 2147483650, which does not fit in an INT column. It used to
+        // wrap to -2147483646 and be written downstream as an ordinary row.
+        TransformException rounded =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                runSql(
+                                        "select ROUND(i, -1) as r from dual",
+                                        rowType,
+                                        Integer.MAX_VALUE,
+                                        0L));
+        // The SQL engine wraps anything thrown while evaluating an expression, so the range
+        // detail lives on the cause.
+        Assertions.assertTrue(rounded.getMessage().contains("ROUND(i, -1)"), rounded.getMessage());
+        Assertions.assertNotNull(rounded.getCause());
+        Assertions.assertTrue(
+                rounded.getCause().getMessage().contains("2147483650"),
+                rounded.getCause().getMessage());
+
+        // ABS of the minimum BIGINT has no representation, so the row used to keep its sign.
+        TransformException absolute =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> runSql("select ABS(l) as a from dual", rowType, 0, Long.MIN_VALUE));
+        Assertions.assertNotNull(absolute.getCause());
+        Assertions.assertTrue(
+                absolute.getCause().getMessage().contains("BIGINT"),
+                absolute.getCause().getMessage());
+
+        SeaTunnelRow outRow =
+                runSql("select ROUND(i, -1) as r, ABS(l) as a from dual", rowType, 1234, -5L);
+        Assertions.assertEquals(1230, outRow.getField(0));
+        Assertions.assertEquals(5L, outRow.getField(1));
+    }
+
+    @Test
+    public void testTinyIntAndSmallIntFlowThroughNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {BasicType.BYTE_TYPE, BasicType.SHORT_TYPE});
+
+        // ROUND on a TINYINT column used to fall through the type switch and return the input
+        // unchanged, while the identical expression one type up rounded correctly.
+        SeaTunnelRow rounded =
+                runSql(
+                        "select ROUND(tiny_v, -1) as r_tiny, ROUND(small_v, -2) as r_small from dual",
+                        rowType,
+                        (byte) 44,
+                        (short) 1234);
+        Assertions.assertEquals((byte) 40, rounded.getField(0));
+        Assertions.assertEquals((short) 1200, rounded.getField(1));
+
+        // ABS and SIGN used to reject both column types outright.
+        SeaTunnelRow signed =
+                runSql(
+                        "select ABS(tiny_v) as a, SIGN(small_v) as s from dual",
+                        rowType,
+                        (byte) -44,
+                        (short) -1234);
+        Assertions.assertEquals((byte) 44, signed.getField(0));
+        Assertions.assertEquals(-1, signed.getField(1));
+    }
 }

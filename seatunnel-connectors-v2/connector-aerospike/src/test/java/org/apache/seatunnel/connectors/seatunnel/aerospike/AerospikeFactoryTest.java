@@ -17,16 +17,68 @@
 
 package org.apache.seatunnel.connectors.seatunnel.aerospike;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.aerospike.config.AerospikeSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.aerospike.sink.AerospikeSinkFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class AerospikeFactoryTest {
 
+    private final OptionRule sinkRule = new AerospikeSinkFactory().optionRule();
+
     @Test
-    void optionRule() {
-        Assertions.assertNotNull((new AerospikeSinkFactory()).optionRule());
-        Assertions.assertNotNull((new AerospikeSinkFactory()).optionRule());
+    void supportedDataFormatsPassValidation() {
+        for (String dataFormat : new String[] {"map", "string", "kv"}) {
+            Assertions.assertDoesNotThrow(() -> validate(dataFormat));
+        }
+    }
+
+    @Test
+    void dataFormatValidationIsCaseInsensitive() {
+        for (String dataFormat : new String[] {"MAP", "String", "Kv"}) {
+            Assertions.assertDoesNotThrow(() -> validate(dataFormat));
+        }
+    }
+
+    @Test
+    void unsupportedDataFormatFailsValidation() {
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validate("unsupported"));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains(AerospikeSinkOptions.DATA_FORMAT.key()));
+    }
+
+    @Test
+    void defaultDataFormatPassesValidation() {
+        Assertions.assertDoesNotThrow(() -> validate(validConfig()));
+    }
+
+    private void validate(String dataFormat) {
+        Map<String, Object> config = validConfig();
+        config.put(AerospikeSinkOptions.DATA_FORMAT.key(), dataFormat);
+        validate(config);
+    }
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(sinkRule);
+    }
+
+    private Map<String, Object> validConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(AerospikeSinkOptions.HOST.key(), "localhost");
+        config.put(AerospikeSinkOptions.PORT.key(), 3000);
+        config.put(AerospikeSinkOptions.NAMESPACE.key(), "test");
+        config.put(AerospikeSinkOptions.SET.key(), "test-set");
+        return config;
     }
 }

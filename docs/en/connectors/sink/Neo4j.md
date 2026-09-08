@@ -32,7 +32,7 @@ It supports one-row-at-a-time writes and batch writes with Cypher `UNWIND`.
 | kerberos_ticket            | String  | No       | -          | Kerberos ticket used for Neo4j authentication.                                                                                                       |
 | database                   | String  | Yes      | -          | Neo4j database name.                                                                                                                                 |
 | query                      | String  | Yes      | -          | Cypher statement used to write data. In `ONE_BY_ONE` mode, use placeholders such as `$name`; in `BATCH` mode, use `UNWIND $batch AS row`.            |
-| queryParamPosition         | Object  | Yes      | -          | Mapping between Cypher parameter names and input row field positions. It is required by the connector configuration.                                  |
+| queryParamPosition         | Object  | ONE_BY_ONE only | -          | Mapping between Cypher parameter names and input row field positions. Required when `write_mode = "ONE_BY_ONE"`.                                    |
 | max_batch_size             | Integer | No       | 500        | Maximum number of rows written in one transaction when `write_mode = "BATCH"`. Must be greater than 0.                                                |
 | write_mode                 | String  | No       | ONE_BY_ONE | Write mode. Supported values are `ONE_BY_ONE` and `BATCH`.                                                                                            |
 | max_transaction_retry_time | Long    | No       | 30         | Maximum transaction retry time, in seconds.                                                                                                          |
@@ -41,10 +41,9 @@ It supports one-row-at-a-time writes and batch writes with Cypher `UNWIND`.
 
 ## Notes
 
-- Use exactly one authentication method: username/password, bearer token, or Kerberos ticket.
+- Configure at least one authentication method: username/password, bearer token, or Kerberos ticket. If several are configured, username/password takes precedence, followed by bearer token and Kerberos ticket.
 - In `ONE_BY_ONE` mode, `queryParamPosition` maps each Cypher placeholder to a field position in the input row.
 - In `BATCH` mode, the query should use `UNWIND $batch AS row`. The connector passes the rows through the `batch` variable.
-- `queryParamPosition` is still required by the connector configuration in `BATCH` mode, even though the batch query reads values from `row`.
 - Field positions in `queryParamPosition` start from `0`, following the input schema field order.
 - In `BATCH` mode, each `row` entry uses the input field names, so the names referenced in the Cypher statement must match the upstream schema.
 
@@ -103,11 +102,6 @@ sink {
     max_batch_size = 500
     max_transaction_retry_time = 3
     max_connection_timeout = 10
-
-    queryParamPosition = {
-      name = 0
-      age = 1
-    }
 
     query = "UNWIND $batch AS row CREATE (n:BatchLabel) SET n.name = row.name, n.age = row.age"
   }
