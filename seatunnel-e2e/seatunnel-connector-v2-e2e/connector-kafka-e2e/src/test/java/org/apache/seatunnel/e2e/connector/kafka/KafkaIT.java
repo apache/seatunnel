@@ -41,8 +41,6 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.DefaultSeaTunnelRowSerializer;
-import org.apache.seatunnel.e2e.common.TestResource;
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
@@ -126,7 +124,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
-public class KafkaIT extends TestSuiteBase implements TestResource {
+public class KafkaIT extends AbstractKafkaIT {
     private static final String EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE = "sourceTopic";
     private static final String EXACTLY_ONCE_SINK_TOPIC_VARIABLE = "sinkTopic";
     private static final String EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE = "consumerGroup";
@@ -145,7 +143,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private List<ConsumerRecord<String, String>> nativeData;
 
-    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    /**
+     * Topics created dynamically during tests.
+     *
+     * <p>They are cleaned up in {@link #tearDown()} to keep later Kafka E2E cases isolated.
+     */
     private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     private final AtomicInteger startModeTestSequence = new AtomicInteger();
@@ -230,6 +232,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 .get(30, SECONDS);
                                 Assertions.assertEquals(topicNames.size(), desc.size());
                             });
+            // Leader visibility in the admin metadata view does not guarantee the broker the
+            // job's own Kafka client connects to has finished propagating the partition
+            // leader. Wait for a non-null leader on every partition; the static topics below
+            // are then written by generateTestData, whose produce itself forces end-to-end
+            // propagation before any test submits a job. A produce/consume/deleteRecords
+            // warm-up is intentionally NOT applied here: deleteRecords would advance the log
+            // start offset and break tests that read with absolute offsets
+            // (specific_offsets / restore), e.g. testKafkaSpecificOffsetsToConsole.
+            waitForKafkaTopicsReady(topicNames);
         }
 
         log.info("Write 100 records to topic test_topic_source");
@@ -1363,7 +1374,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .count();
     }
 
-    /** Get the current end offset (LEO) on partition-0. */
+    /**
+     * Gets the current end offset on partition-0.
+     *
+     * <p>The exactly-once assertions use this as the visible sink baseline.
+     */
     private long endOffsetOnP0(String topic) {
         try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
             TopicPartition tp0 = new TopicPartition(topic, 0);
@@ -1990,10 +2005,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -2025,10 +2037,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceDataRestore.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -2056,6 +2065,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 sourceDataRestore)));
     }
 
+    /**
+     * Regression guard for issue #11534: under EXACTLY_ONCE semantics a checkpoint could capture
+     * the transaction state before the first record's asynchronous send had registered its
+     * partitions with the broker, causing the committer to skip EndTxn and drop that record
+     * permanently. The checkData assertion below fails on both a lost record (matched &lt; 10) and
+     * a duplicate (matched &gt; 10), so it exercises the exactly-once guarantee in both directions
+     * once the send is flushed before the transaction state is captured in
+     * KafkaTransactionSender#prepareCommit.
+     */
     @TestTemplate
     @DisabledOnContainer(
             type = EngineType.SPARK,
@@ -2113,10 +2131,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         Long endOffset;
         KafkaConsumer<String, String> consumer = null;
@@ -2458,6 +2473,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
+    @Override
+    protected String kafkaBootstrapServers() {
+        return kafkaContainer.getBootstrapServers();
+    }
+
     private AdminClient createKafkaAdmin() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -2517,7 +2537,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(topicName);
     }
 
-    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    /**
+     * Builds the dynamic {@code -i key=value} variables for the exactly-once streaming template.
+     *
+     * <p>Each test run uses isolated topics and a dedicated consumer group.
+     */
     private List<String> buildExactlyOnceStreamingVariables(
             String sourceTopic, String sinkTopic, String consumerGroup) {
         return Arrays.asList(
@@ -2785,27 +2809,47 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long visibleEndOffsetExclusive =
                     consumer.endOffsets(Collections.singletonList(topicPartition))
                             .get(topicPartition);
-            long lastObservedOffset = startOffset - 1;
+            long nextOffset = startOffset;
             int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 if (records.isEmpty()) {
                     consecutiveEmptyPolls++;
-                    continue;
-                }
-                consecutiveEmptyPolls = 0;
-                for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
-                    if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
-                        data.add(record.value());
+                } else {
+                    consecutiveEmptyPolls = 0;
+                    for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                        if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
+                            data.add(record.value());
+                        }
                     }
-                    lastObservedOffset = Math.max(lastObservedOffset, record.offset());
                 }
-            } while (lastObservedOffset < visibleEndOffsetExclusive - 1
-                    && consecutiveEmptyPolls < 20);
+                long currentPosition = consumer.position(topicPartition);
+                // Exactly-once topics can contain transaction control records or aborted records
+                // that advance offsets without surfacing visible READ_COMMITTED records. Track the
+                // consumer position so we do not stop early while the broker is still advancing the
+                // transactional scan range.
+                if (records.isEmpty()
+                        && shouldStopAfterEmptyReadCommittedPoll(
+                                currentPosition, nextOffset, consecutiveEmptyPolls)) {
+                    break;
+                }
+                nextOffset = currentPosition;
+            } while (nextOffset < visibleEndOffsetExclusive && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);
         }
+    }
+
+    /**
+     * Decides whether repeated empty READ_COMMITTED polls are stable enough to stop scanning.
+     *
+     * <p>If the broker advances the consumer position across aborted or control records, the scan
+     * must continue even when no visible records are returned.
+     */
+    static boolean shouldStopAfterEmptyReadCommittedPoll(
+            long currentPosition, long previousPosition, int consecutiveEmptyPolls) {
+        return currentPosition == previousPosition && consecutiveEmptyPolls >= 20;
     }
 
     private Properties kafkaManualConsumerConfig() {

@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-activemq.md';
 
 > ActiveMQ sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text message. This is
@@ -31,6 +37,7 @@ a sink-only connector; SeaTunnel does not provide an ActiveMQ source connector.
 | dispatch_async                          | boolean | no       | -             | Whether the broker dispatches messages asynchronously.                                                                                                                |
 | nested_map_and_list_enabled             | boolean | no       | -             | Whether structured message properties and `MapMessage` entries can contain nested `Map` and `List` objects.                                                           |
 | warn_about_unstarted_connection_timeout | int     | no       | -             | Timeout in milliseconds before ActiveMQ warns that a connection was not started correctly. Set a value less than `0` to disable the warning in the ActiveMQ client. |
+| consumer_expiry_check_enabled            | boolean | no       | -             | Whether the ActiveMQ client checks message expiration in each `MessageConsumer` before dispatching messages.                                                                                                  |
 
 ## Notes
 
@@ -75,6 +82,57 @@ sink {
 }
 ```
 
+In streaming mode, the sink keeps the same broker connection open and writes each row as it
+arrives. Username/password can also be embedded in the `uri`, for example
+`tcp://admin:admin@localhost:61616`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice"] }
+    ]
+  }
+}
+
+sink {
+  ActiveMQ {
+    uri = "tcp://admin:admin@localhost:61616"
+    queue_name = "testQueue"
+  }
+}
+```
+
+## FAQ
+
+### Does ActiveMQ sink support topics as well as queues?
+
+No. The current sink writes only to JMS queues identified by `queue_name`; topic destinations are not supported by the connector factory. If you need publish/subscribe semantics, use a generic JMS connector or a separate ActiveMQ-targeted bridge that maps the upstream rows onto a topic — but stick to queues when you want to drive this connector directly.
+
+### How are `username` and `password` validated?
+
+They are optional. When set, both must be present (configuring one without the other fails the job). They take effect at the JMS connection factory level, which means they override any credentials already embedded in `uri`. If your broker requires an account, prefer the explicit `username`/`password` options over embedding them in the URL so they appear in job config logs instead of inside the connection string.
+
+### What message format does each row become?
+
+Each SeaTunnel row is serialized as one JSON text message sent to the configured `queue_name`. There is no `format` option; the JSON shape is fixed by the sink's serializer, so any consumer that wants a different encoding must decode the JSON body itself first.
+
+### Is exactly-once delivery supported?
+
+No. The sink is best-effort with bounded reconnect behavior driven by the underlying JMS client. Enable checkpointing at the job level if at-least-once replay from upstream is acceptable.
+
 ## Changelog
 
 <ChangeLog />
+

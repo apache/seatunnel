@@ -56,6 +56,7 @@ import static javax.transaction.xa.XAException.XA_HEURRB;
 import static javax.transaction.xa.XAException.XA_RBBASE;
 import static javax.transaction.xa.XAException.XA_RBTIMEOUT;
 import static javax.transaction.xa.XAException.XA_RBTRANSIENT;
+import static javax.transaction.xa.XAException.XA_RETRY;
 import static javax.transaction.xa.XAResource.TMENDRSCAN;
 import static javax.transaction.xa.XAResource.TMNOFLAGS;
 import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
@@ -72,7 +73,7 @@ public class XaFacadeImplAutoLoad implements XaFacade {
 
     private static final Logger LOG = LoggerFactory.getLogger(XaFacadeImplAutoLoad.class);
     private static final Set<Integer> TRANSIENT_ERR_CODES =
-            new HashSet<>(Arrays.asList(XA_RBTRANSIENT, XAER_RMFAIL));
+            new HashSet<>(Arrays.asList(XA_RETRY, XAER_RMFAIL));
     private static final Set<Integer> HEUR_ERR_CODES =
             new HashSet<>(Arrays.asList(XA_HEURRB, XA_HEURCOM, XA_HEURHAZ, XA_HEURMIX));
     private static final int MAX_RECOVER_CALLS = 100;
@@ -297,19 +298,22 @@ public class XaFacadeImplAutoLoad implements XaFacade {
         }
     }
 
+    /**
+     * Preserves retryable XA failures as {@link TransientXaException}; all other failures use the
+     * connector error contract.
+     */
     private static RuntimeException wrapException(String action, Optional<Xid> xid, Exception ex) {
         if (ex instanceof XAException) {
             XAException xa = (XAException) ex;
             if (TRANSIENT_ERR_CODES.contains(xa.errorCode)) {
-                throw new JdbcConnectorException(
-                        JdbcConnectorErrorCode.XA_OPERATION_FAILED, new TransientXaException(xa));
+                return new TransientXaException(xa);
             } else {
-                throw new JdbcConnectorException(
+                return new JdbcConnectorException(
                         JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                         formatErrorMessage(action, xid, of(xa.errorCode), xa.getMessage()));
             }
         } else {
-            throw new JdbcConnectorException(
+            return new JdbcConnectorException(
                     JdbcConnectorErrorCode.XA_OPERATION_FAILED,
                     formatErrorMessage(action, xid, empty(), ex.getMessage()),
                     ex);

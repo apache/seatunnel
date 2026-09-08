@@ -118,4 +118,9 @@ public class RedoLogOffset extends Offset {
         RedoLogOffset that = (RedoLogOffset) o;
         return offset.equals(that.offset);
     }
+
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
+    }
 }

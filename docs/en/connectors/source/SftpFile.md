@@ -99,6 +99,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | skip_header_row_number     | Long    | No       | 0                             | Skip the first few lines, but only for the txt and csv. <br/> For example, set like following: <br/> `skip_header_row_number = 2` <br/> then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                            |
 | read_columns               | list    | no       | -                             | The read column list of the data source, user can use it to implement field projection.                                                                                                                                                                                                                                                                                         |
 | sheet_name                 | String  | No       | -                             | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                           |
+| excel_engine               | string  | no       | POI                           | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                                                            |
+| poi_excel_max_file_size    | long    | no       | 52428800                      | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                                                            |
 | xml_row_tag                | string  | no       | -                             | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                                                                 |
 | xml_use_attr_format        | boolean | no       | -                             | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                                                            |
 | csv_use_header_line        | boolean | no       | false                         | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                             |
@@ -279,6 +281,19 @@ When this option is enabled for bounded Markdown file sources, the source enumer
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
@@ -292,6 +307,12 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### compress_codec [string]
 

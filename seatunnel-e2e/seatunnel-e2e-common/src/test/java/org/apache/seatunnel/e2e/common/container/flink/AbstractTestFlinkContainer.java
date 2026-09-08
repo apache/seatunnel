@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.common.container.flink;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -59,12 +57,28 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                     "taskmanager.numberOfTaskSlots: 10",
                     "parallelism.default: 4",
                     "env.java.opts: -Doracle.jdbc.timezoneAsRegion=false",
+                    // One TaskManager serves every job of a test class, and each SeaTunnel job
+                    // loads its connector jars through a fresh user-code ClassLoader. With the
+                    // Flink default of 256mb the metaspace is exhausted part-way through a long
+                    // class ("OutOfMemoryError: Metaspace"), which kills the TaskManager and fails
+                    // whichever job happens to be running. Raise the process budget alongside it so
+                    // the extra metaspace is not taken out of the derived heap/network/managed
+                    // pools.
+                    "taskmanager.memory.process.size: 2048m",
+                    "taskmanager.memory.jvm-metaspace.size: 512m",
+                    // CI runners host several containers at once, so a TaskManager can be starved
+                    // of CPU for longer than the 50s Flink default before it answers a heartbeat.
+                    // A missed heartbeat fails the job outright, because SeaTunnel jobs run with
+                    // NoRestartBackoffTimeStrategy unless the job config asks for restarts.
+                    "heartbeat.timeout: 120000",
+                    "heartbeat.interval: 10000",
                     // limit restart attempts in e2e to avoid infinite retries
                     "restart-strategy: fixed-delay",
                     "restart-strategy.fixed-delay.attempts: 2",
                     "restart-strategy.fixed-delay.delay: 1000");
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
+    private static final int FLINK_REST_PORT = 8081;
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
@@ -84,7 +98,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                         .withCommand("jobmanager")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("jobmanager")
-                        .withExposedPorts()
+                        .withExposedPorts(FLINK_REST_PORT)
                         .withEnv("FLINK_PROPERTIES", properties)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -99,7 +113,6 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                                 BindMode.READ_WRITE);
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-        jobManager.setPortBindings(Lists.newArrayList(String.format("%s:%s", 8081, 8081)));
 
         taskManager =
                 new GenericContainer<>(dockerImage)
@@ -193,6 +206,14 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     public String executeJobManagerInnerCommand(String command)
             throws IOException, InterruptedException {
         return jobManager.execInContainer("bash", "-c", command).getStdout();
+    }
+
+    public String getJobManagerHost() {
+        return jobManager.getHost();
+    }
+
+    public int getJobManagerRestPort() {
+        return jobManager.getMappedPort(FLINK_REST_PORT);
     }
 
     @Override

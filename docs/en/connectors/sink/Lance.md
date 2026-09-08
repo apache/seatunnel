@@ -13,7 +13,11 @@ import ChangeLog from '../changelog/connector-lance.md';
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -88,6 +92,10 @@ The target Lance table name. When it is not set, the connector uses the upstream
 Controls how Lance writes the dataset. The default is `CREATE`. Use a value
 supported by Lance `WriteParams.WriteMode`: `CREATE`, `APPEND`, or `OVERWRITE`.
 
+### lance.write.enable.stable.row.ids
+
+Whether to enable stable row IDs when writing Lance data. The connector reads this option into `LanceSinkConfig.enableStableRowIds` and exposes it via `getEnableStableRowIds()`, but **the value is currently parsed but not yet applied to the underlying Lance `WriteParams`** in `LanceSinkWriter.initializeDataset()` — toggling it has no observable effect on the write path today. This is a known gap pending a follow-up connector change.
+
 ### lance.write.storage.options
 
 Passes extra storage parameters to Lance as key-value pairs.
@@ -101,9 +109,15 @@ lance.write.storage.options = {
 }
 ```
 
+### multi_table_sink_replica
+
+Replica count used by the multi-table sink routing mechanism. Increase it when
+a single multi-table job writes to many Lance tables and the default single
+replica becomes a bottleneck. See [Sink Common Options](../common-options/sink-common-options.md).
+
 ## Data Type Mapping
 
-Lance uses the Apache Arrow type system. The sink creates the Lance schema from the incoming SeaTunnel schema.
+Lance uses the Apache Arrow type system. The sink creates the Lance schema from the incoming SeaTunnel schema. The current mapping narrows every integer SeaTunnel type (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) to Arrow `int32`, so `BIGINT` values outside the signed 32-bit range are truncated.
 
 | SeaTunnel Data Type | Lance / Arrow Data Type |
 |---------------------|-------------------------|
@@ -111,18 +125,24 @@ Lance uses the Apache Arrow type system. The sink creates the Lance schema from 
 | TINYINT             | int32                   |
 | SMALLINT            | int32                   |
 | INT                 | int32                   |
-| BIGINT              | int32                   |
+| BIGINT              | int32 (values outside the signed 32-bit range are truncated) |
 | FLOAT               | float32                 |
 | DOUBLE              | float64                 |
 | DECIMAL             | decimal128              |
 | NULL                | null                    |
 | BYTES               | binary                  |
 | DATE                | date32                  |
-| TIME                | time32                  |
-| TIMESTAMP           | timestamp               |
+| TIME                | time32 (millisecond precision) |
+| TIMESTAMP           | timestamp (microsecond, Asia/Shanghai timezone) |
 | STRING              | utf8                    |
 | ARRAY               | list                    |
 | MAP                 | map                     |
+
+:::tip
+
+The sink does not interpret `UPDATE` / `DELETE` row kinds as CDC operations — every upstream row is appended to the Lance dataset using the configured `lance.write.mode`. In streaming mode, the writer flushes the in-memory row buffer to Lance on every checkpoint.
+
+:::
 
 ## Task Example
 
@@ -163,6 +183,79 @@ sink {
     namespace_type = "dir"
     namespace_id = "root"
     table = "lance_sink_table"
+  }
+}
+```
+
+### Append Mode With Larger File Fragments
+
+`APPEND` mode keeps the existing dataset and adds new rows. Increase
+`lance.write.max-rows-per-file` and `lance.write.max-bytes-per-file` to reduce
+the number of Lance fragments when appending large batches.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 1000000
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+    plugin_output = "fake"
+  }
+}
+
+sink {
+  Lance {
+    dataset_path = "/tmp/seatunnel_mnt/lanceTest/lance_sink_table"
+    namespace_type = "dir"
+    namespace_id = "root"
+    table = "lance_sink_table"
+    lance.write.mode = "APPEND"
+    lance.write.max-rows-per-file = 100000
+    lance.write.max-rows-per-group = 5000
+    lance.write.max-bytes-per-file = 134217728
+  }
+}
+```
+
+### Streaming Append With Checkpoint Flush
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+    plugin_output = "fake_stream"
+  }
+}
+
+sink {
+  Lance {
+    plugin_input = "fake_stream"
+    dataset_path = "/tmp/seatunnel_mnt/lanceTest/lance_sink_table"
+    namespace_type = "dir"
+    namespace_id = "root"
+    table = "lance_sink_table"
+    lance.write.mode = "APPEND"
   }
 }
 ```

@@ -6,7 +6,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Read external data source data through JDBC.
+Read data from a DuckDB database file through JDBC. DuckDB is an in-process SQL OLAP database, so the connector
+talks to a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory database; there is no
+remote server. The connector supports both batch and streaming modes, parallel reads via `partition_column`,
+and reading multiple tables in one job through `table_list`.
 
 ## Support DuckDB Version
 
@@ -126,9 +129,9 @@ The partition_column min value for scan, if not set SeaTunnel will query databas
 
 How many splits do we need to split into, only support positive integer. default value is job parallelism.
 
-## tips
+## Tips
 
-> If the table can not be split(for example, table have no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
+> If the table can not be split (for example, the table has no Primary Key or Unique Index, and `partition_column` is not set), it will run in single concurrency.
 >
 > Use `table_path` to replace `query` for single table reading. If you need to read multiple tables, use `table_list`.
 
@@ -138,7 +141,7 @@ How many splits do we need to split into, only support positive integer. default
 
 > This example queries 'user_events' table in your test database in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
 
-```
+```hocon
 # Defining the runtime environment
 env {
   parallelism = 4
@@ -167,7 +170,7 @@ sink {
 
 ### parallel by partition_column
 
-```
+```hocon
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -198,7 +201,7 @@ sink {
 
 > Configuring `table_path` will turn on auto split, you can configure `split.*` to adjust the split strategy
 
-```
+```hocon
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -225,7 +228,7 @@ sink {
 
 > It is more efficient to specify the data within the upper and lower bounds of the query It is more efficient to read your data source according to the upper and lower boundaries you configured
 
-```
+```hocon
 source {
     Jdbc {
         url = "jdbc:duckdb:/tmp/test.db"

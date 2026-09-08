@@ -242,84 +242,87 @@ public class MultiTableSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
 
 ### 4.2 Writer: Multi-Table Writing with Replicas
 
+`MultiTableSinkWriter` does not write rows inline. Each row is routed to one of
+`blockingQueues`, and a `MultiTableWriterRunnable` worker drains that queue and writes
+through the sub-writers assigned to it. The queue index *is* the replica index.
+
+The listing below keeps the real class, field, and method names so it can be read
+side by side with
+`seatunnel-api/src/main/java/org/apache/seatunnel/api/sink/multitablesink/MultiTableSinkWriter.java`.
+It is **simplified**: schema-change short-circuiting, quarantine checks, retry, and
+exception wrapping are elided. It is not a copy of the source.
+
 ```java
-public class MultiTableSinkWriter<IN, CommitInfoT, StateT>
-    implements SinkWriter<IN, CommitInfoT, StateT> {
+public class MultiTableSinkWriter
+        implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
+                SupportSchemaEvolutionSinkWriter {
 
-    // Writers per table (multiple replicas per table)
-    private final Map<SinkIdentifier, SinkWriter<IN, CommitInfoT, StateT>> writers;
+    // Sub-writers, keyed by (table identifier, replica index)
+    private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
 
-    // Replica count per table
-    private final int replicaNum;
+    // Primary-key field index per table id. An empty Optional means "table has no
+    // primary key"; a missing key means "no sub-writer is registered for this table".
+    private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys;
 
-    // Context
-    private final int writerIndex; // This writer's global index
+    // One queue per writer thread. The queue index is the replica index.
+    private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues;
 
-    @Override
-    public void write(IN element) throws IOException {
-        SeaTunnelRow row = (SeaTunnelRow) element;
+    // Sub-writers grouped by queue index; each runnable owns exactly one group
+    private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
+            sinkWritersWithIndex;
 
-        // 1. Determine target table
-        TablePath tablePath = row.getTablePath();
-
-        // 2. Select replica for this table (load balancing)
-        int replicaIndex = selectReplica(tablePath, row);
-
-        // 3. Get writer for (table, replica)
-        SinkIdentifier identifier = new SinkIdentifier(
-            new TableIdentifier(tablePath),
-            replicaIndex
-        );
-
-        SinkWriter<IN, CommitInfoT, StateT> writer = writers.get(identifier);
-
-        // 4. Write to selected writer
-        writer.write(element);
-    }
-
-    private int selectReplica(TablePath tablePath, SeaTunnelRow row) {
-        // If primary key is available, route stably by primary key hash.
-        Optional<Object> primaryKey = extractPrimaryKeyIfPresent(row);
-        if (primaryKey.isPresent()) {
-            return Math.abs(primaryKey.get().hashCode()) % replicaNum;
-        }
-
-        // Otherwise, distribute across replicas (no stable routing guarantee).
-        return (int) (System.nanoTime() % replicaNum);
-    }
+    private final List<MultiTableWriterRunnable> runnable;
+    private final Random random = new Random();
+    private final MultiTableFailurePolicy failurePolicy;
 
     @Override
-    public Optional<CommitInfoT> prepareCommit(long checkpointId) throws IOException {
-        // Collect commit info from all writers
-        List<CommitInfoT> allCommitInfos = new ArrayList<>();
+    public void write(SeaTunnelRow element) throws IOException {
+        ensureQueueWorkersSubmitted();
+        subSinkErrorCheck();
 
-        for (SinkWriter<IN, CommitInfoT, StateT> writer : writers.values()) {
-            Optional<CommitInfoT> commitInfo = writer.prepareCommit(checkpointId);
-            commitInfo.ifPresent(allCommitInfos::add);
-        }
+        // 1. Rows carry the table id, not a TablePath
+        String tableId = element.getTableId();
+        Optional<Integer> primaryKey = tableId == null ? null : sinkPrimaryKeys.get(tableId);
 
-        // Wrap in multi-table commit info
-        return Optional.of((CommitInfoT) new MultiTableCommitInfo(allCommitInfos));
-    }
+        if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
+                || (primaryKey != null && !primaryKey.isPresent())) {
+            // 2a. No primary key to route on: spread rows across queues.
+            //     No per-key ordering guarantee.
+            int index = random.nextInt(blockingQueues.size());
+            offerRowElement(index, element);
 
-    @Override
-    public List<StateT> snapshotState(long checkpointId) throws IOException {
-        // Snapshot all writers
-        List<StateT> allStates = new ArrayList<>();
-
-        for (Map.Entry<SinkIdentifier, SinkWriter> entry : writers.entrySet()) {
-            List<StateT> states = entry.getValue().snapshotState(checkpointId);
-
-            // Tag states with sink identifier for recovery
-            for (StateT state : states) {
-                allStates.add(wrapWithIdentifier(entry.getKey(), state));
+        } else if (primaryKey == null) {
+            // 2b. No sub-writer registered for this table. Quarantine it and keep the
+            //     other tables running, or fail the job, per the failure policy.
+            if (failurePolicy.continueOtherTables()) {
+                handleTableFailure(tableId, MultiTableFailurePhase.RUNTIME_WRITE, ...);
+                return;
             }
-        }
+            throw new RuntimeException("multi table sink can not write table: " + tableId);
 
-        return allStates;
+        } else {
+            // 2c. Primary key present: route by its hash so equal keys always reach the
+            //     same queue, which is what preserves per-key ordering.
+            Object object = element.getField(primaryKey.get());
+            int index = 0;
+            if (object != null) {
+                // Known issue: Math.abs(Integer.MIN_VALUE) returns Integer.MIN_VALUE
+                // unchanged (still negative), so a key hashing to it yields a negative
+                // queue index. See section 5.3.
+                index = Math.abs(object.hashCode()) % blockingQueues.size();
+            }
+            offerRowElement(index, element);
+        }
     }
 }
 ```
+
+Because rows are queued rather than written inline, the checkpoint methods must first
+drain the queues. Both `prepareCommit(long)` and `snapshotState(long)` begin with
+`checkQueueRemain()`, then call the corresponding method on every sub-writer while
+holding that sub-writer's `MultiTableWriterRunnable` lock. Their real bodies are
+dominated by parallel task submission, per-table retry, and failure-policy handling,
+and are not reproduced here.
 
 ### 4.3 Committer: Multi-Table Commit Coordination
 
@@ -393,17 +396,36 @@ sink {
 
 ### 5.3 Replica Selection Strategies
 
-**Hash-Based (when primary key is available)**:
+Both strategies select a queue index in `[0, blockingQueues.size())`. See
+`MultiTableSinkWriter.write(SeaTunnelRow)` for the full branch structure.
+
+**Hash-based (primary key available)** — the same key always reaches the same queue,
+which is what preserves ordering for that key:
+
 ```java
-// Ensures same primary key always goes to same replica (order preservation)
-int replica = Math.abs(primaryKey.hashCode()) % replicaNum;
+int index = Math.abs(object.hashCode()) % blockingQueues.size();
 ```
 
-**Random (when primary key is not available)**:
+:::caution Known issue
+
+`Math.abs(Integer.MIN_VALUE)` returns `Integer.MIN_VALUE`, which is still negative, so a
+key whose hash is exactly `Integer.MIN_VALUE` produces a negative index whenever the queue
+count is not a power of two, and the subsequent `blockingQueues.get(index)` throws
+`IndexOutOfBoundsException`. This page documents the behaviour currently on `dev`; the
+defect is tracked in [#11720](https://github.com/apache/seatunnel/issues/11720), and this
+section should be updated when a fix lands.
+
+:::
+
+**Random (no primary key available)** — spreads load, with no stable routing guarantee:
+
 ```java
-// Distributes load across replicas (no stable routing guarantee)
-int replica = (int) (System.nanoTime() % replicaNum);
+int index = random.nextInt(blockingQueues.size());
 ```
+
+`random.nextInt(bound)` is used rather than a time-derived expression such as
+`System.nanoTime() % n`. `System.nanoTime()` is documented as possibly negative, so that
+expression can produce a negative index for exactly the same reason `Math.abs` can above.
 
 ## 6. Schema Management in Multi-Table
 
@@ -424,21 +446,39 @@ public class MultiTableSink {
 
 ### 6.2 Schema Evolution Routing
 
+A schema change is not applied by looping over sub-writers directly. It is enqueued as a
+**barrier** onto every queue, so each worker applies it at the same position in its own
+row stream and no row crosses the change out of order. Simplified, with the failure
+collection and post-enqueue error recheck elided:
+
 ```java
-public class MultiTableSinkWriter {
-    public void handleSchemaChange(SchemaChangeEvent event) {
-        // Route schema change to correct table writer
-        TablePath tablePath = event.getTableId().toTablePath();
+public class MultiTableSinkWriter implements SupportSchemaEvolutionSinkWriter {
 
-        // Apply to all replicas of this table
-        for (int i = 0; i < replicaNum; i++) {
-            SinkIdentifier identifier = new SinkIdentifier(
-                new TableIdentifier(tablePath),
-                i
-            );
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        subSinkErrorCheck();
 
-            SinkWriter writer = writers.get(identifier);
-            writer.applySchemaChange(event);
+        // Events for tables this writer does not serve return immediately,
+        // without waking the queue workers.
+        if (!hasSourceMatchedWriter(event)) {
+            return;
+        }
+
+        ensureQueueWorkersSubmitted();
+        subSinkErrorCheck();
+        enqueueSchemaChangeBarrier(event);
+    }
+
+    private void enqueueSchemaChangeBarrier(SchemaChangeEvent event) throws IOException {
+        // One barrier shared by all workers; it releases once every worker has arrived.
+        SchemaChangeBarrier barrier =
+                new SchemaChangeBarrier(
+                        event,
+                        runnable.size(),
+                        e -> dispatchSchemaChangeToTargets(e, schemaChangeFailures));
+
+        for (BlockingQueue<MultiTableWriterRunnable.QueueElement> queue : blockingQueues) {
+            offerQueueElement(queue, MultiTableWriterRunnable.schemaChangeRequest(barrier));
         }
     }
 }

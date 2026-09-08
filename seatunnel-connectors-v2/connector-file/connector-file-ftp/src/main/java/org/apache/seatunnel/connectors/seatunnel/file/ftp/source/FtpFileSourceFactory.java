@@ -101,6 +101,10 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .optional(
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.MARKDOWN,
