@@ -424,13 +424,18 @@ public class KafkaSourceConfig implements Serializable {
                     break;
                 case AVRO:
                     Optional<String> avroSchema = readonlyConfig.getOptional(AVRO_SCHEMA);
+                    boolean stripAvroSchemaRegistryHeader =
+                            readonlyConfig.get(STRIP_SCHEMA_REGISTRY_HEADER);
+                    if (stripAvroSchemaRegistryHeader && !avroSchema.isPresent()) {
+                        throw new SeaTunnelJsonFormatException(
+                                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                                "avro_schema must be configured when strip_schema_registry_header is enabled for avro format");
+                    }
                     schema =
-                            avroSchema
-                                    .map(
-                                            writerSchema ->
-                                                    new AvroDeserializationSchema(
-                                                            catalogTable, writerSchema))
-                                    .orElseGet(() -> new AvroDeserializationSchema(catalogTable));
+                            new AvroDeserializationSchema(
+                                    catalogTable,
+                                    avroSchema.orElse(null),
+                                    stripAvroSchemaRegistryHeader);
                     break;
                 case PROTOBUF:
                     boolean stripSchemaRegistryHeader =
