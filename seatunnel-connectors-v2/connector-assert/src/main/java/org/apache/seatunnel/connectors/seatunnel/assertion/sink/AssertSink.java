@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertConfig.CATALOG_TABLE_RULES;
@@ -56,6 +57,14 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final Map<String, AssertCatalogTableRule> assertCatalogTableRule;
     private final String catalogTableName;
     private final CatalogTable catalogTable;
+
+    /**
+     * Fresh per {@link AssertSink} construction (one per job/table), and shared by every writer
+     * this sink creates via {@link #createWriter}. Lets {@link AssertSinkWriter} isolate its
+     * cross-subtask static row/table-name counters from any other job or test invocation that
+     * happens to reuse the same table name; see {@link AssertSinkWriter#LONG_ACCUMULATOR}.
+     */
+    private final String sinkInstanceId = UUID.randomUUID().toString();
 
     public AssertSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
@@ -128,7 +137,8 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                 assertFieldRules,
                 assertRowRules,
                 assertTableRule,
-                catalogTableName);
+                catalogTableName,
+                sinkInstanceId);
     }
 
     @Override
