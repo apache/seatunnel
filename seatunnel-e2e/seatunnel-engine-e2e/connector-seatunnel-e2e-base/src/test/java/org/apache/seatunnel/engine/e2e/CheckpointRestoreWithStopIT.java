@@ -50,6 +50,34 @@ import java.util.stream.Stream;
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
+/**
+ * E2E regression coverage for SeaTunnel Zeta's checkpoint-based job restore ({@code
+ * --restore-with-checkpoint}), driven against a real streaming job on a single, class-scoped
+ * cluster: {@link SeaTunnelEngineContainer} is annotated {@code @TestInstance(PER_CLASS)}, so its
+ * {@code @BeforeAll}/{@code @AfterAll} start and stop ONE container shared by every {@code @Test}
+ * method below, not a fresh one per method.
+ *
+ * <p><b>Cross-test isolation contract:</b> because the cluster is shared and JUnit Jupiter's
+ * default method order (no {@code @TestMethodOrder} is declared on this class) is deterministic but
+ * intentionally NOT declaration order, either {@code @Test} method here may run first. {@link
+ * #testRestoreFromCheckpointAfterStop} and {@link
+ * #testRestoreFailsWhenLatestCheckpointFileIsCorrupted} both drive a fresh (non-restored) run of
+ * the same {@code CheckpointableSequenceSource}, which always starts at the same fixed {@code
+ * start_offset = 0}, so their "before stop" offset ranges structurally overlap. Both tests treat
+ * REST job-status polling plus the client CLI's own exit code as sufficient proof that a stopped
+ * job is fully done producing output (neither test waits on any stronger, worker-side
+ * resource-release signal beyond that). If they also shared one sink directory, that shared
+ * assumption would only need to be slightly optimistic for output from whichever test's job is
+ * still finishing teardown when the other test starts to land in -- or right after -- the other
+ * test's freshly (re)created sink directory, permanently inflating its observed row count with
+ * foreign, low-offset rows that never self-resolve. To stay independent regardless of run order,
+ * {@code testRestoreFailsWhenLatestCheckpointFileIsCorrupted} therefore uses its own conf file
+ * ({@link #CORRUPTED_CHECKPOINT_CONF_FILE}), its own sink directory ({@link
+ * #CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR}) instead of the shared {@link #SINK_OUTPUT_DIR}, and its
+ * own SeaTunnel job {@code --name} (derived automatically from its conf file's own name); its
+ * {@code finally} block also removes its own checkpoint directory inside the container. Do not
+ * repoint it back at the shared conf/sink constants without re-establishing this isolation.
+ */
 public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
 
     private static final String HOST = "http://localhost:";
@@ -67,6 +95,25 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
      * out-of-the-box default.
      */
     private static final String CHECKPOINT_STORAGE_ROOT = "/tmp/seatunnel/checkpoint_snapshot/";
+
+    /**
+     * Dedicated conf file for {@link #testRestoreFailsWhenLatestCheckpointFileIsCorrupted}; see the
+     * class Javadoc's "Cross-test isolation contract" for why this test cannot share {@link
+     * #CONF_FILE} with {@link #testRestoreFromCheckpointAfterStop}. Identical to {@link #CONF_FILE}
+     * except {@code sink.LocalFile.path}, which points at {@link
+     * #CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR} instead of {@link #SINK_OUTPUT_DIR}.
+     */
+    private static final String CORRUPTED_CHECKPOINT_CONF_FILE =
+            "/checkpoint-restore-with-stop/stream_checkpointable_sequence_to_localfile_corrupted_checkpoint.conf";
+
+    /**
+     * Sink output directory used only by {@link
+     * #testRestoreFailsWhenLatestCheckpointFileIsCorrupted}; kept separate from {@link
+     * #SINK_OUTPUT_DIR} so this test's output can never be mistaken for the sibling test's
+     * regardless of which one runs first (see the class Javadoc).
+     */
+    private static final String CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR =
+            HOST_VOLUME_MOUNT_PATH + "/checkpoint-restore-with-stop/sinkfile-corrupted-checkpoint";
 
     @Override
     @BeforeAll
@@ -168,14 +215,21 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
     @Test
     public void testRestoreFailsWhenLatestCheckpointFileIsCorrupted()
             throws IOException, InterruptedException, java.util.concurrent.ExecutionException {
-        FileUtils.createNewDir(SINK_OUTPUT_DIR);
+        FileUtils.createNewDir(CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR);
+        // Tracked outside the try block (with a sentinel for definite-assignment) purely so the
+        // finally block below can always reach this test's own checkpoint directory inside the
+        // container; JobIdGenerator.newJobId() cannot throw, so the sentinel is never observed.
+        long sourceJobIdForCleanup = -1L;
         try {
             long sourceJobId = JobIdGenerator.newJobId();
+            sourceJobIdForCleanup = sourceJobId;
             CompletableFuture<Container.ExecResult> sourceJobFuture =
                     CompletableFuture.supplyAsync(
                             () -> {
                                 try {
-                                    return executeJob(CONF_FILE, String.valueOf(sourceJobId));
+                                    return executeJob(
+                                            CORRUPTED_CHECKPOINT_CONF_FILE,
+                                            String.valueOf(sourceJobId));
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -191,7 +245,8 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
             awaitJobStatus(sourceJobId, "CANCELED");
             Assertions.assertEquals(0, sourceJobFuture.get().getExitCode());
 
-            List<Long> offsetsBeforeRestoreAttempt = readObservedOffsets();
+            List<Long> offsetsBeforeRestoreAttempt =
+                    readObservedOffsets(CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR);
             Assertions.assertFalse(
                     offsetsBeforeRestoreAttempt.isEmpty(),
                     "Expected committed offsets before stop");
@@ -221,7 +276,7 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
                             () -> {
                                 try {
                                     return restoreJobWithCheckpoint(
-                                            CONF_FILE,
+                                            CORRUPTED_CHECKPOINT_CONF_FILE,
                                             String.valueOf(sourceJobId),
                                             String.valueOf(restoreJobId));
                                 } catch (Exception e) {
@@ -259,7 +314,8 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
             // Neither a silent restart-from-scratch nor a silent fallback to the older checkpoint
             // happened: not a single new row was ever appended to the sink after the failed
             // restore attempt, because the job never reached RUNNING.
-            List<Long> offsetsAfterFailedRestore = readObservedOffsets();
+            List<Long> offsetsAfterFailedRestore =
+                    readObservedOffsets(CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR);
             Assertions.assertEquals(
                     offsetsBeforeRestoreAttempt.size(),
                     offsetsAfterFailedRestore.size(),
@@ -276,7 +332,19 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
                     olderFileChecksumsAfterFailedRestore,
                     "The older, non-corrupted checkpoint file(s) must remain untouched");
         } finally {
-            FileUtils.deleteFile(SINK_OUTPUT_DIR);
+            // Sink-directory cleanup runs first: it is what directly prevents this test's output
+            // from leaking into a sibling test that may run immediately afterward (see the class
+            // Javadoc), so it must not be skipped even if the checkpoint-directory cleanup below
+            // throws.
+            FileUtils.deleteFile(CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR);
+            if (sourceJobIdForCleanup != -1L) {
+                // Best-effort: remove this test's own checkpoint directory inside the shared,
+                // class-scoped container so the deliberately-corrupted file and the retained
+                // older checkpoints cannot outlive this test method or accumulate for the rest of
+                // the class's lifetime.
+                server.execInContainer(
+                        "sh", "-c", "rm -rf " + getCheckpointDirectory(sourceJobIdForCleanup));
+            }
         }
     }
 
@@ -514,8 +582,23 @@ public class CheckpointRestoreWithStopIT extends SeaTunnelEngineContainer {
         return offsets.stream().mapToLong(Long::longValue).max().orElse(-1L);
     }
 
+    /**
+     * Reads {@link #SINK_OUTPUT_DIR}; used only by {@link #testRestoreFromCheckpointAfterStop} and
+     * its helpers. See {@link #readObservedOffsets(String)} for the corruption test's own,
+     * separately-directoried variant.
+     */
     private List<Long> readObservedOffsets() {
-        Path outputDir = Paths.get(SINK_OUTPUT_DIR);
+        return readObservedOffsets(SINK_OUTPUT_DIR);
+    }
+
+    /**
+     * Reads every observed sink offset from the given output directory. Kept parameterized (rather
+     * than hardcoding {@link #SINK_OUTPUT_DIR}) so {@link
+     * #testRestoreFailsWhenLatestCheckpointFileIsCorrupted} can read its own, separate {@link
+     * #CORRUPTED_CHECKPOINT_SINK_OUTPUT_DIR} without ever mixing rows with the sibling test.
+     */
+    private List<Long> readObservedOffsets(String sinkOutputDir) {
+        Path outputDir = Paths.get(sinkOutputDir);
         if (!Files.exists(outputDir)) {
             return Collections.emptyList();
         }
