@@ -58,6 +58,10 @@ github:
         - actor_id: 118420
           actor_type: Team
           bypass_mode: always
+        # Apache SeaTunnel committers can bypass the merge queue when necessary.
+        - actor_id: 5467871
+          actor_type: Team
+          bypass_mode: always
       conditions:
         ref_name:
           include:
