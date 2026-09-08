@@ -394,10 +394,11 @@ public class CoordinatorServiceTest {
                     oldCoordinator.getPendingJobQueue().contains(20001L),
                     "old coordinator pending queue should not be consumed after failover");
 
-            AtomicBoolean newMasterFlag = new AtomicBoolean(true);
+            AtomicBoolean newMasterFlag = new AtomicBoolean(false);
             SeaTunnelServer newServer = Mockito.mock(SeaTunnelServer.class);
             Mockito.when(newServer.isMasterNode()).thenAnswer(invocation -> newMasterFlag.get());
             CoordinatorService newCoordinator = newMockCoordinatorService(newServer);
+            newMasterFlag.set(true);
             try {
                 CountDownLatch newRunLatch = new CountDownLatch(1);
                 JobMaster newPendingJob =
@@ -497,10 +498,11 @@ public class CoordinatorServiceTest {
 
     @Test
     void testCheckNewActiveMasterIsIdempotentWhenAlreadyActive() throws Exception {
-        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
         CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        masterFlag.set(true);
         try {
             CountDownLatch runLatch = new CountDownLatch(1);
             JobMaster jobMaster = enqueueMockPendingJob(coordinatorService, 40001L, runLatch);
@@ -665,13 +667,14 @@ public class CoordinatorServiceTest {
 
     @Test
     void testPendingJobWithInsufficientResourceRespectsWaitStrategy() throws Exception {
-        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
 
         EngineConfig engineConfig = new EngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.WAIT);
         CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        masterFlag.set(true);
         try {
             CountDownLatch runLatch = new CountDownLatch(1);
             JobMaster jobMaster =
@@ -694,13 +697,14 @@ public class CoordinatorServiceTest {
 
     @Test
     void testPendingJobWithInsufficientResourceRespectsRejectStrategy() throws Exception {
-        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
 
         EngineConfig engineConfig = new EngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        masterFlag.set(true);
         try {
             CountDownLatch runLatch = new CountDownLatch(1);
             JobMaster jobMaster =
@@ -733,6 +737,82 @@ public class CoordinatorServiceTest {
                 .getHazelcastConfig()
                 .setProperty("hazelcast.tcp.join.port.try.count", String.valueOf(joinPortTryCount));
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+    }
+
+    @Test
+    void testConcurrentAdmissionsCannotOvertakeBlockedMetadataPublication() throws Exception {
+        CoordinatorService coordinator =
+                newMockCoordinatorService(Mockito.mock(SeaTunnelServer.class));
+        ExecutorService submitters = Executors.newFixedThreadPool(2);
+        CountDownLatch firstPublication = new CountDownLatch(1);
+        CountDownLatch releasePublication = new CountDownLatch(1);
+        CountDownLatch secondPublication = new CountDownLatch(1);
+        IMap<Long, JobInfo> metadata = Mockito.mock(IMap.class);
+        ReflectionUtils.setField(coordinator, "runningJobInfoIMap", metadata);
+        ReflectionUtils.setField(coordinator, "isActive", true);
+        Mockito.doAnswer(
+                        invocation -> {
+                            firstPublication.countDown();
+                            Assertions.assertTrue(releasePublication.await(10, TimeUnit.SECONDS));
+                            return null;
+                        })
+                .when(metadata)
+                .set(Mockito.eq(1L), Mockito.any(JobInfo.class));
+        Mockito.doAnswer(
+                        invocation -> {
+                            secondPublication.countDown();
+                            return null;
+                        })
+                .when(metadata)
+                .set(Mockito.eq(2L), Mockito.any(JobInfo.class));
+        Method enqueue =
+                CoordinatorService.class.getDeclaredMethod(
+                        "enqueueSubmittedJob", PendingJobInfo.class, JobInfo.class, long.class);
+        enqueue.setAccessible(true);
+        JobMaster firstMaster = Mockito.mock(JobMaster.class);
+        JobMaster secondMaster = Mockito.mock(JobMaster.class);
+        Mockito.when(firstMaster.getJobId()).thenReturn(1L);
+        Mockito.when(secondMaster.getJobId()).thenReturn(2L);
+        // The second job was submitted earlier but finished initialization later.
+        JobInfo firstInfo = new JobInfo(200L, null);
+        JobInfo secondInfo = new JobInfo(100L, null);
+        try {
+            Future<?> first =
+                    submitters.submit(
+                            () ->
+                                    enqueue.invoke(
+                                            coordinator,
+                                            new PendingJobInfo(
+                                                    PendingSourceState.SUBMIT, firstMaster),
+                                            firstInfo,
+                                            0L));
+            Assertions.assertTrue(firstPublication.await(10, TimeUnit.SECONDS));
+            CountDownLatch secondAttempt = new CountDownLatch(1);
+            Future<?> second =
+                    submitters.submit(
+                            () -> {
+                                secondAttempt.countDown();
+                                return enqueue.invoke(
+                                        coordinator,
+                                        new PendingJobInfo(PendingSourceState.SUBMIT, secondMaster),
+                                        secondInfo,
+                                        0L);
+                            });
+            Assertions.assertTrue(secondAttempt.await(10, TimeUnit.SECONDS));
+            Assertions.assertFalse(
+                    secondPublication.await(300, TimeUnit.MILLISECONDS),
+                    "A later admission must not overtake an unfinished metadata publication");
+            releasePublication.countDown();
+            first.get(10, TimeUnit.SECONDS);
+            second.get(10, TimeUnit.SECONDS);
+            Assertions.assertTrue(firstInfo.getEnqueueSequence() < secondInfo.getEnqueueSequence());
+            Assertions.assertEquals(1L, coordinator.getPendingJobQueue().take().getJobId());
+            Assertions.assertEquals(2L, coordinator.getPendingJobQueue().take().getJobId());
+        } finally {
+            releasePublication.countDown();
+            submitters.shutdownNow();
+            coordinator.shutdown();
+        }
     }
 
     private CoordinatorService newMockCoordinatorService(SeaTunnelServer server) {
@@ -1870,10 +1950,12 @@ public class CoordinatorServiceTest {
         try {
             SeaTunnelServer server =
                     instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-            CoordinatorService coordinatorService = server.getCoordinatorService();
-            await().atMost(60, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            CoordinatorService coordinatorService =
+                    await().atMost(60, TimeUnit.SECONDS)
+                            .ignoreExceptions()
+                            .until(
+                                    server::getCoordinatorService,
+                                    CoordinatorService::isCoordinatorActive);
 
             long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
             LogicalDag logicalDag =

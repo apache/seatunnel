@@ -111,6 +111,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -196,6 +197,10 @@ public class CoordinatorService {
     // snapshots this value at submission time and exits when it is bumped. Bumped inside
     // checkNewActiveMaster and clearCoordinatorService to invalidate any in-flight scheduler.
     private final AtomicLong pendingJobScheduleEpoch = new AtomicLong();
+    // Sequence allocation, replicated metadata publication and local insertion form one ordered
+    // operation. Initialization stays outside this lock, so order reflects readiness to enqueue.
+    private final ReentrantLock pendingJobEnqueueLock = new ReentrantLock();
+    private long lastEnqueueSequence;
     // JobMasters currently inside jobMaster.preApplyResources(). Interrupted en masse by
     // clearCoordinatorService so they release any pending RPC and stop touching shared state.
     private final Set<JobMaster> schedulingJobMasters = ConcurrentHashMap.newKeySet();
@@ -237,7 +242,7 @@ public class CoordinatorService {
 
     private EventProcessor eventProcessor;
 
-    private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
+    private PassiveCompletableFuture<Void> restoreAllJobFromMasterNodeSwitchFuture;
 
     private final boolean isWaitStrategy;
 
@@ -407,7 +412,19 @@ public class CoordinatorService {
             return;
         }
         Long jobId = pendingJobInfo.getJobId();
-        final JobMaster jobMaster = pendingJobInfo.getJobMaster();
+        final JobMaster jobMaster;
+        try {
+            jobMaster = pendingJobInfo.getJobMaster();
+        } catch (Throwable e) {
+            pendingJobQueue.remove(pendingJobInfo);
+            releasePendingJobInfo(pendingJobInfo);
+            throw e;
+        }
+        if (pendingJobQueue.getById(jobId) != pendingJobInfo) {
+            // A cancellation may have removed the job while its lazy initialization was running.
+            releasePendingJobInfo(pendingJobInfo);
+            return;
+        }
         logger.fine(
                 String.format(
                         "Start pending job schedule, pendingJob Size : %s",
@@ -434,6 +451,10 @@ public class CoordinatorService {
                 // so the next-epoch scheduler must not re-dispatch it. Restore on the next
                 // activation will rebuild a fresh PendingJobInfo from runningJobInfoIMap.
                 pendingJobQueue.remove(pendingJobInfo);
+                return;
+            }
+            if (pendingJobQueue.getById(jobId) != pendingJobInfo) {
+                // Cancellation owns this master's completion; do not interrupt its future.
                 return;
             }
             if (!preApplyResources) {
@@ -599,7 +620,7 @@ public class CoordinatorService {
     public JobMaster getJobMaster(Long jobId) {
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
         if (pendingJobInfo != null) {
-            return pendingJobInfo.getJobMaster();
+            return pendingJobInfo.getInitializedJobMaster();
         }
         return runningJobMasterMap.get(jobId);
     }
@@ -655,10 +676,12 @@ public class CoordinatorService {
         }
 
         reschedulePendingJobCleanup();
+        long restoreEpoch = pendingJobScheduleEpoch.get();
         restoreAllJobFromMasterNodeSwitchFuture =
-                new PassiveCompletableFuture(
+                new PassiveCompletableFuture<>(
                         CompletableFuture.runAsync(
-                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+                                () -> restoreAllRunningJobFromMasterNodeSwitch(restoreEpoch),
+                                executorService));
     }
 
     private void reschedulePendingJobCleanup() {
@@ -986,7 +1009,7 @@ public class CoordinatorService {
      * JobMaster}. Each restored job is re-enqueued as a pending job so it can re-enter the normal
      * scheduling path on the new master.
      */
-    private void restoreAllRunningJobFromMasterNodeSwitch() {
+    private void restoreAllRunningJobFromMasterNodeSwitch(long restoreEpoch) {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
         try {
             needRestoreFromMasterNodeSwitchJobs =
@@ -1006,6 +1029,30 @@ public class CoordinatorService {
         } catch (Exception e) {
             throw new SeaTunnelEngineException(
                     "Failed to fetch running jobs from IMap during master switch restore", e);
+        }
+        orderJobsForRestore(needRestoreFromMasterNodeSwitchJobs);
+        pendingJobEnqueueLock.lock();
+        try {
+            if (pendingJobScheduleEpoch.get() != restoreEpoch) {
+                return;
+            }
+            lastEnqueueSequence =
+                    needRestoreFromMasterNodeSwitchJobs.stream()
+                            .mapToLong(entry -> entry.getValue().getEnqueueSequence())
+                            .max()
+                            .orElse(0L);
+            for (Map.Entry<Long, JobInfo> entry : needRestoreFromMasterNodeSwitchJobs) {
+                if (pendingJobScheduleEpoch.get() != restoreEpoch
+                        || Thread.currentThread().isInterrupted()) {
+                    return;
+                }
+                if (entry.getValue().getEnqueueSequence() == 0) {
+                    entry.getValue().setEnqueueSequence(++lastEnqueueSequence);
+                    runningJobInfoIMap.set(entry.getKey(), entry.getValue());
+                }
+            }
+        } finally {
+            pendingJobEnqueueLock.unlock();
         }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
             return;
@@ -1053,8 +1100,19 @@ public class CoordinatorService {
                 throw new SeaTunnelEngineException("wait worker register error", e);
             }
         }
+        // Already-running jobs must reclaim their existing execution before waiting jobs ask for
+        // resources. A waiting job must not block the restoration of a job holding those slots.
+        List<Map.Entry<Long, JobInfo>> waitingJobs = new ArrayList<>();
+        List<Map.Entry<Long, JobInfo>> activeJobs = new ArrayList<>();
+        for (Map.Entry<Long, JobInfo> entry : needRestoreFromMasterNodeSwitchJobs) {
+            if (isWaitStrategy && runningJobStateIMap.get(entry.getKey()) == JobStatus.PENDING) {
+                waitingJobs.add(entry);
+            } else {
+                activeJobs.add(entry);
+            }
+        }
         List<CompletableFuture<Void>> collect =
-                needRestoreFromMasterNodeSwitchJobs.stream()
+                activeJobs.stream()
                         .map(
                                 entry ->
                                         CompletableFuture.runAsync(
@@ -1086,9 +1144,64 @@ public class CoordinatorService {
             CompletableFuture<Void> voidCompletableFuture =
                     CompletableFuture.allOf(collect.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
+            for (Map.Entry<Long, JobInfo> entry : waitingJobs) {
+                if (pendingJobScheduleEpoch.get() != restoreEpoch) {
+                    throw new InterruptedException(
+                            "Coordinator changed during pending job restore");
+                }
+                Long jobId = entry.getKey();
+                JobInfo jobInfo = entry.getValue();
+                pendingJobQueue.put(
+                        new PendingJobInfo(
+                                jobId,
+                                restoreJobImmutableInformation(jobInfo),
+                                () -> initializeWaitingJob(jobId, jobInfo, restoreEpoch)));
+            }
         } catch (Exception e) {
             logger.severe(ExceptionUtils.getMessage(e));
             throw new SeaTunnelEngineException(e);
+        }
+    }
+
+    /**
+     * Orders recorded admissions first. Legacy/unacknowledged submissions have no recoverable FIFO
+     * position; initialize them deterministically after recorded jobs, then persist it once.
+     */
+    static void orderJobsForRestore(List<Map.Entry<Long, JobInfo>> jobs) {
+        jobs.sort(
+                Comparator.comparingLong(
+                                (Map.Entry<Long, JobInfo> entry) ->
+                                        entry.getValue().getEnqueueSequence() == 0
+                                                ? Long.MAX_VALUE
+                                                : entry.getValue().getEnqueueSequence())
+                        .thenComparingLong(entry -> entry.getValue().getInitializationTimestamp())
+                        .thenComparingLong(Map.Entry::getKey));
+    }
+
+    private JobMaster initializeWaitingJob(Long jobId, JobInfo jobInfo, long restoreEpoch) {
+        if (!isPendingJobSchedulerCurrent(restoreEpoch)) {
+            throw new CancellationException("Coordinator changed before pending job restore");
+        }
+        try {
+            JobMaster jobMaster = createRestoredJobMaster(jobId, jobInfo);
+            if (!isPendingJobSchedulerCurrent(restoreEpoch)) {
+                jobMaster.interrupt();
+                throw new CancellationException("Coordinator changed during pending job restore");
+            }
+            jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+            return jobMaster;
+        } catch (Throwable e) {
+            // No tasks from a waiting job were deployed. Surface a failed re-plan through job
+            // history and release the queue head, rather than retrying forever and starving it.
+            if (isPendingJobSchedulerCurrent(restoreEpoch)) {
+                runningJobStateIMap.set(jobId, JobStatus.FAILED);
+                try {
+                    cleanupTerminalZombieJob(jobId, jobInfo, JobStatus.FAILED);
+                } catch (RuntimeException cleanupFailure) {
+                    e.addSuppressed(cleanupFailure);
+                }
+            }
+            throw ExceptionUtil.rethrow(e);
         }
     }
 
@@ -1133,6 +1246,22 @@ public class CoordinatorService {
             return;
         }
 
+        JobMaster jobMaster = createRestoredJobMaster(jobId, jobInfo);
+        PendingJobInfo pendingJobInfo = new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
+        try {
+            pendingJobQueue.put(pendingJobInfo);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new SeaTunnelEngineException(
+                    String.format(
+                            "Job id %s restore interrupted while entering pending queue", jobId),
+                    e);
+        }
+        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
+        logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+    }
+
+    private JobMaster createRestoredJobMaster(Long jobId, JobInfo jobInfo) {
         JobMaster jobMaster =
                 new JobMaster(
                         jobId,
@@ -1154,18 +1283,7 @@ public class CoordinatorService {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
 
-        PendingJobInfo pendingJobInfo = new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
-        try {
-            pendingJobQueue.put(pendingJobInfo);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new SeaTunnelEngineException(
-                    String.format(
-                            "Job id %s restore interrupted while entering pending queue", jobId),
-                    e);
-        }
-        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
-        logger.info(String.format("The restore job enter pending queue, JobId: %s", jobId));
+        return jobMaster;
     }
 
     private void cleanupTerminalZombieJob(long jobId, JobInfo jobInfo, JobStatus finalStatus) {
@@ -1254,8 +1372,8 @@ public class CoordinatorService {
                 if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
                     this.executorService = createCoordinatorExecutor();
                 }
-                initCoordinatorService();
                 pendingJobScheduleEpoch.incrementAndGet();
+                initCoordinatorService();
                 isActive = true;
                 startPendingJobScheduleThread();
                 seaTunnelServer.startRealtimeMetricsService(this);
@@ -1308,14 +1426,7 @@ public class CoordinatorService {
         // REJECT strategy) caused an interrupted JobMaster's permanently-poisoned
         // jobMasterCompleteFuture to be picked by the next-epoch scheduler and led to duplicate
         // physicalPlan.startJob() invocations for the same job id.
-        pendingJobQueue
-                .getJobIdMap()
-                .values()
-                .forEach(
-                        pendingJobInfo -> {
-                            JobMaster jobMaster = pendingJobInfo.getJobMaster();
-                            jobMaster.interrupt();
-                        });
+        pendingJobQueue.getJobIdMap().values().forEach(PendingJobInfo::interrupt);
         pendingJobQueue.clear();
         executorService.shutdownNow();
         runningJobMasterMap.clear();
@@ -1382,11 +1493,12 @@ public class CoordinatorService {
     public PassiveCompletableFuture<Void> submitJob(
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
+        long submissionEpoch = pendingJobScheduleEpoch.get();
 
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
         // This avoids potential issues like redundant job restores or other anomalies.
-        if (getJobMaster(jobId) != null) {
+        if (pendingJobQueue.contains(jobId) || runningJobMasterMap.containsKey(jobId)) {
             logger.warning(
                     String.format(
                             "The job %s is currently running; no need to submit again.", jobId));
@@ -1400,6 +1512,18 @@ public class CoordinatorService {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
                     try {
+                        // Rebuild the replicated queue before accepting a new admission. Wait in
+                        // the coordinator executor, not on the Hazelcast operation thread.
+                        restoreAllJobFromMasterNodeSwitchFuture.get();
+                        if (!isPendingJobSchedulerCurrent(submissionEpoch)) {
+                            throw new InterruptedException(
+                                    "Coordinator changed before job submission");
+                        }
+                        if (pendingJobQueue.contains(jobId)
+                                || runningJobMasterMap.containsKey(jobId)) {
+                            jobSubmitFuture.complete(null);
+                            return;
+                        }
                         JobImmutableInformation submittedJobImmutableInformation =
                                 deserializeJobImmutableInformation(jobImmutableInformation);
                         validateCheckpointRestoreSourceJobIsTerminal(
@@ -1455,16 +1579,22 @@ public class CoordinatorService {
                         // jobSubmitFuture is still running.
                         PendingJobInfo pendingJobInfo =
                                 new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster);
-                        pendingJobQueue.put(pendingJobInfo);
+                        enqueueSubmittedJob(pendingJobInfo, submittedJobInfo, submissionEpoch);
+                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
                         // We specify that when init is complete, the submitJob is complete.
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
+                        if (pendingJobScheduleEpoch.get() != submissionEpoch) {
+                            // A successor owns the replicated metadata now. An interrupted old
+                            // initializer must not delete the successor's recoverable job record.
+                            jobSubmitFuture.completeExceptionally(e);
+                            return;
+                        }
                         String errorMsg = ExceptionUtils.getMessage(e);
                         logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
                         jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
                     }
                     if (!jobSubmitFuture.isCompletedExceptionally()) {
-                        jobMaster.getPhysicalPlan().updateJobState(JobStatus.PENDING);
                         logger.info(
                                 String.format(
                                         "The submit job enter the pending queue , jobId: %s , jobName: %s",
@@ -1479,6 +1609,25 @@ public class CoordinatorService {
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
+    }
+
+    private void enqueueSubmittedJob(PendingJobInfo pendingJobInfo, JobInfo jobInfo, long epoch)
+            throws InterruptedException {
+        pendingJobEnqueueLock.lockInterruptibly();
+        try {
+            if (!isPendingJobSchedulerCurrent(epoch)) {
+                throw new InterruptedException("Coordinator changed during job submission");
+            }
+            jobInfo.setEnqueueSequence(++lastEnqueueSequence);
+            runningJobInfoIMap.set(pendingJobInfo.getJobId(), jobInfo);
+            if (!isPendingJobSchedulerCurrent(epoch)) {
+                throw new InterruptedException(
+                        "Coordinator changed before pending queue insertion");
+            }
+            pendingJobQueue.put(pendingJobInfo);
+        } finally {
+            pendingJobEnqueueLock.unlock();
+        }
     }
 
     private void validateCheckpointRestoreSourceJobIsTerminal(
@@ -1543,6 +1692,10 @@ public class CoordinatorService {
     public PassiveCompletableFuture<JobResult> waitForJobComplete(long jobId) {
         // must wait for all job restore complete
         restoreAllJobFromMasterNodeSwitchFuture.join();
+        PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
+        if (pendingJobInfo != null) {
+            return pendingJobInfo.getCompletionFuture();
+        }
         JobMaster runningJobMaster = getJobMaster(jobId);
         if (runningJobMaster == null) {
             // Because operations on Imap cannot be performed within Operation.
@@ -1569,6 +1722,18 @@ public class CoordinatorService {
     }
 
     public PassiveCompletableFuture<Void> cancelJob(long jobId) {
+        if (!restoreAllJobFromMasterNodeSwitchFuture.isDone()) {
+            return new PassiveCompletableFuture<>(
+                    restoreAllJobFromMasterNodeSwitchFuture.thenCompose(
+                            ignored -> cancelJob(jobId)));
+        }
+        PendingJobInfo pendingRestore = pendingJobQueue.getById(jobId);
+        if (pendingRestore != null && pendingRestore.getInitializedJobMaster() == null) {
+            pendingJobQueue.remove(pendingRestore);
+            return new PassiveCompletableFuture<>(
+                    CompletableFuture.runAsync(
+                            () -> pendingRestore.getJobMaster().cancelJob(), executorService));
+        }
         JobMaster runningJobMaster = getJobMaster(jobId);
         if (runningJobMaster == null) {
             CompletableFuture<Void> future = new CompletableFuture<>();
@@ -1592,6 +1757,17 @@ public class CoordinatorService {
     }
 
     public PassiveCompletableFuture<Void> stopJob(long jobId) {
+        if (!restoreAllJobFromMasterNodeSwitchFuture.isDone()) {
+            return new PassiveCompletableFuture<>(
+                    restoreAllJobFromMasterNodeSwitchFuture.thenCompose(ignored -> stopJob(jobId)));
+        }
+        PendingJobInfo pendingRestore = pendingJobQueue.getById(jobId);
+        if (pendingRestore != null && pendingRestore.getInitializedJobMaster() == null) {
+            pendingJobQueue.remove(pendingRestore);
+            return new PassiveCompletableFuture<>(
+                    CompletableFuture.runAsync(
+                            () -> pendingRestore.getJobMaster().stopJob(), executorService));
+        }
         JobMaster runningJobMaster = getJobMaster(jobId);
         if (runningJobMaster == null) {
             CompletableFuture<Void> future = new CompletableFuture<>();
@@ -1896,8 +2072,8 @@ public class CoordinatorService {
         }
 
         PendingJobInfo pendingJobInfo = pendingJobQueue.getById(jobId);
-        if (pendingJobInfo != null) {
-            return pendingJobInfo.getJobMaster().getJobDAGInfo();
+        if (pendingJobInfo != null && pendingJobInfo.getInitializedJobMaster() != null) {
+            return pendingJobInfo.getInitializedJobMaster().getJobDAGInfo();
         }
 
         JobInfo runningJobInfo = runningJobInfoIMap.get(jobId);
@@ -2064,7 +2240,9 @@ public class CoordinatorService {
         TaskGroupLocation taskGroupLocation = taskExecutionState.getTaskGroupLocation();
         JobMaster runningJobMaster = runningJobMasterMap.get(taskGroupLocation.getJobId());
 
-        if (runningJobMaster == null && !restoreAllJobFromMasterNodeSwitchFuture.isDone()) {
+        if (runningJobMaster == null
+                && (!restoreAllJobFromMasterNodeSwitchFuture.isDone()
+                        || pendingJobQueue.contains(taskGroupLocation.getJobId()))) {
             // Restore still in progress, return early and let worker retry
             // This is acceptable because worker already has retry logic
             logger.info(
