@@ -42,11 +42,31 @@
             <groupId>org.apache.druid</groupId>
             <artifactId>druid-processing</artifactId>
             <version>${druid.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.hyperic</groupId>
+                    <artifactId>sigar</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.hyperic</groupId>
+                    <artifactId>sigar-dist</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.druid</groupId>
             <artifactId>druid-indexing-service</artifactId>
             <version>${druid.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.hyperic</groupId>
+                    <artifactId>sigar</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.hyperic</groupId>
+                    <artifactId>sigar-dist</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
