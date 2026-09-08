@@ -596,19 +596,30 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 getField(taskExecutionService, "executionContexts");
         ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
                 getField(taskExecutionService, "cancellationFutures");
-        ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+        ConcurrentMap<
+                        TaskGroupLocation,
+                        Map<String, TaskExecutionService.OwnedFuture<CompletableFuture<?>>>>
                 taskAsyncFunctionFuture = getField(taskExecutionService, "taskAsyncFunctionFuture");
-        ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+        ConcurrentMap<
+                        TaskGroupLocation,
+                        ConcurrentMap<
+                                TaskLocation, TaskExecutionService.OwnedFuture<ScheduledFuture<?>>>>
                 timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+
+        // Install the new generation's context first so registrations below are tagged as owned
+        // by it, matching how a real replacement generation's own deploy/registration would land.
+        executionContexts.put(location, newContext);
         CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
         CompletableFuture<?> asyncFuture = new CompletableFuture<>();
-        Map<String, CompletableFuture<?>> asyncFutures = new ConcurrentHashMap<>();
-        asyncFutures.put("new-generation-async", asyncFuture);
+        Map<String, TaskExecutionService.OwnedFuture<CompletableFuture<?>>> asyncFutures =
+                new ConcurrentHashMap<>();
+        asyncFutures.put(
+                "new-generation-async",
+                new TaskExecutionService.OwnedFuture<>(newContext, asyncFuture));
         TaskLocation taskLocation = new TaskLocation(location, 1L, 1);
         ScheduledFuture<?> timerFlushFuture =
                 taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 60_000L);
 
-        executionContexts.put(location, newContext);
         cancellationFutures.put(location, newCancellationFuture);
         taskAsyncFunctionFuture.put(location, asyncFutures);
 
@@ -621,11 +632,95 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertSame(newCancellationFuture, cancellationFutures.get(location));
         Assertions.assertSame(asyncFutures, taskAsyncFunctionFuture.get(location));
         Assertions.assertFalse(asyncFuture.isCancelled());
-        Assertions.assertSame(timerFlushFuture, timerFlushFutures.get(location).get(taskLocation));
+        Assertions.assertSame(
+                timerFlushFuture, timerFlushFutures.get(location).get(taskLocation).future);
         Assertions.assertFalse(timerFlushFuture.isCancelled());
         assertEquals(FINISHED, oldResultFuture.get().getExecutionState());
 
         taskExecutionService.closeTimerFlushTask(taskLocation);
+    }
+
+    /**
+     * Verifies the counterpart to {@link #testStaleTaskDoneDoesNotCleanupNewerGenerationResources}:
+     * a stale tracker's own async-function and timer-flush entries, registered while it was still
+     * the active generation, must be actively cancelled at its own stale taskDone - not silently
+     * left running until whichever generation eventually owns the location tears down.
+     */
+    @Test
+    public void testStaleTaskDoneCancelsItsOwnAsyncAndTimerFutures() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location =
+                new TaskGroupLocation(
+                        System.currentTimeMillis(), pipeLineId, FLAKE_ID_GENERATOR.newId());
+        Task oldTask = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup oldTaskGroup =
+                new TaskGroupDefaultImpl(location, "old-generation", Lists.newArrayList(oldTask));
+        TaskGroup newTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "new-generation",
+                        Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
+        TaskGroupContext oldContext = newTaskGroupContext(oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(newTaskGroup);
+        CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker oldTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        oldCancellationFuture, oldTaskGroup, oldContext, oldResultFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<
+                        TaskGroupLocation,
+                        Map<String, TaskExecutionService.OwnedFuture<CompletableFuture<?>>>>
+                taskAsyncFunctionFuture = getField(taskExecutionService, "taskAsyncFunctionFuture");
+        ConcurrentMap<
+                        TaskGroupLocation,
+                        ConcurrentMap<
+                                TaskLocation, TaskExecutionService.OwnedFuture<ScheduledFuture<?>>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+
+        // Register the old generation's own async function and timer-flush task while it is still
+        // the active context, exactly as production RPC handlers would while a generation is live.
+        executionContexts.put(location, oldContext);
+        CompletableFuture<?> oldAsyncFuture = new CompletableFuture<>();
+        Map<String, TaskExecutionService.OwnedFuture<CompletableFuture<?>>> asyncFutures =
+                new ConcurrentHashMap<>();
+        asyncFutures.put(
+                "old-generation-async",
+                new TaskExecutionService.OwnedFuture<>(oldContext, oldAsyncFuture));
+        taskAsyncFunctionFuture.put(location, asyncFutures);
+        TaskLocation oldTaskLocation = new TaskLocation(location, 1L, 1);
+        ScheduledFuture<?> oldTimerFlushFuture =
+                taskExecutionService.registerTimerFlushTask(oldTaskLocation, () -> {}, 60_000L);
+
+        // A replacement generation now installs its own context, registers its own timer-flush
+        // task for a *different* TaskLocation (subtask 2) so it lands alongside, not replacing, the
+        // old generation's entry, and leaves the old generation's async entry untouched in the
+        // shared bucket - exactly the commingled state finishOwnedResources must resolve correctly.
+        executionContexts.put(location, newContext);
+        TaskLocation newTaskLocation = new TaskLocation(location, 2L, 1);
+        ScheduledFuture<?> newTimerFlushFuture =
+                taskExecutionService.registerTimerFlushTask(newTaskLocation, () -> {}, 60_000L);
+
+        oldTracker.taskDone(oldTask);
+
+        Assertions.assertTrue(
+                oldAsyncFuture.isCancelled(),
+                "stale generation's own async function must be cancelled");
+        Assertions.assertTrue(
+                oldTimerFlushFuture.isCancelled(),
+                "stale generation's own timer-flush task must be cancelled");
+        Assertions.assertFalse(
+                newTimerFlushFuture.isCancelled(),
+                "replacement generation's timer-flush task must not be touched");
+        Assertions.assertNull(
+                taskAsyncFunctionFuture.get(location).get("old-generation-async"),
+                "cancelled stale entry must be removed from the shared bucket");
+        assertEquals(FINISHED, oldResultFuture.get().getExecutionState());
+
+        taskExecutionService.closeTimerFlushTask(newTaskLocation);
     }
 
     /**
