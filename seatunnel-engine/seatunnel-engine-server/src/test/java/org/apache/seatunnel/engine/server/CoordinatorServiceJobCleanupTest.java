@@ -980,6 +980,66 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
         }
     }
 
+    /**
+     * Regression test: a {@link JobCleanupRecord} left behind by an older, already-dead generation
+     * of the same job id must not permanently block {@link
+     * CoordinatorService#repairMissingJobStateForRestore} for the current generation.
+     *
+     * <p>Before this fix, the fence used a jobId-only {@code containsKey} check, so this stale
+     * record -- owned by initialization timestamp 100, while the currently registered {@link
+     * JobInfo} is at timestamp 200 -- would make repair return {@code null} forever, since nothing
+     * else ever revisits or clears a cleanup record whose owning generation is gone. The fix reuses
+     * {@link CoordinatorService#getOwnedPendingCleanup}, which both ignores a foreign-generation
+     * record for the purpose of blocking repair and clears it as a side effect.
+     */
+    @Test
+    void testMissingStateRepairIgnoresStaleCleanupRecordFromForeignGeneration() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long jobId = System.currentTimeMillis();
+        long staleInitializationTimestamp = 100L;
+        long currentInitializationTimestamp = 200L;
+        JobInfo currentJobInfo =
+                new JobInfo(
+                        currentInitializationTimestamp,
+                        createJobData(jobId, false, "stream_fake_to_console.conf"));
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Object, Long[]> runningJobStateTimestampsIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_STATE_TIMESTAMPS);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(jobId, currentJobInfo);
+        pendingJobCleanupIMap.put(
+                jobId,
+                new JobCleanupRecord(
+                        staleInitializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(jobId),
+                        stateKeys(jobId),
+                        System.currentTimeMillis()));
+
+        try {
+            Assertions.assertEquals(
+                    JobStatus.CREATED,
+                    coordinatorService.repairMissingJobStateForRestore(jobId, currentJobInfo));
+            assertCreatedRepairTimestamps(
+                    runningJobStateTimestampsIMap.get(jobId), currentInitializationTimestamp);
+            Assertions.assertFalse(
+                    pendingJobCleanupIMap.containsKey(jobId),
+                    "stale foreign-generation cleanup record must be cleared, not left behind"
+                            + " blocking future repairs of this job id");
+        } finally {
+            runningJobInfoIMap.remove(jobId);
+            runningJobStateIMap.remove(jobId);
+            runningJobStateTimestampsIMap.remove(jobId);
+            pendingJobCleanupIMap.remove(jobId);
+        }
+    }
+
     private void assertCreatedRepairTimestamps(Long[] timestamps, long initializationTimestamp) {
         Assertions.assertNotNull(timestamps);
         Assertions.assertEquals(
