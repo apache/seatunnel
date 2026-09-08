@@ -270,6 +270,9 @@ public class JobHistoryService {
      * <p>Merges against any existing finished metrics in memory, then stores the result once with
      * the configured history TTL. Avoids {@code computeIfAbsent} followed by {@code put}, which
      * would issue two durable MapStore writes for a newly finished job under write-through storage.
+     *
+     * <p>Not thread-safe for concurrent calls with the same {@code jobId}; callers must serialize
+     * access externally (see {@code JobMaster#metricsLock}).
      */
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
         JobMetrics existing = finishedJobMetricsImap.get(jobId);
