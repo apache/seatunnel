@@ -113,7 +113,11 @@ public class OracleDialectStringRangeSplitTest {
         PreparedStatement encodingStatement = mock(PreparedStatement.class);
         ResultSet encodingResultSet = mock(ResultSet.class);
         when(connection.createStatement()).thenReturn(nlsStatement);
-        when(nlsStatement.executeQuery(anyString())).thenReturn(binaryNlsResultSet());
+        // Build the NLS result set before it is used as a stubbed return value: creating and
+        // stubbing a mock inside thenReturn(...) leaves the outer stubbing unfinished and
+        // Mockito rejects it with UnfinishedStubbingException.
+        ResultSet nlsResultSet = binaryNlsResultSet();
+        when(nlsStatement.executeQuery(anyString())).thenReturn(nlsResultSet);
         when(connection.prepareStatement(anyString())).thenReturn(encodingStatement);
         when(encodingStatement.executeQuery()).thenReturn(encodingResultSet);
         when(encodingResultSet.next()).thenReturn(true);
@@ -133,7 +137,11 @@ public class OracleDialectStringRangeSplitTest {
         Statement sampleStatement = mock(Statement.class);
         ResultSet sampleResultSet = mock(ResultSet.class);
         when(connection.createStatement()).thenReturn(nlsStatement, sampleStatement);
-        when(nlsStatement.executeQuery(anyString())).thenReturn(binaryNlsResultSet());
+        // Build the NLS result set before it is used as a stubbed return value: creating and
+        // stubbing a mock inside thenReturn(...) leaves the outer stubbing unfinished and
+        // Mockito rejects it with UnfinishedStubbingException.
+        ResultSet nlsResultSet = binaryNlsResultSet();
+        when(nlsStatement.executeQuery(anyString())).thenReturn(nlsResultSet);
         when(sampleStatement.executeQuery(anyString())).thenReturn(sampleResultSet);
         when(sampleResultSet.next()).thenReturn(true, false);
         when(sampleResultSet.getString(1)).thenReturn("AB\u4e2d");
@@ -167,7 +175,11 @@ public class OracleDialectStringRangeSplitTest {
         PreparedStatement encodingStatement = mock(PreparedStatement.class);
         ResultSet encodingResultSet = mock(ResultSet.class);
         when(connection.createStatement()).thenReturn(nlsStatement);
-        when(nlsStatement.executeQuery(anyString())).thenReturn(binaryNlsResultSet());
+        // Build the NLS result set before it is used as a stubbed return value: creating and
+        // stubbing a mock inside thenReturn(...) leaves the outer stubbing unfinished and
+        // Mockito rejects it with UnfinishedStubbingException.
+        ResultSet nlsResultSet = binaryNlsResultSet();
+        when(nlsStatement.executeQuery(anyString())).thenReturn(nlsResultSet);
         when(connection.prepareStatement(anyString()))
                 .thenReturn(encodingStatement, collationStatement);
         stubAsciiCompatibleEncoding(encodingStatement, encodingResultSet);
