@@ -22,7 +22,6 @@ import org.junit.jupiter.api.parallel.ResourceLock;
 
 import java.util.Locale;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class JobStatusTest {
@@ -40,12 +39,22 @@ public class JobStatusTest {
     }
 
     /**
-     * {@code JobStatus}'s ordinal is relied on directly: it is transported raw over the internal
-     * RPC (see {@code GetJobStatusOperation}/{@code ClientJobProxy}/{@code JobClient}) and used to
-     * index the {@code stateTimestamps} array in {@code PhysicalPlan}. Reordering or inserting a
-     * new constant would silently corrupt both without this test failing. If this test breaks
-     * because a new state was intentionally added, update the expected array below to match and
-     * double check every ordinal-based array index and RPC decode site still lines up.
+     * Pins the exact order of {@link JobStatus#values()} so that reordering or inserting a constant
+     * fails this test loudly instead of silently corrupting the two things that rely on the ordinal
+     * within a single build: the raw {@code int} sent over the internal RPC (see {@code
+     * GetJobStatusOperation}/{@code ClientJobProxy}/{@code JobClient}) and the index into the
+     * {@code stateTimestamps} array in {@code PhysicalPlan}.
+     *
+     * <p><b>This guard only covers same-build code.</b> It says nothing about a rolling upgrade
+     * where a client and coordinator run different builds with a reordered or differently-sized
+     * {@code JobStatus}: decoding the raw ordinal back via {@code JobStatus.values()[ordinal]} at
+     * {@code ClientJobProxy}/{@code JobClient} can still throw {@code
+     * ArrayIndexOutOfBoundsException} or silently resolve to the wrong constant in that scenario.
+     * Closing that gap needs a name-based, versioned RPC transport, which is a separate, larger
+     * design item and out of scope here.
+     *
+     * <p>If this test fails because a new state was intentionally added or reordered, update the
+     * expected array below to match, and audit every ordinal-based site named above by hand.
      */
     @Test
     void testOrdinalTableIsPinned() {
@@ -64,6 +73,14 @@ public class JobStatusTest {
             JobStatus.FINISHED,
             JobStatus.UNKNOWABLE
         };
-        assertArrayEquals(expected, JobStatus.values());
+        JobStatus[] actual = JobStatus.values();
+        assertEquals(
+                expected.length, actual.length, "JobStatus constant count changed unexpectedly");
+        for (int ordinal = 0; ordinal < expected.length; ordinal++) {
+            assertEquals(
+                    expected[ordinal],
+                    actual[ordinal],
+                    "JobStatus ordinal " + ordinal + " drifted from the pinned constant");
+        }
     }
 }
