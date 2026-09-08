@@ -76,8 +76,8 @@ Start here:
 
 Best first steps:
 
-- start from an observed performance problem, not an arbitrary hot-looking method
-- use a performance-analysis methodology to isolate the cause locally
+- start from an observed problem or measured regression, not an arbitrary hot-looking method
+- discuss the workload, evidence, and expected benefit with the community before substantial implementation
 - contribute a reproducible benchmark before submitting the optimization
 
 Start here:

@@ -4,89 +4,93 @@ title: Contribute Performance Improvements
 
 # Contribute Performance Improvements
 
-SeaTunnel welcomes contributions that solve real performance problems contributors have already
-discovered. A benchmark is not a tool for finding problems; it verifies whether a problem comes
-from a particular production path. A frequently called method is not necessarily a bottleneck.
+SeaTunnel welcomes contributions that improve performance for representative workloads or fix
+measured regressions. Performance work benefits from early, open discussion and evidence that
+others can reproduce. A benchmark can reveal a regression or test a suspected cause, but a faster
+microbenchmark alone does not establish a benefit to users.
 
 ```text
-Discover an anomaly → form and test a suspicion → Benchmark PR → merge into dev → fix PR → compare
+Observe a problem → discuss scope → reproduce → optimize → compare → review trade-offs
 ```
 
-## From a Discovered Problem to a Bottleneck
+## Build Community Consensus
 
-Performance contributions normally begin with an anomaly a contributor has already encountered in
-production, load testing, or incident analysis, such as OOM, checkpoint timeouts, saturated CPU,
-throughput loss, latency growth, or stalled threads. This guide does not ask contributors to scan
-metrics for something to optimize; it explains how to validate an already discovered problem.
+Before substantial implementation, open or reuse a [GitHub Issue](https://github.com/apache/seatunnel/issues)
+and describe:
 
-```text
-Discover an anomaly → suspect a production path → reproduce it under control → confirm or reject
-```
+- the affected workload and SeaTunnel execution path;
+- the observed effect on throughput, latency, resource use, or job stability;
+- the environment and evidence used to observe the problem;
+- the expected benefit and proposed scope.
 
-| Stage | Decision basis |
-|---|---|
-| Discover an anomaly | The problem occurs under a defined workload and environment, with a describable effect on throughput, latency, resources, or job execution. |
-| Form a suspicion | Logs, metrics, thread stacks, or profiles point to a production path and explain why that path may cause the problem. |
-| Confirm or reject | A controlled experiment reproduces the original problem. Changing the path's cost changes the system-level symptom as predicted in repeatable runs. Otherwise, reject the path and continue the investigation. |
+The initial report does not need a finished benchmark. It should contain enough evidence for the
+community to discuss whether the problem is relevant, whether the proposed experiment represents a
+useful SeaTunnel workload, and whether the scope is appropriate. Use the
+[dev mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org) when the change affects
+multiple modules, introduces a lasting maintenance commitment, or needs a broader design decision.
 
-A benchmark reproduces and validates a path that is already suspected; it is not a tool for broadly
-searching the codebase for possible hotspots. Frequent calls, a high CPU share, or lock samples do
-not prove a bottleneck by themselves.
+A measured speedup contributes evidence to that discussion; it does not decide the outcome by
+itself. The community also considers correctness, compatibility, other workloads, resource
+trade-offs, implementation complexity, and maintenance cost.
 
-For example, after a checkpoint timeout is traced to state serialization, use controlled state data
-to reproduce the serialization cost and verify whether reducing that cost also shortens the
-checkpoint. If the microbenchmark improves but checkpoint duration does not, that path does not
-explain the original problem.
+## Build a Reproducible Benchmark
 
-## Build a Reproducible Experiment
+Choose a workload that represents the reported problem and reaches the affected production path.
+Define the logical operation, input shape, concurrency, warmup, measurement duration, and timed
+boundary. Explain how these choices relate to actual SeaTunnel workloads. Frequent calls, a high CPU
+share, or lock samples do not prove a bottleneck by themselves.
 
-Choose a workload that reaches the identified production path, then define the logical operation,
-input shape, concurrency, and timed boundary. Keep fixture construction and validation outside
-timing unless they are the subject of the test.
+Keep fixture construction and result validation outside the timed region unless they are the subject
+of the test.
 
-Validate the output so a fast but incomplete operation cannot produce a successful result. Repeat
-the experiment under controlled conditions and confirm that it reproduces the problem. See
-[Zeta Benchmark](../engines/zeta/benchmark.md) for local execution and profiling commands.
+Validate the output so an incomplete operation cannot appear faster by doing less work. Run enough
+repetitions to show normal variation, and report representative results rather than selecting the
+best run. Test relevant input sizes and concurrency levels, including cases that may regress. Make
+resource trade-offs explicit; for example, higher throughput obtained by using more memory may not
+be an improvement for every workload.
 
-## Submit the Benchmark Separately
+See [Zeta Benchmark](../engines/zeta/benchmark.md) for local execution and profiling commands.
 
-After the experiment identifies a reproducible bottleneck, open a focused Benchmark PR containing
-the benchmark, deterministic fixtures, validation tests, and matching English and Chinese
-documentation. Do not include the performance optimization in this PR.
+## Add a Benchmark
 
-After the Benchmark PR merges into `dev`, record its merge commit. That commit is the first valid
-baseline for the new benchmark.
+Reuse an existing benchmark when it represents the problem. A new benchmark should have:
 
-:::caution Both Revisions Must Use the Same Benchmark
+- a workload that reaches the affected production path;
+- deterministic fixtures and output validation;
+- bounded runtime and results stable enough to detect a useful change.
 
-If the benchmark exists only in the performance-fix PR, the baseline cannot run it. If the benchmark
-or fixture changes between revisions, the result cannot isolate the production-code change.
+For the current `Benchmarks` workflow, both revisions build their own benchmark module. A benchmark
+that exists only in the optimization PR cannot run on the baseline revision. Propose a new benchmark
+in a focused PR first so the community can review the workload and measurement independently. After
+it merges into `dev`, create the optimization branch from a revision that contains it. Merging the
+benchmark establishes a shared experiment; it does not predetermine the outcome of a later proposal.
+
+:::caution Compare the Same Experiment
+
+Baseline and Candidate must use the same benchmark code, fixtures, parameters, JDK, and measurement
+boundary. If any of them differ, the result cannot isolate the production-code change.
 
 :::
 
 ## Submit and Measure the Performance Fix
 
-Create the performance-fix branch from a revision of `dev` that already contains the benchmark.
-Keep the benchmark and its parameters unchanged while implementing the optimization.
-
-Run the `Benchmarks` workflow with:
+Keep the benchmark and its parameters unchanged while implementing the optimization. Run the
+`Benchmarks` workflow with:
 
 - `seatunnel_ref` set to the exact baseline commit;
 - `pr_number` set to the performance-fix PR;
 - the same benchmark method, parameters, and JDK for both revisions.
 
-Use an unprofiled comparison to quantify improvement or regression. Profiling results may explain
-the cause, but profiler overhead makes their Score unsuitable for the comparison.
+Use an unprofiled comparison to quantify improvement or regression. Profiling can help explain the
+cause, but profiler overhead makes its Score unsuitable for the comparison.
 
-## Share Reproducible Evidence
+## Share Evidence and Trade-offs
 
 Include the following in the performance-fix PR:
 
 - Baseline and Candidate commit SHAs;
-- exact benchmark method and workload parameters;
+- the exact benchmark method and workload parameters;
 - JDK, JVM settings, and relevant machine information;
-- comparison report and raw JMH results;
-- the measurement boundary and the conclusion it supports.
-
-New benchmarks should run on demand first. Add one to a scheduled suite only when its workload is
-representative, runtime is bounded, and repeated runs are stable enough to detect useful changes.
+- the comparison report, raw JMH results, and variation across runs;
+- correctness and compatibility checks for the changed path;
+- regressions, resource trade-offs, and anything the experiment does not verify.
