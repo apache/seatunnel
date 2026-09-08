@@ -47,12 +47,20 @@ github:
     squash: true
     merge: false
     rebase: false
-  protected_branches:
-    dev:
-      required_status_checks:
-        strict: true
+  rulesets:
+    - name: dev branch protection
+      type: branch
+      branches:
+        includes:
+          - dev
+        excludes: []
+      bypass_teams:
+        - seatunnel-committers
+      required_status_checks_strict: true
       required_pull_request_reviews:
         dismiss_stale_reviews: true
+        require_last_push_approval: false
+        require_code_owner_reviews: false
         required_approving_review_count: 2
 
 notifications:
