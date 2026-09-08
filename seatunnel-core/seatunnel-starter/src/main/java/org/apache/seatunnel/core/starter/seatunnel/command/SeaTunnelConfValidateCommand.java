@@ -102,6 +102,7 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
 
     @Override
     public void execute() throws ConfigCheckException {
+        ConfigValidationResult successResult;
         try {
             Path configPath = FileUtils.getConfigPath(clientCommandArgs);
             Config config = ConfigBuilder.of(configPath, clientCommandArgs.getVariables());
@@ -183,7 +184,7 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                         .validate();
             }
 
-            printJsonResultIfRequested(ConfigValidationResult.success(validationPhase()));
+            successResult = ConfigValidationResult.success(validationPhase());
 
         } catch (Exception e) {
             String validationMode =
@@ -210,6 +211,9 @@ public class SeaTunnelConfValidateCommand implements Command<ClientCommandArgs> 
                                             : sanitizedMessage)));
             throw new ConfigCheckException(validationMode + " failed: " + sanitizedMessage, e);
         }
+        // Keep serialization outside the validation try/catch so an output failure
+        // cannot be reported as a configuration-validation failure.
+        printJsonResultIfRequested(successResult);
     }
 
     private void printJsonResultIfRequested(ConfigValidationResult result) {
