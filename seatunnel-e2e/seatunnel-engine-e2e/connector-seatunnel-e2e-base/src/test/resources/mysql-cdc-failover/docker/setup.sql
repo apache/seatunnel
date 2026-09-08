@@ -23,4 +23,9 @@ GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIENT, DRO
 CREATE USER 'st_user_sink' IDENTIFIED BY 'mysqlpw';
 GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, INDEX, ALTER ON *.* TO 'st_user_sink'@'%';
 
-CREATE DATABASE emptydb;
+-- The container is started with MYSQL_DATABASE=emptydb (see
+-- MysqlCDCClusterFailoverIT#createMySqlContainer -> withDatabaseName("emptydb")), so the MySQL
+-- entrypoint already creates this database before running this initdb script. Re-creating it here
+-- fails the container startup with "ERROR 1007: Can't create database 'emptydb'; database exists",
+-- which previously made every test in this suite fail after the 2-minute container-start retry
+-- budget was exhausted. Do not re-add a CREATE DATABASE for this name.
