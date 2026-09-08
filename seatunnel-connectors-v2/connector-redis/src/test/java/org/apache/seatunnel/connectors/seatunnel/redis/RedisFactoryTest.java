@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSink;
 import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.source.RedisSourceFactory;
 
@@ -37,6 +39,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -142,6 +145,20 @@ class RedisFactoryTest {
                         catalogTable(), config, Thread.currentThread().getContextClassLoader());
         Assertions.assertDoesNotThrow(
                 () -> new RedisSinkFactory().createSink(context).createSink());
+    }
+
+    @Test
+    void sinkExposesSchemaWriterStateSerializer() throws IOException {
+        RedisSink sink = new RedisSink(ReadonlyConfig.fromMap(singleSinkConfig()), catalogTable());
+
+        Assertions.assertTrue(sink.getWriterStateSerializer().isPresent());
+        @SuppressWarnings("unchecked")
+        Serializer<TableSchema> serializer =
+                (Serializer<TableSchema>) (Serializer<?>) sink.getWriterStateSerializer().get();
+        TableSchema tableSchema = catalogTable().getTableSchema();
+
+        Assertions.assertEquals(
+                tableSchema, serializer.deserialize(serializer.serialize(tableSchema)));
     }
 
     // parameterized-case providers

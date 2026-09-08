@@ -93,19 +93,41 @@ jobs:
           fi
 
   helm-chart-check:
-    name: Check Helm Chart Syntax
-    needs: [ license-header, code-style]
+    name: Check Helm Chart
+    needs: [ license-header, code-style, changes ]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - name: Setup Helm
         run: |
-          if ! command -v helm >/dev/null 2>&1; then
-            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-          fi
+          HELM_VERSION=v3.18.4
+          HELM_ARCHIVE="helm-${HELM_VERSION}-linux-amd64.tar.gz"
+          curl --fail --silent --show-error --location \
+            --output "${HELM_ARCHIVE}" \
+            "https://get.helm.sh/${HELM_ARCHIVE}"
+          echo "f8180838c23d7c7d797b208861fecb591d9ce1690d8704ed1e4cb8e2add966c1  ${HELM_ARCHIVE}" \
+            | sha256sum --check
+          tar --extract --gzip --file "${HELM_ARCHIVE}"
+          sudo install linux-amd64/helm /usr/local/bin/helm
           helm version
-      - name: Lint Chart
-        run: helm lint deploy/kubernetes/seatunnel
+      - name: Validate Chart
+        run: deploy/kubernetes/helm-tests/test-chart.sh render
+      - name: Free disk space
+        if: needs.changes.outputs.helm == 'true'
+        run: tools/github/free_disk_space.sh
+      - name: Install k8s
+        if: needs.changes.outputs.helm == 'true'
+        run: |
+          curl -sfL https://get.k3s.io | K3S_KUBECONFIG_MODE=644 sh -s - --docker
+          mkdir -p ~/.kube
+          cp /etc/rancher/k3s/k3s.yaml ~/.kube/config
+          kubectl wait --for=condition=Ready nodes --all --timeout=2m
+      - name: Test Chart Installation
+        if: needs.changes.outputs.helm == 'true'
+        run: deploy/kubernetes/helm-tests/test-chart.sh install
 
   dead-link:
     name: Dead links
@@ -142,9 +164,11 @@ jobs:
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
       edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
       benchmarks: ${{ steps.filter.outputs.benchmarks }}
+      benchmark_tools: ${{ steps.filter.outputs.benchmark_tools }}
       docs: ${{ steps.filter.outputs.docs }}
-      ut-modules: ${{ steps.ut-modules.outputs.modules }}
-      it-modules: ${{ steps.it-modules.outputs.modules }}
+      helm: ${{ steps.filter.outputs.helm }}
+      ut-modules: ${{ steps.ut-modules.outputs.modules || '[]' }}
+      it-modules: ${{ steps.it-modules.outputs.modules || '[]' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -197,11 +221,23 @@ jobs:
           echo "docs=$true_or_false" >> $GITHUB_OUTPUT
           echo "docs_files=$file_list" >> $GITHUB_OUTPUT
 
-          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml"`
+          helm_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "deploy/kubernetes/**"`
+          true_or_false=${helm_files%%$'\n'*}
+          file_list=${helm_files#*$'\n'}
+          echo "helm=$true_or_false" >> $GITHUB_OUTPUT
+          echo "helm_files=$file_list" >> $GITHUB_OUTPUT
+
+          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml" ".github/workflows/benchmarks_diagnostics.yml"`
           true_or_false=${benchmark_files%%$'\n'*}
           file_list=${benchmark_files#*$'\n'}
           echo "benchmarks=$true_or_false" >> $GITHUB_OUTPUT
           echo "benchmarks_files=$file_list" >> $GITHUB_OUTPUT
+
+          benchmark_tool_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "tools/benchmarks/**"`
+          true_or_false=${benchmark_tool_files%%$'\n'*}
+          file_list=${benchmark_tool_files#*$'\n'}
+          echo "benchmark_tools=$true_or_false" >> $GITHUB_OUTPUT
+          echo "benchmark_tools_files=$file_list" >> $GITHUB_OUTPUT
           
           engine_e2e_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-e2e/seatunnel-engine-e2e/**"`
           true_or_false=${engine_e2e_files%%$'\n'*}
@@ -289,7 +325,6 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py delete "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT      
-
       - name: Make unit test modules
         id: ut-modules
         timeout-minutes: 60
@@ -316,14 +351,16 @@ jobs:
           connector_modules='${{ steps.cv2-modules.outputs.modules }}'
           if [[ "zz${engine_modules}${connector_modules}" == "zz" && "zz"$dist_modules != "zz" ]];then
             echo $pl_modules
-            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
+            modules_json=$(python tools/update_modules_check/update_modules_check.py json "$pl_modules")
+            echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [[ "zz"$connector_modules == "zz" && "zz"$engine_modules != "zz" ]];then
             # Engine changes already route the full downstream engine test set through engine=true.
             # Keep the fixed smoke modules as the output without resolving the Maven dependency tree.
             echo $pl_modules
-            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
+            modules_json=$(python tools/update_modules_check/update_modules_check.py json "$pl_modules")
+            echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           
@@ -337,7 +374,8 @@ jobs:
             build_modules=$pl_modules
           fi 
           echo $build_modules
-          echo "modules=$build_modules" >> $GITHUB_OUTPUT
+          modules_json=$(python tools/update_modules_check/update_modules_check.py json "$build_modules")
+          echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
 
       - name: Make integration test modules
         id: it-modules
@@ -365,7 +403,8 @@ jobs:
             # Engine changes already trigger the broad downstream integration jobs through engine=true.
             # Avoid a second Maven dependency tree pass when no connector or engine-e2e module changed.
             echo $pl_modules
-            echo "modules=$pl_modules" >> $GITHUB_OUTPUT
+            modules_json=$(python tools/update_modules_check/update_modules_check.py json "$pl_modules")
+            echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           
@@ -376,7 +415,8 @@ jobs:
           ./mvnw -Pci -D"e2e.dependency.skip"=false  dependency:tree $includes -DoutputType=text -DoutputFile=/tmp/tree_out.txt
           build_modules=`python tools/update_modules_check/update_modules_check.py final_it /tmp/tree_out.txt`
           echo $build_modules
-          echo "modules=$build_modules" >> $GITHUB_OUTPUT
+          modules_json=$(python tools/update_modules_check/update_modules_check.py json "$build_modules")
+          echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
 
   dependency-license:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
@@ -464,7 +504,7 @@ jobs:
 
   unit-test:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
+    if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '[]')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -529,9 +569,19 @@ jobs:
             -f 1 -wi 0 -i 1 -r 1s -foe true
           find "${result_dir}" -name '*.json' -print -quit | grep -q .
 
+  benchmark-tools-test:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.benchmark_tools == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check benchmark tools
+        run: python3 -m unittest discover -s tools/benchmarks -p 'test_*.py'
+
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -551,7 +601,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-1)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 0`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 0)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -559,11 +609,12 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -583,7 +634,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-2)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 1`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 1)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -591,11 +642,12 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -615,7 +667,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-3)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 2`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 2)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -623,11 +675,12 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -647,7 +700,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-4)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 3`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 3)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -655,10 +708,11 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -678,7 +732,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-5)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 4`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 4)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -686,10 +740,11 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -709,7 +764,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-6)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 5`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 5)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -717,10 +772,11 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -740,7 +796,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-7)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 6`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 6)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -748,11 +804,12 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -772,7 +829,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-8)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module ${{needs.changes.outputs.it-modules}} 8 7`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 7)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -780,6 +837,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   engine-v2-it:
@@ -810,7 +868,7 @@ jobs:
 
   edge-agent-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.edge-agent == 'true' || needs.changes.outputs.edge-agent-e2e == 'true'
+    if: needs.changes.outputs.edge-agent == 'true' || needs.changes.outputs.edge-agent-e2e == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'seatunnel-edge-agent-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -836,7 +894,7 @@ jobs:
 
   engine-k8s-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-engine-k8s-e2e')
+    if: needs.changes.outputs.api == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'seatunnel-engine-k8s-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -927,6 +985,8 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
+  # Dedicated connector ownership and shard rebalancing guidance are maintained in
+  # tools/update_modules_check/update_modules_check.py.
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
@@ -939,7 +999,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -971,7 +1031,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 180
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1003,7 +1063,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 240
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1035,7 +1095,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 270
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1067,7 +1127,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 270
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1099,7 +1159,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1131,7 +1191,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1151,9 +1211,9 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
-  all-connectors-it-8:
+  iceberg-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-iceberg-e2e')
     runs-on: ${{ matrix.os }}
     env:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
@@ -1163,7 +1223,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1174,10 +1234,38 @@ jobs:
           cache: 'maven'
       - name: free disk space
         run: tools/github/free_disk_space.sh
-      - name: run connector-v2 integration test (part-8)
+      - name: run iceberg connector integration test
         run: |
-          # These two suites dominated part-2 and triggered hosted-runner heartbeat loss.
-          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e,:connector-hbase-e2e -am -Pci
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-iceberg-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
+  hbase-connector-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-hbase-e2e')
+    runs-on: ${{ matrix.os }}
+    env:
+      RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
+      RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run hbase connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-hbase-e2e -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
 
@@ -1415,7 +1503,7 @@ jobs:
 
   kudu-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-kudu-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1442,7 +1530,7 @@ jobs:
 
   amazonSqs-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-amazonsqs-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-amazonsqs-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1466,9 +1554,34 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
+  google-pubsub-connector-it:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-google-pubsub-e2e')
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: free disk space
+        run: tools/github/free_disk_space.sh
+      - name: run google pubsub connector integration test
+        run: |
+          ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl :connector-google-pubsub-e2e -am -Pci
+        env:
+          MAVEN_OPTS: -Xmx4096m
+
   kafka-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1494,7 +1607,7 @@ jobs:
 
   rocketmq-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1520,7 +1633,7 @@ jobs:
 
   elasticsearch-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-elasticsearch-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-elasticsearch-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1546,7 +1659,7 @@ jobs:
 
   mysql-cdc-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-mysql-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-cdc-mysql-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1570,10 +1683,9 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
-
   doris-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1599,7 +1711,7 @@ jobs:
 
   paimon-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-paimon-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-paimon-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1625,7 +1737,7 @@ jobs:
 
   oracle-cdc-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1656,7 +1768,7 @@ jobs:
 
   connector-file-local-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-file-local-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1682,7 +1794,7 @@ jobs:
 
   connector-file-sftp-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-file-sftp-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1708,7 +1820,7 @@ jobs:
 
   connector-redis-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-redis-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -1734,7 +1846,7 @@ jobs:
 
   connector-sensorsdata-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-sensorsdata-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(fromJSON(needs.changes.outputs.it-modules), 'connector-sensorsdata-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

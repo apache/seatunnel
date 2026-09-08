@@ -64,7 +64,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- To ensure the SemaphoredDelegatingExecutor class in paimon-s3-impl.jar is loaded first, place the connector-paimon dependency before seatunnel-hadoop3-3.1.4-uber -->
+        <!-- To ensure the SemaphoredDelegatingExecutor class in paimon-s3-impl.jar is loaded first, place the connector-paimon dependency before seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version} -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-paimon</artifactId>
@@ -95,8 +95,7 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>test</scope>
         </dependency>
 

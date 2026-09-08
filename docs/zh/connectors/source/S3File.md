@@ -432,6 +432,19 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
+当 `markdown_rag_metadata_enabled=true` 时，每个 Markdown 行还会在 row options 中携带四个 Knowledge Sync 逻辑元数据值，source 也会在 metadata schema 中声明相同 Key：
+
+- `SourceUri`：不含凭据的逻辑来源路径或 URI
+- `DocumentId`：`doc_` 加逻辑 `SourceUri` 的 UTF-8 字节的小写 SHA-256
+- `DocumentHash`：UTF-8 解码前实际读取到的精确来源字节的小写 SHA-256
+- `ChunkHash`：当前 Markdown 输出行 `text` 的 UTF-8 字节的小写 SHA-256（null 按空字符串处理）；其值等于物理 `content_hash`
+
+本地路径和有效 `file:` URI 沿用现有的本地路径归一化。对于分层远程 URI，逻辑 `SourceUri` 保留 scheme、host、显式端口和 path，移除 user info、完整 query 和 fragment，并将 scheme 与 host 转为小写。仅通过 query 区分资源时，必须改用稳定且不敏感的 path。
+
+五个物理 RAG 字段、现有计算公式和路由行为均保持不变。因此，对于带签名或凭据的远程 URI，逻辑与物理 `document_id` 可能不同。请通过 [Metadata transform](../../transforms/metadata.md) 将逻辑 `SourceUri` 和 `DocumentId` 投影到 `ks_source_uri`、`ks_document_id` 等不冲突的别名。
+
+逻辑 `ChunkHash` 只描述 Markdown source 直接输出的当前行。如果下游 transform 修改文本或把一行展开为多个 chunk，则必须在 lifecycle sink 前重新计算最终 `ChunkHash`、`ChunkId` 和 `ChunkIndex`。该 bridge 不实现增量比较、writer affinity、过期 chunk 删除或 tombstone。
+
 注意：Markdown 格式仅支持读取，不支持写入。
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
@@ -652,6 +665,105 @@ source {
 ```
 
 对于 AWS SSO / Profile 这类 provider，只需要把 provider 类换成 `com.amazonaws.auth.profile.ProfileCredentialsProvider`，并在 `hadoop_s3_properties` 里配置 `fs.s3a.profile`、`fs.s3a.credentialsFile` 等 provider 特定键。完整的 `fs.s3a.*` 键集合参见 [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) 文档。
+
+## 容器环境中的凭据提供程序
+
+在容器环境（Kubernetes、ECS、EKS、Docker）中运行 SeaTunnel 时，S3File 连接器接受任何实现 `com.amazonaws.auth.AWSCredentialsProvider` 接口且在 classpath 上可用的全限定 S3A 凭据提供程序类。`fs.s3a.aws.credentials.provider` 选项在配置解析时进行验证（当类在构建配置的节点上可解析时）：类必须实现 AWS 凭据提供程序接口，且不能是抽象类。当类无法解析时（例如，提供程序 JAR 仅在 worker 节点上可用），验证将延迟到实际运行 S3A 的 worker 节点上的运行时进行。
+
+### 支持的凭据提供程序
+
+| 提供程序 | 类名 | 典型场景 |
+|----------|------|----------|
+| Simple AWSCredentials | `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` | 静态 access key / secret key |
+| Instance Profile | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | EC2 实例角色（默认） |
+| Container | `com.amazonaws.auth.ContainerCredentialsProvider` | ECS 任务角色 |
+| Default Chain | `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` | 多源回退链 |
+| 自定义 | 任何 `com.amazonaws.auth.AWSCredentialsProvider` 实现 | 用户自定义提供程序 |
+
+### Kubernetes / EKS 配置
+
+**EC2 节点实例角色（推荐）**：如果您的 EKS 工作节点具有包含 S3 权限的 EC2 实例配置文件，默认的 `InstanceProfileCredentialsProvider` 会自动从实例元数据服务解析凭据：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**通过 Kubernetes Secret 注入静态密钥（备选方案）**：如果实例角色不可用，从 Kubernetes Secret 注入凭据：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  access_key = "<from-k8s-secret>"
+  secret_key = "<from-k8s-secret>"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**DefaultAWSCredentialsProviderChain**：对于需要灵活部署的场景，默认链按顺序尝试多个凭据来源（环境变量 → 系统属性 → profile → 容器 → 实例配置文件）：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.DefaultAWSCredentialsProviderChain"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### ECS 任务角色
+
+在 ECS 上运行时，ECS 代理会自动设置 `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` 环境变量：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.ContainerCredentialsProvider"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### EKS IRSA
+
+EKS IAM Roles for Service Accounts (IRSA) 需要 `WebIdentityTokenCredentialsProvider` 类。该类在较新的 AWS SDK v1.x 版本（如 1.11.5xx+）中可用，但 **不包含** 在 SeaTunnel 捆绑的旧版 AWS SDK v1.x（1.11.271）中。推荐以下替代方案：
+
+1. **使用 EC2 节点实例角色** — 为 EKS 工作节点附加 IAM 角色，保持默认的 `InstanceProfileCredentialsProvider`。
+2. **使用 `SimpleAWSCredentialsProvider`**，从 Kubernetes Secret 注入凭据。
+3. **在所有集群节点** 的 `${SEATUNNEL_HOME}/lib` 中添加包含 `WebIdentityTokenCredentialsProvider` 的较新 AWS SDK JAR。
+
+### 通过 `hadoop_s3_properties` 传递额外选项
+
+对于 provider 特定的配置键（如 `fs.s3a.session.token`、`fs.s3a.assumed.role.arn`），使用 `hadoop_s3_properties` 映射：
+
+```hocon
+hadoop_s3_properties {
+  "fs.s3a.session.token" = "<session-token>"
+  "fs.s3a.assumed.role.arn" = "arn:aws:iam::123456789012:role/my-role"
+}
+```
+
+连接器将这些键直接传递给 Hadoop S3A 配置。注意：连接器始终会用选项值覆盖 `fs.s3a.aws.credentials.provider` 键，因此无法通过 `hadoop_s3_properties` 覆盖它。
+
+### 故障排查
+
+**您可能会看到 `Factory initialize failed`（或类似的类加载）错误**：这通常意味着凭据提供程序类不在 classpath 上。请确保 provider JAR 存在于 **每个** 集群节点（不仅仅是提交节点）的 `${SEATUNNEL_HOME}/lib` 中。
+
+**`No AWS Credentials provided by ...`**：配置的凭据提供程序无法解析凭据。请检查：
+- `SimpleAWSCredentialsProvider`：验证 `access_key` 和 `secret_key` 已设置。
+- `InstanceProfileCredentialsProvider`：验证 EC2 实例已附加 IAM 角色。
+- `ContainerCredentialsProvider`：验证 `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` 环境变量已设置。
+
+**配置解析时的 `IllegalArgumentException`**：类名格式错误或类未实现 `com.amazonaws.auth.AWSCredentialsProvider`。请验证全限定类名是否正确，以及类是否实现了所需的接口。
 
 ## 变更日志
 

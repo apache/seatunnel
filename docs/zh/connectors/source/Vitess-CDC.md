@@ -11,7 +11,14 @@ import ChangeLog from '../changelog/connector-cdc-vitess.md';
 
 ## 描述
 
-Vitess CDC 连接器通过 VTGate 的 VStream gRPC API 订阅变更事件。第一版交付范围刻意收窄，只覆盖一条可复现、可恢复的 CDC 路径：
+Vitess CDC 连接器通过 VTGate 的 VStream gRPC API 订阅变更事件。它是一个流式 CDC 源：
+没有初始快照阶段，连接器从一个 VGTID 开始读取——可以是最新可用的 VGTID
+（`startup.mode = LATEST`），也可以是显式给定的 VGTID（`startup.mode = SPECIFIC`）。
+Schema 元数据必须通过 `schema` 或 `tables_configs` 显式声明，CDC 流量则通过连接器内置的
+VTGate gRPC 客户端读取。Checkpoint 状态是序列化后的 VGTID，因此作业可以从同一逻辑位置
+重启。
+
+第一版交付的关键特性：
 
 - 仅支持流式 CDC，不包含初始快照阶段
 - 必须通过 `schema` 或 `tables_configs` 显式提供表结构
@@ -20,8 +27,8 @@ Vitess CDC 连接器通过 VTGate 的 VStream gRPC API 订阅变更事件。第�
 - 输出 SeaTunnel CDC 行，兼容现有多表下游链路
 
 如果你需要可复现的启动位点，请使用 `startup.mode = SPECIFIC` 并提供明确的
-Vitess VGTID。`LATEST` 作为便捷启动模式保留，但在第一条 CDC 事件落地成具体 offset
-之前，它的初始位置仍然是符号化的 `current`。
+Vitess VGTID。`LATEST` 作为便捷启动模式保留，对齐现有 Vitess CDC 后端的行为，
+但在第一条 CDC 事件落地成具体 offset 之前，它的初始位置仍然是符号化的 `current`。
 
 ## 主要功能
 
@@ -47,7 +54,7 @@ JDBC 做验证或示例下游，请额外准备 MySQL JDBC 驱动。
 
 | 名称 | 类型 | 必填 | 默认值 | 描述 |
 | --- | --- | --- | --- | --- |
-| hostname | String | 是 | - | Vitess VTGate gRPC 服务地址。 |
+| hostname | String | 是 | - | Vitess VTGate gRPC 服务的主机名或 IP 地址。 |
 | port | Int | 否 | 15991 | Vitess VTGate gRPC 端口。 |
 | keyspace | String | 是 | - | 当前连接器采集的 Vitess keyspace。 |
 | schema | Config | 是* | - | 单表 schema 定义。schema 中必须提供 `table`，并且至少提供 `columns` 或 `metadata_table_id` 之一。 |

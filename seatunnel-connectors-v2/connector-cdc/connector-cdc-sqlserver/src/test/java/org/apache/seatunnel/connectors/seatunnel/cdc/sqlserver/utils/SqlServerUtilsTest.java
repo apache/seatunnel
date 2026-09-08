@@ -25,7 +25,11 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset.Lsn
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.connector.sqlserver.SourceInfo;
 import io.debezium.relational.TableId;
+
+import java.util.HashMap;
+import java.util.Map;
 
 public class SqlServerUtilsTest {
     @Test
@@ -81,5 +85,22 @@ public class SqlServerUtilsTest {
         String invalidLsn = "invalid_lsn";
         Assertions.assertThrows(
                 RuntimeException.class, () -> SqlServerUtils.lsnStringToOffset(invalidLsn));
+    }
+
+    @Test
+    public void testGetLsnPositionPreservesCompleteSqlServerOffset() {
+        Map<String, Object> sourceOffset = new HashMap<>();
+        sourceOffset.put(SourceInfo.COMMIT_LSN_KEY, "00000027:00000a80:0003");
+        sourceOffset.put(SourceInfo.CHANGE_LSN_KEY, "00000027:00000a80:0004");
+        sourceOffset.put(SourceInfo.EVENT_SERIAL_NO_KEY, 2L);
+
+        LsnOffset offset = SqlServerUtils.getLsnPosition(sourceOffset);
+
+        Assertions.assertEquals("00000027:00000a80:0003", offset.getCommitLsn().toString());
+        Assertions.assertEquals("00000027:00000a80:0004", offset.getChangeLsn().toString());
+        Assertions.assertEquals("2", offset.getEventSerialNo());
+
+        sourceOffset.put(SourceInfo.EVENT_SERIAL_NO_KEY, 3L);
+        Assertions.assertTrue(SqlServerUtils.getLsnPosition(sourceOffset).isAfter(offset));
     }
 }

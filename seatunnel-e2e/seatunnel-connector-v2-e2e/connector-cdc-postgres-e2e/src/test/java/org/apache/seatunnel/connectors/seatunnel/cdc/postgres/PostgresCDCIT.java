@@ -153,6 +153,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
      */
     private static final long POSTGRES_CDC_WAIT_TIMEOUT_SECONDS = 300L;
 
+    /**
+     * Budget for assertions made immediately after a savepoint restore.
+     *
+     * <p>The plain 60s used elsewhere in this class only has to cover a CDC round trip on an
+     * already-running job. A post-restore assertion additionally has to absorb the restore itself -
+     * cluster restart, connector re-initialization and replication slot reattach - before the round
+     * trip it asserts on can even begin. On a loaded runner the restore alone can consume the whole
+     * 60s, so these waits get their own budget rather than sharing the round-trip one.
+     */
+    private static final long RESTORE_ASSERT_TIMEOUT_MILLIS = 180000L;
+
     // kafka container
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
@@ -760,7 +771,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            // The completed job can retain the replication slot briefly after savepoint creation.
+            // Wait for that connection to close so the next active state belongs to the restored
+            // job.
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isReplicationSlotActive(committedSlotName)));
 
             committedOffsetJob =
                     CompletableFuture.runAsync(
@@ -778,7 +796,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
-            await().atMost(120, TimeUnit.SECONDS)
+            waitForReplicationSlotActive(committedSlotName);
+            // Insert only after the restored replication connection is active so this CDC record
+            // is not written before the restored slot can consume it.
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
@@ -1074,7 +1096,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_2);
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertAll(
@@ -1119,7 +1141,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFieldWithRestore(TestContainer container)
+    public void testAddColumnSchemaEvolutionWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         Long jobId = JobIdGenerator.newJobId();
         String slotVariable = toSlotVariable(createSlotName());
@@ -1155,9 +1177,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
-            // add field add insert source table data
+            // Change only the source table. The restored job must evolve the sink before writing
+            // the first row that contains the new column.
             addFieldsForTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
-            addFieldsForTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
 
             // Restore job
@@ -1176,7 +1198,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     });
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertAll(
@@ -1189,7 +1211,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                             query(
                                                                     getQuerySQL(
                                                                             POSTGRESQL_SCHEMA,
-                                                                            SINK_TABLE_3)))));
+                                                                            SINK_TABLE_3))),
+                                            () ->
+                                                    Assertions.assertIterableEquals(
+                                                            Collections.singletonList(
+                                                                    Collections.singletonList(
+                                                                            "bigint")),
+                                                            query(
+                                                                    getColumnDataTypeQuery(
+                                                                            POSTGRESQL_SCHEMA,
+                                                                            SINK_TABLE_3,
+                                                                            "f_big")))));
 
             log.info("****************** container logs start ******************");
             String containerLogs = container.getServerLogs();
@@ -1201,6 +1233,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             // Clear related content to ensure that multiple operations are not affected
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_3);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_3);
+            // Drop the columns after deleting rows so the running CDC job does not observe a
+            // cleanup DML under the intentionally unsupported DROP COLUMN relation.
+            dropFieldIfExists(POSTGRESQL_SCHEMA, SOURCE_TABLE_3, "f_big");
+            dropFieldIfExists(POSTGRESQL_SCHEMA, SINK_TABLE_3, "f_big");
         }
     }
 
@@ -1827,8 +1863,17 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private void addFieldsForTable(String database, String tableName) {
-
         executeSql("ALTER TABLE " + database + "." + tableName + " ADD COLUMN f_big BIGINT");
+    }
+
+    private void dropFieldIfExists(String database, String tableName, String fieldName) {
+        executeSql(
+                "ALTER TABLE "
+                        + database
+                        + "."
+                        + tableName
+                        + " DROP COLUMN IF EXISTS "
+                        + fieldName);
     }
 
     private void insertSourceTableForAddFields(String database, String tableName) {
@@ -1912,6 +1957,12 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String getColumnDataTypeQuery(String schemaName, String tableName, String columnName) {
+        return String.format(
+                "SELECT data_type FROM information_schema.columns WHERE table_schema = '%s' AND table_name = '%s' AND column_name = '%s'",
+                schemaName, tableName, columnName);
     }
 
     @Override

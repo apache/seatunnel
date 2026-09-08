@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
@@ -133,6 +134,11 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             if (schemaChangeResolver != null) {
                 schemaChangeEvent = schemaChangeResolver.resolve(record, tables);
             }
+        } catch (SchemaEvolutionException e) {
+            // A resolver uses SchemaEvolutionException only when continuing would make the
+            // produced row schema diverge from the source relation. Keep generic parser failures
+            // backward-compatible, but fail fast for an explicitly classified schema error.
+            throw e;
         } catch (Exception e) {
             log.warn("Failed to resolve schemaChangeEvent, just skip.", e);
             return;

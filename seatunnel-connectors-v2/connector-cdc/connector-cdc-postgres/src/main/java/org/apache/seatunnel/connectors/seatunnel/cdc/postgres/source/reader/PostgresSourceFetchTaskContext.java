@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
@@ -28,6 +29,8 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaChangeResolver;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaRecord;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresUtils;
 
@@ -46,6 +49,7 @@ import io.debezium.connector.postgresql.PostgresPartition;
 import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.PostgresTaskContext;
 import io.debezium.connector.postgresql.PostgresTopicSelector;
+import io.debezium.connector.postgresql.RelationAwarePostgresSchema;
 import io.debezium.connector.postgresql.TypeRegistry;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ReplicationConnection;
@@ -72,6 +76,7 @@ import java.sql.SQLException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
@@ -102,7 +107,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private final EventMetadataProvider metadataProvider;
 
     @Getter private Snapshotter snapshotter;
-    private PostgresSchema databaseSchema;
+    private RelationAwarePostgresSchema databaseSchema;
     private PostgresOffsetContext offsetContext;
     private PostgresPartition partition;
     private TopicSelector<TableId> topicSelector;
@@ -119,30 +124,46 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     private Collection<TableChanges.TableChange> engineHistory;
 
+    // Suppresses duplicate RELATION messages within one task lifetime. Accessed only by the
+    // single Debezium reader thread and cleared whenever the context is configured for a split.
+    private final Map<TableId, Table> lastRelationSchemas = new HashMap<>();
+
+    // The schema SeaTunnel had already propagated downstream before this task started. On restore,
+    // checkpoint tables take precedence over live discovery so the first RELATION can reveal a
+    // source/sink schema gap that occurred after the checkpoint.
+    private final List<CatalogTable> relationSchemaBaseline;
+
     /**
      * Creates a PostgreSQL fetch context with the legacy constructor signature.
      *
-     * <p>External callers may still construct this context directly. The empty history keeps that
-     * source-compatible path available while the dialect-owned path can pass split-specific schema
-     * history.
+     * <p>External callers may still construct this context directly. The empty history and empty
+     * baseline keep that source-compatible path available while the dialect-owned path can pass
+     * split-specific schema history and the pre-task relation schema baseline.
      */
     public PostgresSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
             PostgresConnection dataConnection) {
-        this(sourceConfig, dataSourceDialect, dataConnection, Collections.emptyList());
+        this(
+                sourceConfig,
+                dataSourceDialect,
+                dataConnection,
+                Collections.emptyList(),
+                Collections.emptyList());
     }
 
     public PostgresSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
             PostgresConnection dataConnection,
-            Collection<TableChanges.TableChange> engineHistory) {
+            Collection<TableChanges.TableChange> engineHistory,
+            List<CatalogTable> relationSchemaBaseline) {
         super(sourceConfig, dataSourceDialect);
         this.dataConnection = dataConnection;
         this.currentConnectorConfig = (PostgresConnectorConfig) super.getDbzConnectorConfig();
         this.metadataProvider = PostgresObjectUtils.newEventMetadataProvider();
         this.engineHistory = engineHistory;
+        this.relationSchemaBaseline = relationSchemaBaseline;
         this.postgresValueConverterBuilder =
                 newPostgresValueConverterBuilder(
                         getDbzConnectorConfig(),
@@ -154,6 +175,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     public void configure(SourceSplitBase sourceSplitBase) {
         this.currentConnectorConfig = createConnectorConfig(sourceSplitBase);
         super.registerDatabaseHistory(sourceSplitBase, dataConnection);
+        lastRelationSchemas.clear();
 
         // initial stateful objects
         final PostgresConnectorConfig connectorConfig = getDbzConnectorConfig();
@@ -280,6 +302,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                             // .buffering()
                             .build();
 
+            if (connectorConfig.isSchemaChangesHistoryEnabled()) {
+                databaseSchema.setRelationChangeListener(this::dispatchRelationSchemaChange);
+            }
+
             this.dispatcher =
                     new JdbcSourceEventDispatcher<>(
                             connectorConfig,
@@ -363,6 +389,53 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return databaseSchema;
     }
 
+    /** Enqueue a synthetic schema record when a streaming RELATION differs from tracked state. */
+    private void dispatchRelationSchemaChange(Table table) {
+        Table previousRelation = lastRelationSchemas.put(table.id(), table);
+        if (previousRelation != null
+                && RelationAwarePostgresSchema.hasSameRelationSchema(previousRelation, table)) {
+            return;
+        }
+        if (previousRelation == null && hasSameBaselineSchema(table)) {
+            return;
+        }
+
+        SourceRecord record =
+                PostgresRelationSchemaRecord.create(
+                        table,
+                        partition.getSourcePartition(),
+                        new HashMap<>(offsetContext.getOffset()),
+                        topicSelector.topicNameFor(table.id()));
+        try {
+            queue.enqueue(new DataChangeEvent(record));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new DebeziumException(
+                    "Interrupted while dispatching PostgreSQL relation change for " + table.id(),
+                    e);
+        }
+    }
+
+    /** Compare the first RELATION for a table with initial or checkpoint-restored catalog state. */
+    private boolean hasSameBaselineSchema(Table relation) {
+        return relationSchemaBaseline.stream()
+                .filter(
+                        table ->
+                                Objects.equals(
+                                                table.getTablePath().getSchemaName(),
+                                                PostgresRelationSchemaChangeResolver
+                                                        .relationSchemaName(relation))
+                                        && Objects.equals(
+                                                table.getTablePath().getTableName(),
+                                                relation.id().table()))
+                .findFirst()
+                .map(
+                        table ->
+                                PostgresRelationSchemaChangeResolver.hasSameCatalogSchema(
+                                        table, relation))
+                .orElse(false);
+    }
+
     @Override
     public TableId getTableId(SourceRecord record) {
         Struct value = (Struct) record.value();
@@ -408,6 +481,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         } catch (Exception e) {
             log.warn("Failed to close connection", e);
         } finally {
+            if (Objects.nonNull(databaseSchema)) {
+                databaseSchema.setRelationChangeListener(null);
+                databaseSchema.close();
+            }
             if (Objects.nonNull(dataConnection)) {
                 try {
                     this.dataConnection.close();

@@ -86,7 +86,7 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCa
         value = {TestContainerId.SPARK_2_4},
         type = {EngineType.FLINK, EngineType.SEATUNNEL},
         disabledReason =
-                "Needs hadoop-aws,aws-java-sdk jar for flink, spark2.4. For the seatunnel engine, it crashes on seatunnel-hadoop3-3.1.4-uber.jar.")
+                "Needs hadoop-aws,aws-java-sdk jar for flink, spark2.4. For the seatunnel engine, it crashes on seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar.")
 @Slf4j
 public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 

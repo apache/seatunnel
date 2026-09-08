@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.telemetry.metrics.exports;
 
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.telemetry.metrics.AbstractCollector;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
@@ -41,7 +42,12 @@ public class RequestSlotOperationExports extends AbstractCollector {
             return mfs;
         }
 
-        ResourceManager resourceManager = getCoordinatorService().getInitializedResourceManager();
+        CoordinatorService coordinatorService = getReadyCoordinatorService();
+        if (coordinatorService == null) {
+            return mfs;
+        }
+
+        ResourceManager resourceManager = coordinatorService.getInitializedResourceManager();
         if (resourceManager == null) {
             return mfs;
         }

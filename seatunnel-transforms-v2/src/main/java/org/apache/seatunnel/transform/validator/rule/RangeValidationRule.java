@@ -26,6 +26,8 @@ import org.apache.seatunnel.transform.validator.ValidationResult;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /** Validation rule to check if a numeric value is within a specified range. */
 @Data
 @NoArgsConstructor
@@ -62,7 +64,7 @@ public class RangeValidationRule implements ValidationRule {
 
         // Check minimum value
         if (minValue != null) {
-            int minComparison = comparableValue.compareTo(minValue);
+            int minComparison = compare(comparableValue, minValue);
             if (minInclusive ? minComparison < 0 : minComparison <= 0) {
                 return ValidationResult.failure(
                         customMessage != null
@@ -73,7 +75,7 @@ public class RangeValidationRule implements ValidationRule {
 
         // Check maximum value
         if (maxValue != null) {
-            int maxComparison = comparableValue.compareTo(maxValue);
+            int maxComparison = compare(comparableValue, maxValue);
             if (maxInclusive ? maxComparison > 0 : maxComparison >= 0) {
                 return ValidationResult.failure(
                         customMessage != null
@@ -83,6 +85,46 @@ public class RangeValidationRule implements ValidationRule {
         }
 
         return ValidationResult.success();
+    }
+
+    private int compare(Comparable value, Comparable bound) {
+        if (value instanceof Number && bound instanceof Number) {
+            return compareNumbers((Number) value, (Number) bound);
+        }
+        return compareAsNumberOrString(value, bound);
+    }
+
+    /**
+     * Compares two numeric values. The field value type (e.g. BIGINT/DOUBLE) may differ from the
+     * parsed bound type (Integer/Long/Double), so finite values are compared as {@link BigDecimal}
+     * to avoid {@link ClassCastException}. Non-finite values (NaN, Infinity) cannot be represented
+     * as {@link BigDecimal}, so they are compared as double - {@link Double#compare} sorts them
+     * beyond all finite values, so they are treated as out of range instead of crashing.
+     */
+    private int compareNumbers(Number value, Number bound) {
+        double valueAsDouble = value.doubleValue();
+        double boundAsDouble = bound.doubleValue();
+        if (Double.isNaN(valueAsDouble)
+                || Double.isInfinite(valueAsDouble)
+                || Double.isNaN(boundAsDouble)
+                || Double.isInfinite(boundAsDouble)) {
+            return Double.compare(valueAsDouble, boundAsDouble);
+        }
+        return new BigDecimal(value.toString()).compareTo(new BigDecimal(bound.toString()));
+    }
+
+    /**
+     * Compares a value and a bound of different types (e.g. a STRING field against a numeric bound,
+     * or a numeric field against a string bound) without throwing {@link ClassCastException}.
+     * Values are compared numerically when both can be parsed as {@link BigDecimal}, otherwise by
+     * their string representation.
+     */
+    private int compareAsNumberOrString(Comparable value, Comparable bound) {
+        try {
+            return new BigDecimal(value.toString()).compareTo(new BigDecimal(bound.toString()));
+        } catch (NumberFormatException e) {
+            return value.toString().compareTo(bound.toString());
+        }
     }
 
     @Override

@@ -276,6 +276,19 @@ When this option is enabled for bounded Markdown file sources, the source enumer
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
@@ -653,6 +666,105 @@ source {
 ```
 
 The same pattern works for AWS SSO/Profile providers by swapping the provider class (for example `com.amazonaws.auth.profile.ProfileCredentialsProvider` with `fs.s3a.profile` and `fs.s3a.credentialsFile` keys) — pass those provider-specific keys under `hadoop_s3_properties`. See the [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) documentation for the full set of supported `fs.s3a.*` keys.
+
+## Credential Provider in Container Environments
+
+When running SeaTunnel in container environments (Kubernetes, ECS, EKS, Docker), the S3File connector accepts any fully-qualified S3A credentials provider class that implements `com.amazonaws.auth.AWSCredentialsProvider` and is available on the classpath. The `fs.s3a.aws.credentials.provider` option is validated at config-parse time when the class is resolvable on the node building the configuration: the class must implement the AWS credentials provider interface and must not be abstract. When the class cannot be resolved (e.g., the provider JAR is only available on worker nodes), validation is deferred to runtime on the worker actually running S3A.
+
+### Supported Credential Providers
+
+| Provider | Class Name | Typical Use |
+|----------|------------|-------------|
+| Simple AWSCredentials | `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` | Static access key / secret key |
+| Instance Profile | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | EC2 instance role (default) |
+| Container | `com.amazonaws.auth.ContainerCredentialsProvider` | ECS task role |
+| Default Chain | `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` | Multi-source fallback chain |
+| Custom | Any `com.amazonaws.auth.AWSCredentialsProvider` implementation | User-defined provider |
+
+### Kubernetes / EKS Configuration
+
+**EC2 Node Instance Role (Recommended)**: If your EKS worker nodes have an EC2 instance profile with S3 permissions, the default `InstanceProfileCredentialsProvider` resolves credentials from the instance metadata service automatically:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**Static Keys via Kubernetes Secrets (Fallback)**: If instance roles are not available, inject credentials from a Kubernetes Secret:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  access_key = "<from-k8s-secret>"
+  secret_key = "<from-k8s-secret>"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**DefaultAWSCredentialsProviderChain**: For flexible deployments, the default chain tries multiple credential sources in order (environment variables → system properties → profile → container → instance profile):
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.DefaultAWSCredentialsProviderChain"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### ECS Task Role
+
+When running on ECS with the `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` environment variable set automatically by the ECS agent:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.ContainerCredentialsProvider"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### EKS IRSA
+
+EKS IAM Roles for Service Accounts (IRSA) requires the `WebIdentityTokenCredentialsProvider` class. This class is available in newer AWS SDK v1.x releases (e.g. 1.11.5xx+) but is **not included** in the older AWS SDK v1.x (1.11.271) bundled with SeaTunnel. The following alternatives are recommended:
+
+1. **Use the EC2 node instance role** — attach an IAM role to the EKS worker node and keep the default `InstanceProfileCredentialsProvider`.
+2. **Use `SimpleAWSCredentialsProvider`** with credentials injected from a Kubernetes Secret.
+3. **Add a newer AWS SDK JAR** that includes `WebIdentityTokenCredentialsProvider` to `${SEATUNNEL_HOME}/lib` on all cluster nodes.
+
+### Passing Additional Options via `hadoop_s3_properties`
+
+For provider-specific configuration keys (e.g., `fs.s3a.session.token`, `fs.s3a.assumed.role.arn`), use the `hadoop_s3_properties` map:
+
+```hocon
+hadoop_s3_properties {
+  "fs.s3a.session.token" = "<session-token>"
+  "fs.s3a.assumed.role.arn" = "arn:aws:iam::123456789012:role/my-role"
+}
+```
+
+The connector passes these keys directly to the Hadoop S3A configuration. Note: the connector always overwrites the `fs.s3a.aws.credentials.provider` key with the option value, so you cannot override it via `hadoop_s3_properties`.
+
+### Troubleshooting
+
+**You may see a `Factory initialize failed` (or similar classloading) error**: This typically means the credential provider class is not on the classpath. Ensure the provider JAR is present in `${SEATUNNEL_HOME}/lib` on **every** cluster node (not just the submitting node).
+
+**`No AWS Credentials provided by ...`**: The configured credential provider could not resolve credentials. Check:
+- `SimpleAWSCredentialsProvider`: verify `access_key` and `secret_key` are set.
+- `InstanceProfileCredentialsProvider`: verify the EC2 instance has an IAM role attached.
+- `ContainerCredentialsProvider`: verify the `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` environment variable is set.
+
+**`IllegalArgumentException` at config-parse time**: The class name is malformed or the class does not implement `com.amazonaws.auth.AWSCredentialsProvider`. Verify the fully-qualified class name and that the class implements the required interface.
 
 ## Changelog
 
