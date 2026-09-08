@@ -14,15 +14,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.seatunnel.connectors.seatunnel.amazonsqs;
+package org.apache.seatunnel.connectors.seatunnel.amazonsqs.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.amazonsqs.source.AmazonSqsSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -30,20 +28,13 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
+class AmazonSqsSinkFactoryTest {
 
-public class AmazonSqsSourceFactoryTest {
-
-    private final OptionRule optionRule = new AmazonSqsSourceFactory().optionRule();
+    private final OptionRule optionRule = new AmazonSqsSinkFactory().optionRule();
 
     @Test
     void testOptionRule() {
         Assertions.assertNotNull(optionRule);
-        Assertions.assertTrue(
-                optionRule
-                        .getOptionalOptions()
-                        .contains(AmazonSqsSourceOptions.IGNORE_PARSE_ERRORS));
-        Assertions.assertFalse(AmazonSqsSourceOptions.IGNORE_PARSE_ERRORS.defaultValue());
     }
 
     @Test
@@ -57,15 +48,15 @@ public class AmazonSqsSourceFactoryTest {
 
     @Test
     void testMissingUrlRejected() {
-        Map<String, Object> config = baseConfig();
-        config.remove(AmazonSqsSourceOptions.URL.key());
+        Map<String, Object> config = new HashMap<>();
+        config.put(AmazonSqsSinkOptions.REGION.key(), "us-east-1");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
     }
 
     @Test
     void testMissingRegionRejected() {
-        Map<String, Object> config = baseConfig();
-        config.remove(AmazonSqsSourceOptions.REGION.key());
+        Map<String, Object> config = new HashMap<>();
+        config.put(AmazonSqsSinkOptions.URL.key(), "https://sqs.us-east-1.amazonaws.com/123/q");
         Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
     }
 
@@ -101,21 +92,9 @@ public class AmazonSqsSourceFactoryTest {
     }
 
     private Map<String, Object> configWith(String url, String region) {
-        Map<String, Object> config = baseConfig();
-        config.put(AmazonSqsSourceOptions.URL.key(), url);
-        config.put(AmazonSqsSourceOptions.REGION.key(), region);
-        return config;
-    }
-
-    private Map<String, Object> baseConfig() {
         Map<String, Object> config = new HashMap<>();
-        config.put(AmazonSqsSourceOptions.URL.key(), "https://sqs.us-east-1.amazonaws.com/123/q");
-        config.put(AmazonSqsSourceOptions.REGION.key(), "us-east-1");
-        Map<String, Object> field = new HashMap<>();
-        field.put("id", "int");
-        Map<String, Object> schema = new HashMap<>();
-        schema.put("fields", field);
-        config.put(SCHEMA.key(), schema);
+        config.put(AmazonSqsSinkOptions.URL.key(), url);
+        config.put(AmazonSqsSinkOptions.REGION.key(), region);
         return config;
     }
 }
