@@ -15,41 +15,38 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.snmp.source;
+package org.apache.seatunnel.connectors.seatunnel.snmp.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.snmp.client.SnmpTargetFactory;
-import org.apache.seatunnel.connectors.seatunnel.snmp.config.SnmpSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.snmp.config.SnmpSinkConfig;
 
 import org.snmp4j.PDU;
 import org.snmp4j.Snmp;
 import org.snmp4j.Target;
 import org.snmp4j.event.ResponseEvent;
-import org.snmp4j.smi.OID;
-import org.snmp4j.smi.Variable;
 import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
-/** SNMPv2c client backed by SNMP4J. */
-final class Snmp4jClient implements SnmpClient {
+/** SNMPv2c SET client backed by SNMP4J. */
+final class Snmp4jSetClient implements SnmpSetClient {
 
-    private final SnmpSourceConfig config;
+    private final SnmpSinkConfig config;
     private final Snmp snmp;
     private final Target target;
 
-    Snmp4jClient(SnmpSourceConfig config) throws IOException {
+    Snmp4jSetClient(SnmpSinkConfig config) throws IOException {
         this(config, new Snmp(new DefaultUdpTransportMapping()));
     }
 
-    Snmp4jClient(SnmpSourceConfig config, Snmp snmp) throws IOException {
+    Snmp4jSetClient(SnmpSinkConfig config, Snmp snmp) throws IOException {
         this.config = config;
-        this.target = buildTarget(config);
+        Target createdTarget;
         try {
+            createdTarget = SnmpTargetFactory.create(config);
             snmp.listen();
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             try {
                 snmp.close();
             } catch (IOException closeException) {
@@ -57,15 +54,16 @@ final class Snmp4jClient implements SnmpClient {
             }
             throw e;
         }
+        this.target = createdTarget;
         this.snmp = snmp;
     }
 
     @Override
-    public List<SnmpRecord> get(List<OID> oids) throws IOException {
-        ResponseEvent event = snmp.send(buildGetRequest(oids), target);
+    public void set(SnmpSetRequest request) throws IOException {
+        ResponseEvent event = snmp.send(buildSetRequest(request), target);
         if (event == null || event.getResponse() == null) {
             throw new IOException(
-                    "SNMP request timed out for agent "
+                    "SNMP SET request timed out for agent "
                             + config.getHost()
                             + ":"
                             + config.getPort());
@@ -81,7 +79,6 @@ final class Snmp4jClient implements SnmpClient {
                             + ") at index "
                             + response.getErrorIndex());
         }
-        return extractRecords(response);
     }
 
     @Override
@@ -89,29 +86,10 @@ final class Snmp4jClient implements SnmpClient {
         snmp.close();
     }
 
-    static PDU buildGetRequest(List<OID> oids) {
+    static PDU buildSetRequest(SnmpSetRequest request) {
         PDU pdu = new PDU();
-        pdu.setType(PDU.GET);
-        for (OID oid : oids) {
-            pdu.add(new VariableBinding(oid));
-        }
+        pdu.setType(PDU.SET);
+        pdu.add(new VariableBinding(request.getOid(), request.getValue()));
         return pdu;
-    }
-
-    static Target buildTarget(SnmpSourceConfig config) {
-        return SnmpTargetFactory.create(config);
-    }
-
-    static List<SnmpRecord> extractRecords(PDU response) {
-        List<SnmpRecord> records = new ArrayList<>(response.size());
-        for (VariableBinding binding : response.getVariableBindings()) {
-            Variable variable = binding.getVariable();
-            records.add(
-                    new SnmpRecord(
-                            binding.getOid().toString(),
-                            variable.toString(),
-                            variable.getSyntaxString()));
-        }
-        return records;
     }
 }
