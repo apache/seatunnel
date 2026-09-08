@@ -28,7 +28,7 @@ class AutoscalerRuntimeConfigTest {
 
         Assertions.assertFalse(config.isEnabled());
         Assertions.assertTrue(config.getEvaluationIntervalSeconds() > 0);
-        Assertions.assertTrue(config.getMetricsFreshnessSeconds() > 0);
+        Assertions.assertTrue(config.getMaxMetricStalenessSeconds() > 0);
         Assertions.assertTrue(config.getMinWorkers() > 0);
         Assertions.assertTrue(config.getMaxWorkers() >= config.getMinWorkers());
     }

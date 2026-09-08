@@ -102,7 +102,7 @@ class DefaultAutoscalerSignalCollectorTest {
 
     private DefaultAutoscalerSignalCollector collector(FakeResourceManager resourceManager) {
         AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder().metricsFreshnessSeconds(5).build();
+                AutoscalerRuntimeConfig.builder().maxMetricStalenessSeconds(5).build();
         return new DefaultAutoscalerSignalCollector(
                 resourceManager, config, () -> 0, () -> 0L, () -> 10_500L);
     }

@@ -73,7 +73,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
                         .summarize(
                                 currentWorkers,
                                 nowMillis,
-                                TimeUnit.SECONDS.toMillis(config.getMetricsFreshnessSeconds()));
+                                TimeUnit.SECONDS.toMillis(config.getMaxMetricStalenessSeconds()));
         ResourceShortageSnapshot shortageSnapshot =
                 resourceManager
                         .getResourceShortageStats()

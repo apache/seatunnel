@@ -31,28 +31,69 @@ public final class AutoscalerRuntimeConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** Whether the advisory autoscaler evaluation loop is enabled. Disabled by default. */
     private final boolean enabled;
+
+    /** Interval between two autoscaler evaluations, in seconds. */
     private final int evaluationIntervalSeconds;
-    private final int metricsFreshnessSeconds;
-    private final int maxFutureSkewSeconds;
+
+    /**
+     * Maximum allowed age of Worker metrics during an autoscaler evaluation, in seconds. Metrics
+     * older than this threshold are treated as stale and excluded from the evaluation.
+     */
+    private final int maxMetricStalenessSeconds;
+
+    /**
+     * Maximum amount by which a worker sample timestamp may lead the receiver clock when their
+     * clocks are out of sync, in seconds.
+     */
+    private final int futureTimestampToleranceSeconds;
+
+    /**
+     * Required continuous duration of scale-out pressure before publishing scale-out, in seconds.
+     */
     private final int scaleOutStabilizationSeconds;
+
+    /**
+     * Required continuous duration of scale-in conditions before publishing scale-in, in seconds.
+     */
     private final int scaleInStabilizationSeconds;
+
+    /** CPU utilization at or above which the policy considers scaling out. */
     private final double scaleOutCpuThreshold;
+
+    /** JVM memory utilization at or above which the policy considers scaling out. */
     private final double scaleOutJvmMemoryThreshold;
+
+    /** CPU utilization below which the policy may consider scaling in. */
     private final double scaleInCpuThreshold;
+
+    /** JVM memory utilization below which the policy may consider scaling in. */
     private final double scaleInJvmMemoryThreshold;
+
+    /** Fixed-slot utilization at or above which the policy records scale-out pressure. */
     private final double fixedSlotScaleOutThreshold;
+
+    /** Fixed-slot utilization below which the policy may consider scaling in. */
     private final double fixedSlotScaleInThreshold;
+
+    /** Number of workers by which one advisory recommendation changes the target. */
     private final int scaleStep;
+
+    /** Lower bound for the recommended worker count. */
     private final int minWorkers;
+
+    /** Upper bound for the recommended worker count. */
     private final int maxWorkers;
+
+    /** Maximum number of recent recommendations retained in the in-memory state store. */
     private final int historySize;
 
     private AutoscalerRuntimeConfig(Builder builder) {
         this.enabled = builder.enabled;
         this.evaluationIntervalSeconds = builder.evaluationIntervalSeconds;
-        this.metricsFreshnessSeconds = builder.metricsFreshnessSeconds;
-        this.maxFutureSkewSeconds = builder.maxFutureSkewSeconds;
+        this.maxMetricStalenessSeconds = builder.maxMetricStalenessSeconds;
+        this.futureTimestampToleranceSeconds = builder.futureTimestampToleranceSeconds;
         this.scaleOutStabilizationSeconds = builder.scaleOutStabilizationSeconds;
         this.scaleInStabilizationSeconds = builder.scaleInStabilizationSeconds;
         this.scaleOutCpuThreshold = builder.scaleOutCpuThreshold;
@@ -84,12 +125,12 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         return evaluationIntervalSeconds;
     }
 
-    public int getMetricsFreshnessSeconds() {
-        return metricsFreshnessSeconds;
+    public int getMaxMetricStalenessSeconds() {
+        return maxMetricStalenessSeconds;
     }
 
-    public int getMaxFutureSkewSeconds() {
-        return maxFutureSkewSeconds;
+    public int getFutureTimestampToleranceSeconds() {
+        return futureTimestampToleranceSeconds;
     }
 
     public int getScaleOutStabilizationSeconds() {
@@ -156,8 +197,8 @@ public final class AutoscalerRuntimeConfig implements Serializable {
     public static final class Builder {
         private boolean enabled = false;
         private int evaluationIntervalSeconds = 30;
-        private int metricsFreshnessSeconds = 120;
-        private int maxFutureSkewSeconds = 5;
+        private int maxMetricStalenessSeconds = 120;
+        private int futureTimestampToleranceSeconds = 5;
         private int scaleOutStabilizationSeconds = 300;
         private int scaleInStabilizationSeconds = 600;
         private double scaleOutCpuThreshold = 0.8d;
@@ -181,13 +222,13 @@ public final class AutoscalerRuntimeConfig implements Serializable {
             return this;
         }
 
-        public Builder metricsFreshnessSeconds(int value) {
-            metricsFreshnessSeconds = value;
+        public Builder maxMetricStalenessSeconds(int value) {
+            maxMetricStalenessSeconds = value;
             return this;
         }
 
-        public Builder maxFutureSkewSeconds(int value) {
-            maxFutureSkewSeconds = value;
+        public Builder futureTimestampToleranceSeconds(int value) {
+            futureTimestampToleranceSeconds = value;
             return this;
         }
 
@@ -258,8 +299,8 @@ public final class AutoscalerRuntimeConfig implements Serializable {
 
         private void validate() {
             checkPositive(evaluationIntervalSeconds, "evaluationIntervalSeconds must be > 0");
-            checkPositive(metricsFreshnessSeconds, "metricsFreshnessSeconds must be > 0");
-            if (maxFutureSkewSeconds < 0
+            checkPositive(maxMetricStalenessSeconds, "maxMetricStalenessSeconds must be > 0");
+            if (futureTimestampToleranceSeconds < 0
                     || scaleOutStabilizationSeconds < 0
                     || scaleInStabilizationSeconds < 0) {
                 throw new IllegalArgumentException("time windows and skew must be >= 0");

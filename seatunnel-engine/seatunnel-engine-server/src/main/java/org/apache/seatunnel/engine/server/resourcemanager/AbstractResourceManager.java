@@ -104,7 +104,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         this.autoscalerWorkerSampleStore =
                 new LatestWorkerSampleStore(
                         TimeUnit.SECONDS.toMillis(
-                                autoscalerRuntimeConfig.getMaxFutureSkewSeconds()));
+                                autoscalerRuntimeConfig.getFutureTimestampToleranceSeconds()));
 
         switch (engineConfig.getSlotServiceConfig().getAllocateStrategy()) {
             case SYSTEM_LOAD:
