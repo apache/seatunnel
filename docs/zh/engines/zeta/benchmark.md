@@ -169,6 +169,16 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 运行 ProtoStuff 序列化微基准
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
+  -rf json -rff seatunnel-benchmarks/target/protostuff.json
+```
+
+默认使用 4 个线程，测量 `IMapFileData` 的内存序列化和反序列化吞吐（`ops/ms`）。
+两个方法均覆盖共享 Schema 缓存的查询路径，不包含文件 I/O 和 Hazelcast 调度。
+
 ### 运行 Checkpoint 基准测试
 
 ```bash

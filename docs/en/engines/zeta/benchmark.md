@@ -178,6 +178,17 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 For a quick functional validation, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
 sample is not valid performance evidence.
 
+### Run the ProtoStuff Serializer Microbenchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
+  -rf json -rff seatunnel-benchmarks/target/protostuff.json
+```
+
+Measures in-memory `IMapFileData` serialization and deserialization throughput (`ops/ms`) with four
+threads by default. Both methods exercise shared schema-cache lookup, excluding file I/O and
+Hazelcast scheduling.
+
 ### Run the Checkpoint Benchmark
 
 ```bash
