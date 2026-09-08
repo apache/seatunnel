@@ -50,7 +50,7 @@ public class ReflectionUtils {
                 for (Field field : fields) {
                     if (fieldName.equals(field.getName())) {
                         field.setAccessible(true);
-                        return Optional.of(field.get(object));
+                        return Optional.ofNullable(field.get(object));
                     }
                 }
                 // find super class

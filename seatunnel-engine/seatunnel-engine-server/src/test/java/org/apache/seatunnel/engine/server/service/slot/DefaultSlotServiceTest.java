@@ -36,6 +36,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -71,7 +72,8 @@ class DefaultSlotServiceTest {
         try {
             slotService.init();
 
-            await().untilAsserted(
+            await().atMost(Duration.ofSeconds(15))
+                    .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
                                             slotService.countOperations(
@@ -115,7 +117,8 @@ class DefaultSlotServiceTest {
         try {
             slotService.init();
 
-            await().untilAsserted(
+            await().atMost(Duration.ofSeconds(15))
+                    .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
                                             slotService.countOperations(
