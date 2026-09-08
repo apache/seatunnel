@@ -55,6 +55,15 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelPipelineBenchmark
 ```
 
+## Run Zeta storage benchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapJobStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapWalStorageBenchmark
+```
+
 ## Install async-profiler
 
 CPU, wall-clock, and lock profiling require async-profiler's library and bundled `jfrconv`.
