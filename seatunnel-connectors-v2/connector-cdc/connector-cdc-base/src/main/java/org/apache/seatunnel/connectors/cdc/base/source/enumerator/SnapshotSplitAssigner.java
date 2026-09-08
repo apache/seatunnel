@@ -84,6 +84,17 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      */
     private final boolean releasesEnumeratorResourcesOnCompletion;
 
+    /**
+     * Whether {@link #open()} has an outstanding {@code dialect.openEnumerator(sourceConfig)} call
+     * that has not yet been paired with a {@code dialect.closeEnumerator(sourceConfig)}.
+     *
+     * <p>Guards against invoking {@code closeEnumerator} twice for one {@code openEnumerator}: once
+     * from {@link #open()}'s own catch-block cleanup, and again from {@link #close()}, which the
+     * enumerator framework still calls afterward. A dialect that drops a replication slot would
+     * otherwise fail with "slot does not exist" on the second call.
+     */
+    private boolean dialectOpened;
+
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
             int currentParallelism,
@@ -167,8 +178,13 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void open() {
-        dialect.openEnumerator(sourceConfig);
         try {
+            // Set before the call, not after: if openEnumerator() itself fails partway through
+            // (for example a PostgreSQL replication slot gets created but a later verification
+            // step throws), the catch block below must still attempt closeEnumerator() so the
+            // partially acquired resource is not orphaned.
+            dialectOpened = true;
+            dialect.openEnumerator(sourceConfig);
             chunkSplitter = dialect.createChunkSplitter(sourceConfig);
 
             // the legacy state didn't snapshot remaining tables, discovery remaining table here
@@ -184,6 +200,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 dialect.closeEnumerator(sourceConfig);
             } catch (Exception closeException) {
                 e.addSuppressed(closeException);
+            } finally {
+                // The enumerator-owned resource is already released (or its release was already
+                // attempted) here, so close() -- which the framework still calls after open()
+                // fails -- must not invoke closeEnumerator() a second time.
+                dialectOpened = false;
             }
             throw new RuntimeException("Failed to open snapshot split assigner", e);
         }
@@ -299,8 +320,9 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         // (no later incremental phase depends on them) AND the snapshot phase has durably,
         // checkpoint-confirmed completed - not merely because close() was called, since close()
         // cannot tell a genuine final stop apart from a Zeta failover/restart.
-        if (releasesEnumeratorResourcesOnCompletion && assignerCompleted) {
+        if (releasesEnumeratorResourcesOnCompletion && assignerCompleted && dialectOpened) {
             dialect.closeEnumerator(sourceConfig);
+            dialectOpened = false;
         }
     }
 

@@ -168,8 +168,15 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
 
     @Override
     public void close() {
-        snapshotSplitAssigner.close();
-        incrementalSplitAssigner.close();
+        // snapshotSplitAssigner.close() reaches dialect.closeEnumerator(), which can perform
+        // network I/O (for example dropping/validating a PostgreSQL replication slot). A failure
+        // there must not skip incrementalSplitAssigner.close(), or whatever it owns leaks on every
+        // enumerator shutdown where the snapshot-side cleanup happens to fail.
+        try {
+            snapshotSplitAssigner.close();
+        } finally {
+            incrementalSplitAssigner.close();
+        }
     }
 
     @VisibleForTesting

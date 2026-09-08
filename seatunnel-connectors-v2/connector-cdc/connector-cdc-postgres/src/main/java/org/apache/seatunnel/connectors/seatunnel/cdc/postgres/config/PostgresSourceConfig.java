@@ -121,7 +121,10 @@ public class PostgresSourceConfig extends JdbcSourceConfig {
      *
      * <p>PostgreSQL allows only one active consumer per logical replication slot, so snapshot
      * readers must not share the configured streaming slot. PostgreSQL identifiers are limited to
-     * 63 bytes; slot names are ASCII identifiers, so truncating by character count is safe here.
+     * 63 bytes; {@code slot.name} is validated against {@code [a-z0-9_]{1,63}} at config-factory
+     * time ({@code PostgresSourceConfigFactory}), which guarantees it is single-byte ASCII, so
+     * truncating by Java {@code char} count below is provably equivalent to truncating by byte
+     * count.
      */
     public String getSlotNameForBackfillTask() {
         return createBackfillSlotName(

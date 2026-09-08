@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
@@ -136,8 +137,12 @@ public class SnapshotSplitAssignerTest {
                         /* releasesEnumeratorResourcesOnCompletion= */ true,
                         /* assignerCompleted= */ true);
 
+        // close() only releases resources open() actually acquired; exercise the real lifecycle
+        // rather than calling close() on an assigner that was never opened.
+        splitAssigner.open();
         splitAssigner.close();
 
+        verify(dialect, times(1)).openEnumerator(any());
         verify(dialect, times(1)).closeEnumerator(any());
     }
 
@@ -158,8 +163,10 @@ public class SnapshotSplitAssignerTest {
                         /* releasesEnumeratorResourcesOnCompletion= */ false,
                         /* assignerCompleted= */ true);
 
+        splitAssigner.open();
         splitAssigner.close();
 
+        verify(dialect, times(1)).openEnumerator(any());
         verify(dialect, never()).closeEnumerator(any());
     }
 
@@ -179,9 +186,41 @@ public class SnapshotSplitAssignerTest {
                         /* releasesEnumeratorResourcesOnCompletion= */ true,
                         /* assignerCompleted= */ false);
 
+        splitAssigner.open();
         splitAssigner.close();
 
+        verify(dialect, times(1)).openEnumerator(any());
         verify(dialect, never()).closeEnumerator(any());
+    }
+
+    /**
+     * Regression for the enumerator-resource double-close: when {@code open()} fails after {@code
+     * dialect.openEnumerator(...)} has run, its catch block cleans up via {@code
+     * closeEnumerator(...)} exactly once. The enumerator framework still calls {@code close()}
+     * afterward (SeaTunnel's own contract, not simulated here directly) - that must not invoke
+     * {@code closeEnumerator(...)} a second time, which a slot-dropping dialect implementation
+     * would otherwise fail on with "slot does not exist".
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void closeAfterFailedOpenDoesNotDoubleInvokeCloseEnumerator() {
+        DataSourceDialect dialect = mock(DataSourceDialect.class);
+        Mockito.when(dialect.createChunkSplitter(any()))
+                .thenThrow(new RuntimeException("simulated chunk splitter failure"));
+        SnapshotSplitAssigner splitAssigner =
+                createSnapshotSplitAssignerForClose(
+                        dialect,
+                        /* releasesEnumeratorResourcesOnCompletion= */ true,
+                        /* assignerCompleted= */ true);
+
+        Assertions.assertThrows(RuntimeException.class, splitAssigner::open);
+        verify(dialect, times(1)).openEnumerator(any());
+        verify(dialect, times(1)).closeEnumerator(any());
+
+        // The framework still calls close() after a failed open(); it must not re-invoke
+        // closeEnumerator() for a resource open() already gave up on.
+        splitAssigner.close();
+        verify(dialect, times(1)).closeEnumerator(any());
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})

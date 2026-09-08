@@ -222,6 +222,12 @@ still owns that slot. Temporary backfill slots are always cleaned up by the snap
 snapshot startup, operators may therefore briefly see both the configured `slot.name` and generated
 `*_st_backfill_*` slots in `pg_replication_slots`.
 
+Because each snapshot reader creates its own backfill slot, an exactly-once initial snapshot with
+source parallelism N transiently needs at least N+1 replication slots (the configured streaming slot
+plus one backfill slot per reader). Size `max_replication_slots` to accommodate at least
+`parallelism + 1` slots, plus any other consumers of replication slots on the same server, or
+snapshot startup fails with `ERROR: all replication slots are in use`.
+
 ## Changelog
 
 <ChangeLog />

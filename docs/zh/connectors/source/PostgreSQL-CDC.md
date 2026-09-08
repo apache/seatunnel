@@ -385,6 +385,12 @@ SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。
 可能会在 `pg_replication_slots` 中短暂看到配置的 `slot.name` 以及生成的 `*_st_backfill_*`
 复制槽。
 
+由于每个快照 reader 都会创建自己的 backfill 复制槽，当 source 并行度为 N 时，exactly-once
+initial snapshot 任务会瞬时占用至少 N+1 个复制槽（1 个配置的流式复制槽加上 N 个 backfill
+复制槽）。请确保 `max_replication_slots`（默认值 `10`）至少能容纳 `并行度 + 1` 个复制槽，
+并为同一服务器上的其他复制槽使用方预留额外容量，否则快照启动阶段会报
+`ERROR: all replication slots are in use`。
+
 ### PostgreSQL CDC 为什么会滞后？
 
 滞后可能由逻辑解码插件处理慢或 WAL sender 负载过高引起。可通过监控 `pg_replication_slots` 中的 `confirmed_flush_lsn` 漂移情况来排查。确保 CDC 任务持续消费事件，并保持 SeaTunnel 与 PostgreSQL 之间的网络低延迟。
