@@ -127,6 +127,16 @@ class SchemaChangeDrainGuard {
      * <p>The checkpoint type is required after failover because a sink can be restored from a
      * completed schema-change-before checkpoint without observing that barrier in the new runtime.
      *
+     * <p>On recovery this is the only call that can reopen a freshly constructed guard (a new
+     * {@code SinkFlowLifeCycle}, and therefore a new {@code SchemaChangeDrainGuard} with {@code
+     * schemaChangeDrainReady=false}, is created whenever the sink task restarts). It is driven by
+     * {@code CheckpointCoordinator.allTaskReady()} replaying {@code latestCompletedCheckpoint}
+     * through {@code notifyCompleted()} once every subtask in the pipeline reports {@code
+     * READY_START}. Since the pipeline's {@code CheckpointCoordinator} is always recreated together
+     * with a restarting task (task failure recovery is pipeline-scoped, not per-task, in this
+     * engine -- see {@code SubPlan.cancelPipeline()}/{@code reset()}), {@code isAllTaskReady}'s
+     * once-per-coordinator guard can never suppress this replay for a task that actually needs it.
+     *
      * @param checkpointId completed checkpoint id reported by the checkpoint coordinator
      * @param checkpointType completed checkpoint type reported by the checkpoint coordinator
      */
