@@ -61,6 +61,9 @@ class HdfsWriterDurableFlushTest {
         conf.set("fs.defaultFS", "file:///");
         conf.set("fs.hdfs.impl", "org.apache.hadoop.fs.LocalFileSystem");
         FileSystem fs = FileSystem.getLocal(conf);
+        // Match production IMapFileStorage: without this, ChecksumFileSystem buffers writes and
+        // mid-stream read-back from a second handle can see 0 records until close().
+        fs.setWriteChecksum(false);
         Serializer serializer = new ProtoStuffSerializer();
         Path parentPath = new Path(tempDir.resolve("wal").toUri());
         WALReader reader = new WALReader(fs, FileConfiguration.HDFS, serializer);
