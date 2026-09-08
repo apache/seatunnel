@@ -263,6 +263,92 @@ public class MultiTableSinkWriterTest {
         Assertions.assertTrue(exception.getMessage().contains(table1));
     }
 
+    /**
+     * Under {@link MultiTableFailurePolicy#CONTINUE_OTHER_TABLES}, a late row for an already-closed
+     * table must be dropped through the same continue-policy outcome as the other write-time
+     * failure paths (quarantined table, missing primary key), not hard-fail the whole task. The
+     * default (fail-fast) policy keeps throwing, unchanged: see {@link
+     * #testCloseTableEventAllowsInFlightRowsUntilFinalSnapshot}.
+     */
+    @Test
+    public void testCloseTableWriteContinuesOtherTablesInsteadOfThrowing() throws IOException {
+        String table1 = TablePath.of("db", "schema", "table1").getFullName();
+        TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(SinkIdentifier.of(table1, 0), table1Writer0);
+        sinkWritersContext.put(SinkIdentifier.of(table1, 0), new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH);
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1")));
+        multiTableSinkWriter.snapshotState(1L);
+        Assertions.assertEquals(1, table1Writer0.closeCount.get());
+
+        SeaTunnelRow lateRow = buildRow(table1, 1);
+        Assertions.assertDoesNotThrow(
+                () -> multiTableSinkWriter.write(lateRow),
+                "CONTINUE_OTHER_TABLES must drop a late row for a closed table instead of"
+                        + " hard-failing the task");
+        Assertions.assertEquals(
+                0, table1Writer0.writeCount.get(), "the dropped row must not reach the writer");
+    }
+
+    /**
+     * A straggler {@link CloseTableEvent} arriving after a table's writers are already closed must
+     * not recreate the internal close-aggregation bookkeeping ({@code
+     * closeTableEventSources}/{@code expectedCloseTableEventCounts}) for that table id: those
+     * entries are removed by {@code closeTable()}, and letting a late event bring them back leaks
+     * one entry per straggler-hit table for the rest of the job's lifetime, since nothing ever
+     * revisits an already-closed table again.
+     */
+    @Test
+    public void testStragglerCloseEventAfterCloseDoesNotLeakAggregationState() throws Exception {
+        String table1 = TablePath.of("db", "schema", "table1").getFullName();
+        TrackingSinkWriter table1Writer0 = new TrackingSinkWriter("table1-0");
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(SinkIdentifier.of(table1, 0), table1Writer0);
+        sinkWritersContext.put(SinkIdentifier.of(table1, 0), new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1")));
+        multiTableSinkWriter.snapshotState(1L);
+        Assertions.assertEquals(1, table1Writer0.closeCount.get());
+
+        // Straggler event for the same table, arriving after it is already closed.
+        multiTableSinkWriter.handleCloseTableEvent(
+                new CloseTableEvent(TablePath.of("db", "schema", "table1"), 0, 2));
+
+        Assertions.assertTrue(
+                getPrivateMap(multiTableSinkWriter, "closeTableEventSources").isEmpty(),
+                "a straggler event on an already-closed table must not leak a"
+                        + " closeTableEventSources entry");
+        Assertions.assertTrue(
+                getPrivateMap(multiTableSinkWriter, "expectedCloseTableEventCounts").isEmpty(),
+                "a straggler event on an already-closed table must not leak an"
+                        + " expectedCloseTableEventCounts entry");
+    }
+
+    private Map<?, ?> getPrivateMap(MultiTableSinkWriter multiTableSinkWriter, String fieldName)
+            throws Exception {
+        Field field = MultiTableSinkWriter.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return (Map<?, ?>) field.get(multiTableSinkWriter);
+    }
+
     @Test
     public void testContinueOtherTablesKeepsHealthyTableRunning() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();

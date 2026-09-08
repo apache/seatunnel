@@ -575,6 +575,17 @@ public class MultiTableSinkWriter
             log.debug("Ignore empty close table event: {}", event);
             return;
         }
+        if (closedTableIds.contains(event.tableId())) {
+            // A straggler close-table event arriving after this table's writers are already
+            // closed must not recreate closeTableEventSources/expectedCloseTableEventCounts
+            // entries for it: closeTable() already removed both, and letting a late event
+            // recreate them here would leak one entry per straggler-hit table for the rest of
+            // the job's lifetime, since nothing else ever revisits an already-closed table.
+            log.debug(
+                    "Ignore close table event for table {} that is already closed",
+                    event.tableId());
+            return;
+        }
         Integer sourceSubtaskId = event.getSourceSubtaskId();
         Integer expectedSourceEventCount = event.getExpectedSourceEventCount();
         if (sourceSubtaskId == null
@@ -594,6 +605,14 @@ public class MultiTableSinkWriter
                         requiredCountOnFile);
                 return;
             }
+            // Known gap (tracked, non-blocking): if this un-attributed event is the FIRST close
+            // event ever seen for this table, requiredCountOnFile is null here, so we cannot yet
+            // know whether another upstream subtask will still report for the same table --
+            // multi-reader membership is only learned from a properly attributed event's own
+            // expectedSourceEventCount. Closing on this first, un-attributed signal is a much
+            // narrower window than the original bug (which closed on ANY un-attributed event
+            // regardless of known multi-reader state), but it is not fully eliminated; it is
+            // inherent to this ordering ambiguity rather than an oversight in this fix.
             markTablePendingClose(event.tableId());
             return;
         }
@@ -656,6 +675,15 @@ public class MultiTableSinkWriter
         }
 
         if (element.getTableId() != null && closedTableIds.contains(element.getTableId())) {
+            if (failurePolicy.continueOtherTables()) {
+                // Route a late row for an already-closed table through the same continue-policy
+                // outcome as the other write-time failure paths below (quarantined table,
+                // missing primary key) instead of hard-failing the whole task on it.
+                log.debug(
+                        "Skip row for table {} received after its sink writers were closed",
+                        element.getTableId());
+                return;
+            }
             throw new IOException(
                     String.format(
                             "Received row for table %s after its sink writers were closed",
@@ -809,15 +837,39 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Deadline for {@link #waitUntilTableQueueDrained}. A checkpoint must not block forever if a
+     * table's queue never drains (for example a stuck downstream sink): bounding the wait lets the
+     * checkpoint fail cleanly instead of stalling indefinitely. The table stays in {@code
+     * pendingCloseTableIds} when the deadline is hit (this method throws before {@link #closeTable}
+     * removes it), so the next checkpoint attempt retries the close instead of it being silently
+     * skipped.
+     */
+    private static final long TABLE_QUEUE_DRAIN_TIMEOUT_MILLIS = 300_000L;
+
     private void waitUntilTableQueueDrained(String tableId) throws IOException {
+        long deadline = System.currentTimeMillis() + TABLE_QUEUE_DRAIN_TIMEOUT_MILLIS;
         try {
             while (hasQueuedRows(tableId)) {
+                if (System.currentTimeMillis() >= deadline) {
+                    throw new IOException(
+                            String.format(
+                                    "Timed out after %dms waiting for table %s's queued rows to"
+                                            + " drain before closing it; will retry on the next"
+                                            + " checkpoint",
+                                    TABLE_QUEUE_DRAIN_TIMEOUT_MILLIS, tableId));
+                }
                 Thread.sleep(100L);
                 subSinkErrorCheck();
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            throw new RuntimeException(e);
+            throw new IOException(
+                    String.format(
+                            "Interrupted while waiting for table %s's queued rows to drain before"
+                                    + " closing it",
+                            tableId),
+                    e);
         }
     }
 
