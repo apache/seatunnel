@@ -22,6 +22,15 @@
   - **变更说明**：这些接口现在会拒绝非整数或不大于 0 的 `page` 与 `rows`，并拒绝起始偏移量会超出 32 位整数范围的分页请求。此前 `rows=0` 会被接受并返回空页，负数 `rows` 会引发内部错误，而足够大的 `page` 与 `rows` 组合可能溢出为一个较小的正偏移量，从而静默返回错误的页。
   - **影响**：依赖 `rows=0` 返回空页的请求现在会收到 `400`，错误信息中会指明具体参数。传入合法正整数的调用方不受影响。响应结构、`{"data": [...], "total": n}` 包装格式，以及起始位置恰好等于 `total` 时仍返回空页的行为，均保持不变。
 
+### COMPATIBLE_DEBEZIUM_JSON NULL 处理
+
+- **行为变更：保留显式 NULL 值**
+  - **影响范围**：基于 Debezium 的 CDC Source 使用的 `COMPATIBLE_DEBEZIUM_JSON` 格式
+  - **变更说明**：当源记录中的可空字段为显式 `NULL`，即使该字段 schema 存在非空默认值，现在也会序列化为 JSON `null`。
+    之前 Kafka Connect 的 `Struct#get` 会应用默认值，因此会序列化为 schema 默认值。
+  - **影响**：使用该格式的现有作业，在可空字段存在 schema 默认值时，输出 JSON 可能发生变化。如需保留旧的默认值替换行为，
+    可将 `key.converter.replace.null.with.default=true` 或 `value.converter.replace.null.with.default=true` 设置为 `true`。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**

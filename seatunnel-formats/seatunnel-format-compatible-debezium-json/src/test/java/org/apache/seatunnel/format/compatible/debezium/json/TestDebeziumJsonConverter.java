@@ -20,6 +20,8 @@ package org.apache.seatunnel.format.compatible.debezium.json;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import org.apache.kafka.connect.data.Date;
 import org.apache.kafka.connect.data.Decimal;
 import org.apache.kafka.connect.data.Schema;
@@ -41,7 +43,7 @@ import java.util.Map;
 
 public class TestDebeziumJsonConverter {
 
-    /** A nullable DECIMAL(20,4) column with DEFAULT '0.0000'. */
+    /** A nullable DECIMAL(20,4) column with DEFAULT '0.0000', as reported in ST-3742. */
     private static Schema decimalWithDefaultSchema() {
         return SchemaBuilder.struct()
                 .field(
@@ -86,7 +88,7 @@ public class TestDebeziumJsonConverter {
 
     @Test
     public void testNullWithSchemaDefaultIsSerializedAsJsonNull() throws Exception {
-        // Raw NULL must stay JSON null even though the schema has a default, because the
+        // Raw NULL must stay JSON null even though the schema has a default (ST-3742), because the
         // underlying JsonConverter is configured with replace.null.with.default=false.
         Schema schema = decimalWithDefaultSchema();
         Struct value = new Struct(schema); // reg_capital is not set -> null
@@ -194,6 +196,37 @@ public class TestDebeziumJsonConverter {
 
         DebeziumJsonConverter converter = new DebeziumJsonConverter(false, false, true);
         Assertions.assertEquals("{\"reg_capital\":0.0000}", converter.serializeValue(sourceRecord));
+    }
+
+    @Test
+    public void testKeyAndValueCanConfigureNullDefaultIndependently() throws Exception {
+        Schema schema = decimalWithDefaultSchema();
+        SourceRecord sourceRecord =
+                new SourceRecord(
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        null,
+                        schema,
+                        new Struct(schema),
+                        schema,
+                        new Struct(schema));
+
+        DebeziumJsonConverter converter = new DebeziumJsonConverter(false, false, true, false);
+        Assertions.assertEquals("{\"reg_capital\":0.0000}", converter.serializeKey(sourceRecord));
+        Assertions.assertEquals("{\"reg_capital\":null}", converter.serializeValue(sourceRecord));
+    }
+
+    @Test
+    public void testCompatibleDeserializationTaskPreservesExplicitNull() throws Exception {
+        Schema schema = decimalWithDefaultSchema();
+        Struct value = new Struct(schema);
+        SourceRecord sourceRecord = record(schema, value);
+
+        CompatibleDebeziumJsonDeserializationSchema deserializationSchema =
+                new CompatibleDebeziumJsonDeserializationSchema(false, false, false, false);
+        SeaTunnelRow row = deserializationSchema.deserialize(sourceRecord);
+
+        Assertions.assertEquals("{\"reg_capital\":null}", row.getField(2));
     }
 
     @Test
