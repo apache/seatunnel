@@ -61,15 +61,18 @@ public class DebeziumJsonDeserializeSchema
                 Boolean.valueOf(debeziumConfig.getOrDefault(KEY_SCHEMA_ENABLE, "true"));
         boolean valueSchemaEnable =
                 Boolean.valueOf(debeziumConfig.getOrDefault(VALUE_SCHEMA_ENABLE, "true"));
-        boolean replaceNullWithDefault =
+        boolean keyReplaceNullWithDefault =
                 Boolean.valueOf(
-                        debeziumConfig.getOrDefault(
-                                VALUE_REPLACE_NULL_WITH_DEFAULT,
-                                debeziumConfig.getOrDefault(
-                                        KEY_REPLACE_NULL_WITH_DEFAULT, "false")));
+                        debeziumConfig.getOrDefault(KEY_REPLACE_NULL_WITH_DEFAULT, "false"));
+        boolean valueReplaceNullWithDefault =
+                Boolean.valueOf(
+                        debeziumConfig.getOrDefault(VALUE_REPLACE_NULL_WITH_DEFAULT, "false"));
         this.deserializationSchema =
                 new CompatibleDebeziumJsonDeserializationSchema(
-                        keySchemaEnable, valueSchemaEnable, replaceNullWithDefault);
+                        keySchemaEnable,
+                        valueSchemaEnable,
+                        keyReplaceNullWithDefault,
+                        valueReplaceNullWithDefault);
     }
 
     @Override

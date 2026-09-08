@@ -53,9 +53,20 @@ public class CompatibleDebeziumJsonDeserializationSchema
 
     public CompatibleDebeziumJsonDeserializationSchema(
             boolean keySchemaEnable, boolean valueSchemaEnable, boolean replaceNullWithDefault) {
+        this(keySchemaEnable, valueSchemaEnable, replaceNullWithDefault, replaceNullWithDefault);
+    }
+
+    public CompatibleDebeziumJsonDeserializationSchema(
+            boolean keySchemaEnable,
+            boolean valueSchemaEnable,
+            boolean keyReplaceNullWithDefault,
+            boolean valueReplaceNullWithDefault) {
         this.debeziumJsonConverter =
                 new DebeziumJsonConverter(
-                        keySchemaEnable, valueSchemaEnable, replaceNullWithDefault);
+                        keySchemaEnable,
+                        valueSchemaEnable,
+                        keyReplaceNullWithDefault,
+                        valueReplaceNullWithDefault);
     }
 
     @Override

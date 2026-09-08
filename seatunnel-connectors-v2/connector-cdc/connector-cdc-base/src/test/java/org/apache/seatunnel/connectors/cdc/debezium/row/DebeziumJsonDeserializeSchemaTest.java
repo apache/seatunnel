@@ -20,13 +20,17 @@ package org.apache.seatunnel.connectors.cdc.debezium.row;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -87,5 +91,32 @@ public class DebeziumJsonDeserializeSchemaTest {
         schema.deserialize(record, collector);
 
         verify(collector, times(0)).collect(any(SeaTunnelRow.class));
+    }
+
+    @Test
+    void nullReplacementCanBeConfiguredIndependently() throws Exception {
+        Map<String, String> debeziumConfig = new HashMap<>();
+        debeziumConfig.put("key.converter.schemas.enable", "false");
+        debeziumConfig.put("value.converter.schemas.enable", "false");
+        debeziumConfig.put("key.converter.replace.null.with.default", "true");
+        debeziumConfig.put("value.converter.replace.null.with.default", "false");
+
+        Schema recordSchema =
+                SchemaBuilder.struct()
+                        .name("test")
+                        .field("field", SchemaBuilder.int32().optional().defaultValue(0).build())
+                        .build();
+        Struct struct = new Struct(recordSchema);
+        SourceRecord record =
+                new SourceRecord(null, null, "test", recordSchema, struct, recordSchema, struct);
+
+        Collector<SeaTunnelRow> collector = mock(Collector.class);
+        new DebeziumJsonDeserializeSchema(debeziumConfig).deserialize(record, collector);
+
+        ArgumentCaptor<SeaTunnelRow> captor = ArgumentCaptor.forClass(SeaTunnelRow.class);
+        verify(collector).collect(captor.capture());
+        SeaTunnelRow row = captor.getValue();
+        Assertions.assertEquals("{\"field\":0}", row.getField(1));
+        Assertions.assertEquals("{\"field\":null}", row.getField(2));
     }
 }

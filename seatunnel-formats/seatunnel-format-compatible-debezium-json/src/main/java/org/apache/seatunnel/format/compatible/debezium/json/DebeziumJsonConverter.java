@@ -21,12 +21,9 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.json.DecimalFormat;
-import org.apache.kafka.connect.json.JsonConverter;
-import org.apache.kafka.connect.json.JsonConverterConfig;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import lombok.RequiredArgsConstructor;
 
 import java.io.Serializable;
 import java.lang.reflect.InvocationTargetException;
@@ -37,32 +34,45 @@ import java.util.Objects;
 
 /**
  * Converts a Debezium {@link SourceRecord} to the JSON representation used by the
- * COMPATIBLE_DEBEZIUM_JSON format, delegating the Struct→JSON conversion to Kafka Connect's {@link
- * JsonConverter}.
+ * COMPATIBLE_DEBEZIUM_JSON format, delegating the Struct→JSON conversion to Kafka Connect's local
+ * {@link JsonConverter}.
  *
- * <p>The {@code org.apache.kafka.connect.json.JsonConverter} bundled in this module (same package,
- * official 3.2.0 sources with the two upstream backports from Kafka Connect 3.9.0: struct fields
- * read with {@code Struct#getWithoutDefault} and the {@code replace.null.with.default} config,
- * default {@code true} upstream) keeps explicit NULLs when configured accordingly. This converter
- * configures it with {@code replace.null.with.default=false}, so an explicit NULL is never
- * substituted with the schema default; pass {@code replaceNullWithDefault=true} to reproduce the
- * exact upstream default.
+ * <p>The local {@link JsonConverter} is a complete copy of Kafka Connect's official JSON converter
+ * under the SeaTunnel package, with the upstream null/default behavior exposed through {@code
+ * replace.null.with.default}. Keeping it under the SeaTunnel package avoids shadowing the official
+ * Kafka class in other connectors.
  */
-@RequiredArgsConstructor
 public class DebeziumJsonConverter implements Serializable {
     private static final String INCLUDE_SCHEMA_METHOD = "convertToJsonWithEnvelope";
     private static final String EXCLUDE_SCHEMA_METHOD = "convertToJsonWithoutEnvelope";
 
     private final boolean keySchemaEnable;
     private final boolean valueSchemaEnable;
-    private final boolean replaceNullWithDefault;
+    private final boolean keyReplaceNullWithDefault;
+    private final boolean valueReplaceNullWithDefault;
     private transient volatile JsonConverter keyConverter;
     private transient volatile JsonConverter valueConverter;
     private transient Method keyConverterMethod;
     private transient Method valueConverterMethod;
 
     public DebeziumJsonConverter(boolean keySchemaEnable, boolean valueSchemaEnable) {
-        this(keySchemaEnable, valueSchemaEnable, false);
+        this(keySchemaEnable, valueSchemaEnable, false, false);
+    }
+
+    public DebeziumJsonConverter(
+            boolean keySchemaEnable, boolean valueSchemaEnable, boolean replaceNullWithDefault) {
+        this(keySchemaEnable, valueSchemaEnable, replaceNullWithDefault, replaceNullWithDefault);
+    }
+
+    public DebeziumJsonConverter(
+            boolean keySchemaEnable,
+            boolean valueSchemaEnable,
+            boolean keyReplaceNullWithDefault,
+            boolean valueReplaceNullWithDefault) {
+        this.keySchemaEnable = keySchemaEnable;
+        this.valueSchemaEnable = valueSchemaEnable;
+        this.keyReplaceNullWithDefault = keyReplaceNullWithDefault;
+        this.valueReplaceNullWithDefault = valueReplaceNullWithDefault;
     }
 
     public String serializeKey(SourceRecord record)
@@ -107,7 +117,7 @@ public class DebeziumJsonConverter implements Serializable {
                             DecimalFormat.NUMERIC.name());
                     configs.put(
                             JsonConverterConfig.REPLACE_NULL_WITH_DEFAULT_CONFIG,
-                            replaceNullWithDefault);
+                            keyReplaceNullWithDefault);
                     keyConverter.configure(configs, true);
                     keyConverterMethod =
                             ReflectionUtils.getDeclaredMethod(
@@ -132,7 +142,7 @@ public class DebeziumJsonConverter implements Serializable {
                             DecimalFormat.NUMERIC.name());
                     configs.put(
                             JsonConverterConfig.REPLACE_NULL_WITH_DEFAULT_CONFIG,
-                            replaceNullWithDefault);
+                            valueReplaceNullWithDefault);
                     valueConverter.configure(configs, false);
                     valueConverterMethod =
                             ReflectionUtils.getDeclaredMethod(

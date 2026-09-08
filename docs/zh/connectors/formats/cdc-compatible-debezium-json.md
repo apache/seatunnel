@@ -33,6 +33,9 @@ source {
         # include schema into kafka message
         key.converter.schemas.enable = false
         value.converter.schemas.enable = false
+        # 保留显式 NULL，不使用 schema 默认值
+        key.converter.replace.null.with.default = false
+        value.converter.replace.null.with.default = false
         # topic prefix
         database.server.name =  "mysql_cdc_1"
     }
@@ -52,3 +55,8 @@ sink {
 }
 ```
 
+## NULL 与 schema 默认值
+
+对于 `COMPATIBLE_DEBEZIUM_JSON`，即使字段 schema 存在非空默认值，显式的 `NULL` 默认也会序列化为 JSON `null`。
+如果希望使用 Kafka Connect 官方行为，可以将 `key.converter.replace.null.with.default` 或
+`value.converter.replace.null.with.default` 设置为 `true`，使 null 字段替换为 schema 默认值。

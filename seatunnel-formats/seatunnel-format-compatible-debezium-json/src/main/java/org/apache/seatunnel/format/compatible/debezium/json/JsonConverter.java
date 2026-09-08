@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.kafka.connect.json;
+package org.apache.seatunnel.format.compatible.debezium.json;
 
 import org.apache.kafka.common.cache.Cache;
 import org.apache.kafka.common.cache.LRUCache;
@@ -64,11 +64,10 @@ import static org.apache.kafka.common.utils.Utils.mkSet;
  * <p>This implementation currently does nothing with the topic names or header names.
  *
  * <p>This class is copied from Apache Kafka's {@code org.apache.kafka.connect.json.JsonConverter}
- * (3.2.0) and overrides the Kafka Connect dependency so that the whole runtime uses the fixed
- * implementation. Two upstream changes from Kafka Connect 3.9.0 are backported here: struct fields
- * are read with {@code Struct#getWithoutDefault} instead of {@code Struct#get}, and the {@code
- * replace.null.with.default} config (default {@code true} upstream) controls whether a null value
- * is substituted with the schema default.
+ * (3.2.0) into the SeaTunnel package. Two upstream changes from Kafka Connect 3.9.0 are backported
+ * here: struct fields are read with {@code Struct#getWithoutDefault} instead of {@code Struct#get},
+ * and the {@code replace.null.with.default} config (default {@code true} upstream) controls whether
+ * a null value is substituted with the schema default.
  */
 public class JsonConverter implements Converter, HeaderConverter {
 
