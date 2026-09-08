@@ -169,6 +169,16 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 运行 ProtoStuff 序列化微基准
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
+  -rf json -rff seatunnel-benchmarks/target/protostuff.json
+```
+
+默认使用 4 个线程，测量 `IMapFileData` 的内存序列化和反序列化吞吐（`ops/ms`）。
+两个方法均覆盖共享 Schema 缓存的查询路径，不包含文件 I/O 和 Hazelcast 调度。
+
 ### 运行 Checkpoint 基准测试
 
 ```bash
@@ -237,13 +247,25 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar \
 ### 运行 IMap DAG Storage Benchmark
 
 ```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark -foe true
 ```
 
 `finishedJobDagStore` 通过已完成作业 DAG IMap 及其文件型 MapStore 固定写入 100 个唯一的
 生产 `JobDAGInfo`；`finishedJobDagLoad` 逐出一个值后再通过 MapStore 重新加载。
 `pipelineCount=1|10|100` 控制代码构建的 Source-to-Sink Pipeline 数量，
 `storedDagCount=0|100` 控制已有存储压力。
+
+Store 的 TearDown 在计时之外检查缓存中的首个、中间和最后一个值，并删除本批数据。
+每个 Fork 的最后一次测量结束后，会先逐出这些样本，再通过 MapStore 重新加载并校验，
+然后删除数据。中间迭代不再为校验重放 WAL：随着写入和删除记录累积，全量 WAL 扫描的
+分配量会增长，即使 TearDown 不计时，也会影响后续样本。原有写入和删除操作保持不变，
+WAL 历史仍会增长；这不是存储压缩或稳态 Benchmark。
+
+每个 Benchmark Fork 仅对最后一批数据进行持久化回读，独立测试覆盖完整批次的往返校验。
+本地文件回读只能证明持久化内容可见，不能证明崩溃后的持久性。旧版每次迭代都回读的
+结果不能与修正后的基线直接比较，也不能将差异描述为生产性能提升。
+使用 `-foe true` 确保校验失败时拒绝本次运行。分配量和 GC Profiler 的结果可能包含不计时的
+TearDown，包括最后的回读，因此不能将它们视为仅包含写入的指标。
 
 ```bash
 java -jar seatunnel-benchmarks/target/benchmarks.jar \
