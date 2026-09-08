@@ -238,16 +238,26 @@ public class CoordinatorService {
 
     private final ScheduledExecutorService pipelineCleanupScheduler;
 
+    /**
+     * Periodic evaluation scheduler owned by the active master, or {@code null} when stopped.
+     *
+     * <p>The scheduler is created only after autoscaler enablement is confirmed and is shut down
+     * during coordinator cleanup before the active-master state is discarded.
+     */
     private ScheduledExecutorService autoscalerScheduler;
 
+    /** Stores the latest advisory recommendation and bounded recommendation history. */
     private final InMemoryAutoscalerStateStore autoscalerStateStore;
 
+    /** The autoscaler instance for the current master incarnation, or {@code null} when stopped. */
     private volatile DefaultAutoScaler autoScaler;
 
+    /** Whether the autoscaler evaluation loop is currently running for this coordinator. */
     private volatile boolean autoscalerRunning;
 
     private final EngineConfig engineConfig;
 
+    /** Immutable, server-local autoscaler settings used by the coordinator and resource manager. */
     private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
 
     private ConnectorPackageService connectorPackageService;
@@ -1402,6 +1412,15 @@ public class CoordinatorService {
         return resourceManager;
     }
 
+    /**
+     * Returns the current server-local advisory autoscaler view.
+     *
+     * <p>The view is read-only and reflects the current master epoch, recommendation generation,
+     * running state, and bounded history. It does not trigger an evaluation or any rescaling
+     * action.
+     *
+     * @return the current autoscaler view
+     */
     public AutoscalerView getAutoscalerView() {
         DefaultAutoScaler current = autoScaler;
         long currentMasterEpoch = current == null ? 0L : current.getMasterEpoch();
@@ -1415,6 +1434,13 @@ public class CoordinatorService {
                 autoscalerRuntimeConfig.getScaleInStabilizationSeconds());
     }
 
+    /**
+     * Starts the advisory autoscaler for the active master when it is enabled.
+     *
+     * <p>Starting is idempotent while the loop is already running. Each new master incarnation
+     * receives a fresh epoch, clears the previous local state, and creates a single daemon
+     * evaluation scheduler.
+     */
     private synchronized void startAutoscaler() {
         if (!autoscalerRuntimeConfig.isEnabled() || autoscalerRunning) {
             return;
@@ -1456,6 +1482,12 @@ public class CoordinatorService {
                 TimeUnit.SECONDS);
     }
 
+    /**
+     * Executes one autoscaler evaluation if this coordinator is still active.
+     *
+     * <p>All failures are contained and logged so an exception cannot terminate the periodic
+     * scheduler and silently stop future advisory evaluations.
+     */
     private void evaluateAutoscalerSafely() {
         if (!isActive || !autoscalerRunning) {
             return;
@@ -1470,6 +1502,13 @@ public class CoordinatorService {
         }
     }
 
+    /**
+     * Stops the current advisory autoscaler and fences its in-flight evaluation state.
+     *
+     * <p>The running flag and scaler reference are cleared before closing the scaler and shutting
+     * down the scheduler, so subsequent scheduled callbacks cannot publish recommendations for a
+     * demoted master.
+     */
     private synchronized void stopAutoscaler() {
         autoscalerRunning = false;
         DefaultAutoScaler current = autoScaler;
@@ -1484,6 +1523,12 @@ public class CoordinatorService {
         }
     }
 
+    /**
+     * Calculates how long the oldest pending job has been waiting.
+     *
+     * @return the oldest pending duration in milliseconds, or {@code 0} when no valid enqueue
+     *     timestamp is present
+     */
     private long getOldestPendingDurationMillis() {
         long oldestEnqueueTimestamp =
                 pendingJobQueue.getJobIdMap().values().stream()
