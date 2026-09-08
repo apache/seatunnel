@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
@@ -1473,6 +1474,14 @@ public class SplitClusterFaultToleranceIT {
      * level) or some pipeline permanently fails with its restore budget exhausted purely on
      * allocation timing (the bug this item describes). Either outcome is a valid, honest finding;
      * this test only documents production behavior and never modifies production code.
+     *
+     * <p>The assertions below accept both outcomes explicitly instead of hard-gating on {@code
+     * FINISHED} alone, so this probe cannot go red simply because the gap it exists to document
+     * actually manifested: a {@code FINISHED} job is verified by its exact row count, while a
+     * {@code FAILED} job is only accepted as the second finding once its recorded error confirms
+     * the failure is this specific {@code NoEnoughResourceException}-driven restore-budget
+     * exhaustion, not an unrelated regression. Any other terminal status, or a {@code FAILED} job
+     * whose error does not confirm that root cause, still fails the test.
      */
     @Test
     public void testManyPipelinesRestoreContentionInWorkerDown() throws Exception {
@@ -1564,8 +1573,8 @@ public class SplitClusterFaultToleranceIT {
                                     Assertions.assertEquals(
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
-            CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
+            CompletableFuture<JobResult> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
 
             // Kill one worker while several pipelines are running on it: every pipeline that had
             // any slot on this worker (coordinator or task group) must release ALL of its slots,
@@ -1591,15 +1600,50 @@ public class SplitClusterFaultToleranceIT {
                     .pollInterval(1000, TimeUnit.MILLISECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(objectCompletableFuture.isDone()));
 
-            JobStatus finalStatus = objectCompletableFuture.get();
+            JobResult jobResult = objectCompletableFuture.get();
+            JobStatus finalStatus = jobResult.getStatus();
             Long fileLineNumberFromDir =
                     FileUtils.getFileLineNumberFromDir(testResources.getLeft());
             log.warn(
-                    "==================final job status: {}, output line count: {}==================",
+                    "==================final job status: {}, output line count: {}, error: {}==================",
                     finalStatus,
-                    fileLineNumberFromDir);
-            Assertions.assertEquals(JobStatus.FINISHED, finalStatus);
-            Assertions.assertEquals(testRowNumber * pipelineNum, fileLineNumberFromDir);
+                    fileLineNumberFromDir,
+                    jobResult.getError());
+
+            // Both terminal outcomes documented in the class-level Javadoc above are accepted as
+            // valid findings here -- this probe is not a hard regression gate on a single required
+            // outcome, so it must not go red simply because the gap it exists to document actually
+            // manifested:
+            // 1) FINISHED: today's restore budget tolerated this contention level. Every row from
+            //    every pipeline must be present, since every sink has is_enable_transaction=true,
+            //    which guarantees a stranded/canceled attempt cannot have leaked partial output
+            //    into this same count.
+            // 2) FAILED with a NoEnoughResourceException surfacing in the job's recorded error: the
+            //    documented gap actually manifested and some pipeline burned its entire restore
+            //    budget purely on ResourceUtils#applyResourceForPipeline's synchronous,
+            //    backoff-free allocation racing its siblings. This is only accepted once the error
+            //    confirms that exact root cause, so this probe can never silently swallow an
+            //    unrelated regression (e.g. a NullPointerException elsewhere) as if it were the
+            //    finding it documents.
+            // Any other terminal status, or a FAILED job whose error does not confirm the
+            // NoEnoughResourceException root cause, is not one of the two documented findings and
+            // still fails the test below.
+            if (finalStatus == JobStatus.FINISHED) {
+                log.warn(
+                        "==========Finding: contention resolved within the restore budget, job FINISHED==========");
+                Assertions.assertEquals(testRowNumber * pipelineNum, fileLineNumberFromDir);
+            } else if (finalStatus == JobStatus.FAILED
+                    && jobResult.getError() != null
+                    && jobResult.getError().contains("NoEnoughResourceException")) {
+                log.warn(
+                        "==========Finding: a pipeline permanently failed with its restore budget exhausted purely on allocation timing, as this probe documents==========");
+            } else {
+                Assertions.fail(
+                        "Unexpected terminal outcome, neither documented finding occurred: status="
+                                + finalStatus
+                                + ", error="
+                                + jobResult.getError());
+            }
         } finally {
             if (engineClient != null) {
                 engineClient.close();
