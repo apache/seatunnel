@@ -202,16 +202,26 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         completedSplitWatermarks.forEach(
                 watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
         if (allSplitsCompleted()) {
-            // Always wait for a durable checkpoint before declaring the assigner completed, even
-            // when currentParallelism == 1. Skipping the checkpoint on a single parallel job
-            // used to be safe because no other reader could reorder snapshot and incremental
-            // data, but it now interacts badly with the static-slot failover path: a node that
-            // is preempted right after reporting all its completed snapshot splits can lose
-            // the in-memory completion state on restart, and the new owner replays the splits
-            // because no checkpoint pinned them. Let the next notifyCheckpointComplete decide.
-            LOG.info(
-                    "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
-                    currentParallelism);
+            if (currentParallelism == 1) {
+                // A single-reader job completes immediately. Zeta disables checkpointing
+                // entirely for batch jobs without 'checkpoint.interval', so waiting for
+                // notifyCheckpointComplete would hang such a job forever. The failover risk
+                // of skipping the checkpoint wait is covered by the durable finished-unacked
+                // splits in the reader's own checkpoint, whose re-report on restore and the
+                // back-fill in restoreCompletedSnapshotSplit reconstruct the completion state
+                // without replaying the splits.
+                assignerCompleted = true;
+                LOG.info(
+                        "Snapshot split assigner received all splits completed at parallelism 1, snapshot split assigner is turn into completed status.");
+            } else {
+                // Multi-reader jobs must wait for a complete checkpoint before switching to
+                // the incremental phase, so that all records of snapshot splits are completely
+                // processed in the pipeline and no incremental record can overtake a snapshot
+                // record of the same key.
+                LOG.info(
+                        "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
+                        currentParallelism);
+            }
         }
     }
 
@@ -296,13 +306,13 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
      *
      * <p>A finished reader that never reported its watermark before failover (for example because
      * the reader crashed immediately after marking the split as snapshot-read-finished but before
-     * its next CompletedSnapshotSplitsReportEvent went out) can show up after restore as a
-     * finished split whose watermark has not yet been checkpointed. Without back-fill, the
-     * enumerator would re-enqueue the split and the snapshot phase would never finish.
+     * its next CompletedSnapshotSplitsReportEvent went out) can show up after restore as a finished
+     * split whose watermark has not yet been checkpointed. Without back-fill, the enumerator would
+     * re-enqueue the split and the snapshot phase would never finish.
      *
      * <p>The split is skipped on add-back in that case, and the missing watermark is reconstructed
-     * from the split's own low/high watermark. If the split was not finished before the failover
-     * we still re-enqueue it so the reader can replay it from its persisted state.
+     * from the split's own low/high watermark. If the split was not finished before the failover we
+     * still re-enqueue it so the reader can replay it from its persisted state.
      */
     private boolean restoreCompletedSnapshotSplit(SnapshotSplit snapshotSplit) {
         if (!snapshotSplit.isSnapshotReadFinished()
