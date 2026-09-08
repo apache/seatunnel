@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -96,6 +97,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     private static final String SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY =
             "mysql_cdc_e2e_source_table_2_custom_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
+    private static final String SINK_TABLE_COLUMN_INCLUDE =
+            "mysql_cdc_e2e_sink_table_column_include";
 
     private static final String MULTI_DATABASE_A = "mysql_multi_cdc_db_a";
     private static final String MULTI_DATABASE_B = "mysql_multi_cdc_db_b";
@@ -124,7 +127,9 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @BeforeAll
     @Override
@@ -1388,6 +1393,57 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                                         TIMER_FLUSH_SRC_TABLE_2)))));
     }
 
+    @TestTemplate
+    public void testMysqlCdcWithColumnIncludeList(TestContainer container) {
+        // Clear related content to ensure that multiple operations are not affected
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE_COLUMN_INCLUDE);
+
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob("/mysqlcdc_to_mysql_with_column_include_list.conf");
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            log.info(
+                                    query(
+                                                    getColumnIncludeQuerySQL(
+                                                            MYSQL_DATABASE,
+                                                            SINK_TABLE_COLUMN_INCLUDE))
+                                            .toString());
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            getColumnIncludeSourceQuerySQL(
+                                                    MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(
+                                            getColumnIncludeQuerySQL(
+                                                    MYSQL_DATABASE, SINK_TABLE_COLUMN_INCLUDE)));
+                        });
+
+        // insert update delete
+        upsertDeleteSourceTableColumnInclude(MYSQL_DATABASE, SOURCE_TABLE_1);
+
+        // stream stage
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            getColumnIncludeSourceQuerySQL(
+                                                    MYSQL_DATABASE, SOURCE_TABLE_1)),
+                                    query(
+                                            getColumnIncludeQuerySQL(
+                                                    MYSQL_DATABASE, SINK_TABLE_COLUMN_INCLUDE)));
+                        });
+    }
+
     private Connection getJdbcConnection() throws SQLException {
         return DriverManager.getConnection(
                 MYSQL_CONTAINER.getJdbcUrl(),
@@ -1569,5 +1625,65 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
 
     private String getQuerySQL(String database, String tableName) {
         return String.format(QUERY_SQL, database, tableName);
+    }
+
+    // Query SQL for column include list test (selecting only 10 specific columns)
+    private static final String COLUMN_INCLUDE_SOURCE_SQL_TEMPLATE =
+            "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
+                    + " cast(f_varbinary as char) as f_varbinary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int from %s.%s";
+
+    private static final String COLUMN_INCLUDE_SINK_SQL_TEMPLATE =
+            "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
+                    + " cast(f_varbinary as char) as f_varbinary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int from %s.%s";
+
+    private String getColumnIncludeSourceQuerySQL(String database, String tableName) {
+        return String.format(COLUMN_INCLUDE_SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    private String getColumnIncludeQuerySQL(String database, String tableName) {
+        return String.format(COLUMN_INCLUDE_SINK_SQL_TEMPLATE, database, tableName);
+    }
+
+    private void upsertDeleteSourceTableColumnInclude(String database, String tableName) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " ( id, f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,\n"
+                        + "                                         f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer,\n"
+                        + "                                         f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double,\n"
+                        + "                                         f_double_precision, f_longtext, f_mediumtext, f_text, f_tinytext, f_varchar, f_date, f_datetime,\n"
+                        + "                                         f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_mediumblob, f_long_varchar, f_real, f_time,\n"
+                        + "                                         f_tinyint, f_tinyint_unsigned, f_json, f_year )\n"
+                        + "VALUES ( 5, 0x61626374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,\n"
+                        + "         0x68656C6C6F, 0x18000000789C0BC9C82C5600A244859CFCBC7485B2C4A2A4CCBCC4A24A00697308D4, NULL,\n"
+                        + "         0x74696E79626C6F62, 0x48656C6C6F20776F726C64, 12345, 54321, 123456, 654321, 1234567, 7654321, 1234567, 7654321,\n"
+                        + "         123456789, 987654321, 123, 789, 12.34, 56.78, 90.12, 'This is a long text field', 'This is a medium text field',\n"
+                        + "         'This is a text field', 'This is a tiny text field', 'This is a varchar field', '2022-04-27', '2022-04-27 14:30:00',\n"
+                        + "         '2023-04-27 11:08:40', 1, b'0101010101010101010101010101010101010101010101010101010101010101', 'C', 'enum2',\n"
+                        + "         0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field',\n"
+                        + "         12.345, '14:30:00', -128, 255, '{ \"key\": \"value\" }', 1992 )");
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " ( id, f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,\n"
+                        + "                                         f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer,\n"
+                        + "                                         f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double,\n"
+                        + "                                         f_double_precision, f_longtext, f_mediumtext, f_text, f_tinytext, f_varchar, f_date, f_datetime,\n"
+                        + "                                         f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_mediumblob, f_long_varchar, f_real, f_time,\n"
+                        + "                                         f_tinyint, f_tinyint_unsigned, f_json, f_year )\n"
+                        + "VALUES ( 6, 0x61626374000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000,\n"
+                        + "         0x68656C6C6F, 0x18000000789C0BC9C82C5600A244859CFCBC7485B2C4A2A4CCBCC4A24A00697308D4, NULL,\n"
+                        + "         0x74696E79626C6F62, 0x48656C6C6F20776F726C64, 12345, 54321, 123456, 654321, 1234567, 7654321, 1234567, 7654321,\n"
+                        + "         123456789, 987654321, 123, 789, 12.34, 56.78, 90.12, 'This is a long text field', 'This is a medium text field',\n"
+                        + "         'This is a text field', 'This is a tiny text field', 'This is a varchar field', '2022-04-27', '2022-04-27 14:30:00',\n"
+                        + "         '2023-04-27 11:08:40', 1, b'0101010101010101010101010101010101010101010101010101010101010101', 'C', 'enum2',\n"
+                        + "         0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field',\n"
+                        + "         12.345, '14:30:00', -128, 255, '{ \"key\": \"value\" }', 1999 )");
+        executeSql("DELETE FROM " + database + "." + tableName + " where id = 2");
+        executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 10000 where id = 3");
     }
 }

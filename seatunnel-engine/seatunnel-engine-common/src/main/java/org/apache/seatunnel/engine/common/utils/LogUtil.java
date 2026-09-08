@@ -49,7 +49,7 @@ public class LogUtil {
         if (logRef.equals(routingAppender)) {
             return routingLogFilePath.substring(0, routingLogFilePath.lastIndexOf("/"));
         } else if (logRef.equals(fileAppender)) {
-            return fileLogPath.substring(0, routingLogFilePath.lastIndexOf("/"));
+            return fileLogPath.substring(0, fileLogPath.lastIndexOf("/"));
         } else {
             throw new IllegalArgumentException(
                     String.format("Log file path is empty, get logRef : %s", logRef));

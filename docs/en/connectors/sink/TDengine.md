@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 > TDengine sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write data to TDengine.
@@ -30,50 +36,55 @@ sub table name.
 
 ## Options
 
-| name         | type   | required | default value |
-|--------------|--------|----------|---------------|
-| url          | string | yes      | -             |
-| username     | string | yes      | -             |
-| password     | string | yes      | -             |
-| database     | string | yes      | -             |
-| stable       | string | yes      | -             |
-| timezone     | string | no       | UTC           |
-| write_columns | list   | no       | -             |
-| common-options |       | no       | -             |
+| Name          | Type   | Required | Default | Description |
+|---------------|--------|----------|---------|-------------|
+| url           | String | Yes      | -       | TDengine REST JDBC URL. For example `jdbc:TAOS-RS://localhost:6041/`. |
+| username      | String | Yes      | -       | Username used to connect to TDengine. |
+| password      | String | Yes      | -       | Password used to connect to TDengine. |
+| database      | String | Yes      | -       | TDengine database name. |
+| stable        | String | Yes      | -       | TDengine super table name. For multi-table writes, this value can contain placeholders such as `${table_name}`. |
+| timezone      | String | No       | UTC     | TDengine server timezone used for timestamp conversion. |
+| write_columns | List   | No       | -       | Normal TDengine column names to insert. When unset, the target super table column order is used. Do not include TAGS columns or the sub-table-name field. |
+| common-options |        | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
-### url [string]
+### url [String]
 
 The TDengine REST JDBC URL.
 
-e.g.
+For example:
 
 ```
 jdbc:TAOS-RS://localhost:6041/
 ```
 
-### username [string]
+### username [String]
 
 The username used to connect to TDengine.
 
-### password [string]
+### password [String]
 
 The password used to connect to TDengine.
 
-### database [string]
+### database [String]
 
-The TDengine database name.
+The TDengine database name. The database must already exist on the server.
 
-### stable [string]
+### stable [String]
 
-The TDengine super table name. For multi-table writes, this value can contain
-placeholders, for example `${table_name}`.
+The TDengine super table name. The value is used verbatim by the sink writer;
+the TDengine connector itself does not perform placeholder substitution, so
+`${table_name}` and similar tokens are not rewritten at runtime. For multi-table
+writes, SeaTunnel's upstream framework (`TablePlaceholderProcessor`) may
+substitute `stable` once during job setup based on the upstream `CatalogTable`
+identifier, but this depends on the upstream framework wiring and is not a
+TDengine-specific feature.
 
-### timezone [string]
+### timezone [String]
 
 The TDengine server timezone used for timestamp conversion. The default value is
-`UTC`.
+`UTC`. Set this to match your TDengine server if it is not running in UTC.
 
-### write_columns [list]
+### write_columns [List]
 
 The normal TDengine column names to insert. If it is not set, TDengine uses the
 column order of the target super table. Do not include the first input field
@@ -86,6 +97,20 @@ Sink plugin common parameters, please refer to
 [Sink Common Options](../common-options/sink-common-options.md) for details.
 For multi-table writes, `multi_table_sink_replica` can be used with the common
 sink options.
+
+## Input Row Shape
+
+The connector expects every input row to follow the super-table write shape:
+
+1. The first field is the target sub table name (string). The sink creates the
+   sub table on demand if it does not exist.
+2. The next fields are the normal columns declared in `write_columns` (or in the
+   target super table column order when `write_columns` is unset).
+3. The last fields are TAGS values. The number of TAGS fields is read from the
+   target super table metadata.
+
+If the target super table has two TAGS fields, the last two input fields are
+TAGS values and the first input field is the sub table name.
 
 ## Examples
 
@@ -176,6 +201,12 @@ sink {
   }
 }
 ```
+
+Here `${table_name}` is treated as a literal string by the TDengine sink writer
+(the connector does not substitute it per row), so this example only works if
+the upstream framework substitutes `stable` once at job setup with the
+`CatalogTable` identifier from the upstream source. The target super tables
+must already exist with matching TAGS columns.
 
 ## Changelog
 

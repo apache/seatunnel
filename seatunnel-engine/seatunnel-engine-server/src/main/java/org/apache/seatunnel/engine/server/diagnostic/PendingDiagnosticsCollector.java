@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SystemLoadInfo;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -34,7 +35,9 @@ import com.hazelcast.cluster.Address;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -264,35 +267,47 @@ public final class PendingDiagnosticsCollector {
         } catch (Exception e) {
             log.warn("Collect worker count failed: {}", ExceptionUtils.getMessage(e));
         }
-        snapshot.setWorkers(buildWorkerSnapshots(resourceManager, tags));
+        snapshot.setWorkers(collectWorkerResourceSnapshot(resourceManager).getWorkers());
         return snapshot;
     }
 
-    private static List<WorkerResourceDiagnostic> buildWorkerSnapshots(
-            ResourceManager resourceManager, Map<String, String> tagFilter) {
+    /** Collects a point-in-time projection of the resources registered by the master. */
+    public static WorkerResourceSnapshot collectWorkerResourceSnapshot(
+            ResourceManager resourceManager) {
+        WorkerResourceSnapshot snapshot = new WorkerResourceSnapshot();
+        snapshot.setCollectedAt(System.currentTimeMillis());
         if (resourceManager == null) {
-            return Collections.emptyList();
+            return snapshot;
         }
-        Map<Address, WorkerProfile> registerWorker =
-                Optional.ofNullable(resourceManager.getRegisterWorker())
-                        .map(HashMap::new)
-                        .orElseGet(HashMap::new);
-        return registerWorker.values().stream()
-                .map(worker -> convertWorker(worker, tagFilter))
-                .collect(Collectors.toList());
+        try {
+            Map<Address, WorkerProfile> registerWorker = resourceManager.getRegisterWorker();
+            if (registerWorker == null) {
+                return snapshot;
+            }
+            List<WorkerResourceDiagnostic> workers =
+                    registerWorker.entrySet().stream()
+                            .map(entry -> convertWorker(entry.getKey(), entry.getValue()))
+                            .filter(worker -> worker != null)
+                            .sorted(Comparator.comparing(WorkerResourceDiagnostic::getAddress))
+                            .collect(Collectors.toList());
+            snapshot.setAvailable(true);
+            snapshot.setWorkers(workers);
+        } catch (Exception e) {
+            log.warn("Collect worker resource snapshot failed: {}", ExceptionUtils.getMessage(e));
+        }
+        return snapshot;
     }
 
-    /**
-     * TODO The current tagFilter does not actually filter. When the cluster is particularly large,
-     * tagFilter filtering should be supported, and it will be supported in the future
-     */
     private static WorkerResourceDiagnostic convertWorker(
-            WorkerProfile workerProfile, Map<String, String> tagFilter) {
-        WorkerResourceDiagnostic diagnostic = new WorkerResourceDiagnostic();
+            Address registeredAddress, WorkerProfile workerProfile) {
         if (workerProfile == null) {
-            return diagnostic;
+            return null;
         }
+        WorkerResourceDiagnostic diagnostic = new WorkerResourceDiagnostic();
         Address address = workerProfile.getAddress();
+        if (address == null) {
+            address = registeredAddress;
+        }
         diagnostic.setAddress(address == null ? "UNKNOWN" : address.toString());
         if (workerProfile.getAttributes() != null) {
             diagnostic.setTags(new HashMap<>(workerProfile.getAttributes()));
@@ -308,22 +323,44 @@ public final class PendingDiagnosticsCollector {
                 workerProfile.getUnassignedSlots() == null
                         ? 0
                         : workerProfile.getUnassignedSlots().length;
+        diagnostic.setUsedSlots(assignedSlots);
         diagnostic.setTotalSlots(assignedSlots + unassignedSlots);
         diagnostic.setFreeSlots(unassignedSlots);
+        setResourceValues(diagnostic, workerProfile.getProfile(), true);
+        setResourceValues(diagnostic, workerProfile.getUnassignedResource(), false);
         SystemLoadInfo systemLoadInfo = workerProfile.getSystemLoadInfo();
         if (systemLoadInfo != null) {
             diagnostic.setCpuUsage(systemLoadInfo.getCpuPercentage());
             diagnostic.setMemUsage(systemLoadInfo.getMemPercentage());
         }
-        if (workerProfile.getAssignedSlots() != null) {
-            List<Long> runningJobs =
-                    java.util.Arrays.stream(workerProfile.getAssignedSlots())
-                            .filter(slot -> slot != null && slot.getOwnerJobID() > 0)
-                            .map(SlotProfile::getOwnerJobID)
-                            .distinct()
-                            .collect(Collectors.toList());
-            diagnostic.setRunningJobIds(runningJobs);
-        }
+        List<Long> runningJobs =
+                workerProfile.getAssignedSlots() == null
+                        ? Collections.emptyList()
+                        : Arrays.stream(workerProfile.getAssignedSlots())
+                                .filter(slot -> slot != null && slot.getOwnerJobID() > 0)
+                                .map(SlotProfile::getOwnerJobID)
+                                .distinct()
+                                .sorted()
+                                .collect(Collectors.toList());
+        diagnostic.setRunningJobIds(runningJobs);
         return diagnostic;
+    }
+
+    private static void setResourceValues(
+            WorkerResourceDiagnostic diagnostic, ResourceProfile resource, boolean total) {
+        if (resource == null) {
+            return;
+        }
+        if (total) {
+            diagnostic.setTotalCpuCores(
+                    resource.getCpu() == null ? null : resource.getCpu().getCore());
+            diagnostic.setTotalHeapMemoryBytes(
+                    resource.getHeapMemory() == null ? null : resource.getHeapMemory().getBytes());
+        } else {
+            diagnostic.setAvailableCpuCores(
+                    resource.getCpu() == null ? null : resource.getCpu().getCore());
+            diagnostic.setAvailableHeapMemoryBytes(
+                    resource.getHeapMemory() == null ? null : resource.getHeapMemory().getBytes());
+        }
     }
 }

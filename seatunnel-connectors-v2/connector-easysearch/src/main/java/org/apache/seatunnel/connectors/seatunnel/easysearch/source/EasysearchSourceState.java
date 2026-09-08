@@ -17,17 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 
 import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
-@AllArgsConstructor
 @Getter
 public class EasysearchSourceState implements Serializable {
     private static final long serialVersionUID = 5807217062829745160L;
     private boolean shouldEnumerate;
     private Map<Integer, List<EasysearchSourceSplit>> pendingSplit;
+    private int assignCount;
+
+    public EasysearchSourceState(
+            boolean shouldEnumerate, Map<Integer, List<EasysearchSourceSplit>> pendingSplit) {
+        this(shouldEnumerate, pendingSplit, 0);
+    }
+
+    public EasysearchSourceState(
+            boolean shouldEnumerate,
+            Map<Integer, List<EasysearchSourceSplit>> pendingSplit,
+            int assignCount) {
+        this.shouldEnumerate = shouldEnumerate;
+        this.pendingSplit = pendingSplit;
+        this.assignCount = assignCount;
+    }
 }

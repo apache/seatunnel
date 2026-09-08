@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-email.md';
 
 > Email 数据接收器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将接收到的数据写成附件文件，并发送到一个或多个邮箱地址。
@@ -62,7 +68,7 @@ import ChangeLog from '../changelog/connector-email.md';
 
 ### email_smtp_port [int]
 
-SMTP 服务器端口。默认值 `465` 为 SMTPS 端口，需与 `email_smtp_auth = true` 配合使用。如果使用不带认证的普通 SMTP，请填写与服务匹配的端口（例如 `25` 或 `3025`）。
+SMTP 服务器端口，取值必须在 `1` 到 `65535` 之间（包含边界值）。默认值 `465` 为 SMTPS 端口，需与 `email_smtp_auth = true` 配合使用。如果使用不带认证的普通 SMTP，请填写与服务匹配的端口（例如 `25` 或 `3025`）。
 
 ### email_authorization_code [string]
 
@@ -250,6 +256,20 @@ sink {
   }
 }
 ```
+
+## 常见问题
+
+### Email Sink 如何格式化邮件附件？
+
+连接器会将每张表接收到的数据行缓冲到带分隔符的 CSV 附件文件中（通过 `email_attachment_name` 配置，默认为 `emailsink.csv`），并在 Writer 关闭时将附件随邮件发出。
+
+### 如果没有接收到任何数据行，还会发送邮件吗？
+
+不会。如果某张表没有接收到任何数据行，不会生成附件，也不会为该表发送邮件。
+
+### 是否可以配置多个收件人邮箱？
+
+可以。在 `email_to_address` 中配置多个收件人邮箱，使用英文逗号 `,` 分隔（例如 `user1@example.com,user2@example.com`）。
 
 ## 变更日志
 

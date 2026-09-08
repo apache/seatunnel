@@ -18,10 +18,12 @@
 package org.apache.seatunnel.api.table.schema.handler;
 
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
@@ -58,7 +60,9 @@ public class AlterTableEventHandler implements DataTypeChangeEventHandler {
     }
 
     private SeaTunnelRowType apply(SeaTunnelRowType dataType, AlterTableEvent alterTableEvent) {
-        if (alterTableEvent instanceof AlterTableNameEvent) {
+        if (alterTableEvent instanceof AlterTableNameEvent
+                || alterTableEvent instanceof AlterTableCommentEvent
+                || alterTableEvent instanceof AlterColumnCommentEvent) {
             return dataType;
         }
         if (alterTableEvent instanceof AlterTableDropColumnEvent) {

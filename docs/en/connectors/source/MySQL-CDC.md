@@ -476,7 +476,14 @@ sink {
 
 ### Read tables without a primary key
 
-For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and binlog phases both use the configured key for
+  consistent row identity.
 
 ```hocon
 env {
@@ -492,7 +499,13 @@ source {
     password = "mysqlpw"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
     url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
-    exactly_once = false
+    table-names-config = [
+      {
+        table = "mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
   }
 }
 ```
