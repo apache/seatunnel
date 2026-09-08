@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -1499,6 +1500,24 @@ public class SplitClusterFaultToleranceIT {
             workerConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
             workerConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(slotNumPerWorker);
         }
+        // CoordinatorService binds its schedule strategy once, from the active master's own
+        // EngineConfig (see CoordinatorService#scheduleStrategy / #isWaitStrategy), so only
+        // masterNode1Config -- the only master this test starts -- needs this. The engine
+        // default is REJECT, under which a resource pre-application attempt that cannot obtain
+        // every slot a pipeline needs in one pass fails the job immediately with no retry (see
+        // CoordinatorService#pendingJobSchedule). This job's very first pre-application (12
+        // slots across both fresh workers) can transiently race the two workers still
+        // registering their slot pools with the master's ResourceManager right after cluster
+        // startup, so a partial grant here is possible under CI load. Switching to WAIT makes
+        // that first attempt retry (3s sleep + requeue, unconditionally, no attempt cap) instead
+        // of failing terminally, so the job reliably reaches RUNNING and this test can exercise
+        // its actual target scenario: post-worker-kill restore contention over the fixed 8-slot
+        // survivor pool, using the still-tight 12-of-16 slot budget described in the class-level
+        // Javadoc above. This is unrelated to, and does not fix or mask, the separate confirmed
+        // engine gap in CoordinatorService's job-scheduling epoch handling (silent job loss on
+        // scheduler-epoch changes under REJECT, see pendingJobSchedule's own Javadoc) -- that gap
+        // is tracked and handled independently of this test.
+        masterNode1Config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
 
         try {
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
