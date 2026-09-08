@@ -233,6 +233,7 @@ public class IMapJobGrowthBenchmarkWorkload {
         }
     }
 
+    /** Deletes the previous measured growth batch so the next iteration starts from baseline. */
     private void cleanPreviousGrowthPhase() {
         if (batchJobIds == null) {
             return;
@@ -252,6 +253,7 @@ public class IMapJobGrowthBenchmarkWorkload {
         growthPhase = GrowthPhase.NONE;
     }
 
+    /** Checks the last running-job growth entry is present in memory without a MapStore reload. */
     private void verifyLastRunningJobResident() {
         int lastIndex = GROWTH_OPERATIONS_PER_INVOCATION - 1;
         long jobId = batchJobIds[lastIndex];
@@ -266,6 +268,10 @@ public class IMapJobGrowthBenchmarkWorkload {
         }
     }
 
+    /**
+     * Checks the last completed-job lifecycle left finished entries resident and cleared running
+     * state.
+     */
     private void verifyLastCompletedJobResident() {
         int lastIndex = GROWTH_OPERATIONS_PER_INVOCATION - 1;
         long jobId = batchJobIds[lastIndex];
@@ -280,6 +286,7 @@ public class IMapJobGrowthBenchmarkWorkload {
         }
     }
 
+    /** Runs one durable MapStore reload sample for the last measured growth phase of this trial. */
     private void verifyLastGrowthPhaseDurability() {
         if (batchJobIds == null) {
             return;
