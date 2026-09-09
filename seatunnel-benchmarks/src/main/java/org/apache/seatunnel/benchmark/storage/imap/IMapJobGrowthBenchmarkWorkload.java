@@ -44,22 +44,16 @@ import java.util.Set;
 /**
  * Fixed-size job-lifecycle growth phases that start from controlled IMap cardinalities.
  *
- * <p>Each iteration verifies resident IMap growth. FileMapStore durability is sampled on a light
- * cadence (first iteration and every {@link #DURABLE_SAMPLE_INTERVAL} iterations) and again for the
- * full last growth batch at trial tear-down. Sampling avoids replaying the full WAL between every
- * SingleShot sample while still failing the fixture when MapStore persistence did not happen.
+ * <p>Each iteration verifies resident IMap growth. FileMapStore durability is sampled on the first
+ * iteration and again for the full last growth batch at trial tear-down (the last measured sample).
+ * Mid-trial reloads stay sparse because {@code FileMapStore.loadAll} always replays the full WAL,
+ * which would otherwise reintroduce the CV noise this fixture is meant to remove while still
+ * failing the fixture when MapStore persistence did not happen.
  */
 @State(Scope.Thread)
 public class IMapJobGrowthBenchmarkWorkload {
 
     public static final int GROWTH_OPERATIONS_PER_INVOCATION = 100;
-
-    /**
-     * How often iteration tear-down reloads the current growth batch from MapStore. {@code
-     * FileMapStore.loadAll} always replays the full WAL, so denser sampling reintroduces the CV
-     * noise this fixture is meant to remove.
-     */
-    private static final int DURABLE_SAMPLE_INTERVAL = 4;
 
     private static final long PRESSURE_KEY_BASE = Long.MIN_VALUE + 2_000_000L;
     private static final long GROWTH_KEY_BASE = Long.MIN_VALUE + 4_000_000L;
@@ -296,9 +290,8 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     private boolean shouldSampleGrowthDurability() {
-        return growthPhase != GrowthPhase.NONE
-                && (growthIterationIndex == 0
-                        || growthIterationIndex % DURABLE_SAMPLE_INTERVAL == 0);
+        // First iteration only; trial tear-down covers the last measured growth batch.
+        return growthPhase != GrowthPhase.NONE && growthIterationIndex == 0;
     }
 
     /** Checks every running-job growth entry is present in memory without a MapStore reload. */
