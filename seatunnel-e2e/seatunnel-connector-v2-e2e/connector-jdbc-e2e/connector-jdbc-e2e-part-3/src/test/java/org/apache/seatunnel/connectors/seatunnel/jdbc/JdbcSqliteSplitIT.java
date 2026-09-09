@@ -61,6 +61,7 @@ public class JdbcSqliteSplitIT {
     private static final String SQLITE_URL =
             "jdbc:sqlite:" + System.getProperty("java.io.tmpdir") + "/seatunnel_split_e2e.db";
     private static final String TABLE = "composite_split_test";
+    private static final String NULL_PK_TABLE = "composite_null_pk_test";
 
     @BeforeAll
     public static void setUp() throws Exception {
@@ -82,6 +83,37 @@ public class JdbcSqliteSplitIT {
                     ps.setLong(1, i % 3);
                     ps.setInt(2, i / 3);
                     ps.setString(3, "p" + i);
+                    ps.addBatch();
+                }
+                ps.executeBatch();
+            }
+
+            // SQLite (legacy quirk) allows NULL values inside composite PRIMARY KEY columns.
+            // These rows exercise the NULL key component handling: they must be read exactly
+            // once (they land in the first chunk) instead of being silently dropped by the
+            // tuple-comparison predicates.
+            stmt.execute("DROP TABLE IF EXISTS " + NULL_PK_TABLE);
+            stmt.execute(
+                    "CREATE TABLE "
+                            + NULL_PK_TABLE
+                            + " (order_id BIGINT, line_no INT, "
+                            + "payload VARCHAR(20), PRIMARY KEY (order_id, line_no))");
+            try (PreparedStatement ps =
+                    connection.prepareStatement(
+                            "INSERT INTO "
+                                    + NULL_PK_TABLE
+                                    + " (order_id, line_no, payload) VALUES (?, ?, ?)")) {
+                for (int i = 0; i < 90; i++) {
+                    ps.setLong(1, i % 3);
+                    ps.setInt(2, i / 3);
+                    ps.setString(3, "p" + i);
+                    ps.addBatch();
+                }
+                // rows whose second key component is NULL
+                for (int i = 0; i < 3; i++) {
+                    ps.setLong(1, i % 3);
+                    ps.setNull(2, java.sql.Types.INTEGER);
+                    ps.setString(3, "null-pk-" + i);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -183,6 +215,103 @@ public class JdbcSqliteSplitIT {
         Assertions.assertEquals(300, readCount, "All 300 rows must be read through the splits");
         Assertions.assertEquals(
                 300, readKeys.size(), "No (order_id, line_no) key may be duplicated or missing");
+    }
+
+    private static CatalogTable nullPkCatalogTable() {
+        TableSchema schema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.asList(
+                                        PhysicalColumn.builder()
+                                                .name("order_id")
+                                                .sourceType("BIGINT")
+                                                .dataType(BasicType.LONG_TYPE)
+                                                .build(),
+                                        PhysicalColumn.builder()
+                                                .name("line_no")
+                                                .sourceType("INT")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build(),
+                                        PhysicalColumn.builder()
+                                                .name("payload")
+                                                .sourceType("VARCHAR")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .build()))
+                        .primaryKey(new PrimaryKey("pk", Arrays.asList("order_id", "line_no")))
+                        .build();
+        return CatalogTable.of(
+                TableIdentifier.of("sqlite", "main", NULL_PK_TABLE),
+                schema,
+                new HashMap<>(),
+                Collections.emptyList(),
+                null);
+    }
+
+    @Test
+    public void testCompositeKeyWithNullPrimaryKeyComponent() throws Exception {
+        // SQLite permits NULL inside composite PRIMARY KEY columns. Rows with a NULL key
+        // component cannot satisfy any tuple-comparison predicate, so without explicit NULL
+        // handling they are silently dropped (data loss). They must land in the first chunk
+        // and be read exactly once.
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", SQLITE_URL);
+        configMap.put("driver", "org.sqlite.JDBC");
+        configMap.put("table_path", NULL_PK_TABLE);
+        configMap.put("split.size", "10");
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
+        JdbcSourceConfig sourceConfig = JdbcSourceConfig.of(readonlyConfig);
+
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(sourceConfig);
+        CatalogTable table = nullPkCatalogTable();
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of(NULL_PK_TABLE))
+                        .catalogTable(table)
+                        .build();
+
+        Collection<JdbcSourceSplit> jdbcSourceSplits = splitter.generateSplits(jdbcSourceTable);
+        Assertions.assertTrue(
+                jdbcSourceSplits.size() > 1,
+                "Composite key should split into multiple chunks, got " + jdbcSourceSplits.size());
+        JdbcSourceSplit[] splitArray = jdbcSourceSplits.toArray(new JdbcSourceSplit[0]);
+
+        TableSchema tableSchema = table.getTableSchema();
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        int nullKeyRowCount = 0;
+        int nullKeyRowsInFirstSplit = 0;
+        try (Connection connection = DriverManager.getConnection(SQLITE_URL)) {
+            for (int i = 0; i < splitArray.length; i++) {
+                JdbcSourceSplit split = splitArray[i];
+                try (PreparedStatement ps = splitter.generateSplitStatement(split, tableSchema);
+                        ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        readCount++;
+                        String orderId = rs.getString("order_id");
+                        String lineNo = rs.getString("line_no");
+                        boolean nullKey = orderId == null || lineNo == null;
+                        if (nullKey) {
+                            nullKeyRowCount++;
+                            // rows with a NULL key component are captured by the first chunk
+                            if (i == 0) {
+                                nullKeyRowsInFirstSplit++;
+                            }
+                        }
+                        readKeys.add(orderId + "|" + lineNo);
+                    }
+                }
+            }
+        }
+        Assertions.assertEquals(
+                93, readCount, "All 93 rows (including NULL-key rows) must be read");
+        Assertions.assertEquals(
+                93, readKeys.size(), "No (order_id, line_no) key may be duplicated or missing");
+        Assertions.assertEquals(
+                3, nullKeyRowCount, "The 3 NULL key component rows must be read exactly once");
+        Assertions.assertEquals(
+                3,
+                nullKeyRowsInFirstSplit,
+                "NULL key component rows must be captured by the first chunk");
     }
 
     @Test

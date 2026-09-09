@@ -285,6 +285,10 @@ For a full-table snapshot, configure `table_path` and normally leave split-key d
 
 For tables with a **composite primary key** (`PRIMARY KEY (a, b, ...)`), the dynamic splitter splits on **all key columns** as a tuple (e.g. `(a, b) > (?, ?)`, emitted in a portable expanded `OR`/`AND` form), so tables whose first key column repeats heavily still split into balanced chunks via the remaining key columns. This applies when the dynamic splitter is active (the default), the dialect enables composite splitting, and all key columns are supported split-key types; otherwise the connector falls back to splitting on the first supported primary-key column as before. Composite splitting is currently enabled for **MySQL, PostgreSQL, SQLite, SQL Server, and Oracle** (Oracle requires 12c Release 1 or later because the boundary queries use the `FETCH FIRST`/`OFFSET` pagination syntax); other dialects keep the single-column behavior.
 
+Rows whose composite key contains a `NULL` component (possible on SQLite, which permits `NULL` inside composite primary keys) are excluded from chunk boundary computation and are assigned to the **first chunk** by an explicit predicate, so every row — including `NULL`-key rows — is read exactly once.
+
+**Opting out of composite splitting:** to keep the previous single-column split behavior on a table with a composite primary key, set `partition_column` to a single primary-key column (e.g. the first key column). An explicit `partition_column` always takes precedence over the composite primary-key branch, so the table is split on that single column exactly as before composite splitting was introduced. Setting `enable_concurrent_read = false` alternatively disables split analysis entirely and reads the table with a single split.
+
 `split.size` is the target row count per split. It is not a hard row limit: actual split sizes depend on key distribution and database statistics. If no supported primary key, unique index, or explicit `partition_column` exists, the table is read by one split even when job parallelism is greater than one.
 
 ### Top-level `query` with fixed partitions

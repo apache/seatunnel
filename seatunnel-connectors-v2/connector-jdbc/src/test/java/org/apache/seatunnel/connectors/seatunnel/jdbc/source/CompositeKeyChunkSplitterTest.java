@@ -223,7 +223,7 @@ public class CompositeKeyChunkSplitterTest {
                         + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
                 sql);
 
-        // first split: a < ? OR (a = ? AND b <= ?)
+        // first split: ((a < ? OR (a = ? AND b <= ?)) OR (a IS NULL OR b IS NULL))
         JdbcSourceSplit first =
                 new JdbcSourceSplit(
                         TablePath.of("db", "schema", "table"),
@@ -236,7 +236,8 @@ public class CompositeKeyChunkSplitterTest {
         String firstSql = splitter.createDynamicSplitQuerySQL(first, schema);
         Assertions.assertEquals(
                 "SELECT * FROM `db`.`table` "
-                        + "WHERE ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
+                        + "WHERE (((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?)) "
+                        + "OR (`order_id` IS NULL OR `line_no` IS NULL))",
                 firstSql);
 
         // last split: a > ? OR (a = ? AND b > ?)
@@ -329,5 +330,139 @@ public class CompositeKeyChunkSplitterTest {
         Assertions.assertEquals(" FETCH FIRST 10 ROWS ONLY", oracle.getLimitClause(10));
         Assertions.assertEquals(
                 " OFFSET 9 ROWS FETCH NEXT 1 ROWS ONLY", oracle.getOffsetLimitClause(9, 1));
+    }
+
+    @Test
+    public void testCompareCompositeElementMixedNumericTypes() {
+        // SQLite JDBC (and others) may return Integer for small values and Long for large values
+        // of the same INTEGER column; raw Comparable.compareTo would throw ClassCastException.
+        Assertions.assertTrue(DynamicChunkSplitter.compareCompositeElement(5, 7L) < 0);
+        Assertions.assertTrue(DynamicChunkSplitter.compareCompositeElement(5L, 7) < 0);
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareCompositeElement(300, 300L));
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareCompositeElement(1, 1.0d));
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareCompositeElement(0.5f, 0.5d));
+        Assertions.assertTrue(
+                DynamicChunkSplitter.compareCompositeElement(Integer.MAX_VALUE, Long.MAX_VALUE)
+                        < 0);
+        Assertions.assertTrue(
+                DynamicChunkSplitter.compareCompositeElement(new java.math.BigDecimal("1.5"), 2)
+                        < 0);
+        // BigDecimal of different scales but equal values compare equal
+        Assertions.assertEquals(
+                0,
+                DynamicChunkSplitter.compareCompositeElement(
+                        new java.math.BigDecimal("1.0"), new java.math.BigDecimal("1.00")));
+        // non-numeric types keep the plain Comparable behavior
+        Assertions.assertTrue(DynamicChunkSplitter.compareCompositeElement("abc", "abd") < 0);
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareCompositeElement("abc", "abc"));
+    }
+
+    @Test
+    public void testCompareCompositeElementNullSortsFirst() {
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareCompositeElement(null, null));
+        Assertions.assertTrue(DynamicChunkSplitter.compareCompositeElement(null, 1) < 0);
+        Assertions.assertTrue(DynamicChunkSplitter.compareCompositeElement(1, null) > 0);
+    }
+
+    @Test
+    public void testCompareNumericNonFiniteFloatingPoint() {
+        // Double.compare semantics: NaN is greater than everything (including Infinity).
+        Assertions.assertTrue(DynamicChunkSplitter.compareNumeric(Double.NaN, 1.0d) > 0);
+        Assertions.assertTrue(DynamicChunkSplitter.compareNumeric(1.0d, Double.NaN) < 0);
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareNumeric(Double.NaN, Double.NaN));
+        Assertions.assertTrue(
+                DynamicChunkSplitter.compareNumeric(Double.POSITIVE_INFINITY, Double.MAX_VALUE)
+                        > 0);
+        Assertions.assertEquals(
+                0,
+                DynamicChunkSplitter.compareNumeric(
+                        Double.POSITIVE_INFINITY, Float.POSITIVE_INFINITY));
+        Assertions.assertEquals(0, DynamicChunkSplitter.compareNumeric(3, 3.0d));
+        Assertions.assertTrue(DynamicChunkSplitter.compareNumeric(2, 10L) < 0);
+    }
+
+    @Test
+    public void testFirstSplitPredicateCapturesNullKeyComponents() {
+        // The first chunk's read predicate must capture rows whose composite key contains a NULL
+        // component (which the tuple comparisons alone would silently drop), while middle and
+        // last chunk predicates exclude them so every row is read exactly once.
+        JdbcSourceConfig config = config();
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        TableSchema schema = TableSchema.builder().columns(compositePkColumns()).build();
+        SeaTunnelRowType keyType =
+                new SeaTunnelRowType(
+                        new String[] {"order_id", "line_no"},
+                        new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
+
+        JdbcSourceSplit first =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "schema", "table"),
+                        "split-0",
+                        null,
+                        "order_id,line_no",
+                        keyType,
+                        null,
+                        new Object[] {100L, 5});
+        String firstSql =
+                splitter.createDynamicSplitQuerySQL(first, schema)
+                        .replace("SELECT * FROM `db`.`table` WHERE ", "");
+        Assertions.assertTrue(
+                firstSql.contains("(`order_id` IS NULL OR `line_no` IS NULL)"),
+                "First split must capture NULL key components, got: " + firstSql);
+
+        JdbcSourceSplit middle =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "schema", "table"),
+                        "split-1",
+                        null,
+                        "order_id,line_no",
+                        keyType,
+                        new Object[] {100L, 5},
+                        new Object[] {200L, 9});
+        String middleSql =
+                splitter.createDynamicSplitQuerySQL(middle, schema)
+                        .replace("SELECT * FROM `db`.`table` WHERE ", "");
+        Assertions.assertFalse(
+                middleSql.contains("IS NULL"), "Middle split must not capture NULL rows");
+
+        JdbcSourceSplit last =
+                new JdbcSourceSplit(
+                        TablePath.of("db", "schema", "table"),
+                        "split-2",
+                        null,
+                        "order_id,line_no",
+                        keyType,
+                        new Object[] {200L, 9},
+                        null);
+        String lastSql =
+                splitter.createDynamicSplitQuerySQL(last, schema)
+                        .replace("SELECT * FROM `db`.`table` WHERE ", "");
+        Assertions.assertFalse(
+                lastSql.contains("IS NULL"), "Last split must not capture NULL rows");
+    }
+
+    @Test
+    public void testPartitionColumnOptsOutOfCompositeSplit() {
+        // Setting an explicit partition_column keeps the previous single-column split behavior:
+        // the explicit column takes precedence over the composite primary key branch.
+        JdbcSourceConfig config = config();
+        CatalogTable ct =
+                catalogTable(
+                        compositePkColumns(),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .catalogTable(ct)
+                        .partitionColumn("line_no")
+                        .build();
+
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        SeaTunnelRowType rowType = splitKey.get();
+        Assertions.assertEquals(1, rowType.getTotalFields());
+        Assertions.assertEquals("line_no", rowType.getFieldName(0));
     }
 }

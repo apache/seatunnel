@@ -115,6 +115,13 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return splits;
     }
 
+    /**
+     * Joins the composite split-key column names for the split's {@code splitKeyName} metadata
+     * field. This value is display/metadata only: it is never parsed back (never split on the
+     * comma) anywhere in the connector, so no escaping is applied. Accepted limitation: composite
+     * split keys whose column names contain a comma produce an ambiguous joined name; such
+     * identifiers are not supported for composite split key naming.
+     */
     private static final String COMPOSITE_KEY_SEPARATOR = ",";
 
     /**
@@ -212,13 +219,19 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         // Composite splitting and a custom query are mutually exclusive today: findSplitKey
         // returns empty (single split) or a single-column key before ever reaching the composite
         // branch whenever table.getQuery() is set, so the from-clause is always the table path.
+        // Rows with a NULL key component are excluded from boundary computation (they cannot be
+        // tuple-compared); the read predicate of the first chunk captures them instead, so no
+        // row is lost (see buildCompositeCondition).
         String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
 
+        String notNull = buildNotNullKeyCondition(columns);
         String minQuery =
                 "SELECT "
                         + selectCols
                         + " FROM "
                         + fromClause
+                        + " WHERE "
+                        + notNull
                         + " ORDER BY "
                         + orderAsc
                         + jdbcDialect.getLimitClause(1);
@@ -227,6 +240,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + selectCols
                         + " FROM "
                         + fromClause
+                        + " WHERE "
+                        + notNull
                         + " ORDER BY "
                         + orderDesc
                         + jdbcDialect.getLimitClause(1);
@@ -283,6 +298,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             where.append(")");
         }
         where.append(")");
+
+        // Exclude rows with a NULL key component from boundary computation; they are captured by
+        // the first chunk's read predicate instead (see buildCompositeCondition).
+        where.append(" AND ").append(buildNotNullKeyCondition(columns));
 
         // Composite splitting and a custom query are mutually exclusive today: findSplitKey
         // returns empty (single split) or a single-column key before ever reaching the composite
@@ -354,7 +373,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
 
         // Expanded OR/AND form of (col1, col2, ...) > (?, ?, ...) without row-value-constructor
-        // syntax (portable across dialects, e.g. SQL Server).
+        // syntax (portable across dialects, e.g. SQL Server). Rows with a NULL key component are
+        // excluded; they are captured by the first chunk's read predicate instead.
         String sql =
                 "SELECT "
                         + columnList
@@ -362,6 +382,8 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + fromClause
                         + " WHERE "
                         + buildExpandedTupleCondition(columns, ">", ">")
+                        + " AND "
+                        + buildNotNullKeyCondition(columns)
                         + " ORDER BY "
                         + orderBy
                         + " ASC"
@@ -409,17 +431,58 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     /**
      * Lexicographically compares two composite-key tuples element-wise using {@link
-     * ObjectUtils#compare}, returning a negative/zero/positive value.
+     * #compareCompositeElement}, returning a negative/zero/positive value. Boundary tuples never
+     * contain null components (boundary queries filter {@code IS NOT NULL}), but nulls are handled
+     * defensively with a stable ordering (null sorts first).
      */
     private int compareArrays(Object[] a, Object[] b) {
         int len = Math.min(a.length, b.length);
         for (int i = 0; i < len; i++) {
-            int cmp = ObjectUtils.compare(a[i], b[i]);
+            int cmp = compareCompositeElement(a[i], b[i]);
             if (cmp != 0) {
                 return cmp;
             }
         }
         return Integer.compare(a.length, b.length);
+    }
+
+    /**
+     * Compares two composite-key component values. Nulls sort first (null == null, null &lt;
+     * non-null). When both values are {@link Number}s they are compared numerically via {@link
+     * BigDecimal} so that mixed numeric types returned by a JDBC driver for the same column (e.g.
+     * SQLite JDBC returning {@link Integer} for small values and {@link Long} for large values of
+     * the same INTEGER column) stay mutually comparable instead of failing with a {@link
+     * ClassCastException} from raw {@code Comparable.compareTo}. Non-finite floating point values
+     * (NaN/Infinity, which have no {@link BigDecimal} representation) fall back to {@link
+     * Double#compare}. Non-numeric values fall back to {@link ObjectUtils#compare}.
+     */
+    static int compareCompositeElement(Object a, Object b) {
+        if (a == null && b == null) {
+            return 0;
+        }
+        if (a == null) {
+            return -1;
+        }
+        if (b == null) {
+            return 1;
+        }
+        if (a instanceof Number && b instanceof Number) {
+            return compareNumeric((Number) a, (Number) b);
+        }
+        return ObjectUtils.compare(a, b);
+    }
+
+    /** Numeric comparison across mixed {@link Number} types, NaN/Infinity safe. */
+    static int compareNumeric(Number a, Number b) {
+        if ((a instanceof Double || a instanceof Float) && isNonFinite(a.doubleValue())
+                || (b instanceof Double || b instanceof Float) && isNonFinite(b.doubleValue())) {
+            return Double.compare(a.doubleValue(), b.doubleValue());
+        }
+        return new BigDecimal(a.toString()).compareTo(new BigDecimal(b.toString()));
+    }
+
+    private static boolean isNonFinite(double value) {
+        return Double.isNaN(value) || Double.isInfinite(value);
     }
 
     private PreparedStatement createDynamicSplitStatement(JdbcSourceSplit split, TableSchema schema)
@@ -1202,6 +1265,16 @@ public class DynamicChunkSplitter extends ChunkSplitter {
      * {@code <= end} tuple comparisons, expressed as portable expanded OR/AND conditions (no
      * row-value-constructor syntax, so it works on SQL Server too). Returns null for a single
      * full-table split (both bounds null).
+     *
+     * <p><b>NULL key components:</b> rows whose composite key contains at least one NULL component
+     * cannot be tuple-compared (every comparison evaluates to UNKNOWN), so a naive predicate would
+     * silently drop them. Semantics implemented here: boundary computation filters such rows out
+     * (every boundary query adds {@code col IS NOT NULL} for each key column), and the FIRST
+     * chunk's read predicate additionally matches any row with a NULL key component via an {@code
+     * (col1 IS NULL OR col2 IS NULL ...)} disjunct. Middle and last chunk predicates ({@code >
+     * start AND <= end}) exclude NULL-component rows, so every row — including NULL-component rows
+     * — is read exactly once, by the first chunk. Rows whose key is entirely NULL land in the first
+     * chunk too.
      */
     private String buildCompositeCondition(JdbcSourceSplit split) {
         Object[] startArr = (Object[]) split.getSplitStart();
@@ -1216,9 +1289,14 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         String[] columnNames = ((SeaTunnelRowType) split.getSplitKeyType()).getFieldNames();
 
         if (isFirstSplit) {
-            // (col1 < ?) OR (col1 = ? AND col2 <= ?) ... — lexicographic <= without
-            // row-value-constructor syntax
-            return buildExpandedTupleCondition(columnNames, "<", "<=");
+            // ((col1 < ?) OR (col1 = ? AND col2 <= ?) ...) OR (col1 IS NULL OR col2 IS NULL ...)
+            // — lexicographic <= without row-value-constructor syntax, plus an explicit disjunct
+            // that captures rows with a NULL key component exactly once (in this first chunk).
+            return "("
+                    + buildExpandedTupleCondition(columnNames, "<", "<=")
+                    + " OR "
+                    + buildNullKeyCondition(columnNames)
+                    + ")";
         } else if (isLastSplit) {
             // (col1 > ?) OR (col1 = ? AND col2 > ?) ... — lexicographic >
             return buildExpandedTupleCondition(columnNames, ">", ">");
@@ -1267,6 +1345,40 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
         where.append(")");
         return where.toString();
+    }
+
+    /**
+     * Builds {@code (col1 IS NOT NULL AND col2 IS NOT NULL ...)} over the quoted key columns. Used
+     * by the composite boundary queries to exclude rows with a NULL key component from boundary
+     * computation (such rows cannot be tuple-compared and would otherwise become corrupt boundaries
+     * or be skipped by the ORDER BY ... LIMIT 1 min/max queries).
+     */
+    private String buildNotNullKeyCondition(String[] columns) {
+        StringBuilder where = new StringBuilder("(");
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                where.append(" AND ");
+            }
+            where.append(jdbcDialect.quoteIdentifier(columns[i])).append(" IS NOT NULL");
+        }
+        return where.append(")").toString();
+    }
+
+    /**
+     * Builds {@code (col1 IS NULL OR col2 IS NULL ...)} over the quoted key columns: matches any
+     * row whose composite key contains at least one NULL component. Used as an extra disjunct on
+     * the first chunk's read predicate so NULL-component rows are read exactly once instead of
+     * being silently dropped by the tuple comparisons.
+     */
+    private String buildNullKeyCondition(String[] columns) {
+        StringBuilder where = new StringBuilder("(");
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                where.append(" OR ");
+            }
+            where.append(jdbcDialect.quoteIdentifier(columns[i])).append(" IS NULL");
+        }
+        return where.append(")").toString();
     }
 
     private void addKeyColumnsToCondition(
