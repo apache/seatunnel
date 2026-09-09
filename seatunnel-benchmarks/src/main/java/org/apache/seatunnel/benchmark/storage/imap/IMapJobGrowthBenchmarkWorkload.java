@@ -334,8 +334,9 @@ public class IMapJobGrowthBenchmarkWorkload {
 
     /**
      * Samples MapStore durability for the current growth batch. Reloads one representative key
-     * (FileMapStore still replays the full WAL) and then asserts every batch key is present so the
-     * whole phase is covered without re-hydrating every key on top of storage pressure.
+     * ({@code FileMapStore.loadAll} still replays the full WAL) and then asserts the whole batch
+     * remains resident. Only the reloaded key is a true durable round-trip; the other keys are not
+     * independently re-verified from the store.
      */
     private void verifyGrowthBatchDurability() {
         if (batchJobIds == null || growthPhase == GrowthPhase.NONE) {
