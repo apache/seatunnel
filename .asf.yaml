@@ -58,6 +58,10 @@ github:
         - actor_id: 118420
           actor_type: Team
           bypass_mode: always
+        # davidzollo can bypass the merge queue when necessary.
+        - actor_id: 15833811
+          actor_type: User
+          bypass_mode: pull_request
       conditions:
         ref_name:
           include:
