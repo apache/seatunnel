@@ -68,6 +68,25 @@ github:
             - refs/heads/dev
           exclude: []
       rules:
+        # Preserve branch safety in the ruleset so bypass actors cover the full merge gate.
+        - type: deletion
+        - type: non_fast_forward
+        - type: pull_request
+          parameters:
+            allowed_merge_methods:
+              - squash
+            dismiss_stale_reviews_on_push: true
+            require_code_owner_review: false
+            require_extra_approval_for_unattributed_changes: false
+            require_last_push_approval: false
+            required_approving_review_count: 1
+            required_review_thread_resolution: false
+        - type: required_status_checks
+          parameters:
+            strict_required_status_checks_policy: false
+            required_status_checks:
+              - context: Build
+                integration_id: 15368
         - type: merge_queue
           parameters:
             # Allow enough time for runner scheduling before the 30-minute job starts.
@@ -79,16 +98,9 @@ github:
             merge_method: SQUASH
             min_entries_to_merge: 1
             min_entries_to_merge_wait_minutes: 0
-  protected_branches:
-    dev:
-      required_status_checks:
-        strict: false
-        checks:
-          - context: Build
-            app_id: 15368
-      required_pull_request_reviews:
-        dismiss_stale_reviews: true
-        required_approving_review_count: 1
+  # Classic branch protection is intentionally disabled: the ruleset above now owns
+  # the dev branch merge requirements and its bypass actors can bypass the full gate.
+  protected_branches: ~
 
 notifications:
   commits:      commits@seatunnel.apache.org
