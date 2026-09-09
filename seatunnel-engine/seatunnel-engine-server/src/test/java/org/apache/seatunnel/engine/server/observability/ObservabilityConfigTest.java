@@ -18,15 +18,26 @@
 package org.apache.seatunnel.engine.server.observability;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 public class ObservabilityConfigTest {
+
+    @BeforeEach
+    public void clearLoggedEdgeOverrideIssues() throws Exception {
+        loggedEdgeOverrideIssues().clear();
+    }
 
     @Test
     public void testDefaultsFromEmptyEnvOptions() {
@@ -150,6 +161,85 @@ public class ObservabilityConfigTest {
         m.put("boundary", boundary);
         m.put("capacity", capacity);
         return m;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Set<Object> loggedEdgeOverrideIssues() throws Exception {
+        Field field = ObservabilityConfig.class.getDeclaredField("LOGGED_EDGE_OVERRIDE_ISSUES");
+        field.setAccessible(true);
+        return (Set<Object>) field.get(null);
+    }
+
+    private static int maxLoggedEdgeOverrideIssues() throws Exception {
+        Field field = ObservabilityConfig.class.getDeclaredField("MAX_LOGGED_EDGE_OVERRIDE_ISSUES");
+        field.setAccessible(true);
+        return field.getInt(null);
+    }
+
+    private static ObservabilityConfig parseOverride(int index, Object capacity, boolean enabled) {
+        String padding = String.join("", Collections.nCopies(128, "x"));
+        Map<String, Object> env = new HashMap<>();
+        env.put("engine.observability.enabled", enabled);
+        env.put(
+                "engine.observability.edge_overrides",
+                Collections.singletonList(override("source-" + index + "-" + padding, capacity)));
+        return ObservabilityConfig.fromEnvOptions(env, "job-" + index, 0L);
+    }
+
+    @Test
+    public void testValidEdgeOverridesDoNotRetainWarningKeys() throws Exception {
+        for (int i = 0; i < 200; i++) {
+            parseOverride(i, 32, false);
+        }
+        Assertions.assertEquals(0, loggedEdgeOverrideIssues().size());
+    }
+
+    @Test
+    public void testDistinctInvalidEdgeOverridesStayBounded() throws Exception {
+        int max = maxLoggedEdgeOverrideIssues();
+        for (int i = 0; i < 500; i++) {
+            ObservabilityConfig cfg = parseOverride(i, -1, false);
+            Assertions.assertEquals(Collections.emptyMap(), cfg.getEdgeOverrides());
+        }
+        int afterFirst = loggedEdgeOverrideIssues().size();
+        Assertions.assertTrue(afterFirst >= 1);
+        Assertions.assertTrue(afterFirst <= max);
+        for (int i = 500; i < 1000; i++) {
+            parseOverride(i, -1, false);
+        }
+        Assertions.assertEquals(afterFirst, loggedEdgeOverrideIssues().size());
+        for (int i = 0; i < 500; i++) {
+            parseOverride(i, -1, false);
+        }
+        Assertions.assertEquals(afterFirst, loggedEdgeOverrideIssues().size());
+    }
+
+    @Test
+    public void testConcurrentInvalidEdgeOverrideParsingStaysBounded() throws Exception {
+        int threads = 8;
+        int perThread = 200;
+        int max = maxLoggedEdgeOverrideIssues();
+        ExecutorService pool = Executors.newFixedThreadPool(threads);
+        try {
+            List<Future<?>> futures = new ArrayList<>();
+            for (int t = 0; t < threads; t++) {
+                final int start = t * perThread;
+                futures.add(
+                        pool.submit(
+                                () -> {
+                                    for (int i = 0; i < perThread; i++) {
+                                        parseOverride(start + i, -1, false);
+                                    }
+                                }));
+            }
+            for (Future<?> future : futures) {
+                future.get();
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+        Assertions.assertTrue(loggedEdgeOverrideIssues().size() <= max);
+        Assertions.assertTrue(loggedEdgeOverrideIssues().size() >= 1);
     }
 
     @Test
