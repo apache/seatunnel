@@ -123,6 +123,14 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
+    /**
+     * Requests the next assignment batch when the local split queue is below the watermark.
+     *
+     * <p>Invariant: issues at most one in-flight {@code sendSplitRequest} until {@link #addSplits}
+     * or {@link #handleNoMoreSplits} clears {@code splitRequestPending}. Does nothing after {@code
+     * NoMoreSplits} has been received, or while the local queue size is still {@code >=
+     * requestWatermark}.
+     */
     private void requestSplitsIfNeeded() {
         if (noMoreSplit || splitRequestPending) {
             return;

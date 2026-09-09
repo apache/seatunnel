@@ -211,6 +211,16 @@ public class JdbcSourceSplitEnumerator
         }
     }
 
+    /**
+     * Signals {@code NoMoreSplits} to readers that have no remaining enumerator-side backlog.
+     *
+     * <p>Invariant: signals at most once per reader, and only after enumeration has finished
+     * ({@code enumerationFinished == true}) and that reader's {@code pendingSplits} queue is empty.
+     * Callers invoke this after each assignment attempt so late-draining readers still receive the
+     * terminal signal.
+     *
+     * @param readers readers to evaluate for a terminal signal
+     */
     private void maybeSignalNoMoreSplits(Collection<Integer> readers) {
         if (!enumerationFinished) {
             return;
