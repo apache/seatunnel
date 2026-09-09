@@ -35,6 +35,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URI;
@@ -217,6 +218,74 @@ public class FirebaseHttpClient {
             }
         } catch (IOException e) {
             throw new SeaTunnelException("Failed to execute HTTP request to Firebase endpoint", e);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
+        }
+    }
+
+    /**
+     * Executes a PATCH request with a JSON payload for multi-location updates or record merges.
+     * Endpoint: PATCH /<path>.json
+     *
+     * @param subPath Target path relative to root (or empty string for root update)
+     * @param jsonPayload JSON body representing path-to-value or field updates
+     */
+    public void executePatch(String subPath, String jsonPayload) {
+        String endpointUrl = buildUrl(subPath, null, false);
+        executeWrite("PATCH", endpointUrl, jsonPayload);
+    }
+
+    private void executeWrite(String method, String urlStr, String jsonPayload) {
+        HttpURLConnection connection = null;
+        try {
+            URL url;
+            try {
+                url = URI.create(urlStr).toURL();
+            } catch (IllegalArgumentException e) {
+                throw new SeaTunnelException(
+                        "Invalid Firebase REST URI constructed. Check parameter formatting.", e);
+            }
+            connection = (HttpURLConnection) url.openConnection();
+
+            if ("PATCH".equalsIgnoreCase(method)) {
+                connection.setRequestMethod("POST");
+                connection.setRequestProperty("X-HTTP-Method-Override", "PATCH");
+            } else {
+                connection.setRequestMethod(method);
+            }
+
+            connection.setConnectTimeout(timeoutMs);
+            connection.setReadTimeout(timeoutMs);
+            connection.setRequestProperty("Content-Type", "application/json; charset=UTF-8");
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setDoOutput(true);
+            connection.setInstanceFollowRedirects(true);
+
+            if (credentials != null) {
+                String token = getAccessToken();
+                connection.setRequestProperty("Authorization", "Bearer " + token);
+            }
+
+            try (OutputStream os = connection.getOutputStream()) {
+                byte[] input = jsonPayload.getBytes(StandardCharsets.UTF_8);
+                os.write(input, 0, input.length);
+            }
+
+            int responseCode = connection.getResponseCode();
+            if (responseCode < 200 || responseCode >= 300) {
+                String rawErrorBody = readErrorStream(connection);
+                throw new SeaTunnelException(
+                        String.format(
+                                "Firebase HTTP %s request failed with status code %d. Response body: %s",
+                                method,
+                                responseCode,
+                                rawErrorBody.isEmpty() ? "N/A" : rawErrorBody));
+            }
+        } catch (IOException e) {
+            throw new SeaTunnelException(
+                    "Failed to execute HTTP " + method + " request to Firebase", e);
         } finally {
             if (connection != null) {
                 connection.disconnect();
