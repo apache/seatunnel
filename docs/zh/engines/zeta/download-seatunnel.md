@@ -67,3 +67,31 @@ connector-console
 现在你已经完成了SeaTunnel安装包的下载和连接器插件的下载。接下来，您可以根据您的需求选择不同的运行模式来运行或部署SeaTunnel。
 
 如果你使用SeaTunnel自带的SeaTunnel Engine(Zeta)来运行任务，需要先部署SeaTunnel Engine服务。参考[SeaTunnel Engine(Zeta)服务部署](deployment.md)
+
+## 步骤 4: seatunnel-shade 相关jar包下载地址
+
+从 3.0.0 版本开始，shade 模块已迁移到独立项目 [seatunnel-shade](https://github.com/apache/seatunnel-shade)。此变更带来以下好处：
+
+- **独立版本管理**：shade 项目可以独立发版，不再受主项目发版周期限制
+- **缩短构建时间**：从主项目中移除 shade 模块显著减少了编译时间
+- **简化依赖管理**：主项目现在直接使用 Maven Central 上预构建的 shade jar
+
+### 可用的 shade jar
+
+| artifactId                   | version      | Maven                                                                                                      |
+|------------------------------| ------------ |------------------------------------------------------------------------------------------------------------|
+| seatunnel-shade-hadoop3-uber | 3.1.4-3.0.0   | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop3-uber/3.1.4-3.0.0/seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar) |
+| seatunnel-shade-hadoop-aws   | 3.1.4-3.0.0 | [Maven](https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-hadoop-aws/3.1.4-3.0.0/seatunnel-shade-hadoop-aws-3.1.4-3.0.0.jar)   |
+
+### 重要说明
+
+:::warning 重要
+当需要变更 shade jar 时，必须先发版 [seatunnel-shade](https://github.com/apache/seatunnel-shade) 项目。发版流程如下：
+
+1. 在 [seatunnel-shade](https://github.com/apache/seatunnel-shade) 项目中进行修改并合并
+2. 发布 shade 项目的新版本
+3. 在主 SeaTunnel 项目的 `pom.xml` 中更新 shade 版本
+4. 然后发布主 SeaTunnel 项目
+
+这确保 shade 依赖在主项目发版前已在 Maven Central 上可用。
+:::

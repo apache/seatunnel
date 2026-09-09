@@ -23,7 +23,63 @@ package org.apache.seatunnel.engine.serializer.protobuf;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
 public class ProtoStuffSerializerTest {
+
+    @Test
+    public void testConcurrentSchemaInitializationAndReuse() throws Exception {
+        int threads = 8;
+        ExecutorService executor = Executors.newFixedThreadPool(threads);
+        CountDownLatch ready = new CountDownLatch(threads);
+        CountDownLatch start = new CountDownLatch(1);
+        ProtoStuffSerializer serializer = new ProtoStuffSerializer();
+        List<Future<?>> results = new ArrayList<>();
+        try {
+            for (int thread = 0; thread < threads; thread++) {
+                final int id = thread;
+                results.add(
+                        executor.submit(
+                                () -> {
+                                    ready.countDown();
+                                    Assertions.assertTrue(start.await(30, TimeUnit.SECONDS));
+                                    for (int iteration = 0; iteration < 100; iteration++) {
+                                        ConcurrentPayload input = new ConcurrentPayload();
+                                        input.id = id;
+                                        input.values = Arrays.asList("before", null, "after");
+                                        ConcurrentPayload output =
+                                                serializer.deserialize(
+                                                        serializer.serialize(input),
+                                                        ConcurrentPayload.class);
+                                        Assertions.assertEquals(input.id, output.id);
+                                        Assertions.assertEquals(input.values, output.values);
+                                    }
+                                    return null;
+                                }));
+            }
+            Assertions.assertTrue(ready.await(30, TimeUnit.SECONDS));
+            start.countDown();
+            for (Future<?> result : results) {
+                result.get(30, TimeUnit.SECONDS);
+            }
+        } finally {
+            start.countDown();
+            executor.shutdownNow();
+            Assertions.assertTrue(executor.awaitTermination(30, TimeUnit.SECONDS));
+        }
+    }
+
+    public static class ConcurrentPayload {
+        public int id;
+        public List<String> values;
+    }
 
     @Test
     public void testProtoStuffSerializerForArrayType() {

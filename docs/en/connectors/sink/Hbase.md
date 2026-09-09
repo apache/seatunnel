@@ -184,6 +184,26 @@ sink {
 }
 ```
 
+### Recreate the Target Table Before Writing
+
+Use `schema_save_mode = "RECREATE_SCHEMA"` when the job is allowed to drop and re-create the
+target table on every run. Combine it with `data_save_mode = "DROP_DATA"` to wipe any previous
+rows, or keep `APPEND_DATA` if you only want the table structure refreshed.
+
+```hocon
+sink {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "seatunnel_test_with_recreate_schema"
+    rowkey_column = ["name"]
+    family_name {
+      all_columns = info
+    }
+    schema_save_mode = "RECREATE_SCHEMA"
+  }
+}
+```
+
 ## Kerberos Example
 
 Note:

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -33,7 +35,11 @@ import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandle
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportFlatMapTransform;
+import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
 
 import lombok.NonNull;
@@ -47,7 +53,8 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
 @Slf4j
-public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
+public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
     public static final String PLUGIN_NAME = "Sql";
 
     public static final Option<String> KEY_QUERY =
@@ -111,6 +118,48 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
     public List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
         tryOpen();
         return sqlEngine.transformBySQL(inputRow, outRowType);
+    }
+
+    @Override
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
+        TransformException transformException = findTransformException(t);
+        if (transformException == null) {
+            return RowErrorClassification.SYSTEM_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR
+                && !hasUnsupportedOperationCause(transformException)) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        return RowErrorClassification.SYSTEM_ERROR;
+    }
+
+    static boolean hasUnsupportedOperationCause(Throwable t) {
+        Throwable current = t.getCause();
+        while (current != null) {
+            if (current instanceof SeaTunnelRuntimeException
+                    && ((SeaTunnelRuntimeException) current).getSeaTunnelErrorCode()
+                            == CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private TransformException findTransformException(Throwable t) {
+        Throwable current = t;
+        while (current != null) {
+            if (current instanceof TransformException) {
+                return (TransformException) current;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     @Override

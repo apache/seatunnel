@@ -85,7 +85,7 @@ public class EasysearchSourceReader implements SourceReader<SeaTunnelRow, Easyse
                                     sourceIndexInfo.getScrollSize());
                     scrollId = scrollResult.getScrollId();
                     outputFromScrollResult(scrollResult, sourceIndexInfo.getSource(), output);
-                    while (scrollResult.getDocs() != null && scrollResult.getDocs().size() > 0) {
+                    while (scrollResult.getDocs() != null && !scrollResult.getDocs().isEmpty()) {
                         scrollResult =
                                 ezsClient.searchWithScrollId(
                                         scrollResult.getScrollId(),

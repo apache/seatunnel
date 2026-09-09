@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.client.HugeGraphClient;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.HugeGraphSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.MappingConfig;
@@ -37,6 +39,7 @@ import org.apache.hugegraph.structure.graph.Vertex;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -46,8 +49,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -394,6 +401,49 @@ class HugeGraphSinkWriterUpdateTest {
         // After UPDATE_AFTER, pendingUpdateBefore is null. prepareCommit() should flush and
         // succeed (buffer.flush() calls the mock client, which is stubbed for writes).
         writer.prepareCommit();
+    }
+
+    @Test
+    void timerFlushActionFlushesBufferedRows() throws Exception {
+        HugeGraphSinkConfig config = singleMappingConfig();
+        HugeGraphClient client = stubbedClient();
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        ArgumentCaptor<RunnableWithException> actionCaptor =
+                ArgumentCaptor.forClass(RunnableWithException.class);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+
+        HugeGraphSinkWriter writer = new HugeGraphSinkWriter(config, rowType, client, context, 0);
+        writer.write(row("Ada"));
+
+        verify(context).registerFlushAction(actionCaptor.capture());
+        verify(client, never()).batchWriteVertices(anyList());
+
+        actionCaptor.getValue().run();
+
+        verify(client).batchWriteVertices(anyList());
+    }
+
+    @Test
+    void timerFlushActionPropagatesBatchWriteFailure() throws Exception {
+        HugeGraphSinkConfig config = singleMappingConfig();
+        HugeGraphClient client = stubbedClient();
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        ArgumentCaptor<RunnableWithException> actionCaptor =
+                ArgumentCaptor.forClass(RunnableWithException.class);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        doThrow(new RuntimeException("HugeGraph unavailable"))
+                .when(client)
+                .batchWriteVertices(anyList());
+
+        HugeGraphSinkWriter writer = new HugeGraphSinkWriter(config, rowType, client, context, 0);
+        writer.write(row("Ada"));
+        verify(context).registerFlushAction(actionCaptor.capture());
+
+        assertThrows(HugeGraphConnectorException.class, () -> actionCaptor.getValue().run());
     }
 
     // --- Helpers ---

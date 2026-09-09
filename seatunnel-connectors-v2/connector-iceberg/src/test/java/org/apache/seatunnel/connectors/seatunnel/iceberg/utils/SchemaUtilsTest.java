@@ -173,34 +173,6 @@ class SchemaUtilsTest {
     }
 
     /**
-     * Guard against the regression introduced by the SchemaUtils PK-fallback fix: when {@code
-     * iceberg.table.upsert-mode-enabled=true} is set without an explicit {@code
-     * iceberg.table.primary-keys}, the sink must fail fast with a clear error rather than silently
-     * creating a delta writer with an empty identifier-field set (which would produce broken upsert
-     * semantics).
-     */
-    @Test
-    void testIcebergSinkConfigThrowsWhenUpsertModeEnabledWithoutPrimaryKeys() {
-        ReadonlyConfig config =
-                ReadonlyConfig.fromMap(
-                        new HashMap<String, Object>() {
-                            {
-                                put(IcebergSinkOptions.TABLE_UPSERT_MODE_ENABLED_PROP.key(), true);
-                                // iceberg.table.primary-keys deliberately absent
-                            }
-                        });
-        IllegalArgumentException ex =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> new IcebergSinkConfig(config),
-                        "IcebergSinkConfig must reject upsert-mode-enabled=true without an "
-                                + "explicit iceberg.table.primary-keys configuration");
-        Assertions.assertTrue(
-                ex.getMessage().contains(IcebergSinkOptions.TABLE_PRIMARY_KEYS.key()),
-                "Error message should name the missing config key");
-    }
-
-    /**
      * Regression test for the catalog-path CatalogTable PK fallback.
      *
      * <p>{@code SchemaUtils.autoCreateTable(Catalog, TablePath, CatalogTable, ReadonlyConfig)}

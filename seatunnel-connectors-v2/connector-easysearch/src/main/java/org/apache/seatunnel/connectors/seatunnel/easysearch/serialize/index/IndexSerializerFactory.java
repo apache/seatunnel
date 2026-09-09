@@ -29,7 +29,7 @@ public class IndexSerializerFactory {
     public static IndexSerializer getIndexSerializer(
             String index, SeaTunnelRowType seaTunnelRowType) {
         List<String> fieldNames = RegexUtils.extractDatas(index, "\\$\\{(.*?)\\}");
-        if (fieldNames != null && fieldNames.size() > 0) {
+        if (fieldNames != null && !fieldNames.isEmpty()) {
             return new VariableIndexSerializer(seaTunnelRowType, index, fieldNames);
         } else {
             return new FixedValueIndexSerializer(index);

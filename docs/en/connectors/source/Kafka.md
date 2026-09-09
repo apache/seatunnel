@@ -61,7 +61,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
+| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf or avro. For protobuf, strips the Confluent Schema Registry header before deserialization. For avro, strips the fixed five-byte header (magic byte and schema ID); `avro_schema` is required when enabled, and no Schema Registry lookup is performed. |
 | reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
 | is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
@@ -583,7 +583,7 @@ The returned data is as follows:
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -591,6 +591,83 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
+
+A common long-running pattern is to consume from Kafka with auto-offset commit, enable checkpointing, and pipe the records into a downstream sink. Enable dynamic partition discovery so newly created partitions are picked up without restarting the job, and configure the sink with `semantics = EXACTLY_ONCE` for end-to-end exactly-once delivery.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    commit_on_checkpoint = true
+    partition-discovery.interval-millis = 30000
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_sink_job"
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+The same pattern works with `format = debezium_json` when you need to consume Debezium-formatted change events from a Kafka Connect sink and forward them downstream.
+
+### Avro Deserialization
+
+Use `format = avro` together with `avro_schema` when the Avro record layout (record name, namespace, or union structure) does not exactly match the SeaTunnel schema. When `avro_schema` is not provided, SeaTunnel derives the decode schema from the configured `schema` block and uses it as both reader and writer schema; set `avro_schema` explicitly whenever the producer's Avro layout (record name, namespace, union structure) differs from the SeaTunnel schema. There is no Confluent Schema Registry lookup or per-message schema fallback in the current implementation.
+
+```hocon
+source {
+  Kafka {
+    topic = "users_avro"
+    bootstrap.servers = "localhost:9092"
+    format = avro
+    avro_schema = """
+      {
+        "type": "record",
+        "name": "User",
+        "namespace": "com.example",
+        "fields": [
+          {"name": "id", "type": "long"},
+          {"name": "name", "type": "string"},
+          {"name": "email", "type": ["null", "string"], "default": null}
+        ]
+      }
+      """
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        email = string
+      }
+    }
+  }
+}
+```
 
 ## FAQ
 
@@ -633,6 +710,8 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 ### What message formats does Kafka Source support?
 
 Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+
+`format = avro` expects raw Avro-encoded messages by default. For messages produced by a Confluent `KafkaAvroSerializer`, set `strip_schema_registry_header = true` and provide `avro_schema`. SeaTunnel detects the header by its leading magic byte and strips the fixed five-byte wire header (magic byte `0` plus four-byte schema ID) before decoding, without contacting Schema Registry. The option is opt-in, so raw Avro behavior is unchanged when it is `false`.
 
 ### How do I configure SASL/Kerberos authentication?
 

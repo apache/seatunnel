@@ -234,7 +234,7 @@ sink {
     time_free = true
 
     entity_name = users
-    record_type = profile
+    record_type = users
     schema = users
     distinct_id_column = user_id
     identity_fields = [

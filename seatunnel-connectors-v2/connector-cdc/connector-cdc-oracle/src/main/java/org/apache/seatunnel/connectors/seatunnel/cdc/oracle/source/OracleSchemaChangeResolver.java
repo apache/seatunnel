@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import io.debezium.relational.ddl.DdlParser;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class OracleSchemaChangeResolver extends AbstractSchemaChangeResolver {
     public OracleSchemaChangeResolver(SourceConfig.Factory<JdbcSourceConfig> sourceConfigFactory) {
@@ -41,7 +42,11 @@ public class OracleSchemaChangeResolver extends AbstractSchemaChangeResolver {
 
     @Override
     protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
-        return ((CustomOracleAntlrDdlParser) ddlParser).getAndClearParsedEvents();
+        return ((CustomOracleAntlrDdlParser) ddlParser)
+                .getAndClearParsedEvents().stream()
+                        .filter(event -> event instanceof AlterTableColumnEvent)
+                        .map(event -> (AlterTableColumnEvent) event)
+                        .collect(Collectors.toList());
     }
 
     @Override

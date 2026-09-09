@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -66,7 +67,9 @@ public class EdgeSocketMysql8_4IT extends AbstractEdgeSocketIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            AbstractEdgeSocketIT::copyMySQLDriverToJdbcContainer;
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, JDBC_PLUGIN_LIB);
 
     @Override
     protected void startSinkDependencies() throws Exception {
