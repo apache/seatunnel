@@ -132,17 +132,18 @@ public class DefaultSlotService implements SlotService {
                         // Must first obtain SYSTEM_LOAD and then obtain workProfile. If you obtain
                         // workProfile first and then obtain SYSTEM_LOAD, resource information will
                         // be reported inaccurately.
-                        int countdown = systemLoadSendCountDown.decrementAndGet();
-                        boolean shouldCollectSystemLoad =
-                                countdown == 0
-                                        && (config.getAllocateStrategy()
-                                                        == AllocateStrategy.SYSTEM_LOAD
-                                                || autoscalerConfig.isEnabled());
                         systemLoadInfo =
-                                Optional.of(shouldCollectSystemLoad)
-                                        .filter(Boolean::booleanValue)
+                                Optional.of(systemLoadSendCountDown.decrementAndGet())
+                                        .filter(
+                                                count ->
+                                                        count == 0
+                                                                && (config.getAllocateStrategy()
+                                                                                == AllocateStrategy
+                                                                                        .SYSTEM_LOAD
+                                                                        || autoscalerConfig
+                                                                                .isEnabled()))
                                         .map(
-                                                ignored -> {
+                                                count -> {
                                                     systemLoadSendCountDown.set(
                                                             SYSTEM_LOAD_SEND_INTERVAL);
                                                     SystemLoadInfo info = new SystemLoadInfo();

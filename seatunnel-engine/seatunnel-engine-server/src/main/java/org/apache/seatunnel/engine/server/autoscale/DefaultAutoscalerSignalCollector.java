@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
@@ -39,6 +40,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
 
     private final ResourceManager resourceManager;
     private final AutoscalerRuntimeConfig config;
+    private final SlotServiceConfig slotServiceConfig;
     private final IntSupplier pendingJobCountSupplier;
     private final LongSupplier oldestPendingDurationMillisSupplier;
     private final LongSupplier currentTimeMillisSupplier;
@@ -47,11 +49,13 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
     public DefaultAutoscalerSignalCollector(
             ResourceManager resourceManager,
             AutoscalerRuntimeConfig config,
+            SlotServiceConfig slotServiceConfig,
             IntSupplier pendingJobCountSupplier,
             LongSupplier oldestPendingDurationMillisSupplier,
             LongSupplier currentTimeMillisSupplier) {
         this.resourceManager = Objects.requireNonNull(resourceManager, "resourceManager");
         this.config = Objects.requireNonNull(config, "config");
+        this.slotServiceConfig = Objects.requireNonNull(slotServiceConfig, "slotServiceConfig");
         this.pendingJobCountSupplier =
                 Objects.requireNonNull(pendingJobCountSupplier, "pendingJobCountSupplier");
         this.oldestPendingDurationMillisSupplier =
@@ -114,34 +118,25 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
             return new SlotSummary(SlotMode.UNKNOWN, 0, 0, MetricValue.unknown());
         }
 
-        int dynamicWorkers = 0;
-        int fixedWorkers = 0;
         int assignedSlots = 0;
         int unassignedSlots = 0;
-        for (WorkerProfile workerProfile : resourceManager.getRegisterWorker().values()) {
-            if (workerProfile.isDynamicSlot()) {
-                dynamicWorkers++;
-            } else {
-                fixedWorkers++;
+        if (!slotServiceConfig.isDynamicSlot()) {
+            for (WorkerProfile workerProfile : resourceManager.getRegisterWorker().values()) {
                 assignedSlots += safeLength(workerProfile.getAssignedSlots());
                 unassignedSlots += safeLength(workerProfile.getUnassignedSlots());
             }
         }
 
-        if (fixedWorkers == workerCount) {
-            int totalSlots = assignedSlots + unassignedSlots;
-            MetricValue utilization =
-                    totalSlots == 0
-                            ? MetricValue.unknown()
-                            : MetricValue.valid((double) assignedSlots / (double) totalSlots);
-            return new SlotSummary(SlotMode.FIXED, assignedSlots, unassignedSlots, utilization);
-        }
-        if (dynamicWorkers == workerCount) {
+        if (slotServiceConfig.isDynamicSlot()) {
             return new SlotSummary(
                     SlotMode.DYNAMIC, assignedSlots, unassignedSlots, MetricValue.unknown());
         }
-        return new SlotSummary(
-                SlotMode.MIXED, assignedSlots, unassignedSlots, MetricValue.unknown());
+        int totalSlots = assignedSlots + unassignedSlots;
+        MetricValue utilization =
+                totalSlots == 0
+                        ? MetricValue.unknown()
+                        : MetricValue.valid((double) assignedSlots / (double) totalSlots);
+        return new SlotSummary(SlotMode.FIXED, assignedSlots, unassignedSlots, utilization);
     }
 
     private static int safeLength(Object[] values) {

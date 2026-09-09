@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
@@ -205,7 +204,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
         ConcurrentMap<Address, WorkerProfile> matchedWorker = filterWorkerByTag(tagFilter);
         if (matchedWorker.isEmpty()) {
             log.error("No matched worker with tag filter {}.", tagFilter);
-            recordResourceShortage(resourceProfile.size(), String.valueOf(tagFilter));
             throw new NoEnoughResourceException();
         }
         return new ResourceRequestHandler(
@@ -272,17 +270,6 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {
         autoscalerWorkerSampleStore.record(sample, receiveTimeMillis);
-    }
-
-    private void recordResourceShortage(int taskGroupCount, String resourceShape) {
-        if (!autoscalerRuntimeConfig.isEnabled()) {
-            return;
-        }
-        if (engineConfig.getScheduleStrategy() == ScheduleStrategy.WAIT) {
-            resourceShortageStats.recordWaitShortage(taskGroupCount, resourceShape);
-        } else {
-            resourceShortageStats.recordRejectShortage(taskGroupCount, resourceShape);
-        }
     }
 
     @Override

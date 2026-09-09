@@ -30,7 +30,7 @@ public final class ResourceShortageSnapshot implements Serializable {
     private final boolean latestWait;
     private final boolean latestReject;
     private final int latestTaskGroupCount;
-    private final String latestResourceShape;
+    private final String latestRequestedResourceProfile;
 
     public ResourceShortageSnapshot(
             long sequence,
@@ -40,7 +40,7 @@ public final class ResourceShortageSnapshot implements Serializable {
             boolean latestWait,
             boolean latestReject,
             int latestTaskGroupCount,
-            String latestResourceShape) {
+            String latestRequestedResourceProfile) {
         this.sequence = sequence;
         this.shortageCount = shortageCount;
         this.waitCount = waitCount;
@@ -48,7 +48,7 @@ public final class ResourceShortageSnapshot implements Serializable {
         this.latestWait = latestWait;
         this.latestReject = latestReject;
         this.latestTaskGroupCount = latestTaskGroupCount;
-        this.latestResourceShape = latestResourceShape;
+        this.latestRequestedResourceProfile = latestRequestedResourceProfile;
     }
 
     public long getSequence() {
@@ -79,7 +79,7 @@ public final class ResourceShortageSnapshot implements Serializable {
         return latestTaskGroupCount;
     }
 
-    public String getLatestResourceShape() {
-        return latestResourceShape;
+    public String getLatestRequestedResourceProfile() {
+        return latestRequestedResourceProfile;
     }
 }

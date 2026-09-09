@@ -1458,6 +1458,7 @@ public class CoordinatorService {
                         new DefaultAutoscalerSignalCollector(
                                 getResourceManager(),
                                 autoscalerRuntimeConfig,
+                                engineConfig.getSlotServiceConfig(),
                                 this::getPendingJobCount,
                                 this::getOldestPendingDurationMillis,
                                 System::currentTimeMillis),

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
+import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
@@ -43,10 +44,13 @@ class DefaultAutoscalerSignalCollectorTest {
         FakeResourceManager resourceManager = new FakeResourceManager();
         Address worker = address(5801);
         resourceManager.workers.put(worker, worker(worker, false, 1, 3));
+        SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
+        slotServiceConfig.setDynamicSlot(false);
         resourceManager.sampleStore.record(
                 new WorkerMetricsSample(worker, 10_000L, 0.4d, 0.6d), 10_000L);
 
-        AutoscalerMetricsSnapshot snapshot = collector(resourceManager).collect();
+        AutoscalerMetricsSnapshot snapshot =
+                collector(resourceManager, slotServiceConfig).collect();
 
         Assertions.assertEquals(SlotMode.FIXED, snapshot.getSlotMode());
         Assertions.assertEquals(MetricStatus.VALID, snapshot.getFixedSlotUtilization().getStatus());
@@ -56,7 +60,7 @@ class DefaultAutoscalerSignalCollectorTest {
     }
 
     @Test
-    void dynamicAndMixedSlotsDoNotExposeNumericSlotUtilization() {
+    void configuredSlotModeDeterminesSlotUtilization() {
         FakeResourceManager dynamicResourceManager = new FakeResourceManager();
         Address worker = address(5801);
         dynamicResourceManager.workers.put(worker, worker(worker, true, 0, 0));
@@ -66,16 +70,21 @@ class DefaultAutoscalerSignalCollectorTest {
         Assertions.assertEquals(
                 MetricStatus.UNKNOWN, dynamicSnapshot.getFixedSlotUtilization().getStatus());
 
-        FakeResourceManager mixedResourceManager = new FakeResourceManager();
+        FakeResourceManager resourceManagerWithDifferentWorkerProfiles = new FakeResourceManager();
         Address fixed = address(5802);
         Address dynamic = address(5803);
-        mixedResourceManager.workers.put(fixed, worker(fixed, false, 1, 1));
-        mixedResourceManager.workers.put(dynamic, worker(dynamic, true, 0, 0));
+        resourceManagerWithDifferentWorkerProfiles.workers.put(fixed, worker(fixed, false, 1, 1));
+        resourceManagerWithDifferentWorkerProfiles.workers.put(
+                dynamic, worker(dynamic, true, 0, 0));
 
-        AutoscalerMetricsSnapshot mixedSnapshot = collector(mixedResourceManager).collect();
-        Assertions.assertEquals(SlotMode.MIXED, mixedSnapshot.getSlotMode());
+        SlotServiceConfig fixedSlotConfig = new SlotServiceConfig();
+        fixedSlotConfig.setDynamicSlot(false);
+        AutoscalerMetricsSnapshot mixedSnapshot =
+                collector(resourceManagerWithDifferentWorkerProfiles, fixedSlotConfig).collect();
+        Assertions.assertEquals(SlotMode.FIXED, mixedSnapshot.getSlotMode());
         Assertions.assertEquals(
-                MetricStatus.UNKNOWN, mixedSnapshot.getFixedSlotUtilization().getStatus());
+                MetricStatus.VALID, mixedSnapshot.getFixedSlotUtilization().getStatus());
+        Assertions.assertEquals(0.5d, mixedSnapshot.getFixedSlotUtilization().getValue(), 0.0001d);
     }
 
     @Test
@@ -86,6 +95,7 @@ class DefaultAutoscalerSignalCollectorTest {
                 new DefaultAutoscalerSignalCollector(
                         resourceManager,
                         AutoscalerRuntimeConfig.defaults(),
+                        new SlotServiceConfig(),
                         () -> 2,
                         () -> 300L,
                         () -> 1_000L);
@@ -104,7 +114,15 @@ class DefaultAutoscalerSignalCollectorTest {
         AutoscalerRuntimeConfig config =
                 AutoscalerRuntimeConfig.builder().maxMetricStalenessSeconds(5).build();
         return new DefaultAutoscalerSignalCollector(
-                resourceManager, config, () -> 0, () -> 0L, () -> 10_500L);
+                resourceManager, config, new SlotServiceConfig(), () -> 0, () -> 0L, () -> 10_500L);
+    }
+
+    private DefaultAutoscalerSignalCollector collector(
+            FakeResourceManager resourceManager, SlotServiceConfig slotServiceConfig) {
+        AutoscalerRuntimeConfig config =
+                AutoscalerRuntimeConfig.builder().maxMetricStalenessSeconds(5).build();
+        return new DefaultAutoscalerSignalCollector(
+                resourceManager, config, slotServiceConfig, () -> 0, () -> 0L, () -> 10_500L);
     }
 
     private WorkerProfile worker(

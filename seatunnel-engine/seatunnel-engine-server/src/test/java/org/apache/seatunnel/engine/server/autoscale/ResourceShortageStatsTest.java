@@ -35,7 +35,7 @@ class ResourceShortageStatsTest {
         Assertions.assertEquals(1L, snapshot.getRejectCount());
         Assertions.assertTrue(snapshot.isLatestReject());
         Assertions.assertEquals(1, snapshot.getLatestTaskGroupCount());
-        Assertions.assertEquals("slot", snapshot.getLatestResourceShape());
+        Assertions.assertEquals("slot", snapshot.getLatestRequestedResourceProfile());
     }
 
     @Test

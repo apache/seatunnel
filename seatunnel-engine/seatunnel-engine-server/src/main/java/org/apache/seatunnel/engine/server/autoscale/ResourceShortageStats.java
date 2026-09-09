@@ -18,36 +18,40 @@
 package org.apache.seatunnel.engine.server.autoscale;
 
 /**
- * Compact accumulator for scheduler resource-shortage evidence.
+ * Records scheduler resource-shortage events for autoscaler evaluation.
  *
- * <p>It records cumulative WAIT/REJECT counts and exposes sequence deltas without retaining
- * unbounded event history. All mutating and reading methods are synchronized to guarantee a
- * consistent snapshot across fields.
+ * <p>It keeps cumulative WAIT/REJECT counts and uses a sequence number to report only events since
+ * the previous snapshot. It stores aggregate counters and the latest event details instead of the
+ * full event history, and synchronizes all access to keep snapshots consistent.
  */
 public final class ResourceShortageStats {
 
+    /** Monotonically increasing cursor for recorded resource-shortage events. */
     private long sequence;
+
     private long waitCount;
     private long rejectCount;
     private long latestWaitSequence;
     private long latestRejectSequence;
     private int latestTaskGroupCount;
-    private String latestResourceShape;
+    private String latestRequestedResourceProfile;
 
-    public synchronized void recordWaitShortage(int taskGroupCount, String resourceShape) {
+    public synchronized void recordWaitShortage(
+            int taskGroupCount, String requestedResourceProfile) {
         long currentSequence = ++sequence;
         waitCount++;
         latestWaitSequence = currentSequence;
         latestTaskGroupCount = taskGroupCount;
-        latestResourceShape = resourceShape;
+        latestRequestedResourceProfile = requestedResourceProfile;
     }
 
-    public synchronized void recordRejectShortage(int taskGroupCount, String resourceShape) {
+    public synchronized void recordRejectShortage(
+            int taskGroupCount, String requestedResourceProfile) {
         long currentSequence = ++sequence;
         rejectCount++;
         latestRejectSequence = currentSequence;
         latestTaskGroupCount = taskGroupCount;
-        latestResourceShape = resourceShape;
+        latestRequestedResourceProfile = requestedResourceProfile;
     }
 
     public synchronized ResourceShortageSnapshot snapshot() {
@@ -65,6 +69,6 @@ public final class ResourceShortageStats {
                 hasNewEvents && latestWaitSequence > previousSequence,
                 hasNewEvents && latestRejectSequence > previousSequence,
                 latestTaskGroupCount,
-                latestResourceShape);
+                latestRequestedResourceProfile);
     }
 }

@@ -28,24 +28,26 @@ import java.util.Set;
 /**
  * Keeps the latest accepted autoscaler metrics sample for each worker.
  *
- * <p>Samples with invalid utilization, excessive future skew, or non-increasing event time are
- * rejected before they influence a snapshot.
+ * <p>Samples with invalid utilization, timestamps beyond the allowed future tolerance, or
+ * non-increasing event time are rejected before they influence a snapshot.
  */
 public final class LatestWorkerSampleStore {
 
-    private final long maxFutureSkewMillis;
+    private final long futureTimestampToleranceMillis;
     private final Map<Address, WorkerMetricsSample> samples = new HashMap<>();
 
-    public LatestWorkerSampleStore(long maxFutureSkewMillis) {
-        this.maxFutureSkewMillis = maxFutureSkewMillis;
+    public LatestWorkerSampleStore(long futureTimestampToleranceMillis) {
+        this.futureTimestampToleranceMillis = futureTimestampToleranceMillis;
     }
 
+    /** Records a valid, newer sample for a worker. */
     public synchronized boolean record(WorkerMetricsSample sample, long nowMillis) {
         if (!isValidUtilization(sample.getCpuUtilization())
                 || !isValidUtilization(sample.getJvmMemoryUtilization())) {
             return false;
         }
-        if (sample.getEventTimeMillis() - nowMillis > maxFutureSkewMillis) {
+        // Reject samples that are too far ahead of the receiver clock.
+        if (sample.getEventTimeMillis() - nowMillis > futureTimestampToleranceMillis) {
             return false;
         }
         WorkerMetricsSample previous = samples.get(sample.getWorkerAddress());
@@ -88,10 +90,12 @@ public final class LatestWorkerSampleStore {
                 missing++;
                 continue;
             }
-            if (sample.getEventTimeMillis() > nowMillis + maxFutureSkewMillis) {
+            // Exclude samples that are too far ahead of the receiver clock.
+            if (sample.getEventTimeMillis() > nowMillis + futureTimestampToleranceMillis) {
                 future++;
                 continue;
             }
+            // Exclude samples that are older than the freshness window.
             if (nowMillis - sample.getEventTimeMillis() > freshnessMillis) {
                 stale++;
                 continue;
