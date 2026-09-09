@@ -70,6 +70,65 @@ class CdcProgressModelTest {
     }
 
     @Test
+    void testEnumeratorReportActiveSplitWatermarksAreDeeplyImmutable() {
+        Map<String, String> lowValues = new LinkedHashMap<>();
+        lowValues.put("pos", "100");
+        Map<String, String> highValues = new LinkedHashMap<>();
+        highValues.put("pos", "200");
+        List<CdcSnapshotSplitProgress> activeSplits = new ArrayList<>();
+        activeSplits.add(
+                new CdcSnapshotSplitProgress(
+                        "split-1",
+                        "inventory.orders",
+                        CdcProgressValue.exact(
+                                new CdcProgressPosition("MYSQL_BINLOG", 1, lowValues)),
+                        CdcProgressValue.exact(
+                                new CdcProgressPosition("MYSQL_BINLOG", 1, highValues))));
+
+        CdcEnumeratorProgressReport report =
+                new CdcEnumeratorProgressReport(
+                        "MySQL-CDC",
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        activeSplits);
+        lowValues.put("pos", "300");
+        highValues.clear();
+        activeSplits.clear();
+
+        Assertions.assertEquals(1, report.getActiveSplits().size());
+        CdcSnapshotSplitProgress split = report.getActiveSplits().get(0);
+        Assertions.assertEquals("split-1", split.getSplitId());
+        Assertions.assertEquals("inventory.orders", split.getTablePath());
+        Assertions.assertEquals(CdcProgressAccuracy.EXACT, split.getLowWatermark().getAccuracy());
+        Assertions.assertEquals(CdcProgressAccuracy.EXACT, split.getHighWatermark().getAccuracy());
+        Assertions.assertEquals(
+                Collections.singletonMap("pos", "100"),
+                split.getLowWatermark().getValue().getValues());
+        Assertions.assertEquals(
+                Collections.singletonMap("pos", "200"),
+                split.getHighWatermark().getValue().getValues());
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> split.getLowWatermark().getValue().getValues().put("pos", "400"));
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () ->
+                        split.getHighWatermark()
+                                .getValue()
+                                .getValues()
+                                .entrySet()
+                                .iterator()
+                                .next()
+                                .setValue("400"));
+        Assertions.assertThrows(
+                UnsupportedOperationException.class, () -> report.getActiveSplits().clear());
+    }
+
+    @Test
     void testEnumeratorReportBoundsActiveSplitDetails() {
         List<CdcSnapshotSplitProgress> activeSplits = new ArrayList<>();
         for (int i = 0; i <= CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS; i++) {
