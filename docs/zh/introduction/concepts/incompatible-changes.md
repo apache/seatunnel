@@ -13,6 +13,12 @@
 
 ### JDBC Connector
 
+- **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
+  - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel 会把整个批次视为已经完成并跳过回放；只有在第一个 recovered checkpoint XID 之后又出现缺失 XID 时，restore 才会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。
+  - **影响**：以前依赖“XA 分支缺失即视为成功”的任务，在升级后如果 recovery scan 里仍然能看到后续 checkpoint XID、但中间出现缺口，可能会在恢复阶段收到明确的 XA restore 错误。另外，`max_commit_attempts` 现在会在一次 restore/commit 调用内耗尽，而不是分散到多次任务重启中。
+  - **迁移指南**：升级前请先检查资源管理器中是否还残留 prepared XA 事务，例如 MySQL 可使用 `XA RECOVER`，PostgreSQL 可检查 `pg_prepared_xacts`。如果升级后 restore 因为“后面仍有 checkpoint XID，但中间出现缺失 XID”而进入 fail-closed，请重点确认缺失 XID 是否被回滚、超时过期，或被外部清理，再决定后续恢复操作。XA recovery 无法区分 SeaTunnel 已提交的 XID 与被外部清理者回滚或删除的 XID。因此，位于 recovered 后缀之前的缺失 XID，或全部 XID 缺失的批次，会被推断为已经完成；在相关作业可能恢复时，不要对 SeaTunnel 所属的 prepared XA 分支执行外部清理，任何清理操作都应与作业恢复流程协调。
+
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`、`seatunnel-connectors-v2/connector-iceberg`、`seatunnel-connectors-v2/connector-cdc-base`、`seatunnel-connectors-v2/connector-cdc-tidb`、`seatunnel-connectors-v2/connector-starrocks`、`seatunnel-connectors-v2/connector-hudi`、`seatunnel-connectors-v2/connector-snowflake`（通过 JDBC 方言）
   - **变更说明**：以前，JDBC Source 将无时区（如 MySQL `DATETIME`）和带时区（如 MySQL `TIMESTAMP`）的时间戳列都映射为 SeaTunnel 内部的 `TIMESTAMP` 类型。现在，带时区的列（如 MySQL `TIMESTAMP`、PostgreSQL `timestamptz`、Oracle `TIMESTAMP WITH LOCAL TIME ZONE`、SQL Server `datetimeoffset`、Snowflake `TIMESTAMP_LTZ/TZ` 等）被显式映射为 `TIMESTAMP_TZ`。这确保了在写入 Iceberg 等格式时，时区语义得到准确保留（在 Iceberg 中 `TIMESTAMP` 存为无时区的 `timestamp`，`TIMESTAMP_TZ` 存为带时区的 `timestamptz`）。
@@ -119,6 +125,11 @@
   - **变更说明**：Enumerator 现在通过 `sampleRowKeys` 按 tablet 边界把表（或配置的 `start_rowkey` / `end_rowkey` 区间）切成多个 split。Reader 仍对每个 split 调用一次 `query.limit(...)`。此前 Source 始终只产生 1 个 split，因此 `scan_row_limit` 等价于整表行数上限。升级后，只要表有多个 tablet，即使 `parallelism = 1`（唯一 reader 会拿到全部 split），作业级上限约为 `scan_row_limit × split 数`。详见 [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int)。
   - **影响**：依赖 `scan_row_limit` 限制总输出量的存量作业（抽样、测试、成本控制、下游容量）在升级后、配置不变的情况下，可能读出远超以前的行数。
   - **迁移指南**：若仍需要整表级上限，请用 `start_rowkey` / `end_rowkey` 收窄扫描范围，或下调 `scan_row_limit`，使 `scan_row_limit × 预期 split 数` 不超过原预算。采样失败、无采样点或求交为空时仍会回退为单个 split，但这不是用来锁定旧语义的受支持方式。(#11876)
+- **CDC Connector：已从捕获集合移除的表不再复用恢复状态**
+  - **影响范围**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-base` 及其构建的 CDC 连接器。
+  - **变更说明**：CDC 任务从 checkpoint 或 savepoint 恢复时，SeaTunnel 现在会在分配恢复后的 split 前，按照当前捕获表集合过滤表级增量状态。已从任务捕获配置中移除的表，其状态不会再被复用；如果表发现不可用或返回空集合，为避免源数据库短暂异常时丢弃 checkpoint 元数据，SeaTunnel 会保持恢复状态不变。
+  - **影响**：任务移除捕获表后再从旧 checkpoint 恢复时，不再尝试恢复这些已移除表的增量状态，从而避免陈旧表元数据导致恢复失败。该行为仅作用于 checkpoint/savepoint 恢复；新启动的任务不受影响。
+  - **迁移指南**：无需修改配置。变更捕获表集合后恢复现有 CDC 任务前，请确认被移除的表确实不应继续参与该任务。
 
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
