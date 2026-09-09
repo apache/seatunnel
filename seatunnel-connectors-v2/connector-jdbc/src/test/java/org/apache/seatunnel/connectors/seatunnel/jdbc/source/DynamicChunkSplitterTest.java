@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ObjectUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -306,6 +307,62 @@ public class DynamicChunkSplitterTest {
         assertTrue(JdbcSourceOptions.ENABLE_CONCURRENT_READ.defaultValue());
     }
 
+    /**
+     * Covers bounded range fallback when the approximate row count is zero or negative. Verifies
+     * integer, short, and byte ranges split correctly, oversized ranges collapse to one chunk,
+     * unsafe numeric ranges collapse to one chunk, and bad arguments throw.
+     */
+    @Test
+    public void testSplitEvenlySizedChunksByRangeWhenApproximateRowCountUnavailable() {
+        TablePath tablePath = TablePath.of("db", "xe", "table");
+
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 5, 2, 10),
+                Arrays.asList(
+                        DynamicChunkSplitter.ChunkRange.of(null, 3),
+                        DynamicChunkSplitter.ChunkRange.of(3, 5),
+                        DynamicChunkSplitter.ChunkRange.of(5, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (short) 1, (short) 5, 2, 10),
+                Arrays.asList(
+                        DynamicChunkSplitter.ChunkRange.of(null, (short) 3),
+                        DynamicChunkSplitter.ChunkRange.of((short) 3, (short) 5),
+                        DynamicChunkSplitter.ChunkRange.of((short) 5, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (byte) 1, (byte) 5, 2, 10),
+                Arrays.asList(
+                        DynamicChunkSplitter.ChunkRange.of(null, (byte) 3),
+                        DynamicChunkSplitter.ChunkRange.of((byte) 3, (byte) 5),
+                        DynamicChunkSplitter.ChunkRange.of((byte) 5, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 100, 2, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (short) 1, (short) 5, 100000, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, (byte) 1, (byte) 5, 100000, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, 1.0E20D, 1.0E20D + 1.0E10D, 1, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        check(
+                DynamicChunkSplitter.splitEvenlySizedChunksByRange(
+                        tablePath, Double.NaN, 5.0D, 2, 10),
+                Arrays.asList(DynamicChunkSplitter.ChunkRange.of(null, null)));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 5, 0, 10));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> DynamicChunkSplitter.splitEvenlySizedChunksByRange(tablePath, 1, 5, 2, 0));
+    }
+
     private void check(
             List<DynamicChunkSplitter.ChunkRange> a, List<DynamicChunkSplitter.ChunkRange> b) {
         checkRule(b);
@@ -326,7 +383,8 @@ public class DynamicChunkSplitterTest {
             }
             if (i > 0 && i < a.size() - 1) {
                 // current chunk end should be greater than current chunk start
-                assertTrue((int) a.get(i).getChunkEnd() > (int) a.get(i).getChunkStart());
+                assertTrue(
+                        ObjectUtils.compare(a.get(i).getChunkEnd(), a.get(i).getChunkStart()) > 0);
             }
         }
     }
