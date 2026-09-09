@@ -127,7 +127,7 @@ public final class LineageConfig implements Serializable {
         Map<String, ?> cluster = nonNull(clusterOptions);
         Map<String, ?> env = nonNull(environment);
         return new LineageConfig(
-                asBoolean(first(job, env, cluster, ENABLED), false),
+                asBoolean(first(job, env, cluster, ENABLED), ENABLED, false),
                 asString(first(job, env, cluster, TRANSPORT), TRANSPORT, DEFAULT_TRANSPORT),
                 asNullableString(first(job, env, cluster, URL)),
                 asString(first(job, env, cluster, NAMESPACE), NAMESPACE, DEFAULT_NAMESPACE),
@@ -153,7 +153,7 @@ public final class LineageConfig implements Serializable {
      */
     public static boolean isEnabled(
             Map<String, ?> jobOptions, Map<String, ?> clusterOptions, Map<String, ?> environment) {
-        return asBoolean(first(jobOptions, environment, clusterOptions, ENABLED), false);
+        return asBoolean(first(jobOptions, environment, clusterOptions, ENABLED), ENABLED, false);
     }
 
     /** Rejects a token in job options because job configuration may be persisted or serialized. */
@@ -346,10 +346,19 @@ public final class LineageConfig implements Serializable {
         return values == null ? Collections.emptyMap() : values;
     }
 
-    private static boolean asBoolean(Lookup value, boolean fallback) {
-        return value.present && value.value != null
-                ? Boolean.parseBoolean(String.valueOf(value.value))
-                : fallback;
+    private static boolean asBoolean(Lookup value, String key, boolean fallback) {
+        if (!value.present || value.value == null) {
+            return fallback;
+        }
+        String text = String.valueOf(value.value).trim();
+        if ("true".equalsIgnoreCase(text)) {
+            return true;
+        }
+        if ("false".equalsIgnoreCase(text)) {
+            return false;
+        }
+        throw new IllegalArgumentException(
+                key + " must be \"true\" or \"false\", but was \"" + text + "\"");
     }
 
     private static int asInt(Lookup value, String key, int fallback) {

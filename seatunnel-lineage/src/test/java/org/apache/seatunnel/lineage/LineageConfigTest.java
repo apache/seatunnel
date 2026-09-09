@@ -203,6 +203,25 @@ class LineageConfigTest {
         assertTrue(failure.getMessage().contains("10s"), failure.getMessage());
     }
 
+    /**
+     * A malformed boolean must fail the same way a malformed number does: named and loud, not
+     * silently folded into {@code false} the way {@link Boolean#parseBoolean} would.
+     */
+    @Test
+    void namesTheEnabledOptionThatCouldNotBeParsed() {
+        Map<String, Object> job = Collections.singletonMap(LineageConfig.ENABLED, "tru");
+
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                LineageConfig.resolve(
+                                        job, Collections.emptyMap(), Collections.emptyMap()));
+
+        assertTrue(failure.getMessage().contains(LineageConfig.ENABLED), failure.getMessage());
+        assertTrue(failure.getMessage().contains("tru"), failure.getMessage());
+    }
+
     @Test
     void namesTheHeartbeatOptionThatCouldNotBeParsed() {
         Map<String, Object> cluster =

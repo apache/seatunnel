@@ -23,6 +23,13 @@ public interface LineageBackend {
     /** Returns the name used by {@link LineageConfig#transport()}. */
     String getName();
 
-    /** Emits one already-built lineage event. */
+    /**
+     * Emits one already-built lineage event.
+     *
+     * <p>May block the calling thread synchronously; an implementation that retries against {@code
+     * config.timeoutMs()} and {@code config.retryTimes()} can block for up to {@code (retryTimes +
+     * 1) * timeoutMs} in the worst case (a receiver that neither responds nor refuses the
+     * connection). Callers on a latency-sensitive thread should account for that bound.
+     */
     void emit(LineageConfig config, LineageEvent event) throws Exception;
 }
