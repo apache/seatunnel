@@ -41,6 +41,37 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 从aws s3文件系统读取数据。
 
+### 连接预检查
+
+`--dry-run connect` 可以在提交作业前检查单表 S3A 数据源。需要配置
+`bucket = "s3a://your-bucket"`、绝对 `path`、显式内联 `schema.fields` 或
+`schema.columns`，并将 `file_format_type` 设置为 `text`、`csv`、`json` 或
+`xml`。同时设置 `parse_partition_from_path = false`，且不配置 `read_columns`。
+此元数据检查不推断文件结构、投影或分区字段。不支持的配置会使连接预检查失败并
+返回说明，不改变正常作业的行为。
+
+检查复用 Hadoop S3A 的端点、凭证链、代理和路径访问配置，使用 HEAD 获取对象元数据，
+或执行一次 `maxKeys=1`、分隔符为 `/` 的前缀列表请求。它不会打开文件内容、递归列举
+文件、创建读取器、上传或删除对象，也不会初始化共享文件系统。检查具体对象不需要
+列举权限，检查前缀需要列举权限。对于 `discovery_mode = "continuous"`，成功的空列表
+可以通过检查，因为文件可能稍后到达。批处理模式下，没有目录标记的空虚拟前缀会失败，
+但可访问的空桶根路径可以通过。桶不存在或请求被拒绝时，两种模式均失败。
+
+预检查将建立连接和套接字超时限制为最多 5 秒，并保留更小的正值，禁用 SDK 请求重试，
+这些限制也适用于桶级覆盖配置。它们不是 DNS、凭证提供器初始化或 SDK 初始化的总耗时
+限制，不改变正常作业的超时和重试设置。
+
+首个版本不支持 `tables_configs`、旧 `s3n` 桶、SSE-C 客户提供的加密密钥、
+`fs.s3a.security.credential.provider.path`、S3Guard、分段上传清理以及自定义 S3 客户端工厂。
+通过检查不代表文件内容可读、格式或数据结构正确，也不验证工作节点凭证、目标端、更新
+或同步后操作的权限。
+
+对满足上述条件的作业配置执行：
+
+```bash
+bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local
+```
+
 ## 支持的数据源信息
 
 | 数据源 | 支持的版本 |
