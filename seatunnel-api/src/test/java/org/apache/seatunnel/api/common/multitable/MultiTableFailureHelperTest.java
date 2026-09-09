@@ -37,7 +37,7 @@ class MultiTableFailureHelperTest {
         multiTableConfig.put("primary_keys", primaryKeys);
 
         Map<String, Object> primaryMap = new HashMap<>();
-        primaryMap.put("multi-table_config", multiTableConfig);
+        primaryMap.put("multi_table_config", multiTableConfig);
         primaryMap.put("url", "jdbc:mysql://localhost:3306/primary");
 
         Map<String, Object> fallbackMap = new HashMap<>();
@@ -53,7 +53,7 @@ class MultiTableFailureHelperTest {
         Assertions.assertEquals("u", mergedMap.get("username"));
 
         Map<String, Object> mergedMultiTableConfig =
-                (Map<String, Object>) mergedMap.get("multi-table_config");
+                (Map<String, Object>) mergedMap.get("multi_table_config");
         Assertions.assertNotNull(mergedMultiTableConfig);
         Map<String, Object> mergedPrimaryKeys =
                 (Map<String, Object>) mergedMultiTableConfig.get("primary_keys");

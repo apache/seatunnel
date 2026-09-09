@@ -176,7 +176,7 @@ Exactly-once delivery uses XA transactions and therefore requires XA support fro
 | tablePrefix                               | String  | No       | -                            |
 | tableSuffix                               | String  | No       | -                            |
 | primary_keys                              | Array   | No       | -                            |
-| multi-table_config                        | Object  | No       | -                            |
+| multi_table_config                        | Object  | No       | -                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           |
 | connect_timeout_ms                        | Int     | No       | 86400000                     |
 | socket_timeout_ms                         | Int     | No       | 86400000                     |
@@ -296,14 +296,14 @@ Deprecated. Use `table` with table placeholders instead. For example, use `table
 
 The target key columns used to generate database-native UPSERT, UPDATE, and DELETE statements. If omitted, SeaTunnel attempts to inherit a primary key or the first unique key from upstream catalog metadata. If no key is available, generated SQL uses plain INSERT.
 
-### multi-table_config [object]
+### multi_table_config [object]
 
 Per-table primary key mapping for multi-table generated-SQL jobs. It has higher precedence than the top-level `primary_keys` option: when an upstream table name matches one of the patterns declared under `primary_keys`, that mapping is used; otherwise SeaTunnel falls back to the existing `primary_keys` / catalog metadata logic.
 
 The value must follow this shape:
 
 ```hocon
-multi-table_config {
+multi_table_config {
   primary_keys {
     "<table-name-regex>" = ["key1", "key2"]
   }
@@ -323,7 +323,7 @@ sink {
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
     generate_sink_sql = true
-    multi-table_config {
+    multi_table_config {
       primary_keys {
         "^t_nova_.*$" = ["${primary_key}", "DATA_SOURCE"]
       }
@@ -332,7 +332,7 @@ sink {
 }
 ```
 
-Example: mixing `multi-table_config` with the top-level `primary_keys`. Tables matched by the mapping use the mapping; unmatched tables fall back to `primary_keys = ["merchant_id"]`.
+Example: mixing `multi_table_config` with the top-level `primary_keys`. Tables matched by the mapping use the mapping; unmatched tables fall back to `primary_keys = ["merchant_id"]`.
 
 ```hocon
 sink {
@@ -341,7 +341,7 @@ sink {
     driver = "com.mysql.cj.jdbc.Driver"
     generate_sink_sql = true
     primary_keys = ["merchant_id"]
-    multi-table_config {
+    multi_table_config {
       primary_keys {
         "t_tyuen_txn_ext.*"          = ["id_txn_ctrl", "DATA_SOURCE"]
         "t_nova_merge_settle_serial" = ["${primary_key}", "DATA_SOURCE"]
