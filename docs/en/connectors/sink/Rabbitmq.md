@@ -78,6 +78,8 @@ Legacy alias for `url`. Configure only one of `url` and `uri`.
 
 Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
 
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
+
 ### queue_name [string]
 
 the queue to write the message to. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.

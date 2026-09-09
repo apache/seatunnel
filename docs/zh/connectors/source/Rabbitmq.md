@@ -97,6 +97,8 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 使用 `host` 和 `port` 配置连接时启用 SSL/TLS。若 URI 本身提供连接信息，请使用 `amqps://` 开头的 `url`。
 
+当 `url` 使用 `amqps://` 时，将按 JVM 信任库校验 Broker 证书并启用主机名校验。此前依赖隐式信任所有证书、使用自签名或私有 CA 证书的连接，需要将 Broker 证书导入信任库，否则将无法建立连接。
+
 ### queue_name [string]
 
 要消费消息的队列。*注意：如果未配置 `tables_configs`，则为必填项。*

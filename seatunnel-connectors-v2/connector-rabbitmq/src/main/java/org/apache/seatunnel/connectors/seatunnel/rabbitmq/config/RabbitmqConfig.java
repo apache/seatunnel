@@ -36,6 +36,13 @@ import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.Rabbi
 @NoArgsConstructor
 @AllArgsConstructor
 public class RabbitmqConfig implements Serializable {
+    /**
+     * Pinned to the default computed UID of the class before ssl/passive were added, so execution
+     * plans and checkpoint state serialized by older versions still deserialize without throwing
+     * InvalidClassException.
+     */
+    private static final long serialVersionUID = -6715216959598971323L;
+
     private String host;
     private Integer port;
     private String virtualHost;

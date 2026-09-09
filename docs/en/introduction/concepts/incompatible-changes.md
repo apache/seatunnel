@@ -5,6 +5,19 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### RabbitMQ Connector
+
+- **Breaking Change: `amqps://` connections now verify broker certificates**
+  - **Affected component**: `seatunnel-connectors-v2/connector-rabbitmq`
+  - **Description**: Previously, connecting with an `amqps://` `url`/`uri` implicitly installed a
+    trust-all trust manager without hostname verification. Certificate verification is now
+    enforced for `amqps://` connections, consistent with the `ssl = true` host/port path.
+  - **Impact**: Jobs that connect with `amqps://` URLs to brokers using self-signed or private-CA
+    certificates will fail to connect after upgrading.
+  - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
+    trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
+    configuration with a properly configured trust store.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
