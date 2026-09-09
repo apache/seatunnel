@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingExcep
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.SerializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.core.EntryEvent;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.map.listener.EntryExpiredListener;
@@ -66,7 +68,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public class JobHistoryService {
+public class JobHistoryService implements AutoCloseable {
 
     private final NodeEngine nodeEngine;
 
@@ -151,18 +153,39 @@ public class JobHistoryService {
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
-        this.finishedJobStateListenerId =
-                this.finishedJobStateImap.addEntryListener(
-                        new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
-        this.finishedJobMetricsListenerId =
-                this.finishedJobMetricsImap.addEntryListener(
-                        new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
-        this.finishedJobDAGInfoListenerId =
-                this.finishedJobDAGInfoImap.addEntryListener(
-                        new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
+        UUID stateListenerId = null;
+        UUID metricsListenerId = null;
+        UUID dagInfoListenerId;
+        try {
+            stateListenerId =
+                    this.finishedJobStateImap.addEntryListener(
+                            new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE),
+                            true);
+            metricsListenerId =
+                    this.finishedJobMetricsImap.addEntryListener(
+                            new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS),
+                            true);
+            dagInfoListenerId =
+                    this.finishedJobDAGInfoImap.addEntryListener(
+                            new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
+                            true);
+        } catch (RuntimeException e) {
+            // A failed constructor is never published to the coordinator, so it must release
+            // registrations already acquired before propagating the original failure.
+            removeEntryListenerQuietly(
+                    this.finishedJobStateImap, stateListenerId, Constant.IMAP_FINISHED_JOB_STATE);
+            removeEntryListenerQuietly(
+                    this.finishedJobMetricsImap,
+                    metricsListenerId,
+                    Constant.IMAP_FINISHED_JOB_METRICS);
+            throw e;
+        }
+        this.finishedJobStateListenerId = stateListenerId;
+        this.finishedJobMetricsListenerId = metricsListenerId;
+        this.finishedJobDAGInfoListenerId = dagInfoListenerId;
     }
 
     /**
@@ -181,6 +204,7 @@ public class JobHistoryService {
      * just left the active master role, are not affected. Calling close more than once is safe
      * because removing an already removed registration is a no-op.
      */
+    @Override
     public void close() {
         removeEntryListenerQuietly(
                 finishedJobStateImap, finishedJobStateListenerId, Constant.IMAP_FINISHED_JOB_STATE);
@@ -199,6 +223,7 @@ public class JobHistoryService {
      * state map, metrics map, DAG info map. Package-private and only intended for tests that verify
      * the listeners are deregistered on close.
      */
+    @VisibleForTesting
     List<UUID> getEntryListenerRegistrationIds() {
         return Arrays.asList(
                 finishedJobStateListenerId,
@@ -449,10 +474,22 @@ public class JobHistoryService {
      */
     private void removeEntryListenerQuietly(
             IMap<?, ?> imap, UUID registrationId, String storeName) {
+        if (registrationId == null) {
+            return;
+        }
         try {
             imap.removeEntryListener(registrationId);
+        } catch (HazelcastInstanceNotActiveException e) {
+            // The node is already stopping; its event service owns the remaining cleanup.
+            logger.fine(
+                    "Hazelcast stopped while removing finished job listener " + registrationId, e);
         } catch (Exception e) {
-            logger.warning("Failed to remove finished job expiration listener of " + storeName, e);
+            logger.warning(
+                    "Failed to remove finished job expiration listener "
+                            + registrationId
+                            + " of "
+                            + storeName,
+                    e);
         }
     }
 

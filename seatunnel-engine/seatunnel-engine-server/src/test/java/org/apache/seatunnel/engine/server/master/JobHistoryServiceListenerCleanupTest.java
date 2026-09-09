@@ -55,7 +55,8 @@ import static org.awaitility.Awaitility.await;
  * the closed instance and that {@link CoordinatorService#clearCoordinatorService()} performs that
  * cleanup when a node leaves the active master role.
  */
-public class JobHistoryServiceListenerCleanupTest extends AbstractSeaTunnelServerTest {
+public class JobHistoryServiceListenerCleanupTest
+        extends AbstractSeaTunnelServerTest<JobHistoryServiceListenerCleanupTest> {
 
     /**
      * Verifies that close() deregisters the three expiration listeners registered by the
@@ -74,29 +75,31 @@ public class JobHistoryServiceListenerCleanupTest extends AbstractSeaTunnelServe
         // Positive control: registration ids of a service that is not closed are live, so
         // removeEntryListener returns true for them. This proves the ids exposed by the service
         // are real registrations and keeps the negative assertions below meaningful.
-        JobHistoryService liveService = newJobHistoryService();
-        List<UUID> liveIds = liveService.getEntryListenerRegistrationIds();
-        Assertions.assertEquals(3, liveIds.size());
-        Assertions.assertTrue(finishedJobStateImap.removeEntryListener(liveIds.get(0)));
-        Assertions.assertTrue(finishedJobMetricsImap.removeEntryListener(liveIds.get(1)));
-        Assertions.assertTrue(finishedJobDAGInfoImap.removeEntryListener(liveIds.get(2)));
+        try (JobHistoryService liveService = newJobHistoryService()) {
+            List<UUID> liveIds = liveService.getEntryListenerRegistrationIds();
+            Assertions.assertEquals(3, liveIds.size());
+            Assertions.assertTrue(finishedJobStateImap.removeEntryListener(liveIds.get(0)));
+            Assertions.assertTrue(finishedJobMetricsImap.removeEntryListener(liveIds.get(1)));
+            Assertions.assertTrue(finishedJobDAGInfoImap.removeEntryListener(liveIds.get(2)));
+        }
 
         // Repeated create/close cycles must not leave any registration behind: after close(),
         // removing the same registration id again returns false because the listener is already
         // deregistered from the map.
         for (int i = 0; i < 3; i++) {
-            JobHistoryService jobHistoryService = newJobHistoryService();
-            List<UUID> registrationIds = jobHistoryService.getEntryListenerRegistrationIds();
-            Assertions.assertEquals(3, registrationIds.size());
+            try (JobHistoryService jobHistoryService = newJobHistoryService()) {
+                List<UUID> registrationIds = jobHistoryService.getEntryListenerRegistrationIds();
+                Assertions.assertEquals(3, registrationIds.size());
 
-            jobHistoryService.close();
+                jobHistoryService.close();
 
-            Assertions.assertFalse(
-                    finishedJobStateImap.removeEntryListener(registrationIds.get(0)));
-            Assertions.assertFalse(
-                    finishedJobMetricsImap.removeEntryListener(registrationIds.get(1)));
-            Assertions.assertFalse(
-                    finishedJobDAGInfoImap.removeEntryListener(registrationIds.get(2)));
+                Assertions.assertFalse(
+                        finishedJobStateImap.removeEntryListener(registrationIds.get(0)));
+                Assertions.assertFalse(
+                        finishedJobMetricsImap.removeEntryListener(registrationIds.get(1)));
+                Assertions.assertFalse(
+                        finishedJobDAGInfoImap.removeEntryListener(registrationIds.get(2)));
+            }
         }
     }
 
@@ -194,6 +197,10 @@ public class JobHistoryServiceListenerCleanupTest extends AbstractSeaTunnelServe
         return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
     }
 
+    /**
+     * Builds the isolated node's join configuration with a loopback address and the allocated port
+     * range, avoiding the default port used by other test nodes.
+     */
     private String buildHazelcastConfig(String clusterName, int hazelcastPort) {
         return "hazelcast:\n"
                 + "  cluster-name: "

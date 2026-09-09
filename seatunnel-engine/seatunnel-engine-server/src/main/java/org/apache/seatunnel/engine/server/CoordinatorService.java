@@ -592,6 +592,11 @@ public class CoordinatorService {
         return new JobEventProcessor(handlers);
     }
 
+    /**
+     * Returns the current history view, including after coordinator teardown. Closing the view only
+     * deregisters listeners; reads remain valid for requests already in flight. Every activation
+     * constructs a fresh instance in {@link #initCoordinatorService()}.
+     */
     public JobHistoryService getJobHistoryService() {
         return jobHistoryService;
     }
@@ -622,6 +627,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        // Never reuse the previous history view: teardown removes its listener registrations,
+        // while requests already holding that view may still finish their reads.
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
