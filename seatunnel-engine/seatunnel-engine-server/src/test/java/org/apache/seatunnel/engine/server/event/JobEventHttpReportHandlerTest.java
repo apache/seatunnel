@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.AfterAll;
@@ -40,9 +41,12 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.Call;
+import okhttp3.OkHttpClient;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 import okio.Buffer;
 
 import java.io.IOException;
@@ -102,6 +106,38 @@ public class JobEventHttpReportHandlerTest {
             mockWebServer.shutdown();
         } catch (Exception e) {
             log.error("Failed to shutdown mockWebServer", e);
+        }
+    }
+
+    @Test
+    public void testInterruptedCloseCancelsInFlightRequest() throws Exception {
+        try (MockWebServer blockedServer = new MockWebServer()) {
+            blockedServer.enqueue(new MockResponse().setSocketPolicy(SocketPolicy.NO_RESPONSE));
+            blockedServer.start();
+            Ringbuffer ringbuffer = hazelcast.getRingbuffer("interrupted-close-test");
+            ringbuffer.add(new TestEvent(1));
+            JobEventHttpReportHandler handler =
+                    new JobEventHttpReportHandler(
+                            blockedServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
+            OkHttpClient client =
+                    (OkHttpClient) ReflectionUtils.getField(handler, "httpClient").get();
+            boolean closed = false;
+            try {
+                Assertions.assertNotNull(blockedServer.takeRequest(10, TimeUnit.SECONDS));
+                Call inFlight = client.dispatcher().runningCalls().get(0);
+                Thread.currentThread().interrupt();
+                handler.close();
+                closed = true;
+                Assertions.assertTrue(Thread.currentThread().isInterrupted());
+                Assertions.assertTrue(
+                        inFlight.isCanceled(), "Close must cancel the active request");
+            } finally {
+                Thread.interrupted();
+                client.dispatcher().cancelAll();
+                if (!closed) {
+                    handler.close();
+                }
+            }
         }
     }
 

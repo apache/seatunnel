@@ -59,6 +59,7 @@ public class JobEventHttpReportHandler implements EventHandler {
     public static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     public static final Duration REPORT_INTERVAL = Duration.ofSeconds(10);
     private static final int LOCAL_EVENT_BUFFER_CAPACITY = 2000;
+    // Preserve OkHttp's default idle pool bounds, but keep the pool owned by this handler.
     private static final int MAX_IDLE_CONNECTIONS = 5;
     private static final long KEEP_ALIVE_DURATION_MINUTES = 5;
 
@@ -249,6 +250,7 @@ public class JobEventHttpReportHandler implements EventHandler {
                 log.warn("Skip final event flush because the http report scheduler did not stop");
             }
         } finally {
+            httpClient.dispatcher().cancelAll();
             httpClient.connectionPool().evictAll();
             if (interrupted) {
                 Thread.currentThread().interrupt();
