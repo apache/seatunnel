@@ -177,6 +177,70 @@ class AbstractWriteStrategyTest {
         Assertions.assertTrue(deleteCalled.await(5, TimeUnit.SECONDS));
     }
 
+    @Test
+    void shouldNotCloseOrcWriterWhileWriteIsInProgress() throws Exception {
+        assertCloseWaitsForColumnarWrite(Mockito.spy(new OrcWriteStrategy(newFileSinkConfig())));
+    }
+
+    @Test
+    void shouldNotCloseParquetWriterWhileWriteIsInProgress() throws Exception {
+        assertCloseWaitsForColumnarWrite(
+                Mockito.spy(new ParquetWriteStrategy(newFileSinkConfig())));
+    }
+
+    private static void assertCloseWaitsForColumnarWrite(AbstractWriteStrategy<?> strategy)
+            throws Exception {
+        CountDownLatch writeStarted = new CountDownLatch(1);
+        CountDownLatch releaseWrite = new CountDownLatch(1);
+        CountDownLatch closeStarted = new CountDownLatch(1);
+        CountDownLatch closeFinished = new CountDownLatch(1);
+        RuntimeException stopWrite = new RuntimeException("stop after writer lock probe");
+        Mockito.doAnswer(
+                        invocation -> {
+                            writeStarted.countDown();
+                            if (!releaseWrite.await(5, TimeUnit.SECONDS)) {
+                                throw new AssertionError("write was not released");
+                            }
+                            throw stopWrite;
+                        })
+                .when(strategy)
+                .getOrCreateFilePathBeingWritten(Mockito.any());
+        CompletableFuture<Void> write =
+                CompletableFuture.runAsync(
+                        () -> {
+                            RuntimeException failure =
+                                    Assertions.assertThrows(
+                                            RuntimeException.class,
+                                            () ->
+                                                    strategy.write(
+                                                            new SeaTunnelRow(
+                                                                    new Object[] {"row"})));
+                            Assertions.assertSame(stopWrite, failure);
+                        });
+        CompletableFuture<Void> close = null;
+        try {
+            Assertions.assertTrue(writeStarted.await(5, TimeUnit.SECONDS));
+            close =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                closeStarted.countDown();
+                                strategy.finishAndCloseFile();
+                                closeFinished.countDown();
+                            });
+            Assertions.assertTrue(closeStarted.await(5, TimeUnit.SECONDS));
+            Assertions.assertFalse(
+                    closeFinished.await(200, TimeUnit.MILLISECONDS),
+                    "close must wait for the complete columnar write, not only super.write");
+        } finally {
+            releaseWrite.countDown();
+            write.get(5, TimeUnit.SECONDS);
+            if (close != null) {
+                close.get(5, TimeUnit.SECONDS);
+            }
+        }
+        Assertions.assertEquals(0, closeFinished.getCount());
+    }
+
     private static TestWriteStrategy newTestWriteStrategy(HadoopFileSystemProxy fs) {
         TestWriteStrategy writeStrategy = new TestWriteStrategy(newFileSinkConfig());
         writeStrategy.setFileSystemProxy(fs);
