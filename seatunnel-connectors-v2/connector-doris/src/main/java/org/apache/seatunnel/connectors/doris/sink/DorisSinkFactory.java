@@ -81,6 +81,7 @@ public class DorisSinkFactory implements TableSinkFactory {
                         DorisSinkOptions.SINK_BUFFER_SIZE,
                         DorisSinkOptions.SINK_BUFFER_COUNT,
                         DorisSinkOptions.DEFAULT_DATABASE,
+                        DorisSinkOptions.SINK_DATETIME_TIMEZONE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .conditional(
                         DorisSinkOptions.DATA_SAVE_MODE,
