@@ -44,6 +44,8 @@ import java.util.Collections;
 import java.util.List;
 
 public class LLMTransform extends SingleFieldOutputTransform {
+    // Implicit UID at 8bea8c681cacccbd99fa642ca0853718980b9234, before strictBooleanOutput.
+    // Reproduce with serialver as documented in src/test/resources/llm/README.md.
     private static final long serialVersionUID = 4711686225005641485L;
 
     private final ReadonlyConfig config;

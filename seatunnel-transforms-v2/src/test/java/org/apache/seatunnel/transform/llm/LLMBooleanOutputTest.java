@@ -52,10 +52,12 @@ import okhttp3.mockwebserver.MockWebServer;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.ObjectInputStream;
 import java.io.ObjectStreamClass;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -216,6 +218,44 @@ class LLMBooleanOutputTest {
         Assertions.assertEquals(
                 4711686225005641485L,
                 ObjectStreamClass.lookup(LLMTransform.class).getSerialVersionUID());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void readsLegacyFactoryWrapperWithValidationDisabled() throws Exception {
+        try (InputStream resource =
+                getClass().getResourceAsStream("/llm/legacy-boolean-wrapper.base64")) {
+            Assertions.assertNotNull(resource);
+            try (ObjectInputStream input =
+                    new ObjectInputStream(Base64.getMimeDecoder().wrap(resource)) {
+                        {
+                            enableResolveObject(true);
+                        }
+
+                        @Override
+                        protected Object resolveObject(Object value) {
+                            if ("http://127.0.0.1:1/legacy-fixture".equals(value)) {
+                                // Only relocate the HTTP endpoint; leave serialized fields intact.
+                                return server.url("/chat/completions").toString();
+                            }
+                            if (value instanceof LLMTransform) {
+                                transform = (LLMTransform) value;
+                            }
+                            return value;
+                        }
+                    }) {
+                SeaTunnelMapTransform<SeaTunnelRow> restored =
+                        (SeaTunnelMapTransform<SeaTunnelRow>) input.readObject();
+                Assertions.assertNotNull(transform);
+                Assertions.assertEquals(false, mapResponse("[\"unknown\"]", restored).getField(1));
+                Assertions.assertEquals(true, mapResponse("[\"TrUe\"]", restored).getField(1));
+                SeaTunnelRow output = mapResponse("[\"FaLsE\"]", restored);
+                Assertions.assertEquals(false, output.getField(1));
+                Assertions.assertEquals(INPUT_VALUE, output.getField(0));
+                Assertions.assertEquals("test.input", output.getTableId());
+                Assertions.assertEquals(RowKind.UPDATE_AFTER, output.getRowKind());
+            }
+        }
     }
 
     @ParameterizedTest
