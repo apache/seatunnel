@@ -21,7 +21,16 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## Description
 
-Used to read newline-delimited text data from a socket server. Each line received from the socket becomes one SeaTunnel row.
+Used to read newline-delimited text data from a socket server. Each line received from the socket
+becomes one SeaTunnel row of type `STRING`. In streaming mode the source stays connected to the
+socket and reads lines as they arrive; in batch mode the reader performs a single read of whatever
+data is currently available on the socket, emits any complete newline-terminated lines from that read
+(plus any trailing partial line as a final row), and then finishes — it does not wait for the
+connection to close and there is no read-timeout setting.
+
+The connector uses a single split (source parallelism is fixed at 1). `host` and `port` refer to the
+*server* endpoint that SeaTunnel connects to; configure a sink, transformer, or peer like `nc -l`
+on the other side.
 
 ## Data Type Mapping
 
@@ -41,7 +50,8 @@ Socket source reads each incoming line as a string record.
 
 :::tip
 
-Socket source is mainly used for local debugging and simple text streams. It does not checkpoint socket-server offsets, so it should not be used when replayable, exactly-once reads are required.
+Socket source is mainly used for local debugging and simple text streams. It does not checkpoint socket-server offsets, so it should not be used when replayable, exactly-once reads are required. Each line
+is treated as one record. Empty lines produce a row with an empty-string payload; they are not skipped.
 
 :::
 
@@ -101,6 +111,47 @@ spark
 [spark]
 ```
 
+### Streaming Mode
+
+In streaming mode the source keeps the socket open and reads new lines continuously. Pair it with a
+downstream sink that can buffer events or checkpoint them:
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Socket {
+    host = "localhost"
+    port = 9999
+  }
+}
+
+sink {
+  Console {
+    parallelism = 1
+  }
+}
+```
+
+## FAQ
+
+### Does Socket source checkpoint its read position?
+
+No. The source does not record a server-side offset or message sequence; after a restart it starts the next read from whatever the socket returns. Use Kafka, Pulsar, or another offset-tracking source if the job needs replayable or exactly-once behavior. Socket source is intended for local debugging or one-shot text streams.
+
+### How are empty lines and partial trailing records handled?
+
+In batch mode the reader consumes whatever is currently buffered on the socket, splits on `\n`, emits each complete line as one STRING row, and then emits the trailing partial line (if any) as a final row before finishing. Empty lines are *not* skipped — they become a row whose payload is the empty string. In streaming mode empty lines are emitted in real time the same way.
+
+### Can I parallelize Socket source?
+
+No. The reader binds to a single client connection to the configured `host:port` and uses one split, so the job's `env.parallelism` is effectively capped at 1 for this source. To scale, run independent jobs — each with its own `host`/`port` pair — instead of increasing parallelism within a single Socket source.
+
 ## Changelog
 
 <ChangeLog />
+

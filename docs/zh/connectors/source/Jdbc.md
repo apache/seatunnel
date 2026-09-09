@@ -120,6 +120,19 @@ cd "${SEATUNNEL_HOME}"
 
 如果任务在读取数据前失败，请先检查[故障排查](#故障排查)。
 
+:::note
+
+连接 MariaDB 时，请使用 MariaDB Connector/J 以及匹配的 URL 和驱动：
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+不要使用 MySQL Connector/J 和 `jdbc:mysql:` URL 连接 MariaDB。该配置会选择 MySQL 方言，可能将 MariaDB 服务端版本判定为不支持的 MySQL 版本。
+
+:::
+
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
@@ -201,6 +214,18 @@ HOCON 字符串中的正则反斜杠需要转义，因此正则中的 `\d+` 在�
 
 许多 JDBC 驱动会把传给 `DatabaseMetaData` 的 schema 和表名参数当作 SQL `LIKE` 模式。SeaTunnel 会在发现元数据后再次精确核对标识符；对于大小写敏感的数据库，仍应确保配置与数据库中的真实标识符大小写完全一致。
 
+:::note 视图与表匹配
+
+`table_path`（无论是否启用 `use_regex`）是否会连带匹配到数据库视图（而不仅仅是基础表），取决于各方言内部列举表所使用的查询方式，目前没有可以显式包含或排除视图的配置项：
+
+- MySQL 和 PostgreSQL 会把视图和基础表列在一起，因此像 `db.*` 这样宽泛的匹配模式也会匹配到视图。
+- SQL Server 通过 `TABLE_TYPE = 'BASE TABLE'` 过滤，会排除视图。
+- Oracle 和 Dameng 查询的是 `ALL_TABLES`，视图不在其中，因此会被间接排除。
+
+如果需要在任意方言下都只读取指定的基础表，建议直接在 `table_list` 中显式列出表名，而不要依赖宽泛的正则表达式。
+
+:::
+
 ### decimal_type_narrowing
 
 十进制类型缩小，如果为 true，十进制类型将缩小为 int 或 long 类型（如果没有精度损失）。目前仅支持 Oracle。
@@ -260,6 +285,8 @@ int_type_narrowing = false
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
 | YashanDB  |          |          |
+
+达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 
 ## 并行读取器
 

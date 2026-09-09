@@ -4,7 +4,7 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 > Databend sink connector
 
-## Supported Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -12,10 +12,10 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## Key Features
 
-- [ ] [Support Multi-table Writing](../../introduction/concepts/connector-v2-features.md)
-- [x] [Exactly-Once](../../introduction/concepts/connector-v2-features.md)
-- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [x] [Parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -32,6 +32,15 @@ The Databend sink internally implements bulk data import through stage attachmen
 ### For SeaTunnel Zeta
 
 > 1. You need to download the [Databend JDBC driver jar package](https://github.com/databendlabs/databend-jdbc/) and add it to the directory `${SEATUNNEL_HOME}/lib/`.
+
+## Supported DataSource Info
+
+In order to use the Databend connector, the following dependencies are required.
+They can be downloaded via install-plugin.sh or from the Maven central repository.
+
+| Datasource | Supported Versions | Dependency                                                                             |
+|------------|--------------------|----------------------------------------------------------------------------------------|
+| Databend   | 1.2.x and above    | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-databend) |
 
 ## Sink Options
 
@@ -52,6 +61,7 @@ The Databend sink internally implements bulk data import through stage attachmen
 | jdbc_config         | Map | No | - | Additional JDBC connection configuration, such as connection timeout parameters             |
 | conflict_key        | String | No | - | Conflict key for CDC mode, used to determine the primary key for conflict resolution |
 | enable_delete       | Boolean | No | false | Whether to allow delete operations in CDC mode |
+| common-options      |  | No | - | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
 
 ### schema_save_mode [Enum]
 
@@ -161,7 +171,54 @@ Set `conflict_key` to the primary-key column used to merge update/delete events.
 `enable_delete = true` only when DELETE events should remove rows from Databend.
 If `conflict_key` is not configured, the sink writes normal insert-style batches.
 
+The following end-to-end example feeds CDC row kinds (`INSERT`, `UPDATE_BEFORE`,
+`UPDATE_AFTER`, `DELETE`) into Databend. The sink merges updates and applies deletes
+against the rows identified by `conflict_key`.
+
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 1000
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+        position = "string"
+        age = "int"
+        score = "double"
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "Alice", "Engineer", 30, 95.5]
+      },
+      {
+        kind = INSERT
+        fields = [2, "Bob", "Developer", 25, 85.0]
+      },
+      {
+        kind = UPDATE_BEFORE
+        fields = [2, "Bob", "Developer", 25, 85.0]
+      },
+      {
+        kind = UPDATE_AFTER
+        fields = [2, "Bob", "Senior Developer", 25, 87.0]
+      },
+      {
+        kind = DELETE
+        fields = [2, "Bob", "Senior Developer", 25, 87.0]
+      }
+    ]
+  }
+}
+
 sink {
   Databend {
     url = "jdbc:databend://databend:8000/default?ssl=false"
@@ -169,9 +226,45 @@ sink {
     password = ""
     database = "default"
     table = "sink_table"
-    
+
     # Enable CDC mode
     batch_size = 1
+    conflict_key = "id"
+    enable_delete = true
+  }
+}
+```
+
+### Stream MySQL CDC To Databend In Streaming Mode
+
+The same CDC settings also work in streaming jobs. The following example pipes MySQL CDC
+events into Databend continuously. Keep `batch_size` small in streaming CDC jobs so that each
+checkpoint reflects the latest writes:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "orders"
+    batch_size = 500
     conflict_key = "id"
     enable_delete = true
   }

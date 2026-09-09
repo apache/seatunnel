@@ -6,6 +6,34 @@ sidebar_position: 4
 
 AI CLI 的准确率靠实测而非假设：专门的基准测试包含 100 个任务、三档复杂度，判定门层层递进直至**真实作业执行**（连接 Docker 化的真实数据源），覆盖 7 个主流大模型。本页汇总方法论、测试结果与选型建议。
 
+## 比较 CLI 版本
+
+将基线和候选版本的基准测试分别保存到不同目录，然后比较其 `results.json`，
+无需再次调用模型：
+
+```bash
+cd seatunnel-cli
+python -m benchmark.compare benchmark/baseline/results.json benchmark/candidate/results.json \
+    --out benchmark/comparison.md
+```
+
+Markdown 报告按模型、任务和试验编号配对，同时展示总体变化，以及每个配对试验的
+首次交付配置和修复预算内的通过到失败、失败到通过等变化。
+比较要求已记录的模型配置、请求的判定门、试验次数、修复预算相同，且两侧都有
+CLI 提交标记和匹配的任务定义指纹。缺失、不兼容、跳过或不完整的结果会明确列出，
+并从两侧分母中同时排除，而不会被视为改进。将配对子集解释为完整任务集之前，
+应先检查所有排除项。
+
+新运行的结果包含 `task_sha256`，覆盖提示词、断言和执行验证条件。
+旧结果缺少这项证据，因此无法参与可信配对；应使用支持指纹的测试工具重新采集
+两侧结果，而不要根据当前任务文件回填哈希。原有单次运行报告和输入文件保持不变。
+比较命令拒绝覆盖已有输出文件；省略 `--out` 时输出到标准输出。
+退出码 0 仅表示报告已生成，不代表通过了准确率准入检查。
+
+这是离线描述性比较，不是统计显著性结论或 CI 准入门槛。若要隔离 CLI 变更的影响，
+应保持提供商环境变量、模型服务状态、验证代码、连接器元数据、引擎版本和测试数据
+一致。任务指纹相同并不能证明这些其他输入也相同。
+
 > 以下数据于 2026 年 7 月实测，被测对象为 seatunnel-cli v0.1.0（commit `59ada4ec0`），模型由 AWS Bedrock 提供。模型与 CLI 都在演进，数字是时间快照——需要最新数据请重新运行基准测试。
 
 ## 方法论
@@ -77,3 +105,35 @@ AI CLI 的准确率靠实测而非假设：专门的基准测试包含 100 个�
 ## 修复循环的实测效果
 
 把**真实引擎报错**喂回修复 Agent，可挽回 47% 的运行时失败（前三名模型合计）。同一个模型修复结构化校验错误的成功率约为修复原始 Java 堆栈的 2 倍——证明修复循环下一步最有杠杆的改进是结构化错误解析，而不是更聪明的模型。
+
+## 自己运行基准测试
+
+基准测试工程随主仓库发布，位于
+[`seatunnel-cli/benchmark/`](https://github.com/apache/seatunnel/tree/dev/seatunnel-cli/benchmark)——
+包含 100 个声明式任务、分层判定门、Docker 数据环境和报告生成器。
+
+```bash
+cd seatunnel-cli
+
+# 凭证走各提供商的标准环境变量
+export OPENAI_API_KEY=sk-...          # 或 ANTHROPIC_API_KEY / AWS 凭证
+
+# 一条命令：装依赖、预检环境、运行、出报告
+./benchmark/run_benchmark.sh --provider openai --model gpt-4o
+
+# 多模型对比
+./benchmark/run_benchmark.sh --models benchmark/models.json
+
+# 可选的更深判定门：
+#   L2（引擎 dry-run）  — 设置 SEATUNNEL_HOME 指向 dev 分支构建
+#   L3（真实执行）      — docker compose -f benchmark/docker/docker-compose.yml up -d --wait
+```
+
+环境缺失时自动降级：没有引擎或 Docker 时输出静态门（L1）报告；请求了但
+无法执行的判定门对应的测试轮次会被排除在所有通过率指标之外并在摘要中
+标注，不同配置的机器之间不会被静默比较。
+
+每份报告都标记被测 CLI 的版本与 git commit——在新的 CLI 构建上重跑同一
+模型，即可在相同任务集上量化任何 prompt、元数据或修复逻辑改动的效果。
+完整方法论、任务集结构与指标定义见
+[`benchmark/README.md`](https://github.com/apache/seatunnel/blob/dev/seatunnel-cli/benchmark/README.md)。

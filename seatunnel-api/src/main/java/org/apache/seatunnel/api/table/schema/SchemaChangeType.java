@@ -25,5 +25,9 @@ public enum SchemaChangeType {
     /** Update column in table. */
     UPDATE_COLUMN,
     /** Rename column in table. */
-    RENAME_COLUMN;
+    RENAME_COLUMN,
+    /** Alter table comment. */
+    ALTER_TABLE_COMMENT,
+    /** Alter column comment. */
+    ALTER_COLUMN_COMMENT;
 }

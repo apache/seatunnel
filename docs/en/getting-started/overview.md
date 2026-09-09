@@ -80,5 +80,5 @@ Use these pages next:
 - [Job Configuration Guide](./job-configuration-guide.md)
 - [Scenario Recipes](./recipes/overview.md)
 - [SeaTunnel Engine(Zeta) Deployment](../engines/zeta/deployment.md)
-- [REST API And Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [Submitting Jobs to a Remote Zeta Cluster](../getting-started/submit-job-to-remote-zeta-cluster.md)

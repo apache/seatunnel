@@ -90,6 +90,7 @@ const sidebars = {
                 "introduction/configuration/metalake",
                 "introduction/configuration/sink-options-placeholders",
                 "introduction/configuration/schema-evolution",
+                "introduction/configuration/error-handling",
                 "introduction/configuration/speed-limit"
             ]
         },
@@ -134,6 +135,7 @@ const sidebars = {
                     "label": "Common Options",
                     "items": [
                         "connectors/common-options/source-common-options",
+                        "connectors/common-options/sink-write-modes",
                         "connectors/common-options/sink-common-options"
                     ]
                 },
@@ -152,6 +154,8 @@ const sidebars = {
                     ]
                 },
                 "connectors/cdc-production-cookbook",
+                "connectors/type-schema-faq",
+                "connectors/file-object-storage-faq",
                 {
                     "type": "category",
                     "label": "Scenario Recipes",
@@ -164,6 +168,7 @@ const sidebars = {
                         "getting-started/recipes/mysql-cdc-to-kafka",
                         "getting-started/recipes/mysql-cdc-to-elasticsearch",
                         "getting-started/recipes/jdbc-to-s3",
+                        "getting-started/recipes/mysql-to-hdfs",
                         "getting-started/recipes/kafka-to-iceberg",
                         "getting-started/recipes/postgresql-cdc-to-iceberg",
                         "getting-started/recipes/http-to-jdbc",
@@ -191,6 +196,7 @@ const sidebars = {
                     ]
                 },
                 "transforms/recipes",
+                "transforms/transform-faq",
                 "transforms/calcite",
                 "transforms/calcite-udf",
                 "transforms/copy",
@@ -242,7 +248,6 @@ const sidebars = {
                                 "engines/zeta/separated-cluster-deployment"
                             ]
                         },
-                        "engines/zeta/rest-api-and-web-ui",
                         "getting-started/submit-job-to-remote-zeta-cluster",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/state-storage-and-recovery",
@@ -252,21 +257,35 @@ const sidebars = {
                         "engines/zeta/resource-isolation",
                         {
                             "type": "category",
-                            "label": "REST API",
+                            "label": "REST API and Web UI",
+                            "link": {
+                                "type": "doc",
+                                "id": "engines/zeta/rest-api-and-web-ui"
+                            },
                             "items": [
-                                "engines/zeta/rest-api-v1",
-                                "engines/zeta/rest-api-v2",
-                                "engines/zeta/rest-api-job-lifecycle",
+                                {
+                                    "type": "category",
+                                    "label": "REST API",
+                                    "items": [
+                                        "engines/zeta/rest-api-v2",
+                                        "engines/zeta/rest-api-job-lifecycle",
+                                        "engines/zeta/rest-api-v1"
+                                    ]
+                                },
+                                "engines/zeta/web-ui",
+                                "engines/zeta/runtime-execution-graph",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
                         },
                         "engines/zeta/user-command",
                         "engines/zeta/logging",
+                        "engines/zeta/log-analysis-with-ai",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
-                        "engines/zeta/web-ui",
+                        "engines/zeta/live-metrics-chart",
                         "engines/zeta/slot-allocation-strategy",
+                        "engines/zeta/benchmark",
                         "engines/zeta/tuning-guide"
                     ]
                 },
@@ -376,12 +395,16 @@ const sidebars = {
                 "developer/setup",
                 "developer/contribution-path",
                 "developer/coding-guide",
+                "developer/merge-queue",
                 "developer/test-coding-guide",
+                "developer/shade-guide",
                 "developer/how-to-create-your-connector",
+                "developer/connector-runtime-boundaries",
                 "developer/source-connector-development",
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",
                 "developer/contribute-transform-v2-guide",
+                "developer/contribute-performance-guide",
                 "developer/docs-format-specification",
                 "developer/new-license"
             ]

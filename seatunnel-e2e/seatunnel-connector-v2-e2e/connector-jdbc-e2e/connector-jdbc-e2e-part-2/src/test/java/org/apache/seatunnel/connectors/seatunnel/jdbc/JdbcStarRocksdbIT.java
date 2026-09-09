@@ -124,11 +124,6 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -183,7 +178,7 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 9030, 9030)));
+        container.addExposedPort(SR_PORT);
 
         return container;
     }

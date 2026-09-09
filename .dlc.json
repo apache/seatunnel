@@ -19,6 +19,9 @@
       "pattern": "^https://json.org/"
     },
     {
+      "pattern": "^https://docs.starrocks.io"
+    },
+    {
       "pattern": "^/docs/category"
     },
     {

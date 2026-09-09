@@ -18,6 +18,9 @@ target/
 /logs
 logs.zip
 
+# Local BOS integration test configs (may reference credentials)
+config/bos-local-test/
+
 # Intellij Idea files
 .idea/
 *.iml
@@ -70,3 +73,7 @@ seatunnel-engine/seatunnel-engine-server/**/ui/*
 
 seatunnel-edge-agent/**/edge-agent.id
 seatunnel-edge-agent/**/tmp/
+
+# seatunnel-cli benchmark runtime artifacts
+seatunnel-cli/benchmark/results/
+seatunnel-cli/benchmark/models.json

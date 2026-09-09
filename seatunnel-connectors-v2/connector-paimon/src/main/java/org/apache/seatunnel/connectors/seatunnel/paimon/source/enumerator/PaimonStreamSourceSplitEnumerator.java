@@ -67,9 +67,13 @@ public class PaimonStreamSourceSplitEnumerator extends AbstractSplitEnumerator {
 
     @Override
     public void handleSplitRequest(int subtaskId) {
-        readersAwaitingSplit.add(subtaskId);
-        assignSplits();
-        if (readersAwaitingSplit.contains(subtaskId)) {
+        boolean shouldLoadNewSplits;
+        synchronized (stateLock) {
+            readersAwaitingSplit.add(subtaskId);
+            assignSplits();
+            shouldLoadNewSplits = readersAwaitingSplit.contains(subtaskId);
+        }
+        if (shouldLoadNewSplits) {
             loadNewSplits();
         }
     }

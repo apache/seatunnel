@@ -34,13 +34,19 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 import lombok.NonNull;
 
+import java.util.Map;
+
 public class TransformSeaTunnelTask extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(TransformSeaTunnelTask.class);
 
     public TransformSeaTunnelTask(
-            long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
-        super(jobID, taskID, indexID, executionFlow);
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            Flow executionFlow,
+            Map<String, Object> envOptions) {
+        super(jobID, taskID, indexID, executionFlow, envOptions);
     }
 
     private Collector<Record<?>> collector;

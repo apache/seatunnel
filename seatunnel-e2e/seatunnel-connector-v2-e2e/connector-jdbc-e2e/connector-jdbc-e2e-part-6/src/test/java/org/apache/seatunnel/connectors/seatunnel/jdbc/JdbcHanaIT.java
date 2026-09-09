@@ -136,11 +136,6 @@ public class JdbcHanaIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/sap/cloud/db/jdbc/ngdbc/2.21.11/ngdbc-2.21.11.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -274,7 +269,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         .waitingFor(
                                 Wait.forLogMessage(".*Startup finished!.*", 1)
                                         .withStartupTimeout(Duration.of(5, ChronoUnit.MINUTES)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
+        container.addExposedPort(HANA_PORT);
         return container;
     }
 

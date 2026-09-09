@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -30,6 +34,8 @@ import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorState;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -57,6 +63,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -319,6 +326,108 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
     }
 
+    @Test
+    void testJobCheckpointConfigUsesJobLevelRetainAfterCancelledOverride() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        Map<String, Object> envOptions = new HashMap<>();
+        envOptions.put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), 10000L);
+        envOptions.put(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key(), true);
+
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "stream_fakesource_to_file.conf",
+                        "test_job_checkpoint_config_retain_override",
+                        false,
+                        envOptions);
+
+        jobMaster.init(System.currentTimeMillis(), false);
+
+        CheckpointConfig jobCheckpointConfig =
+                ReflectionUtils.getField(jobMaster, "jobCheckpointConfig")
+                        .map(CheckpointConfig.class::cast)
+                        .orElse(null);
+        Assertions.assertNotNull(jobCheckpointConfig);
+        Assertions.assertTrue(
+                jobCheckpointConfig.isRetainAfterJobCancelled(),
+                "job-level env option should override retain-after-job-cancelled");
+    }
+
+    @Test
+    void testSavepointPreconditionClassificationRequiresAllFailuresPreconditionOnly() {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "stream_fakesource_to_file.conf",
+                        "test_savepoint_mixed_failure_classification",
+                        false);
+
+        Object savepointCompletionResult =
+                waitSavepointCompleted(
+                        jobMaster,
+                        savepointFutures(
+                                failedSavepointFuture(
+                                        CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT),
+                                failedSavepointFuture(CheckpointCloseReason.CHECKPOINT_EXPIRED)));
+
+        Assertions.assertFalse(
+                isSavepointStartPreconditionFailure(jobMaster, savepointCompletionResult),
+                "a genuine pipeline checkpoint failure must not be masked by an earlier not-ready failure");
+    }
+
+    @Test
+    void testSavepointFailureExceptionPrefersNonPreconditionFailure() {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "stream_fakesource_to_file.conf",
+                        "test_savepoint_mixed_failure_exception",
+                        false);
+
+        Object savepointCompletionResult =
+                waitSavepointCompleted(
+                        jobMaster,
+                        savepointFutures(
+                                failedSavepointFuture(
+                                        CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT),
+                                failedSavepointFuture(CheckpointCloseReason.CHECKPOINT_EXPIRED)));
+
+        Optional<Exception> failureException =
+                getSavepointFailureException(jobMaster, savepointCompletionResult);
+        Assertions.assertTrue(failureException.isPresent());
+        Throwable rootException = ExceptionUtils.getRootException(failureException.get());
+        Assertions.assertInstanceOf(CheckpointException.class, rootException);
+        Assertions.assertEquals(
+                CheckpointCloseReason.CHECKPOINT_EXPIRED,
+                ((CheckpointException) rootException).getCheckpointFailureReason());
+    }
+
+    @Test
+    void testSavepointPreconditionClassificationAcceptsAllPreStartFailures() {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "stream_fakesource_to_file.conf",
+                        "test_savepoint_prestart_failure_classification",
+                        false);
+
+        Object savepointCompletionResult =
+                waitSavepointCompleted(
+                        jobMaster,
+                        savepointFutures(
+                                failedSavepointFuture(
+                                        CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT),
+                                failedSavepointFuture(
+                                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN)));
+
+        Assertions.assertTrue(
+                isSavepointStartPreconditionFailure(jobMaster, savepointCompletionResult),
+                "all pre-start savepoint failures should keep the job retryable");
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
         long jobId = jobMaster.getJobId();
@@ -409,12 +518,22 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     private JobMaster newJobMaster(long jobId, String configFile, String jobName, boolean restore) {
+        return newJobMaster(jobId, configFile, jobName, restore, Collections.emptyMap());
+    }
+
+    private JobMaster newJobMaster(
+            long jobId,
+            String configFile,
+            String jobName,
+            boolean restore,
+            Map<String, Object> envOptions) {
         runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
         LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(configFile, jobName, jobId);
+        testLogicalDag.getJobConfig().getEnvOptions().putAll(envOptions);
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobId,
@@ -461,5 +580,45 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 .getStateStores()
                 .metricsSnapshotStore()
                 .containsPipeline(pipelineLocation);
+    }
+
+    private Object waitSavepointCompleted(
+            JobMaster jobMaster,
+            PassiveCompletableFuture<CheckpointCoordinatorState>[] savepointFutures) {
+        return ReflectionUtils.invoke(
+                jobMaster,
+                "waitSavepointCompleted",
+                new Class[] {PassiveCompletableFuture[].class},
+                new Object[] {savepointFutures});
+    }
+
+    private boolean isSavepointStartPreconditionFailure(
+            JobMaster jobMaster, Object savepointCompletionResult) {
+        return (boolean)
+                ReflectionUtils.invoke(
+                        jobMaster,
+                        "isSavepointStartPreconditionFailure",
+                        savepointCompletionResult);
+    }
+
+    private Optional<Exception> getSavepointFailureException(
+            JobMaster jobMaster, Object savepointCompletionResult) {
+        return (Optional<Exception>)
+                ReflectionUtils.invoke(
+                        jobMaster, "getSavepointFailureException", savepointCompletionResult);
+    }
+
+    @SafeVarargs
+    private final PassiveCompletableFuture<CheckpointCoordinatorState>[] savepointFutures(
+            PassiveCompletableFuture<CheckpointCoordinatorState>... savepointFutures) {
+        return savepointFutures;
+    }
+
+    private PassiveCompletableFuture<CheckpointCoordinatorState> failedSavepointFuture(
+            CheckpointCloseReason closeReason) {
+        java.util.concurrent.CompletableFuture<CheckpointCoordinatorState> future =
+                new java.util.concurrent.CompletableFuture<>();
+        future.completeExceptionally(new CheckpointException(closeReason));
+        return new PassiveCompletableFuture<>(future);
     }
 }

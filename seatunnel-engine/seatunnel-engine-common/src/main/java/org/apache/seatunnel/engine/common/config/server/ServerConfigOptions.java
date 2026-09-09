@@ -245,6 +245,15 @@ public class ServerConfigOptions {
                         .noDefaultValue()
                         .withDescription("The checkpoint storage instance configuration.");
 
+        public static final Option<Boolean> CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED =
+                Options.key("retain-after-job-cancelled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to retain completed checkpoint data after a job is cancelled. "
+                                        + "When enabled, checkpoint data will not be cleaned up on job cancellation, "
+                                        + "allowing later resume from the latest completed checkpoint via --restore-with-checkpoint.");
+
         public static final Option<CheckpointConfig> CHECKPOINT =
                 Options.key("checkpoint")
                         .type(new TypeReference<CheckpointConfig>() {})
@@ -364,6 +373,20 @@ public class ServerConfigOptions {
                         .stringType()
                         .defaultValue("admin")
                         .withDescription("The password for basic authentication.");
+
+        public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
+                Options.key("upload-max-file-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum size in MB of a single file uploaded to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> UPLOAD_MAX_REQUEST_SIZE_MB =
+                Options.key("upload-max-request-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum total size in MB of a multipart request sent to the http server. A value <= 0 means unlimited.");
 
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")

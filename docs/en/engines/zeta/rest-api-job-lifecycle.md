@@ -246,15 +246,77 @@ curl -X POST "http://<master>:8080/stop-job" \
 
 ### 6.1 Restart from the latest checkpoint
 
-Submit the job again with the `jobId` parameter to restore from the last successful checkpoint:
+Submit the job again with `restoreMode=CHECKPOINT`, and use `restoreSourceJobId` to specify the
+job ID to restore from.
 
 ```bash
-curl -X POST http://<master>:8080/submit-job \
+curl -X POST "http://<master>:8080/submit-job?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248" \
   -H "Content-Type: application/json" \
   -d '{
     "env": {
-      "job.id": "733584788375093248",
-      "job.name": "my-cdc-job",
+      "job.name": "my-cdc-job-restored",
+      "job.mode": "STREAMING",
+      "checkpoint.interval": 30000,
+      "checkpoint.retain-after-job-cancelled": true
+    },
+    "source": [ ... ],
+    "sink": [ ... ]
+  }'
+```
+
+The same `restoreMode` and `restoreSourceJobId` query parameters work with the
+[upload endpoint](rest-api-v2.md#submit-a-job-by-upload-config-file) when submitting a config file
+instead of a JSON body -- both endpoints share the same restore handling:
+
+```bash
+curl --location 'http://<master>:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248' \
+  --form 'config_file=@"/temp/my-cdc-job.conf"'
+```
+
+If the checkpoint data for `restoreSourceJobId` is missing, already cleaned up, or incompatible,
+the submission fails fast.
+
+If you want a canceled job to remain resumable from checkpoint, retain the checkpoint data
+generated during job execution in one of the following ways before the job is canceled.
+
+1. Configure the cluster default in `seatunnel.yaml`. This is a global setting and applies to all
+   jobs:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      retain-after-job-cancelled: true
+```
+
+2. Configure a job-level `env` override in the REST request body. This applies only to the current
+   job:
+
+```json
+{
+  "env": {
+    "job.name": "my-cdc-job-restored",
+    "job.mode": "STREAMING",
+    "checkpoint.interval": 30000,
+    "checkpoint.retain-after-job-cancelled": true
+  },
+  "source": [ ... ],
+  "sink": [ ... ]
+}
+```
+
+The default value is `false`. If neither the cluster config nor the job `env` enables this option,
+canceled jobs still clean up checkpoint data by default. When both are present, the job-level
+`env` setting takes precedence.
+
+### 6.2 Restart from the latest savepoint
+
+```bash
+curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourceJobId=733584788375093248" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "env": {
+      "job.name": "my-cdc-job-restored",
       "job.mode": "STREAMING",
       "checkpoint.interval": 30000
     },
@@ -263,11 +325,7 @@ curl -X POST http://<master>:8080/submit-job \
   }'
 ```
 
-Providing the same `job.id` instructs the engine to restore state from the existing checkpoint
-directory for that job.
-
-### 6.2 Restart from a specific savepoint path
-
+### 6.3 Restart from a specific savepoint path
 ```bash
 curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \

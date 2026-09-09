@@ -107,6 +107,15 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
+    /**
+     * Exposes the resolved StarRocks target table so shared-sink schema changes can be broadcast to
+     * every sibling writer that commits to the same physical table.
+     */
+    @Override
+    public Optional<String> getPhysicalSinkTableIdentifier() {
+        return sinkTablePath == null ? Optional.empty() : Optional.of(sinkTablePath.getFullName());
+    }
+
     @SneakyThrows
     @Override
     public Optional<Void> prepareCommit() {

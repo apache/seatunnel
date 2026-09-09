@@ -99,9 +99,23 @@
                             <exclude>org.apache.logging.log4j:log4j-slf4j-impl</exclude>
                             <!-- spark3.x use slf4j + log4j2.x -->
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
-                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>
+                            <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
+                            <!-- Spark supplies its own Scala runtime in cluster mode. -->
+                            <exclude>org.scala-lang:scala-library</exclude>
                         </excludes>
                     </artifactSet>
+                    <filters>
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <!-- Some SeaTunnel dependencies embed Scala classes. -->
+                                <exclude>scala/**</exclude>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
                 </configuration>
             </plugin>
         </plugins>

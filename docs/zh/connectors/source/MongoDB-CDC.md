@@ -178,7 +178,7 @@ source {
 
 **查找更新操作的完整文档**是**更改流**提供的一项功能，它可以配置更改流以返回更新文档的最新多数提交版本。由于此功能，我们可以轻松收集最新的完整文档，并将更改日志转换为Changelog流。
 
-更新流中删除事件捕获的数据格式：[delete 事件](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
+更新流中删除事件捕获的数据格式：[delete 事件](https://www.mongodb.com/docs/manual/reference/change-events/delete/)
 ```
 {
    "_id": { <Resume Token> },
@@ -281,6 +281,197 @@ sink {
     # 您需要同时配置数据库和表
     database = mongodb_cdc
     table = products
+    primary_keys = ["_id"]
+  }
+}
+```
+
+### CDC数据写入另一个MongoDB
+
+您也可以将CDC事件路由到另一个MongoDB集合作为sink。下面的示例将源端 `mongo0` 的 `inventory.products` 镜像写入目标集群 `mongo1`：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://mongo1:27017"
+    database = "inventory"
+    collection = "products_mirror"
+  }
+}
+```
+
+## 从指定时间戳启动
+
+如果希望跳过快照，从某个已知的时间点继续读取change stream，可以将 `startup.mode` 设置为 `timestamp`，并通过 `startup.timestamp` 提供epoch毫秒时间戳。这在维护窗口之后重放积压变更、或为新的sink初始化时跳过历史写入时非常有用：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    # 2026-08-01 00:00:00 UTC
+    startup.timestamp = 1785542400000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## 使用SRV连接URI
+
+对于MongoDB Atlas或任何暴露 `mongodb+srv://` 连接字符串的部署，可以将URI直接传给 `hosts` 选项。URI中携带的认证信息、副本集名称等参数会原样传递给驱动，无需再额外配置 `connection.options`：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongodb+srv://cluster0.example.net"
+    username = "stuser"
+    password = "stpw"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## 心跳与Resume Token维护
+
+如果某个集合长时间没有数据写入，change stream的resume token可能会过期（例如低流量集合）。将 `heartbeat.interval.ms` 设置为非零值，可以让连接器在没有数据时定期推进resume token，从而在checkpoint恢复后保持change stream有效：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    # 当没有数据写入时，每30秒发送一次心跳
+    heartbeat.interval.ms = 30000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## 从多个MongoDB源读取
+
+单个 SeaTunnel 任务在 `source { ... }` 内只支持一个 source 块，因此同时从多个 MongoDB 集群拉取 CDC 流的可行方式是每个源提交一个独立任务，并写入同一个 sink 表。每个任务保留各自的并行度、schema 和重启 token，最终由 sink 表按主键去重。
+
+```hocon
+# 任务 A：从集群 mongo0 读取 CDC，写入 inventory_a.products_a
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory_a"]
+    collection = ["inventory_a.products_a"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+```hocon
+# 任务 B：从集群 mongo1 读取 CDC，写入 inventory_b.products_b
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo1:27017"
+    database = ["inventory_b"]
+    collection = ["inventory_b.products_b"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
     primary_keys = ["_id"]
   }
 }

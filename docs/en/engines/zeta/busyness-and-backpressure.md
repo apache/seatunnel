@@ -220,7 +220,8 @@ curl "http://<master-host>:8080/metrics/realtime/jobs/<jobId>/vertices?windowMs=
 
 ## Related Documentation
 
-- [REST API And Web UI](./rest-api-and-web-ui.md)
+- [Runtime Execution Graph](./runtime-execution-graph.md)
+- [REST API and Web UI](./rest-api-and-web-ui.md)
 - [Web UI](./web-ui.md)
 - [RESTful API V2](./rest-api-v2.md)
 - [Monitoring Metrics](./telemetry.md)

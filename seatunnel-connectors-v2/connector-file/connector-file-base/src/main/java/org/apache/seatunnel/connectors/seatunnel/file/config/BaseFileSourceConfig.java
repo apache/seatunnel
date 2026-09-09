@@ -27,11 +27,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -58,6 +60,9 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private final ReadonlyConfig baseFileSourceConfig;
     private final CatalogTable catalogTableFromConfig;
     private final boolean fileDiscoveryDeferred;
+    /** Credential-safe root path rendered in file-discovery logs and exceptions. */
+    @Getter(AccessLevel.NONE)
+    private final String safeDiscoveryRootContext;
 
     public abstract HadoopConf getHadoopConfig();
 
@@ -69,9 +74,23 @@ public abstract class BaseFileSourceConfig implements Serializable {
         this.fileFormat = readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.fileDiscoveryDeferred = shouldDeferFileDiscovery(readonlyConfig);
+        String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
+        // Fail fast and retain the sanitized root for diagnostics without replacing the logical
+        // identity that MarkdownReadStrategy derives for each discovered file.
+        this.safeDiscoveryRootContext =
+                isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)
+                        ? MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(rootPath)
+                        : maskUriUserInfo(rootPath);
         this.filePaths = parseFilePaths(readonlyConfig);
         this.catalogTableFromConfig = catalogTableFromConfig;
-        this.catalogTable = parseCatalogTable(readonlyConfig);
+        CatalogTable parsedCatalogTable = parseCatalogTable(readonlyConfig);
+        this.catalogTable =
+                isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)
+                        ? MarkdownKnowledgeSyncMetadata.withMetadata(
+                                CatalogTable.withMetadata(
+                                        parsedCatalogTable,
+                                        catalogTableFromConfig.getMetadataSchema()))
+                        : parsedCatalogTable;
     }
 
     protected boolean shouldDeferFileDiscovery(ReadonlyConfig readonlyConfig) {
@@ -119,12 +138,20 @@ public abstract class BaseFileSourceConfig implements Serializable {
             log.info(
                     "File source discovery finished: plugin={}, path={}, files={}, cost={}ms",
                     getPluginName(),
-                    maskUriUserInfo(rootPath),
+                    safeDiscoveryRootContext,
                     discoveredFilePaths.size(),
                     System.currentTimeMillis() - startTime);
             return discoveredFilePaths;
         } catch (Exception ex) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", rootPath);
+            String errorMsg =
+                    String.format(
+                            "Get file list from this path [%s] failed", safeDiscoveryRootContext);
+            if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED,
+                        errorMsg,
+                        MarkdownKnowledgeSyncMetadata.copyStackTraceOnly(ex));
+            }
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, ex);
         }
@@ -137,7 +164,9 @@ public abstract class BaseFileSourceConfig implements Serializable {
         if (CollectionUtils.isEmpty(filePaths)) {
             // When there are no files (including sync_mode=update filtered all files), choose a
             // compatible schema so that downstream can initialize correctly.
-            if (fileFormat == FileFormat.BINARY || fileFormat == FileFormat.MARKDOWN) {
+            if (fileFormat == FileFormat.BINARY
+                    || fileFormat == FileFormat.MARKDOWN
+                    || fileFormat == FileFormat.PDF) {
                 return newCatalogTable(catalogTable, getSchemaForEmptyFilePath(readonlyConfig));
             }
             return catalogTable;
@@ -159,6 +188,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
                                 filePaths.get(0),
                                 configSchema ? catalogTable.getSeaTunnelRowType() : null));
             case MARKDOWN:
+            case PDF:
                 return newCatalogTable(
                         catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:
@@ -166,6 +196,12 @@ public abstract class BaseFileSourceConfig implements Serializable {
                         FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                         "SeaTunnel does not supported this file format: [" + fileFormat + "]");
         }
+    }
+
+    /** Returns whether Markdown document routing and Knowledge Sync metadata are enabled. */
+    private boolean isMarkdownKnowledgeSyncMetadataEnabled(ReadonlyConfig readonlyConfig) {
+        return fileFormat == FileFormat.MARKDOWN
+                && readonlyConfig.get(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED);
     }
 
     private SeaTunnelRowType getSchemaForEmptyFilePath(ReadonlyConfig readonlyConfig) {

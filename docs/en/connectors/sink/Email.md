@@ -4,9 +4,19 @@ import ChangeLog from '../changelog/connector-email.md';
 
 > Email sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Send the received rows as an attachment file to one or more email addresses.
+
+The connector buffers the rows of each table into a delimited attachment file (one row per line, no
+header row) and sends one email per table when the writer closes. If a table has no rows, no email is
+sent for it.
 
 The tested email version is 1.5.6.
 
@@ -14,6 +24,7 @@ The tested email version is 1.5.6.
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -49,19 +60,26 @@ SMTP server to connect to.
 
 ### email_transport_protocol [string]
 
-The protocol to load the session .
+The transport protocol used to send the message, typically `smtp` (or `smtps`).
 
 ### email_smtp_auth [boolean]
 
-Whether to authenticate the customer.
+Whether to use SMTP authentication. When set to `true`, the connector enables SSL automatically and
+authenticates with `email_from_address` as the username and `email_authorization_code` as the
+password. When set to `false`, the connector sends mail over plain SMTP without authentication.
 
 ### email_smtp_port [int]
 
-Select port for authentication.
+SMTP server port. The value must be between `1` and `65535`, inclusive. The default `465` is the SMTPS port and is used together with
+`email_smtp_auth = true`. For plain SMTP without authentication, set the port that matches the
+server (for example `25` or `3025`).
 
 ### email_authorization_code [string]
 
-Authorization code or password. You can obtain the authorization code from the mailbox settings.
+Authorization code or password used to authenticate the SMTP session together with
+`email_from_address` when `email_smtp_auth = true`. You can obtain the authorization code from the
+mailbox settings (for example, the app-specific password / authorization code provided by QQ Mail,
+Gmail, or 163 Mail).
 
 This option is required by the connector configuration. When `email_smtp_auth = false`, it can be
 set to an empty string.
@@ -99,6 +117,19 @@ the email is skipped.
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+
+:::tip
+
+Authentication and SSL
+
+- When `email_smtp_auth = true`, the connector turns on SSL (`mail.smtp.ssl.enable`) and trusts all
+  SMTP hosts, so the default port `465` (SMTPS) works for providers such as QQ Mail, Gmail, and 163
+  Mail. Use the mailbox's authorization code (app-specific password) as `email_authorization_code`,
+  not the account login password.
+- When `email_smtp_auth = false`, the connector sends over plain SMTP without SSL; choose a matching
+  plain-SMTP port (for example `25` or `3025` for a local test server).
+
+:::
 
 ## Example
 
@@ -205,6 +236,60 @@ sink {
   }
 }
 ```
+
+### Send with SMTP authentication
+
+This example sends mail through an authenticated SMTP server such as QQ Mail. With
+`email_smtp_auth = true`, the connector enables SSL automatically and uses `email_from_address`
+together with `email_authorization_code` to authenticate. Replace the authorization code with the
+one generated in your mailbox settings.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 100
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+sink {
+  EmailSink {
+    email_from_address = "xxxxxxxx@qq.com"
+    email_to_address = "xxxxxxxx@qq.com"
+    email_host = "smtp.qq.com"
+    email_transport_protocol = "smtp"
+    email_smtp_auth = true
+    email_authorization_code = "your-authorization-code"
+    email_message_headline = "test-title"
+    email_message_content = "test-content"
+  }
+}
+```
+
+## FAQ
+
+### How does Email sink format outgoing attachments?
+
+The connector buffers rows per table into a delimited CSV attachment file (`email_attachment_name`, default `emailsink.csv`) and attaches it to an email dispatched upon writer close.
+
+### Does Email sink send an email if no rows were received?
+
+No. If a table receives 0 rows, no attachment is generated and no email is sent for that table.
+
+### Can multiple recipients be specified?
+
+Yes. Set `email_to_address` with comma-separated recipient addresses (e.g. `user1@example.com,user2@example.com`).
 
 ## Changelog
 

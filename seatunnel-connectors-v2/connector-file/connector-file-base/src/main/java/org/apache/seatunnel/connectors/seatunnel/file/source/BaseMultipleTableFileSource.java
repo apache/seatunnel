@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfi
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileDiscoveryMode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.MultipleTableFileSourceReader;
@@ -43,8 +44,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.MultipleTable
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public abstract class BaseMultipleTableFileSource
@@ -114,7 +117,10 @@ public abstract class BaseMultipleTableFileSource
                     enumeratorContext, baseMultipleTableFileSourceConfig, fileSplitStrategy);
         }
         return new MultipleTableFileSourceSplitEnumerator(
-                enumeratorContext, baseMultipleTableFileSourceConfig, fileSplitStrategy);
+                enumeratorContext,
+                baseMultipleTableFileSourceConfig,
+                fileSplitStrategy,
+                resolveDocumentRoutingTableIds());
     }
 
     @Override
@@ -132,7 +138,21 @@ public abstract class BaseMultipleTableFileSource
                 enumeratorContext,
                 baseMultipleTableFileSourceConfig,
                 fileSplitStrategy,
+                resolveDocumentRoutingTableIds(),
                 checkpointState);
+    }
+
+    private Set<String> resolveDocumentRoutingTableIds() {
+        Set<String> tableIds = new HashSet<>();
+        for (BaseFileSourceConfig config :
+                baseMultipleTableFileSourceConfig.getFileSourceConfigs()) {
+            if (config.getFileFormat() == FileFormat.MARKDOWN
+                    && config.getBaseFileSourceConfig()
+                            .get(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)) {
+                tableIds.add(config.getCatalogTable().getTableId().toTablePath().toString());
+            }
+        }
+        return tableIds;
     }
 
     private FileDiscoveryMode resolveDiscoveryMode() {

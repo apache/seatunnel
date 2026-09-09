@@ -39,8 +39,9 @@ seatunnel = "seatunnel_cli.cli:main"
 bedrock = ["boto3>=1.34.0"]
 anthropic = ["anthropic>=0.42.0"]
 openai = ["openai>=1.0.0"]
-all = ["boto3>=1.34.0", "anthropic>=0.42.0", "openai>=1.0.0"]
-dev = ["pytest", "black", "ruff", "boto3>=1.34.0", "anthropic>=0.42.0", "openai>=1.0.0"]
+bedrock-mantle = ["boto3>=1.34.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
+all = ["boto3>=1.34.0", "anthropic>=0.42.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
+dev = ["pytest", "black", "ruff", "boto3>=1.34.0", "anthropic>=0.42.0", "openai>=2.45.0", "aws-bedrock-token-generator>=1.0.0"]
 
 [tool.setuptools.packages.find]
 include = ["seatunnel_cli*"]

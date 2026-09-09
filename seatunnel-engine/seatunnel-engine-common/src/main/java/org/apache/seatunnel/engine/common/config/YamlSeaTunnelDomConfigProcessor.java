@@ -388,6 +388,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 checkpointConfig.setStorage(parseCheckpointStorageConfig(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED
+                    .key()
+                    .equals(name)) {
+                checkpointConfig.setRetainAfterJobCancelled(getBooleanValue(getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }
@@ -653,6 +658,24 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 httpConfig.setBasicAuthPassword(getTextContent(node));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_FILE_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxFileSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_FILE_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB
+                    .key()
+                    .equals(name)) {
+                httpConfig.setUploadMaxRequestSizeMb(
+                        getIntegerValue(
+                                ServerConfigOptions.MasterServerConfigOptions
+                                        .UPLOAD_MAX_REQUEST_SIZE_MB
+                                        .key(),
+                                getTextContent(node)));
             } else {
                 LOGGER.warning("Unrecognized element: " + name);
             }

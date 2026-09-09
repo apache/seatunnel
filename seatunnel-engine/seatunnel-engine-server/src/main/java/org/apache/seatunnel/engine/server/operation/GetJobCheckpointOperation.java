@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 
@@ -36,13 +37,23 @@ public class GetJobCheckpointOperation extends Operation
         implements IdentifiedDataSerializable, AllowedDuringPassiveState {
 
     private long jobId;
+    private int restoreModeCode;
 
     private Data response;
 
     public GetJobCheckpointOperation() {}
 
     public GetJobCheckpointOperation(long jobId) {
+        this(jobId, RestoreMode.SAVEPOINT.getCode());
+    }
+
+    public GetJobCheckpointOperation(long jobId, RestoreMode restoreMode) {
+        this(jobId, restoreMode.getCode());
+    }
+
+    public GetJobCheckpointOperation(long jobId, int restoreModeCode) {
         this.jobId = jobId;
+        this.restoreModeCode = restoreModeCode;
     }
 
     @Override
@@ -50,12 +61,7 @@ public class GetJobCheckpointOperation extends Operation
         SeaTunnelServer service = getService();
         CompletableFuture<Data> future =
                 CompletableFuture.supplyAsync(
-                        () ->
-                                this.getNodeEngine()
-                                        .toData(
-                                                service.getCheckpointService()
-                                                        .getLatestCheckpointData(
-                                                                String.valueOf(jobId))),
+                        () -> this.getNodeEngine().toData(getCheckpointData(service)),
                         getNodeEngine()
                                 .getExecutionService()
                                 .getExecutor("get_job_checkpoint_operation"));
@@ -81,16 +87,27 @@ public class GetJobCheckpointOperation extends Operation
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
         out.writeLong(jobId);
+        out.writeInt(restoreModeCode);
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
         jobId = in.readLong();
+        restoreModeCode = in.readInt();
     }
 
     @Override
     public Object getResponse() {
         return response;
+    }
+
+    private Object getCheckpointData(SeaTunnelServer service) {
+        RestoreMode restoreMode = RestoreMode.fromCode(restoreModeCode);
+        if (restoreMode.isRestore()) {
+            return service.getCheckpointService()
+                    .getLatestCheckpointData(String.valueOf(jobId), restoreMode);
+        }
+        return service.getCheckpointService().getLatestCheckpointData(String.valueOf(jobId));
     }
 }

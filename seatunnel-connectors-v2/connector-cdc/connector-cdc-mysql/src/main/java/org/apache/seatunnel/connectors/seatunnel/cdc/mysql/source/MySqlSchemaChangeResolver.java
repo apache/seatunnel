@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.schema.AbstractSchemaChangeResolver;
@@ -37,13 +38,17 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
 
     @Override
     protected DdlParser createDdlParser(TablePath tablePath) {
-        return new CustomMySqlAntlrDdlParser(
-                tablePath, this.jdbcSourceConfig.getDbzConnectorConfig());
+        return new CustomMySqlAntlrDdlParser(this.jdbcSourceConfig.getDbzConnectorConfig());
+    }
+
+    @Override
+    protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
+        return ((CustomMySqlAntlrDdlParser) ddlParser).getAndClearParsedEvents();
     }
 
     @Override
     protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
-        return ((CustomMySqlAntlrDdlParser) ddlParser).getAndClearParsedEvents();
+        return ((CustomMySqlAntlrDdlParser) ddlParser).getAndClearParsedColumnEvents();
     }
 
     @Override

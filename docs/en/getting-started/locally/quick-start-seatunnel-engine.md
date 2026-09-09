@@ -36,6 +36,12 @@ connector-console
 sh bin/install-plugin.sh
 ```
 
+On Windows, use the batch script instead:
+
+```bat
+bin\install-plugin.cmd
+```
+
 ### Step 1: Deploy SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md).
@@ -101,6 +107,13 @@ Starting from version 2.3.1, the parameter -e in seatunnel.sh is deprecated, use
 cd "apache-seatunnel-${version}"
 ./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
+```
+
+On Windows, run the equivalent batch entry point from the SeaTunnel directory:
+
+```bat
+cd apache-seatunnel-3.0.0
+bin\seatunnel.cmd --config config\v2.batch.config.template -m local
 ```
 
 **See The Output**: When you run the command, you can see its output in your console. This

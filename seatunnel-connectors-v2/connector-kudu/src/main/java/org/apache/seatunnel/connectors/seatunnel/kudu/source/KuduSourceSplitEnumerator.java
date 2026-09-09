@@ -93,26 +93,33 @@ public class KuduSourceSplitEnumerator
 
     @Override
     public void run() throws IOException {
+        try {
+            Set<Integer> readers = enumeratorContext.registeredReaders();
+            while (!pendingTables.isEmpty()) {
+                synchronized (stateLock) {
+                    TablePath tablePath = pendingTables.poll();
+                    log.info("Splitting table {}.", tablePath);
 
-        Set<Integer> readers = enumeratorContext.registeredReaders();
-        while (!pendingTables.isEmpty()) {
-            synchronized (stateLock) {
-                TablePath tablePath = pendingTables.poll();
-                log.info("Splitting table {}.", tablePath);
+                    Collection<KuduSourceSplit> splits = discoverySplits(tables.get(tablePath));
+                    log.info("Split table {} into {} splits.", tablePath, splits.size());
 
-                Collection<KuduSourceSplit> splits = discoverySplits(tables.get(tablePath));
-                log.info("Split table {} into {} splits.", tablePath, splits.size());
+                    addPendingSplit(splits);
+                }
 
-                addPendingSplit(splits);
+                synchronized (stateLock) {
+                    assignSplit(readers);
+                }
             }
 
-            synchronized (stateLock) {
-                assignSplit(readers);
-            }
+            log.info(
+                    "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.",
+                    readers);
+            readers.forEach(enumeratorContext::signalNoMoreSplits);
+        } finally {
+            // Scan tokens contain everything readers need, so the enumerator client can be
+            // released immediately instead of retaining Netty threads until job teardown.
+            kuduInputFormat.closeInputFormat();
         }
-
-        log.info("No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
-        readers.forEach(enumeratorContext::signalNoMoreSplits);
     }
 
     private Set<KuduSourceSplit> discoverySplits(KuduSourceTableConfig kuduSourceTableConfig)

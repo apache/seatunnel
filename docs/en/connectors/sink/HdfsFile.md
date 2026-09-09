@@ -324,6 +324,24 @@ Configure mount table in `core-site.xml`:
 </configuration>
 ```
 
+### Writing to an HA HDFS Cluster (Kerberos-enabled)
+
+When writing to an HA HDFS cluster that uses Kerberos, supply the Kerberos principal/keytab in addition to the nameservice URI. The connector picks up the same authentication the rest of your Hadoop tooling uses, so the principal's HDFS permissions must allow writes to the target directory.
+
+```hocon
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/landing/events"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+    kerberos_principal = "sink@EXAMPLE.COM"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+The `kerberos_principal` and `krb5_path` values are forwarded to the Hadoop FileSystem client; the connector does not perform a `kinit` itself, so the keytab must already be discoverable on every worker node (typically via `KRB5CCNAME` / a `kinit` cron) or supplied to the same JVM via standard Hadoop authentication utilities. For cluster-level auth issues, check the worker logs for `LoginException` / `KrbException` messages — those indicate a credential problem, not a connector bug.
 
 ## Changelog
 
