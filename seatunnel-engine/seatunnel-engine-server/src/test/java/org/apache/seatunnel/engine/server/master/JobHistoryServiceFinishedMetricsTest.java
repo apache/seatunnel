@@ -39,11 +39,11 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -91,12 +91,11 @@ class JobHistoryServiceFinishedMetricsTest {
     @Test
     void storeFinishedPipelineMetricsWritesOnceForNewJob() {
         long jobId = 42L;
-        JobMetrics metrics = metrics("SourceReceivedCount", 7.0D);
+        JobMetrics metrics = metrics("SourceReceivedCount", 7.0D, Collections.emptyMap());
         when(finishedJobMetricsImap.get(jobId)).thenReturn(null);
 
         jobHistoryService.storeFinishedPipelineMetrics(jobId, metrics);
 
-        verify(finishedJobMetricsImap, never()).computeIfAbsent(eq(jobId), any());
         ArgumentCaptor<JobMetrics> metricsCaptor = ArgumentCaptor.forClass(JobMetrics.class);
         verify(finishedJobMetricsImap, times(1))
                 .put(
@@ -105,13 +104,15 @@ class JobHistoryServiceFinishedMetricsTest {
                         eq((long) FINISHED_JOB_EXPIRE_MINUTES),
                         eq(TimeUnit.MINUTES));
         assertEquals(7.0D, metricsCaptor.getValue().get("SourceReceivedCount").get(0).value());
+        verify(finishedJobMetricsImap).lock(jobId);
+        verify(finishedJobMetricsImap).unlock(jobId);
     }
 
     @Test
     void storeFinishedPipelineMetricsMergesExistingFinishedMetrics() {
         long jobId = 43L;
-        JobMetrics existing = metrics("SourceReceivedCount", 1.0D);
-        JobMetrics incoming = metrics("SinkWriteCount", 2.0D);
+        JobMetrics existing = metrics("SourceReceivedCount", 1.0D, Collections.emptyMap());
+        JobMetrics incoming = metrics("SinkWriteCount", 2.0D, Collections.emptyMap());
         when(finishedJobMetricsImap.get(jobId)).thenReturn(existing);
 
         jobHistoryService.storeFinishedPipelineMetrics(jobId, incoming);
@@ -128,13 +129,42 @@ class JobHistoryServiceFinishedMetricsTest {
         assertFalse(stored.get("SinkWriteCount").isEmpty());
         assertEquals(1.0D, stored.get("SourceReceivedCount").get(0).value());
         assertEquals(2.0D, stored.get("SinkWriteCount").get(0).value());
-        verify(finishedJobMetricsImap, never()).computeIfAbsent(eq(jobId), any());
     }
 
-    private static JobMetrics metrics(String metricName, double value) {
+    @Test
+    void storeFinishedPipelineMetricsRejectsNullMetrics() {
+        assertThrows(
+                NullPointerException.class,
+                () -> jobHistoryService.storeFinishedPipelineMetrics(44L, null));
+    }
+
+    @Test
+    void storeFinishedPipelineMetricsKeepsDistinctTaggedMeasurements() {
+        long jobId = 45L;
+        Map<String, String> sourceTags = new HashMap<>();
+        sourceTags.put("task", "source");
+        Map<String, String> sinkTags = new HashMap<>();
+        sinkTags.put("task", "sink");
+        JobMetrics existing = metrics("SourceReceivedCount", 1.0D, sourceTags);
+        JobMetrics incoming = metrics("SourceReceivedCount", 2.0D, sinkTags);
+        when(finishedJobMetricsImap.get(jobId)).thenReturn(existing);
+
+        jobHistoryService.storeFinishedPipelineMetrics(jobId, incoming);
+
+        ArgumentCaptor<JobMetrics> metricsCaptor = ArgumentCaptor.forClass(JobMetrics.class);
+        verify(finishedJobMetricsImap, times(1))
+                .put(
+                        eq(jobId),
+                        metricsCaptor.capture(),
+                        eq((long) FINISHED_JOB_EXPIRE_MINUTES),
+                        eq(TimeUnit.MINUTES));
+        List<Measurement> stored = metricsCaptor.getValue().get("SourceReceivedCount");
+        assertEquals(2, stored.size());
+    }
+
+    private static JobMetrics metrics(String metricName, double value, Map<String, String> tags) {
         Measurement measurement =
-                Measurement.of(
-                        metricName, value, System.currentTimeMillis(), Collections.emptyMap());
+                Measurement.of(metricName, value, System.currentTimeMillis(), tags);
         Map<String, List<Measurement>> map = new HashMap<>();
         map.put(metricName, Collections.singletonList(measurement));
         return JobMetrics.of(map);
