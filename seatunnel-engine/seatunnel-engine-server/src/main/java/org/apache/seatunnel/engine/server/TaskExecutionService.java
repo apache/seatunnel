@@ -180,6 +180,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /**
      * Cache of active execution contexts, keyed by TaskGroupLocation. Contains context for tasks
      * currently being executed.
+     *
+     * <p>Locking invariant: every write to this map, i.e. the publication in {@code
+     * deployLocalTask()} and the removal in {@code
+     * TaskGroupExecutionTracker#finishExecutionContext()}, must hold the {@code
+     * TaskExecutionService.this} monitor. A TaskGroupLocation is reused verbatim across restore
+     * generations, so the reference-identity check a tracker performs before removing its own
+     * context is only atomic with respect to a concurrent redeploy of the same location when both
+     * sides serialize on this monitor. Reads stay lock-free.
      */
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
             new ConcurrentHashMap<>();
@@ -193,9 +201,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /**
      * Map of async function futures for each task group. Used to track and cancel async functions
-     * associated with a task group.
+     * associated with a task group. Every registration is tagged with the execution context that
+     * was active for the location when it was made, see {@link OwnedFuture}.
      */
-    private final ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+    private final ConcurrentMap<TaskGroupLocation, Map<String, OwnedFuture>>
             taskAsyncFunctionFuture = new ConcurrentHashMap<>();
 
     /**
@@ -205,10 +214,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final ConcurrentMap<TaskGroupLocation, CompletableFuture<Void>> cancellationFutures =
             new ConcurrentHashMap<>();
 
-    /** SeaTunnel configuration for this engine. */
-    private final ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+    /**
+     * Timer-flush futures of each source subtask, grouped by task group location. Every
+     * registration is tagged with the execution context that was active for the location when it
+     * was made, see {@link OwnedFuture}.
+     */
+    private final ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, OwnedFuture>>
             timerFlushFutures = new ConcurrentHashMap<>();
 
+    /** SeaTunnel configuration for this engine. */
     private final SeaTunnelConfig seaTunnelConfig;
     // Track worker-side metrics reporting cost without changing the report path semantics.
     private final AtomicLong reportMetricsOperationSuccessCount = new AtomicLong();
@@ -672,6 +686,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             TaskGroupExecutionTracker executionTracker =
                     new TaskGroupExecutionTracker(
                             cancellationFuture, taskGroup, context, resultFuture);
+            // Publish the context and its cancellation future as one atomic step under the
+            // service monitor, the same monitor the tracker takes before it tears them down
+            // again. When reached through deployTask(), this block only runs while no context is
+            // active for the location, and the previous generation removes its own cancellation
+            // future in the same critical section that removes its context, so the put below
+            // cannot displace a live cancellation future of an earlier generation.
             synchronized (this) {
                 executionContexts.put(taskGroup.getTaskGroupLocation(), context);
                 cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -786,15 +806,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
         String id = UUID.randomUUID().toString();
         logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
-        if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
-            taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
-        }
+        // Tag the registration with the generation that currently owns the location so that a
+        // tracker superseded by a newer restore generation can later cancel exactly the functions
+        // its own generation registered. A null owner means no generation is active for the
+        // location right now (e.g. a barrier for a task group that already finished); such
+        // functions are swept by the tracker that owns the location next.
+        TaskGroupContext owner = executionContexts.get(taskGroupLocation);
+        Map<String, OwnedFuture> functions =
+                taskAsyncFunctionFuture.computeIfAbsent(
+                        taskGroupLocation, k -> new ConcurrentHashMap<>());
         CompletableFuture<?> future =
                 CompletableFuture.runAsync(task, MDCTracer.tracing(executorService));
-        taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
+        functions.put(id, new OwnedFuture(owner, future, true));
         future.whenComplete(
                 (r, e) -> {
-                    taskAsyncFunctionFuture.get(taskGroupLocation).remove(id);
+                    // Remove from the bucket captured above instead of looking the location up
+                    // again: the owning tracker may already have detached the bucket by now.
+                    functions.remove(id);
                     logger.fine(
                             "remove async execute function from "
                                     + taskGroupLocation
@@ -1013,12 +1041,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             throw new IllegalArgumentException("intervalMs must be positive, got: " + intervalMs);
         }
         TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
-        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+        // Same ownership tagging as asyncExecuteFunction(): the timer belongs to the generation
+        // that is active for the location when the source subtask registers it.
+        TaskGroupContext owner = executionContexts.get(groupLocation);
+        ConcurrentMap<TaskLocation, OwnedFuture> groupFutures =
                 timerFlushFutures.computeIfAbsent(groupLocation, k -> new ConcurrentHashMap<>());
 
-        ScheduledFuture<?> existing = groupFutures.remove(taskLocation);
-        if (existing != null && !existing.isDone()) {
-            existing.cancel(false);
+        OwnedFuture existing = groupFutures.remove(taskLocation);
+        if (existing != null) {
+            existing.cancel();
         }
 
         MDCScheduledExecutorService mdcTimerFlushWorker = MDCTracer.tracing(timerFlushWorker);
@@ -1026,7 +1057,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         ScheduledFuture<?> future =
                 mdcTimerFlushWorker.scheduleWithFixedDelay(
                         namedCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
-        groupFutures.put(taskLocation, future);
+        groupFutures.put(taskLocation, new OwnedFuture(owner, future, false));
         logger.info(
                 String.format(
                         "Registered timer-flush task for %s, intervalMs=%d",
@@ -1044,14 +1075,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     public void closeTimerFlushTask(TaskLocation taskLocation) {
         TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
-        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+        ConcurrentMap<TaskLocation, OwnedFuture> groupFutures =
                 timerFlushFutures.get(groupLocation);
         if (groupFutures == null) {
             return;
         }
-        ScheduledFuture<?> future = groupFutures.remove(taskLocation);
-        if (future != null && !future.isDone()) {
-            future.cancel(false);
+        OwnedFuture future = groupFutures.remove(taskLocation);
+        if (future != null) {
+            future.cancel();
         }
         if (groupFutures.isEmpty()) {
             timerFlushFutures.remove(groupLocation, groupFutures);
@@ -1060,29 +1091,103 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Cancel and remove all timer-flush tasks in one task group.
+     * Detaches the async-function and timer-flush registrations that a finishing or cancelling
+     * tracker is entitled to cancel, without cancelling them yet.
      *
-     * <p>No-op if the group has no registered timers.
+     * <p>Both registries are keyed by {@link TaskGroupLocation} alone while a location is reused
+     * across restore generations, so which entries a tracker may take down depends on whether it
+     * still owns the location:
      *
-     * @param taskGroupLocation task group location
+     * <ul>
+     *   <li>The generation that owns the location is responsible for the location as a whole. It
+     *       detaches every registration under the location, including the ones that carry no owner
+     *       tag (registered while no generation was active) and leftovers of superseded generations
+     *       that never reached their own teardown.
+     *   <li>A superseded generation only detaches the registrations tagged with its own execution
+     *       context and leaves everything the active generation registered untouched.
+     * </ul>
+     *
+     * <p>Must be called while holding the {@code TaskExecutionService.this} monitor so that the
+     * ownership decision cannot interleave with a redeploy of the same location. Only the map
+     * mutation happens here; callers cancel the returned futures after leaving the monitor, because
+     * cancelling a future runs its dependent callbacks synchronously and nothing of that kind
+     * should execute while every deploy on this node is blocked on the monitor.
+     *
+     * @param taskGroupLocation the location whose registrations are detached
+     * @param owner the execution context of the generation performing the teardown
+     * @param ownsLocation whether {@code owner} is still the active context of the location
+     * @return the detached registrations, to be cancelled outside the monitor
      */
-    private void cancelTimerFlushForTaskGroup(TaskGroupLocation taskGroupLocation) {
-        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
-                timerFlushFutures.remove(taskGroupLocation);
-        if (groupFutures == null) {
+    private List<OwnedFuture> detachAsyncResources(
+            TaskGroupLocation taskGroupLocation, TaskGroupContext owner, boolean ownsLocation) {
+        ensureServiceMonitorHeld();
+        List<OwnedFuture> detached = new ArrayList<>();
+        if (ownsLocation) {
+            Map<String, OwnedFuture> functions = taskAsyncFunctionFuture.remove(taskGroupLocation);
+            if (functions != null) {
+                detached.addAll(functions.values());
+            }
+            Map<TaskLocation, OwnedFuture> timers = timerFlushFutures.remove(taskGroupLocation);
+            if (timers != null) {
+                detached.addAll(timers.values());
+            }
+        } else {
+            detachOwnedFutures(taskAsyncFunctionFuture.get(taskGroupLocation), owner, detached);
+            detachOwnedFutures(timerFlushFutures.get(taskGroupLocation), owner, detached);
+        }
+        return detached;
+    }
+
+    /**
+     * Moves the entries of {@code registrations} owned by {@code owner} into {@code detached} and
+     * leaves the entries of every other generation in place. No-op when the location has no
+     * registrations.
+     */
+    private static void detachOwnedFutures(
+            Map<?, OwnedFuture> registrations, TaskGroupContext owner, List<OwnedFuture> detached) {
+        if (registrations == null) {
             return;
         }
-        groupFutures
-                .values()
-                .forEach(
-                        f -> {
-                            if (!f.isDone()) {
-                                f.cancel(false);
+        registrations
+                .entrySet()
+                .removeIf(
+                        entry -> {
+                            if (!entry.getValue().isOwnedBy(owner)) {
+                                return false;
                             }
+                            detached.add(entry.getValue());
+                            return true;
                         });
-        logger.info(
-                String.format(
-                        "Cancelled all timer-flush tasks for task group %s", taskGroupLocation));
+    }
+
+    /**
+     * Cancels registrations returned by {@code detachAsyncResources()}. Runs outside the service
+     * monitor. A failure to cancel one registration is logged and must not prevent the remaining
+     * ones from being cancelled or the caller from reporting its terminal state to the master.
+     */
+    private void cancelDetachedFutures(List<OwnedFuture> detached) {
+        for (OwnedFuture ownedFuture : detached) {
+            try {
+                ownedFuture.cancel();
+            } catch (Throwable t) {
+                logger.severe("cancel detached task group future failed", t);
+            }
+        }
+    }
+
+    /**
+     * Fails fast when the calling thread does not hold the service monitor. The ownership checks on
+     * {@code executionContexts} and on the registries derived from it are only atomic with respect
+     * to {@code deployLocalTask()} when every writer serializes on this monitor, so a caller that
+     * forgets to take it must not silently proceed.
+     */
+    private void ensureServiceMonitorHeld() {
+        if (!Thread.holdsLock(this)) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Unsafe invoke, the current thread [%s] does not hold the TaskExecutionService monitor.",
+                            Thread.currentThread().getName()));
+        }
     }
 
     public void reportEvent(Event e) {
@@ -1417,6 +1522,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionException.compareAndSet(null, t);
         }
 
+        /**
+         * Cancels the running tasks of this group together with the async functions and timer
+         * flushes its generation registered.
+         *
+         * <p>Reachable both from the cancellationFuture completion handler in the constructor and
+         * from taskDone()'s FAILED-fallthrough, and neither caller is guaranteed to still own the
+         * active generation of the location: a sibling task can still fail after this tracker has
+         * been superseded by a newer restore generation for the same TaskGroupLocation. The
+         * registries are keyed by location alone, so the ownership decision and the map mutation
+         * happen under the service monitor while the actual cancellation runs after it has been
+         * released; a superseded generation cancels exactly what it registered itself and never a
+         * newer generation's async functions or timer flushes.
+         */
         private void cancelAllTask(TaskGroupLocation taskGroupLocation) {
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
@@ -1424,41 +1542,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } catch (CancellationException ignore) {
                 // ignore
             }
-            // taskAsyncFunctionFuture/timerFlushFutures are keyed by TaskGroupLocation alone,
-            // which is reused verbatim across restore generations. This method is reachable
-            // both from taskDone()'s FAILED-fallthrough (a sibling task can still fail after
-            // this tracker's own generation has already been superseded, e.g. because another
-            // task in the same stale group already finished and lost the ownership race in
-            // finishExecutionContext()) and from the cancellationFuture completion handler in
-            // the constructor. Neither caller is guaranteed to still own the active generation
-            // for this location, so - exactly like finishExecutionContext() - only the tracker
-            // that still owns the current context may cancel these shared, location-keyed
-            // resources; otherwise a newer generation's async functions or timer flushes would
-            // be torn down out from under it.
+            List<OwnedFuture> detached;
             synchronized (TaskExecutionService.this) {
-                if (executionContexts.get(taskGroupLocation) != ownedContext) {
-                    logger.warning(
-                            String.format(
-                                    "Preserve active generation resources for stale cancelAllTask on %s.",
-                                    taskGroupLocation));
-                    return;
+                boolean ownsLocation = executionContexts.get(taskGroupLocation) == ownedContext;
+                if (!ownsLocation) {
+                    logSupersededGeneration("cancelAllTask", taskGroupLocation);
                 }
-                cancelAsyncFunction(taskGroupLocation);
-                cancelTimerFlushForTaskGroup(taskGroupLocation);
+                detached = detachAsyncResources(taskGroupLocation, ownedContext, ownsLocation);
             }
-        }
-
-        private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {
-            try {
-                if (taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
-                    taskAsyncFunctionFuture.remove(taskGroupLocation).values().stream()
-                            .filter(f -> !f.isDone())
-                            .filter(f -> !f.isCancelled())
-                            .forEach(f -> f.cancel(true));
-                }
-            } catch (CancellationException ignore) {
-                logger.warning(ExceptionUtils.getMessage(ignore));
-            }
+            cancelDetachedFutures(detached);
         }
 
         /**
@@ -1467,10 +1559,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * <p>When the last task completes (completionLatch reaches zero):
          *
          * <ol>
-         *   <li>Recycle the class loader
-         *   <li>Move execution context from active to finished
-         *   <li>Cancel async functions and update metrics
-         *   <li>Complete the future with final state (FINISHED, CANCELED, or FAILED)
+         *   <li>Move the execution context from active to finished if this tracker still owns it
+         *   <li>Recycle the class loaders of this tracker's own context
+         *   <li>Cancel the async functions and timer flushes this generation registered
+         *   <li>Update metrics and complete the future with final state (FINISHED, CANCELED, or
+         *       FAILED)
          * </ol>
          *
          * <p>If an exception occurred and the task group is not cancelled, cancels all remaining
@@ -1531,63 +1624,90 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         /**
-         * Finishes all resources owned by this tracker under the same monitor used by deployment.
+         * Finishes the resources owned by this tracker once its last task has completed.
          *
-         * <p>TaskGroupLocation is reused across restore generations. The ownership check and
-         * teardown must therefore be one critical section: otherwise an older generation can remove
-         * its context, let a newer deployment install resources for the same location, and then
-         * accidentally tear down the newer generation's cancellation future, async functions, or
-         * timer flushes.
+         * <p>TaskGroupLocation is reused across restore generations, so the ownership check and
+         * every map mutation form one critical section under the service monitor: otherwise an
+         * older generation could remove its context, let a newer deployment install resources for
+         * the same location, and then tear down the newer generation's cancellation future, async
+         * functions or timer flushes. When the check fails the location either has no active
+         * context any more or is already owned by a newer generation; this tracker then still
+         * releases its own class loaders and cancels exactly the async functions and timer flushes
+         * its generation registered, so a superseded generation leaks nothing while the active
+         * generation keeps everything it installed.
+         *
+         * <p>Class loader release and future cancellation deliberately run after the monitor has
+         * been released: both can be expensive (per-job class loader eviction, dependent callbacks
+         * of cancelled futures) and only operate on state that is no longer reachable through the
+         * maps, so holding the monitor would block every deploy on this node without protecting
+         * anything. Failures in those two steps are logged and swallowed on purpose: taskDone()
+         * must still report the terminal state to the master, otherwise the pipeline and the
+         * submitting client hang.
          */
         private void finishOwnedResources(TaskGroupLocation taskGroupLocation) {
+            boolean ownsLocation;
+            List<OwnedFuture> detached;
             synchronized (TaskExecutionService.this) {
-                if (!finishExecutionContext(taskGroupLocation)) {
-                    logger.warning(
-                            String.format(
-                                    "Preserve active generation resources for stale taskDone on %s.",
-                                    taskGroupLocation));
-                    recycleClassLoader(taskGroupLocation, ownedContext);
-                    return;
+                ownsLocation = finishExecutionContext(taskGroupLocation);
+                if (ownsLocation) {
+                    cancellationFutures.remove(taskGroupLocation);
+                } else {
+                    logSupersededGeneration("taskDone", taskGroupLocation);
                 }
-                recycleClassLoader(taskGroupLocation, ownedContext);
-                cancellationFutures.remove(taskGroupLocation);
-                try {
-                    cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel async function failed", t);
-                }
-                try {
-                    cancelTimerFlushForTaskGroup(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel timer-flush tasks failed", t);
-                }
+                detached = detachAsyncResources(taskGroupLocation, ownedContext, ownsLocation);
             }
+            try {
+                recycleClassLoader(taskGroupLocation, ownedContext);
+            } catch (Throwable t) {
+                logger.severe("recycle class loader failed", t);
+            }
+            cancelDetachedFutures(detached);
         }
 
         /**
          * Moves the execution context from the active map to the finished map only when the active
          * map still points to the exact context object installed by this tracker.
          *
-         * <p>The explicit reference-identity check below is required and must not be replaced by
-         * relying on {@code ConcurrentMap#remove(Object, Object)} alone: {@link TaskGroupContext}
-         * is a Lombok {@code @Data} class, so its generated {@code equals()} performs structural
-         * comparison over {@code taskGroup}/{@code classLoaders}/{@code jars} rather than identity.
-         * {@code remove(key, value)} falls back to that {@code equals()} whenever the map entry is
-         * not reference-equal to {@code ownedContext}, so without this identity guard the ownership
-         * check would silently degrade into value equality the moment any {@link TaskGroup}
-         * implementation (e.g. {@code TaskGroupDefaultImpl}) gains a structural {@code equals()},
-         * reintroducing the stale-generation-corrupts-newer-generation race this method exists to
-         * prevent.
+         * <p>Must run under the service monitor: every writer of {@code executionContexts} holds
+         * it, so the reference-identity check and the removal below cannot interleave with a
+         * redeploy of the same location, and a plain {@code remove(key)} after the check can only
+         * ever remove {@code ownedContext}. {@code ConcurrentMap#remove(Object, Object)} is
+         * deliberately not used as the ownership test: {@link TaskGroupContext} is a Lombok
+         * {@code @Data} class whose generated {@code equals()} compares {@code taskGroup}/{@code
+         * classLoaders}/{@code jars} structurally rather than by identity, so it would silently
+         * degrade into value equality the moment any {@link TaskGroup} implementation (e.g. {@code
+         * TaskGroupDefaultImpl}) gains a structural {@code equals()}, reintroducing the
+         * stale-generation-corrupts-newer-generation race this method exists to prevent.
+         *
+         * @return {@code true} when this tracker owned the active context and moved it to the
+         *     finished map, {@code false} when the location has no active context or is owned by a
+         *     different generation
          */
         private boolean finishExecutionContext(TaskGroupLocation taskGroupLocation) {
+            ensureServiceMonitorHeld();
             if (executionContexts.get(taskGroupLocation) != ownedContext) {
                 return false;
             }
-            if (executionContexts.remove(taskGroupLocation, ownedContext)) {
-                finishedExecutionContexts.put(taskGroupLocation, ownedContext);
-                return true;
-            }
-            return false;
+            executionContexts.remove(taskGroupLocation);
+            finishedExecutionContexts.put(taskGroupLocation, ownedContext);
+            return true;
+        }
+
+        /**
+         * Explains why this tracker leaves the location-keyed resources of the active generation
+         * alone. Must run under the service monitor so that the reported state matches the
+         * ownership decision that was just taken.
+         */
+        private void logSupersededGeneration(String action, TaskGroupLocation taskGroupLocation) {
+            TaskGroupContext activeContext = executionContexts.get(taskGroupLocation);
+            logger.warning(
+                    String.format(
+                            "%s of task group %s does not own the active execution context of its location (%s); only the resources registered by this generation are released.",
+                            action,
+                            taskGroupLocation,
+                            activeContext == null
+                                    ? "no execution context is active for the location"
+                                    : "the location is now owned by a newer execution context"));
         }
 
         boolean executionCompletedExceptionally() {
@@ -1639,6 +1759,62 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 task.run();
             } finally {
                 currentThread.setName(originalName);
+            }
+        }
+    }
+
+    /**
+     * A cancellable future registered against a task group location, together with the execution
+     * context that was active for that location when the registration was made.
+     *
+     * <p>Async functions and timer flushes are registered by {@link TaskGroupLocation} only, and a
+     * location is reused verbatim across restore generations. The owner tag is what allows a
+     * tracker whose generation has been superseded to cancel exactly the futures its own generation
+     * registered while leaving the futures of the generation that now owns the location untouched.
+     * Ownership is compared by reference identity, matching the {@code ownedContext} check of
+     * {@link TaskGroupExecutionTracker}. Package-private so that tests in this package can inspect
+     * the registries.
+     */
+    static final class OwnedFuture {
+
+        /**
+         * Execution context that was active for the location at registration time, or {@code null}
+         * when no generation was active (for example a checkpoint barrier arriving after the task
+         * group already finished). Untagged futures are only swept by the tracker that owns the
+         * location.
+         */
+        private final TaskGroupContext owner;
+
+        /** The registered future. */
+        private final Future<?> future;
+
+        /**
+         * Whether cancellation may interrupt a running function. Async functions keep the
+         * interrupting cancellation they always had, timer flushes are cancelled without
+         * interruption so that an in-flight flush completes.
+         */
+        private final boolean mayInterruptIfRunning;
+
+        OwnedFuture(
+                TaskGroupContext owner, @NonNull Future<?> future, boolean mayInterruptIfRunning) {
+            this.owner = owner;
+            this.future = future;
+            this.mayInterruptIfRunning = mayInterruptIfRunning;
+        }
+
+        /** Returns whether this registration was made while {@code context} owned the location. */
+        boolean isOwnedBy(TaskGroupContext context) {
+            return owner == context;
+        }
+
+        Future<?> getFuture() {
+            return future;
+        }
+
+        /** Cancels the future unless it already completed. */
+        void cancel() {
+            if (!future.isDone()) {
+                future.cancel(mayInterruptIfRunning);
             }
         }
     }
