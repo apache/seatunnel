@@ -140,7 +140,7 @@ primary_keys = ["${primary_key}", "tenant_id"]
 只有当 `${primary_key}` 是列表中的唯一元素时，才会执行列表占位符替换。
 
 上述限制仅针对顶层 `primary_keys` 选项。JDBC Sink 额外支持在
-`multi-table_config.primary_keys` 中将 `${primary_key}`（以及 `${unique_key}`）与静态列名混用，
+`multi_table_config.primary_keys` 中将 `${primary_key}`（以及 `${unique_key}`）与静态列名混用，
 详见 JDBC Sink 文档。
 
 单表任务和多表任务中的行为保持一致。

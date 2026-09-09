@@ -113,7 +113,7 @@ class JdbcSinkFactoryTest {
         Map<String, Object> cfg = baseConfig();
         Map<String, Object> multiTableConfig = new LinkedHashMap<>();
         multiTableConfig.put("primary_keys", primaryKeys);
-        cfg.put("multi-table_config", multiTableConfig);
+        cfg.put("multi_table_config", multiTableConfig);
         return ReadonlyConfig.fromMap(cfg);
     }
 
@@ -344,13 +344,38 @@ class JdbcSinkFactoryTest {
     }
 
     @Test
+    void testResolveMultiTablePrimaryKeysInvalidRegexFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^[unclosed", Arrays.asList("id"));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> factory.resolveMultiTablePrimaryKeys(config, table));
+    }
+
+    @Test
+    void testFactoryContextWithMultiTableConfigInvalidColumnFails() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("id", ""));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    @Test
     void testFactoryContextWithMultiTableConfigValid() {
         Map<String, Object> cfg = baseConfig();
         Map<String, Object> primaryKeys = new LinkedHashMap<>();
         primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
         Map<String, Object> multiTableConfig = new LinkedHashMap<>();
         multiTableConfig.put("primary_keys", primaryKeys);
-        cfg.put("multi-table_config", multiTableConfig);
+        cfg.put("multi_table_config", multiTableConfig);
 
         Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, true));
     }

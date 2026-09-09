@@ -110,7 +110,7 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
             Options.key("primary_keys").listType().noDefaultValue().withDescription("primary keys");
 
     public static final Option<Map<String, Object>> MULTI_TABLE_CONFIG =
-            Options.key("multi-table_config")
+            Options.key("multi_table_config")
                     .mapObjectType()
                     .noDefaultValue()
                     .withDescription(
