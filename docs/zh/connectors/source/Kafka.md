@@ -531,8 +531,6 @@ source {
 ```
 
 **注意**：当启用 `strip_schema_registry_header` 时，连接器可以安全地处理 Schema Registry 编码的消息和纯 Protobuf 消息。如果未检测到 Schema Registry 头部，它将自动回退到标准 Protobuf 反序列化。
-```
-
 ### 忽略无 Leader 分区
 
 当处理可能存在临时 leader 问题的 Kafka 集群时，您可以配置连接器忽略没有 leader 的分区：

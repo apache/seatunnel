@@ -15,17 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.slack;
+package org.apache.seatunnel.connectors.seatunnel.file.gcs.config;
 
-import org.apache.seatunnel.connectors.seatunnel.slack.sink.SlackSinkFactory;
-
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
-
-class SlackFactoryTest {
-
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlackSinkFactory()).optionRule());
-    }
-}
+public class GcsFileSinkOptions extends GcsFileBaseOptions {}
