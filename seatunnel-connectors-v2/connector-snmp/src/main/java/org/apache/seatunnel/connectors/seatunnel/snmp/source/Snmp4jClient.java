@@ -17,17 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.snmp.source;
 
+import org.apache.seatunnel.connectors.seatunnel.snmp.client.SnmpTargetFactory;
 import org.apache.seatunnel.connectors.seatunnel.snmp.config.SnmpSourceConfig;
 
-import org.snmp4j.CommunityTarget;
 import org.snmp4j.PDU;
 import org.snmp4j.Snmp;
 import org.snmp4j.Target;
 import org.snmp4j.event.ResponseEvent;
-import org.snmp4j.mp.SnmpConstants;
 import org.snmp4j.smi.OID;
-import org.snmp4j.smi.OctetString;
-import org.snmp4j.smi.UdpAddress;
 import org.snmp4j.smi.Variable;
 import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.transport.DefaultUdpTransportMapping;
@@ -102,13 +99,7 @@ final class Snmp4jClient implements SnmpClient {
     }
 
     static Target buildTarget(SnmpSourceConfig config) {
-        CommunityTarget target = new CommunityTarget();
-        target.setAddress(new UdpAddress(config.getHost() + "/" + config.getPort()));
-        target.setCommunity(new OctetString(config.getCommunity()));
-        target.setVersion(SnmpConstants.version2c);
-        target.setTimeout(config.getTimeoutMillis());
-        target.setRetries(config.getRetries());
-        return target;
+        return SnmpTargetFactory.create(config);
     }
 
     static List<SnmpRecord> extractRecords(PDU response) {
