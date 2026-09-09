@@ -193,7 +193,12 @@ class RunningJobSlotUsageBuilderTest {
                             return null;
                         })
                 .when(ownedSlotProfilesMap)
-                .forEach(Mockito.any());
+                // IMap declares its own forEach(BiConsumer) alongside the inherited
+                // Iterable#forEach(Consumer); without this cast, Mockito.any()'s inferred
+                // type leaves javac unable to pick an overload.
+                .forEach(
+                        (BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>)
+                                Mockito.any());
 
         Mockito.when(hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO))
                 .thenReturn((IMap) runningJobInfo);
