@@ -34,8 +34,12 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.data.Envelope;
+
+import java.io.ObjectStreamClass;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -58,6 +62,74 @@ public class TestDebeziumJsonConverter {
     private static SourceRecord record(Schema schema, Struct value) {
         return new SourceRecord(
                 Collections.emptyMap(), Collections.emptyMap(), null, null, null, schema, value);
+    }
+
+    private static SourceRecord debeziumRecordWithNullPayloadAndUnsetSnapshot() {
+        Schema payloadSchema =
+                SchemaBuilder.struct()
+                        .optional()
+                        .field(
+                                "reg_capital",
+                                Decimal.builder(4)
+                                        .optional()
+                                        .defaultValue(new BigDecimal("0.0000"))
+                                        .build())
+                        .build();
+        Schema sourceSchema =
+                SchemaBuilder.struct()
+                        .field(
+                                "snapshot",
+                                SchemaBuilder.string().optional().defaultValue("false").build())
+                        .field("db", SchemaBuilder.string().optional().build())
+                        .build();
+        Struct after = new Struct(payloadSchema);
+        Struct source = new Struct(sourceSchema);
+        source.put("db", "test");
+        Envelope envelope =
+                Envelope.defineSchema()
+                        .withName("io.debezium.connector.test.Envelope")
+                        .withRecord(payloadSchema)
+                        .withSource(sourceSchema)
+                        .build();
+        Struct value = envelope.update(null, after, source, Instant.EPOCH);
+        return record(envelope.schema(), value);
+    }
+
+    @Test
+    public void testSerializationIdsRemainCompatibleWithPreSt3742Classes() {
+        Assertions.assertEquals(
+                -4309014023723437706L,
+                ObjectStreamClass.lookup(DebeziumJsonConverter.class).getSerialVersionUID());
+        Assertions.assertEquals(
+                6968200450897943443L,
+                ObjectStreamClass.lookup(CompatibleDebeziumJsonDeserializationSchema.class)
+                        .getSerialVersionUID());
+    }
+
+    @Test
+    public void testBusinessNullDoesNotClearDebeziumSnapshotMetadata() throws Exception {
+        SourceRecord sourceRecord = debeziumRecordWithNullPayloadAndUnsetSnapshot();
+        JsonNode json =
+                new ObjectMapper()
+                        .readTree(
+                                new DebeziumJsonConverter(false, false)
+                                        .serializeValue(sourceRecord));
+
+        Assertions.assertTrue(json.at("/after/reg_capital").isNull());
+        Assertions.assertEquals("false", json.at("/source/snapshot").asText());
+    }
+
+    @Test
+    public void testBusinessNullDoesNotClearDebeziumSnapshotMetadataWithEnvelope()
+            throws Exception {
+        SourceRecord sourceRecord = debeziumRecordWithNullPayloadAndUnsetSnapshot();
+        JsonNode json =
+                new ObjectMapper()
+                        .readTree(
+                                new DebeziumJsonConverter(true, true).serializeValue(sourceRecord));
+
+        Assertions.assertTrue(json.at("/payload/after/reg_capital").isNull());
+        Assertions.assertEquals("false", json.at("/payload/source/snapshot").asText());
     }
 
     @Test
