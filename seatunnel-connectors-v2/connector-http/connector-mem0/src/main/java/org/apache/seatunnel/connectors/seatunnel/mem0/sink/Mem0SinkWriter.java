@@ -67,11 +67,12 @@ public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
             throw new IOException("Mem0 messages field must contain a JSON array");
         }
         request.set("messages", messages);
-        copyNonBlank(row, userIdField, "user_id", request);
-        copyNonBlank(row, agentIdField, "agent_id", request);
-        copyNonBlank(row, appIdField, "app_id", request);
-        copyNonBlank(row, runIdField, "run_id", request);
-        if (request.size() == 1) {
+        boolean hasScope = false;
+        hasScope |= copyIfPresent(row, userIdField, "user_id", request);
+        hasScope |= copyIfPresent(row, agentIdField, "agent_id", request);
+        hasScope |= copyIfPresent(row, appIdField, "app_id", request);
+        hasScope |= copyIfPresent(row, runIdField, "run_id", request);
+        if (!hasScope) {
             throw new IOException("Mem0 requires at least one scope field");
         }
         if (metadataField != null) {
@@ -100,13 +101,18 @@ public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         return value;
     }
 
-    private void copyNonBlank(ObjectNode row, String field, String name, ObjectNode target)
-            throws IOException {
+    private boolean copyIfPresent(ObjectNode row, String field, String name, ObjectNode target) {
         if (field == null) {
-            return;
+            return false;
         }
-        JsonNode value = required(row, field, name);
+        JsonNode value = row.get(field);
+        if (value == null
+                || value.isNull()
+                || (value.isTextual() && value.textValue().trim().isEmpty())) {
+            return false;
+        }
         target.set(name, value);
+        return true;
     }
 
     private void send(ObjectNode request) throws IOException {

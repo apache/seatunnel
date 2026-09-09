@@ -43,9 +43,11 @@ class Mem0SinkWriterTest {
         MockitoAnnotations.openMocks(this);
         rowType =
                 new SeaTunnelRowType(
-                        new String[] {"messages", "user_id"},
+                        new String[] {"messages", "user_id", "agent_id"},
                         new SeaTunnelDataType[] {
-                            ArrayType.of(BasicType.STRING_TYPE), BasicType.STRING_TYPE
+                            ArrayType.of(BasicType.STRING_TYPE),
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE
                         });
     }
 
@@ -71,7 +73,7 @@ class Mem0SinkWriterTest {
         when(httpClient.doPost(anyString(), any(), anyString()))
                 .thenReturn(new HttpResponse(202, "{\"event_id\":\"evt-1\"}"));
 
-        writer().write(new SeaTunnelRow(new Object[] {new String[] {"hello"}, "u-1"}));
+        writer().write(new SeaTunnelRow(new Object[] {new String[] {"hello"}, "u-1", null}));
 
         org.mockito.ArgumentCaptor<String> body = org.mockito.ArgumentCaptor.forClass(String.class);
         verify(httpClient).doPost(anyString(), any(), body.capture());
@@ -90,6 +92,36 @@ class Mem0SinkWriterTest {
                 () ->
                         writer().write(
                                         new SeaTunnelRow(
-                                                new Object[] {new String[] {"hello"}, "u-1"})));
+                                                new Object[] {
+                                                    new String[] {"hello"}, "u-1", null
+                                                })));
+    }
+
+    @Test
+    void acceptsAnotherScopeWhenConfiguredUserIdIsNull() throws Exception {
+        when(httpClient.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(202, "{\"event_id\":\"evt-2\"}"));
+        Mem0SinkWriter writer =
+                new Mem0SinkWriter(
+                        rowType, parameter(), "messages", "user_id", "agent_id", null, null, null);
+        injectClient(writer);
+        writer.write(new SeaTunnelRow(new Object[] {new String[] {"hello"}, null, "a-1"}));
+    }
+
+    private HttpParameter parameter() {
+        HttpParameter parameter = new HttpParameter();
+        parameter.setUrl("https://api.mem0.ai/v3/memories/add/");
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Authorization", "Token secret");
+        headers.put("Content-Type", "application/json");
+        headers.put("Accept", "application/json");
+        parameter.setHeaders(headers);
+        return parameter;
+    }
+
+    private void injectClient(Mem0SinkWriter writer) throws Exception {
+        Field field = Mem0SinkWriter.class.getDeclaredField("httpClient");
+        field.setAccessible(true);
+        field.set(writer, httpClient);
     }
 }
