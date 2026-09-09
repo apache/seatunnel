@@ -331,6 +331,17 @@ public abstract class AbstractResourceManager implements ResourceManager {
         return releaseResource(jobId, profile, true);
     }
 
+    /**
+     * Releases a single slot on its owning worker.
+     *
+     * <p>The {@code refreshWorkerProfile} flag controls whether the master-side worker profile
+     * cache is refreshed by this call. The single-slot entry point passes {@code true} so the
+     * profile sync runs immediately after the slot release completes; the batch path {@link
+     * #releaseResources(long, List)} passes {@code false} and refreshes each involved worker once
+     * after all releases finish, instead of syncing per slot. When refreshing, a profile-sync
+     * failure is propagated to the returned future even though the slot itself has already been
+     * released (see {@link #refreshWorkerProfiles(Collection)}).
+     */
     private CompletableFuture<Void> releaseResource(
             long jobId, SlotProfile profile, boolean refreshWorkerProfile) {
         if (nodeEngine.getClusterService().getMember(profile.getWorker()) != null) {
