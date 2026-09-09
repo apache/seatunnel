@@ -109,6 +109,51 @@ Task format:
 }
 ```
 
+### Optional public paraphrase suite
+
+The default remains the same 100 baseline tasks. Select `--suite paraphrase`
+to run **only 12 alternative-wording tasks**, not the baseline plus its variants:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.runner --provider openai --model gpt-4o \
+    --suite paraphrase --out benchmark/paraphrase-baseline
+
+# Filter using the inherited tier and the distinct variant ID.
+python -m benchmark.runner --provider openai --model gpt-4o \
+    --suite paraphrase --tiers 2 --tasks t2_cdc_pg_kafka_p1 \
+    --out benchmark/paraphrase-postgres
+```
+
+These commands call the selected model and use the normal gate and repair
+pipeline. `--level l1` removes engine execution, **not model calls**. The wrapper
+`run_benchmark.sh` also forwards `--suite`. Invalid, duplicate, empty, or
+out-of-tier task selections in the paraphrase suite fail before provider setup.
+Baseline selection behavior is unchanged.
+
+`tasks/paraphrase.json` contains four routing variants, four CDC variants, and
+four connector-option/mode variants, including one Chinese routing prompt.
+Each record provides only `parent_id`, `parent_sha256`, and alternative `prompt`.
+The loader copies the entire canonical task, including assertions and execution
+fixtures, and uses `<parent_id>_p1` as its stable task ID. It refuses unknown or
+duplicate parents, assertion overrides, unchanged wording, and parent fingerprint
+mismatches. A parent edit requires reviewing semantic equivalence and explicitly
+repinning the full parent contract; do not automatically refresh pins.
+
+Saved variant entries include `parent_id` and `parent_sha256`. The existing
+`task_sha256` covers the expanded variant, including its wording and provenance.
+Keep baseline and candidate runs in separate directories and compare the same
+variant IDs using `benchmark.compare`; parent tasks and variants are different
+tasks, not directly paired samples. Changed wording/contracts are excluded from
+cross-revision comparisons. Existing report formats and skipped-gate exclusions
+are unchanged.
+
+This is a **public regression corpus**, not an unseen holdout or a measurement of
+generalization. A wording-sensitive regression can only be established by actual
+model runs. Offline tests verify selection, fixture inheritance, scoring and
+reporting contracts; they do not prove model accuracy or full output-data semantic
+equivalence. Keep production prompt tuning separate from corpus changes.
+
 ## Docker data environment
 
 `docker/docker-compose.yml` provides sources and sinks with pre-seeded data
