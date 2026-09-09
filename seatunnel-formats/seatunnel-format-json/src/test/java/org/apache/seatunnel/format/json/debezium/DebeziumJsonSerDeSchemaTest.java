@@ -117,8 +117,9 @@ public class DebeziumJsonSerDeSchemaTest {
         // Existing fixture lines are schema-less envelopes; wrap them so the streaming parser's
         // schema-included branch (skip schema, read payload) is exercised end-to-end.
         List<String> lines = readLines("debezium-data.txt");
+        // Fail hard on parse errors so regressions surface the real exception stack.
         DebeziumJsonDeserializationSchema deserializationSchema =
-                new DebeziumJsonDeserializationSchema(catalogTables, true, true);
+                new DebeziumJsonDeserializationSchema(catalogTables, false, true);
         SimpleCollector collector = new SimpleCollector();
         for (String line : lines) {
             String schemaIncluded =
