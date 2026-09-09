@@ -169,6 +169,11 @@ fluss:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
+google-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-ads)/**'
 google-firestore:
   - all:
       - changed-files:
