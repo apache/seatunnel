@@ -98,6 +98,33 @@ class Mem0SinkWriterTest {
     }
 
     @Test
+    void retriesRateLimitAndServerResponses() throws Exception {
+        when(httpClient.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(429, "{}"))
+                .thenReturn(new HttpResponse(503, "{}"))
+                .thenReturn(new HttpResponse(202, "{\"event_id\":\"evt-3\"}"));
+        HttpParameter parameter = parameter();
+        parameter.setRetry(2);
+        Mem0SinkWriter writer =
+                new Mem0SinkWriter(
+                        rowType, parameter, "messages", "user_id", null, null, null, null);
+        injectClient(writer);
+
+        writer.write(new SeaTunnelRow(new Object[] {new String[] {"hello"}, "u-1", null}));
+
+        verify(httpClient, org.mockito.Mockito.times(3)).doPost(anyString(), any(), anyString());
+    }
+
+    @Test
+    void onlyTransientStatusesAreRetryable() {
+        org.junit.jupiter.api.Assertions.assertTrue(Mem0SinkWriter.isRetryableStatus(408));
+        org.junit.jupiter.api.Assertions.assertTrue(Mem0SinkWriter.isRetryableStatus(429));
+        org.junit.jupiter.api.Assertions.assertTrue(Mem0SinkWriter.isRetryableStatus(500));
+        org.junit.jupiter.api.Assertions.assertFalse(Mem0SinkWriter.isRetryableStatus(400));
+        org.junit.jupiter.api.Assertions.assertFalse(Mem0SinkWriter.isRetryableStatus(401));
+    }
+
+    @Test
     void acceptsAnotherScopeWhenConfiguredUserIdIsNull() throws Exception {
         when(httpClient.doPost(anyString(), any(), anyString()))
                 .thenReturn(new HttpResponse(202, "{\"event_id\":\"evt-2\"}"));

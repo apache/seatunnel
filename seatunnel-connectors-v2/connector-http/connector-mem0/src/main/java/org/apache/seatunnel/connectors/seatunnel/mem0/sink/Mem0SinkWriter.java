@@ -20,6 +20,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import java.io.IOException;
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 /** Writes SeaTunnel rows to the hosted Mem0 Platform V3 asynchronous add API. */
 public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
@@ -33,6 +34,9 @@ public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
     private final String appIdField;
     private final String runIdField;
     private final String metadataField;
+    private final int maxRetries;
+    private final int retryBackoffMultiplierMillis;
+    private final int retryBackoffMaxMillis;
 
     public Mem0SinkWriter(
             SeaTunnelRowType rowType,
@@ -54,6 +58,10 @@ public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.runIdField = runIdField;
         this.metadataField = metadataField;
         this.headers = parameter.getHeaders();
+        this.maxRetries = Math.max(0, parameter.getRetry());
+        this.retryBackoffMultiplierMillis =
+                Math.max(0, parameter.getRetryBackoffMultiplierMillis());
+        this.retryBackoffMaxMillis = Math.max(0, parameter.getRetryBackoffMaxMillis());
     }
 
     private final java.util.Map<String, String> headers;
@@ -119,20 +127,50 @@ public class Mem0SinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         final String body;
         try {
             body = objectMapper.writeValueAsString(request);
-            HttpResponse response = httpClient.doPost(url, headers, body);
-            if (response.getCode() < 200 || response.getCode() >= 300) {
-                throw new IOException(
-                        "Mem0 add request failed with HTTP status " + response.getCode());
-            }
-            JsonNode responseBody = objectMapper.readTree(response.getContent());
-            JsonNode eventId = responseBody == null ? null : responseBody.get("event_id");
-            if (eventId == null || eventId.isNull() || eventId.asText().trim().isEmpty()) {
-                throw new IOException("Mem0 add response did not contain a nonblank event_id");
+            for (int attempt = 0; ; attempt++) {
+                HttpResponse response = httpClient.doPost(url, headers, body);
+                if (response.getCode() >= 200 && response.getCode() < 300) {
+                    validateAcceptedResponse(response);
+                    return;
+                }
+                if (!isRetryableStatus(response.getCode()) || attempt >= maxRetries) {
+                    throw new IOException(
+                            "Mem0 add request failed with HTTP status " + response.getCode());
+                }
+                waitBeforeRetry(attempt);
             }
         } catch (IOException e) {
             throw e;
         } catch (Exception e) {
             throw new IOException("Failed to send Mem0 add request", e);
+        }
+    }
+
+    private void validateAcceptedResponse(HttpResponse response) throws IOException {
+        JsonNode responseBody = objectMapper.readTree(response.getContent());
+        JsonNode eventId = responseBody == null ? null : responseBody.get("event_id");
+        if (eventId == null || eventId.isNull() || eventId.asText().trim().isEmpty()) {
+            throw new IOException("Mem0 add response did not contain a nonblank event_id");
+        }
+    }
+
+    static boolean isRetryableStatus(int statusCode) {
+        return statusCode == 408 || statusCode == 429 || statusCode >= 500;
+    }
+
+    private void waitBeforeRetry(int attempt) throws IOException {
+        long delay =
+                Math.min(
+                        (long) retryBackoffMultiplierMillis * (attempt + 1),
+                        (long) retryBackoffMaxMillis);
+        if (delay <= 0) {
+            return;
+        }
+        try {
+            TimeUnit.MILLISECONDS.sleep(delay);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException("Interrupted while retrying Mem0 add request", e);
         }
     }
 
