@@ -33,8 +33,6 @@ import java.lang.reflect.InvocationTargetException;
 
 public class CompatibleDebeziumJsonDeserializationSchema
         implements DeserializationSchema<SeaTunnelRow> {
-    private static final long serialVersionUID = 6968200450897943443L;
-
     public static final String IDENTIFIER = "compatible_debezium_json";
     public static final String FIELD_TOPIC = "topic";
     public static final String FIELD_KEY = "key";

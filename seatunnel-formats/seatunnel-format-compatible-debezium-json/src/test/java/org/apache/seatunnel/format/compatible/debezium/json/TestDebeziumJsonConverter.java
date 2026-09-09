@@ -36,7 +36,6 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.data.Envelope;
 
-import java.io.ObjectStreamClass;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.time.Instant;
@@ -93,17 +92,6 @@ public class TestDebeziumJsonConverter {
                         .build();
         Struct value = envelope.update(null, after, source, Instant.EPOCH);
         return record(envelope.schema(), value);
-    }
-
-    @Test
-    public void testSerializationIdsRemainCompatibleWithPreSt3742Classes() {
-        Assertions.assertEquals(
-                -4309014023723437706L,
-                ObjectStreamClass.lookup(DebeziumJsonConverter.class).getSerialVersionUID());
-        Assertions.assertEquals(
-                6968200450897943443L,
-                ObjectStreamClass.lookup(CompatibleDebeziumJsonDeserializationSchema.class)
-                        .getSerialVersionUID());
     }
 
     @Test

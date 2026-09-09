@@ -12,6 +12,7 @@
     之前 Kafka Connect 的 `Struct#get` 会应用默认值，因此会序列化为 schema 默认值。
   - **影响**：使用该格式的现有作业，在可空字段存在 schema 默认值时，输出 JSON 可能发生变化。如需保留旧的默认值替换行为，
     可将 `key.converter.replace.null.with.default=true` 或 `value.converter.replace.null.with.default=true` 设置为 `true`。
+  - **兼容性边界**：本变更不保证内部 JSON converter/deserialization schema Java 序列化对象的跨版本兼容性；这些类不是 checkpoint/savepoint 的状态类型，checkpoint/savepoint 中的 CDC split/offset 状态格式不变。跨版本升级请使用新版本重新提交任务。
 
 ### MySQL CDC Schema-Change 解析
 

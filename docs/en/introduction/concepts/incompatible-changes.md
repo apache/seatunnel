@@ -15,6 +15,7 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Existing jobs using this format may produce different JSON for nullable columns
     with schema defaults. Set `key.converter.replace.null.with.default=true` or
     `value.converter.replace.null.with.default=true` to retain the previous replacement behavior.
+  - **Compatibility boundary**: This change does not guarantee cross-version Java-serialization compatibility for the internal JSON converter/deserialization-schema objects. They are not checkpoint/savepoint state types, and the CDC split/offset state format is unchanged. Re-submit the job with the new version when upgrading across this change.
 
 ### MySQL CDC Schema-Change Parsing
 
