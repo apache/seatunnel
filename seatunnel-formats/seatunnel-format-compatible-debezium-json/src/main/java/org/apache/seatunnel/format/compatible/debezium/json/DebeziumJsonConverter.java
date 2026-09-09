@@ -49,7 +49,6 @@ import java.util.Objects;
  * Kafka class in other connectors.
  */
 public class DebeziumJsonConverter implements Serializable {
-    /** Keep the stream identity of the pre-ST-3742 converter. */
     private static final long serialVersionUID = -4309014023723437706L;
 
     private static final String INCLUDE_SCHEMA_METHOD = "convertToJsonWithEnvelope";
