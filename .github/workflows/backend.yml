@@ -164,6 +164,7 @@ jobs:
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
       edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
       benchmarks: ${{ steps.filter.outputs.benchmarks }}
+      benchmark_tools: ${{ steps.filter.outputs.benchmark_tools }}
       docs: ${{ steps.filter.outputs.docs }}
       helm: ${{ steps.filter.outputs.helm }}
       ut-modules: ${{ steps.ut-modules.outputs.modules || '[]' }}
@@ -226,11 +227,17 @@ jobs:
           echo "helm=$true_or_false" >> $GITHUB_OUTPUT
           echo "helm_files=$file_list" >> $GITHUB_OUTPUT
 
-          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml"`
+          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml" ".github/workflows/benchmarks_diagnostics.yml"`
           true_or_false=${benchmark_files%%$'\n'*}
           file_list=${benchmark_files#*$'\n'}
           echo "benchmarks=$true_or_false" >> $GITHUB_OUTPUT
           echo "benchmarks_files=$file_list" >> $GITHUB_OUTPUT
+
+          benchmark_tool_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "tools/benchmarks/**"`
+          true_or_false=${benchmark_tool_files%%$'\n'*}
+          file_list=${benchmark_tool_files#*$'\n'}
+          echo "benchmark_tools=$true_or_false" >> $GITHUB_OUTPUT
+          echo "benchmark_tools_files=$file_list" >> $GITHUB_OUTPUT
           
           engine_e2e_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-e2e/seatunnel-engine-e2e/**"`
           true_or_false=${engine_e2e_files%%$'\n'*}
@@ -561,6 +568,16 @@ jobs:
             '.*' \
             -f 1 -wi 0 -i 1 -r 1s -foe true
           find "${result_dir}" -name '*.json' -print -quit | grep -q .
+
+  benchmark-tools-test:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.benchmark_tools == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check benchmark tools
+        run: python3 -m unittest discover -s tools/benchmarks -p 'test_*.py'
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]

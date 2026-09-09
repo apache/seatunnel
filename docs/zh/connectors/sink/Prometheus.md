@@ -50,7 +50,7 @@ Prometheus 数据接收器把上游数据写入 Prometheus remote write API。�
 | retry                       | Int    | 否       | -      | HTTP 请求出现 `IOException` 时的最大重试次数。 |
 | retry_backoff_multiplier_ms | Int    | 否       | 100    | 重试退避时间倍数，单位毫秒。 |
 | retry_backoff_max_ms        | Int    | 否       | 10000  | 最大重试退避时间，单位毫秒。 |
-| batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前最多缓存的行数。 |
+| batch_size                  | Int    | 否       | 1024   | 写入 Prometheus 前缓存的行数，必须大于 0。 |
 | multi_table_sink_replica    | Int    | 否       | 1      | 多表写入时，每张表使用的写入器副本数。 |
 | common-options              | Config | 否       | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
 

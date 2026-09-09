@@ -24,8 +24,6 @@ import lombok.Getter;
 
 import java.io.Serializable;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
-
 /** The configuration class for MongoDB source. */
 @EqualsAndHashCode
 @Getter
@@ -61,7 +59,6 @@ public class MongodbReadOptions implements Serializable {
         private MongoReadOptionsBuilder() {}
 
         public MongoReadOptionsBuilder setFetchSize(int fetchSize) {
-            checkArgument(fetchSize > 0, "The fetch size must be larger than 0.");
             this.fetchSize = fetchSize;
             return this;
         }
