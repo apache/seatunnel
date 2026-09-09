@@ -265,20 +265,27 @@ public class JobHistoryService {
     }
 
     /**
-     * Persists finished job metrics with a single write-through IMap put.
+     * Persists finished job metrics with a single write-through IMap put and the configured history
+     * TTL.
      *
-     * <p>Merges against any existing finished metrics in memory, then stores the result once with
-     * the configured history TTL. Avoids {@code computeIfAbsent} followed by {@code put}, which
-     * would issue two durable MapStore writes for a newly finished job under write-through storage.
+     * <p>Locks {@code jobId}, merges {@code metrics} into the current IMap value (or an empty
+     * metrics bag when absent), then writes the merged value once. Concurrent callers for the same
+     * {@code jobId} are serialized by the IMap key lock.
      *
-     * <p>Not thread-safe for concurrent calls with the same {@code jobId}; callers must serialize
-     * access externally (see {@code JobMaster#metricsLock}).
+     * @param jobId finished job id
+     * @param metrics metrics to merge into the finished-job metrics IMap; must not be {@code null}
      */
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
-        JobMetrics existing = finishedJobMetricsImap.get(jobId);
-        JobMetrics base = existing == null ? JobMetrics.of(new HashMap<>()) : existing;
-        JobMetrics newMetrics = base.merge(metrics);
-        finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
+        Objects.requireNonNull(metrics, "metrics");
+        finishedJobMetricsImap.lock(jobId);
+        try {
+            JobMetrics existing = finishedJobMetricsImap.get(jobId);
+            JobMetrics base = existing == null ? JobMetrics.of(new HashMap<>()) : existing;
+            JobMetrics newMetrics = base.merge(metrics);
+            finishedJobMetricsImap.put(jobId, newMetrics, finishedJobExpireTime, TimeUnit.MINUTES);
+        } finally {
+            finishedJobMetricsImap.unlock(jobId);
+        }
     }
 
     private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
