@@ -417,11 +417,31 @@ public class DynamicChunkSplitterTest {
         JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
 
         assertEquals(
-                "SELECT * FROM (SELECT id, name FROM table) tmp where id > 100",
+                "SELECT * FROM (SELECT id, name FROM table) tmp WHERE id > 100",
                 wrapped.getQuery());
         assertSame(table.getTablePath(), wrapped.getTablePath());
         assertEquals(table.getPartitionColumn(), wrapped.getPartitionColumn());
         assertSame(table.getCatalogTable(), wrapped.getCatalogTable());
+    }
+
+    /** A where-referenced column missing from a narrow custom query must be auto-added. */
+    @Test
+    public void testApplyWhereConditionAutoAddsMissingFieldForNarrowQuery() {
+        JdbcSourceConfig config = buildWhereConditionConfig("where status > 1");
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder()
+                        .tablePath(TablePath.of("db", "schema", "table"))
+                        .query("SELECT id, name FROM table")
+                        .build();
+
+        JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
+
+        // Without the auto-add, the wrapped subquery would not expose "status" and the
+        // split-metadata queries would fail with a "column not found" SQL error.
+        assertEquals(
+                "SELECT * FROM (SELECT id, name , status FROM table) tmp WHERE status > 1",
+                wrapped.getQuery());
     }
 
     /** When no query is configured the table identifier must be used as the wrapped base. */
@@ -430,9 +450,7 @@ public class DynamicChunkSplitterTest {
         JdbcSourceConfig config = buildWhereConditionConfig("where id > 100");
         DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
         JdbcSourceTable table =
-                JdbcSourceTable.builder()
-                        .tablePath(TablePath.of("db", "schema", "table"))
-                        .build();
+                JdbcSourceTable.builder().tablePath(TablePath.of("db", "schema", "table")).build();
 
         JdbcSourceTable wrapped = splitter.applyWhereCondition(table);
 
@@ -440,7 +458,7 @@ public class DynamicChunkSplitterTest {
         // dialect the tableIdentifier is the fully quoted path. We only assert that the
         // wrapper is applied and the original table path is preserved.
         assertEquals(
-                "SELECT * FROM (SELECT * FROM \"db\".\"schema\".\"table\") tmp where id > 100",
+                "SELECT * FROM (SELECT * FROM \"db\".\"schema\".\"table\") tmp WHERE id > 100",
                 wrapped.getQuery());
         assertSame(table.getTablePath(), wrapped.getTablePath());
     }

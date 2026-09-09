@@ -218,10 +218,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
         StringRangeSplitDecision decision =
                 jdbcDialect.validateStringRangeSplit(
-                        getOrEstablishConnection(),
-                        applyWhereCondition(table),
-                        splitKeyName,
-                        256);
+                        getOrEstablishConnection(), applyWhereCondition(table), splitKeyName, 256);
         if (decision.isSafe()) {
             return StringSplitStrategy.RANGE;
         }
@@ -262,7 +259,9 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     /**
      * Wraps the table query with the configured where condition so that split metadata queries
      * (min/max, row count, chunk boundary, sampling) run on the same data scope as the split reads,
-     * which apply the where condition separately in {@link #createPreparedStatement}. Returns the
+     * which apply the where condition separately in {@link #createPreparedStatement}. Reuses {@link
+     * SqlWhereConditionHelper#applyWhereConditionWithWrap} so where-referenced columns missing from
+     * a narrow custom query projection are auto-added, exactly like the read path. Returns the
      * table unchanged when no where condition is configured.
      */
     protected JdbcSourceTable applyWhereCondition(JdbcSourceTable table) {
@@ -276,9 +275,8 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                                 "SELECT * FROM %s",
                                 jdbcDialect.tableIdentifier(table.getTablePath()));
         String effectiveQuery =
-                String.format(
-                        "SELECT * FROM (%s) tmp %s",
-                        baseQuery, config.getWhereConditionClause());
+                SqlWhereConditionHelper.applyWhereConditionWithWrap(
+                        baseQuery, config.getWhereConditionClause(), true);
         return table.withQuery(effectiveQuery);
     }
 
