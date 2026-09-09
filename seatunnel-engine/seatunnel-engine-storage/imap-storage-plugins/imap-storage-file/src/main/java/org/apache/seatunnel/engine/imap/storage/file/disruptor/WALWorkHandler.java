@@ -73,12 +73,14 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             } catch (Exception e) {
                 writeSuccess = false;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
-                // Writer reuse after non-IOException: HdfsWriter/CloudWriter serialize before any
-                // stream mutation, so unchecked failures from the current write path do not leave
-                // a torn mid-file record. A blind close/reopen would truncate the fixed wal.txt
-                // path (fs.create) and is intentionally not done here. IOException mid-write can
-                // still leave a partial record; that pre-existing risk is unchanged by this catch
-                // widening.
+                // No writer reset/reopen here. HdfsWriter/CloudWriter serialize before mutating the
+                // stream, so unchecked failures from the current write path do not leave a torn
+                // mid-file record. Blind close + fs.create would truncate the fixed wal.txt path.
+                // A mid-write IOException can still leave a partial trailing frame; DefaultReader
+                // stops when the length prefix claims more bytes than remain, so prior complete
+                // records stay readable and the incomplete trailer is skipped (see
+                // DefaultReaderTornTrailingRecordTest). That recoverability is why we keep the
+                // existing writer rather than risk truncating the WAL on reopen.
             }
             // Never let response publishing kill the sole disruptor consumer.
             executeResponse(requestId, writeSuccess);

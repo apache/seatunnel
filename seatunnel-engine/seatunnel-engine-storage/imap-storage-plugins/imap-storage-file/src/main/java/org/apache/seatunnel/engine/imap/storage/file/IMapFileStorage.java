@@ -318,10 +318,19 @@ public class IMapFileStorage implements IMapStorage {
 
     private boolean queryExecuteStatus(long requestId, long timeout) {
         RequestFuture requestFuture = RequestFutureCache.get(requestId);
+        long waitStartedNanos = System.nanoTime();
         try {
             return Boolean.TRUE.equals(requestFuture.get(timeout, TimeUnit.MILLISECONDS));
+        } catch (TimeoutException e) {
+            long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
+            log.warn(
+                    "wait for write status timed out for requestId {} after {} ms (limit {} ms)",
+                    requestId,
+                    elapsedMs,
+                    timeout);
+            log.debug("wait for write status timed out for requestId {}", requestId, e);
         } catch (Exception e) {
-            log.error("wait for write status error", e);
+            log.error("wait for write status error for requestId {}", requestId, e);
         } finally {
             RequestFutureCache.remove(requestId);
         }
@@ -331,18 +340,24 @@ public class IMapFileStorage implements IMapStorage {
     private Set<Object> batchQueryExecuteFailsStatus(
             Map<Long, Object> requestMap, Set<Object> failures) {
         // Shared deadline across the batch so a stuck worker cannot block storeAll/deleteAll for
-        // N × writDataTimeoutMilliseconds.
+        // N × writDataTimeoutMilliseconds. Computed once before the loop; each timed get uses the
+        // remaining time clamped to a non-negative value (skip wait when already expired).
+        long waitStartedNanos = System.nanoTime();
         long deadlineNanos =
-                System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
+                waitStartedNanos + TimeUnit.MILLISECONDS.toNanos(this.writDataTimeoutMilliseconds);
         for (Map.Entry<Long, Object> entry : requestMap.entrySet()) {
             boolean success = false;
             RequestFuture requestFuture = RequestFutureCache.get(entry.getKey());
             try {
-                long remainingNanos = deadlineNanos - System.nanoTime();
-                if (remainingNanos <= 0L) {
+                long remainingNanos = Math.max(0L, deadlineNanos - System.nanoTime());
+                if (remainingNanos == 0L) {
+                    long elapsedMs =
+                            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
                     log.warn(
-                            "shared batch write deadline exceeded before waiting for requestId {}",
-                            entry.getKey());
+                            "shared batch write deadline exceeded before waiting for requestId {} (elapsed {} ms, limit {} ms)",
+                            entry.getKey(),
+                            elapsedMs,
+                            this.writDataTimeoutMilliseconds);
                 } else {
                     success =
                             Boolean.TRUE.equals(
@@ -350,9 +365,16 @@ public class IMapFileStorage implements IMapStorage {
                 }
             } catch (TimeoutException e) {
                 // Expected when the shared batch deadline elapses; avoid an ERROR stack per key.
-                log.warn("wait for write status timed out for requestId {}", entry.getKey());
+                long elapsedMs =
+                        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - waitStartedNanos);
+                log.warn(
+                        "wait for write status timed out for requestId {} after {} ms (shared limit {} ms)",
+                        entry.getKey(),
+                        elapsedMs,
+                        this.writDataTimeoutMilliseconds);
+                log.debug("wait for write status timed out for requestId {}", entry.getKey(), e);
             } catch (Exception e) {
-                log.error("wait for write status error", e);
+                log.error("wait for write status error for requestId {}", entry.getKey(), e);
             } finally {
                 RequestFutureCache.remove(entry.getKey());
             }

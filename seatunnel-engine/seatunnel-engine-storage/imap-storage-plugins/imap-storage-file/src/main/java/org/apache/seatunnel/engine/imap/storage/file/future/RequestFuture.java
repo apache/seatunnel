@@ -55,11 +55,11 @@ public class RequestFuture implements Future<Boolean> {
     }
 
     /**
-     * Blocks until the WAL append completes.
+     * Blocks indefinitely until the WAL append completes.
      *
      * <p>Production call sites use {@link #get(long, TimeUnit)} with the configured write timeout.
-     * This untimed overload exists for {@link Future} contract compliance and must not be used
-     * where an unbounded wait is unacceptable.
+     * This untimed overload exists for {@link Future} contract compliance only and must not be used
+     * where an unbounded wait is unacceptable. No production caller currently invokes this method.
      */
     @Override
     public Boolean get() throws InterruptedException {
