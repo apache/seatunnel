@@ -440,14 +440,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
      * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
      *
      * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
-     * remaining lifecycles from being closed.
+     * lifecycle throws an {@link IOException} or {@link RuntimeException}, the error is collected
+     * but does not prevent the remaining lifecycles from being closed.
      *
      * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
+     * @throws RuntimeException if a lifecycle close fails with an unchecked exception
      */
     @Override
     public void close() throws IOException {
-        IOException[] closeException = {null};
+        Throwable[] closeException = {null};
         try {
             super.close();
         } catch (IOException e) {
@@ -458,7 +459,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         flowLifeCycle -> {
                             try {
                                 flowLifeCycle.close();
-                            } catch (IOException e) {
+                            } catch (IOException | RuntimeException e) {
                                 log.error("Close FlowLifeCycle error.", e);
                                 if (closeException[0] == null) {
                                     closeException[0] = e;
@@ -467,8 +468,11 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 }
                             }
                         });
-        if (closeException[0] != null) {
-            throw closeException[0];
+        if (closeException[0] instanceof IOException) {
+            throw (IOException) closeException[0];
+        }
+        if (closeException[0] instanceof RuntimeException) {
+            throw (RuntimeException) closeException[0];
         }
     }
 
