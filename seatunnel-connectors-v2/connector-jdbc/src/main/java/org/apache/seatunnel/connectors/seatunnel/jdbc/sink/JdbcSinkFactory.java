@@ -60,11 +60,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
@@ -172,6 +174,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
      */
     private CatalogTable applyPrimaryKeys(
             Map<String, String> map, CatalogTable catalogTable, List<String> primaryKeys) {
+        validatePrimaryKeyColumns(primaryKeys, catalogTable.getTablePath().getTableName());
         map.put(JdbcSinkOptions.PRIMARY_KEYS.key(), String.join(",", primaryKeys));
         PrimaryKey configPk =
                 PrimaryKey.of(
@@ -233,11 +236,40 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     }
 
     /**
-     * Resolves the per-table primary key mapping from {@code multi-table_config.primary_keys}.
+     * Validates that each resolved primary key column is a non-empty plain identifier that does not
+     * contain a comma, so it can be safely comma-joined into {@code PRIMARY_KEYS} and used in
+     * generated SQL.
+     *
+     * @param primaryKeys the resolved key columns
+     * @param tableName the table being processed, used in the error message
+     * @throws JdbcConnectorException when a column name is blank or contains a comma
+     */
+    private void validatePrimaryKeyColumns(List<String> primaryKeys, String tableName) {
+        for (String key : primaryKeys) {
+            if (StringUtils.isBlank(key)) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                        String.format(
+                                "Resolved primary key column for table '%s' is empty.", tableName));
+            }
+            if (key.contains(",")) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                        String.format(
+                                "Resolved primary key column '%s' for table '%s' must not contain a comma.",
+                                key, tableName));
+            }
+        }
+    }
+
+    /**
+     * Resolves the per-table primary key mapping from {@code multi_table_config.primary_keys}.
      *
      * <p>Each key is a Java regular expression matched against the upstream table name using full
-     * match semantics; the first matching pattern in declaration order wins. An unmatched table
-     * returns {@link Optional#empty()}, leaving the fallback logic to run.
+     * match semantics; the first matching pattern in declaration order wins. Every pattern is
+     * compiled eagerly so an invalid expression fails fast with {@code JDBC-12} instead of
+     * surfacing lazily once a matching table is processed. An unmatched table returns {@link
+     * Optional#empty()}, leaving the fallback logic to run.
      *
      * @param config the sink config
      * @param catalogTable the table being processed
@@ -253,32 +285,50 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         if (!(primaryKeysObj instanceof Map)) {
             return Optional.empty();
         }
+        LinkedHashMap<Pattern, List<String>> primaryKeyMap =
+                toCompiledPatternMap((Map<?, ?>) primaryKeysObj);
         String tableName = catalogTable.getTableId().getTableName();
-        Map<?, ?> primaryKeyMap = (Map<?, ?>) primaryKeysObj;
-        for (Map.Entry<?, ?> entry : primaryKeyMap.entrySet()) {
-            String pattern = String.valueOf(entry.getKey());
-            if (matchesPattern(tableName, pattern)) {
+        for (Map.Entry<Pattern, List<String>> entry : primaryKeyMap.entrySet()) {
+            if (entry.getKey().matcher(tableName).matches()) {
                 return Optional.of(
                         expandPrimaryKeyPlaceholder(
-                                toPrimaryKeyList(entry.getValue()), catalogTable, pattern));
+                                entry.getValue(), catalogTable, entry.getKey().pattern()));
             }
         }
         return Optional.empty();
     }
 
     /**
-     * Matches a table name against a regular expression using full-match semantics.
+     * Converts the configured {@code primary_keys} map into an ordered map of compiled patterns to
+     * key-column lists. A {@link LinkedHashMap} is used so the first matching pattern in
+     * declaration order wins.
+     *
+     * @throws JdbcConnectorException when a pattern is not a valid regular expression
+     */
+    private LinkedHashMap<Pattern, List<String>> toCompiledPatternMap(Map<?, ?> primaryKeyMap) {
+        LinkedHashMap<Pattern, List<String>> ordered = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : primaryKeyMap.entrySet()) {
+            ordered.put(
+                    compilePattern(String.valueOf(entry.getKey())),
+                    toPrimaryKeyList(entry.getValue()));
+        }
+        return ordered;
+    }
+
+    /**
+     * Compiles a user-supplied regular expression and raises {@code JDBC-12} up front when it is
+     * invalid.
      *
      * @throws JdbcConnectorException when the pattern is not a valid regular expression
      */
-    private boolean matchesPattern(String tableName, String pattern) {
+    private Pattern compilePattern(String pattern) {
         try {
-            return tableName.matches(pattern);
+            return Pattern.compile(pattern);
         } catch (java.util.regex.PatternSyntaxException e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
                     String.format(
-                            "Invalid regular expression '%s' in multi-table_config.primary_keys.",
+                            "Invalid regular expression '%s' in multi_table_config.primary_keys.",
                             pattern),
                     e);
         }
@@ -309,7 +359,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         }
         throw new JdbcConnectorException(
                 JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
-                "multi-table_config.primary_keys values must be a string or a list of strings.");
+                "multi_table_config.primary_keys values must be a string or a list of strings.");
     }
 
     /**
@@ -335,7 +385,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                     throw new JdbcConnectorException(
                             JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
                             String.format(
-                                    "Table '%s' matched pattern '%s' in multi-table_config.primary_keys "
+                                    "Table '%s' matched pattern '%s' in multi_table_config.primary_keys "
                                             + "which uses '${primary_key}', but the upstream table has no primary key.",
                                     catalogTable.getTableId().getTableName(), pattern));
                 }
@@ -345,7 +395,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                     throw new JdbcConnectorException(
                             JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
                             String.format(
-                                    "Table '%s' matched pattern '%s' in multi-table_config.primary_keys "
+                                    "Table '%s' matched pattern '%s' in multi_table_config.primary_keys "
                                             + "which uses '${unique_key}', but the upstream table has no unique key.",
                                     catalogTable.getTableId().getTableName(), pattern));
                 }

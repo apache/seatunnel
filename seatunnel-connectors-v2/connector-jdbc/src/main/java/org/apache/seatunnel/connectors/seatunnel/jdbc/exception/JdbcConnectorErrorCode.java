@@ -34,7 +34,7 @@ public enum JdbcConnectorErrorCode implements SeaTunnelErrorCode {
     DATA_TYPE_CAST_FAILED("JDBC-10", "Data type cast failed"),
     REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT(
             "JDBC-11", "Refresh the table with schema change failed"),
-    INVALID_MULTI_TABLE_CONFIG("JDBC-12", "Invalid multi-table_config primary key mapping");
+    INVALID_MULTI_TABLE_CONFIG("JDBC-12", "Invalid multi_table_config primary key mapping");
 
     private final String code;
 

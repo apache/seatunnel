@@ -378,4 +378,15 @@ public class ReadableConfigTest {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
         Assertions.assertNull(readonlyConfig.toMap().get("user"));
     }
+
+    @Test
+    public void testToConfigPreservesDottedKeyExpansion() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("a.b", 1);
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(map);
+        Config config = readonlyConfig.toConfig();
+
+        Assertions.assertEquals(1, config.getInt("a.b"));
+    }
 }

@@ -175,7 +175,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | tablePrefix                               | String  | 否    | -                            |
 | tableSuffix                               | String  | 否    | -                            |
 | primary_keys                              | Array   | 否    | -                            |
-| multi-table_config                        | Object  | 否    | -                            |
+| multi_table_config                        | Object  | 否    | -                            |
 | connection_check_timeout_sec              | Int     | 否    | 30                           |
 | connect_timeout_ms                        | Int     | 否    | 86400000                     |
 | socket_timeout_ms                         | Int     | 否    | 86400000                     |
@@ -296,14 +296,14 @@ Tip: 如果目标数据库有 SCHEMA 的概念，则表参数必须写成 `xxx.x
 
 生成数据库原生 UPSERT、UPDATE 和 DELETE 语句时使用的目标键列。未配置时，SeaTunnel 会尝试从上游 catalog 元数据继承主键或第一组唯一键；仍无可用键时，自动生成的 SQL 退回普通 INSERT。
 
-### multi-table_config [object]
+### multi_table_config [object]
 
 用于多表自动生成 SQL 场景的按表主键映射，优先级高于顶层 `primary_keys` 选项：当上游表名匹配到 `primary_keys` 下声明的某个模式时，使用该映射；否则回退到现有 `primary_keys` / catalog 元数据逻辑。
 
 配置结构如下：
 
 ```hocon
-multi-table_config {
+multi_table_config {
   primary_keys {
     "<表名正则>" = ["key1", "key2"]
   }
@@ -323,7 +323,7 @@ sink {
     url = "jdbc:mysql://localhost:3306/test"
     driver = "com.mysql.cj.jdbc.Driver"
     generate_sink_sql = true
-    multi-table_config {
+    multi_table_config {
       primary_keys {
         "^t_nova_.*$" = ["${primary_key}", "DATA_SOURCE"]
       }
@@ -332,7 +332,7 @@ sink {
 }
 ```
 
-示例：`multi-table_config` 与顶层 `primary_keys` 混用。被映射命中的表使用映射值，未命中的表回退到 `primary_keys = ["merchant_id"]`。
+示例：`multi_table_config` 与顶层 `primary_keys` 混用。被映射命中的表使用映射值，未命中的表回退到 `primary_keys = ["merchant_id"]`。
 
 ```hocon
 sink {
@@ -341,7 +341,7 @@ sink {
     driver = "com.mysql.cj.jdbc.Driver"
     generate_sink_sql = true
     primary_keys = ["merchant_id"]
-    multi-table_config {
+    multi_table_config {
       primary_keys {
         "t_tyuen_txn_ext.*"          = ["id_txn_ctrl", "DATA_SOURCE"]
         "t_nova_merge_settle_serial" = ["${primary_key}", "DATA_SOURCE"]
