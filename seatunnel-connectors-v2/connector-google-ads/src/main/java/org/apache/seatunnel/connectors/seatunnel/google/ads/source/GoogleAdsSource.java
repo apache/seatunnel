@@ -211,6 +211,10 @@ public class GoogleAdsSource extends AbstractSingleSplitSource<SeaTunnelRow>
         return new GoogleAdsTableConfig(gaql, resource, customerId, fieldPaths, catalogTable);
     }
 
+    List<GoogleAdsTableConfig> getTableConfigs() {
+        return tableConfigs;
+    }
+
     private String validateFieldPath(String fieldPath) {
         if (!FIELD_PATH_PATTERN.matcher(fieldPath).matches()) {
             throw new GoogleAdsConnectorException(
