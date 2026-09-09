@@ -41,6 +41,12 @@ Run only the `SeaTunnelRow` benchmarks:
 java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark
 ```
 
+Run only the `ProtoStuffSerializer` benchmarks:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark
+```
+
 Write JSON results:
 
 ```bash
@@ -53,6 +59,15 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 
 ```bash
 java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelPipelineBenchmark
+```
+
+## Run Zeta storage benchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapJobStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapWalStorageBenchmark
 ```
 
 ## Install async-profiler

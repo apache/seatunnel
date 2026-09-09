@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jAuthenticationConditions;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkQueryInfo;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.SinkWriteMode;
 
 import com.google.auto.service.AutoService;
 
@@ -39,16 +42,31 @@ public class Neo4jSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         Neo4jSinkOptions.KEY_NEO4J_URI,
-                        Neo4jSinkOptions.KEY_DATABASE,
-                        Neo4jSinkOptions.KEY_QUERY,
-                        Neo4jSinkOptions.QUERY_PARAM_POSITION)
+                        Conditions.extension(
+                                Neo4jSinkOptions.KEY_NEO4J_URI,
+                                Neo4jAuthenticationConditions.AUTHENTICATION_METHOD))
+                .required(Neo4jSinkOptions.KEY_DATABASE, Neo4jSinkOptions.KEY_QUERY)
                 .optional(
                         Neo4jSinkOptions.KEY_USERNAME,
+                        Conditions.extension(
+                                Neo4jSinkOptions.KEY_USERNAME,
+                                Neo4jAuthenticationConditions.USERNAME_REQUIRES_PASSWORD))
+                .optional(
                         Neo4jSinkOptions.KEY_PASSWORD,
                         Neo4jSinkOptions.KEY_BEARER_TOKEN,
                         Neo4jSinkOptions.KEY_KERBEROS_TICKET,
                         Neo4jSinkOptions.KEY_MAX_CONNECTION_TIMEOUT,
-                        Neo4jSinkOptions.KEY_MAX_TRANSACTION_RETRY_TIME)
+                        Neo4jSinkOptions.KEY_MAX_TRANSACTION_RETRY_TIME,
+                        Neo4jSinkOptions.WRITE_MODE,
+                        Neo4jSinkOptions.MAX_BATCH_SIZE)
+                .conditional(
+                        Neo4jSinkOptions.WRITE_MODE,
+                        SinkWriteMode.ONE_BY_ONE,
+                        Neo4jSinkOptions.QUERY_PARAM_POSITION)
+                .conditional(
+                        Neo4jSinkOptions.WRITE_MODE,
+                        SinkWriteMode.BATCH,
+                        Conditions.greaterThan(Neo4jSinkOptions.MAX_BATCH_SIZE, 0))
                 .build();
     }
 
