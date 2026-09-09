@@ -48,6 +48,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -330,6 +331,10 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setHttpConfig(parseHttpConfig(node));
             } else if (ServerConfigOptions.METADATA.key().equals(name)) {
                 engineConfig.setMetadataConfig(parseMetadataConfigConfig(node));
+            } else if ("openlineage".equals(name)) {
+                Map<String, Object> lineageOptions =
+                        Collections.singletonMap("openlineage", parseLineageOptions(node));
+                engineConfig.setLineageOptions(lineageOptions);
             } else if (ServerConfigOptions.MasterServerConfigOptions.COORDINATOR_SERVICE
                     .key()
                     .equals(name)) {
@@ -703,5 +708,18 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             }
         }
         return metadataConfig;
+    }
+
+    private Map<String, Object> parseLineageOptions(Node lineageNode) {
+        Map<String, Object> options = new LinkedHashMap<>();
+        for (Node node : childElements(lineageNode)) {
+            Iterable<Node> children = childElements(node);
+            options.put(
+                    cleanNodeName(node),
+                    children.iterator().hasNext()
+                            ? parseLineageOptions(node)
+                            : getTextContent(node));
+        }
+        return options;
     }
 }

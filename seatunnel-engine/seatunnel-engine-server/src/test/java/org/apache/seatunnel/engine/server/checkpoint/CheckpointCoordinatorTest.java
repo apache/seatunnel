@@ -1066,6 +1066,50 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    /** Regression: a successfully notified checkpoint must trigger the lineage heartbeat hook. */
+    @Test
+    void testCompletePendingCheckpointReportsLineageHeartbeat() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            1L,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            Assertions.assertDoesNotThrow(() -> spy.completePendingCheckpoint(completedCheckpoint));
+
+            CheckpointManager checkpointManager =
+                    (CheckpointManager)
+                            ReflectionUtils.getField(spy, "checkpointManager")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "checkpointManager field not found"));
+            Mockito.verify(checkpointManager).reportLineageHeartbeat();
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     /**
      * Regression: when {@code notifyCompleted()} fails inside {@code allTaskReady()}, the method
      * must return immediately and must NOT schedule the next checkpoint trigger.

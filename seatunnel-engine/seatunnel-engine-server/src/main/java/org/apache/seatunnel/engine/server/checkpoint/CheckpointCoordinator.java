@@ -1375,6 +1375,10 @@ public class CheckpointCoordinator {
             pendingCheckpoint.abortCheckpointTimeoutFutureWhenIsCompleted();
         }
         pendingCounter.decrementAndGet();
+        // Reported only after the completed checkpoint has been booked and its timeout future
+        // disarmed: anything that delays this point delays disarming, and the timeout would then
+        // expire a checkpoint that actually succeeded.
+        checkpointManager.reportLineageHeartbeat();
 
         if (isCompleted()) {
             cleanPendingCheckpoint(CheckpointCloseReason.CHECKPOINT_COORDINATOR_COMPLETED);

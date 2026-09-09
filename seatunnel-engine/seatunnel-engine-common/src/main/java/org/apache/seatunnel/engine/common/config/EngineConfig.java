@@ -133,6 +133,8 @@ public class EngineConfig {
 
     private MetadataConfig metadataConfig = ServerConfigOptions.METADATA.defaultValue();
 
+    private Map<String, Object> lineageOptions = Collections.emptyMap();
+
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);
         this.backupCount = newBackupCount;
