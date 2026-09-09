@@ -67,6 +67,13 @@ Fixture preparation, environment startup, and cleanup belong outside the timed o
 their cost is the subject of the test. The benchmark should make this boundary explicit and verify
 that the measured work produces a valid result.
 
+For `IMapJobStorageBenchmark.runningJobGrowth` and `completedJobHistoryGrowth`, each iteration uses
+unique keys and checks that the whole growth batch remains resident in the IMaps. Because
+`FileMapStore.loadAll` always replays the full WAL into heap, durable MapStore reload is sampled
+only on the first empty-pressure iteration and again at trial tear-down (one representative key,
+with the rest of the batch asserted resident), instead of replaying the WAL between every SingleShot
+sample.
+
 ### Execution Settings
 
 The shared JMH configuration defines 3 forks, 3 warmup iterations, and 5 measurement iterations.

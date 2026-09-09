@@ -62,6 +62,11 @@ JMH 负责独立 JVM、预热、测量和结果采集。环境上下文负责准
 测试数据准备、环境启动和清理通常放在计时之外；只有它们本身就是研究对象时，才纳入测量。
 基准测试应明确这个边界，并校验被测工作确实产生了有效结果。
 
+对于 `IMapJobStorageBenchmark.runningJobGrowth` 和 `completedJobHistoryGrowth`，每次迭代使用唯一
+Key，并校验整批增长条目仍驻留在 IMap 中。由于 `FileMapStore.loadAll` 总会把整段 WAL 重放进堆，
+持久化校验只在空压力（`initialStoredJobCount=0`）的首个迭代采样，并在 Trial 结束时 reload 一个
+代表性 Key（同时断言同批其余 Key 仍驻留），而不是在每个 SingleShot sample 之间都重放 WAL。
+
 ### 运行配置
 
 共享 JMH 配置定义 3 个 fork、3 次预热和 5 次测量。每个 fork 在独立 JVM 中运行，预热在
