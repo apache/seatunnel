@@ -191,6 +191,15 @@ public class ServerConfigOptions {
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
 
+        public static final Option<Integer> HEALTH_METRICS_TIMEOUT_SECONDS =
+                Options.key("health-metrics-timeout-seconds")
+                        .intType()
+                        .defaultValue(3)
+                        .withDescription(
+                                "The shared deadline (in seconds) for collecting health metrics from all cluster members "
+                                        + "for the system-monitoring-information REST API. Members that do not answer in time "
+                                        + "are reported with a timeout marker instead of blocking the response.");
+
         /////////////////////////////////////////////////
         // The options for checkpoint start
         public static final Option<Integer> CHECKPOINT_INTERVAL =

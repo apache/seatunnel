@@ -26,13 +26,14 @@ import java.util.Locale;
 public class SeaTunnelHealthMonitorTest {
 
     /**
-     * Verifies that the percentage formatter always uses {@link Locale#ROOT} so the rendered
-     * output is stable regardless of the JVM default locale. Some locales (e.g. {@code de_DE})
-     * would otherwise produce {@code 12,34} instead of {@code 12.34}.
+     * Verifies that the percentage formatter always uses {@link Locale#ROOT} so the rendered output
+     * is stable regardless of the JVM default locale. Some locales (e.g. {@code de_DE}) would
+     * otherwise produce {@code 12,34} instead of {@code 12.34}.
      */
     @Test
     public void testPercentageStringIsLocaleStable() throws Exception {
-        Method method = SeaTunnelHealthMonitor.class.getDeclaredMethod("percentageString", double.class);
+        Method method =
+                SeaTunnelHealthMonitor.class.getDeclaredMethod("percentageString", double.class);
         method.setAccessible(true);
 
         Locale previous = Locale.getDefault();
@@ -45,9 +46,7 @@ public class SeaTunnelHealthMonitorTest {
         }
     }
 
-    /**
-     * Verifies that the number-to-unit formatter always uses {@link Locale#ROOT}.
-     */
+    /** Verifies that the number-to-unit formatter always uses {@link Locale#ROOT}. */
     @Test
     public void testNumberToUnitIsLocaleStable() throws Exception {
         Method method = SeaTunnelHealthMonitor.class.getDeclaredMethod("numberToUnit", long.class);
