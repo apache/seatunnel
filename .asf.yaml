@@ -58,9 +58,9 @@ github:
         - actor_id: 118420
           actor_type: Team
           bypass_mode: always
-        # davidzollo can bypass the merge queue when necessary.
-        - actor_id: 15833811
-          actor_type: User
+        # Apache SeaTunnel public team can bypass the merge queue when necessary.
+        - actor_id: 19408713
+          actor_type: Team
           bypass_mode: pull_request
       conditions:
         ref_name:
