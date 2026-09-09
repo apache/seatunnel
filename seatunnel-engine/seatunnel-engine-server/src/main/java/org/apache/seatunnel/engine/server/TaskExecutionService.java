@@ -596,13 +596,29 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployLocalTask(taskGroup, classLoaders, jars, () -> {}, failure -> {});
     }
 
-    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+    /**
+     * Deploys a task group locally with hooks for context-publication ownership transfer.
+     *
+     * <p>Package-private so tests can inject post-publication failures at the callback/submission
+     * boundary without broadening production APIs.
+     *
+     * @param taskGroup the task group to deploy
+     * @param classLoaders map of task IDs to class loaders
+     * @param jars map of task IDs to connector jars
+     * @param onContextPublished called after the execution context (and cancellation future) are
+     *     published; used by {@link #deployTask(TaskGroupImmutableInformation)} to transfer
+     *     classloader ownership
+     * @param onFailureBeforeContextPublished cleanup when failure happens before publication
+     * @return a future that completes with the task execution state
+     */
+    PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars,
             Runnable onContextPublished,
             Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
         resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
@@ -611,30 +627,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 logger.severe(
                                         String.format(
                                                 "Task %s complete with error %s",
-                                                taskGroup.getTaskGroupLocation(),
-                                                ExceptionUtils.getMessage(s)));
+                                                taskGroupLocation, ExceptionUtils.getMessage(s)));
                             }
                             if (r == null) {
                                 r =
                                         new TaskExecutionState(
-                                                taskGroup.getTaskGroupLocation(),
-                                                ExecutionState.FAILED,
-                                                s);
+                                                taskGroupLocation, ExecutionState.FAILED, s);
                             }
                             logger.info(
                                     String.format(
                                             "Task %s complete with state %s",
                                             r.getTaskGroupLocation(), r.getExecutionState()));
-                            notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
+                            notifyTaskStatusToMaster(taskGroupLocation, r);
                         }),
                 MDCTracer.tracing(executorService));
         boolean contextPublished = false;
         try {
             taskGroup.init();
-            logger.info(
-                    String.format(
-                            "deploying TaskGroup %s init success",
-                            taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying TaskGroup %s init success", taskGroupLocation));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
             TaskGroupExecutionTracker executionTracker =
@@ -670,21 +680,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
+            // Publish execution and cancellation state together so a later failure can roll both
+            // back atomically; otherwise a stale executionContexts entry permanently blocks
+            // redeploy via the master-failover skip branch in deployTask.
             executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+                    taskGroupLocation, new TaskGroupContext(taskGroup, classLoaders, jars));
+            cancellationFutures.put(taskGroupLocation, cancellationFuture);
             contextPublished = true;
             onContextPublished.run();
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
-            logger.info(
-                    String.format(
-                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying TaskGroup %s success", taskGroupLocation));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
-            if (!contextPublished) {
+            if (contextPublished) {
+                executionContexts.remove(taskGroupLocation);
+                cancellationFutures.remove(taskGroupLocation);
+            } else {
                 onFailureBeforeContextPublished.accept(t);
             }
             resultFuture.completeExceptionally(t);
