@@ -224,6 +224,7 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
+        restoreCompletedCheckpointIds();
         this.scheduler =
                 Executors.newScheduledThreadPool(
                         2,
@@ -1337,15 +1338,10 @@ public class CheckpointCoordinator {
                                 .build());
             }
             if (completedCheckpointIds.size()
-                                    % coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            == 0
-                    && completedCheckpointIds.size()
-                                    / coordinatorConfig.getStorage().getMaxRetainedCheckpoints()
-                            > 1) {
+                    > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                 List<String> needDeleteCheckpointId = new ArrayList<>();
-                for (int i = 0;
-                        i < coordinatorConfig.getStorage().getMaxRetainedCheckpoints();
-                        i++) {
+                while (completedCheckpointIds.size()
+                        > coordinatorConfig.getStorage().getMaxRetainedCheckpoints()) {
                     needDeleteCheckpointId.add(completedCheckpointIds.removeFirst());
                 }
                 checkpointStorage.deleteCheckpoint(
@@ -1387,6 +1383,26 @@ public class CheckpointCoordinator {
                 checkpointCoordinatorFuture.complete(
                         new CheckpointCoordinatorState(CheckpointCoordinatorStatus.FINISHED, null));
             }
+        }
+    }
+
+    /** Restores persisted checkpoint IDs so retention survives coordinator recreation. */
+    private void restoreCompletedCheckpointIds() {
+        try {
+            checkpointStorage
+                    .getCheckpointsByJobIdAndPipelineId(
+                            String.valueOf(jobId), String.valueOf(pipelineId))
+                    .stream()
+                    .map(PipelineState::getCheckpointId)
+                    .sorted()
+                    .map(String::valueOf)
+                    .forEach(completedCheckpointIds::addLast);
+        } catch (Exception e) {
+            LOG.warn(
+                    "Failed to restore retained checkpoint IDs, job id: {}, pipeline id: {}",
+                    jobId,
+                    pipelineId,
+                    e);
         }
     }
 
