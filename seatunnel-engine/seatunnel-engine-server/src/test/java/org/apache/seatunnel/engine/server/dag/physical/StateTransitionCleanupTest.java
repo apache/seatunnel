@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -154,6 +155,22 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         } finally {
             executorService.shutdownNow();
         }
+    }
+
+    @Test
+    void testMetricsCleanupFailureDoesNotPreventRestore() throws Exception {
+        SeaTunnelServer failingServer = mock(SeaTunnelServer.class);
+        PipelineLocation location = new PipelineLocation(1L, 1);
+        org.mockito.Mockito.doThrow(new IllegalStateException("metrics map unavailable"))
+                .when(failingServer)
+                .removeMetrics(location);
+        JobMaster jobMaster = mock(JobMaster.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        java.lang.reflect.Field serverField = JobMaster.class.getDeclaredField("seaTunnelServer");
+        serverField.setAccessible(true);
+        serverField.set(jobMaster, failingServer);
+
+        Assertions.assertDoesNotThrow(() -> jobMaster.clearPipelineMetricsForRestore(location));
+        verify(failingServer).removeMetrics(location);
     }
 
     private PlanWithStateMaps createPhysicalPlan(long jobId) throws MalformedURLException {

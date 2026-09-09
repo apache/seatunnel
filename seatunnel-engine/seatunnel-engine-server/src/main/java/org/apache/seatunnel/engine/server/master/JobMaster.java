@@ -1210,7 +1210,12 @@ public class JobMaster {
      * @param pipelineLocation pipeline that is about to be restored
      */
     public void clearPipelineMetricsForRestore(PipelineLocation pipelineLocation) {
-        seaTunnelServer.removeMetrics(pipelineLocation);
+        try {
+            seaTunnelServer.removeMetrics(pipelineLocation);
+        } catch (Exception e) {
+            // Metrics cleanup is best effort and must not prevent the pipeline from recovering.
+            LOGGER.warning("Failed to clear metrics before restoring " + pipelineLocation, e);
+        }
     }
 
     private void cleanTaskGroupContext(PipelineLocation pipelineLocation) {
