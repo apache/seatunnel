@@ -20,6 +20,7 @@
 # corresponding to the module in the user Config, helping SeaTunnel to load the correct Jar package.
 # Don't modify the delimiter " -- ", just select the plugin you need
 --connectors-v2--
+connector-amazondocumentdb
 connector-amazondynamodb
 connector-azurecosmosdb
 connector-assert
@@ -46,6 +47,7 @@ connector-file-local
 connector-file-oss
 connector-file-jindo-oss
 connector-file-s3
+connector-file-gcs
 connector-file-sftp
 connector-file-obs
 connector-file-bos
@@ -106,6 +108,7 @@ connector-web3j
 connector-milvus
 connector-activemq
 connector-prometheus
+connector-deeplake
 connector-sls
 connector-qdrant
 connector-typesense

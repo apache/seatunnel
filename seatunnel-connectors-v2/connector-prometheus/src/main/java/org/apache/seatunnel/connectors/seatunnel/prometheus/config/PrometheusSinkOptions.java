@@ -41,5 +41,6 @@ public class PrometheusSinkOptions extends HttpCommonOptions {
             Options.key("batch_size")
                     .intType()
                     .defaultValue(DEFAULT_BATCH_SIZE)
-                    .withDescription("the batch size writer to prometheus");
+                    .withDescription(
+                            "the positive number of rows buffered before writing to prometheus");
 }
