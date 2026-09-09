@@ -473,6 +473,15 @@ sink {
 
 确保 Kafka Broker 开启了事务支持，且 `transaction.timeout.ms` 与 checkpoint 间隔相匹配。
 
+在 `EXACTLY_ONCE` 语义下，发送失败会让 checkpoint 失败，而不是静默丢弃数据。此时可能出现两种错误：
+
+| 错误码      | 名称                      | 含义                                        | 处理建议                                                             |
+|----------|-------------------------|-------------------------------------------|------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | 事务中已有数据，但 Kafka 始终未在 Broker 端完成该事务的注册。    | 检查 Broker 是否可用，以及 `transaction.timeout.ms` 是否小于 checkpoint 间隔。   |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | 事务中的某条数据异步发送失败。                           | 查看异常 cause；可重试的异常通常在 checkpoint 重试后恢复，其他异常需要排查 Broker 端问题。      |
+
+两种错误都会中止当前事务，受影响的数据会从上一个已完成的 checkpoint 重新发送，不会丢失。
+
 ### 如何配置 SASL/Kerberos 认证？
 
 ```hocon

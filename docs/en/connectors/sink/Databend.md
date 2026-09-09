@@ -235,6 +235,42 @@ sink {
 }
 ```
 
+### Stream MySQL CDC To Databend In Streaming Mode
+
+The same CDC settings also work in streaming jobs. The following example pipes MySQL CDC
+events into Databend continuously. Keep `batch_size` small in streaming CDC jobs so that each
+checkpoint reflects the latest writes:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "orders"
+    batch_size = 500
+    conflict_key = "id"
+    enable_delete = true
+  }
+}
+```
+
 ## Related Links
 
 - [Databend Official Website](https://databend.rs/)

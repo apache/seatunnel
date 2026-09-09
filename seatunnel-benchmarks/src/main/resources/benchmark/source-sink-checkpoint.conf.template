@@ -1,0 +1,49 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+env {
+  job.name = "checkpoint-benchmark"
+  job.mode = "STREAMING"
+  checkpoint.interval = 86400000
+  checkpoint.timeout = 120000
+  parallelism = {{pipeline_parallelism}}
+}
+
+source {
+  BenchmarkSource {
+    plugin_output = "checkpoint_rows"
+    parallelism = {{pipeline_parallelism}}
+    total_rows = 9223372036854775807
+    rate_per_second = {{source_rate_per_second}}
+    payload_size = {{payload_size}}
+    start_delay_millis = 0
+    emit_batch_size = 1
+  }
+}
+
+sink {
+  BenchmarkSink {
+    plugin_input = "checkpoint_rows"
+    parallelism = {{pipeline_parallelism}}
+    result_path = "{{result_path}}"
+    run_id = "checkpoint-benchmark"
+    expected_rows = 9223372036854775807
+    rate_per_second = 0
+    payload_size = {{payload_size}}
+    transform_operations = 0
+  }
+}

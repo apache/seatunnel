@@ -56,7 +56,7 @@ Read external data source data through JDBC.
 | NUMBER(scale != 0)                                                                                       | DECIMAL(38, 18)     |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
-| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/> | STRING              |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |
 | DATE                                                                                                     | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                             | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                      | BYTES               |

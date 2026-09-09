@@ -25,6 +25,7 @@
     <artifactId>connector-jdbc-e2e-part-2</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Jdbc : Part 2</name>
     <properties>
+        <mysql.legacy.e2e.version>8.0.16</mysql.legacy.e2e.version>
         <testcontainer.milvus.version>1.19.8</testcontainer.milvus.version>
         <testcontainer.oceanbase.version>1.20.1</testcontainer.oceanbase.version>
     </properties>
@@ -66,8 +67,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
             <exclusions>
                 <exclusion>
@@ -98,4 +99,35 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>stage-legacy-mysql-e2e-driver</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>mysql</groupId>
+                                    <artifactId>mysql-connector-java</artifactId>
+                                    <version>${mysql.legacy.e2e.version}</version>
+                                    <destFileName>mysql-legacy.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

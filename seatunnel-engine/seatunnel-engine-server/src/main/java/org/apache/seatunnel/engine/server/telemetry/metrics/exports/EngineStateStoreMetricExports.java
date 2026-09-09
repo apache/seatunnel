@@ -47,6 +47,7 @@ public class EngineStateStoreMetricExports extends AbstractCollector {
                     EngineStateStoreNames.CHECKPOINT_MONITOR,
                     Constant.IMAP_CONNECTOR_JAR_REF_COUNTERS,
                     EngineStateStoreNames.CHECKPOINT_ID,
+                    EngineStateStoreNames.ERROR_HANDLER_COUNTER,
                     Constant.IMAP_PENDING_PIPELINE_CLEANUP);
 
     public EngineStateStoreMetricExports(Node node) {

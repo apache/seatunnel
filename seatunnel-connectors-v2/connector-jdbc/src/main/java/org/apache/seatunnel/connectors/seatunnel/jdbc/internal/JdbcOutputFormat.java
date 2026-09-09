@@ -35,8 +35,11 @@ import java.sql.SQLDataException;
 import java.sql.SQLException;
 import java.sql.SQLIntegrityConstraintViolationException;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -58,8 +61,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient int batchCount = 0;
     private transient volatile boolean closed = false;
     private transient volatile boolean flushFailed = false;
+    private transient volatile boolean commitFailed = false;
     private transient volatile Exception flushException;
     private transient long lastFlushTimeMs;
+    private transient boolean failFastOnRowLevelSqlState;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -116,13 +121,19 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     }
 
     public final synchronized void writeRecord(I record) {
+        writeRecordWithAutoFlush(record);
+    }
+
+    public final synchronized boolean writeRecordWithAutoFlush(I record) {
         checkFlushException();
         try {
             addToBatch(record);
             batchCount++;
             if (batchCount > 0 && (isOverMaxBatchSizeLimit() || isOverMaxBatchIntervalLimit())) {
                 flush();
+                return true;
             }
+            return false;
         } catch (Exception e) {
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
@@ -133,6 +144,40 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
 
     protected void addToBatch(I record) throws SQLException {
         jdbcStatementExecutor.addToBatch(record);
+    }
+
+    /**
+     * Clears pending batched statements without executing them. Used for row-level error handling
+     * to discard failed batches.
+     */
+    public synchronized void clearBatchSilently() {
+        try {
+            jdbcStatementExecutor.clearBatch();
+            batchCount = 0;
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                    "Failed to clear JDBC batch after row-level error.",
+                    e);
+        }
+    }
+
+    /**
+     * Clears the failure latch only after a failed row batch has been discarded and rolled back.
+     */
+    public synchronized void resetAfterRowError() {
+        if (failFastOnRowLevelSqlState && batchCount == 0 && !commitFailed) {
+            flushFailed = false;
+            flushException = null;
+        }
+    }
+
+    public boolean hasCommitFailed() {
+        return commitFailed;
+    }
+
+    public synchronized void setFailFastOnRowLevelSqlState(boolean failFastOnRowLevelSqlState) {
+        this.failFastOnRowLevelSqlState = failFastOnRowLevelSqlState;
     }
 
     public synchronized void flush() throws IOException {
@@ -163,6 +208,11 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             } catch (SQLException e) {
                 recordFlushException(e);
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
+                // Row-error mode delegates failed data batches to the writer for rollback.
+                if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
+                    throw new JdbcConnectorException(
+                            CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
+                }
 
                 List<SQLException> sqlExceptions = findSqlExceptions(e);
                 SQLException nonRetryableDataException =
@@ -245,6 +295,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
             try {
                 connection.commit();
             } catch (SQLException e) {
+                commitFailed = true;
                 recordFlushException(e);
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
@@ -253,6 +304,19 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                         e);
             }
         }
+    }
+
+    private boolean isRowLevelSqlState(SQLException sqlException) {
+        Set<SQLException> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        SQLException current = sqlException;
+        while (current != null && visited.add(current)) {
+            String sqlState = current.getSQLState();
+            if (sqlState != null && (sqlState.startsWith("22") || sqlState.startsWith("23"))) {
+                return true;
+            }
+            current = current.getNextException();
+        }
+        return false;
     }
 
     /** Executes prepared statement and closes all resources of this instance. */

@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -38,7 +39,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.PullPolicy;
@@ -170,29 +170,13 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands1 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(
-                        0, extraCommands1.getExitCode(), extraCommands1.getStderr());
-                Container.ExecResult extraCommands2 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + schemaChangeCase.getDriverUrl());
-                Assertions.assertEquals(
-                        0, extraCommands2.getExitCode(), extraCommands2.getStderr());
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                DependencyJar.ofClassName(schemaChangeCase.getDriverClassName())
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     @Order(1)
@@ -365,10 +349,11 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
      * running schema-change DDL bursts.
      */
     private void waitForStreamingReady(String sourceTable, String sinkTable) {
+        // Keep the probe database-neutral because JDBC drivers can return different decimal scales.
         executeSourceSql(
                 String.format(
                         "INSERT INTO %s.%s (id, name, description, weight) "
-                                + "VALUES (%d, '%s', '%s', 0.0) "
+                                + "VALUES (%d, '%s', '%s', NULL) "
                                 + "ON DUPLICATE KEY UPDATE "
                                 + "name = VALUES(name), description = VALUES(description), weight = VALUES(weight)",
                         SOURCE_DATABASE,

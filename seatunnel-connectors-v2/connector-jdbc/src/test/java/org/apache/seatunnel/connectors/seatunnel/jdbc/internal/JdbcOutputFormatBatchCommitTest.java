@@ -117,6 +117,32 @@ class JdbcOutputFormatBatchCommitTest {
         Mockito.verify(provider, Mockito.never()).reestablishConnection();
     }
 
+    @Test
+    void testRowErrorRecoveryCannotClearAmbiguousCommitFailure() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+        Mockito.doThrow(new SQLException("deferred constraint failed", "23000"))
+                .when(connection)
+                .commit();
+        CountingExecutor executor = new CountingExecutor();
+        JdbcOutputFormat<SeaTunnelRow, CountingExecutor> format =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor, true);
+        format.setFailFastOnRowLevelSqlState(true);
+        format.open();
+        format.writeRecord(new SeaTunnelRow(new Object[] {"row"}));
+
+        Assertions.assertThrows(JdbcConnectorException.class, format::flush);
+        Assertions.assertTrue(format.hasCommitFailed());
+        format.clearBatchSilently();
+        format.resetAfterRowError();
+        Assertions.assertThrows(JdbcConnectorException.class, format::checkFlushException);
+        Assertions.assertEquals(1, executor.executeBatchCalls);
+        Mockito.verify(provider, Mockito.never()).reestablishConnection();
+    }
+
     private static JdbcConnectionConfig buildConnectionConfig() {
         return JdbcConnectionConfig.builder()
                 .url("jdbc:test")

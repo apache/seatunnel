@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 `Sink: HugeGraph`
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，这是一个快速且可扩展的图数据库。
@@ -14,11 +20,11 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且可以按 `batch_size` 或 `batch_interval_ms` 刷新缓存数据。
+该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且会在达到 `batch_size`、checkpoint 或 close 时刷新缓存数据。
 
 :::caution
 
@@ -38,7 +44,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `username`          | String  | 否       | -      | 用于HugeGraph身份验证的用户名。                                        |
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
-| `batch_interval_ms` | Integer | 否       | 5000   | 刷新批次前等待的最大时间（毫秒）。                                     |
+| `batch_interval_ms` | Integer | 否       | 5000   | 为兼容性保留。在 Zeta 上需要定时刷新时，请在作业 `env` 中配置 `sink.flush.interval`。 |
 | `batch_failure_fallback` | Boolean | 否   | true   | 批量写入失败时，降级为逐条写入，使单条“毒药”记录不再拖垮整批。失败记录会记录日志并跳过，其余成功；若整批全部失败（系统性错误）则抛出。设为 `false` 则整批失败。 |
 | `max_insert_errors` | Integer | 否       | 500    | 逐条降级（`batch_failure_fallback=true`）累计跳过的失败记录达到该数量后使任务失败，用于约束原本无上限的“毒药”记录静默跳过。设为 `-1` 表示不限。仅在开启 `batch_failure_fallback` 时生效。 |
 | `failure_data_path` | String  | 否       | -      | 可选本地目录。设置后，逐条降级跳过的每条记录（映射后的 id、label、属性及服务端错误）会追加写入按子任务区分的文件（`hugegraph-sink-failures-subtask-N.log`）以便离线排查。集群模式下文件写在运行该 sink 子任务的 worker 节点上。 |
@@ -60,6 +66,18 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `ignored_fields`           | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
 
 如果同时配置 `mappings` 和 `schema_config`，connector 会使用 `mappings`，并输出警告说明 `schema_config` 被忽略。
+
+## 定时刷新
+
+定时刷新是仅由 Zeta 支持的引擎级能力。在作业的 `env` 中配置 `sink.flush.interval` 后，即使尚未达到 `batch_size`，HugeGraph Sink 也会写出待处理的记录。Spark 和 Flink 不会注入 `FlushSignal`，因此不会触发这种定时刷新。
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+HugeGraph 定时刷新复用连接器现有的同步批量刷新。失败会直接传递给引擎，而不会被连接器自建后台线程延迟暴露。
 
 ### 映射配置 (`mappings`)
 
@@ -276,6 +294,82 @@ sink {
           person1_name = "name"
           person2_name = "name"
         }
+      }
+    ]
+  }
+}
+```
+
+### 3. 写入 DELETE 行
+
+Sink 会按行 kind 处理数据。`DELETE` 行只需要提供重建元素 id 所需的字段，其他列可以省略。把 `delete_vertex_with_edges` 设为 `true` 后，删除顶点时会同时删除其相连的边。
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields = {
+        name = "string"
+      }
+    }
+    rows = [
+      {
+        kind = DELETE
+        fields = ["bob"]
+      }
+    ]
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    delete_vertex_with_edges = true
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "PRIMARY_KEY"
+        idFields = ["name"]
+      }
+    ]
+  }
+}
+```
+
+### 4. 从 HugeGraph Source 整体克隆
+
+当上游是 HugeGraph Source 时，每行已经带有预留列（顶点为 `~id`，边端点为 `~source_id` / `~target_id`），直接复用这些 id 即可完整还原图。下面的示例把 `multi_table_sink_replica` 调大，让 sink 在 source 读取多 label 时能并行写出。
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  HugeGraph {
+    host = "src-host"
+    port = 8080
+    graph_name = "hugegraph"
+    label_type = "VERTEX"
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "dst-host"
+    port = 8080
+    graph_name = "hugegraph"
+    multi_table_sink_replica = 2
+    batch_size = 500
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "CUSTOMIZE_STRING"
+        idFields = ["~id"]
       }
     ]
   }
