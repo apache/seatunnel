@@ -338,8 +338,3 @@ regression with the unprofiled PR comparison.
    [Benchmarking Distributed Stream Data Processing Systems](https://arxiv.org/pdf/1802.08496),
    ICDE 2018.
 
-### Related Documentation
-
-- [Busyness and Backpressure](./busyness-and-backpressure.md)
-- [Monitoring Metrics](./telemetry.md)
-- [Tuning Guide](./tuning-guide.md)

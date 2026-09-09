@@ -317,9 +317,3 @@ lock 模式显示 0 个样本通常表示本次运行未观察到锁竞争。Pro
 3. Jeyhun Karimov 等，
    [Benchmarking Distributed Stream Data Processing Systems](https://arxiv.org/pdf/1802.08496)，
    ICDE 2018。
-
-### 相关文档
-
-- [忙碌度与背压](./busyness-and-backpressure.md)
-- [监控与指标](./telemetry.md)
-- [调优指南](./tuning-guide.md)
