@@ -439,18 +439,18 @@ public abstract class SeaTunnelTask extends AbstractTask {
     /**
      * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
      *
-     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
-     * remaining lifecycles from being closed.
+     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any close
+     * operation fails, the error is collected but does not prevent the remaining lifecycles from
+     * being closed.
      *
      * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
      */
     @Override
     public void close() throws IOException {
-        IOException[] closeException = {null};
+        Throwable[] closeException = {null};
         try {
             super.close();
-        } catch (IOException e) {
+        } catch (Throwable e) {
             closeException[0] = e;
         }
         MDCTracer.tracing(allCycles.stream())
@@ -458,7 +458,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                         flowLifeCycle -> {
                             try {
                                 flowLifeCycle.close();
-                            } catch (IOException e) {
+                            } catch (Throwable e) {
                                 log.error("Close FlowLifeCycle error.", e);
                                 if (closeException[0] == null) {
                                     closeException[0] = e;
@@ -468,7 +468,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             }
                         });
         if (closeException[0] != null) {
-            throw closeException[0];
+            sneakyThrow(closeException[0]);
         }
     }
 
