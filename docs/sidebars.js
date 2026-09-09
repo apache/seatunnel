@@ -404,6 +404,7 @@ const sidebars = {
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",
                 "developer/contribute-transform-v2-guide",
+                "developer/contribute-performance-guide",
                 "developer/docs-format-specification",
                 "developer/new-license"
             ]

@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.slack;
+package org.apache.seatunnel.connectors.seatunnel.snmp.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.slack.sink.SlackSinkFactory;
+import java.io.Closeable;
+import java.io.IOException;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+interface SnmpSetClient extends Closeable {
 
-class SlackFactoryTest {
-
-    @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlackSinkFactory()).optionRule());
-    }
+    void set(SnmpSetRequest request) throws IOException;
 }
