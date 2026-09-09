@@ -13,32 +13,56 @@ title: Zeta 基准测试
 
 ## 工作原理
 
-`seatunnel-benchmarks` 提供三类测试：
+`seatunnel-benchmarks` 提供以下测试：
 
 - `SeaTunnelRowBenchmark`：测试 Row 创建、读取、复制、投影和大小计算等热点代码。
 - `SeaTunnelPipelineBenchmark`：启动单节点嵌入式 Zeta 集群，并通过正常的 Client 和配置
   解析 API 运行完整的有界作业。
 - `CheckpointingTimeBenchmark`：保持一个流式作业运行，并测量显式触发普通 Checkpoint 的
   完成耗时。
+- `CheckpointStorageBenchmark`：测量 Checkpoint 协调完成后的 ID 分配、完成态 Checkpoint
+  持久化和 Checkpoint 概览更新。
+- `IMapJobStorageBenchmark`：通过生产 IMap 测量任务状态迁移、Metrics 上报、运行中与已完成
+  作业增长以及运行中作业恢复。
+- `IMapDagStorageBenchmark`：使用可控 DAG 大小测量 `JobDAGInfo` 持久化增长和重新加载。
+- `IMapWalStorageBenchmark`：分别改变有效 Key 数和单 Key 历史深度，测量文件型 IMap WAL
+  追加耗时、字节增长和恢复性能。
 
-MiniCluster 在每个 JMH Trial 的 Setup 阶段启动，不计入测量。作业提交、调度、Source、
-Transform、Sink 和作业完成都计入 JMH 测量。
+对于需要 Zeta 运行时的测试，JMH 负责 Fork、预热、测量和 Trial 生命周期；Environment
+Context 在 Trial Setup 阶段创建 Client 并启动嵌入式 Zeta。Setup 和 TearDown 不计时，只有
+`@Benchmark` 方法执行的操作计入 JMH 测量。
 
 ```mermaid
 %%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
 flowchart LR
-    Setup["启动 MiniCluster<br/>不计入 JMH"] -.-> Submit["提交作业<br/>开始计时"]
-    Submit --> Source["BenchmarkSource"]
-    Source --> Transform["BenchmarkTransform<br/>可选"]
-    Transform --> Sink["BenchmarkSink"]
-    Sink --> Finish["作业完成<br/>停止计时"]
-    Source -. "计划生成时间" .-> Sink
-    Sink -.-> Result["Pipeline JSON<br/>吞吐与延迟"]
+    subgraph JMH["JMH"]
+        direction LR
+        Runner["Benchmark Runner<br/>Fork · 预热 · 测量"]
+        Context["Environment Context<br/>Trial Setup / TearDown"]
+        Runner --> Context
+    end
+
+    subgraph Zeta["Zeta"]
+        direction LR
+        Client["SeaTunnel Client"]
+        Cluster["嵌入式 Zeta Cluster<br/>单节点或独立 Master + Worker"]
+        Client --> Cluster
+    end
+
+    Context -->|"创建 Client 并执行测试"| Client
+    Context -. "Trial 级启动 / 停止" .-> Cluster
+
+    classDef runner fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff
+    classDef runtime fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff
+    class Runner,Context runner
+    class Client,Cluster runtime
+    style JMH fill:#15142a,stroke:#8d7cf6,stroke-width:1.5px,color:#f8fbff
+    style Zeta fill:#081d24,stroke:#2dd4bf,stroke-width:1.5px,color:#f8fbff
 ```
 
-Source 使用基于绝对时间的开环调度。每条记录都携带计划生成时间；当 Zeta 跟不上时，计划
-时间仍持续向前推进，因此排队和 backlog 会体现在 event-time latency 中，不会因 Source
-等待引擎而被隐藏。
+在 `SeaTunnelPipelineBenchmark` 中，Source 使用基于绝对时间的开环调度。每条记录都携带
+计划生成时间；当 Zeta 跟不上时，计划时间仍持续向前推进，因此排队和 backlog 会体现在
+event-time latency 中，不会因 Source 等待引擎而被隐藏。
 
 ### 测试范围
 
@@ -145,6 +169,16 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 运行 ProtoStuff 序列化微基准
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar ProtoStuffSerializerBenchmark \
+  -rf json -rff seatunnel-benchmarks/target/protostuff.json
+```
+
+默认使用 4 个线程，测量 `IMapFileData` 的内存序列化和反序列化吞吐（`ops/ms`）。
+两个方法均覆盖共享 Schema 缓存的查询路径，不包含文件 I/O 和 Hazelcast 调度。
+
 ### 运行 Checkpoint 基准测试
 
 ```bash
@@ -159,6 +193,117 @@ Benchmark 的 Engine 配置），为 `engine*` 开启基于本地文件系统的
 HDFS Checkpoint 插件的 local 模式保存状态。每次 invocation 显式触发一个普通 Checkpoint，
 并等待 Zeta 完成持久化。Score 使用 `s/op`，数值越低越好；作业启动、负载建立、持久化
 校验和作业关闭不计入 invocation 时间。
+
+### 运行 Checkpoint Storage Benchmark
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointStorageBenchmark
+```
+
+`CheckpointStorageBenchmark` 使用 Coordinator 生成的 Checkpoint 状态，并通过基于
+`file:///` 的生产 HDFS Checkpoint Storage 插件执行三个纯存储热点：
+
+- `checkpointPersistenceTransaction`：原子分配 Checkpoint ID、序列化并存储完成态
+  Checkpoint，然后更新 Checkpoint 概览；
+- `checkpointIdAtomicIncrement`：单独测量生产 Checkpoint Counter State Store；
+- `checkpointOverviewIncrementalUpdate`：单独测量完成次数、最新 Checkpoint 和 Checkpoint
+  历史的更新。
+
+Barrier 传递、任务快照、ACK 等待、Fixture 生成、持久性校验和清理均不计入测量。每次
+invocation 固定执行 100 个逻辑操作，并按单个操作归一化为 `us/op`；数值越低越好。
+
+只分析持久化事务中的一个环节时，应精确选择对应方法：
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'CheckpointStorageBenchmark.checkpointIdAtomicIncrement$'
+```
+
+### 运行 IMap Job Storage Benchmark
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapJobStorageBenchmark
+```
+
+该类使用与 Zeta 相同的运行状态、历史和 Metrics IMap。Fixture 数据来自真实流式作业，作业
+启动与清理不计入测量。各方法及参数如下：
+
+- `taskGroupStateTransition`：`storedTaskGroupCount=0|1000`；
+- `runningMetricsReport`：`taskCount=10|100|1000`；
+- `runningJobGrowth` 和 `completedJobHistoryGrowth`：
+  `initialStoredJobCount=0|1000`；
+- `runningJobRecovery`：`runningJobCount=100|1000`。
+
+固定增长和状态迁移场景执行 100 个逻辑操作，并报告归一化后的 `us/op`。恢复场景先逐出
+内存值，再调用生产 `IMap.loadAll(true)` 路径并扫描恢复结果。例如，只运行最大规模的运行中
+作业恢复 Fixture：
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapJobStorageBenchmark.runningJobRecovery$' \
+  -p runningJobCount=1000
+```
+
+### 运行 IMap DAG Storage Benchmark
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark -foe true
+```
+
+`finishedJobDagStore` 通过已完成作业 DAG IMap 及其文件型 MapStore 固定写入 100 个唯一的
+生产 `JobDAGInfo`；`finishedJobDagLoad` 逐出一个值后再通过 MapStore 重新加载。
+`pipelineCount=1|10|100` 控制代码构建的 Source-to-Sink Pipeline 数量，
+`storedDagCount=0|100` 控制已有存储压力。
+
+Store 的 TearDown 在计时之外检查缓存中的首个、中间和最后一个值，并删除本批数据。
+每个 Fork 的最后一次测量结束后，会先逐出这些样本，再通过 MapStore 重新加载并校验，
+然后删除数据。中间迭代不再为校验重放 WAL：随着写入和删除记录累积，全量 WAL 扫描的
+分配量会增长，即使 TearDown 不计时，也会影响后续样本。原有写入和删除操作保持不变，
+WAL 历史仍会增长；这不是存储压缩或稳态 Benchmark。
+
+每个 Benchmark Fork 仅对最后一批数据进行持久化回读，独立测试覆盖完整批次的往返校验。
+本地文件回读只能证明持久化内容可见，不能证明崩溃后的持久性。旧版每次迭代都回读的
+结果不能与修正后的基线直接比较，也不能将差异描述为生产性能提升。
+使用 `-foe true` 确保校验失败时拒绝本次运行。分配量和 GC Profiler 的结果可能包含不计时的
+TearDown，包括最后的回读，因此不能将它们视为仅包含写入的指标。
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapDagStorageBenchmark.finishedJobDagLoad$' \
+  -p pipelineCount=100 \
+  -p storedDagCount=100
+```
+
+### 运行 IMap WAL Storage Benchmark
+
+`appendNewKey` 和 `appendHotKey` 分别执行 100 次生产 IMap 写入，同时报告归一化耗时和辅助
+指标 `walBytesPerAppend`。`pipelineCount=1|10|100` 控制序列化 DAG Payload 大小。
+`recoverAll` 在预先构建的 WAL 上执行 `IMap.loadAll(true)`；
+`uniqueKeyCount=100|1000` 控制有效值数量，`mutationsPerKey=1|10|100` 控制需要重放的过期
+历史深度。
+
+日常分析应精确选择一个方法。使用 `IMapWalStorageBenchmark` 类选择器会运行全部追加和恢复
+参数组合，可能耗时很长：
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapWalStorageBenchmark.appendHotKey$' \
+  -p pipelineCount=10
+```
+
+WAL 恢复可能耗时较长，尤其是 1,000 个 Key、每个 Key 100 次变更的组合，因此它属于按需
+诊断场景，不包含在 `benchmarks_core` 中。应显式运行一个受控参数组合：
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'IMapWalStorageBenchmark.recoverAll$' \
+  -p uniqueKeyCount=1000 \
+  -p mutationsPerKey=100
+```
+
+上述四个 Storage Benchmark 都会启动隔离的单节点 Zeta/Hazelcast 环境，开启 IMap MapStore，
+将 backup count 设为 `0`，并使用本地文件型 IMap 和 Checkpoint Storage。运行时无需 HDFS、
+S3、OSS 或其他外部存储服务。Setup、校验和清理均不计入 Score。
 
 ### 查看 Workflow 报告
 
@@ -237,7 +382,7 @@ Linux runner 使用 async-profiler 的 `ctimer` 事件进行 CPU profiling，不
 
 | 字段 | 说明 |
 |---|---|
-| `Score` | Pipeline Benchmark 每秒处理的行数，越大越好；Row 微基准使用 `ops/ms`；Checkpoint Benchmark 使用 `s/op`，越低越好。 |
+| `Score` | Pipeline Benchmark 每秒处理的行数，越大越好；Row 微基准使用 `ops/ms`；Checkpoint 完成耗时使用 `s/op`；Storage Benchmark 使用 `us/op`。每操作耗时类指标越低越好。 |
 | `Error` | 根据本次 JMH 运行内部样本计算的不确定性。 |
 | `Cnt` | 参与聚合的 Measurement 样本数，不是处理行数。 |
 | `Units` | Score 的单位。 |

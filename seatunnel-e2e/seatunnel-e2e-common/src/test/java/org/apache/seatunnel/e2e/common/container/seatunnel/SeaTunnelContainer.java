@@ -537,6 +537,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         azureSdkReactorE2eCount.updateAndGet(count -> Math.max(0, count - 1));
     }
 
+    /** Enables GCS OpenCensus thread exemptions while the GCS file E2E test is active. */
+    public static void enableGcsOpenCensusThreadExemption() {
+        gcsE2eActive = true;
+    }
+
+    /** Disables GCS OpenCensus thread exemptions after the GCS file E2E test completes. */
+    public static void disableGcsOpenCensusThreadExemption() {
+        gcsE2eActive = false;
+    }
+
     /**
      * {@code true} while the Couchbase E2E test ({@code CouchbaseIT}) is active.
      *
@@ -550,6 +560,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     /** Number of active Azure SDK E2E lifecycles. */
     static final AtomicInteger azureSdkReactorE2eCount = new AtomicInteger();
+
+    /** {@code true} while the GCS file E2E test is active. */
+    static volatile boolean gcsE2eActive = false;
 
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
@@ -586,6 +599,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         // also owns a JVM-static receiver pump and initializes Reactor's global schedulers. Scope
         // the shared thread names to Azure SDK E2E lifecycles so unrelated leaks remain visible.
         if (isAzureSdkReactorThreadExempt(threadName)) {
+            return true;
+        }
+        // The shaded GCS client's OpenCensus exporters are JVM-global daemon threads. Their names
+        // are shared by other OpenCensus users, so exempt them only for the GCS E2E lifecycle.
+        if (isGcsOpenCensusThreadExempt(threadName)) {
             return true;
         }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
@@ -633,6 +651,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 || threadName.matches("boundedElastic-\\d+")
                                 || threadName.matches("boundedElastic-evictor-\\d+")
                                 || threadName.matches("parallel-\\d+")));
+    }
+
+    static boolean isGcsOpenCensusThreadExempt(String threadName) {
+        return gcsE2eActive
+                && (threadName.startsWith("ExportComponent.ServiceExporterThread-")
+                        || threadName.startsWith("OpenCensus.Disruptor-"));
     }
 
     @Override

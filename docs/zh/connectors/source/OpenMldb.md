@@ -62,6 +62,8 @@ OpenMLDB 类型会按照所配置 `sql` 语句的结果集映射为 SeaTunnel �
 
 ### sql [string]
 
+无论使用单机模式还是集群模式，必填项 `sql` 都不能为空字符串或仅包含空白字符。
+
 针对 OpenMLDB 执行的 SQL 语句，结果集的列会成为连接器输出行的字段。
 
 ### database [string]
