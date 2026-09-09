@@ -33,6 +33,9 @@ public class Mem0SinkFactory implements TableSinkFactory {
                         Mem0Options.APP_ID_FIELD,
                         Mem0Options.RUN_ID_FIELD,
                         Mem0Options.METADATA_FIELD,
+                        Mem0Options.RETRY,
+                        Mem0Options.RETRY_BACKOFF_MULTIPLIER_MS,
+                        Mem0Options.RETRY_BACKOFF_MAX_MS,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
