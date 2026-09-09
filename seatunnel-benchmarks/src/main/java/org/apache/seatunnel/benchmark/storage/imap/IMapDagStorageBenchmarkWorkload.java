@@ -28,6 +28,8 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
+import org.openjdk.jmh.infra.IterationParams;
+import org.openjdk.jmh.runner.IterationType;
 
 import com.hazelcast.map.IMap;
 
@@ -60,10 +62,13 @@ public class IMapDagStorageBenchmarkWorkload {
     private long[] storeKeys;
     private int storedDagCountInIteration;
     private boolean loadExecuted;
+    private int measurementIteration;
+    private boolean lastMeasurementIteration;
 
     /** Constructs an exact number of production source-to-sink DAG pipelines. */
     @Setup(Level.Trial)
     public void setUp(SeaTunnelStorageEnvironmentContext environment) {
+        measurementIteration = 0;
         finishedJobDagMap =
                 environment
                         .getServer()
@@ -85,7 +90,10 @@ public class IMapDagStorageBenchmarkWorkload {
 
     /** Builds a fresh, fixed-size key set before each measured DAG-store phase. */
     @Setup(Level.Iteration)
-    public void prepareStoreIteration() {
+    public void prepareStoreIteration(IterationParams iterationParams) {
+        lastMeasurementIteration =
+                iterationParams.getType() == IterationType.MEASUREMENT
+                        && ++measurementIteration == iterationParams.getCount();
         storeKeys = new long[STORE_OPERATIONS_PER_INVOCATION];
         for (int index = 0; index < STORE_OPERATIONS_PER_INVOCATION; index++) {
             storeKeys[index] = Long.MAX_VALUE - sequence.incrementAndGet();
@@ -111,7 +119,7 @@ public class IMapDagStorageBenchmarkWorkload {
         }
     }
 
-    /** Validates durable samples and removes the fixed store batch outside measured time. */
+    /** Checks sampled values and removes the fixed store batch outside measured time. */
     @TearDown(Level.Iteration)
     public void cleanStoreIteration() {
         if (storedDagCountInIteration == 0) {
@@ -157,15 +165,19 @@ public class IMapDagStorageBenchmarkWorkload {
         sampledKeys.add(storeKeys[0]);
         sampledKeys.add(storeKeys[STORE_OPERATIONS_PER_INVOCATION / 2]);
         sampledKeys.add(storeKeys[STORE_OPERATIONS_PER_INVOCATION - 1]);
-        for (long sampledKey : sampledKeys) {
-            finishedJobDagMap.evict(sampledKey);
+        // MapStore reloads replay the full, growing WAL. Only do this after the last
+        // measurement so verification allocations cannot interfere with a later sample.
+        if (lastMeasurementIteration) {
+            for (long sampledKey : sampledKeys) {
+                finishedJobDagMap.evict(sampledKey);
+            }
+            finishedJobDagMap.loadAll(sampledKeys, true);
         }
-        finishedJobDagMap.loadAll(sampledKeys, true);
         for (long sampledKey : sampledKeys) {
             JobDAGInfo stored = finishedJobDagMap.get(sampledKey);
             if (!finishedJobDag.equals(stored)) {
                 throw new IllegalStateException(
-                        "The JobDAGInfo append was not durably persisted for key " + sampledKey);
+                        "The stored JobDAGInfo did not match for key " + sampledKey);
             }
         }
     }
