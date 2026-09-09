@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 > RabbitMQ sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to write data to RabbitMQ queues.
@@ -199,6 +205,16 @@ sink {
       }
 }
 ```
+
+## FAQ
+
+### Does RabbitMQ sink support routing to specific exchanges and routing keys?
+
+Yes. The sink publishes messages to RabbitMQ by binding to the target queue or routing configuration specified by `queue_name` and optional routing parameters.
+
+### How does RabbitMQ sink handle network reconnects and timeouts?
+
+You can tune client connection resilience using the `rabbitmq.config` block (such as `connection-timeout`, `requested-heartbeat`, and retry intervals) to prevent premature disconnection during transient network blips.
 
 ## Changelog
 

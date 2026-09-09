@@ -89,6 +89,21 @@ nc -l -v 9999
 {"name":"jared","age":17}{"name":"jared","age":18}...
 ```
 
+## FAQ
+
+### Does Socket sink append any delimiter between records?
+
+No. The sink serializes each SeaTunnel row to JSON via `JsonSerializationSchema` and writes the bytes to the TCP stream with no separator at all — neither `\n` nor any other character. Multiple records travel as one continuous concatenated byte stream (for example `{"a":1}{"a":2}{"a":3}`). The peer must therefore use a streaming JSON parser (such as Jackson's `MappingIterator`), not a line-oriented parser, to split records.
+
+### What does `max_retries` control exactly?
+
+`max_retries` is the number of times the writer retries a failed send after the TCP connection is established (connection refused, broken pipe, write timeouts, etc.). Default is `3`. Set it to `-1` to retry indefinitely, or `0` to fail the record immediately on the first write failure.
+
+### Can several Socket sink writers run in parallel?
+
+Yes. Each writer opens its own TCP connection to `host:port`, so `env.parallelism` greater than 1 produces N concurrent connections to the same socket server. Make sure the receiver on the other side is designed to handle multiple clients, otherwise it will only see one client at a time.
+
 ## Changelog
 
 <ChangeLog />
+

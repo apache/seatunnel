@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkOptions.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSinkOptions.FORMAT;
@@ -51,7 +52,8 @@ public class AmazonSqsSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, REGION)
+                .required(URL, notBlank(URL))
+                .required(REGION, notBlank(REGION))
                 .optional(ACCESS_KEY_ID, SECRET_ACCESS_KEY, FORMAT, FIELD_DELIMITER)
                 .build();
     }

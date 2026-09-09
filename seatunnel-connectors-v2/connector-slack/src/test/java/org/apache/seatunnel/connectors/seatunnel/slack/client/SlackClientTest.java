@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.slack;
-
-import org.apache.seatunnel.connectors.seatunnel.slack.sink.SlackSinkFactory;
+package org.apache.seatunnel.connectors.seatunnel.slack.client;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class SlackFactoryTest {
+import com.slack.api.methods.request.chat.ChatPostMessageRequest;
+
+class SlackClientTest {
 
     @Test
-    void optionRule() {
-        Assertions.assertNotNull((new SlackSinkFactory()).optionRule());
+    void testCreateMessageRequestUsesOAuthToken() {
+        ChatPostMessageRequest request =
+                SlackClient.createMessageRequest(
+                        "xoxb-test-token", "resolved-channel-id", "test-message");
+
+        Assertions.assertEquals("xoxb-test-token", request.getToken());
+        Assertions.assertEquals("resolved-channel-id", request.getChannel());
+        Assertions.assertEquals("test-message", request.getText());
     }
 }
