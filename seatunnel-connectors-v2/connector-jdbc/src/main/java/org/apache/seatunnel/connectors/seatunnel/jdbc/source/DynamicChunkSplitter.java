@@ -1271,10 +1271,15 @@ public class DynamicChunkSplitter extends ChunkSplitter {
      * silently drop them. Semantics implemented here: boundary computation filters such rows out
      * (every boundary query adds {@code col IS NOT NULL} for each key column), and the FIRST
      * chunk's read predicate additionally matches any row with a NULL key component via an {@code
-     * (col1 IS NULL OR col2 IS NULL ...)} disjunct. Middle and last chunk predicates ({@code >
-     * start AND <= end}) exclude NULL-component rows, so every row — including NULL-component rows
-     * — is read exactly once, by the first chunk. Rows whose key is entirely NULL land in the first
-     * chunk too.
+     * (col1 IS NULL OR col2 IS NULL ...)} disjunct. Middle and last chunk predicates explicitly
+     * append {@code (col1 IS NOT NULL AND col2 IS NOT NULL ...)}: without this guard a row whose
+     * NON-LEADING key column is NULL but whose leading-column value falls strictly between the
+     * split's boundary values would satisfy the expanded condition on the leading column alone
+     * (e.g. {@code col1 > ?} with {@code col2 IS NULL} evaluates to TRUE because the OR-expansion
+     * short-circuits) and be read twice — once by the first chunk's NULL disjunct and once by this
+     * chunk. With the guard, every row — including NULL-component rows — is read exactly once, by
+     * the first chunk. Rows whose key is entirely NULL land in the first chunk too. The
+     * single-full-table split (both bounds null) returns no WHERE clause and reads all rows.
      */
     private String buildCompositeCondition(JdbcSourceSplit split) {
         Object[] startArr = (Object[]) split.getSplitStart();
@@ -1299,12 +1304,21 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     + ")";
         } else if (isLastSplit) {
             // (col1 > ?) OR (col1 = ? AND col2 > ?) ... — lexicographic >
-            return buildExpandedTupleCondition(columnNames, ">", ">");
-        } else {
-            // (cols) > start AND (cols) <= end, both expanded
+            // The IS NOT NULL guard excludes NULL-component rows (captured by the first chunk's
+            // NULL disjunct instead): without it a row whose leading-column value falls in this
+            // chunk's range but has a NULL non-leading key component would satisfy the
+            // leading-column branch alone and be read twice (see class Javadoc).
             return buildExpandedTupleCondition(columnNames, ">", ">")
                     + " AND "
-                    + buildExpandedTupleCondition(columnNames, "<", "<=");
+                    + buildNotNullKeyCondition(columnNames);
+        } else {
+            // (cols) > start AND (cols) <= end, both expanded, plus the same IS NOT NULL guard
+            // as the last split (see above).
+            return buildExpandedTupleCondition(columnNames, ">", ">")
+                    + " AND "
+                    + buildExpandedTupleCondition(columnNames, "<", "<=")
+                    + " AND "
+                    + buildNotNullKeyCondition(columnNames);
         }
     }
 
@@ -1351,7 +1365,9 @@ public class DynamicChunkSplitter extends ChunkSplitter {
      * Builds {@code (col1 IS NOT NULL AND col2 IS NOT NULL ...)} over the quoted key columns. Used
      * by the composite boundary queries to exclude rows with a NULL key component from boundary
      * computation (such rows cannot be tuple-compared and would otherwise become corrupt boundaries
-     * or be skipped by the ORDER BY ... LIMIT 1 min/max queries).
+     * or be skipped by the ORDER BY ... LIMIT 1 min/max queries), and by the middle/last chunk read
+     * predicates to prevent NULL-component rows from being duplicated by the leading-column branch
+     * of the expanded tuple condition (such rows are captured exactly once by the first chunk).
      */
     private String buildNotNullKeyCondition(String[] columns) {
         StringBuilder where = new StringBuilder("(");

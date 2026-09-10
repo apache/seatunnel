@@ -207,6 +207,7 @@ public class CompositeKeyChunkSplitterTest {
                         new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
 
         // middle split: (a > ? OR (a = ? AND b > ?)) AND (a < ? OR (a = ? AND b <= ?))
+        // AND (a IS NOT NULL AND b IS NOT NULL)
         JdbcSourceSplit middle =
                 new JdbcSourceSplit(
                         TablePath.of("db", "schema", "table"),
@@ -220,7 +221,8 @@ public class CompositeKeyChunkSplitterTest {
         Assertions.assertEquals(
                 "SELECT * FROM `db`.`table` "
                         + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?)) "
-                        + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
+                        + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?)) "
+                        + "AND (`order_id` IS NOT NULL AND `line_no` IS NOT NULL)",
                 sql);
 
         // first split: ((a < ? OR (a = ? AND b <= ?)) OR (a IS NULL OR b IS NULL))
@@ -240,7 +242,7 @@ public class CompositeKeyChunkSplitterTest {
                         + "OR (`order_id` IS NULL OR `line_no` IS NULL))",
                 firstSql);
 
-        // last split: a > ? OR (a = ? AND b > ?)
+        // last split: a > ? OR (a = ? AND b > ?), plus the IS NOT NULL guard
         JdbcSourceSplit last =
                 new JdbcSourceSplit(
                         TablePath.of("db", "schema", "table"),
@@ -253,7 +255,8 @@ public class CompositeKeyChunkSplitterTest {
         String lastSql = splitter.createDynamicSplitQuerySQL(last, schema);
         Assertions.assertEquals(
                 "SELECT * FROM `db`.`table` "
-                        + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?))",
+                        + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?)) "
+                        + "AND (`order_id` IS NOT NULL AND `line_no` IS NOT NULL)",
                 lastSql);
     }
 
@@ -280,7 +283,8 @@ public class CompositeKeyChunkSplitterTest {
         Assertions.assertEquals(
                 "SELECT * FROM (select * from src_table) tmp "
                         + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?)) "
-                        + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
+                        + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?)) "
+                        + "AND (`order_id` IS NOT NULL AND `line_no` IS NOT NULL)",
                 sql);
     }
 
@@ -382,10 +386,15 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
-    public void testFirstSplitPredicateCapturesNullKeyComponents() {
+    public void testMiddleAndLastSplitsExcludeNullKeyComponents() {
         // The first chunk's read predicate must capture rows whose composite key contains a NULL
-        // component (which the tuple comparisons alone would silently drop), while middle and
-        // last chunk predicates exclude them so every row is read exactly once.
+        // component (which the tuple comparisons alone would silently drop) via an explicit
+        // (col IS NULL OR ...) disjunct, while middle and last chunk predicates must EXPLICITLY
+        // exclude those rows with an (col IS NOT NULL AND ...) guard: without the guard, a row
+        // with a NULL non-leading key component whose leading-column value falls strictly inside
+        // the chunk's boundary range satisfies the expanded condition on the leading column alone
+        // (e.g. `col1 > ?` is TRUE regardless of col2 IS NULL) and would be read twice — once by
+        // the first chunk's NULL disjunct and once by this chunk (data duplication).
         JdbcSourceConfig config = config();
         DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
         TableSchema schema = TableSchema.builder().columns(compositePkColumns()).build();
@@ -393,6 +402,7 @@ public class CompositeKeyChunkSplitterTest {
                 new SeaTunnelRowType(
                         new String[] {"order_id", "line_no"},
                         new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
+        String notNullGuard = "(`order_id` IS NOT NULL AND `line_no` IS NOT NULL)";
 
         JdbcSourceSplit first =
                 new JdbcSourceSplit(
@@ -406,9 +416,15 @@ public class CompositeKeyChunkSplitterTest {
         String firstSql =
                 splitter.createDynamicSplitQuerySQL(first, schema)
                         .replace("SELECT * FROM `db`.`table` WHERE ", "");
+        // The first split must capture NULL key components via the IS NULL disjunct...
         Assertions.assertTrue(
                 firstSql.contains("(`order_id` IS NULL OR `line_no` IS NULL)"),
                 "First split must capture NULL key components, got: " + firstSql);
+        // ...and must NOT carry the IS NOT NULL guard (it would exclude the very rows the NULL
+        // disjunct is supposed to capture, silently dropping them again).
+        Assertions.assertFalse(
+                firstSql.contains("IS NOT NULL"),
+                "First split must not exclude NULL key components, got: " + firstSql);
 
         JdbcSourceSplit middle =
                 new JdbcSourceSplit(
@@ -422,8 +438,15 @@ public class CompositeKeyChunkSplitterTest {
         String middleSql =
                 splitter.createDynamicSplitQuerySQL(middle, schema)
                         .replace("SELECT * FROM `db`.`table` WHERE ", "");
+        // The guard must name every composite key column, not just the leading one.
+        Assertions.assertTrue(
+                middleSql.contains(notNullGuard),
+                "Middle split must exclude NULL key components with an IS NOT NULL guard on every "
+                        + "key column, got: "
+                        + middleSql);
         Assertions.assertFalse(
-                middleSql.contains("IS NULL"), "Middle split must not capture NULL rows");
+                middleSql.contains("IS NULL"),
+                "Middle split must not capture NULL rows, got: " + middleSql);
 
         JdbcSourceSplit last =
                 new JdbcSourceSplit(
@@ -437,8 +460,14 @@ public class CompositeKeyChunkSplitterTest {
         String lastSql =
                 splitter.createDynamicSplitQuerySQL(last, schema)
                         .replace("SELECT * FROM `db`.`table` WHERE ", "");
+        Assertions.assertTrue(
+                lastSql.contains(notNullGuard),
+                "Last split must exclude NULL key components with an IS NOT NULL guard on every "
+                        + "key column, got: "
+                        + lastSql);
         Assertions.assertFalse(
-                lastSql.contains("IS NULL"), "Last split must not capture NULL rows");
+                lastSql.contains("IS NULL"),
+                "Last split must not capture NULL rows, got: " + lastSql);
     }
 
     @Test

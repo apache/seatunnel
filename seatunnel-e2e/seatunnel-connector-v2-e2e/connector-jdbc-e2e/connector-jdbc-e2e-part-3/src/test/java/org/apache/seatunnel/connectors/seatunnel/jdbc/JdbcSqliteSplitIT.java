@@ -62,6 +62,11 @@ public class JdbcSqliteSplitIT {
             "jdbc:sqlite:" + System.getProperty("java.io.tmpdir") + "/seatunnel_split_e2e.db";
     private static final String TABLE = "composite_split_test";
     private static final String NULL_PK_TABLE = "composite_null_pk_test";
+    // order_id values of the rows whose line_no is NULL. With 90 base rows (order_id 0..89) and
+    // split.size=10, the composite boundary walk yields leading-column boundaries at roughly
+    // 9, 18, 27, 36, 45, 54, ... so 46/47/48 fall strictly INSIDE the middle split whose
+    // leading-column range is (45, 54) — away from every boundary.
+    private static final long[] NULL_ROW_ORDER_IDS = {46, 47, 48};
 
     @BeforeAll
     public static void setUp() throws Exception {
@@ -89,9 +94,13 @@ public class JdbcSqliteSplitIT {
             }
 
             // SQLite (legacy quirk) allows NULL values inside composite PRIMARY KEY columns.
-            // These rows exercise the NULL key component handling: they must be read exactly
-            // once (they land in the first chunk) instead of being silently dropped by the
-            // tuple-comparison predicates.
+            // The 90 base rows use DISTINCT ascending order_id values (0..89) so that a chunk
+            // size of 10 produces middle splits with narrow leading-column ranges. The 3
+            // NULL-line_no rows are placed at mid-range order_id values (see NULL_ROW_ORDER_IDS)
+            // — strictly INSIDE a middle split's leading-column boundary range — which exercises
+            // the duplication bug: without the IS NOT NULL guard on middle/last splits, such a
+            // row satisfies the middle split's leading-column branch alone (order_id > start AND
+            // order_id < end) AND the first split's NULL disjunct, so it is read twice.
             stmt.execute("DROP TABLE IF EXISTS " + NULL_PK_TABLE);
             stmt.execute(
                     "CREATE TABLE "
@@ -104,16 +113,16 @@ public class JdbcSqliteSplitIT {
                                     + NULL_PK_TABLE
                                     + " (order_id, line_no, payload) VALUES (?, ?, ?)")) {
                 for (int i = 0; i < 90; i++) {
-                    ps.setLong(1, i % 3);
-                    ps.setInt(2, i / 3);
+                    ps.setLong(1, i);
+                    ps.setInt(2, i);
                     ps.setString(3, "p" + i);
                     ps.addBatch();
                 }
-                // rows whose second key component is NULL
-                for (int i = 0; i < 3; i++) {
-                    ps.setLong(1, i % 3);
+                // rows whose second key component is NULL, at mid-range order_id values
+                for (long orderId : NULL_ROW_ORDER_IDS) {
+                    ps.setLong(1, orderId);
                     ps.setNull(2, java.sql.Types.INTEGER);
-                    ps.setString(3, "null-pk-" + i);
+                    ps.setString(3, "null-pk-" + orderId);
                     ps.addBatch();
                 }
                 ps.executeBatch();
@@ -252,7 +261,12 @@ public class JdbcSqliteSplitIT {
         // SQLite permits NULL inside composite PRIMARY KEY columns. Rows with a NULL key
         // component cannot satisfy any tuple-comparison predicate, so without explicit NULL
         // handling they are silently dropped (data loss). They must land in the first chunk
-        // and be read exactly once.
+        // and be read exactly once. The fixture places the NULL-secondary-key rows at order_id
+        // values (see NULL_ROW_ORDER_IDS) that lie strictly inside a MIDDLE split's leading-column
+        // boundary range — so a missing IS NOT NULL guard on middle/last splits would make at
+        // least one of those rows match the middle split's leading-column branch alone
+        // (order_id > start[0] AND order_id < end[0]) in ADDITION to the first split's NULL
+        // disjunct, i.e. read twice (data duplication).
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("url", SQLITE_URL);
         configMap.put("driver", "org.sqlite.JDBC");
@@ -274,6 +288,30 @@ public class JdbcSqliteSplitIT {
                 jdbcSourceSplits.size() > 1,
                 "Composite key should split into multiple chunks, got " + jdbcSourceSplits.size());
         JdbcSourceSplit[] splitArray = jdbcSourceSplits.toArray(new JdbcSourceSplit[0]);
+
+        // Fixture sanity: at least one NULL key row's order_id must fall strictly inside a middle
+        // split's (both bounds non-null) leading-column range; otherwise this test cannot expose
+        // the duplication bug at all.
+        boolean nullRowInsideMiddleSplitRange = false;
+        for (JdbcSourceSplit split : splitArray) {
+            Object[] start = (Object[]) split.getSplitStart();
+            Object[] end = (Object[]) split.getSplitEnd();
+            if (start != null && end != null) {
+                long startLead = ((Number) start[0]).longValue();
+                long endLead = ((Number) end[0]).longValue();
+                for (long orderId : NULL_ROW_ORDER_IDS) {
+                    if (startLead < orderId && endLead > orderId) {
+                        nullRowInsideMiddleSplitRange = true;
+                        break;
+                    }
+                }
+            }
+        }
+        Assertions.assertTrue(
+                nullRowInsideMiddleSplitRange,
+                "Fixture broken: no middle split's leading-column range strictly contains one of "
+                        + "the NULL key rows' order_id values "
+                        + Arrays.toString(NULL_ROW_ORDER_IDS));
 
         TableSchema tableSchema = table.getTableSchema();
         Set<String> readKeys = new HashSet<>();
