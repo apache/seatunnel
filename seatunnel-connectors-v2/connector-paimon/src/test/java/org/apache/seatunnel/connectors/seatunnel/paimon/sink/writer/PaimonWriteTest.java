@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -41,13 +42,27 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 
+import org.apache.paimon.data.BinaryRow;
+import org.apache.paimon.index.IndexFileMeta;
+import org.apache.paimon.io.CompactIncrement;
+import org.apache.paimon.io.DataFileMeta;
+import org.apache.paimon.io.DataIncrement;
+import org.apache.paimon.io.IndexIncrement;
+import org.apache.paimon.manifest.FileSource;
+import org.apache.paimon.stats.SimpleStats;
+import org.apache.paimon.table.sink.CommitMessage;
+import org.apache.paimon.table.sink.CommitMessageImpl;
+
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -231,6 +246,70 @@ public class PaimonWriteTest {
 
     @Test
     void testWriterStateSerializerIsRegistered() throws Exception {
+        assertWriterStateRoundTrip(Collections.emptyList(), 0L);
+    }
+
+    @Test
+    void testWriterStateSerializerPreservesDataFiles() throws Exception {
+        CommitMessageImpl message = dataCommitMessage("partition-a", 1, "data");
+        Assertions.assertFalse(message.isEmpty());
+        assertWriterStateRoundTrip(Collections.singletonList(message), 42L);
+    }
+
+    @Test
+    void testWriterStateSerializerPreservesCompactionFiles() throws Exception {
+        CommitMessageImpl message =
+                new CommitMessageImpl(
+                        BinaryRow.singleColumn("partition-b"),
+                        2,
+                        4,
+                        DataIncrement.emptyIncrement(),
+                        new CompactIncrement(
+                                Collections.singletonList(dataFile("before.parquet")),
+                                Collections.singletonList(dataFile("after.parquet")),
+                                Collections.singletonList(dataFile("compact-changelog.parquet"))));
+        Assertions.assertFalse(message.isEmpty());
+        assertWriterStateRoundTrip(Collections.singletonList(message), 43L);
+    }
+
+    @Test
+    void testWriterStateSerializerPreservesIndexFiles() throws Exception {
+        CommitMessageImpl message =
+                new CommitMessageImpl(
+                        BinaryRow.EMPTY_ROW,
+                        0,
+                        null,
+                        DataIncrement.emptyIncrement(),
+                        CompactIncrement.emptyIncrement(),
+                        new IndexIncrement(
+                                Collections.singletonList(
+                                        new IndexFileMeta("hash", "new.index", 128L, 10L)),
+                                Collections.singletonList(
+                                        new IndexFileMeta("hash", "old.index", 64L, 5L))));
+        Assertions.assertFalse(message.isEmpty());
+        assertWriterStateRoundTrip(Collections.singletonList(message), 44L);
+    }
+
+    @Test
+    void testWriterStateSerializerPreservesMultipleMessagesAndCheckpointBoundary()
+            throws Exception {
+        List<CommitMessage> messages =
+                new ArrayList<>(
+                        Arrays.asList(
+                                dataCommitMessage("partition-a", 0, "first"),
+                                dataCommitMessage("partition-a", 1, "second"),
+                                dataCommitMessage("partition-b", 0, "third")));
+        PaimonSinkState restored =
+                assertWriterStateRoundTrip(messages, (long) Integer.MAX_VALUE + 1L);
+
+        // Restoring a checkpoint must not share the mutable message list with the original state.
+        messages.clear();
+        Assertions.assertEquals(3, restored.getCommitTables().size());
+        assertWriterStateRoundTrip(restored.getCommitTables(), restored.getCheckpointId());
+    }
+
+    private PaimonSinkState assertWriterStateRoundTrip(
+            List<CommitMessage> messages, long checkpointId) throws Exception {
         PaimonSink sink =
                 new PaimonSink(
                         readonlyConfig,
@@ -240,14 +319,54 @@ public class PaimonWriteTest {
                                 new HashMap<>(),
                                 new ArrayList<>(),
                                 "test table"));
-
         Assertions.assertTrue(sink.getWriterStateSerializer().isPresent());
-        PaimonSinkState state = new PaimonSinkState(new ArrayList<>(), "commit-user", 42L);
-        PaimonSinkState restored =
-                sink.getWriterStateSerializer()
-                        .get()
-                        .deserialize(sink.getWriterStateSerializer().get().serialize(state));
-        Assertions.assertEquals(state, restored);
+        Serializer<PaimonSinkState> serializer = sink.getWriterStateSerializer().get();
+        PaimonSinkState state = new PaimonSinkState(messages, "commit-user", checkpointId);
+        PaimonSinkState restored = serializer.deserialize(serializer.serialize(state));
+        Assertions.assertNotSame(state, restored);
+        Assertions.assertEquals(state.getCommitUser(), restored.getCommitUser());
+        Assertions.assertEquals(checkpointId, restored.getCheckpointId());
+        Assertions.assertEquals(messages.size(), restored.getCommitTables().size());
+        for (int i = 0; i < messages.size(); i++) {
+            CommitMessageImpl expected = (CommitMessageImpl) messages.get(i);
+            CommitMessageImpl actual = (CommitMessageImpl) restored.getCommitTables().get(i);
+            Assertions.assertNotSame(expected, actual);
+            Assertions.assertEquals(expected.partition(), actual.partition());
+            Assertions.assertEquals(expected.bucket(), actual.bucket());
+            Assertions.assertEquals(expected.totalBuckets(), actual.totalBuckets());
+            Assertions.assertEquals(expected.newFilesIncrement(), actual.newFilesIncrement());
+            Assertions.assertEquals(expected.compactIncrement(), actual.compactIncrement());
+            Assertions.assertEquals(expected.indexIncrement(), actual.indexIncrement());
+        }
+        return restored;
+    }
+
+    private CommitMessageImpl dataCommitMessage(String partition, int bucket, String prefix) {
+        return new CommitMessageImpl(
+                BinaryRow.singleColumn(partition),
+                bucket,
+                4,
+                new DataIncrement(
+                        Collections.singletonList(dataFile(prefix + "-new.parquet")),
+                        Collections.singletonList(dataFile(prefix + "-deleted.parquet")),
+                        Collections.singletonList(dataFile(prefix + "-changelog.parquet"))),
+                CompactIncrement.emptyIncrement());
+    }
+
+    private DataFileMeta dataFile(String name) {
+        return DataFileMeta.forAppend(
+                name,
+                128L,
+                10L,
+                SimpleStats.EMPTY_STATS,
+                1L,
+                10L,
+                0L,
+                Collections.emptyList(),
+                null,
+                FileSource.APPEND,
+                Collections.emptyList(),
+                null);
     }
 
     @Test
