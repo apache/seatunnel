@@ -38,4 +38,4 @@ sink {
 }
 ```
 
-<ChangeLog/>
+<ChangeLog />

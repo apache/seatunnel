@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mariadb.md';
+
 # MariaDB CDC
 
 > MariaDB CDC source connector
@@ -131,3 +133,7 @@ source {
   }
 }
 ```
+
+## Changelog
+
+<ChangeLog />
