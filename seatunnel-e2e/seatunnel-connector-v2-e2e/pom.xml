@@ -96,6 +96,7 @@
         <module>connector-typesense-e2e</module>
         <module>connector-email-e2e</module>
         <module>connector-edge-socket-e2e</module>
+        <module>connector-cdc-gaussdb-e2e</module>
         <module>connector-cdc-opengauss-e2e</module>
         <module>connector-cdc-tidb-e2e</module>
         <module>connector-graphql-e2e</module>
