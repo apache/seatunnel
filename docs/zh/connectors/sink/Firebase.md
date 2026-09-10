@@ -12,7 +12,7 @@ Firebase Sink Connector 用于通过 REST API 将批处理和流数据写入 Goo
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ---
 ## 参数配置
@@ -101,7 +101,7 @@ source {
 sink {
   Firebase {
     plugin_input = "fake_users"
-    url = "[https://my-app-default-rtdb.firebaseio.com](https://my-app-default-rtdb.firebaseio.com)"
+    url = "https://my-app-default-rtdb.firebaseio.com"
     path = "users"
     service_account_path = "/etc/seatunnel/firebase-credentials.json"
     primary_keys = ["id"]
@@ -112,3 +112,6 @@ sink {
 }
 ```
 
+## 变更日志
+
+<ChangeLog />

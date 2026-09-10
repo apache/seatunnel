@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 public class FirebaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final ReadonlyConfig config;
@@ -38,6 +39,11 @@ public class FirebaseSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     @Override
     public String getPluginName() {
         return "Firebase";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.ofNullable(catalogTable);
     }
 
     @Override

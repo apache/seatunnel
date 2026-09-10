@@ -38,6 +38,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -79,6 +80,8 @@ public class FirebaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.ignoreNullValues = config.get(FirebaseSinkOptions.IGNORE_NULL_VALUES);
         this.supportDeletes = config.get(FirebaseSinkOptions.SUPPORT_DELETES);
 
+        validatePrimaryKeysWithSupportDeletes(config, catalogTable);
+
         this.bufferMap = new LinkedHashMap<>();
     }
 
@@ -104,7 +107,29 @@ public class FirebaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
         this.ignoreNullValues = config.get(FirebaseSinkOptions.IGNORE_NULL_VALUES);
         this.supportDeletes = config.get(FirebaseSinkOptions.SUPPORT_DELETES);
 
+        validatePrimaryKeysWithSupportDeletes(config, catalogTable);
+
         this.bufferMap = new LinkedHashMap<>();
+    }
+
+    private void validatePrimaryKeysWithSupportDeletes(
+            ReadonlyConfig config, CatalogTable catalogTable) {
+        if (config.get(FirebaseSinkOptions.SUPPORT_DELETES)) {
+            List<String> primaryKeys = config.get(FirebaseSinkOptions.PRIMARY_KEYS);
+            boolean hasCatalogPrimaryKey =
+                    catalogTable.getTableSchema() != null
+                            && catalogTable.getTableSchema().getPrimaryKey() != null
+                            && !catalogTable
+                                    .getTableSchema()
+                                    .getPrimaryKey()
+                                    .getColumnNames()
+                                    .isEmpty();
+
+            if ((primaryKeys == null || primaryKeys.isEmpty()) && !hasCatalogPrimaryKey) {
+                throw new SeaTunnelException(
+                        "primary_keys must be configured when support_deletes is enabled, if no primary_keys set support_deletes=false.");
+            }
+        }
     }
 
     @Override
@@ -217,6 +242,16 @@ public class FirebaseSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
                 backoffMs *= 2;
             }
         }
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        try {
+            flush();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        return Optional.empty();
     }
 
     @Override

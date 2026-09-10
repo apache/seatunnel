@@ -12,7 +12,7 @@ The Firebase Sink Connector allows writing batch and streaming data into Google 
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ---
 ## Options
@@ -101,7 +101,7 @@ source {
 sink {
   Firebase {
     plugin_input = "fake_users"
-    url = "https://my-app-default-rtdb.firebaseio.com)"
+    url = "https://my-app-default-rtdb.firebaseio.com"
     path = "users"
     service_account_path = "/etc/seatunnel/firebase-credentials.json"
     primary_keys = ["id"]
