@@ -44,17 +44,16 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Reproduces upstream Bug 1: schema-change events are silently dropped by {@code
- * AbstractMultiCatalogTransform} subclasses, leaving the inner per-table transforms with stale
- * {@code inputCatalogTable} after ALTER. Result: post-ALTER rows lose new column values.
+ * Regression coverage for {@link MetadataMultiCatalogTransform} under live schema-change events.
  *
- * <p>This test calls the OUTER wrapper ({@code MetadataMultiCatalogTransform}) — the same instance
- * the SeaTunnel engine constructs via the factory and feeds via {@code TransformFlowLifeCycle}.
- * Earlier {@code TransformChainLiveAlterTest} called the inner transform directly, missing the bug.
+ * <p>Exercises the outer multi-catalog wrapper (the instance the engine builds via the factory and
+ * feeds through {@code TransformFlowLifeCycle}), verifying that {@code mapSchemaChangeEvent}
+ * dispatches ALTER events to inner per-table transforms so post-ALTER rows keep the expected
+ * arity/shape. Also covers connector-declared metadata fields surviving ALTER through the wrapper.
  *
- * <p>Without the fix in {@code AbstractMultiCatalogTransform.mapSchemaChangeEvent}, the wrapper's
- * default no-op returns the event without dispatching to inner transforms, so this test FAILS at
- * the post-ALTER arity assertion.
+ * <p>Note: dispatch of schema-change events through {@code AbstractMultiCatalogTransform} is
+ * pre-existing behavior (not introduced by the connector-declared metadata change); the first case
+ * below is a general regression guard, while the second case exercises the new Metadata feature.
  */
 public class MetadataMultiCatalogSchemaChangeTest {
 
@@ -150,9 +149,8 @@ public class MetadataMultiCatalogSchemaChangeTest {
                                                 null,
                                                 null)));
 
-        // This is the exact call TransformFlowLifeCycle.received makes on the outer wrapper.
-        // Without the fix: wrapper's default no-op returns event unchanged; inner transformMap
-        // entries never see ALTER; their inputCatalogTable stays at 2 cols.
+        // Same call path as TransformFlowLifeCycle.received on the outer wrapper: the event must
+        // be dispatched to the inner MetadataTransform so its catalog/schema stay in sync.
         wrapper.mapSchemaChangeEvent(alter);
 
         // Post-ALTER row: 4 base cols (id, name, discount_pct, is_featured)
@@ -167,9 +165,8 @@ public class MetadataMultiCatalogSchemaChangeTest {
         Assertions.assertEquals(
                 6,
                 postOut.getArity(),
-                "post-ALTER MUST be arity 6 (4 base + 2 metadata). If 4, the wrapper "
-                        + "swallowed the schema change without notifying inner MetadataTransform — "
-                        + "exactly Bug 1.");
+                "post-ALTER MUST be arity 6 (4 base + 2 metadata). If 4, the wrapper did not"
+                        + " propagate the schema change to the inner MetadataTransform.");
         Assertions.assertEquals(2L, postOut.getField(0));
         Assertions.assertEquals("Premium A", postOut.getField(1));
         Assertions.assertEquals(
