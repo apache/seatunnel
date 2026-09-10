@@ -75,6 +75,9 @@ public final class DefaultAutoScaler {
                 TimeUnit.SECONDS.toNanos(config.getScaleInStabilizationSeconds()));
     }
 
+    /**
+     * Collects metrics, evaluates the policy, and publishes a stabilized scaling recommendation.
+     */
     public synchronized RecommendationFence.PublicationResult evaluateOnce() {
         if (closed) {
             return RecommendationFence.PublicationResult.REJECTED;

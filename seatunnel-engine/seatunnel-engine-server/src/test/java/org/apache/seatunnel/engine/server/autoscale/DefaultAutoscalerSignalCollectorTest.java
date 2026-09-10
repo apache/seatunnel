@@ -52,7 +52,7 @@ class DefaultAutoscalerSignalCollectorTest {
         AutoscalerMetricsSnapshot snapshot =
                 collector(resourceManager, slotServiceConfig).collect();
 
-        Assertions.assertEquals(SlotMode.FIXED, snapshot.getSlotMode());
+        Assertions.assertFalse(snapshot.isDynamicSlot());
         Assertions.assertEquals(MetricStatus.VALID, snapshot.getFixedSlotUtilization().getStatus());
         Assertions.assertEquals(0.25d, snapshot.getFixedSlotUtilization().getValue(), 0.0001d);
         Assertions.assertEquals(1, snapshot.getValidWorkerSamples());
@@ -66,7 +66,7 @@ class DefaultAutoscalerSignalCollectorTest {
         dynamicResourceManager.workers.put(worker, worker(worker, true, 0, 0));
 
         AutoscalerMetricsSnapshot dynamicSnapshot = collector(dynamicResourceManager).collect();
-        Assertions.assertEquals(SlotMode.DYNAMIC, dynamicSnapshot.getSlotMode());
+        Assertions.assertTrue(dynamicSnapshot.isDynamicSlot());
         Assertions.assertEquals(
                 MetricStatus.UNKNOWN, dynamicSnapshot.getFixedSlotUtilization().getStatus());
 
@@ -79,12 +79,25 @@ class DefaultAutoscalerSignalCollectorTest {
 
         SlotServiceConfig fixedSlotConfig = new SlotServiceConfig();
         fixedSlotConfig.setDynamicSlot(false);
-        AutoscalerMetricsSnapshot mixedSnapshot =
+        AutoscalerMetricsSnapshot fixedSnapshot =
                 collector(resourceManagerWithDifferentWorkerProfiles, fixedSlotConfig).collect();
-        Assertions.assertEquals(SlotMode.FIXED, mixedSnapshot.getSlotMode());
+        Assertions.assertFalse(fixedSnapshot.isDynamicSlot());
         Assertions.assertEquals(
-                MetricStatus.VALID, mixedSnapshot.getFixedSlotUtilization().getStatus());
-        Assertions.assertEquals(0.5d, mixedSnapshot.getFixedSlotUtilization().getValue(), 0.0001d);
+                MetricStatus.VALID, fixedSnapshot.getFixedSlotUtilization().getStatus());
+        Assertions.assertEquals(0.5d, fixedSnapshot.getFixedSlotUtilization().getValue(), 0.0001d);
+    }
+
+    @Test
+    void configuredSlotModeRemainsAvailableWithoutWorkers() {
+        FakeResourceManager resourceManager = new FakeResourceManager();
+        SlotServiceConfig fixedSlotConfig = new SlotServiceConfig();
+        fixedSlotConfig.setDynamicSlot(false);
+
+        AutoscalerMetricsSnapshot snapshot = collector(resourceManager, fixedSlotConfig).collect();
+
+        Assertions.assertFalse(snapshot.isDynamicSlot());
+        Assertions.assertEquals(
+                MetricStatus.UNKNOWN, snapshot.getFixedSlotUtilization().getStatus());
     }
 
     @Test
@@ -106,7 +119,7 @@ class DefaultAutoscalerSignalCollectorTest {
         Assertions.assertEquals(1L, first.getResourceShortageCount());
         Assertions.assertTrue(first.isWaitShortage());
         Assertions.assertEquals(2, first.getPendingJobCount());
-        Assertions.assertEquals(300L, first.getOldestPendingDurationMillis());
+        Assertions.assertEquals(300L, first.getLongestPendingDurationMillis());
         Assertions.assertEquals(0L, second.getResourceShortageCount());
     }
 

@@ -88,7 +88,7 @@ class DefaultAutoScalerTest {
                 .currentWorkers(3)
                 .minWorkers(1)
                 .maxWorkers(10)
-                .slotMode(SlotMode.FIXED)
+                .dynamicSlot(false)
                 .fixedSlotUtilization(MetricValue.valid(0.1d))
                 .cpu(MetricValue.valid(0.1d))
                 .jvmMemory(MetricValue.valid(0.1d))

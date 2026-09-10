@@ -89,8 +89,23 @@ class HierarchicalAutoscalingPolicyTest {
                                 .build());
 
         Assertions.assertEquals(ScalingAction.NO_ACTION, evaluation.getAction());
+        Assertions.assertTrue(evaluation.getTriggerReasons().isEmpty());
+    }
+
+    @Test
+    void slotPressureWithPendingJobsTriggersScaleOut() {
+        AutoscaleEvaluation evaluation =
+                policy.evaluate(
+                        baseSnapshot()
+                                .cpu(MetricValue.valid(0.2d))
+                                .jvmMemory(MetricValue.valid(0.2d))
+                                .fixedSlotUtilization(MetricValue.valid(0.95d))
+                                .pendingJobCount(1)
+                                .build());
+
+        Assertions.assertEquals(ScalingAction.SCALE_OUT, evaluation.getAction());
         Assertions.assertTrue(
-                evaluation.getBlockingReasons().contains("slot_pressure_auxiliary_only"));
+                evaluation.getTriggerReasons().contains("slot_pressure_with_scheduling_pressure"));
     }
 
     @Test
@@ -98,7 +113,7 @@ class HierarchicalAutoscalingPolicyTest {
         AutoscaleEvaluation evaluation =
                 policy.evaluate(
                         baseSnapshot()
-                                .slotMode(SlotMode.DYNAMIC)
+                                .dynamicSlot(true)
                                 .fixedSlotUtilization(MetricValue.unknown())
                                 .cpu(MetricValue.valid(0.29d))
                                 .jvmMemory(MetricValue.valid(0.29d))
@@ -204,7 +219,7 @@ class HierarchicalAutoscalingPolicyTest {
                 .currentWorkers(3)
                 .minWorkers(1)
                 .maxWorkers(10)
-                .slotMode(SlotMode.FIXED)
+                .dynamicSlot(false)
                 .assignedSlots(1)
                 .unassignedSlots(9)
                 .fixedSlotUtilization(MetricValue.valid(0.1d))
@@ -216,7 +231,7 @@ class HierarchicalAutoscalingPolicyTest {
                 .staleWorkerSamples(0)
                 .futureWorkerSamples(0)
                 .pendingJobCount(0)
-                .oldestPendingDurationMillis(0L)
+                .longestPendingDurationMillis(0L)
                 .resourceShortageCount(0L)
                 .waitShortage(false)
                 .rejectShortage(false)

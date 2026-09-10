@@ -1460,7 +1460,7 @@ public class CoordinatorService {
                                 autoscalerRuntimeConfig,
                                 engineConfig.getSlotServiceConfig(),
                                 this::getPendingJobCount,
-                                this::getOldestPendingDurationMillis,
+                                this::getLongestPendingDurationMillis,
                                 System::currentTimeMillis),
                         new HierarchicalAutoscalingPolicy(
                                 DefaultAutoScaler.policyConfig(autoscalerRuntimeConfig)),
@@ -1525,12 +1525,12 @@ public class CoordinatorService {
     }
 
     /**
-     * Calculates how long the oldest pending job has been waiting.
+     * Calculates the wait duration of the longest-waiting pending job.
      *
-     * @return the oldest pending duration in milliseconds, or {@code 0} when no valid enqueue
+     * @return the longest pending duration in milliseconds, or {@code 0} when no valid enqueue
      *     timestamp is present
      */
-    private long getOldestPendingDurationMillis() {
+    private long getLongestPendingDurationMillis() {
         long oldestEnqueueTimestamp =
                 pendingJobQueue.getJobIdMap().values().stream()
                         .mapToLong(PendingJobInfo::getEnqueueTimestamp)

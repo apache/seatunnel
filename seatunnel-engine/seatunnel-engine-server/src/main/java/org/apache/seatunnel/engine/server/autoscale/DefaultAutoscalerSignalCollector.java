@@ -41,26 +41,45 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
     private final ResourceManager resourceManager;
     private final AutoscalerRuntimeConfig config;
     private final SlotServiceConfig slotServiceConfig;
+
+    /** Supplies the current number of jobs waiting in the scheduler queue. */
     private final IntSupplier pendingJobCountSupplier;
-    private final LongSupplier oldestPendingDurationMillisSupplier;
+
+    /** Supplies the wait duration of the longest-waiting pending job, in milliseconds. */
+    private final LongSupplier longestPendingDurationMillisSupplier;
+
+    /** Supplies the current wall-clock time used to validate worker sample timestamps. */
     private final LongSupplier currentTimeMillisSupplier;
+
     private final AtomicLong lastShortageSequence = new AtomicLong();
 
+    /**
+     * Creates a collector backed by live coordinator and resource-manager state.
+     *
+     * @param resourceManager resource and worker state provider
+     * @param config autoscaler runtime configuration
+     * @param slotServiceConfig slot allocation mode configuration
+     * @param pendingJobCountSupplier current pending job count supplier
+     * @param longestPendingDurationMillisSupplier longest pending duration supplier, in
+     *     milliseconds
+     * @param currentTimeMillisSupplier current wall-clock time supplier, in milliseconds
+     */
     public DefaultAutoscalerSignalCollector(
             ResourceManager resourceManager,
             AutoscalerRuntimeConfig config,
             SlotServiceConfig slotServiceConfig,
             IntSupplier pendingJobCountSupplier,
-            LongSupplier oldestPendingDurationMillisSupplier,
+            LongSupplier longestPendingDurationMillisSupplier,
             LongSupplier currentTimeMillisSupplier) {
         this.resourceManager = Objects.requireNonNull(resourceManager, "resourceManager");
         this.config = Objects.requireNonNull(config, "config");
         this.slotServiceConfig = Objects.requireNonNull(slotServiceConfig, "slotServiceConfig");
         this.pendingJobCountSupplier =
                 Objects.requireNonNull(pendingJobCountSupplier, "pendingJobCountSupplier");
-        this.oldestPendingDurationMillisSupplier =
+        this.longestPendingDurationMillisSupplier =
                 Objects.requireNonNull(
-                        oldestPendingDurationMillisSupplier, "oldestPendingDurationMillisSupplier");
+                        longestPendingDurationMillisSupplier,
+                        "longestPendingDurationMillisSupplier");
         this.currentTimeMillisSupplier =
                 Objects.requireNonNull(currentTimeMillisSupplier, "currentTimeMillisSupplier");
     }
@@ -90,7 +109,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
                 .currentWorkers(currentWorkers.size())
                 .minWorkers(config.getMinWorkers())
                 .maxWorkers(config.getMaxWorkers())
-                .slotMode(slotSummary.slotMode)
+                .dynamicSlot(slotSummary.dynamicSlot)
                 .assignedSlots(slotSummary.assignedSlots)
                 .unassignedSlots(slotSummary.unassignedSlots)
                 .fixedSlotUtilization(slotSummary.fixedSlotUtilization)
@@ -102,7 +121,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
                 .staleWorkerSamples(workerSampleSummary.getStaleSamples())
                 .futureWorkerSamples(workerSampleSummary.getFutureSamples())
                 .pendingJobCount(pendingJobCountSupplier.getAsInt())
-                .oldestPendingDurationMillis(oldestPendingDurationMillisSupplier.getAsLong())
+                .longestPendingDurationMillis(longestPendingDurationMillisSupplier.getAsLong())
                 .resourceShortageCount(shortageSnapshot.getShortageCount())
                 .waitShortageCount(shortageSnapshot.getWaitCount())
                 .rejectShortageCount(shortageSnapshot.getRejectCount())
@@ -115,7 +134,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
     private SlotSummary summarizeSlots() {
         int workerCount = resourceManager.getRegisterWorker().size();
         if (workerCount == 0) {
-            return new SlotSummary(SlotMode.UNKNOWN, 0, 0, MetricValue.unknown());
+            return new SlotSummary(slotServiceConfig.isDynamicSlot(), 0, 0, MetricValue.unknown());
         }
 
         int assignedSlots = 0;
@@ -128,15 +147,14 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
         }
 
         if (slotServiceConfig.isDynamicSlot()) {
-            return new SlotSummary(
-                    SlotMode.DYNAMIC, assignedSlots, unassignedSlots, MetricValue.unknown());
+            return new SlotSummary(true, assignedSlots, unassignedSlots, MetricValue.unknown());
         }
         int totalSlots = assignedSlots + unassignedSlots;
         MetricValue utilization =
                 totalSlots == 0
                         ? MetricValue.unknown()
                         : MetricValue.valid((double) assignedSlots / (double) totalSlots);
-        return new SlotSummary(SlotMode.FIXED, assignedSlots, unassignedSlots, utilization);
+        return new SlotSummary(false, assignedSlots, unassignedSlots, utilization);
     }
 
     private static int safeLength(Object[] values) {
@@ -144,17 +162,17 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
     }
 
     private static final class SlotSummary {
-        private final SlotMode slotMode;
+        private final boolean dynamicSlot;
         private final int assignedSlots;
         private final int unassignedSlots;
         private final MetricValue fixedSlotUtilization;
 
         private SlotSummary(
-                SlotMode slotMode,
+                boolean dynamicSlot,
                 int assignedSlots,
                 int unassignedSlots,
                 MetricValue fixedSlotUtilization) {
-            this.slotMode = slotMode;
+            this.dynamicSlot = dynamicSlot;
             this.assignedSlots = assignedSlots;
             this.unassignedSlots = unassignedSlots;
             this.fixedSlotUtilization = fixedSlotUtilization;

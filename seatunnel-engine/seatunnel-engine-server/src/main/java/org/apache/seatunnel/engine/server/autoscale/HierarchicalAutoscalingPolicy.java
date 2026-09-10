@@ -22,10 +22,10 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Deterministic Phase 1 policy for autoscaling recommendations.
+ * Evaluates autoscaling signals in priority order and produces a scaling recommendation.
  *
- * <p>Scheduler shortage and CPU/JVM-memory pressure may trigger scale-out; slot pressure is only
- * auxiliary.
+ * <p>Scheduler shortages and high CPU or JVM memory utilization can trigger scale-out. Fixed-slot
+ * utilization is considered as an auxiliary signal when evaluating scale-in decisions.
  */
 public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
 
@@ -64,9 +64,17 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
             return new AutoscaleEvaluation(ScalingAction.SCALE_OUT, triggers, blockers);
         }
 
-        if (snapshot.getFixedSlotUtilization()
-                .isGreaterThanOrEqualTo(config.getFixedSlotScaleOutThreshold())) {
-            blockers.add("slot_pressure_auxiliary_only");
+        // Slot pressure alone is not sufficient to trigger scale-out.
+        boolean slotPressure =
+                snapshot.getFixedSlotUtilization()
+                        .isGreaterThanOrEqualTo(config.getFixedSlotScaleOutThreshold());
+        // Combine slot pressure with scheduler waiting evidence to confirm capacity demand.
+        boolean schedulingPressure =
+                snapshot.getPendingJobCount() > 0
+                        || snapshot.getLongestPendingDurationMillis() > 0L;
+        if (slotPressure && schedulingPressure) {
+            triggers.add("slot_pressure_with_scheduling_pressure");
+            return new AutoscaleEvaluation(ScalingAction.SCALE_OUT, triggers, blockers);
         }
 
         if (snapshot.getCurrentWorkers() <= snapshot.getMinWorkers()) {
@@ -93,7 +101,7 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
     }
 
     private boolean isLowSlot(AutoscalerMetricsSnapshot snapshot) {
-        if (snapshot.getSlotMode() != SlotMode.FIXED) {
+        if (snapshot.isDynamicSlot()) {
             return true;
         }
         return snapshot.getFixedSlotUtilization().isLessThan(config.getFixedSlotScaleInThreshold());

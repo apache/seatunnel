@@ -17,13 +17,32 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
+/**
+ * Threshold configuration used by the autoscaling policy to evaluate scale-out and scale-in
+ * conditions.
+ *
+ * <p>All utilization thresholds are ratios in the range {@code [0, 1]}.
+ */
 public final class AutoscalerPolicyConfig {
 
+    /** CPU utilization at or above which scale-out may be triggered. */
     private final double scaleOutCpuThreshold;
+
+    /** JVM memory utilization at or above which scale-out may be triggered. */
     private final double scaleOutJvmMemoryThreshold;
+
+    /** CPU utilization below which the CPU scale-in condition is satisfied. */
     private final double scaleInCpuThreshold;
+
+    /** JVM memory utilization below which the memory scale-in condition is satisfied. */
     private final double scaleInJvmMemoryThreshold;
+
+    /**
+     * Fixed-slot utilization at or above which slot pressure can combine with scheduling pressure.
+     */
     private final double fixedSlotScaleOutThreshold;
+
+    /** Fixed-slot utilization below which the slot scale-in condition is satisfied. */
     private final double fixedSlotScaleInThreshold;
 
     private AutoscalerPolicyConfig(Builder builder) {

@@ -34,7 +34,7 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
     private final int currentWorkers;
     private final int minWorkers;
     private final int maxWorkers;
-    private final SlotMode slotMode;
+    private final boolean dynamicSlot;
     private final int assignedSlots;
     private final int unassignedSlots;
     private final MetricValue fixedSlotUtilization;
@@ -46,7 +46,7 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
     private final int staleWorkerSamples;
     private final int futureWorkerSamples;
     private final int pendingJobCount;
-    private final long oldestPendingDurationMillis;
+    private final long longestPendingDurationMillis;
     private final long resourceShortageCount;
     private final long waitShortageCount;
     private final long rejectShortageCount;
@@ -59,7 +59,7 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         this.currentWorkers = builder.currentWorkers;
         this.minWorkers = builder.minWorkers;
         this.maxWorkers = builder.maxWorkers;
-        this.slotMode = Objects.requireNonNull(builder.slotMode, "slotMode");
+        this.dynamicSlot = builder.dynamicSlot;
         this.assignedSlots = builder.assignedSlots;
         this.unassignedSlots = builder.unassignedSlots;
         this.fixedSlotUtilization =
@@ -72,7 +72,7 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         this.staleWorkerSamples = builder.staleWorkerSamples;
         this.futureWorkerSamples = builder.futureWorkerSamples;
         this.pendingJobCount = builder.pendingJobCount;
-        this.oldestPendingDurationMillis = builder.oldestPendingDurationMillis;
+        this.longestPendingDurationMillis = builder.longestPendingDurationMillis;
         this.resourceShortageCount = builder.resourceShortageCount;
         this.waitShortageCount = builder.waitShortageCount;
         this.rejectShortageCount = builder.rejectShortageCount;
@@ -101,8 +101,8 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         return maxWorkers;
     }
 
-    public SlotMode getSlotMode() {
-        return slotMode;
+    public boolean isDynamicSlot() {
+        return dynamicSlot;
     }
 
     public int getAssignedSlots() {
@@ -149,8 +149,8 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         return pendingJobCount;
     }
 
-    public long getOldestPendingDurationMillis() {
-        return oldestPendingDurationMillis;
+    public long getLongestPendingDurationMillis() {
+        return longestPendingDurationMillis;
     }
 
     public long getResourceShortageCount() {
@@ -187,7 +187,7 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         private int currentWorkers;
         private int minWorkers = 1;
         private int maxWorkers = Integer.MAX_VALUE;
-        private SlotMode slotMode = SlotMode.UNKNOWN;
+        private boolean dynamicSlot = true;
         private int assignedSlots;
         private int unassignedSlots;
         private MetricValue fixedSlotUtilization = MetricValue.unknown();
@@ -199,7 +199,7 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         private int staleWorkerSamples;
         private int futureWorkerSamples;
         private int pendingJobCount;
-        private long oldestPendingDurationMillis;
+        private long longestPendingDurationMillis;
         private long resourceShortageCount;
         private long waitShortageCount;
         private long rejectShortageCount;
@@ -227,8 +227,8 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
             return this;
         }
 
-        public Builder slotMode(SlotMode slotMode) {
-            this.slotMode = slotMode;
+        public Builder dynamicSlot(boolean dynamicSlot) {
+            this.dynamicSlot = dynamicSlot;
             return this;
         }
 
@@ -287,8 +287,8 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
             return this;
         }
 
-        public Builder oldestPendingDurationMillis(long oldestPendingDurationMillis) {
-            this.oldestPendingDurationMillis = oldestPendingDurationMillis;
+        public Builder longestPendingDurationMillis(long longestPendingDurationMillis) {
+            this.longestPendingDurationMillis = longestPendingDurationMillis;
             return this;
         }
 

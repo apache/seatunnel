@@ -71,7 +71,9 @@ public final class AutoscalerRuntimeConfig implements Serializable {
     /** JVM memory utilization below which the policy may consider scaling in. */
     private final double scaleInJvmMemoryThreshold;
 
-    /** Fixed-slot utilization at or above which the policy records scale-out pressure. */
+    /**
+     * Fixed-slot utilization at or above which slot pressure can combine with scheduling pressure.
+     */
     private final double fixedSlotScaleOutThreshold;
 
     /** Fixed-slot utilization below which the policy may consider scaling in. */

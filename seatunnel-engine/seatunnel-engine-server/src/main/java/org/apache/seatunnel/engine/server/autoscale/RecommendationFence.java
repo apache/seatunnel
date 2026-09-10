@@ -18,9 +18,9 @@
 package org.apache.seatunnel.engine.server.autoscale;
 
 /**
- * Fences recommendation publication by active-master epoch and generation.
+ * Prevents stale or duplicate recommendations using the active-master epoch and generation.
  *
- * <p>Duplicate identities are idempotent; stale epochs or non-increasing generations are rejected.
+ * <p>Generations must increase within the same epoch; a newer epoch supersedes the previous one.
  */
 public final class RecommendationFence {
 
