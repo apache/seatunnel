@@ -36,11 +36,27 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
-/** NOTICE: Single thread to write data to orc file. */
+/**
+ * Single-threaded Disruptor consumer that appends WAL frames.
+ *
+ * <p>After any APPEND write failure the handler fail-closes further APPEND attempts: continuing to
+ * write on the same open stream could place a complete frame after a partially written one, and
+ * {@code DefaultReader} cannot resync past a mid-file torn frame (it stops when a length prefix
+ * claims more bytes than remain). Leaving any partial frame as a trailing incomplete record keeps
+ * prior complete records recoverable; see {@code DefaultReaderTornTrailingRecordTest} and {@code
+ * DefaultReaderTornMidFileRecordTest}. Blind {@code fs.create} reopen is intentionally avoided
+ * because it would truncate the fixed {@code wal.txt} path.
+ */
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
     private WALWriter writer;
+
+    /**
+     * When true, further APPEND events fail without touching the stream so a possible torn trailer
+     * cannot become a mid-file tear.
+     */
+    private boolean appendBlockedAfterWriteFailure;
 
     public WALWorkHandler(
             FileSystem fs,
@@ -65,6 +81,15 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             throws Exception {
         if (type == WALEventType.APPEND) {
             boolean writeSuccess = true;
+            // Fail-closed after a prior write failure: do not append more bytes on a stream that
+            // may already end in a torn frame (DefaultReader cannot resync mid-file).
+            if (appendBlockedAfterWriteFailure) {
+                log.warn(
+                        "WAL APPEND blocked after a previous write failure, requestId is {}",
+                        requestId);
+                executeResponse(requestId, false);
+                return;
+            }
             // Catch all failures so RequestFuture.done() is always published. Narrowing this to
             // IOException previously allowed RuntimeException to kill the single WAL worker and
             // leave callers blocked until their wait timeout.
@@ -72,15 +97,8 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
                 writer.write(iMapFileData);
             } catch (Exception e) {
                 writeSuccess = false;
+                appendBlockedAfterWriteFailure = true;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
-                // No writer reset/reopen here. HdfsWriter/CloudWriter serialize before mutating the
-                // stream, so unchecked failures from the current write path do not leave a torn
-                // mid-file record. Blind close + fs.create would truncate the fixed wal.txt path.
-                // A mid-write IOException can still leave a partial trailing frame; DefaultReader
-                // stops when the length prefix claims more bytes than remain, so prior complete
-                // records stay readable and the incomplete trailer is skipped (see
-                // DefaultReaderTornTrailingRecordTest). That recoverability is why we keep the
-                // existing writer rather than risk truncating the WAL on reopen.
             }
             // Never let response publishing kill the sole disruptor consumer.
             executeResponse(requestId, writeSuccess);

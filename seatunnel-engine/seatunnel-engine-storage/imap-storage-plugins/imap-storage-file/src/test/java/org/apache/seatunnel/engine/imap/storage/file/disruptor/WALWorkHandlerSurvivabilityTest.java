@@ -44,10 +44,12 @@ import static org.junit.jupiter.api.condition.OS.MAC;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 /**
  * Proves the sole WAL consumer survives a non-{@code IOException} from {@code writer.write()} and
- * keeps processing later APPEND events (the permanent wedge bug this PR fixes).
+ * fail-closes further APPEND attempts so a possible torn trailer cannot become a mid-file tear.
  */
 @EnabledOnOs({LINUX, MAC})
 class WALWorkHandlerSurvivabilityTest {
@@ -55,7 +57,7 @@ class WALWorkHandlerSurvivabilityTest {
     @TempDir java.nio.file.Path tempDir;
 
     @Test
-    void nonIoExceptionFromWriteShouldNotKillWorkerAndSubsequentAppendStillCompletes()
+    void nonIoExceptionFromWriteShouldNotKillWorkerAndSubsequentAppendIsFailClosed()
             throws Exception {
         Configuration conf = new Configuration();
         conf.set("fs.defaultFS", "file:///");
@@ -68,25 +70,23 @@ class WALWorkHandlerSurvivabilityTest {
                         fs, FileConfiguration.HDFS, parentPath, new ProtoStuffSerializer());
 
         AtomicInteger writeCalls = new AtomicInteger();
-        WALWriter failingThenOkWriter = mock(WALWriter.class);
+        WALWriter failingWriter = mock(WALWriter.class);
         doAnswer(
                         invocation -> {
-                            if (writeCalls.getAndIncrement() == 0) {
-                                throw new IllegalStateException("poison write");
-                            }
-                            return null;
+                            writeCalls.getAndIncrement();
+                            throw new IllegalStateException("poison write");
                         })
-                .when(failingThenOkWriter)
+                .when(failingWriter)
                 .write(any(IMapFileData.class));
-        setWriter(handler, failingThenOkWriter);
+        setWriter(handler, failingWriter);
 
         long failedRequestId = RequestFutureCache.getRequestId();
         RequestFuture failedFuture = new RequestFuture();
         RequestFutureCache.put(failedRequestId, failedFuture);
 
-        long successRequestId = RequestFutureCache.getRequestId();
-        RequestFuture successFuture = new RequestFuture();
-        RequestFutureCache.put(successRequestId, successFuture);
+        long blockedRequestId = RequestFutureCache.getRequestId();
+        RequestFuture blockedFuture = new RequestFuture();
+        RequestFutureCache.put(blockedRequestId, blockedFuture);
 
         IMapFileData data =
                 IMapFileData.builder()
@@ -110,20 +110,22 @@ class WALWorkHandlerSurvivabilityTest {
         Assertions.assertTrue(failedFuture.isDone());
         Assertions.assertFalse(failedFuture.get());
 
+        // Fail-closed: second APPEND must complete with false without touching the writer again.
         Assertions.assertDoesNotThrow(
                 () ->
                         handler.onEvent(
                                 FileWALEvent.builder()
                                         .data(data)
                                         .type(WALEventType.APPEND)
-                                        .requestId(successRequestId)
+                                        .requestId(blockedRequestId)
                                         .build()));
-        Assertions.assertTrue(successFuture.isDone());
-        Assertions.assertTrue(successFuture.get());
-        Assertions.assertEquals(2, writeCalls.get());
+        Assertions.assertTrue(blockedFuture.isDone());
+        Assertions.assertFalse(blockedFuture.get());
+        Assertions.assertEquals(1, writeCalls.get());
+        verify(failingWriter, times(1)).write(any(IMapFileData.class));
 
         RequestFutureCache.remove(failedRequestId);
-        RequestFutureCache.remove(successRequestId);
+        RequestFutureCache.remove(blockedRequestId);
     }
 
     private static void setWriter(WALWorkHandler handler, WALWriter writer) throws Exception {
