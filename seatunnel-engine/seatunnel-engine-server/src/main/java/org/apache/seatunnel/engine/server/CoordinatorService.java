@@ -1178,6 +1178,19 @@ public class CoordinatorService {
                         .thenComparingLong(Map.Entry::getKey));
     }
 
+    /**
+     * Materializes a restored waiting job when scheduling or a targeted operation needs its master.
+     *
+     * <p>Checks the coordinator epoch before and after initialization so a superseded coordinator
+     * cannot return a usable master. If initialization fails while this coordinator is still
+     * current, records terminal failure and cleans up the metadata before propagating the error to
+     * the caller.
+     *
+     * @param jobId restored waiting job identifier
+     * @param jobInfo replicated metadata used to rebuild the execution plan
+     * @param restoreEpoch coordinator generation that owns this restore
+     * @return initialized job master with its physical plan in the pending state
+     */
     private JobMaster initializeWaitingJob(Long jobId, JobInfo jobInfo, long restoreEpoch) {
         if (!isPendingJobSchedulerCurrent(restoreEpoch)) {
             throw new CancellationException("Coordinator changed before pending job restore");
@@ -1611,6 +1624,19 @@ public class CoordinatorService {
         return new PassiveCompletableFuture<>(jobSubmitFuture);
     }
 
+    /**
+     * Publishes a submission's enqueue sequence and inserts it into the local pending queue.
+     *
+     * <p>The caller must wait for backlog restoration before calling this method. Sequence
+     * allocation, replicated metadata publication and queue insertion share the enqueue lock so
+     * concurrent submissions cannot publish and enter the queue in different orders. Epoch checks
+     * reject work belonging to a superseded coordinator.
+     *
+     * @param pendingJobInfo initialized submission to enqueue
+     * @param jobInfo replicated metadata to update with the assigned sequence
+     * @param epoch coordinator generation that owns this submission
+     * @throws InterruptedException if interrupted while locking or inserting, or the epoch is stale
+     */
     private void enqueueSubmittedJob(PendingJobInfo pendingJobInfo, JobInfo jobInfo, long epoch)
             throws InterruptedException {
         pendingJobEnqueueLock.lockInterruptibly();
