@@ -26,6 +26,7 @@ connector-cassandra
 connector-salesforce
 connector-cdc-db2
 connector-cdc-mysql
+connector-cdc-mariadb
 connector-cdc-mongodb
 connector-cdc-sqlserver
 connector-cdc-postgres
