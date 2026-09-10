@@ -15,8 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.zendesk.source.config;
+package org.apache.seatunnel.connectors.seatunnel.zendesk.sink.config;
 
 import org.apache.seatunnel.connectors.seatunnel.zendesk.config.ZendeskConfig;
 
-public class ZendeskSourceOptions extends ZendeskConfig {}
+public class ZendeskSinkOptions extends ZendeskConfig {}
