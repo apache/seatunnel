@@ -66,13 +66,23 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
-    private static final Map<String, Pattern> COMPILED_PATTERN_CACHE = new ConcurrentHashMap<>();
+    private static final int MAX_CACHED_PATTERNS = 256;
+
+    // Shared across all jobs in this JVM; bounded LRU so dynamically-generated regex patterns
+    // cannot grow this cache without limit over the life of the process.
+    private static final Map<String, Pattern> COMPILED_PATTERN_CACHE =
+            Collections.synchronizedMap(
+                    new LinkedHashMap<String, Pattern>(16, 0.75f, true) {
+                        @Override
+                        protected boolean removeEldestEntry(Map.Entry<String, Pattern> eldest) {
+                            return size() > MAX_CACHED_PATTERNS;
+                        }
+                    });
 
     @Override
     public String factoryIdentifier() {
