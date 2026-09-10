@@ -24,8 +24,10 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCloseTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -73,7 +75,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MultiTableSinkWriter
         implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
-                SupportSchemaEvolutionSinkWriter {
+                SupportSchemaEvolutionSinkWriter,
+                SupportCloseTableSinkWriter {
 
     private static final long EXECUTOR_CLOSE_TIMEOUT_SECONDS = 60L;
 
@@ -88,6 +91,19 @@ public class MultiTableSinkWriter
     private final List<BlockingQueue<MultiTableWriterRunnable.QueueElement>> blockingQueues =
             new ArrayList<>();
     private final ExecutorService executorService;
+    private final Set<String> closedTableIds = ConcurrentHashMap.newKeySet();
+    /**
+     * Tables that have received all close-table events and whose writers will be closed after their
+     * final checkpoint state has been captured. Rows already in flight remain valid until then.
+     */
+    private final Set<String> pendingCloseTableIds = ConcurrentHashMap.newKeySet();
+    /** Tracks which upstream subtasks have already acknowledged a table as finished. */
+    private final ConcurrentMap<String, Set<Integer>> closeTableEventSources =
+            new ConcurrentHashMap<>();
+    /** Stores how many upstream close-table events must arrive before a table can be closed. */
+    private final ConcurrentMap<String, Integer> expectedCloseTableEventCounts =
+            new ConcurrentHashMap<>();
+
     private final MultiTableFailurePolicy failurePolicy;
     private final JobMode jobMode;
     private final int tableRetryTimes;
@@ -553,6 +569,71 @@ public class MultiTableSinkWriter
         return Optional.empty();
     }
 
+    @Override
+    public void handleCloseTableEvent(CloseTableEvent event) throws IOException {
+        if (event == null || event.tableId() == null) {
+            log.debug("Ignore empty close table event: {}", event);
+            return;
+        }
+        if (closedTableIds.contains(event.tableId())) {
+            // A straggler close-table event arriving after this table's writers are already
+            // closed must not recreate closeTableEventSources/expectedCloseTableEventCounts
+            // entries for it: closeTable() already removed both, and letting a late event
+            // recreate them here would leak one entry per straggler-hit table for the rest of
+            // the job's lifetime, since nothing else ever revisits an already-closed table.
+            log.debug(
+                    "Ignore close table event for table {} that is already closed",
+                    event.tableId());
+            return;
+        }
+        Integer sourceSubtaskId = event.getSourceSubtaskId();
+        Integer expectedSourceEventCount = event.getExpectedSourceEventCount();
+        if (sourceSubtaskId == null
+                || expectedSourceEventCount == null
+                || expectedSourceEventCount <= 1) {
+            Integer requiredCountOnFile = expectedCloseTableEventCounts.get(event.tableId());
+            if (requiredCountOnFile != null && requiredCountOnFile > 1) {
+                // Another, properly attributed event already established that more than one
+                // upstream subtask must report in before this table can close. This event
+                // cannot be attributed to a specific subtask, so it cannot safely count as one
+                // of those votes; closing now would risk cutting off sibling subtasks that are
+                // still writing rows for this table, so wait for the real aggregation to
+                // converge instead.
+                log.debug(
+                        "Ignoring un-attributed close table event for table {} while {} upstream readers are still expected",
+                        event.tableId(),
+                        requiredCountOnFile);
+                return;
+            }
+            // Known gap (tracked, non-blocking): if this un-attributed event is the FIRST close
+            // event ever seen for this table, requiredCountOnFile is null here, so we cannot yet
+            // know whether another upstream subtask will still report for the same table --
+            // multi-reader membership is only learned from a properly attributed event's own
+            // expectedSourceEventCount. Closing on this first, un-attributed signal is a much
+            // narrower window than the original bug (which closed on ANY un-attributed event
+            // regardless of known multi-reader state), but it is not fully eliminated; it is
+            // inherent to this ordering ambiguity rather than an oversight in this fix.
+            markTablePendingClose(event.tableId());
+            return;
+        }
+        Set<Integer> receivedSourceSubtasks =
+                closeTableEventSources.computeIfAbsent(
+                        event.tableId(), key -> ConcurrentHashMap.newKeySet());
+        receivedSourceSubtasks.add(sourceSubtaskId);
+        expectedCloseTableEventCounts.merge(event.tableId(), expectedSourceEventCount, Math::max);
+        int currentCount = receivedSourceSubtasks.size();
+        int requiredCount = expectedCloseTableEventCounts.get(event.tableId());
+        if (currentCount < requiredCount) {
+            log.debug(
+                    "Received {}/{} close table events for table {}, waiting for all upstream readers",
+                    currentCount,
+                    requiredCount,
+                    event.tableId());
+            return;
+        }
+        markTablePendingClose(event.tableId());
+    }
+
     /**
      * Routes a row to the appropriate blocking queue for async writing.
      *
@@ -582,12 +663,31 @@ public class MultiTableSinkWriter
      */
     @Override
     public void write(SeaTunnelRow element) throws IOException {
+        if (element == null) {
+            return;
+        }
         if (element != null && element.getOptions() != null) {
             if (element.getOptions().containsKey("flush_event")
                     || element.getOptions().containsKey("schema_change_event")) {
                 log.debug("Skipping schema change event row: {}", element.getOptions().keySet());
                 return;
             }
+        }
+
+        if (element.getTableId() != null && closedTableIds.contains(element.getTableId())) {
+            if (failurePolicy.continueOtherTables()) {
+                // Route a late row for an already-closed table through the same continue-policy
+                // outcome as the other write-time failure paths below (quarantined table,
+                // missing primary key) instead of hard-failing the whole task on it.
+                log.debug(
+                        "Skip row for table {} received after its sink writers were closed",
+                        element.getTableId());
+                return;
+            }
+            throw new IOException(
+                    String.format(
+                            "Received row for table %s after its sink writers were closed",
+                            element.getTableId()));
         }
 
         ensureQueueWorkersSubmitted();
@@ -647,6 +747,149 @@ public class MultiTableSinkWriter
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException(e);
+        }
+    }
+
+    private void markTablePendingClose(String tableId) {
+        if (closedTableIds.contains(tableId)) {
+            log.debug("Table {} is already closed in multi table sink writer", tableId);
+            return;
+        }
+        if (!pendingCloseTableIds.add(tableId)) {
+            log.debug("Table {} is already pending close in multi table sink writer", tableId);
+            return;
+        }
+        closeTableEventSources.remove(tableId);
+        expectedCloseTableEventCounts.remove(tableId);
+        log.info(
+                "Marked sink writers for table {} to close after snapshotting their final checkpoint state",
+                tableId);
+    }
+
+    private void closeTable(String tableId) throws IOException {
+        if (closedTableIds.contains(tableId)) {
+            pendingCloseTableIds.remove(tableId);
+            log.debug("Table {} is already closed in multi table sink writer", tableId);
+            return;
+        }
+        waitUntilTableQueueDrained(tableId);
+
+        boolean matched = false;
+        boolean allWritersClosed = true;
+        Throwable firstError = null;
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            synchronized (runnable.get(i)) {
+                Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writerMap =
+                        sinkWritersWithIndex.get(i);
+                List<SinkIdentifier> matchedIdentifiers = new ArrayList<>();
+                for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> entry :
+                        writerMap.entrySet()) {
+                    if (tableId.equals(entry.getKey().getTableIdentifier())) {
+                        matchedIdentifiers.add(entry.getKey());
+                    }
+                }
+                if (matchedIdentifiers.isEmpty()) {
+                    continue;
+                }
+                matched = true;
+                boolean partitionFullyClosed = true;
+                for (SinkIdentifier identifier : matchedIdentifiers) {
+                    SinkWriter<SeaTunnelRow, ?, ?> sinkWriter = writerMap.get(identifier);
+                    if (sinkWriter == null) {
+                        continue;
+                    }
+                    try {
+                        sinkWriter.close();
+                        // Only drop the writer reference once close() actually succeeds, so a
+                        // failed close leaves the writer in place and retriable on a later
+                        // closeTable() attempt instead of leaking it with no way to retry.
+                        writerMap.remove(identifier);
+                        sinkWriters.remove(identifier);
+                    } catch (Throwable e) {
+                        partitionFullyClosed = false;
+                        allWritersClosed = false;
+                        if (firstError == null) {
+                            firstError = e;
+                        }
+                        log.error("Failed to close sink writer for table {}", tableId, e);
+                    }
+                }
+                if (partitionFullyClosed) {
+                    runnable.get(i).removeTableWriter(tableId);
+                }
+            }
+        }
+        if (!allWritersClosed) {
+            // Keep the table pending so the next checkpoint retries the writers that are still
+            // open, instead of marking it closed with no path back to the leaked writers.
+            pendingCloseTableIds.add(tableId);
+            throw new IOException("Failed to close sink writers for table " + tableId, firstError);
+        }
+        pendingCloseTableIds.remove(tableId);
+        closedTableIds.add(tableId);
+        closeTableEventSources.remove(tableId);
+        expectedCloseTableEventCounts.remove(tableId);
+        sinkPrimaryKeys.remove(tableId);
+        if (!matched) {
+            log.debug("Ignore close table event for unknown table {}", tableId);
+        } else {
+            log.info("Closed sink writers for table {} after close table event", tableId);
+        }
+    }
+
+    /**
+     * Deadline for {@link #waitUntilTableQueueDrained}. A checkpoint must not block forever if a
+     * table's queue never drains (for example a stuck downstream sink): bounding the wait lets the
+     * checkpoint fail cleanly instead of stalling indefinitely. The table stays in {@code
+     * pendingCloseTableIds} when the deadline is hit (this method throws before {@link #closeTable}
+     * removes it), so the next checkpoint attempt retries the close instead of it being silently
+     * skipped.
+     */
+    private static final long TABLE_QUEUE_DRAIN_TIMEOUT_MILLIS = 300_000L;
+
+    private void waitUntilTableQueueDrained(String tableId) throws IOException {
+        long deadline = System.currentTimeMillis() + TABLE_QUEUE_DRAIN_TIMEOUT_MILLIS;
+        try {
+            while (hasQueuedRows(tableId)) {
+                if (System.currentTimeMillis() >= deadline) {
+                    throw new IOException(
+                            String.format(
+                                    "Timed out after %dms waiting for table %s's queued rows to"
+                                            + " drain before closing it; will retry on the next"
+                                            + " checkpoint",
+                                    TABLE_QUEUE_DRAIN_TIMEOUT_MILLIS, tableId));
+                }
+                Thread.sleep(100L);
+                subSinkErrorCheck();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IOException(
+                    String.format(
+                            "Interrupted while waiting for table %s's queued rows to drain before"
+                                    + " closing it",
+                            tableId),
+                    e);
+        }
+    }
+
+    private boolean hasQueuedRows(String tableId) {
+        for (BlockingQueue<MultiTableWriterRunnable.QueueElement> blockingQueue : blockingQueues) {
+            for (MultiTableWriterRunnable.QueueElement queueElement : blockingQueue) {
+                if (tableId.equals(queueElement.rowTableId())) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private void closePendingTables() throws IOException {
+        if (pendingCloseTableIds.isEmpty()) {
+            return;
+        }
+        for (String tableId : new ArrayList<>(pendingCloseTableIds)) {
+            closeTable(tableId);
         }
     }
 
@@ -712,6 +955,7 @@ public class MultiTableSinkWriter
         }
         waitRuntimeTableFailuresHandled();
         subSinkErrorCheck();
+        closePendingTables();
         multiTableStates.add(
                 new MultiTableState(snapshotStates, new ArrayList<>(failedTables.values())));
         return multiTableStates;

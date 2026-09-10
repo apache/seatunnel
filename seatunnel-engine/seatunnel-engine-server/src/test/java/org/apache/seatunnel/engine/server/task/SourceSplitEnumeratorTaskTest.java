@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceEnumeratorEventOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -62,6 +63,11 @@ public class SourceSplitEnumeratorTaskTest {
         public String splitId() {
             return "dummy";
         }
+    }
+
+    /** Source event used to verify enumerator-to-reader delivery behavior. */
+    private static final class DummySourceEvent implements SourceEvent {
+        private static final long serialVersionUID = 1L;
     }
 
     @Test
@@ -181,6 +187,36 @@ public class SourceSplitEnumeratorTaskTest {
         enumeratorTask.receivedReader(readerLocation, address);
 
         Mockito.verify(context, Mockito.times(2)).sendToMember(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    void testSendEventToSourceReaderDoesNotBlockOnInvocationFuture() {
+        SourceSplitEnumeratorTask<DummySplit> enumeratorTask =
+                Mockito.mock(SourceSplitEnumeratorTask.class);
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        InvocationFuture<Object> future = Mockito.mock(InvocationFuture.class);
+        TaskLocation enumeratorLocation = new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 0);
+        TaskLocation readerLocation = new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1);
+        Address readerAddress = Address.createUnresolvedAddress("localhost", 5701);
+
+        Mockito.when(enumeratorTask.getTaskMemberLocationByIndex(1)).thenReturn(readerLocation);
+        Mockito.when(enumeratorTask.getTaskMemberAddressByIndex(1)).thenReturn(readerAddress);
+        Mockito.when(enumeratorTask.getTaskLocation()).thenReturn(enumeratorLocation);
+        Mockito.when(enumeratorTask.getExecutionContext()).thenReturn(context);
+        Mockito.when(context.sendToMember(Mockito.any(), Mockito.eq(readerAddress)))
+                .thenReturn(future);
+
+        SeaTunnelSplitEnumeratorContext<DummySplit> enumeratorContext =
+                new SeaTunnelSplitEnumeratorContext<>(2, enumeratorTask, null, null);
+
+        enumeratorContext.sendEventToSourceReader(1, new DummySourceEvent());
+
+        ArgumentCaptor<Operation> operationCaptor = ArgumentCaptor.forClass(Operation.class);
+        Mockito.verify(context).sendToMember(operationCaptor.capture(), Mockito.eq(readerAddress));
+        Mockito.verify(future).whenComplete(Mockito.any());
+        Mockito.verify(future, Mockito.never()).join();
+        Assertions.assertInstanceOf(
+                SourceEnumeratorEventOperation.class, operationCaptor.getValue());
     }
 
     @Test

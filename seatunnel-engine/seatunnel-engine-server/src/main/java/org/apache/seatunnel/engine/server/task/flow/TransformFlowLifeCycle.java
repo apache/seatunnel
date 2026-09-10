@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.event.CloseTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -191,6 +192,30 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 }
                 log.info(
                         "Transform[{}] input schema change event {} and output schema change event {}",
+                        t.getPluginName(),
+                        eventBefore,
+                        event);
+            }
+            if (event != null) {
+                collector.collect(new Record<>(event));
+            }
+        } else if (record.getData() instanceof CloseTableEvent) {
+            if (prepareClose) {
+                return;
+            }
+            CloseTableEvent event = (CloseTableEvent) record.getData();
+            for (SeaTunnelTransform<T> t : transform) {
+                CloseTableEvent eventBefore = event;
+                event = t.mapCloseTableEvent(eventBefore);
+                if (event == null) {
+                    log.info(
+                            "Transform[{}] filtered close table event {}",
+                            t.getPluginName(),
+                            eventBefore);
+                    break;
+                }
+                log.info(
+                        "Transform[{}] input close table event {} and output close table event {}",
                         t.getPluginName(),
                         eventBefore,
                         event);
