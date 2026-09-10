@@ -22,9 +22,9 @@ import ChangeLog from '../changelog/connector-cdc-gaussdb.md';
 
 GaussDB CDC 连接器通过 PostgreSQL 兼容的逻辑复制协议读取 GaussDB 数据库的快照数据和增量数据。
 
-当前实现复用 SeaTunnel PostgreSQL CDC 运行时。请使用 PostgreSQL 兼容形式的 JDBC URL，例如 `jdbc:postgresql://host:port/database`，并配置 Debezium PostgreSQL 支持的逻辑解码插件，例如 `pgoutput`。
+连接器原生读取 GaussDB 的 `mppdb_decoding` 逻辑解码格式，支持串行 JSON 输出，以及并行二进制、JSON、TEXT 输出和批量帧。只有 SeaTunnel checkpoint 完成后，连接器才会向服务端确认复制槽进度。
 
-当前连接器不解析 `mppdb_decoding` 二进制解码协议。
+请使用 PostgreSQL 兼容形式的 JDBC URL，例如 `jdbc:postgresql://host:port/database`。连接器仍支持 `pgoutput` 等与 PostgreSQL 兼容的 Debezium 插件，此时复用 PostgreSQL CDC 运行时。
 
 ## 使用步骤
 
@@ -35,13 +35,17 @@ ALTER SYSTEM SET wal_level TO 'logical';
 SELECT pg_reload_conf();
 ```
 
-2. 确保 CDC 用户可以连接数据库，并具备逻辑复制所需权限。
+2. 确保 CDC 用户可以连接数据库、创建或使用逻辑复制槽，并具备逻辑复制所需权限。
 
 3. 如果 update 和 delete 事件需要完整行数据，请将被采集表的 replica identity 设置为 `FULL`。
 
 ```sql
 ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 ```
+
+4. 每个并发 CDC 任务必须使用不同的 `slot.name`。复制槽应当不存在，或者已使用所配置的解码插件。
+
+`mppdb_decoding` 会输出行变更，但不会输出 PostgreSQL `RELATION` 消息，因此必须保持 `schema-changes.enabled = false`。需要 Schema 演进时，请使用 `pgoutput`。
 
 ## 源端可选项
 
@@ -60,7 +64,13 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 | snapshot.split.size | 整型 | 否 | 8096 | 表快照的拆分大小，单位为行数。 |
 | snapshot.fetch.size | 整型 | 否 | 1024 | 读取表快照时每次查询的最大条数。 |
 | slot.name | 字符串 | 否 | seatunnel | 逻辑复制槽名称。同一个 GaussDB 实例上如果有多个 CDC 任务，请为每个任务配置不同的复制槽。 |
-| decoding.plugin.name | 字符串 | 否 | pgoutput | 逻辑解码插件名称。支持值与 PostgreSQL CDC 连接器一致，例如 `pgoutput`、`decoderbufs`、`wal2json`。不支持 `mppdb_decoding`。 |
+| decoding.plugin.name | 字符串 | 否 | mppdb_decoding | 逻辑解码插件名称。`mppdb_decoding` 使用 GaussDB 原生读取器；`pgoutput`、`decoderbufs`、`wal2json` 等 PostgreSQL 兼容的 Debezium 插件使用 PostgreSQL CDC 读取器。 |
+| replication.port | 整型 | 否 | `url` 中的端口 | GaussDB 复制连接使用的独立端口。有效范围为 1 到 65535。 |
+| parallel-decode-num | 整型 | 否 | 1 | `mppdb_decoding` 在 GaussDB 服务端使用的解码线程数。有效范围为 1 到 20；大于 1 时启用并行解码。 |
+| decode-style | 字符串 | 否 | b | 并行 `mppdb_decoding` 输出格式：`b` 表示二进制，`j` 表示 JSON，`t` 表示 TEXT。仅在 `parallel-decode-num` 大于 1 时生效。 |
+| sending-batch | 布尔 | 否 | false | 并行 `mppdb_decoding` 是否批量发送累积的记录。仅在 `parallel-decode-num` 大于 1 时生效。 |
+| require-replica-identity-full | 布尔 | 否 | true | 要求采集表使用 `REPLICA IDENTITY FULL`。只有在 UPDATE 和 DELETE 的变更前数据不完整也可以接受时，才应设置为 `false`。 |
+| schema-changes.enabled | 布尔 | 否 | false | 启用 Schema 演进事件。该功能需要 `pgoutput` 等兼容插件；`mppdb_decoding` 不会输出所需的 `RELATION` 消息。 |
 | server-time-zone | 字符串 | 否 | UTC | 数据库服务器会话时区。 |
 | connect.timeout.ms | 时间间隔 | 否 | 30000 | 建立数据库连接的最大等待时间，单位为毫秒。 |
 | connect.max-retries | 整型 | 否 | 3 | 建立数据库连接的最大重试次数。 |
@@ -88,8 +98,11 @@ source {
     schema-name = ["inventory"]
     table-names = ["gaussdb_cdc.inventory.orders"]
     url = "jdbc:postgresql://localhost:5432/gaussdb_cdc?loggerLevel=OFF"
-    decoding.plugin.name = "pgoutput"
+    decoding.plugin.name = "mppdb_decoding"
     slot.name = "seatunnel_gaussdb_cdc"
+    parallel-decode-num = 4
+    decode-style = "b"
+    sending-batch = true
   }
 }
 

@@ -22,9 +22,9 @@ import ChangeLog from '../changelog/connector-cdc-gaussdb.md';
 
 The GaussDB CDC connector reads snapshot data and incremental data from GaussDB databases through the PostgreSQL-compatible logical replication protocol.
 
-The current implementation reuses SeaTunnel's PostgreSQL CDC runtime. Configure a PostgreSQL-compatible JDBC URL, for example `jdbc:postgresql://host:port/database`, and use a Debezium PostgreSQL logical decoding plugin such as `pgoutput`.
+The connector natively reads the GaussDB `mppdb_decoding` logical decoding format. It supports serial JSON output and parallel binary, JSON, and TEXT output, including batched frames. Server-side slot progress is acknowledged only after a SeaTunnel checkpoint completes.
 
-The `mppdb_decoding` binary decoding protocol is not parsed by this connector.
+Configure a PostgreSQL-compatible JDBC URL, for example `jdbc:postgresql://host:port/database`. PostgreSQL-compatible Debezium plugins such as `pgoutput` remain supported and use the PostgreSQL CDC runtime.
 
 ## Using steps
 
@@ -35,13 +35,17 @@ ALTER SYSTEM SET wal_level TO 'logical';
 SELECT pg_reload_conf();
 ```
 
-2. Make sure the CDC user can connect to the database and use logical replication.
+2. Make sure the CDC user can connect to the database, create or use a logical replication slot, and use logical replication.
 
 3. Set replica identity to `FULL` for captured tables when update and delete events need complete row values.
 
 ```sql
 ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 ```
+
+4. Use a distinct `slot.name` for every concurrent CDC job. The slot must either not exist or already use the configured decoding plugin.
+
+`mppdb_decoding` emits row changes but no PostgreSQL `RELATION` messages, so `schema-changes.enabled` must remain `false`. Use `pgoutput` when schema evolution is required.
 
 ## Source Options
 
@@ -60,7 +64,13 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 | snapshot.split.size | Integer | No | 8096 | Split size, in rows, for table snapshots. |
 | snapshot.fetch.size | Integer | No | 1024 | Maximum fetch size for each snapshot query. |
 | slot.name | String | No | seatunnel | Logical replication slot name. Use a different slot for each CDC job on the same GaussDB instance. |
-| decoding.plugin.name | String | No | pgoutput | Logical decoding plugin name. Supported values follow the PostgreSQL CDC connector, such as `pgoutput`, `decoderbufs`, and `wal2json`. `mppdb_decoding` is not supported. |
+| decoding.plugin.name | String | No | mppdb_decoding | Logical decoding plugin name. `mppdb_decoding` uses the native GaussDB reader. PostgreSQL-compatible Debezium plugins such as `pgoutput`, `decoderbufs`, and `wal2json` use the PostgreSQL CDC reader. |
+| replication.port | Integer | No | Port in `url` | Dedicated port for the GaussDB replication connection. The valid range is 1 through 65535. |
+| parallel-decode-num | Integer | No | 1 | Number of GaussDB server-side decoder threads for `mppdb_decoding`. The valid range is 1 through 20. A value greater than 1 enables parallel decoding. |
+| decode-style | String | No | b | Parallel `mppdb_decoding` output style: `b` for binary, `j` for JSON, or `t` for TEXT. Effective only when `parallel-decode-num` is greater than 1. |
+| sending-batch | Boolean | No | false | Whether parallel `mppdb_decoding` sends accumulated records in batches. Effective only when `parallel-decode-num` is greater than 1. |
+| require-replica-identity-full | Boolean | No | true | Require captured tables to use `REPLICA IDENTITY FULL`. Set to `false` only when incomplete previous values for UPDATE and DELETE are acceptable. |
+| schema-changes.enabled | Boolean | No | false | Enable schema evolution events. This requires a compatible plugin such as `pgoutput`; `mppdb_decoding` does not emit the required `RELATION` messages. |
 | server-time-zone | String | No | UTC | Session time zone of the database server. |
 | connect.timeout.ms | Duration | No | 30000 | Maximum connection timeout in milliseconds. |
 | connect.max-retries | Integer | No | 3 | Maximum connection retry count. |
@@ -88,8 +98,11 @@ source {
     schema-name = ["inventory"]
     table-names = ["gaussdb_cdc.inventory.orders"]
     url = "jdbc:postgresql://localhost:5432/gaussdb_cdc?loggerLevel=OFF"
-    decoding.plugin.name = "pgoutput"
+    decoding.plugin.name = "mppdb_decoding"
     slot.name = "seatunnel_gaussdb_cdc"
+    parallel-decode-num = 4
+    decode-style = "b"
+    sending-batch = true
   }
 }
 

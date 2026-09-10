@@ -61,8 +61,7 @@ public class GaussDBIncrementalSourceFactory extends BaseChangeStreamTableSource
     }
 
     /**
-     * Defines the GaussDB CDC option contract. The option set follows PostgreSQL CDC because the
-     * runtime uses the same logical replication path.
+     * Defines the GaussDB CDC option contract, including the native mppdb decoding controls.
      *
      * @return required, optional, and mutually exclusive source options
      */
@@ -80,8 +79,12 @@ public class GaussDBIncrementalSourceFactory extends BaseChangeStreamTableSource
                         JdbcSourceOptions.CONNECT_TIMEOUT_MS,
                         JdbcSourceOptions.CONNECT_MAX_RETRIES,
                         JdbcSourceOptions.CONNECTION_POOL_SIZE,
-                        PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME,
-                        PostgresIncrementalSourceOptions.SLOT_NAME,
+                        GaussDBIncrementalSourceOptions.DECODING_PLUGIN_NAME,
+                        GaussDBIncrementalSourceOptions.SLOT_NAME,
+                        GaussDBIncrementalSourceOptions.REPLICATION_PORT,
+                        GaussDBIncrementalSourceOptions.PARALLEL_DECODE_NUM,
+                        GaussDBIncrementalSourceOptions.DECODE_STYLE,
+                        GaussDBIncrementalSourceOptions.SENDING_BATCH,
                         PostgresIncrementalSourceOptions.SCHEMA_NAME,
                         PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
@@ -116,7 +119,7 @@ public class GaussDBIncrementalSourceFactory extends BaseChangeStreamTableSource
     }
 
     /**
-     * Creates a GaussDB source using PostgreSQL catalog discovery and logical replication runtime.
+     * Creates a GaussDB source using PostgreSQL catalog discovery and the selected WAL reader.
      *
      * @param context factory context containing source options and class loader
      * @param restoreTables catalog tables restored from checkpoint state

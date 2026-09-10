@@ -191,13 +191,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 if (log.isInfoEnabled()) {
                     log.info(dataConnection.serverInfo().toString());
                 }
-                PostgresConnectorConfig.LogicalDecoder logicalDecoder =
-                        PostgresConnectorConfig.LogicalDecoder.parse(
-                                connectorConfig.getConfig().getString(PLUGIN_NAME));
-                slotInfo =
-                        dataConnection.getReplicationSlotState(
-                                connectorConfig.getConfig().getString(SLOT_NAME),
-                                logicalDecoder.getPostgresPluginName());
+                slotInfo = getReplicationSlotState(connectorConfig);
             } catch (SQLException e) {
                 log.warn(
                         "unable to load info of replication slot, Debezium will try to create the slot");
@@ -211,36 +205,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 snapshotter.init(connectorConfig, offsetContext.asOffsetState(), slotInfo);
             }
 
-            if (snapshotter.shouldStream()) {
-                // we need to create the slot before we start streaming if it doesn't exist
-                // otherwise we can't stream back changes happening while the snapshot is taking
-                // place
-                if (this.replicationConnection == null) {
-                    this.replicationConnection =
-                            PostgresObjectUtils.createReplicationConnection(
-                                    this.taskContext,
-                                    dataConnection,
-                                    snapshotter.shouldSnapshot(),
-                                    connectorConfig);
-                    if (slotInfo == null) {
-                        try {
-                            replicationConnection.createReplicationSlot().orElse(null);
-                        } catch (SQLException ex) {
-                            String message = "Creation of replication slot failed";
-                            // PostgreSQL errors all have a 5-character SQLSTATE code, following the
-                            // SQL standard specification
-                            // https://www.postgresql.org/docs/current/errcodes-appendix.html
-                            if ("42710".equals(ex.getSQLState())) {
-                                message +=
-                                        "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
-                                log.warn(message);
-                            } else {
-                                throw new DebeziumException(message, ex);
-                            }
-                        }
-                    }
-                }
-            }
+            prepareReplicationConnection(connectorConfig, slotInfo);
 
             try {
                 dataConnection.commit();
@@ -415,6 +380,53 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
 
     public PostgresEventDispatcher<TableId> getPgEventDispatcher() {
         return pgEventDispatcher;
+    }
+
+    /** Loads the replication slot state used to initialize the Debezium snapshotter. */
+    protected SlotState getReplicationSlotState(PostgresConnectorConfig connectorConfig)
+            throws SQLException {
+        PostgresConnectorConfig.LogicalDecoder logicalDecoder =
+                PostgresConnectorConfig.LogicalDecoder.parse(
+                        connectorConfig.getConfig().getString(PLUGIN_NAME));
+        return dataConnection.getReplicationSlotState(
+                connectorConfig.getConfig().getString(SLOT_NAME),
+                logicalDecoder.getPostgresPluginName());
+    }
+
+    /**
+     * Prepares the replication connection and slot before snapshot rows are read.
+     *
+     * <p>Subclasses with a database-specific WAL protocol may override this hook while preserving
+     * the PostgreSQL snapshot and schema initialization performed by this context.
+     */
+    protected void prepareReplicationConnection(
+            PostgresConnectorConfig connectorConfig, SlotState slotInfo) {
+        if (!snapshotter.shouldStream() || this.replicationConnection != null) {
+            return;
+        }
+        this.replicationConnection =
+                PostgresObjectUtils.createReplicationConnection(
+                        this.taskContext,
+                        dataConnection,
+                        snapshotter.shouldSnapshot(),
+                        connectorConfig);
+        if (slotInfo == null) {
+            try {
+                replicationConnection.createReplicationSlot().orElse(null);
+            } catch (SQLException ex) {
+                String message = "Creation of replication slot failed";
+                // PostgreSQL errors all have a 5-character SQLSTATE code, following the SQL
+                // standard specification:
+                // https://www.postgresql.org/docs/current/errcodes-appendix.html
+                if ("42710".equals(ex.getSQLState())) {
+                    message +=
+                            "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
+                    log.warn(message);
+                } else {
+                    throw new DebeziumException(message, ex);
+                }
+            }
+        }
     }
 
     @Override

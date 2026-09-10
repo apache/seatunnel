@@ -70,7 +70,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.password", checkNotNull(password));
         props.setProperty("database.port", String.valueOf(port));
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
-        props.setProperty("plugin.name", decodingPluginName);
+        props.setProperty("plugin.name", getDebeziumDecodingPluginName());
         props.setProperty("slot.name", slotName);
 
         // database history
@@ -149,5 +149,15 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
         config.setEnableConcurrentRead(this.enableConcurrentRead);
         return config;
+    }
+
+    /**
+     * Returns the logical decoder name passed to Debezium.
+     *
+     * <p>Database-specific subclasses may override this when they provide their own WAL reader but
+     * still reuse the PostgreSQL snapshot and schema runtime.
+     */
+    protected String getDebeziumDecodingPluginName() {
+        return decodingPluginName;
     }
 }

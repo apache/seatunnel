@@ -175,7 +175,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         }
     }
 
-    private void validateSchemaEvolutionOptions(ReadonlyConfig options) {
+    protected void validateSchemaEvolutionOptions(ReadonlyConfig options) {
         if (options.get(SourceOptions.SCHEMA_CHANGES_ENABLED)
                 && !"pgoutput"
                         .equalsIgnoreCase(
@@ -190,11 +190,7 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     private Map<TableId, Struct> tableChanges() {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
-        PostgresDialect dialect =
-                new PostgresDialect(
-                        (PostgresSourceConfigFactory) configFactory,
-                        catalogTables,
-                        requireReplicaIdentityFull);
+        PostgresDialect dialect = (PostgresDialect) dataSourceDialect;
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
         SchemaNameAdjuster adjuster = SchemaNameAdjuster.create();
         ConnectTableChangeSerializer connectTableChangeSerializer =
