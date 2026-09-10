@@ -4,6 +4,7 @@
 ## 已支持的引擎
 
 - Zeta
+- Flink
 
 ## 已支持的模式变更事件类型
 
@@ -40,6 +41,12 @@
 
 ## 启用Schema evolution功能
 在CDC源连接器中模式演进默认是关闭的。你需要在CDC连接器中配置`schema-changes.enabled = true`来启用它。
+
+## Flink 并行 Sink
+
+对于明确声明支持协调式模式演进的 Sink，Flink 只执行一次外部 schema 变更，然后把完整的演进后 schema 发送给所有并行 Sink writer。每个 writer 会先刷新本地 serializer、statement 或字段映射，再继续处理 schema 变更后的数据。
+
+目前 JDBC Sink 支持该协调路径。其他 Sink 仍使用原有的模式演进路径，其支持的 schema 变更类型和并行行为由各连接器自行定义。
 
 ## 多库多表路由
 

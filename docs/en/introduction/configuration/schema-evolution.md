@@ -4,6 +4,7 @@ Schema Evolution means that the schema of a data table can be changed and the da
 ## Supported engines
 
 - Zeta
+- Flink
 
 ## Supported schema change event types
 
@@ -40,6 +41,17 @@ Otherwise, If your table name start with `ORA_TEMP_` will also has the same prob
 
 ## Enable schema evolution
 Schema evolution is disabled by default in CDC source. You need configure `schema-changes.enabled = true` which is only supported in CDC to enable it.
+
+## Parallel Flink sinks
+
+Flink uses coordinated schema evolution for sinks that explicitly support it. The external schema
+change is applied once, and then the complete evolved schema is delivered to every parallel sink
+writer so that each writer can refresh its local serializer, statement, or column mapping before
+post-change rows continue.
+
+The JDBC sink currently supports this coordinated path. Other sinks continue to use the existing
+schema evolution path, and their supported schema changes and parallel behavior remain
+connector-specific.
 
 ## Multi-database and multi-table routing
 

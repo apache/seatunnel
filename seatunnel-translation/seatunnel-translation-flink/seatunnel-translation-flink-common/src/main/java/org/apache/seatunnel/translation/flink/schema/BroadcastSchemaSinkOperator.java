@@ -19,12 +19,10 @@ package org.apache.seatunnel.translation.flink.schema;
 
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
@@ -42,17 +40,13 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * BroadcastSchemaSinkOperator is a Flink operator that coordinates schema changes across parallel
- * sink subtasks using immediate application
- */
+/** Forwards schema changes to sinks that use the legacy writer-local schema evolution path. */
 @Slf4j
 public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunnelRow>
         implements OneInputStreamOperator<SeaTunnelRow, SeaTunnelRow> {
 
     private transient Map<TableIdentifier, Long> lastProcessedEpoch;
     private transient ListState<TableEpochEntry> lastProcessedEpochState;
-    private transient LocalSchemaCoordinator coordinator;
     private String jobId;
 
     @Getter
@@ -95,19 +89,11 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
     public void open() throws Exception {
         super.open();
         int subtaskId = getRuntimeContext().getIndexOfThisSubtask();
-        int parallelism = getRuntimeContext().getNumberOfParallelSubtasks();
-
         this.jobId = getRuntimeContext().getJobId().toString();
-        this.coordinator = LocalSchemaCoordinator.getInstance(jobId);
-
-        if (subtaskId == 0) {
-            coordinator.registerSinkParallelism(parallelism);
-        }
-
-        // register this subtask as a state provider for the coordinator
-        coordinator.registerSinkStateProvider(
-                subtaskId, tableId -> lastProcessedEpoch.get(tableId));
-        log.info("BroadcastSchemaSinkOperator opened on subtask {}/{}", subtaskId, parallelism);
+        log.info(
+                "BroadcastSchemaSinkOperator opened on subtask {}/{}",
+                subtaskId,
+                getRuntimeContext().getNumberOfParallelSubtasks());
     }
 
     @Override
@@ -146,16 +132,12 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
             Long lastEpoch = lastProcessedEpoch.get(tableId);
             if (lastEpoch != null && epoch <= lastEpoch) {
                 log.info(
-                        "Subtask {} already processed schema change for table {} (epoch {}), last processed: {}. "
-                                + "Sending ACK to coordinator for this duplicate event.",
+                        "Subtask {} already processed schema change for table {} (epoch {}), "
+                                + "last processed: {}. Ignoring duplicate event.",
                         getRuntimeContext().getIndexOfThisSubtask(),
                         tableId,
                         epoch,
                         lastEpoch);
-
-                // send ACK for this already-processed event to avoid coordinator timeout
-                coordinator.notifySchemaChangeApplied(
-                        tableId, epoch, getRuntimeContext().getIndexOfThisSubtask(), true);
                 return;
             }
             int subtaskId = getRuntimeContext().getIndexOfThisSubtask();
@@ -166,29 +148,22 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
                     epoch,
                     event.getClass().getSimpleName());
 
-            // Forward to FlinkSinkWriter which performs the actual ALTER TABLE and sends
-            // ACK to coordinator after completion. We do NOT send ACK here because
-            // output.collect() may be asynchronous if operators are not chained, and
-            // sending ACK before ALTER TABLE finishes would cause SchemaOperator to
-            // release new-schema data before the sink table is actually altered.
+            // Forward to FlinkSinkWriter which performs the actual ALTER TABLE. SchemaOperator
+            // keeps new-schema rows buffered until a later completed Flink checkpoint confirms
+            // that this control record was processed by downstream tasks.
             emitApplySchemaEventToSink(event, epoch);
             lastProcessedEpoch.put(tableId, epoch);
 
             log.info(
-                    "Subtask {} forwarded schema change for table {} (epoch {}) to sink writer. "
-                            + "ACK will be sent by FlinkSinkWriter after ALTER TABLE completes.",
+                    "Subtask {} forwarded schema change for table {} (epoch {}) to sink writer.",
                     subtaskId,
                     tableId,
                     epoch);
-        } catch (SchemaValidationException | SchemaCoordinationException e) {
-            log.error("Schema broadcast or coordination error", e);
-            coordinator.notifySchemaChangeApplied(
-                    tableId, epoch, getRuntimeContext().getIndexOfThisSubtask(), false);
+        } catch (SchemaValidationException e) {
+            log.error("Schema broadcast error", e);
             throw e;
         } catch (Exception e) {
             log.error("Schema change dispatch failed", e);
-            coordinator.notifySchemaChangeApplied(
-                    tableId, epoch, getRuntimeContext().getIndexOfThisSubtask(), false);
             throw new SchemaEvolutionException(
                     SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                     e.getMessage(),
@@ -203,7 +178,6 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
         Map<String, Object> opts = new HashMap<>();
         opts.put("schema_change_event", event);
         opts.put("schema_epoch", epoch);
-        opts.put("schema_subtask_id", (long) getRuntimeContext().getIndexOfThisSubtask());
         schemaRow.setOptions(opts);
 
         output.collect(new StreamRecord<>(schemaRow));
@@ -217,9 +191,6 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
     @Override
     public void close() throws Exception {
         int subtaskId = getRuntimeContext().getIndexOfThisSubtask();
-        if (coordinator != null) {
-            coordinator.unregisterSinkSubtask(subtaskId);
-        }
         super.close();
         log.info("BroadcastSchemaSinkOperator closed on subtask {}", subtaskId);
     }

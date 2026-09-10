@@ -37,9 +37,11 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -82,6 +84,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
+    protected final List<GenericContainer<?>> additionalTaskManagers = new ArrayList<>();
 
     @Override
     protected String getDockerImage() {
@@ -114,26 +117,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
-        taskManager =
-                new GenericContainer<>(dockerImage)
-                        .withCommand("taskmanager")
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases("taskmanager")
-                        .withEnv("FLINK_PROPERTIES", properties)
-                        .dependsOn(jobManager)
-                        .withLogConsumer(
-                                new Slf4jLogConsumer(
-                                        DockerLoggerFactory.getLogger(
-                                                dockerImage + ":taskmanager")))
-                        .waitingFor(
-                                new LogMessageWaitStrategy()
-                                        .withRegEx(
-                                                ".*Successful registration at resource manager.*")
-                                        .withStartupTimeout(Duration.ofMinutes(2)))
-                        .withFileSystemBind(
-                                HOST_VOLUME_MOUNT_PATH,
-                                CONTAINER_VOLUME_MOUNT_PATH,
-                                BindMode.READ_WRITE);
+        taskManager = createTaskManagerContainer(dockerImage, properties, "taskmanager");
 
         Startables.deepStart(Stream.of(jobManager)).join();
         Startables.deepStart(Stream.of(taskManager)).join();
@@ -144,13 +128,69 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return DEFAULT_FLINK_PROPERTIES;
     }
 
+    protected GenericContainer<?> createTaskManagerContainer(
+            String dockerImage, String properties, String networkAlias) {
+        return new GenericContainer<>(dockerImage)
+                .withCommand("taskmanager")
+                .withNetwork(NETWORK)
+                .withNetworkAliases(networkAlias)
+                .withEnv("FLINK_PROPERTIES", properties)
+                .dependsOn(jobManager)
+                .withLogConsumer(
+                        new Slf4jLogConsumer(
+                                DockerLoggerFactory.getLogger(dockerImage + ":" + networkAlias)))
+                .waitingFor(
+                        new LogMessageWaitStrategy()
+                                .withRegEx(".*Successful registration at resource manager.*")
+                                .withStartupTimeout(Duration.ofMinutes(2)))
+                .withFileSystemBind(
+                        HOST_VOLUME_MOUNT_PATH, CONTAINER_VOLUME_MOUNT_PATH, BindMode.READ_WRITE);
+    }
+
+    /**
+     * Replaces the default TaskManager with a fixed-size multi-JVM cluster for distribution tests.
+     * This must be called before submitting a job.
+     */
+    public void replaceTaskManagers(
+            int taskManagerCount, int slotsPerTaskManager, ContainerExtendedFactory extendedFactory)
+            throws IOException, InterruptedException {
+        if (taskManagerCount < 1 || slotsPerTaskManager < 1) {
+            throw new IllegalArgumentException("TaskManager count and slots must be positive");
+        }
+
+        stopTaskManagers();
+        String dockerImage = getDockerImage();
+        String properties =
+                String.join(
+                        "\n",
+                        getFlinkProperties().stream()
+                                .map(
+                                        property ->
+                                                property.trim()
+                                                                .startsWith(
+                                                                        "taskmanager.numberOfTaskSlots:")
+                                                        ? "taskmanager.numberOfTaskSlots: "
+                                                                + slotsPerTaskManager
+                                                        : property)
+                                .collect(Collectors.toList()));
+
+        List<GenericContainer<?>> taskManagers = new ArrayList<>();
+        for (int index = 0; index < taskManagerCount; index++) {
+            taskManagers.add(
+                    createTaskManagerContainer(dockerImage, properties, "taskmanager-" + index));
+        }
+        Startables.deepStart(taskManagers.stream()).join();
+        for (GenericContainer<?> manager : taskManagers) {
+            extendedFactory.extend(manager);
+        }
+
+        taskManager = taskManagers.get(0);
+        additionalTaskManagers.addAll(taskManagers.subList(1, taskManagers.size()));
+    }
+
     @Override
     public void tearDown() throws Exception {
-        if (taskManager != null) {
-            // delete the volume
-            taskManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            taskManager.stop();
-        }
+        stopTaskManagers();
         if (jobManager != null) {
             // delete the volume
             jobManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
@@ -200,7 +240,14 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     @Override
     public String getServerLogs() {
-        return jobManager.getLogs() + "\n" + taskManager.getLogs();
+        StringBuilder logs = new StringBuilder(jobManager.getLogs());
+        if (taskManager != null) {
+            logs.append('\n').append(taskManager.getLogs());
+        }
+        for (GenericContainer<?> manager : additionalTaskManagers) {
+            logs.append('\n').append(manager.getLogs());
+        }
+        return logs.toString();
     }
 
     public String executeJobManagerInnerCommand(String command)
@@ -214,6 +261,29 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     public int getJobManagerRestPort() {
         return jobManager.getMappedPort(FLINK_REST_PORT);
+    }
+
+    /** Restarts the TaskManager process so streaming recovery tests can exercise a fresh JVM. */
+    public void restartTaskManager() {
+        if (taskManager == null || taskManager.getContainerId() == null) {
+            throw new IllegalStateException("Flink TaskManager is not running");
+        }
+        taskManager
+                .getDockerClient()
+                .restartContainerCmd(taskManager.getContainerId())
+                .withtTimeout(10)
+                .exec();
+    }
+
+    private void stopTaskManagers() {
+        if (taskManager != null) {
+            taskManager.stop();
+            taskManager = null;
+        }
+        for (GenericContainer<?> manager : additionalTaskManagers) {
+            manager.stop();
+        }
+        additionalTaskManagers.clear();
     }
 
     @Override

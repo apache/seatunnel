@@ -25,10 +25,12 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaChangeApplier;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCoordinatedSchemaEvolutionSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
@@ -68,7 +70,8 @@ public class JdbcSink
         implements SeaTunnelSink<SeaTunnelRow, JdbcSinkState, XidInfo, JdbcAggregatedCommitInfo>,
                 SupportSaveMode,
                 SupportMultiTableSink,
-                SupportSchemaEvolutionSink {
+                SupportSchemaEvolutionSink,
+                SupportCoordinatedSchemaEvolutionSink {
 
     private final TableSchema tableSchema;
 
@@ -324,6 +327,11 @@ public class JdbcSink
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
+    public SchemaChangeApplier createSchemaChangeApplier(TablePath sinkTablePath) {
+        return new JdbcSchemaChangeApplier(dialect, jdbcSinkConfig, sinkTablePath);
     }
 
     @Override
