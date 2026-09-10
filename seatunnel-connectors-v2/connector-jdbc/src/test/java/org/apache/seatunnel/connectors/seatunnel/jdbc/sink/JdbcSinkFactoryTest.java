@@ -42,6 +42,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.regex.Pattern;
 
 class JdbcSinkFactoryTest {
 
@@ -353,6 +354,20 @@ class JdbcSinkFactoryTest {
         Assertions.assertThrows(
                 JdbcConnectorException.class,
                 () -> factory.resolveMultiTablePrimaryKeys(config, table));
+    }
+
+    @Test
+    void testCompilePatternCachesCompiledPattern() {
+        Pattern first = factory.compilePattern("^TEST_.*$");
+        Pattern second = factory.compilePattern("^TEST_.*$");
+
+        Assertions.assertSame(first, second);
+    }
+
+    @Test
+    void testCompilePatternInvalidFails() {
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> factory.compilePattern("^[unclosed"));
     }
 
     @Test
