@@ -39,4 +39,14 @@ class AutoscalerRuntimeConfigTest {
                 IllegalArgumentException.class,
                 () -> AutoscalerRuntimeConfig.builder().minWorkers(3).maxWorkers(2).build());
     }
+
+    @Test
+    void rejectsNonPositiveStabilizationWindows() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> AutoscalerRuntimeConfig.builder().scaleOutStabilizationSeconds(0).build());
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> AutoscalerRuntimeConfig.builder().scaleInStabilizationSeconds(-1).build());
+    }
 }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
+import java.util.concurrent.TimeUnit;
+
 public final class SystemAutoscalerTimeSource implements AutoscalerTimeSource {
 
     @Override
@@ -25,7 +27,7 @@ public final class SystemAutoscalerTimeSource implements AutoscalerTimeSource {
     }
 
     @Override
-    public long nanoTime() {
-        return System.nanoTime();
+    public long monotonicTimeMillis() {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
     }
 }

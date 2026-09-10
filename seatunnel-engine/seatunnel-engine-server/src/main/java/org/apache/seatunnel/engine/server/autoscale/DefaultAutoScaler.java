@@ -71,8 +71,8 @@ public final class DefaultAutoScaler {
 
     public static StabilizationTracker stabilizationTracker(AutoscalerRuntimeConfig config) {
         return new StabilizationTracker(
-                TimeUnit.SECONDS.toNanos(config.getScaleOutStabilizationSeconds()),
-                TimeUnit.SECONDS.toNanos(config.getScaleInStabilizationSeconds()));
+                TimeUnit.SECONDS.toMillis(config.getScaleOutStabilizationSeconds()),
+                TimeUnit.SECONDS.toMillis(config.getScaleInStabilizationSeconds()));
     }
 
     /**
@@ -84,11 +84,12 @@ public final class DefaultAutoScaler {
         }
         AutoscalerMetricsSnapshot snapshot = signalCollector.collect();
         AutoscaleEvaluation evaluation = policy.evaluate(snapshot);
-        boolean stabilized =
-                stabilizationTracker.isStabilized(evaluation.getAction(), timeSource.nanoTime());
+        StabilizationTracker.StabilizationState stabilizationState =
+                stabilizationTracker.evaluate(
+                        evaluation.getAction(), timeSource.monotonicTimeMillis());
         ScalingAction publishedAction = evaluation.getAction();
         ArrayList<String> blockingReasons = new ArrayList<>(evaluation.getBlockingReasons());
-        if (!stabilized) {
+        if (stabilizationState == StabilizationTracker.StabilizationState.WAITING) {
             blockingReasons.add("stabilization_window_not_satisfied");
             publishedAction = ScalingAction.NO_ACTION;
         }

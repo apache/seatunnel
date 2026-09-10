@@ -38,7 +38,7 @@ class DefaultAutoScalerTest {
                         config,
                         () -> baseSnapshot().currentWorkers(3).cpu(MetricValue.valid(0.9d)).build(),
                         new HierarchicalAutoscalingPolicy(DefaultAutoScaler.policyConfig(config)),
-                        new StabilizationTracker(300_000_000_000L, 600_000_000_000L),
+                        new StabilizationTracker(300_000L, 600_000L),
                         store,
                         timeSource);
 
@@ -47,7 +47,7 @@ class DefaultAutoScalerTest {
                 ScalingAction.NO_ACTION,
                 store.view(true, true).getLatestRecommendation().getAction());
 
-        timeSource.nanos = 300_000_000_000L;
+        timeSource.monotonicMillis = 300_000L;
         autoscaler.evaluateOnce();
 
         ScalingRecommendation recommendation = store.view(true, true).getLatestRecommendation();
@@ -60,7 +60,7 @@ class DefaultAutoScalerTest {
     @Test
     void resetClearsGenerationAndStabilization() {
         AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder().scaleOutStabilizationSeconds(0).build();
+                AutoscalerRuntimeConfig.builder().scaleOutStabilizationSeconds(1).build();
         FakeTimeSource timeSource = new FakeTimeSource(1_000L, 0L);
         InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(10);
         DefaultAutoScaler autoscaler =
@@ -69,7 +69,7 @@ class DefaultAutoScalerTest {
                         config,
                         () -> baseSnapshot().cpu(MetricValue.valid(0.9d)).build(),
                         new HierarchicalAutoscalingPolicy(DefaultAutoScaler.policyConfig(config)),
-                        new StabilizationTracker(0L, 0L),
+                        new StabilizationTracker(1_000L, 1_000L),
                         store,
                         timeSource);
 
@@ -97,11 +97,11 @@ class DefaultAutoScalerTest {
 
     private static final class FakeTimeSource implements AutoscalerTimeSource {
         private long millis;
-        private long nanos;
+        private long monotonicMillis;
 
-        private FakeTimeSource(long millis, long nanos) {
+        private FakeTimeSource(long millis, long monotonicMillis) {
             this.millis = millis;
-            this.nanos = nanos;
+            this.monotonicMillis = monotonicMillis;
         }
 
         @Override
@@ -110,8 +110,8 @@ class DefaultAutoScalerTest {
         }
 
         @Override
-        public long nanoTime() {
-            return nanos;
+        public long monotonicTimeMillis() {
+            return monotonicMillis;
         }
     }
 }

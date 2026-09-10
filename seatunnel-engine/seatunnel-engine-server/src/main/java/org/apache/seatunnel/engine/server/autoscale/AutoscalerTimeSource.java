@@ -21,5 +21,5 @@ public interface AutoscalerTimeSource {
 
     long currentTimeMillis();
 
-    long nanoTime();
+    long monotonicTimeMillis();
 }

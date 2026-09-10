@@ -20,31 +20,46 @@ package org.apache.seatunnel.engine.server.autoscale;
 /**
  * Tracks whether one scaling direction has remained true for its stabilization window.
  *
- * <p>It uses caller-supplied monotonic nanoseconds so wall-clock jumps cannot affect continuity.
+ * <p>It uses caller-supplied monotonic milliseconds so wall-clock jumps cannot affect continuity.
  */
 public final class StabilizationTracker {
 
-    private final long scaleOutWindowNanos;
-    private final long scaleInWindowNanos;
-    private ScalingAction activeAction;
-    private long activeSinceNanos;
+    private final long scaleOutWindowMillis;
+    private final long scaleInWindowMillis;
+    private ScalingAction lastAction;
+    private long actionFirstSeenAtMillis;
+    private StabilizationState state = StabilizationState.NOT_APPLICABLE;
 
-    public StabilizationTracker(long scaleOutWindowNanos, long scaleInWindowNanos) {
-        this.scaleOutWindowNanos = scaleOutWindowNanos;
-        this.scaleInWindowNanos = scaleInWindowNanos;
+    public StabilizationTracker(long scaleOutWindowMillis, long scaleInWindowMillis) {
+        this.scaleOutWindowMillis = scaleOutWindowMillis;
+        this.scaleInWindowMillis = scaleInWindowMillis;
     }
 
-    public synchronized boolean isStabilized(ScalingAction action, long monotonicNanos) {
-        if (action == ScalingAction.NO_ACTION || action == ScalingAction.SCALE_IN_BLOCKED) {
+    public synchronized StabilizationState evaluate(
+            ScalingAction currentAction, long currentMonotonicMillis) {
+        if (currentAction == ScalingAction.NO_ACTION
+                || currentAction == ScalingAction.SCALE_IN_BLOCKED) {
+            // No active scaling condition: clear the previous action and its firing state.
             clear();
-            return true;
+            return state;
         }
-        if (activeAction != action) {
-            activeAction = action;
-            activeSinceNanos = monotonicNanos;
-            return windowFor(action) <= 0L;
+        long requiredStabilizationWindowMillis =
+                getRequiredStabilizationWindowMillis(currentAction);
+        if (lastAction != currentAction) {
+            // A new action starts a fresh stabilization window and is not firing yet.
+            lastAction = currentAction;
+            actionFirstSeenAtMillis = currentMonotonicMillis;
+            state = StabilizationState.WAITING;
+            return state;
         }
-        return monotonicNanos - activeSinceNanos >= windowFor(action);
+        if (state != StabilizationState.FIRING) {
+            // Keep firing once the same action has satisfied its stabilization window.
+            if (currentMonotonicMillis - actionFirstSeenAtMillis
+                    >= requiredStabilizationWindowMillis) {
+                state = StabilizationState.FIRING;
+            }
+        }
+        return state;
     }
 
     public synchronized void reset() {
@@ -52,17 +67,29 @@ public final class StabilizationTracker {
     }
 
     private void clear() {
-        activeAction = null;
-        activeSinceNanos = 0L;
+        lastAction = null;
+        actionFirstSeenAtMillis = 0L;
+        state = StabilizationState.NOT_APPLICABLE;
     }
 
-    private long windowFor(ScalingAction action) {
+    private long getRequiredStabilizationWindowMillis(ScalingAction action) {
         if (action == ScalingAction.SCALE_OUT) {
-            return scaleOutWindowNanos;
+            return scaleOutWindowMillis;
         }
         if (action == ScalingAction.SCALE_IN_CANDIDATE) {
-            return scaleInWindowNanos;
+            return scaleInWindowMillis;
         }
-        return 0L;
+        throw new IllegalArgumentException("Unsupported scaling action: " + action);
+    }
+
+    public enum StabilizationState {
+        /** No scaling action requires stabilization. */
+        NOT_APPLICABLE,
+
+        /** A scaling action is being observed but has not satisfied its stabilization window. */
+        WAITING,
+
+        /** A scaling action has satisfied its stabilization window and remains active. */
+        FIRING
     }
 }

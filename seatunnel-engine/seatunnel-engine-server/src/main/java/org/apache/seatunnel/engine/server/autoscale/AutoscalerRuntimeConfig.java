@@ -302,11 +302,11 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         private void validate() {
             checkPositive(evaluationIntervalSeconds, "evaluationIntervalSeconds must be > 0");
             checkPositive(maxMetricStalenessSeconds, "maxMetricStalenessSeconds must be > 0");
-            if (futureTimestampToleranceSeconds < 0
-                    || scaleOutStabilizationSeconds < 0
-                    || scaleInStabilizationSeconds < 0) {
-                throw new IllegalArgumentException("time windows and skew must be >= 0");
+            if (futureTimestampToleranceSeconds < 0) {
+                throw new IllegalArgumentException("futureTimestampToleranceSeconds must be >= 0");
             }
+            checkPositive(scaleOutStabilizationSeconds, "scaleOutStabilizationSeconds must be > 0");
+            checkPositive(scaleInStabilizationSeconds, "scaleInStabilizationSeconds must be > 0");
             checkPositive(scaleStep, "scaleStep must be > 0");
             checkPositive(minWorkers, "minWorkers must be > 0");
             checkPositive(maxWorkers, "maxWorkers must be > 0");

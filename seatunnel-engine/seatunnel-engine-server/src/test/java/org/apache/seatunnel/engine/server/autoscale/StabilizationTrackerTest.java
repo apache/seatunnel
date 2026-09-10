@@ -20,57 +20,57 @@ package org.apache.seatunnel.engine.server.autoscale;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.util.concurrent.TimeUnit;
-
 class StabilizationTrackerTest {
 
     @Test
     void scaleOutRequiresContinuousMonotonicWindow() {
-        StabilizationTracker tracker =
-                new StabilizationTracker(
-                        TimeUnit.SECONDS.toNanos(300), TimeUnit.SECONDS.toNanos(600));
+        StabilizationTracker tracker = new StabilizationTracker(300_000L, 600_000L);
 
-        Assertions.assertFalse(tracker.isStabilized(ScalingAction.SCALE_OUT, 10L));
-        Assertions.assertFalse(
-                tracker.isStabilized(ScalingAction.SCALE_OUT, 10L + TimeUnit.SECONDS.toNanos(299)));
-        Assertions.assertTrue(
-                tracker.isStabilized(ScalingAction.SCALE_OUT, 10L + TimeUnit.SECONDS.toNanos(300)));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.WAITING,
+                tracker.evaluate(ScalingAction.SCALE_OUT, 10L));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.WAITING,
+                tracker.evaluate(ScalingAction.SCALE_OUT, 10L + 299_000L));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.FIRING,
+                tracker.evaluate(ScalingAction.SCALE_OUT, 10L + 300_000L));
     }
 
     @Test
     void differentActionResetsWindow() {
-        StabilizationTracker tracker =
-                new StabilizationTracker(
-                        TimeUnit.SECONDS.toNanos(300), TimeUnit.SECONDS.toNanos(600));
+        StabilizationTracker tracker = new StabilizationTracker(300_000L, 600_000L);
 
-        tracker.isStabilized(ScalingAction.SCALE_OUT, 10L);
-        Assertions.assertTrue(
-                tracker.isStabilized(ScalingAction.NO_ACTION, 10L + TimeUnit.SECONDS.toNanos(200)));
-        Assertions.assertFalse(
-                tracker.isStabilized(ScalingAction.SCALE_OUT, 10L + TimeUnit.SECONDS.toNanos(400)));
+        tracker.evaluate(ScalingAction.SCALE_OUT, 10L);
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.NOT_APPLICABLE,
+                tracker.evaluate(ScalingAction.NO_ACTION, 10L + 200_000L));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.WAITING,
+                tracker.evaluate(ScalingAction.SCALE_OUT, 10L + 400_000L));
     }
 
     @Test
     void resetClearsContinuity() {
-        StabilizationTracker tracker =
-                new StabilizationTracker(
-                        TimeUnit.SECONDS.toNanos(300), TimeUnit.SECONDS.toNanos(600));
+        StabilizationTracker tracker = new StabilizationTracker(300_000L, 600_000L);
 
-        tracker.isStabilized(ScalingAction.SCALE_IN_CANDIDATE, 10L);
+        tracker.evaluate(ScalingAction.SCALE_IN_CANDIDATE, 10L);
         tracker.reset();
 
-        Assertions.assertFalse(
-                tracker.isStabilized(
-                        ScalingAction.SCALE_IN_CANDIDATE, 10L + TimeUnit.SECONDS.toNanos(700)));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.WAITING,
+                tracker.evaluate(ScalingAction.SCALE_IN_CANDIDATE, 10L + 700_000L));
     }
 
     @Test
-    void noActionIsImmediatelyStableAndDoesNotStartScalingWindow() {
-        StabilizationTracker tracker =
-                new StabilizationTracker(
-                        TimeUnit.SECONDS.toNanos(300), TimeUnit.SECONDS.toNanos(600));
+    void noActionIsNotApplicableAndDoesNotStartScalingWindow() {
+        StabilizationTracker tracker = new StabilizationTracker(300_000L, 600_000L);
 
-        Assertions.assertTrue(tracker.isStabilized(ScalingAction.NO_ACTION, 10L));
-        Assertions.assertFalse(tracker.isStabilized(ScalingAction.SCALE_OUT, 11L));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.NOT_APPLICABLE,
+                tracker.evaluate(ScalingAction.NO_ACTION, 10L));
+        Assertions.assertEquals(
+                StabilizationTracker.StabilizationState.WAITING,
+                tracker.evaluate(ScalingAction.SCALE_OUT, 11L));
     }
 }
