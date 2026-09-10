@@ -58,6 +58,7 @@ connector-google-firestore
 connector-google-pubsub
 connector-azure-queue-storage
 connector-google-bigtable
+connector-google-ads
 connector-graphql
 connector-hive
 connector-http-base
