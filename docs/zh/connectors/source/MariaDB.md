@@ -95,4 +95,4 @@ source {
 }
 ```
 
-<ChangeLog/>
+<ChangeLog />

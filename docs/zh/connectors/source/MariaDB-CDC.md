@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-cdc-mariadb.md';
+
 # MariaDB CDC
 
 > MariaDB CDC 数据源连接器
@@ -87,3 +89,7 @@ source {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />
