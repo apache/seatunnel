@@ -132,8 +132,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final EventListener eventListener;
 
-    /** Mapping relationship between upstream TablePath and downstream TablePath. */
-    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+    /** Mapping relationship between upstream row table IDs and downstream table IDs. */
+    private final Map<String, String> sinkTableMappings = new HashMap<>();
 
     private final MetricsContext metricsContext;
 
@@ -196,8 +196,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
-            sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            tablesMaps.putAll(((MultiTableSink) sinkAction.getSink()).getSinkTableMapping());
+            MultiTableSink multiTableSink = (MultiTableSink) sinkAction.getSink();
+            sinkTables = multiTableSink.getSinkTables();
+            multiTableSink
+                    .getSinkTableMapping()
+                    .forEach(
+                            (sourceTable, sinkTable) ->
+                                    sinkTableMappings.put(
+                                            sourceTable.toString(), sinkTable.getFullName()));
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
             if (catalogTable.isPresent()) {
@@ -218,6 +224,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.flushSignalSinkQPS = metricsContext.meter(MetricNames.FLUSH_SIGNAL_SINK_QPS);
     }
 
+    /**
+     * Initializes the serializers and optional task-local committer supplied by the sink.
+     *
+     * <p>The writer is created later by {@link #restoreState(List)}, after the checkpoint
+     * coordinator has supplied this action's restored state.
+     *
+     * @throws Exception if the sink cannot create its committer
+     */
     @Override
     public void init() throws Exception {
         this.commitInfoSerializer = sinkAction.getSink().getCommitInfoSerializer();
@@ -226,6 +240,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         this.lastCommitInfo = Optional.empty();
     }
 
+    /**
+     * Registers this sink task with the aggregate committer, when the execution plan contains one.
+     *
+     * <p>Writer creation or restoration has already completed before this lifecycle method is
+     * called. Sinks without an aggregate committer require no remote registration.
+     *
+     * @throws Exception if the aggregate committer address cannot be resolved or registration fails
+     */
     @Override
     public void open() throws Exception {
         super.open();
@@ -243,6 +265,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         .get();
     }
 
+    /**
+     * Marks this flow complete and closes its writer.
+     *
+     * <p>After the writer closes successfully, any delayed row outcomes are emitted before the
+     * {@link WriterCloseEvent} is sent to the writer's event listener.
+     *
+     * @throws IOException if the lifecycle or writer cannot be closed
+     */
     @Override
     public void close() throws IOException {
         super.close();
@@ -263,7 +293,16 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
-    /** Handles barriers for checkpointing and rows for sink writes plus trace event reporting. */
+    /**
+     * Dispatches an upstream record to checkpoint, schema-change, signal, or data processing.
+     *
+     * <p>Once a close barrier marks this flow as preparing to close, subsequent non-barrier records
+     * are ignored. Barriers continue to be processed so the task can finish its checkpoint and
+     * close protocol.
+     *
+     * @param record the upstream record to process
+     * @throws RuntimeException if dispatch or sink processing fails
+     */
     @Override
     public void received(Record<?> record) {
         try {
@@ -327,6 +366,16 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    /**
+     * Creates the sink writer from the checkpoint state assigned to this action.
+     *
+     * <p>Serialized states are deserialized with the sink's writer-state serializer. An empty state
+     * list creates a new writer; otherwise the states are passed to the sink's restore path. The
+     * writer context and row-error handling are initialized before writer creation.
+     *
+     * @param actionStateList checkpoint state assigned to this sink action
+     * @throws Exception if state deserialization or writer creation fails
+     */
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         List<StateT> states = new ArrayList<>();
@@ -695,8 +744,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             if (row.getTableId() == null || row.getTableId().isEmpty()) {
                 return row.getTableId();
             }
-            TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
-            return tablePath != null ? tablePath.getFullName() : TablePath.DEFAULT.getFullName();
+            return sinkTableMappings.getOrDefault(
+                    row.getTableId(), TablePath.DEFAULT.getFullName());
         }
         Optional<CatalogTable> writeCatalogTable = this.sinkAction.getSink().getWriteCatalogTable();
         return writeCatalogTable
@@ -740,6 +789,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    /**
+     * Prepares and snapshots the writer before acknowledging a checkpoint barrier.
+     *
+     * <p>Snapshot barriers prepare commit information, flush delayed row outcomes, seal pending
+     * metrics, and add serialized writer state to the running task. Commit information is also sent
+     * to the aggregate committer when configured. A failure invokes {@link
+     * SinkWriter#abortPrepare()} before it is propagated. When an aggregate committer is
+     * configured, non-snapshot barriers are forwarded to it. The task acknowledges the barrier
+     * after processing succeeds.
+     *
+     * @param barrier the barrier to process
+     * @throws IOException if writer preparation or state snapshotting fails
+     */
     private void processCheckpointBarrier(Barrier barrier) throws IOException {
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         long startTime = System.currentTimeMillis();

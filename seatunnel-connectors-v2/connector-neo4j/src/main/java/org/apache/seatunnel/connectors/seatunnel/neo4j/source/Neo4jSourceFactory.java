@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jAuthenticationConditions;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
@@ -57,7 +58,12 @@ public class Neo4jSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(Neo4jSourceOptions.KEY_NEO4J_URI, Neo4jSourceOptions.KEY_DATABASE)
+                .required(
+                        Neo4jSourceOptions.KEY_NEO4J_URI,
+                        Conditions.extension(
+                                Neo4jSourceOptions.KEY_NEO4J_URI,
+                                Neo4jAuthenticationConditions.AUTHENTICATION_METHOD))
+                .required(Neo4jSourceOptions.KEY_DATABASE)
                 .exclusive(Neo4jSourceOptions.KEY_QUERY, ConnectorCommonOptions.TABLE_CONFIGS)
                 .optional(
                         Neo4jSourceOptions.KEY_QUERY,
@@ -71,6 +77,10 @@ public class Neo4jSourceFactory implements TableSourceFactory {
                                 ConnectorCommonOptions.TABLE_CONFIGS, new TableConfigsValidator()))
                 .optional(
                         Neo4jSourceOptions.KEY_USERNAME,
+                        Conditions.extension(
+                                Neo4jSourceOptions.KEY_USERNAME,
+                                Neo4jAuthenticationConditions.USERNAME_REQUIRES_PASSWORD))
+                .optional(
                         Neo4jSourceOptions.KEY_PASSWORD,
                         Neo4jSourceOptions.KEY_BEARER_TOKEN,
                         Neo4jSourceOptions.KEY_KERBEROS_TICKET,

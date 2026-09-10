@@ -13,6 +13,12 @@
 
 ### JDBC Connector
 
+- **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
+  - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel 会把整个批次视为已经完成并跳过回放；只有在第一个 recovered checkpoint XID 之后又出现缺失 XID 时，restore 才会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。
+  - **影响**：以前依赖“XA 分支缺失即视为成功”的任务，在升级后如果 recovery scan 里仍然能看到后续 checkpoint XID、但中间出现缺口，可能会在恢复阶段收到明确的 XA restore 错误。另外，`max_commit_attempts` 现在会在一次 restore/commit 调用内耗尽，而不是分散到多次任务重启中。
+  - **迁移指南**：升级前请先检查资源管理器中是否还残留 prepared XA 事务，例如 MySQL 可使用 `XA RECOVER`，PostgreSQL 可检查 `pg_prepared_xacts`。如果升级后 restore 因为“后面仍有 checkpoint XID，但中间出现缺失 XID”而进入 fail-closed，请重点确认缺失 XID 是否被回滚、超时过期，或被外部清理，再决定后续恢复操作。XA recovery 无法区分 SeaTunnel 已提交的 XID 与被外部清理者回滚或删除的 XID。因此，位于 recovered 后缀之前的缺失 XID，或全部 XID 缺失的批次，会被推断为已经完成；在相关作业可能恢复时，不要对 SeaTunnel 所属的 prepared XA 分支执行外部清理，任何清理操作都应与作业恢复流程协调。
+
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`、`seatunnel-connectors-v2/connector-iceberg`、`seatunnel-connectors-v2/connector-cdc-base`、`seatunnel-connectors-v2/connector-cdc-tidb`、`seatunnel-connectors-v2/connector-starrocks`、`seatunnel-connectors-v2/connector-hudi`、`seatunnel-connectors-v2/connector-snowflake`（通过 JDBC 方言）
   - **变更说明**：以前，JDBC Source 将无时区（如 MySQL `DATETIME`）和带时区（如 MySQL `TIMESTAMP`）的时间戳列都映射为 SeaTunnel 内部的 `TIMESTAMP` 类型。现在，带时区的列（如 MySQL `TIMESTAMP`、PostgreSQL `timestamptz`、Oracle `TIMESTAMP WITH LOCAL TIME ZONE`、SQL Server `datetimeoffset`、Snowflake `TIMESTAMP_LTZ/TZ` 等）被显式映射为 `TIMESTAMP_TZ`。这确保了在写入 Iceberg 等格式时，时区语义得到准确保留（在 Iceberg 中 `TIMESTAMP` 存为无时区的 `timestamp`，`TIMESTAMP_TZ` 存为带时区的 `timestamptz`）。
@@ -53,6 +59,12 @@
     }
   }
   ```
+
+- **破坏性变更：运行期日志级别接口拒绝无法识别的级别**
+  - **影响范围**：SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **变更说明**：该接口此前对任何请求都返回 `200` 和 `{"status":"SUCCESS"}`，包括无法识别的级别名（`DEBUGG`、`verbose`、不存在的级别、空值）。这类请求实际上什么都没有生效，并且无法识别的级别会以 `null` 传给 log4j2，而 `null` 并不是"保持不变"：它会清除该 logger 上显式设置的级别，于是 logger 静默回退到父级别，root logger 则回退到 `ERROR`。现在无法识别的级别、空级别以及缺少 `level` 参数都会返回 `400`，并在响应中列出有效级别；级别名仍然不区分大小写。
+  - **影响**：只检查 HTTP 状态码的脚本和自动化流程，对于原本就没有生效的请求，会从 `200` 变为 `400`。能够正确识别级别的请求行为不变。
+  - **升级指南**：请传入 log4j2 能识别的级别（`OFF`、`FATAL`、`ERROR`、`WARN`、`INFO`、`DEBUG`、`TRACE`、`ALL`，或配置中注册的自定义级别）。被拒绝请求的响应体会列出该节点接受的级别。
 
 - **破坏性变更：`Condition.of(option, null)` 不再允许**
   - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
@@ -113,6 +125,11 @@
   - **变更说明**：Enumerator 现在通过 `sampleRowKeys` 按 tablet 边界把表（或配置的 `start_rowkey` / `end_rowkey` 区间）切成多个 split。Reader 仍对每个 split 调用一次 `query.limit(...)`。此前 Source 始终只产生 1 个 split，因此 `scan_row_limit` 等价于整表行数上限。升级后，只要表有多个 tablet，即使 `parallelism = 1`（唯一 reader 会拿到全部 split），作业级上限约为 `scan_row_limit × split 数`。详见 [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int)。
   - **影响**：依赖 `scan_row_limit` 限制总输出量的存量作业（抽样、测试、成本控制、下游容量）在升级后、配置不变的情况下，可能读出远超以前的行数。
   - **迁移指南**：若仍需要整表级上限，请用 `start_rowkey` / `end_rowkey` 收窄扫描范围，或下调 `scan_row_limit`，使 `scan_row_limit × 预期 split 数` 不超过原预算。采样失败、无采样点或求交为空时仍会回退为单个 split，但这不是用来锁定旧语义的受支持方式。(#11876)
+- **CDC Connector：已从捕获集合移除的表不再复用恢复状态**
+  - **影响范围**：`seatunnel-connectors-v2/connector-cdc/connector-cdc-base` 及其构建的 CDC 连接器。
+  - **变更说明**：CDC 任务从 checkpoint 或 savepoint 恢复时，SeaTunnel 现在会在分配恢复后的 split 前，按照当前捕获表集合过滤表级增量状态。已从任务捕获配置中移除的表，其状态不会再被复用；如果表发现不可用或返回空集合，为避免源数据库短暂异常时丢弃 checkpoint 元数据，SeaTunnel 会保持恢复状态不变。
+  - **影响**：任务移除捕获表后再从旧 checkpoint 恢复时，不再尝试恢复这些已移除表的增量状态，从而避免陈旧表元数据导致恢复失败。该行为仅作用于 checkpoint/savepoint 恢复；新启动的任务不受影响。
+  - **迁移指南**：无需修改配置。变更捕获表集合后恢复现有 CDC 任务前，请确认被移除的表确实不应继续参与该任务。
 
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
@@ -141,9 +158,9 @@
   - **受影响组件**：`seatunnel-connectors-v2/connector-prometheus`
   - **变更说明**：Prometheus Sink 不再启动自己的后台刷新线程，连接器级的 `flush_interval` 选项已被移除。定时刷新改为由引擎通过作业 `env` 中的 `sink.flush.interval` 驱动，**仅 Zeta 引擎支持**。
   - **影响**：
-    - **Spark 和 Flink 会失去周期性定时刷新。** 被移除的 `flush_interval` 调度器是连接器自己的线程，在所有引擎上都能工作；其替代者 `sink.flush.interval` 是 Zeta 引擎的能力，Spark 和 Flink 的 Sink 写入器上下文并未实现它，因此这两个引擎上没有周期性刷新。在 Spark 和 Flink 上，缓存现在只会在达到 `batch_size` 以及写入器关闭时被刷新（不会在检查点时刷新）。因此低吞吐的流式作业可能会把缓存的采样点一直保存在内存中直到作业停止；请相应调整 `batch_size`。
+    - **Spark 和 Flink 会失去检查点之间的定时刷新。** 被移除的 `flush_interval` 调度器是连接器自己的线程，在所有引擎上都能工作；其替代者 `sink.flush.interval` 是 Zeta 引擎的能力，Spark 和 Flink 的 Sink 写入器上下文并未实现它，因此这两个引擎上没有周期性定时刷新。在 Spark 和 Flink 上，缓存会在达到 `batch_size`、检查点时（Sink 在 `prepareCommit()` 中刷新）以及写入器关闭时被刷新。因此缓存的采样点最多保留一个检查点间隔，而不会一直保存到作业停止；如需降低检查点之间的延迟，请相应调整 `batch_size`。
     - 只有在使用 `--check` / `--dry-run=static` / `--dry-run=connect` 校验配置时（会执行 `validateUnknownKeys`），`Prometheus` sink 中残留的 `flush_interval` 键才会被拒绝。直接提交的作业会静默忽略该残留键；连接器会在每个 Sink 写入器启动时各打印一次告警作为替代提示（因此并行度为 N、多表或多副本的作业会多次打印）。
-  - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上请依赖 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
+  - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上，缓存会在每个检查点被刷新；如需降低检查点之间的延迟，请调整 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
 
 - **破坏性变更：File 连接器拒绝 XML 输入中的 `DOCTYPE` 声明（XXE 加固）**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`），以及所有基于该模块构建的 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
@@ -152,6 +169,11 @@
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
 ### 转换变更
+
+- **行为变更：AMAZON 向量化遵循重试选项**
+  - **影响范围**：配置 `model_provider = AMAZON` 的 `Embedding` 转换。
+  - **变更说明**：配置的 SeaTunnel 重试和退避选项现在会传递到 Bedrock 运行时。此前 Transform 忽略这些设置，只执行一次 SeaTunnel 尝试。
+  - **影响及迁移**：大于 1 的 `model_retry_max_attempts` 现在会启用 SeaTunnel 重试，可能产生额外模型费用；设置为 1 可保留单次 SeaTunnel 尝试，默认值仍为 1。SDK 自身的重试和超时行为保持不变；`model_request_timeout_ms` 目前不应用于 Bedrock 调用。
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
@@ -200,6 +222,46 @@
   - 除数为零的 `DECIMAL` 除法现在抛出标明该运算的 `TransformException`，而此前底层原因是 `java.lang.ArithmeticException("/ by zero")`。两种情况下出错的表达式本来就会被报告（SQL 引擎会包装表达式求值过程中抛出的任何异常），变化的只是 cause 的类型。这与 `MOD` 除零一直以来的报错方式保持一致。
 
   **迁移指南**：之前被旧舍入模式抬高、或被 `double` 转换截断的结果都会发生变化。乘法结果的小数位数可能比以前*更少*：旧的转换有时会输出比列声明 scale 更宽的值，现在该值会被舍入到声明的 scale，因此原先从 `DECIMAL(38,2)` 列读到 `38.4375` 的作业，升级后会读到 `38.44`。如果下游系统已按旧值对账，升级后需要重新校准。任何为兼容旧行为而做的补偿（例如在除法后减去一个修正值）都应当移除。如果有代码检查除法失败的 cause 并匹配 `ArithmeticException`，需要改为 `TransformException`。
+- **[BREAKING]** SQL 转换的 `ABS`，以及使用负数位数的 `ROUND` / `CEIL` / `CEILING` / `FLOOR`，现在当结果无法用参数自身的数据类型表示时，
+  会抛出 `TransformException`，而不再静默回绕成一个错误的（通常为负数的）值：
+
+  | 表达式 | 参数类型 | 之前的结果 | 当前的结果 |
+  |--------|----------|------------|------------|
+  | `ABS(-2147483648)` | `INT` | `-2147483648` | `TransformException` |
+  | `ABS(-9223372036854775808)` | `BIGINT` | `-9223372036854775808` | `TransformException` |
+  | `ROUND(2147483647, -1)` | `INT` | `-2147483646` | `TransformException` |
+  | `ROUND(9223372036854775807, -1)` | `BIGINT` | `-9223372036854775806` | `TransformException` |
+  | `CEIL(32767, -1)` | `SMALLINT` | `-32766` | `TransformException` |
+  | `FLOOR(-2147483648, -1)` | `INT` | `2147483646` | `TransformException` |
+
+  `ABS` 的文档一直是这样描述的——“ABS(-2147483648) 应该是 2147483648，但是这个值对于这个数据类型是不允许的。这会导致异常”——只是实现从未真正这么做。
+  `TRUNC` / `TRUNCATE` 向零舍入，绝不会把值撑出自身的取值范围，因此不受影响；`FLOAT`、`DOUBLE` 和 `DECIMAL` 参数同样不受影响。
+
+  **迁移指南**：之前会输出这些回绕值的作业，现在会在发生溢出的那一行失败。可以把参数转换为更宽的类型以保持作业运行——例如
+  `ABS(CAST(int_col AS BIGINT))` 或 `ROUND(CAST(int_col AS BIGINT), -1)`——或者在上游过滤掉这些行。如果下游系统已按旧的回绕值对账，
+  升级后需要重新校准。
+
+- **[BREAKING]** SQL 转换现在能正确处理数值函数中此前被遗漏的 `TINYINT` 和 `SMALLINT` 参数。
+  `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` 缺少 `TINYINT` 分支，因此 `TINYINT` 参数会直接穿过类型
+  switch 并被原样返回，既不舍入，也没有异常和日志。`ABS` 和 `SIGN` 缺少 `TINYINT` 与 `SMALLINT` 分支，会直接拒绝这些列：
+
+  | 表达式 | 参数类型 | 之前的结果 | 当前的结果 |
+  |--------|----------|------------|------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`，静默未舍入 | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`，静默未舍入 | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`，静默未舍入 | `TransformException`，`130` 超出 `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`，“Unsupported arg type” | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`，“Unsupported arg type” | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`，“Unsupported arg type” | `-1` |
+
+  该类型 switch 同时补上了 `default` 分支，因此任何未被处理的数值类型现在会抛出 `TransformException`，而不再被原样返回。
+  `SIGN` 处理 `DECIMAL` 参数时改用 `BigDecimal.signum()` 而非 `double` 转换，因此小于 `Double.MIN_VALUE` 的值会返回真实
+  符号，而不是 `0`。
+
+  **迁移指南**：之前 `TINYINT` 列静默跳过舍入的作业，现在会得到真正舍入后的值；如果下游系统已按旧的未舍入结果对账，
+  升级后需要重新校准。如果舍入后的 `TINYINT` 超出自身类型范围，可以把参数转换为更宽的类型——例如
+  `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
+  （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
 
 ### 引擎行为变更
 
