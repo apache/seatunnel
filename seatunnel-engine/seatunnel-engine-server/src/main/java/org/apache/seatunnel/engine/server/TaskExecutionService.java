@@ -1322,7 +1322,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 : taskQueue.takeFirst();
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
-                if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                TaskGroupLocation taskGroupLocation =
+                        taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
+                // Mirror BlockingWorker: context may already have been rolled back after a
+                // post-publish deploy failure, or cancellation may already be in flight.
+                TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+                if (taskGroupContext == null
+                        || taskGroupExecutionTracker.isCancel.get()
+                        || taskGroupExecutionTracker.executionCompletedExceptionally()) {
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         // If it's exclusive need to end the work
@@ -1342,10 +1349,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 try {
                     // run task
                     myThread.setContextClassLoader(
-                            executionContexts
-                                    .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                                    .getClassLoaders()
-                                    .get(taskTracker.task.getTaskID()));
+                            taskGroupContext.getClassLoaders().get(taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
