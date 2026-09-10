@@ -313,6 +313,7 @@ public class SinkAggregatedCommitterTask<CommandInfoT, AggregatedCommitInfoT>
                     commitInfoCache.remove(key);
                     checkpointBarrierCounter.remove(key);
                 });
+        checkpointBarrierCounter.keySet().removeIf(key -> key <= checkpointId);
         List<AggregatedCommitInfoT> commit = aggregatedCommitter.commit(aggregatedCommitInfo);
         tryClose(checkpointId);
         if (!CollectionUtils.isEmpty(commit)) {
