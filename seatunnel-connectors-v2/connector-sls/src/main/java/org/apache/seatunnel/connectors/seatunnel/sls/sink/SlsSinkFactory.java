@@ -48,9 +48,6 @@ public class SlsSinkFactory implements TableSinkFactory {
 
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
-        return () ->
-                new SlsSink(
-                        context.getOptions(),
-                        context.getCatalogTable().getTableSchema().toPhysicalRowDataType());
+        return () -> new SlsSink(context.getOptions(), context.getCatalogTable());
     }
 }

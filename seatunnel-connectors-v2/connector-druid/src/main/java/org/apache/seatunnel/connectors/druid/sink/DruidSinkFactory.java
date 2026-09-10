@@ -29,6 +29,9 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.BATCH_SIZE;
 import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.COORDINATOR_URL;
 import static org.apache.seatunnel.connectors.druid.config.DruidSinkOptions.DATASOURCE;
 
@@ -42,7 +45,9 @@ public class DruidSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(COORDINATOR_URL, DATASOURCE)
+                .required(COORDINATOR_URL, notBlank(COORDINATOR_URL))
+                .required(DATASOURCE, notBlank(DATASOURCE))
+                .optional(BATCH_SIZE, greaterThan(BATCH_SIZE, 0))
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
