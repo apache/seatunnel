@@ -44,8 +44,7 @@ const busyColorFromRatio = (ratio?: number) => {
   if (r >= 0.8) return '#ff4d4f'
   if (r >= 0.5) return '#fa8c16'
   if (r >= 0.2) return '#fadb14'
-  if (r > 0) return '#52c41a'
-  return '#C2C8D5'
+  return '#2080f0'
 }
 
 const AlgoNode = (props: any) => {
