@@ -41,6 +41,9 @@ Otherwise, If your table name start with `ORA_TEMP_` will also has the same prob
 ## Enable schema evolution
 Schema evolution is disabled by default in CDC source. You need configure `schema-changes.enabled = true` which is only supported in CDC to enable it.
 
+When schema evolution is enabled on Flink, `incremental.parallelism` must be `1` (the default).
+Flink rejects the job during startup if multiple incremental readers are configured.
+
 ## Multi-database and multi-table routing
 
 Schema evolution can work with multi-table jobs as long as each upstream table can be mapped to a

@@ -15,20 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.translation.flink.schema.coordinator;
+package org.apache.seatunnel.core.starter.flink.execution;
 
-import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 
-/**
- * Interface for sink subtasks to provide their schema processing state This allows the coordinator
- * to query the actual processing state during recovery
- */
-public interface SinkStateProvider {
-    /**
-     * Get the last processed epoch for a specific table
-     *
-     * @param tableId the table identifier
-     * @return the last processed epoch, or null if never processed
-     */
-    Long getLastProcessedEpoch(TableIdentifier tableId);
+/** Decides whether a stream needs Flink's internal schema-evolution sink routing. */
+final class SchemaEvolutionRouting {
+
+    private SchemaEvolutionRouting() {}
+
+    static boolean isRequired(boolean isStreaming, DataStreamTableInfo stream, SeaTunnelSink sink) {
+        return isStreaming
+                && stream.isSchemaEvolutionEnabled()
+                && sink instanceof SupportSchemaEvolutionSink;
+    }
 }
