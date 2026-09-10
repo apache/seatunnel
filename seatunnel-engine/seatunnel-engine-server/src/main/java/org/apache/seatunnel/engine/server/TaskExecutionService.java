@@ -1655,19 +1655,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         /**
-         * Detaches resources owned by this tracker under {@code TaskExecutionService.this}, the
-         * same monitor {@link #deployTask(TaskGroupImmutableInformation)} holds for its whole
-         * redeploy-guard-and-deploy call, so a redeploy arriving through that entry point cannot
-         * interleave with this teardown. ({@link #deployLocalTask} does not itself take this
-         * monitor for more than the brief context-publish step - see its own javadoc.)
+         * Detaches resources owned by this tracker under {@code TaskExecutionService.this}.
          *
-         * <p>TaskGroupLocation is reused across restore generations. The ownership check and map
-         * removals must therefore be one critical section; the detached resources are released
-         * outside that monitor so one slow teardown cannot block other task groups. If this tracker
-         * is no longer the owner (a replacement generation already took over), its own
-         * async-function and timer-flush entries are still cancelled, scoped strictly to entries it
-         * registered - see {@link #cancelOwnedAsyncFunctionsInPlace} and {@link
-         * #cancelOwnedTimerFlushTasksInPlace}.
+         * <p>{@link #deployTask(TaskGroupImmutableInformation)} opens a {@code synchronized (this)}
+         * block around both its redeploy guard and its {@link #deployLocalTask} call, so a redeploy
+         * arriving through that entry point cannot interleave with this teardown. {@code
+         * deployLocalTask} does not take the monitor itself beyond the brief context-publish step,
+         * so a caller reaching it directly is not covered by that guarantee; the publish/rollback
+         * race on that path is tracked separately in apache/seatunnel#12164.
+         *
+         * <p>Here the monitor covers only the ownership check and the map/future bookkeeping.
+         * TaskGroupLocation is reused across restore generations, so those must be one critical
+         * section; the detached resources are then released outside the monitor so one slow
+         * teardown cannot block other task groups. If this tracker is no longer the owner (a
+         * replacement generation already took over), its own async-function and timer-flush entries
+         * are still cancelled, scoped strictly to entries it registered - see {@link
+         * #cancelOwnedAsyncFunctionsInPlace} and {@link #cancelOwnedTimerFlushTasksInPlace}.
          */
         private void finishOwnedResources(TaskGroupLocation taskGroupLocation) {
             Map<String, OwnedFuture<CompletableFuture<?>>> asyncFunctions;
@@ -1722,6 +1725,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 finishedExecutionContexts.put(taskGroupLocation, ownedContext);
                 return true;
             }
+            // Deliberately not recorded in finishedExecutionContexts: TaskGroupLocation is
+            // reused across restore generations, so filing this generation's context under a
+            // key a newer generation now owns would make later lookups resolve the wrong one.
             return false;
         }
 
