@@ -17,35 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.influxdb.source;
 
-import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.seatunnel.influxdb.config.SourceConfig;
 
-public class InfluxDBSourceSplit implements SourceSplit {
-    private static final long serialVersionUID = 7936658588681424786L;
-    private final String splitId;
+import lombok.Getter;
 
-    private final String query;
-    private final String tableId;
+import java.io.Serializable;
 
-    public InfluxDBSourceSplit(String splitId, String query) {
-        this(splitId, query, null);
+@Getter
+class InfluxDBSourceTable implements Serializable {
+    private static final long serialVersionUID = 1L;
+    private final CatalogTable catalogTable;
+    private final SourceConfig sourceConfig;
+
+    InfluxDBSourceTable(CatalogTable catalogTable, SourceConfig sourceConfig) {
+        this.catalogTable = catalogTable;
+        this.sourceConfig = sourceConfig;
     }
 
-    public InfluxDBSourceSplit(String splitId, String query, String tableId) {
-        this.query = query;
-        this.splitId = splitId;
-        this.tableId = tableId;
-    }
-
-    @Override
-    public String splitId() {
-        return splitId;
-    }
-
-    public String getQuery() {
-        return query;
-    }
-
-    public String getTableId() {
-        return tableId;
+    String getTableId() {
+        return catalogTable.getTableId().toTablePath().toString();
     }
 }
