@@ -106,6 +106,16 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                                     + "When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. "
                                     + "The default value is true.");
 
+    public static final Option<Integer> SPLIT_ASSIGN_BATCH_SIZE =
+            Options.key("split.assign.batch-size")
+                    .intType()
+                    .defaultValue(16)
+                    .withDescription(
+                            "Maximum number of splits assigned to each reader per handoff. "
+                                    + "Readers request more splits via handleSplitRequest when their local queue runs low. "
+                                    + "This bounds reader-side pending split metadata and checkpoint size without changing split predicates. "
+                                    + "The default value is 16.");
+
     public static final Option<Boolean> USE_SELECT_COUNT =
             Options.key("use_select_count")
                     .booleanType()
