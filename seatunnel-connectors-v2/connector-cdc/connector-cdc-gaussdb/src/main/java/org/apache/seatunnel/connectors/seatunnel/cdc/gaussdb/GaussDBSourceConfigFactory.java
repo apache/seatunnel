@@ -17,19 +17,38 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
+
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 /** PostgreSQL snapshot configuration used alongside the GaussDB-specific WAL reader. */
 final class GaussDBSourceConfigFactory extends PostgresSourceConfigFactory {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Keeps Debezium's configuration valid while {@code mppdb_decoding} is consumed by the
-     * GaussDB-specific reader rather than Debezium's closed decoder enum.
-     */
     @Override
-    protected String getDebeziumDecodingPluginName() {
-        return "pgoutput";
+    public JdbcSourceConfigFactory fromReadonlyConfig(ReadonlyConfig config) {
+        Map<String, Object> debeziumConfig = new LinkedHashMap<>(config.getSourceMap());
+        config.getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
+                .ifPresent(
+                        properties -> {
+                            Map<String, String> filteredProperties =
+                                    new LinkedHashMap<>(properties);
+                            filteredProperties.remove("plugin.name");
+                            filteredProperties.remove("slot.name");
+                            debeziumConfig.put(
+                                    SourceOptions.DEBEZIUM_PROPERTIES.key(), filteredProperties);
+                        });
+        // Debezium initializes snapshot metadata but never consumes the mppdb stream. Its closed
+        // decoder enum still requires a known PostgreSQL plugin name. Slot ownership remains with
+        // the GaussDB options so both the snapshot offset and mppdb stream reference the same slot.
+        debeziumConfig.put(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.key(), "pgoutput");
+        super.fromReadonlyConfig(ReadonlyConfig.fromMap(debeziumConfig));
+        return this;
     }
 }

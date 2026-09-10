@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
@@ -58,6 +59,33 @@ class GaussDBMppdbConfigTest {
         Assertions.assertTrue(config.isSendingBatch());
     }
 
+    /** Verifies the dedicated replication port is inserted or replaces the URL port. */
+    @Test
+    void testReplicationPortUrl() {
+        Map<String, Object> optionsWithoutPort = new HashMap<>();
+        optionsWithoutPort.put(
+                JdbcCommonOptions.URL.key(), "jdbc:postgresql://gaussdb.example/source?ssl=true");
+        optionsWithoutPort.put(GaussDBIncrementalSourceOptions.REPLICATION_PORT.key(), 5433);
+        GaussDBMppdbConfig configWithoutPort =
+                new GaussDBMppdbConfig(ReadonlyConfig.fromMap(optionsWithoutPort));
+
+        Assertions.assertEquals(
+                "jdbc:postgresql://gaussdb.example:5433/source?ssl=true&replication=database&preferQueryMode=simple&assumeMinServerVersion=9.4",
+                new MppdbReplicationStream(null, configWithoutPort, "user", "password")
+                        .buildReplicationUrl());
+
+        Map<String, Object> optionsWithPort = new HashMap<>();
+        optionsWithPort.put(JdbcCommonOptions.URL.key(), "jdbc:postgresql://[::1]:5432/source");
+        optionsWithPort.put(GaussDBIncrementalSourceOptions.REPLICATION_PORT.key(), 5434);
+        GaussDBMppdbConfig configWithPort =
+                new GaussDBMppdbConfig(ReadonlyConfig.fromMap(optionsWithPort));
+
+        Assertions.assertEquals(
+                "jdbc:postgresql://[::1]:5434/source?replication=database&preferQueryMode=simple&assumeMinServerVersion=9.4",
+                new MppdbReplicationStream(null, configWithPort, "user", "password")
+                        .buildReplicationUrl());
+    }
+
     /** Verifies invalid parallelism and decode styles are rejected. */
     @Test
     void testRejectInvalidMppdbOptions() {
@@ -84,6 +112,32 @@ class GaussDBMppdbConfigTest {
         GaussDBMppdbConfig config = new GaussDBMppdbConfig(config(options));
 
         Assertions.assertFalse(config.usesMppdbDecoding());
+    }
+
+    /** Verifies Debezium receives a known decoder without mutating the GaussDB options. */
+    @Test
+    void testSnapshotConfigUsesInternalPostgresDecoder() {
+        Map<String, Object> sourceOptions = new HashMap<>();
+        Map<String, String> debeziumProperties = new HashMap<>();
+        debeziumProperties.put("plugin.name", "mppdb_decoding");
+        debeziumProperties.put("slot.name", "wrong_slot");
+        sourceOptions.put(SourceOptions.DEBEZIUM_PROPERTIES.key(), debeziumProperties);
+        sourceOptions.put(GaussDBIncrementalSourceOptions.SLOT_NAME.key(), "gaussdb_slot");
+        ReadonlyConfig options = config(sourceOptions);
+        GaussDBSourceConfigFactory factory = new GaussDBSourceConfigFactory();
+        factory.fromReadonlyConfig(options);
+        factory.hostname("localhost");
+        factory.username("user");
+        factory.password("password");
+        factory.databaseList("gaussdb");
+
+        Assertions.assertEquals(
+                "pgoutput", factory.create(0).getDbzConfiguration().getString("plugin.name"));
+        Assertions.assertEquals(
+                "gaussdb_slot", factory.create(0).getDbzConfiguration().getString("slot.name"));
+        Assertions.assertEquals(
+                "mppdb_decoding",
+                options.get(GaussDBIncrementalSourceOptions.DECODING_PLUGIN_NAME));
     }
 
     /** Creates a minimal source configuration with supplied overrides. */

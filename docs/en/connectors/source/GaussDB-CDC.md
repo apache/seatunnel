@@ -24,7 +24,11 @@ The GaussDB CDC connector reads snapshot data and incremental data from GaussDB 
 
 The connector natively reads the GaussDB `mppdb_decoding` logical decoding format. It supports serial JSON output and parallel binary, JSON, and TEXT output, including batched frames. Server-side slot progress is acknowledged only after a SeaTunnel checkpoint completes.
 
+The repository's automated E2E uses openGauss only to exercise the shared `mppdb_decoding` wire protocol. It is protocol-compatibility coverage, not certification against a Huawei GaussDB release. Release validation must also run against a real GaussDB instance because this public E2E does not provision one.
+
 Configure a PostgreSQL-compatible JDBC URL, for example `jdbc:postgresql://host:port/database`. PostgreSQL-compatible Debezium plugins such as `pgoutput` remain supported and use the PostgreSQL CDC runtime.
+
+When `mppdb_decoding` is selected, the configured JDBC driver and replication port must expose the PostgreSQL-compatible logical replication API. The connector fails at startup if that API is unavailable; it does not consume uncheckpointed WAL through SQL polling.
 
 ## Using steps
 

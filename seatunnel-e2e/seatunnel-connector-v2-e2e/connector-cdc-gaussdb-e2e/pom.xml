@@ -27,7 +27,7 @@
     </parent>
 
     <artifactId>connector-cdc-gaussdb-e2e</artifactId>
-    <name>SeaTunnel : E2E : Connector V2 : CDC GaussDB</name>
+    <name>SeaTunnel : E2E : Connector V2 : CDC GaussDB mppdb Protocol Compatibility</name>
 
     <dependencyManagement>
         <dependencies>

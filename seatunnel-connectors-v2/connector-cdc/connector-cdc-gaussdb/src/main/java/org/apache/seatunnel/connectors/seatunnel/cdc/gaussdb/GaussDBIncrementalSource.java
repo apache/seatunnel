@@ -24,14 +24,33 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
+import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresRelationSchemaChangeResolver;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
+import org.apache.kafka.connect.data.Struct;
+
+import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.TableId;
+import io.debezium.relational.history.ConnectTableChangeSerializer;
+import io.debezium.relational.history.TableChanges;
+import io.debezium.util.SchemaNameAdjuster;
+
+import java.time.ZoneId;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /** Incremental CDC source for GaussDB logical replication, including mppdb decoding. */
 public class GaussDBIncrementalSource<T> extends PostgresIncrementalSource<T> {
@@ -46,20 +65,16 @@ public class GaussDBIncrementalSource<T> extends PostgresIncrementalSource<T> {
      * @param catalogTables catalog tables resolved for the captured GaussDB tables
      */
     public GaussDBIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
-        super(options, catalogTables);
+        super(validateOptions(options), catalogTables);
     }
 
-    /** Rejects schema evolution only for the GaussDB-specific decoder. */
-    @Override
-    protected void validateSchemaEvolutionOptions(ReadonlyConfig options) {
+    private static ReadonlyConfig validateOptions(ReadonlyConfig options) {
         GaussDBMppdbConfig mppdbConfig = new GaussDBMppdbConfig(options);
         if (mppdbConfig.usesMppdbDecoding() && options.get(SourceOptions.SCHEMA_CHANGES_ENABLED)) {
             throw new SeaTunnelException(
                     "GaussDB-CDC schema evolution is not supported with mppdb_decoding because the plugin does not emit PostgreSQL RELATION messages.");
         }
-        if (!mppdbConfig.usesMppdbDecoding()) {
-            super.validateSchemaEvolutionOptions(options);
-        }
+        return options;
     }
 
     /** Creates the GaussDB-aware source configuration for mppdb decoding. */
@@ -78,6 +93,31 @@ public class GaussDBIncrementalSource<T> extends PostgresIncrementalSource<T> {
         configFactory.startupOptions(startupConfig);
         configFactory.stopOptions(stopConfig);
         return configFactory;
+    }
+
+    /** Builds Debezium records with the GaussDB-aware connection and schema dialect. */
+    @SuppressWarnings("unchecked")
+    @Override
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
+        Map<TableId, Struct> tableIdTableChangeMap = tableChanges();
+        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
+                config.get(JdbcSourceOptions.FORMAT))) {
+            return (DebeziumDeserializationSchema<T>)
+                    new DebeziumJsonDeserializeSchema(
+                            config.get(JdbcSourceOptions.DEBEZIUM_PROPERTIES),
+                            tableIdTableChangeMap);
+        }
+
+        return (DebeziumDeserializationSchema<T>)
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setTables(catalogTables)
+                        .setServerTimeZone(
+                                ZoneId.of(config.get(JdbcSourceOptions.SERVER_TIME_ZONE)))
+                        .setTableIdTableChangeMap(tableIdTableChangeMap)
+                        .setSchemaChangeResolver(new PostgresRelationSchemaChangeResolver())
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
+                        .build();
     }
 
     /** Uses the GaussDB version adapter and selects the mppdb WAL reader when configured. */
@@ -109,5 +149,28 @@ public class GaussDBIncrementalSource<T> extends PostgresIncrementalSource<T> {
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    private Map<TableId, Struct> tableChanges() {
+        JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
+        GaussDBDialect dialect = (GaussDBDialect) dataSourceDialect;
+        List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
+        ConnectTableChangeSerializer serializer =
+                new ConnectTableChangeSerializer(SchemaNameAdjuster.create());
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(jdbcSourceConfig)) {
+            return discoverTables.stream()
+                    .collect(
+                            Collectors.toMap(
+                                    Function.identity(),
+                                    tableId -> {
+                                        TableChanges changes = new TableChanges();
+                                        changes.create(
+                                                dialect.queryTableSchema(jdbcConnection, tableId)
+                                                        .getTable());
+                                        return serializer.serialize(changes).get(0);
+                                    }));
+        } catch (Exception e) {
+            throw new SeaTunnelException(e);
+        }
     }
 }

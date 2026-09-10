@@ -24,7 +24,11 @@ GaussDB CDC 连接器通过 PostgreSQL 兼容的逻辑复制协议读取 GaussDB
 
 连接器原生读取 GaussDB 的 `mppdb_decoding` 逻辑解码格式，支持串行 JSON 输出，以及并行二进制、JSON、TEXT 输出和批量帧。只有 SeaTunnel checkpoint 完成后，连接器才会向服务端确认复制槽进度。
 
+仓库中的自动化 E2E 仅使用 openGauss 验证共享的 `mppdb_decoding` 线路协议。这属于协议兼容性覆盖，不代表已通过特定华为 GaussDB 版本的认证。由于该公共 E2E 未配置真实 GaussDB 实例，发布验证还必须在真实 GaussDB 实例上执行。
+
 请使用 PostgreSQL 兼容形式的 JDBC URL，例如 `jdbc:postgresql://host:port/database`。连接器仍支持 `pgoutput` 等与 PostgreSQL 兼容的 Debezium 插件，此时复用 PostgreSQL CDC 运行时。
+
+选择 `mppdb_decoding` 时，所配置的 JDBC 驱动和复制端口必须提供 PostgreSQL 兼容的逻辑复制 API。如果该 API 不可用，连接器会在启动阶段失败，不会通过 SQL 轮询消费尚未完成 checkpoint 的 WAL。
 
 ## 使用步骤
 

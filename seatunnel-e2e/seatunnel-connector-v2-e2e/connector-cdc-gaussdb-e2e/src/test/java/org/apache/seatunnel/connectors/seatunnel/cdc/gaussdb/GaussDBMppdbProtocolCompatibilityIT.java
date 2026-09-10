@@ -62,16 +62,16 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
-/** End-to-end tests for GaussDB CDC using openGauss mppdb_decoding compatibility. */
+/** Protocol-compatibility E2E for the GaussDB mppdb reader against openGauss. */
 @Slf4j
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK},
         disabledReason = "Currently SPARK do not support cdc")
-public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
+public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implements TestResource {
 
     /** PostgreSQL-compatible database port exposed by the openGauss image. */
-    private static final int GAUSSDB_PORT = 5432;
+    private static final int OPENGAUSS_PORT = 5432;
 
     /** Pattern used to remove trailing SQL comments from the DDL fixture. */
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
@@ -98,7 +98,7 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "sink_gaussdb_cdc_table";
 
     /** Network alias visible from the SeaTunnel test container. */
-    private static final String GAUSSDB_HOST = "gaussdb_cdc_e2e";
+    private static final String OPENGAUSS_HOST = "opengauss_mppdb_compatibility_e2e";
 
     /** Connector plugin directory receiving the PostgreSQL-compatible JDBC driver. */
     private static final String GAUSSDB_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/GaussDB-CDC/lib";
@@ -113,16 +113,16 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
     private static final String GENERATED_SLOT_PREFIX = "seatunnel_gaussdb_";
 
     /** openGauss image supplying the mppdb_decoding plugin in CI. */
-    protected static final DockerImageName GAUSSDB_IMAGE =
+    protected static final DockerImageName OPENGAUSS_IMAGE =
             DockerImageName.parse("opengauss/opengauss:5.0.0")
                     .asCompatibleSubstituteFor("postgres");
 
     /** Shared database container used by all engine variants in this test class. */
-    public static final GenericContainer<?> GAUSSDB_CONTAINER =
-            new GenericContainer<>(GAUSSDB_IMAGE)
+    public static final GenericContainer<?> OPENGAUSS_CONTAINER =
+            new GenericContainer<>(OPENGAUSS_IMAGE)
                     .withNetwork(NETWORK)
-                    .withNetworkAliases(GAUSSDB_HOST)
-                    .withExposedPorts(GAUSSDB_PORT)
+                    .withNetworkAliases(OPENGAUSS_HOST)
+                    .withExposedPorts(OPENGAUSS_PORT)
                     .withEnv("GS_PASSWORD", PASSWORD)
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
@@ -140,7 +140,7 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         log.info("Starting openGauss mppdb_decoding compatibility container...");
-        Startables.deepStart(Stream.of(GAUSSDB_CONTAINER)).join();
+        Startables.deepStart(Stream.of(OPENGAUSS_CONTAINER)).join();
         given().ignoreExceptions()
                 .await()
                 .pollInterval(2, TimeUnit.SECONDS)
@@ -152,14 +152,14 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
 
     /** Verifies snapshot rows and subsequent INSERT, UPDATE, and DELETE events end to end. */
     @TestTemplate
-    public void testGaussDBCdcCheckDataE2e(TestContainer container) {
+    public void testMppdbProtocolCompatibilityE2e(TestContainer container) {
         String slotVariable = toSlotVariable(createSlotName());
         try {
             CompletableFuture.supplyAsync(
                     () -> {
                         try {
                             container.executeJob(
-                                    "/gaussdbcdc_to_gaussdb.conf",
+                                    "/gaussdbcdc_to_opengauss_mppdb.conf",
                                     Collections.singletonList(slotVariable));
                         } catch (Exception e) {
                             log.error("Commit task exception: {}", e.getMessage(), e);
@@ -206,7 +206,8 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
             statement.execute("CREATE DATABASE " + GAUSSDB_DATABASE);
         }
         final String ddlFile = "ddl/inventory.sql";
-        final URL ddlTestFile = GaussDBCDCIT.class.getClassLoader().getResource(ddlFile);
+        final URL ddlTestFile =
+                GaussDBMppdbProtocolCompatibilityIT.class.getClassLoader().getResource(ddlFile);
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
         try (Connection connection = getJdbcConnection(GAUSSDB_DATABASE);
                 Statement statement = connection.createStatement()) {
@@ -300,13 +301,13 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
     /** Enables replication authentication compatible with the PostgreSQL JDBC driver. */
     private void configureReplicationAuthentication() throws Exception {
         Container.ExecResult passwordEncryption =
-                GAUSSDB_CONTAINER.execInContainer(
+                OPENGAUSS_CONTAINER.execInContainer(
                         "/bin/sh",
                         "-c",
                         "sed -i 's/^#password_encryption_type = 2/password_encryption_type = 1/' /var/lib/opengauss/data/postgresql.conf");
         Assertions.assertEquals(0, passwordEncryption.getExitCode());
         Container.ExecResult replicationAuthentication =
-                GAUSSDB_CONTAINER.execInContainer(
+                OPENGAUSS_CONTAINER.execInContainer(
                         "/bin/sh",
                         "-c",
                         "sed -i 's/host replication gaussdb 0.0.0.0\\/0 md5/host replication gaussdb 0.0.0.0\\/0 sha256/' /var/lib/opengauss/data/pg_hba.conf");
@@ -321,9 +322,9 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
     private Connection getJdbcConnection(String database) throws SQLException {
         return DriverManager.getConnection(
                 "jdbc:postgresql://"
-                        + GAUSSDB_CONTAINER.getHost()
+                        + OPENGAUSS_CONTAINER.getHost()
                         + ":"
-                        + GAUSSDB_CONTAINER.getMappedPort(GAUSSDB_PORT)
+                        + OPENGAUSS_CONTAINER.getMappedPort(OPENGAUSS_PORT)
                         + "/"
                         + database,
                 USERNAME,
@@ -334,8 +335,8 @@ public class GaussDBCDCIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() {
-        if (GAUSSDB_CONTAINER != null) {
-            GAUSSDB_CONTAINER.close();
+        if (OPENGAUSS_CONTAINER != null) {
+            OPENGAUSS_CONTAINER.close();
         }
     }
 }

@@ -29,16 +29,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Checkpoint-aware GaussDB logical replication stream for {@code mppdb_decoding}.
  *
  * <p>The Huawei and PostgreSQL JDBC replication APIs are invoked through their common method
- * contract so deployments can supply either compatible driver. SQL peek functions are used only
- * when the installed driver or database port does not expose the replication protocol.
+ * contract so deployments can supply either compatible driver.
  */
 @Slf4j
 final class MppdbReplicationStream implements AutoCloseable {
@@ -46,7 +46,11 @@ final class MppdbReplicationStream implements AutoCloseable {
     /** SQLSTATE raised when a concurrent reader has already created the same slot. */
     private static final String DUPLICATE_OBJECT_SQL_STATE = "42710";
 
-    /** Regular JDBC connection used for slot management and SQL polling fallback. */
+    /** Authority and path of a single-host PostgreSQL-compatible JDBC URL. */
+    private static final Pattern JDBC_SERVER_URL =
+            Pattern.compile("^(jdbc:[^:]+://)(\\[[^]]+]|[^:/?#]+)(?::\\d+)?(/.*)$");
+
+    /** Regular JDBC connection used for slot management. */
     private final Connection dataConnection;
 
     /** Validated mppdb runtime settings. */
@@ -58,26 +62,17 @@ final class MppdbReplicationStream implements AutoCloseable {
     /** Database password used for the dedicated replication connection. */
     private final String password;
 
-    /** JDBC fetch size applied to SQL fallback reads. */
-    private final int fetchSize;
-
     /** Strict binary protocol decoder. */
     private final MppdbBinaryDecoder binaryDecoder = new MppdbBinaryDecoder();
 
     /** Structured JSON and text protocol decoder. */
     private final MppdbTextDecoder textDecoder = new MppdbTextDecoder();
 
-    /** SQL rows read but not yet acknowledged by a completed SeaTunnel checkpoint. */
-    private final List<Long> unacknowledgedSqlLsns = new ArrayList<>();
-
     /** Dedicated replication-protocol JDBC connection, when supported. */
     private Connection replicationConnection;
 
     /** Driver-specific PGReplicationStream object accessed through reflection. */
     private Object replicationStream;
-
-    /** Whether records are currently read from the replication API instead of SQL polling. */
-    private boolean replicationApiActive;
 
     /** Whether this stream accepts further reads. */
     private volatile boolean running;
@@ -87,13 +82,11 @@ final class MppdbReplicationStream implements AutoCloseable {
             Connection dataConnection,
             GaussDBMppdbConfig config,
             String username,
-            String password,
-            int fetchSize) {
+            String password) {
         this.dataConnection = dataConnection;
         this.config = config;
         this.username = username;
         this.password = password;
-        this.fetchSize = fetchSize;
     }
 
     /** Ensures the configured logical slot exists and uses {@code mppdb_decoding}. */
@@ -140,21 +133,18 @@ final class MppdbReplicationStream implements AutoCloseable {
         ensureSlot();
         try {
             initializeReplicationApi(startLsn);
-            replicationApiActive = true;
             log.info(
                     "Started GaussDB mppdb_decoding replication stream for slot '{}' at {}",
                     config.getSlotName(),
                     Lsn.valueOf(startLsn).asString());
         } catch (Exception e) {
             closeReplicationApi();
-            replicationApiActive = false;
-            if (startLsn != 0) {
-                advanceSlot(startLsn);
-            }
-            log.warn(
-                    "GaussDB JDBC replication API is unavailable for slot '{}'; using checkpoint-aware SQL polling: {}",
-                    config.getSlotName(),
-                    rootMessage(e));
+            throw new SQLException(
+                    "Failed to start GaussDB mppdb_decoding replication stream for slot '"
+                            + config.getSlotName()
+                            + "'. The configured JDBC driver and replication port must expose the PostgreSQL-compatible replication API: "
+                            + rootMessage(e),
+                    e);
         }
         running = true;
     }
@@ -164,9 +154,7 @@ final class MppdbReplicationStream implements AutoCloseable {
         if (!running) {
             return new ArrayList<>();
         }
-        return replicationApiActive
-                ? readFromReplicationApi(maxChanges)
-                : readFromSqlFunction(maxChanges);
+        return readFromReplicationApi(maxChanges);
     }
 
     /** Advances the server flush position only after SeaTunnel completes a checkpoint. */
@@ -174,24 +162,16 @@ final class MppdbReplicationStream implements AutoCloseable {
         if (checkpointLsn == 0) {
             return;
         }
-        if (replicationApiActive && replicationStream != null) {
-            Object driverLsn = createDriverLsn(parameterType("setFlushedLSN"), checkpointLsn);
-            invoke(replicationStream, "setFlushedLSN", driverLsn);
-            Method appliedMethod = findMethod(replicationStream.getClass(), "setAppliedLSN", 1);
-            if (appliedMethod != null) {
-                invoke(replicationStream, appliedMethod, driverLsn);
-            }
-            invoke(replicationStream, "forceUpdateStatus");
-        } else {
-            advanceSlot(checkpointLsn);
-            Iterator<Long> iterator = unacknowledgedSqlLsns.iterator();
-            while (iterator.hasNext()) {
-                long rowLsn = iterator.next();
-                if (Lsn.valueOf(rowLsn).compareTo(Lsn.valueOf(checkpointLsn)) <= 0) {
-                    iterator.remove();
-                }
-            }
+        if (replicationStream == null) {
+            throw new SQLException("GaussDB mppdb_decoding replication stream is not initialized");
         }
+        Object driverLsn = createDriverLsn(parameterType("setFlushedLSN"), checkpointLsn);
+        invoke(replicationStream, "setFlushedLSN", driverLsn);
+        Method appliedMethod = findMethod(replicationStream.getClass(), "setAppliedLSN", 1);
+        if (appliedMethod != null) {
+            invoke(replicationStream, appliedMethod, driverLsn);
+        }
+        invoke(replicationStream, "forceUpdateStatus");
     }
 
     /** Returns whether the reader loop should continue polling. */
@@ -232,47 +212,6 @@ final class MppdbReplicationStream implements AutoCloseable {
             invoke(replicationStream, "forceUpdateStatus");
             if (decoded.isEmpty()) {
                 break;
-            }
-        }
-        return changes;
-    }
-
-    /** Reads rows through pg_logical_slot_peek_changes without consuming uncheckpointed WAL. */
-    private List<MppdbWalChange> readFromSqlFunction(int maxChanges) throws SQLException {
-        int alreadyRead = unacknowledgedSqlLsns.size();
-        int queryLimit =
-                (int) Math.min(Integer.MAX_VALUE, (long) alreadyRead + Math.max(1, maxChanges));
-        StringBuilder options = new StringBuilder("'include-xids', '1'");
-        if (config.getParallelDecodeNum() > 1) {
-            options.append(", 'parallel-decode-num', '")
-                    .append(config.getParallelDecodeNum())
-                    .append("'");
-        }
-        String sql =
-                "SELECT location AS lsn, xid, data FROM pg_logical_slot_peek_changes(?, NULL, ?, "
-                        + options
-                        + ")";
-        List<MppdbWalChange> changes = new ArrayList<>();
-        try (PreparedStatement statement = dataConnection.prepareStatement(sql)) {
-            statement.setFetchSize(fetchSize);
-            statement.setString(1, config.getSlotName());
-            statement.setInt(2, queryLimit);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                int rowIndex = 0;
-                while (resultSet.next()) {
-                    rowIndex++;
-                    if (rowIndex <= alreadyRead) {
-                        continue;
-                    }
-                    long lsn = Lsn.valueOf(resultSet.getString("lsn")).asLong();
-                    long transactionId = resultSet.getLong("xid");
-                    String data = resultSet.getString("data");
-                    unacknowledgedSqlLsns.add(lsn);
-                    changes.add(textDecoder.decodeRecord(lsn, transactionId, data));
-                    if (changes.size() >= maxChanges) {
-                        break;
-                    }
-                }
             }
         }
         return changes;
@@ -355,13 +294,20 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Adds replication protocol parameters and optionally rewrites the dedicated server port. */
-    private String buildReplicationUrl() {
+    String buildReplicationUrl() {
         String url = config.getJdbcUrl();
         if (config.getReplicationPort() != null) {
+            Matcher matcher = JDBC_SERVER_URL.matcher(url);
+            if (!matcher.matches()) {
+                throw new IllegalArgumentException(
+                        "replication.port requires a single-host JDBC URL with an explicit database path");
+            }
             url =
-                    url.replaceFirst(
-                            "(jdbc:[^:]+://(?:\\[[^]]+]|[^:/?#]+)):\\d+(/)",
-                            "$1:" + config.getReplicationPort() + "$2");
+                    matcher.group(1)
+                            + matcher.group(2)
+                            + ":"
+                            + config.getReplicationPort()
+                            + matcher.group(3);
         }
         String separator = url.contains("?") ? "&" : "?";
         StringBuilder result = new StringBuilder(url);
@@ -415,33 +361,6 @@ final class MppdbReplicationStream implements AutoCloseable {
                             + config.getPluginName()
                             + "'");
         }
-    }
-
-    /**
-     * Advances a logical slot using the GaussDB function with an openGauss compatibility fallback.
-     */
-    private void advanceSlot(long checkpointLsn) throws SQLException {
-        String target = Lsn.valueOf(checkpointLsn).asString();
-        String[] statements = {
-            "SELECT pg_replication_slot_advance(?, ?)", "SELECT pg_logical_slot_advance(?, ?)"
-        };
-        SQLException failure = null;
-        for (String sql : statements) {
-            try (PreparedStatement statement = dataConnection.prepareStatement(sql)) {
-                statement.setString(1, config.getSlotName());
-                statement.setString(2, target);
-                statement.execute();
-                return;
-            } catch (SQLException e) {
-                failure = e;
-            }
-        }
-        throw new SQLException(
-                "Failed to acknowledge GaussDB logical replication slot '"
-                        + config.getSlotName()
-                        + "' at "
-                        + target,
-                failure);
     }
 
     /** Reads the driver's last receive position as Debezium's long LSN representation. */

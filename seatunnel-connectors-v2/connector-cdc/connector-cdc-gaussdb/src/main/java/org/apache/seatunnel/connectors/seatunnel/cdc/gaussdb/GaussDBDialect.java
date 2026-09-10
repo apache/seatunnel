@@ -175,8 +175,7 @@ final class GaussDBDialect extends PostgresDialect {
                             jdbcConnection.connection(),
                             mppdbConfig,
                             taskSourceConfig.getUsername(),
-                            taskSourceConfig.getPassword(),
-                            taskSourceConfig.getFetchSize());
+                            taskSourceConfig.getPassword());
             stream.ensureSlot();
             jdbcConnection.commit();
         } catch (Exception e) {
