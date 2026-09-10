@@ -976,6 +976,36 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    @Test
+    void testCheckpointErrorReportDoesNotRunOnCallerThread() throws Exception {
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        CountDownLatch executorStarted = new CountDownLatch(1);
+        CountDownLatch releaseExecutor = new CountDownLatch(1);
+        try {
+            executorService.submit(
+                    () -> {
+                        executorStarted.countDown();
+                        releaseExecutor.await();
+                        return null;
+                    });
+            Assertions.assertTrue(executorStarted.await(5, TimeUnit.SECONDS));
+
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            coordinator.reportCheckpointErrorFromTask("restore failed");
+
+            Mockito.verifyNoInteractions(
+                    ReflectionUtils.getField(coordinator, "checkpointManager")
+                            .orElseThrow(
+                                    () ->
+                                            new IllegalStateException(
+                                                    "checkpointManager field not found")));
+            releaseExecutor.countDown();
+        } finally {
+            releaseExecutor.countDown();
+            executorService.shutdownNow();
+        }
+    }
+
     /**
      * Regression: when {@code notifyCompleted()} fails (returns {@code false}), {@code
      * completePendingCheckpoint} must return immediately without decrementing {@code

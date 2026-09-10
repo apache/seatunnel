@@ -516,10 +516,15 @@ public class CheckpointCoordinator {
     }
 
     public void reportCheckpointErrorFromTask(String errorMsg) {
-        handleCoordinatorError(
-                "report error from task",
-                new SeaTunnelException(errorMsg),
-                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+        // Error reports arrive through Hazelcast operation threads. Keep the remote operation
+        // short: cancellation and restore handling may synchronously traverse the JobMaster state
+        // machine and must run on the coordinator executor instead of blocking the operation pool.
+        executorService.execute(
+                () ->
+                        handleCoordinatorError(
+                                "report error from task",
+                                new SeaTunnelException(errorMsg),
+                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR));
     }
 
     private void scheduleTriggerPendingCheckpoint(long delayMills) {
