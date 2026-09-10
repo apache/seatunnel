@@ -30,9 +30,9 @@ public class SeaTunnelTraceEnvironmentContext extends SeaTunnelEnvironmentContex
     private static final int TRACE_SAMPLE_INTERVAL = 10_000;
     private static final int TRACE_FILE_FLUSH_INTERVAL_SECONDS = 1;
     private static final String JOB_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/source-transform-sink-trace.conf.template");
+            BenchmarkTemplates.load("/benchmark/source-transform-sink-trace.conf.template");
     private static final String ENGINE_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/engine-trace.yaml.template");
+            BenchmarkTemplates.load("/benchmark/engine-trace.yaml.template");
 
     @Override
     protected SeaTunnelConfig createSeaTunnelConfig(String name) {
@@ -52,7 +52,7 @@ public class SeaTunnelTraceEnvironmentContext extends SeaTunnelEnvironmentContex
 
     @Override
     protected String embeddedEngineConfiguration() {
-        return renderTemplate(
+        return BenchmarkTemplates.render(
                 ENGINE_CONFIG_TEMPLATE,
                 "slot_count",
                 SLOT_COUNT,

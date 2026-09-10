@@ -61,10 +61,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username | String | 否 | - | Greenplum 用户名。 |
 | password | String | 否 | - | Greenplum 密码。 |
 | query | String | 是 | - | 读取数据的 SQL，可以只选择需要的字段。 |
-| partition_column | String | 否 | - | 用于并行拆分读取的字段。 |
-| partition_lower_bound | Long | 否 | - | `partition_column` 的下界；不配置时 SeaTunnel 会查询最小值。 |
-| partition_upper_bound | Long | 否 | - | `partition_column` 的上界；不配置时 SeaTunnel 会查询最大值。 |
-| partition_num | Int | 否 | 作业并行度 | 拆分数量。 |
+| partition_column | String | 否 | - | 用于并行拆分读取的字段，可以是数值或字符串类型。数值列按 `partition_num` 切分为数值范围；字符串列在 `split.string_split_mode = sample`（默认）下按哈希拆分，在 `charset_based` 下按字典序范围拆分。 |
+| partition_lower_bound | String | 否 | - | `partition_column` 的下界；不配置时 SeaTunnel 会查询最小值。 |
+| partition_upper_bound | String | 否 | - | `partition_column` 的上界；不配置时 SeaTunnel 会查询最大值。 |
+| partition_num | Int | 否 | 10 | 拆分数量。数值列（以及 `charset_based` 字符串列）每个拆分使用范围查询；`sample` 字符串列每个拆分使用哈希取模谓词。未设置时默认为 `10`，可按需上调以匹配作业并行度。 |
 | split.string_split_mode | String | 否 | sample | 字符串拆分算法。拆分字段是可打印 ASCII 字符串，并且希望使用确定性的范围类拆分时，可以配置为 `charset_based`。 |
 | common-options | | 否 | - | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。 |
 
