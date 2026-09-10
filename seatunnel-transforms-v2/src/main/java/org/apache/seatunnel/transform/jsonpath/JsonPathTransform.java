@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
@@ -43,6 +44,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_COMPILE_ERROR;
+import static org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode.JSON_PATH_CONVERSION_ERROR;
 
 @Slf4j
 public class JsonPathTransform extends MultipleFieldOutputTransform {
@@ -135,6 +137,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         }
         JSON_PATH_CACHE.computeIfAbsent(columnConfig.getPath(), JsonPath::compile);
         String jsonString = "";
+        JsonNode jsonNode;
         try {
             switch (inputDataType.getSqlType()) {
                 case STRING:
@@ -158,25 +161,40 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                             columnConfig.getSrcField());
             }
             Object result = JSON_PATH_CACHE.get(columnConfig.getPath()).read(jsonString);
-            JsonNode jsonNode = JsonUtils.toJsonNode(result);
-            return converter.convert(jsonNode, columnConfig.getDestField());
+            jsonNode = JsonUtils.toJsonNode(result);
         } catch (JsonPathException e) {
-            if (columnConfig.errorHandleWay() != null
-                    && columnConfig.errorHandleWay().allowSkip()) {
-                log.debug(
-                        "JsonPath transform error, ignore error, config: {}, value: {}",
-                        columnConfig,
-                        jsonString,
-                        e);
-                return null;
-            }
-            throw new ErrorDataTransformException(
-                    columnConfig.errorHandleWay(),
-                    JSON_PATH_COMPILE_ERROR,
-                    String.format(
-                            "JsonPath transform error, config: %s, value: %s, error: %s",
-                            columnConfig, jsonString, e.getMessage()));
+            return handleError(columnConfig, jsonString, JSON_PATH_COMPILE_ERROR, e);
         }
+        try {
+            return converter.convert(jsonNode, columnConfig.getDestField());
+        } catch (RuntimeException e) {
+            // Conversion failures are not JsonPathException, but use the same data error policy.
+            return handleError(columnConfig, jsonString, JSON_PATH_CONVERSION_ERROR, e);
+        }
+    }
+
+    private Object handleError(
+            ColumnConfig columnConfig,
+            String jsonString,
+            SeaTunnelErrorCode errorCode,
+            RuntimeException cause) {
+        if (columnConfig.errorHandleWay() != null && columnConfig.errorHandleWay().allowSkip()) {
+            log.debug(
+                    "JsonPath transform error, ignore error, config: {}, value: {}",
+                    columnConfig,
+                    jsonString,
+                    cause);
+            return null;
+        }
+        ErrorDataTransformException error =
+                new ErrorDataTransformException(
+                        columnConfig.errorHandleWay(),
+                        errorCode,
+                        String.format(
+                                "JsonPath transform error, config: %s, value: %s, error: %s",
+                                columnConfig, jsonString, cause.getMessage()));
+        error.initCause(cause);
+        throw error;
     }
 
     @Override
