@@ -121,6 +121,30 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testConfigDesensitizationMasksSalesforceSecretsWithoutAddingEncryptionKeys() {
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("client_secret", "private-secret");
+        connector.put("security_token", "private-token");
+        connector.put("object_name", "Account");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(connector));
+        config.put("sink", Arrays.asList(connector));
+        Map<String, Object> masked =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        for (String role : Arrays.asList("source", "sink")) {
+            Map<?, ?> entry = (Map<?, ?>) ((List<?>) masked.get(role)).get(0);
+            Assertions.assertEquals("******", entry.get("client_secret"));
+            Assertions.assertEquals("******", entry.get("security_token"));
+            Assertions.assertEquals("Account", entry.get("object_name"));
+        }
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("client_secret"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("security_token"));
+    }
+
+    @Test
     public void testConfigDesensitizationMasksS3CredentialOptions() {
         Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
         accessKeyConfig.put("key", "access-key");
