@@ -66,11 +66,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
+    private static final Map<String, Pattern> COMPILED_PATTERN_CACHE = new ConcurrentHashMap<>();
+
     @Override
     public String factoryIdentifier() {
         return "Jdbc";
@@ -316,14 +319,19 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     }
 
     /**
-     * Compiles a user-supplied regular expression and raises {@code JDBC-12} up front when it is
-     * invalid.
+     * Compiles a user-supplied regular expression, memoizing the result so each distinct pattern is
+     * compiled only once and reused across tables. Raises {@code JDBC-12} up front when the pattern
+     * is invalid.
      *
      * @throws JdbcConnectorException when the pattern is not a valid regular expression
      */
-    private Pattern compilePattern(String pattern) {
+    Pattern compilePattern(String pattern) {
+        Pattern compiled = COMPILED_PATTERN_CACHE.get(pattern);
+        if (compiled != null) {
+            return compiled;
+        }
         try {
-            return Pattern.compile(pattern);
+            compiled = Pattern.compile(pattern);
         } catch (java.util.regex.PatternSyntaxException e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
@@ -332,6 +340,8 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                             pattern),
                     e);
         }
+        COMPILED_PATTERN_CACHE.put(pattern, compiled);
+        return compiled;
     }
 
     /**
