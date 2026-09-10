@@ -85,8 +85,13 @@ The runtime records safe diagnostic context such as provider, model, batch size,
 retryable flag, and elapsed time. It does not log API keys, secret keys, full source text chunks, binary payloads, or full
 provider response bodies.
 
-Bedrock now uses the same common runtime path as the other embedding providers, so retry, timeout, response parsing,
+Bedrock uses the same common runtime path as the other embedding providers, so retry, response parsing,
 and response-count validation behave consistently across providers.
+
+For `AMAZON`, `model_retry_max_attempts` counts SeaTunnel attempts. The AWS SDK can perform its own HTTP retries within
+each attempt; its retry policy is unchanged. Configured retry and backoff options now reach the Bedrock runtime instead
+of being ignored by the transform. The default remains one SeaTunnel attempt. `model_request_timeout_ms` is not currently
+applied to Bedrock SDK calls; this change preserves the existing SDK timeout behavior.
 
 The runtime also has a cache boundary. When a cache implementation is wired in, keys are built from provider, model,
 output configuration, modality, format, normalized metadata, and a SHA-256 digest of normalized input content. The

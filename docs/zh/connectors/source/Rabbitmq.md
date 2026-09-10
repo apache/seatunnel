@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 > RabbitMQ 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 RabbitMQ 队列读取数据。
@@ -268,6 +274,20 @@ sink {
   }
 }
 ```
+
+## 常见问题
+
+### 为什么实现精确一次必须将并行度设置为 1？
+
+RabbitMQ 会在同一个队列的多个活跃消费者之间以轮询方式分发消息。当多个并行 Reader 同时消费同一个队列时，无法保证消息顺序以及分布式 Worker 之间确定性的 offset/ack 协同。因此，必须将并行度设置为 1 才能实现精确一次。
+
+### RabbitMQ Source 支持哪些消息格式？
+
+RabbitMQ Source 结合 SeaTunnel 反序列化 Schema（如 JSON、Text 等），根据配置的 `schema` 将消息体反序列化为 SeaTunnel 行数据。
+
+### 任务发生故障时未确认的消息如何处理？
+
+当 SeaTunnel 任务失败或异常退出时，与 RabbitMQ 的连接会断开，RabbitMQ 会自动将所有未确认（unacknowledged）的消息重新入队（requeue）。在任务从检查点恢复后，Reader 可以重新处理这些消息，避免数据丢失。
 
 ## 变更日志
 

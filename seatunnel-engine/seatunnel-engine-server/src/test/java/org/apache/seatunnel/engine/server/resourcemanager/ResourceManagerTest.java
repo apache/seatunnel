@@ -63,6 +63,65 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    public void testSlotActiveCheckRejectsSlotReassignedToDifferentJob()
+            throws UnknownHostException {
+        FakeResourceManager fakeResourceManager = new FakeResourceManager(nodeEngine);
+        Address worker = new Address("localhost", 5801);
+        String sequence = "worker-slot-service-sequence";
+
+        SlotProfile liveSlot = new SlotProfile(worker, 1, new ResourceProfile(), sequence);
+        liveSlot.assign(jobId + 1);
+        fakeResourceManager
+                .getRegisterWorker()
+                .put(
+                        worker,
+                        new WorkerProfile(
+                                worker,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                true,
+                                new SlotProfile[] {liveSlot},
+                                new SlotProfile[] {},
+                                Collections.emptyMap()));
+
+        SlotProfile currentSnapshot = new SlotProfile(worker, 1, new ResourceProfile(), sequence);
+        currentSnapshot.assign(jobId + 1);
+        SlotProfile staleSnapshot = new SlotProfile(worker, 1, new ResourceProfile(), sequence);
+        staleSnapshot.assign(jobId);
+
+        Assertions.assertTrue(fakeResourceManager.slotActiveCheck(currentSnapshot));
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(staleSnapshot));
+    }
+
+    @Test
+    public void testSlotActiveCheckFailsClosedForMissingWorkerOrSequence()
+            throws UnknownHostException {
+        FakeResourceManager fakeResourceManager = new FakeResourceManager(nodeEngine);
+        Address worker = new Address("localhost", 5801);
+        SlotProfile snapshot = new SlotProfile(worker, 1, new ResourceProfile(), null);
+        snapshot.assign(jobId);
+
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(snapshot));
+
+        SlotProfile liveSlot = new SlotProfile(worker, 1, new ResourceProfile(), null);
+        liveSlot.assign(jobId);
+        fakeResourceManager
+                .getRegisterWorker()
+                .put(
+                        worker,
+                        new WorkerProfile(
+                                worker,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                true,
+                                new SlotProfile[] {null, liveSlot},
+                                new SlotProfile[] {},
+                                Collections.emptyMap()));
+
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(snapshot));
+    }
+
+    @Test
     public void testApplyRequest() throws ExecutionException, InterruptedException {
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(100)));
