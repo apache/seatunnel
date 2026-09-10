@@ -31,3 +31,5 @@ jobs:
       packages: write
     name: Run
     uses: ./.github/workflows/backend.yml
+    with:
+      RUN_INTEGRATION_TESTS: ${{ github.repository == 'apache/seatunnel' && github.ref == 'refs/heads/dev' && 'false' || 'true' }}
