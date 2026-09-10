@@ -69,7 +69,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -224,18 +223,7 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
-        this.scheduler =
-                Executors.newScheduledThreadPool(
-                        2,
-                        runnable -> {
-                            Thread thread = new Thread(runnable);
-                            thread.setName(
-                                    String.format(
-                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                            return thread;
-                        });
-        ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
-        this.scheduler = MDCTracer.tracing(scheduler);
+        this.scheduler = createScheduler();
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.pipelineTaskStatus = new ConcurrentHashMap<>();
@@ -282,6 +270,21 @@ public class CheckpointCoordinator {
                 updateStatus(CheckpointCoordinatorStatus.RUNNING);
             }
         }
+    }
+
+    private ScheduledExecutorService createScheduler() {
+        ScheduledThreadPoolExecutor executor =
+                new ScheduledThreadPoolExecutor(
+                        2,
+                        runnable -> {
+                            Thread thread = new Thread(runnable);
+                            thread.setName(
+                                    String.format(
+                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
+                            return thread;
+                        });
+        executor.setRemoveOnCancelPolicy(true);
+        return MDCTracer.tracing(executor);
     }
 
     public int getPipelineId() {
@@ -1201,16 +1204,13 @@ public class CheckpointCoordinator {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
             scheduler.shutdownNow();
-            scheduler =
-                    Executors.newScheduledThreadPool(
-                            2,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setName(
-                                        String.format(
-                                                "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                                return thread;
-                            });
+            // A terminal coordinator must not create a replacement executor. Recreating it here
+            // leaves an idle checkpoint-coordinator thread alive after the job is cancelled or
+            // completed. A replacement is only needed when a master-failover reset restarts the
+            // coordinator.
+            if (closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
+                scheduler = createScheduler();
+            }
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
