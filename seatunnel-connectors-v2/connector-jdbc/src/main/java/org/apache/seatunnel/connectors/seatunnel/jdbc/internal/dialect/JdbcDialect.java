@@ -860,7 +860,8 @@ public interface JdbcDialect extends Serializable {
      * @return whether is special default value e.g current_timestamp
      */
     default boolean isSpecialDefaultValue(Object defaultValue, String sourceDialectName) {
-        if (DatabaseIdentifier.MYSQL.equals(sourceDialectName)) {
+        if (DatabaseIdentifier.MYSQL.equals(sourceDialectName)
+                || DatabaseIdentifier.MARIADB.equals(sourceDialectName)) {
             return DefaultValueUtils.isMysqlSpecialDefaultValue(defaultValue);
         }
         return false;
