@@ -62,8 +62,8 @@ service.interceptors.response.use((res: AxiosResponse) => {
 export const get = <R>(url: string, params?: Record<string, any>) => {
   return <Promise<R>>service.get<R>(url, { params })
 }
-export const post = <R>(url: string, data: Record<string, any>) => {
-  return <Promise<R>>service.post<R>(url, data)
+export const post = <R>(url: string, data?: any, config?: AxiosRequestConfig) => {
+  return <Promise<R>>service.post<R>(url, data, config)
 }
 
 export { service as axios }

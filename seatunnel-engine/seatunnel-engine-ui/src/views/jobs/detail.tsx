@@ -41,6 +41,7 @@ import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
 import Configuration from '@/components/configuration'
 import JobLog from '@/components/job-log'
+import Checkpoints from '@/views/jobs/checkpoints'
 import {
   REALTIME_POLL_INTERVAL_MS,
   REALTIME_WINDOW_MS_DEFAULT,
@@ -642,6 +643,9 @@ export default defineComponent({
             </NTabPane>
             <NTabPane name="Configuration" tab={t('detail.tabs.configuration')}>
               <Configuration data={job.envOptions || job.jobDag.envOptions}></Configuration>
+            </NTabPane>
+            <NTabPane name="Checkpoints" tab={t('detail.tabs.checkpoints')}>
+              <Checkpoints jobId={job.jobId}></Checkpoints>
             </NTabPane>
             <NTabPane name="Log" tab={t('detail.tabs.log')}>
               <JobLog jobId={job.jobId}></JobLog>

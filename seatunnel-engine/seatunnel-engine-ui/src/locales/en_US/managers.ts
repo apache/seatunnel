@@ -16,5 +16,21 @@
  */
 
 export default {
-    managers: 'Managers'
+  managers: 'Managers',
+  tags: {
+    title: 'Worker Tags',
+    content: 'Tags',
+    placeholder: 'One tag per line, for example: zone=prod',
+    update: 'Update Tags',
+    clear: 'Clear Tags',
+    success: 'Node tags updated.',
+    failed: 'Failed to update node tags.',
+    invalid: 'Each tag line must use key=value.',
+    select: 'Select',
+    local: 'Local',
+    remote: 'Remote',
+    remoteHint: 'Open the target node Web UI to update this worker.',
+    noWorkerSelected: 'No worker selected',
+    workerRequired: 'Please select a worker first.'
+  }
 }

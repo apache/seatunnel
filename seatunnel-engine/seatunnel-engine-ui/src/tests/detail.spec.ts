@@ -27,7 +27,15 @@ import type { Job } from '@/service/job/types'
 
 vi.mock('@/service/job', () => ({
   getJobInfo: vi.fn(),
-  getRunningJobInfo: vi.fn()
+  getRunningJobInfo: vi.fn(),
+  JobsService: {
+    getCheckpointOverview: vi.fn().mockResolvedValue({
+      jobId: '123456789',
+      updatedAt: 0,
+      pipelines: []
+    }),
+    getCheckpointHistory: vi.fn().mockResolvedValue([])
+  }
 }))
 
 vi.mock('vue-router', () => ({

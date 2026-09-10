@@ -23,6 +23,7 @@ export default {
     overview: '概览',
     exception: '异常',
     configuration: '配置',
+    checkpoints: 'Checkpoint',
     log: '日志'
   },
   table: {
@@ -52,6 +53,27 @@ export default {
     // Edge
     bpRatio: '下游等待占比',
     queueFillRatio: '队列填充率'
+  },
+  checkpoints: {
+    refresh: '刷新',
+    noSnapshot: '暂无 Checkpoint 快照',
+    updatedAt: '更新时间 {time}',
+    loadFailed: '加载 Checkpoint 数据失败。',
+    pipeline: 'Pipeline',
+    triggered: '触发次数',
+    completed: '完成次数',
+    failed: '失败次数',
+    inProgress: '进行中',
+    restored: '恢复次数',
+    latestCompleted: '最近完成',
+    latestSavepoint: '最近保存点',
+    checkpoint: 'Checkpoint',
+    status: '状态',
+    duration: '耗时（毫秒）',
+    stateSize: '状态大小',
+    failureReason: '失败原因',
+    action: '操作',
+    restoreLatest: '恢复最新状态'
   },
   liveMetrics: {
     pinnedTitle: '已固定实时指标',

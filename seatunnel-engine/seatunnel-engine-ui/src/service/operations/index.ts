@@ -15,18 +15,15 @@
  * limitations under the License.
  */
 
-import menu from '@/locales/zh_CN/menu'
-import jobs from '@/locales/zh_CN/jobs'
-import detail from '@/locales/zh_CN/detail'
-import common from '@/locales/zh_CN/common'
-import managers from '@/locales/zh_CN/managers'
-import operations from '@/locales/zh_CN/operations'
+import { get } from '@/service/service'
+import type { HttpServiceStatus, OptionRuleResponse, PluginType } from './types'
 
-export default {
-  menu,
-  jobs,
-  detail,
-  common,
-  managers,
-  operations
+export const getOptionRules = (type: PluginType, plugin: string) =>
+  get<OptionRuleResponse>('/option-rules', { type, plugin })
+
+export const getHttpServiceStatus = () => get<HttpServiceStatus>('/http-service/status')
+
+export const operationsService = {
+  getOptionRules,
+  getHttpServiceStatus
 }
