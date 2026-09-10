@@ -40,12 +40,14 @@ import org.apache.seatunnel.translation.spark.execution.DatasetTableInfo;
 import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.spark.TaskContext;
 import org.apache.spark.api.java.function.FlatMapFunction;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder;
 import org.apache.spark.sql.catalyst.encoders.RowEncoder;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
+import org.apache.spark.util.TaskCompletionListener;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -57,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
@@ -184,10 +187,13 @@ public class TransformExecuteProcessor
                 .filter(Objects::nonNull);
     }
 
-    private static class TransformMapPartitionsFunction implements FlatMapFunction<Row, Row> {
-        private SeaTunnelTransform<SeaTunnelRow> transform;
-        private MultiTableManager inputManager;
-        private MultiTableManager outputManager;
+    static class TransformMapPartitionsFunction implements FlatMapFunction<Row, Row> {
+        private final SeaTunnelTransform<SeaTunnelRow> transform;
+        private final MultiTableManager inputManager;
+        private final MultiTableManager outputManager;
+        private final AtomicBoolean closed = new AtomicBoolean();
+        private transient boolean completionListenerRegistered;
+        private transient boolean opened;
 
         public TransformMapPartitionsFunction(
                 SeaTunnelTransform<SeaTunnelRow> transform,
@@ -200,6 +206,7 @@ public class TransformExecuteProcessor
 
         @Override
         public Iterator<Row> call(Row row) throws Exception {
+            initialize(TaskContext.get());
             List<Row> rows = new ArrayList<>();
 
             SeaTunnelRow seaTunnelRow = inputManager.reconvert((GenericRow) row);
@@ -219,6 +226,31 @@ public class TransformExecuteProcessor
                 }
             }
             return rows.iterator();
+        }
+
+        void initialize(TaskContext taskContext) {
+            if (opened) {
+                return;
+            }
+            Objects.requireNonNull(taskContext, "Spark TaskContext must be available");
+            if (!completionListenerRegistered) {
+                taskContext.addTaskCompletionListener(
+                        (TaskCompletionListener) context -> closeTransform());
+                completionListenerRegistered = true;
+            }
+            transform.open();
+            opened = true;
+        }
+
+        private void closeTransform() {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                transform.close();
+            } catch (RuntimeException e) {
+                log.warn("Failed to close SeaTunnel transform {}", transform.getPluginName(), e);
+            }
         }
     }
 }

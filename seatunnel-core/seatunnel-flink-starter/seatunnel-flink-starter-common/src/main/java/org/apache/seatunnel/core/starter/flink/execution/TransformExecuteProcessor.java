@@ -37,11 +37,16 @@ import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
 
 import org.apache.commons.collections.CollectionUtils;
+import org.apache.flink.api.common.functions.AbstractRichFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
+import org.apache.flink.configuration.Configuration;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.operators.StreamMap;
 import org.apache.flink.util.Collector;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
 import java.util.ArrayList;
@@ -50,12 +55,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_OUTPUT;
 
 @SuppressWarnings("unchecked,rawtypes")
+@Slf4j
 public class TransformExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<TableTransformFactory> {
 
@@ -167,21 +174,60 @@ public class TransformExecuteProcessor
                         new StreamMap<>(
                                 flinkRuntimeEnvironment
                                         .getStreamExecutionEnvironment()
-                                        .clean(
-                                                row ->
-                                                        ((SeaTunnelMapTransform<SeaTunnelRow>)
-                                                                        transform)
-                                                                .map(row))))
+                                        .clean(new TransformMapFunction(transform))))
                 // null value shouldn't be passed to downstream
                 .filter(Objects::nonNull);
     }
 
-    public static class ArrayFlatMap implements FlatMapFunction<SeaTunnelRow, SeaTunnelRow> {
+    private abstract static class LifecycleAwareTransformFunction extends AbstractRichFunction {
 
-        private SeaTunnelTransform transform;
+        protected final SeaTunnelTransform<SeaTunnelRow> transform;
+        private final AtomicBoolean closed = new AtomicBoolean();
+        private transient boolean opened;
 
-        public ArrayFlatMap(SeaTunnelTransform transform) {
+        private LifecycleAwareTransformFunction(SeaTunnelTransform<SeaTunnelRow> transform) {
             this.transform = transform;
+        }
+
+        @Override
+        public void open(Configuration parameters) {
+            if (!opened) {
+                transform.open();
+                opened = true;
+            }
+        }
+
+        @Override
+        public void close() {
+            if (!closed.compareAndSet(false, true)) {
+                return;
+            }
+            try {
+                transform.close();
+            } catch (RuntimeException e) {
+                log.warn("Failed to close SeaTunnel transform {}", transform.getPluginName(), e);
+            }
+        }
+    }
+
+    static class TransformMapFunction extends LifecycleAwareTransformFunction
+            implements MapFunction<SeaTunnelRow, SeaTunnelRow> {
+
+        TransformMapFunction(SeaTunnelTransform<SeaTunnelRow> transform) {
+            super(transform);
+        }
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            return ((SeaTunnelMapTransform<SeaTunnelRow>) transform).map(row);
+        }
+    }
+
+    static class ArrayFlatMap extends LifecycleAwareTransformFunction
+            implements FlatMapFunction<SeaTunnelRow, SeaTunnelRow> {
+
+        ArrayFlatMap(SeaTunnelTransform<SeaTunnelRow> transform) {
+            super(transform);
         }
 
         @Override
