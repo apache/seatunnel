@@ -38,8 +38,8 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonHadoopConfi
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSink;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.PaimonSinkWriter;
-import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -244,8 +244,9 @@ public class PaimonWriteTest {
         Assertions.assertTrue(sink.getWriterStateSerializer().isPresent());
         PaimonSinkState state = new PaimonSinkState(new ArrayList<>(), "commit-user", 42L);
         PaimonSinkState restored =
-                sink.getWriterStateSerializer().get().deserialize(
-                        sink.getWriterStateSerializer().get().serialize(state));
+                sink.getWriterStateSerializer()
+                        .get()
+                        .deserialize(sink.getWriterStateSerializer().get().serialize(state));
         Assertions.assertEquals(state, restored);
     }
 
