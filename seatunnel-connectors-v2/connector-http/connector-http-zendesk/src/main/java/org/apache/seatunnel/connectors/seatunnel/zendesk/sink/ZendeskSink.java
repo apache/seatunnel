@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.zendesk.config.ZendeskConfig;
+import org.apache.seatunnel.connectors.seatunnel.zendesk.sink.config.ZendeskSinkOptions;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -36,6 +37,7 @@ public class ZendeskSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final CatalogTable catalogTable;
     private final SeaTunnelRowType seaTunnelRowType;
     private final HttpParameter httpParameter;
+    private final String resourceKey;
     private final int requestIntervalMs;
     private final int rateLimitBackoffMs;
     private final int rateLimitMaxRetries;
@@ -52,6 +54,7 @@ public class ZendeskSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.httpParameter.setUrl(url);
         this.httpParameter.setHeaders(ZendeskConfig.buildAuthHeaders(email, apiToken, null));
 
+        this.resourceKey = pluginConfig.getOptional(ZendeskSinkOptions.RESOURCE_KEY).orElse(null);
         this.requestIntervalMs = pluginConfig.get(ZendeskConfig.REQUEST_INTERVAL_MS);
         this.rateLimitBackoffMs = pluginConfig.get(ZendeskConfig.RATE_LIMIT_BACKOFF_MS);
         this.rateLimitMaxRetries = pluginConfig.get(ZendeskConfig.RATE_LIMIT_MAX_RETRIES);
@@ -67,9 +70,11 @@ public class ZendeskSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         return new ZendeskSinkWriter(
                 seaTunnelRowType,
                 httpParameter,
+                resourceKey,
                 requestIntervalMs,
                 rateLimitBackoffMs,
-                rateLimitMaxRetries);
+                rateLimitMaxRetries,
+                context.getNumberOfParallelSubtasks());
     }
 
     @Override

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.zendesk.config.ZendeskConfig;
+import org.apache.seatunnel.connectors.seatunnel.zendesk.sink.config.ZendeskSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -40,6 +41,7 @@ public class ZendeskSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(ZendeskConfig.URL, ZendeskConfig.EMAIL, ZendeskConfig.API_TOKEN)
                 .optional(
+                        ZendeskSinkOptions.RESOURCE_KEY,
                         ZendeskConfig.REQUEST_INTERVAL_MS,
                         ZendeskConfig.RATE_LIMIT_BACKOFF_MS,
                         ZendeskConfig.RATE_LIMIT_MAX_RETRIES,

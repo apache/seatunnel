@@ -17,6 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.zendesk.sink.config;
 
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.zendesk.config.ZendeskConfig;
 
-public class ZendeskSinkOptions extends ZendeskConfig {}
+public class ZendeskSinkOptions extends ZendeskConfig {
+
+    public static final Option<String> RESOURCE_KEY =
+            Options.key("resource_key")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The JSON wrapping key for the Zendesk API request body "
+                                    + "(e.g. \"ticket\", \"user\", \"organization\"). "
+                                    + "When set, this value is used directly instead of "
+                                    + "inferring the key from the URL path.");
+}

@@ -64,6 +64,11 @@ public class ZendeskSinkWriterTest {
     }
 
     private ZendeskSinkWriter createWriter(String url) throws Exception {
+        return createWriter(url, null, 1);
+    }
+
+    private ZendeskSinkWriter createWriter(String url, String resourceKeyOverride, int parallelism)
+            throws Exception {
         HttpParameter param = new HttpParameter();
         param.setUrl(url);
         Map<String, String> headers = new HashMap<>();
@@ -71,7 +76,8 @@ public class ZendeskSinkWriterTest {
         headers.put("Content-Type", "application/json");
         param.setHeaders(headers);
 
-        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, 0, 0, 3);
+        ZendeskSinkWriter writer =
+                new ZendeskSinkWriter(rowType, param, resourceKeyOverride, 0, 0, 3, parallelism);
 
         Field field = ZendeskSinkWriter.class.getDeclaredField("httpClient");
         field.setAccessible(true);
@@ -151,6 +157,32 @@ public class ZendeskSinkWriterTest {
     }
 
     @Test
+    public void testInferResourceKeyAddresses() {
+        Assertions.assertEquals(
+                "address",
+                ZendeskSinkWriter.inferResourceKey("https://example.zendesk.com/api/v2/addresses"));
+    }
+
+    @Test
+    public void testResourceKeyOverrideBypassesInference() throws Exception {
+        when(httpClient.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(201, "{}"));
+
+        ZendeskSinkWriter writer =
+                createWriter(
+                        "https://example.zendesk.com/api/v2/custom_endpoint", "my_resource", 1);
+        writer.write(new SeaTunnelRow(new Object[] {"Test", "open"}));
+
+        ArgumentCaptor<String> bodyCaptor = ArgumentCaptor.forClass(String.class);
+        verify(httpClient, times(1)).doPost(anyString(), any(), bodyCaptor.capture());
+
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode root = mapper.readTree(bodyCaptor.getValue());
+        Assertions.assertTrue(root.has("my_resource"));
+        Assertions.assertEquals("Test", root.get("my_resource").get("subject").asText());
+    }
+
+    @Test
     public void testTicketBodyFormat() throws Exception {
         when(httpClient.doPost(anyString(), any(), anyString()))
                 .thenReturn(new HttpResponse(201, "{}"));
@@ -181,7 +213,7 @@ public class ZendeskSinkWriterTest {
         headers.put("Authorization", "Basic dGVzdA==");
         param.setHeaders(headers);
 
-        ZendeskSinkWriter writer = new ZendeskSinkWriter(userRowType, param, 0, 0, 3);
+        ZendeskSinkWriter writer = new ZendeskSinkWriter(userRowType, param, null, 0, 0, 3, 1);
 
         Field field = ZendeskSinkWriter.class.getDeclaredField("httpClient");
         field.setAccessible(true);
@@ -235,6 +267,9 @@ public class ZendeskSinkWriterTest {
                         IOException.class,
                         () -> writer.write(new SeaTunnelRow(new Object[] {"Test", "open"})));
         Assertions.assertTrue(exception.getMessage().contains("422"));
+        Assertions.assertTrue(
+                exception.getMessage().contains("example.zendesk.com"),
+                "error message should contain the request URL");
     }
 
     @Test
@@ -255,7 +290,7 @@ public class ZendeskSinkWriterTest {
     public void testBackoffIsZeroWhenDisabled() {
         HttpParameter param = new HttpParameter();
         param.setUrl("https://example.zendesk.com/api/v2/tickets");
-        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, 0, 0, 3);
+        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, null, 0, 0, 3, 1);
 
         Assertions.assertEquals(0L, writer.calculateBackoffMillis(1));
         Assertions.assertEquals(0L, writer.calculateBackoffMillis(5));
@@ -265,7 +300,7 @@ public class ZendeskSinkWriterTest {
     public void testBackoffIsNotDeterministic() {
         HttpParameter param = new HttpParameter();
         param.setUrl("https://example.zendesk.com/api/v2/tickets");
-        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, 0, 1000, 3);
+        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, null, 0, 1000, 3, 1);
 
         Set<Long> observed = new HashSet<>();
         for (int i = 0; i < 200; i++) {
@@ -281,12 +316,56 @@ public class ZendeskSinkWriterTest {
     public void testBackoffRespectsMaximum() {
         HttpParameter param = new HttpParameter();
         param.setUrl("https://example.zendesk.com/api/v2/tickets");
-        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, 0, 60000, 30);
+        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, null, 0, 60000, 30, 1);
 
         for (int i = 0; i < 100; i++) {
             Assertions.assertTrue(
                     writer.calculateBackoffMillis(20) <= 300000L,
                     "jittered backoff must never exceed MAX_BACKOFF_MILLIS");
         }
+    }
+
+    @Test
+    public void testBackoffHasMinimumFloor() {
+        HttpParameter param = new HttpParameter();
+        param.setUrl("https://example.zendesk.com/api/v2/tickets");
+        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, null, 0, 1000, 3, 1);
+
+        for (int i = 0; i < 100; i++) {
+            long backoff = writer.calculateBackoffMillis(1);
+            Assertions.assertTrue(
+                    backoff >= 500L,
+                    "equal jitter backoff must be at least half the base, got " + backoff);
+        }
+    }
+
+    @Test
+    public void testBlankResourceKeyThrows() {
+        HttpParameter param = new HttpParameter();
+        param.setUrl("https://example.zendesk.com/api/v2/tickets");
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new ZendeskSinkWriter(rowType, param, "", 0, 0, 3, 1));
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> new ZendeskSinkWriter(rowType, param, "   ", 0, 0, 3, 1));
+    }
+
+    @Test
+    public void testParallelismScalesRequestInterval() throws Exception {
+        HttpParameter param = new HttpParameter();
+        param.setUrl("https://example.zendesk.com/api/v2/tickets");
+        Map<String, String> headers = new HashMap<>();
+        param.setHeaders(headers);
+
+        // parallelism=4, requestIntervalMs=100 → effective interval should be 400
+        ZendeskSinkWriter writer = new ZendeskSinkWriter(rowType, param, null, 100, 0, 3, 4);
+
+        Field intervalField = ZendeskSinkWriter.class.getDeclaredField("requestIntervalMs");
+        intervalField.setAccessible(true);
+        int effectiveInterval = (int) intervalField.get(writer);
+        Assertions.assertEquals(400, effectiveInterval);
     }
 }

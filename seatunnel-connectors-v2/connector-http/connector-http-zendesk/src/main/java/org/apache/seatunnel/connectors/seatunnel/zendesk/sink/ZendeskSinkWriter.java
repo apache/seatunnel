@@ -62,16 +62,23 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     public ZendeskSinkWriter(
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
+            String resourceKeyOverride,
             int requestIntervalMs,
             int rateLimitBackoffMs,
-            int rateLimitMaxRetries) {
+            int rateLimitMaxRetries,
+            int numberOfParallelSubtasks) {
         this.url = httpParameter.getUrl();
         this.headers = httpParameter.getHeaders();
         this.httpClient = new HttpClientProvider(httpParameter);
         this.serializationSchema = new JsonSerializationSchema(seaTunnelRowType);
         this.objectMapper = serializationSchema.getMapper();
-        this.resourceKey = inferResourceKey(this.url);
-        this.requestIntervalMs = Math.max(0, requestIntervalMs);
+        if (resourceKeyOverride != null && resourceKeyOverride.trim().isEmpty()) {
+            throw new IllegalArgumentException("resource_key must not be blank");
+        }
+        this.resourceKey =
+                resourceKeyOverride != null ? resourceKeyOverride : inferResourceKey(this.url);
+        int parallelism = Math.max(1, numberOfParallelSubtasks);
+        this.requestIntervalMs = Math.max(0, requestIntervalMs) * parallelism;
         this.rateLimitBackoffMs = Math.max(0, rateLimitBackoffMs);
         this.rateLimitMaxRetries = Math.max(0, rateLimitMaxRetries);
         this.lastRequestTimeMillis = 0L;
@@ -83,6 +90,7 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         sendWithRateLimitRetry(body);
     }
 
+    /** Wraps the serialized row in a Zendesk resource key, e.g. {"ticket": {...}}. */
     @VisibleForTesting
     String buildRequestBody(SeaTunnelRow row) throws IOException {
         byte[] serialized = serializationSchema.serialize(row);
@@ -97,6 +105,7 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         return objectMapper.writeValueAsString(root);
     }
 
+    /** Extracts the first path segment after /api/v2/ and singularizes it (tickets → ticket). */
     @VisibleForTesting
     static String inferResourceKey(String url) {
         if (url == null) {
@@ -127,14 +136,21 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
 
         String resource = segments[0];
-        if (resource.endsWith("ies")) {
+        if (resource.endsWith("sses")) {
+            return resource.substring(0, resource.length() - 2);
+        } else if (resource.endsWith("ies")) {
             return resource.substring(0, resource.length() - 3) + "y";
+        } else if (resource.endsWith("ses")
+                || resource.endsWith("xes")
+                || resource.endsWith("zes")) {
+            return resource.substring(0, resource.length() - 2);
         } else if (resource.endsWith("s")) {
             return resource.substring(0, resource.length() - 1);
         }
         return resource;
     }
 
+    /** POSTs body to Zendesk, retrying with exponential backoff on HTTP 429. */
     private void sendWithRateLimitRetry(String body) throws IOException {
         int retryCount = 0;
         while (true) {
@@ -163,8 +179,8 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 }
                 throw new IOException(
                         String.format(
-                                "Zendesk API request failed, status code:[%s], content:[%s]",
-                                response.getCode(), response.getContent()));
+                                "Zendesk API request failed, url:[%s], status code:[%s], content:[%s]",
+                                url, response.getCode(), response.getContent()));
             } catch (IOException e) {
                 throw e;
             } catch (Exception e) {
@@ -173,6 +189,7 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         }
     }
 
+    /** Throttles requests to respect requestIntervalMs between consecutive calls. */
     private void waitForRequestSlot() {
         if (requestIntervalMs <= 0) {
             return;
@@ -190,26 +207,16 @@ public class ZendeskSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         lastRequestTimeMillis = System.currentTimeMillis();
     }
 
+    /** Equal jitter backoff: half the exponential ceiling plus random jitter in [0, half]. */
     @VisibleForTesting
     long calculateBackoffMillis(int retryCount) {
         if (rateLimitBackoffMs <= 0) {
             return 0L;
         }
         long exponential = 1L << Math.min(20, Math.max(0, retryCount - 1));
-        long waitMillis = Math.min(rateLimitBackoffMs * exponential, MAX_BACKOFF_MILLIS);
-
-        long extra = Math.min(waitMillis, MAX_BACKOFF_MILLIS - waitMillis);
-        if (extra > 0) {
-            return waitMillis + ThreadLocalRandom.current().nextLong(extra + 1);
-        }
-
-        long floor = waitMillis / 2;
-        for (long scheduled = rateLimitBackoffMs; scheduled < MAX_BACKOFF_MILLIS; scheduled <<= 1) {
-            if (scheduled > floor) {
-                floor = scheduled;
-            }
-        }
-        return waitMillis - ThreadLocalRandom.current().nextLong(waitMillis - floor + 1);
+        long ceiling = Math.min(rateLimitBackoffMs * exponential, MAX_BACKOFF_MILLIS);
+        long half = ceiling / 2;
+        return half + ThreadLocalRandom.current().nextLong(half + 1);
     }
 
     @Override
