@@ -27,7 +27,7 @@ import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import java.io.IOException;
 import java.util.Objects;
 
-/** Used to describe the status of the current slot, including resource size and assign status */
+/** Describes a slot's resources, owner, and identity for its current allocation. */
 public class SlotProfile implements IdentifiedDataSerializable {
 
     private Address worker;
@@ -77,6 +77,25 @@ public class SlotProfile implements IdentifiedDataSerializable {
             ownerJobID = jobID;
             assigned = true;
         }
+    }
+
+    /**
+     * Assigns this slot using a token unique to the allocation that is about to become active.
+     *
+     * <p>The token changes when a fixed slot is released and later reused by the same job. A
+     * restored master can therefore distinguish a persisted mapping from a newer assignment of the
+     * same physical slot.
+     *
+     * @param jobID owner of the allocation
+     * @param allocationSequence token identifying this allocation
+     */
+    public void assign(long jobID, String allocationSequence) {
+        if (assigned) {
+            throw new UnsupportedOperationException();
+        }
+        ownerJobID = jobID;
+        sequence = Objects.requireNonNull(allocationSequence, "allocationSequence");
+        assigned = true;
     }
 
     @Override

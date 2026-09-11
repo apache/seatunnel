@@ -32,6 +32,10 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] markdown
   - [x] pdf
 
+SftpFile is a bounded source. When `discovery_mode = once` (the default) the connector enumerates files once and
+finishes; use `discovery_mode = continuous` together with `sync_mode = update` to keep the job running and stream
+new/changed files into the sink.
+
 ## Description
 
 Read data from sftp file server.
@@ -560,6 +564,101 @@ sink {
   }
 }
 ```
+
+### Recursive scan over text files
+
+Set `recursive_file_scan = true` to enumerate files in subdirectories of `path`. The example below reads text files
+under a nested directory and uses an explicit schema so each row maps to typed SeaTunnel columns.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+    path = "tmp/seatunnel/read/recursive"
+    file_format_type = "text"
+    recursive_file_scan = true
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "sftp"
+    rules {
+      row_rules = [
+        { rule_type = MAX_ROW, rule_value = 20 },
+        { rule_type = MIN_ROW, rule_value = 20 }
+      ]
+    }
+  }
+}
+```
+
+### Public key authentication
+
+When the SFTP server is configured for SSH key authentication, supply the private key path through `keyfile` and omit
+`password`. The connector uses the JSCH library internally, so `keyfile` follows the OpenSSH private-key format and
+must be readable by the engine process.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/opt/seatunnel/keys/sftp_id_rsa"
+    path = "data/incoming/"
+    file_format_type = "csv"
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        id = bigint
+        name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+`password` and `keyfile` are both loaded into the SSH session when configured. The connector uses the JSCH library,
+whose default authentication order tries `publickey` (via `keyfile`) before `password`. To avoid surprises during
+authentication failures, prefer setting only one of them. The engine process must have permission to read `keyfile`;
+if the key file is passphrase-protected, configure the SSH agent or decrypt it before the job starts.
 ### Multiple Table
 
 ```hocon

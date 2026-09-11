@@ -23,8 +23,11 @@ import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
 import finishedJobs from '@/views/jobs/finished-jobs'
-import { JobsService } from '@/service/job'
+import { getFinishedJobs, JobsService } from '@/service/job'
+import { get } from '@/service/service'
 import type { JobPage, Job } from '@/service/job/types'
+
+vi.mock('@/service/service', () => ({ get: vi.fn() }))
 
 describe('jobs', () => {
   const app = createApp({})
@@ -70,5 +73,14 @@ describe('jobs', () => {
     expect(JobsService.getFinishedJobs).toHaveBeenCalledWith(1, 10)
     await flushPromises()
     expect(wrapper.text()).toContain('SeaTunnel_Job')
+  })
+
+  test('Finished Jobs service requests all terminal jobs by default', () => {
+    const getMock = vi.mocked(get)
+    getMock.mockClear()
+
+    getFinishedJobs(1, 10)
+
+    expect(getMock).toHaveBeenCalledWith('/finished-jobs', {page: 1, rows: 10})
   })
 })
