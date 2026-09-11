@@ -78,6 +78,7 @@ connector-http-persistiq
 connector-http-shopify
 connector-http-wechat
 connector-http-airtable
+connector-http-zendesk
 connector-http-posthog
 connector-http-zendesk
 connector-hudi
