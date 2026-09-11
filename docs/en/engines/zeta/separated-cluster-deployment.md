@@ -386,11 +386,21 @@ and then to a PhysicalDag. It ultimately creates the JobMaster for the job to ha
 
 **core-thread-num**
 
-The corePoolSize of seatunnel coordinator job's executor cached thread pool
+The core thread count of the coordinator admission executor. Default: `10`.
 
 **max-thread-num**
 
-The max job count can be executed at same time
+The maximum thread count of the coordinator admission executor. Default: `2147483647`.
+This executor initializes newly submitted jobs and places them in the pending-job queue.
+It uses direct handoff without a work queue; a submission can be rejected when all threads
+are busy and the configured maximum has been reached.
+
+Job execution, completion callbacks, cancellation, checkpoint/savepoint work, and master-switch
+recovery use a separate lifecycle executor. The pending-job scheduler has its own thread.
+The lifecycle executor still has an unbounded maximum because it runs blocking waits alongside
+the callbacks needed to finish them. These settings do not limit running jobs or total master
+threads. Configuration keys and defaults are unchanged, including after master reactivation.
+Coordinator thread-pool metrics describe the admission executor.
 
 Example
 

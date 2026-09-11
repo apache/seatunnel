@@ -574,6 +574,10 @@ public class CoordinatorServiceTest {
             throws Exception {
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        ExecutorService previousScheduler =
+                (ExecutorService)
+                        ReflectionUtils.getField(coordinatorService, "pendingJobSchedulerExecutor")
+                                .get();
         CountDownLatch firstScheduleStarted = new CountDownLatch(1);
         CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
         try {
@@ -597,6 +601,12 @@ public class CoordinatorServiceTest {
 
             JobMaster secondJobMaster =
                     enqueueMockPendingJob(coordinatorService, 80002L, new CountDownLatch(1));
+            // A reactivated master owns a new scheduler executor; the old generation may
+            // still be leaving an in-flight resource request on its previous executor.
+            ReflectionUtils.setField(
+                    coordinatorService,
+                    "pendingJobSchedulerExecutor",
+                    Executors.newSingleThreadExecutor());
             invokePendingJobScheduler(coordinatorService);
 
             await().atMost(5, TimeUnit.SECONDS)
@@ -611,6 +621,8 @@ public class CoordinatorServiceTest {
         } finally {
             allowFirstScheduleToFinish.countDown();
             shutdownCoordinatorIfRunning(coordinatorService);
+            previousScheduler.shutdownNow();
+            Assertions.assertTrue(previousScheduler.awaitTermination(5, TimeUnit.SECONDS));
         }
     }
 
@@ -722,6 +734,143 @@ public class CoordinatorServiceTest {
             Assertions.assertEquals(1L, runLatch.getCount());
         } finally {
             coordinatorService.shutdown();
+        }
+    }
+
+    @Test
+    void testLifecycleAndPendingSchedulerProgressWithSaturatedAdmission() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        EngineConfig config = new EngineConfig();
+        config.getCoordinatorServiceConfig().setCoreThreadNum(1);
+        config.getCoordinatorServiceConfig().setMaxThreadNum(1);
+        CoordinatorService coordinator = newMockCoordinatorService(server, config);
+        CountDownLatch releaseAdmission = new CountDownLatch(1);
+        CountDownLatch admissionStarted = new CountDownLatch(1);
+        CompletableFuture<JobResult> completion = new CompletableFuture<>();
+        try {
+            getCoordinatorExecutor(coordinator)
+                    .submit(
+                            () -> {
+                                admissionStarted.countDown();
+                                releaseAdmission.await();
+                                return null;
+                            });
+            Assertions.assertTrue(admissionStarted.await(5, TimeUnit.SECONDS));
+            CountDownLatch running = new CountDownLatch(1);
+            JobMaster job = enqueueMockPendingJob(coordinator, 70001L, running);
+            Mockito.when(job.getJobMasterCompleteFuture())
+                    .thenReturn(new PassiveCompletableFuture<>(completion));
+            Mockito.doAnswer(
+                            invocation -> {
+                                running.countDown();
+                                completion.join();
+                                return null;
+                            })
+                    .when(job)
+                    .run();
+            Mockito.when(server.isMasterNode()).thenReturn(true);
+            invokeCheckNewActiveMaster(coordinator);
+            Assertions.assertTrue(running.await(5, TimeUnit.SECONDS));
+            Assertions.assertSame(job, coordinator.getJobMaster(70001L));
+            ExecutorService lifecycle =
+                    (ExecutorService)
+                            ReflectionUtils.getField(coordinator, "lifecycleExecutor").get();
+            lifecycle
+                    .submit(() -> completion.complete(new JobResult(JobStatus.FINISHED, null)))
+                    .get(5, TimeUnit.SECONDS);
+            Assertions.assertEquals(
+                    JobStatus.FINISHED, completion.get(5, TimeUnit.SECONDS).getStatus());
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            getRunningJobMasterMap(coordinator)
+                                                    .containsKey(70001L)));
+            Assertions.assertEquals(1L, releaseAdmission.getCount());
+        } finally {
+            completion.complete(new JobResult(JobStatus.CANCELED, null));
+            releaseAdmission.countDown();
+            coordinator.shutdown();
+        }
+    }
+
+    @Test
+    void testLateLifecycleExitDoesNotRemoveReplacementMaster() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = newMockCoordinatorService(server);
+        CountDownLatch exit = new CountDownLatch(1);
+        try {
+            CountDownLatch running = new CountDownLatch(1);
+            JobMaster original = enqueueMockPendingJob(coordinator, 70002L, running);
+            Mockito.doAnswer(
+                            invocation -> {
+                                running.countDown();
+                                exit.await();
+                                return null;
+                            })
+                    .when(original)
+                    .run();
+            Mockito.when(server.isMasterNode()).thenReturn(true);
+            invokeCheckNewActiveMaster(coordinator);
+            Assertions.assertTrue(running.await(5, TimeUnit.SECONDS));
+            JobMaster replacement = Mockito.mock(JobMaster.class);
+            getRunningJobMasterMap(coordinator).put(70002L, replacement);
+            exit.countDown();
+            ExecutorService lifecycle =
+                    (ExecutorService)
+                            ReflectionUtils.getField(coordinator, "lifecycleExecutor").get();
+            lifecycle.shutdown();
+            Assertions.assertTrue(lifecycle.awaitTermination(5, TimeUnit.SECONDS));
+            Assertions.assertSame(replacement, coordinator.getJobMaster(70002L));
+        } finally {
+            exit.countDown();
+            coordinator.shutdown();
+        }
+    }
+
+    @Test
+    void testReactivationRebuildsAllExecutorsAndPreservesAdmissionSettings() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        EngineConfig config = new EngineConfig();
+        config.getCoordinatorServiceConfig().setCoreThreadNum(1);
+        config.getCoordinatorServiceConfig().setMaxThreadNum(2);
+        CoordinatorService coordinator = newMockCoordinatorService(server, config);
+        try {
+            Mockito.when(server.isMasterNode()).thenReturn(true);
+            invokeCheckNewActiveMaster(coordinator);
+            ThreadPoolExecutor admission = getCoordinatorExecutor(coordinator);
+            ExecutorService lifecycle =
+                    (ExecutorService)
+                            ReflectionUtils.getField(coordinator, "lifecycleExecutor").get();
+            ExecutorService scheduler =
+                    (ExecutorService)
+                            ReflectionUtils.getField(coordinator, "pendingJobSchedulerExecutor")
+                                    .get();
+            Mockito.when(server.isMasterNode()).thenReturn(false);
+            invokeCheckNewActiveMaster(coordinator);
+            Assertions.assertTrue(admission.isTerminated());
+            Assertions.assertTrue(lifecycle.isTerminated());
+            Assertions.assertTrue(scheduler.isTerminated());
+            Mockito.when(server.isMasterNode()).thenReturn(true);
+            invokeCheckNewActiveMaster(coordinator);
+            ThreadPoolExecutor rebuilt = getCoordinatorExecutor(coordinator);
+            Assertions.assertNotSame(admission, rebuilt);
+            Assertions.assertEquals(admission.getCorePoolSize(), rebuilt.getCorePoolSize());
+            Assertions.assertEquals(admission.getMaximumPoolSize(), rebuilt.getMaximumPoolSize());
+            Assertions.assertEquals(admission.getQueue().getClass(), rebuilt.getQueue().getClass());
+            Assertions.assertEquals(
+                    admission.getRejectedExecutionHandler().getClass(),
+                    rebuilt.getRejectedExecutionHandler().getClass());
+            Assertions.assertNotSame(
+                    lifecycle, ReflectionUtils.getField(coordinator, "lifecycleExecutor").get());
+            Assertions.assertNotSame(
+                    scheduler,
+                    ReflectionUtils.getField(coordinator, "pendingJobSchedulerExecutor").get());
+            CountDownLatch running = new CountDownLatch(1);
+            enqueueMockPendingJob(coordinator, 70003L, running);
+            Assertions.assertTrue(running.await(5, TimeUnit.SECONDS));
+        } finally {
+            coordinator.shutdown();
         }
     }
 
