@@ -45,8 +45,10 @@ import java.util.Collections;
  * entry, so mid-trial durable reloads are limited to the empty-pressure fixture ({@code
  * initialStoredJobCount=0}) on the first iteration. The last measured sample is always checked at
  * trial tear-down by reloading one representative key (same WAL cost as any key set) and asserting
- * the rest of the batch remains resident. Cleanup failures are attached with {@code addSuppressed}
- * and do not replace a durability failure.
+ * the rest of the batch remains resident. Iterations between the first empty-pressure sample and
+ * trial tear-down are not durability-sampled: a write-through WAL append that starts failing in
+ * that window would surface only at tear-down (or via the resident-size checks each iteration).
+ * Cleanup failures are attached with {@code addSuppressed} and do not replace a durability failure.
  */
 @State(Scope.Thread)
 public class IMapJobGrowthBenchmarkWorkload {
@@ -157,8 +159,10 @@ public class IMapJobGrowthBenchmarkWorkload {
 
     /**
      * Verifies that the non-timed fixture pressure grew by exactly one controlled phase. Most
-     * iterations only check resident IMap state; durability is sampled lightly because {@code
-     * FileMapStore.loadAll} always replays the full WAL.
+     * iterations only check resident IMap state; durability is sampled only on the first
+     * empty-pressure iteration (and again at trial tear-down) because {@code FileMapStore.loadAll}
+     * always replays the full WAL. Mid-trial iterations therefore do not detect a newly failing WAL
+     * append until tear-down.
      */
     @TearDown(Level.Iteration)
     public void verifyGrowthPhase() {
@@ -288,10 +292,11 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     private boolean shouldSampleGrowthDurability() {
-        // FileMapStore.loadAll replays the full WAL into heap. Under initialStoredJobCount=1000
-        // that
+        // FileMapStore.loadAll replays the full WAL into heap. Under initialStoredJobCount=1000 that
         // OOM's the diagnostic / JMH fork when stacked on resident pressure, so mid-trial sampling
-        // is limited to the empty-pressure fixture. Trial tear-down always samples the last batch.
+        // is limited to the empty-pressure fixture's first iteration. Later iterations rely on
+        // resident checks only; trial tear-down always samples the last batch. A WAL append that
+        // begins failing after the first sample is therefore only caught at tear-down.
         return growthPhase != GrowthPhase.NONE
                 && growthIterationIndex == 0
                 && initialStoredJobCount == 0;
