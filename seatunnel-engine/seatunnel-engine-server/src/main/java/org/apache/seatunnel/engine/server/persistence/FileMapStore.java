@@ -79,6 +79,12 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         mapStorage.destroy(false);
     }
 
+    /**
+     * Failure propagation below assumes Hazelcast write-through ({@code write-delay-seconds=0}, the
+     * shipped default): MapStore runs synchronously inside put/remove and exceptions reach the
+     * caller. Write-behind would only log MapStore failures and silently reintroduce swallowed
+     * durability errors.
+     */
     @Override
     public void store(Object key, Object value) {
         // Propagate durability failures to Hazelcast write-through instead of discarding the
@@ -114,12 +120,20 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
 
     @Override
     public void delete(Object key) {
-        mapStorage.delete(key);
+        // Same write-through path as store(): delete also publishes WAL APPEND and is gated by
+        // fail-close. Discarding the boolean would let retention pruning remove in-memory entries
+        // while never recording the tombstone, so the key resurrects on WAL replay after restart.
+        if (!mapStorage.delete(key)) {
+            throw persistenceFailure("delete", key);
+        }
     }
 
     @Override
     public void deleteAll(Collection<Object> keys) {
-        mapStorage.deleteAll(keys);
+        Set<Object> failures = mapStorage.deleteAll(keys);
+        if (!failures.isEmpty()) {
+            throw persistenceFailure("deleteAll", failures);
+        }
     }
 
     @SneakyThrows

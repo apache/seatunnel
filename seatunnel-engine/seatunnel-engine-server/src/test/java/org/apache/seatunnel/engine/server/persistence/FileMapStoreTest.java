@@ -32,6 +32,7 @@ import com.hazelcast.core.HazelcastInstance;
 
 import java.lang.reflect.Field;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -55,9 +56,9 @@ import static org.mockito.Mockito.when;
  *   <li>init() with an unknown storage type throws immediately instead of silently failing.
  * </ol>
  *
- * <p>Also covers durability-failure propagation for write-through MapStore calls: store/storeAll
- * must throw when the underlying {@link IMapStorage} reports a failed write, especially after WAL
- * APPEND has been permanently fail-closed.
+ * <p>Also covers durability-failure propagation for write-through MapStore calls:
+ * store/storeAll/delete/deleteAll must throw when the underlying {@link IMapStorage} reports a
+ * failed write, especially after WAL APPEND has been permanently fail-closed.
  *
  * <p>Note: HDFS/S3/OSS backends are NOT tested here because they require Hadoop uber jars and
  * remote infrastructure. Those are covered by IMapFileStorageTest. What we verify here is that the
@@ -189,6 +190,69 @@ public class FileMapStoreTest {
         Assertions.assertTrue(
                 ex.getMessage().contains("storeAll"),
                 "Expected storeAll in message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("permanently fail-closed"),
+                "Expected fail-closed message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testDeleteThrowsWhenUnderlyingPersistenceFails() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage failingStorage = mock(IMapStorage.class);
+        when(failingStorage.delete(any())).thenReturn(false);
+        when(failingStorage.isAppendPermanentlyBlocked()).thenReturn(false);
+        setMapStorage(store, failingStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class, () -> store.delete("old-checkpoint"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("failed to persist durably"),
+                "Expected durability failure message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("delete"),
+                "Expected delete in message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testDeleteThrowsExplicitlyWhenWalAppendIsPermanentlyFailClosed() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage blockedStorage = mock(IMapStorage.class);
+        when(blockedStorage.delete(any())).thenReturn(false);
+        when(blockedStorage.isAppendPermanentlyBlocked()).thenReturn(true);
+        setMapStorage(store, blockedStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class, () -> store.delete("old-checkpoint"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("permanently fail-closed"),
+                "Expected fail-closed message, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("restart"),
+                "Expected restart guidance, got: " + ex.getMessage());
+        Assertions.assertTrue(
+                ex.getMessage().contains("delete"),
+                "Expected delete in message, got: " + ex.getMessage());
+    }
+
+    @Test
+    public void testDeleteAllThrowsWhenAnyKeyFailsToPersist() throws Exception {
+        FileMapStore store = new FileMapStore();
+        IMapStorage failingStorage = mock(IMapStorage.class);
+        Set<Object> failures = new HashSet<>();
+        failures.add("k1");
+        when(failingStorage.deleteAll(any())).thenReturn(failures);
+        when(failingStorage.isAppendPermanentlyBlocked()).thenReturn(true);
+        setMapStorage(store, failingStorage);
+
+        IMapStorageException ex =
+                Assertions.assertThrows(
+                        IMapStorageException.class,
+                        () -> store.deleteAll(Arrays.asList("k1", "k2")));
+        Assertions.assertTrue(
+                ex.getMessage().contains("deleteAll"),
+                "Expected deleteAll in message, got: " + ex.getMessage());
         Assertions.assertTrue(
                 ex.getMessage().contains("permanently fail-closed"),
                 "Expected fail-closed message, got: " + ex.getMessage());
