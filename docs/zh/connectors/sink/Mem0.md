@@ -26,3 +26,5 @@ sink {
 连接器使用 `POST /v3/memories/add/`，并发送 `Authorization: Token`、
 `Content-Type: application/json` 和 `Accept: application/json`。删除、自托管 OSS
 接口、事件轮询以及通用 Mem0 兼容协议不属于第一阶段范围。
+
+<ChangeLog />

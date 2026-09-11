@@ -29,3 +29,5 @@ The connector uses `POST /v3/memories/add/` with `Authorization: Token`,
 `Content-Type: application/json`, and `Accept: application/json`. Delete,
 self-hosted OSS endpoints, event polling, and a generic Mem0-compatible
 protocol are outside Phase 1.
+
+<ChangeLog />
