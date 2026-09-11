@@ -213,6 +213,143 @@ public class SystemFunctionTest {
     }
 
     @Test
+    public void testCastAsDecimalKeepsExactBinaryValueOfFloats() {
+        // The binary value of 126.752251f is 126.75225067138671875. Going through
+        // Float.toString() first would lose the hidden binary digits ("126.75225")
+        // and yield 126.7522500000, while MySQL's CAST(float AS DECIMAL(20,10))
+        // converts the exact binary value and yields 126.7522506714 (issue #10198).
+        List<Object> args = new ArrayList<>();
+        args.add(126.752251f);
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("126.7522506714"), SystemFunction.castAs(args));
+
+        // Scaling to the 6 digits of a numeric(10,6) sink column must round the
+        // exact binary value to 126.752251 instead of 126.752250.
+        args.clear();
+        args.add(126.752251f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(6);
+        Assertions.assertEquals(new BigDecimal("126.752251"), SystemFunction.castAs(args));
+
+        // Double inputs must not be stringified either.
+        args.clear();
+        args.add(44.916103d);
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("44.9161030000"), SystemFunction.castAs(args));
+
+        // BigDecimal inputs are passed through without re-parsing.
+        args.clear();
+        args.add(new BigDecimal("126.7522506714"));
+        args.add("DECIMAL");
+        args.add(20);
+        args.add(10);
+        Assertions.assertEquals(new BigDecimal("126.7522506714"), SystemFunction.castAs(args));
+    }
+
+    @Test
+    public void testCastAsDecimalRoundsCommonFloatsHalfAwayFromZero() {
+        // The exact binary value of 0.1f is 0.10000000149011612..., and the exact
+        // binary value of 0.1d is 0.10000000000000000555.... Combined with the
+        // legacy CEILING rounding, these would both round up to 0.11 at scale 2
+        // and silently corrupt ordinary DECIMAL casts. Round half away from
+        // zero (the contract used by MySQL's CAST(float AS DECIMAL(...))) so the
+        // common positive tail is preserved.
+        List<Object> args = new ArrayList<>();
+        args.add(0.1f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("0.10"), SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(0.1d);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("0.10"), SystemFunction.castAs(args));
+
+        // Negative tails round symmetrically: -0.1f is -0.10000000149... which
+        // rounds to -0.10 at scale 2 because the absolute value's tail is below
+        // the next half-step at the second decimal digit.
+        args.clear();
+        args.add(-0.1f);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("-0.10"), SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(-0.1d);
+        args.add("DECIMAL");
+        args.add(10);
+        args.add(2);
+        Assertions.assertEquals(new BigDecimal("-0.10"), SystemFunction.castAs(args));
+
+        // Half-rounding boundary: 0.5f is exactly representable as 0.5 and
+        // rounds up to 1 at scale 0; -0.5d is exactly -0.5 and HALF_UP pushes
+        // it away from zero to -1 (CEILING would have stayed at 0).
+        args.clear();
+        args.add(0.5f);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("1"), SystemFunction.castAs(args));
+
+        args.clear();
+        args.add(-0.5d);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("-1"), SystemFunction.castAs(args));
+
+        // Below-half rounding: 0.49f rounds down to 0 at scale 0 (CEILING
+        // would have wrongly raised it to 1).
+        args.clear();
+        args.add(0.49f);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("0"), SystemFunction.castAs(args));
+
+        // Above-half rounding: 0.51f rounds up to 1 at scale 0.
+        args.clear();
+        args.add(0.51f);
+        args.add("DECIMAL");
+        args.add(2);
+        args.add(0);
+        Assertions.assertEquals(new BigDecimal("1"), SystemFunction.castAs(args));
+    }
+
+    @Test
+    public void testCastAsDecimalThroughParsedSqlCast() {
+        // Exercise the parsed SQL CAST(... AS DECIMAL(...)) path end-to-end so
+        // the SystemFunction.castAs helper is reached through ZetaSQLEngine,
+        // not only through the direct unit-test helper call.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.FLOAT_TYPE});
+
+        // 0.1f is the regression case: it must stay 0.10 instead of becoming
+        // 0.11 after going through Float -> BigDecimal -> setScale(2).
+        SeaTunnelRow floatRow =
+                runSql("SELECT CAST(value AS DECIMAL(10,2)) AS out_value FROM dual", rowType, 0.1f);
+        Assertions.assertEquals(new BigDecimal("0.10"), floatRow.getField(0));
+
+        // 126.752251f -> DECIMAL(10,6) must round to 126.752251 (issue #10198).
+        SeaTunnelRow issueRow =
+                runSql(
+                        "SELECT CAST(value AS DECIMAL(10,6)) AS out_value FROM dual",
+                        rowType,
+                        126.752251f);
+        Assertions.assertEquals(new BigDecimal("126.752251"), issueRow.getField(0));
+    }
+
+    @Test
     public void testCoalesceRespectsTargetType() {
         SeaTunnelDataType<?> targetType = BasicType.INT_TYPE;
         Object result = SystemFunction.coalesce(Arrays.asList(null, "123"), targetType);
