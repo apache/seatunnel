@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 > Milvus source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 This Milvus source connector reads data from Milvus or Zilliz Cloud. It can read one collection
@@ -225,6 +231,20 @@ sink {
   Console {}
 }
 ```
+
+## FAQ
+
+### Can Milvus source read all collections in a database at once?
+
+Yes. If you omit the `collection` parameter or leave it empty, the Milvus source connector will scan and read all collections in the configured `database`.
+
+### Which vector data types are supported?
+
+The connector supports `FLOAT_VECTOR`, `BINARY_VECTOR`, `FLOAT16_VECTOR`, `BFLOAT16_VECTOR`, and `SPARSE_FLOAT_VECTOR` types, carrying index and partition metadata to downstream connectors.
+
+### How does the source handle gRPC message size or rate limits?
+
+You can tune `batch_size` and `rate_limit` options. If the Milvus cluster enforces rate limits or gRPC message limits, the connector automatically retries with backoff.
 
 ## Changelog
 
