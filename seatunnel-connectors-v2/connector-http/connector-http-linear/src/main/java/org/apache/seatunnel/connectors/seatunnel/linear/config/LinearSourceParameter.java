@@ -23,6 +23,11 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import java.util.HashMap;
 
 public class LinearSourceParameter extends HttpParameter {
+    /**
+     * Overrides buildWithConfig to accept an explicit apiKey parameter. Linear's GraphQL API
+     * requires the API key to be passed specifically as an Authorization header, so this method
+     * ensures the key is properly extracted and configured
+     */
     public void buildWithConfig(ReadonlyConfig pluginConfig, String apiKey) {
         super.buildWithConfig(pluginConfig);
         if (this.headers == null) {
