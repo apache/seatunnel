@@ -79,6 +79,7 @@ such as an invalid date or number. `SKIP` sets the destination field to `null` a
 continues processing the other columns. If no column policy is configured,
 `row_error_handle_way` applies. An explicit column policy takes precedence over the
 row policy, so column `FAIL` still fails the row when the row policy is `SKIP`.
+JVM errors, including those wrapped by a converter, are not treated as skippable data errors.
 
 ## Read Json Example
 

@@ -16,6 +16,10 @@
  */
 package org.apache.seatunnel.transform;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -24,6 +28,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.transform.common.ErrorHandleWay;
 import org.apache.seatunnel.transform.exception.ErrorDataTransformException;
 import org.apache.seatunnel.transform.exception.JsonPathTransformErrorCode;
@@ -35,6 +40,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -138,6 +144,90 @@ class JsonPathErrorHandlingTest {
                 Assertions.assertThrows(
                         IllegalStateException.class,
                         () -> transform.map(new SeaTunnelRow(new Object[] {sourceValue}))));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SKIP", "SKIP_ROW", "ROW_SKIP"})
+    void testWrappedErrorsAreNotSkipped(String policy) throws Exception {
+        for (Error fatal :
+                new Error[] {
+                    new OutOfMemoryError("synthetic failure"),
+                    new StackOverflowError("synthetic failure"),
+                    new LinkageError("synthetic failure")
+                }) {
+            JsonPathTransform transform = createSkippingTransform(policy);
+            ObjectNode object = JsonNodeFactory.instance.objectNode();
+            object.set(
+                    "amount",
+                    new TextNode("42") {
+                        @Override
+                        public String asText() {
+                            throw fatal;
+                        }
+                    });
+            JsonToRowConverters.JsonToObjectConverter rowConverter =
+                    new JsonToRowConverters(false, false)
+                            .createRowConverter(
+                                    new SeaTunnelRowType(
+                                            new String[] {"amount"},
+                                            new SeaTunnelDataType[] {BasicType.INT_TYPE}));
+            // Exercise the real row converter's Throwable wrapper without exhausting resources.
+            setConverter(transform, (node, field) -> rowConverter.convert(object, field));
+            Assertions.assertSame(
+                    fatal, Assertions.assertThrows(Error.class, () -> transform.map(row("42"))));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"SKIP", "SKIP_ROW", "ROW_SKIP"})
+    void testWrappedDataErrorsStillUsePolicy(String policy) throws Exception {
+        JsonPathTransform transform = createSkippingTransform(policy);
+        JsonToRowConverters.JsonToObjectConverter rowConverter =
+                new JsonToRowConverters(false, false)
+                        .createRowConverter(
+                                new SeaTunnelRowType(
+                                        new String[] {"amount"},
+                                        new SeaTunnelDataType[] {BasicType.INT_TYPE}));
+        ObjectNode object = JsonNodeFactory.instance.objectNode();
+        object.put("amount", "invalid");
+        setConverter(transform, (node, field) -> rowConverter.convert(object, field));
+        SeaTunnelRow output = transform.map(row("42"));
+        if ("SKIP".equals(policy)) {
+            Assertions.assertNotNull(output);
+            Assertions.assertNull(output.getField(1));
+            Assertions.assertEquals("retained", output.getField(2));
+        } else {
+            Assertions.assertNull(output);
+        }
+    }
+
+    @Test
+    void testCyclicConversionCauseDoesNotLoop() throws Exception {
+        RuntimeException outer = new IllegalArgumentException("outer");
+        RuntimeException inner = new IllegalArgumentException("inner", outer);
+        outer.initCause(inner);
+        JsonPathTransform transform = createSkippingTransform("SKIP");
+        setConverter(
+                transform,
+                (node, field) -> {
+                    throw outer;
+                });
+        Assertions.assertNull(transform.map(row("42")).getField(1));
+    }
+
+    private static JsonPathTransform createSkippingTransform(String policy) {
+        return createTransform(
+                "int",
+                "ROW_SKIP".equals(policy) ? null : ErrorHandleWay.valueOf(policy),
+                ErrorHandleWay.SKIP);
+    }
+
+    private static void setConverter(
+            JsonPathTransform transform, JsonToRowConverters.JsonToObjectConverter converter)
+            throws Exception {
+        Field field = JsonPathTransform.class.getDeclaredField("converters");
+        field.setAccessible(true);
+        ((JsonToRowConverters.JsonToObjectConverter[]) field.get(transform))[0] = converter;
     }
 
     private static SeaTunnelRow row(String value) {

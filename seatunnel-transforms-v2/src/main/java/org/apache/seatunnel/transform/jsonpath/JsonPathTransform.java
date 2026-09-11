@@ -17,6 +17,7 @@
 package org.apache.seatunnel.transform.jsonpath;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -168,11 +169,21 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         try {
             return converter.convert(jsonNode, columnConfig.getDestField());
         } catch (RuntimeException e) {
+            // Nested row converters can wrap Errors; these are not skippable data failures.
+            for (Throwable cause : ExceptionUtils.getThrowableList(e)) {
+                if (cause instanceof Error) {
+                    throw (Error) cause;
+                }
+            }
             // Conversion failures are not JsonPathException, but use the same data error policy.
             return handleError(columnConfig, jsonString, JSON_PATH_CONVERSION_ERROR, e);
         }
     }
 
+    /**
+     * Applies an explicit column policy first. Otherwise the exception leaves policy resolution to
+     * the row-level handler in AbstractSeaTunnelTransform.
+     */
     private Object handleError(
             ColumnConfig columnConfig,
             String jsonString,
