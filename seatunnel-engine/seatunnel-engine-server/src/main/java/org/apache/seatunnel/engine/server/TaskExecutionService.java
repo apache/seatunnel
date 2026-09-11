@@ -637,8 +637,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+            TaskGroupContext taskGroupContext = new TaskGroupContext(taskGroup, classLoaders, jars);
             TaskGroupExecutionTracker executionTracker =
-                    new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
+                    new TaskGroupExecutionTracker(
+                            cancellationFuture, taskGroup, taskGroupContext, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
                     new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
@@ -670,9 +672,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
-            executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+            executionContexts.put(taskGroup.getTaskGroupLocation(), taskGroupContext);
             contextPublished = true;
             onContextPublished.run();
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -1267,12 +1267,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 ProgressState call = null;
                 try {
-                    // run task
+                    // Resolve the loader from this tracker's generation. A TaskGroupLocation is
+                    // reused after restore, so the location-keyed executionContexts map may
+                    // already point to a newer generation when a queued task resumes.
                     myThread.setContextClassLoader(
-                            executionContexts
-                                    .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                                    .getClassLoaders()
-                                    .get(taskTracker.task.getTaskID()));
+                            taskGroupExecutionTracker.getTaskClassLoader(
+                                    taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -1364,6 +1364,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public final class TaskGroupExecutionTracker {
 
         private final TaskGroup taskGroup;
+        private final TaskGroupContext ownedContext;
         final CompletableFuture<TaskExecutionState> future;
         volatile List<Future<?>> blockingFutures = emptyList();
 
@@ -1377,10 +1378,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
                 @NonNull TaskGroup taskGroup,
+                @NonNull TaskGroupContext ownedContext,
                 @NonNull CompletableFuture<TaskExecutionState> future) {
             this.future = future;
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
             this.taskGroup = taskGroup;
+            this.ownedContext = ownedContext;
             cancellationFuture.whenComplete(
                     withTryCatch(
                             logger,
@@ -1510,6 +1513,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
+        }
+
+        ClassLoader getTaskClassLoader(long taskId) {
+            return ownedContext.getClassLoader(taskId);
         }
 
         boolean executionCompletedExceptionally() {

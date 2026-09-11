@@ -72,6 +72,7 @@ import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
@@ -557,6 +558,71 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         stop.set(true);
         taskExecutionService.cancelTaskGroup(location);
+    }
+
+    @Test
+    public void testCooperativeTrackerKeepsGenerationSpecificClassLoader() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = new TaskGroupLocation(jobId, pipeLineId, 101L);
+        Task firstTask = taskWithId(1L);
+        Task replacementTask = taskWithId(1L);
+        ClassLoader firstClassLoader = new URLClassLoader(new URL[0]);
+        ClassLoader replacementClassLoader = new URLClassLoader(new URL[0]);
+
+        ConcurrentHashMap<Long, ClassLoader> firstClassLoaders = new ConcurrentHashMap<>();
+        firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
+        TaskGroupContext firstContext =
+                new TaskGroupContext(
+                        new TaskGroupDefaultImpl(location, "first", Lists.newArrayList(firstTask)),
+                        firstClassLoaders,
+                        new ConcurrentHashMap<>());
+        TaskExecutionService.TaskGroupExecutionTracker firstTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(),
+                        firstContext.getTaskGroup(),
+                        firstContext,
+                        new CompletableFuture<>());
+
+        ConcurrentHashMap<Long, ClassLoader> replacementClassLoaders = new ConcurrentHashMap<>();
+        replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
+        TaskGroupContext replacementContext =
+                new TaskGroupContext(
+                        new TaskGroupDefaultImpl(
+                                location, "replacement", Lists.newArrayList(replacementTask)),
+                        replacementClassLoaders,
+                        new ConcurrentHashMap<>());
+        TaskExecutionService.TaskGroupExecutionTracker replacementTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(),
+                        replacementContext.getTaskGroup(),
+                        replacementContext,
+                        new CompletableFuture<>());
+
+        assertSame(firstClassLoader, firstTracker.getTaskClassLoader(firstTask.getTaskID()));
+        assertSame(
+                replacementClassLoader,
+                replacementTracker.getTaskClassLoader(replacementTask.getTaskID()));
+    }
+
+    private Task taskWithId(long taskId) {
+        return new Task() {
+            @NonNull @Override
+            public ProgressState call() {
+                return ProgressState.DONE;
+            }
+
+            @NonNull @Override
+            public Long getTaskID() {
+                return taskId;
+            }
+
+            @Override
+            public boolean isThreadsShare() {
+                return true;
+            }
+        };
     }
 
     public List<Task> buildFixedTestTask(
