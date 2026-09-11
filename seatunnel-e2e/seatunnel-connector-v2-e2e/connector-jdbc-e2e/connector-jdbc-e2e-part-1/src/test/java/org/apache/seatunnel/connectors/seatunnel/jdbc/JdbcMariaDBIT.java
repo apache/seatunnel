@@ -54,7 +54,7 @@ import java.util.Map;
 /** E2E tests for MariaDB JDBC connector. */
 public class JdbcMariaDBIT extends AbstractJdbcIT {
 
-    private static final String MARIADB_IMAGE = "mariadb:11.6.2-ubi9";
+    private static final String MARIADB_IMAGE = "mariadb:10.11";
     private static final String MARIADB_CONTAINER_HOST = "mariadb-e2e";
     private static final String MARIADB_DATABASE = "seatunnel";
     private static final String MARIADB_SOURCE = "source";
