@@ -74,11 +74,14 @@ class MultipleTableFileSourceReaderTest {
         fixture.reader.addSplits(Collections.singletonList(split));
         Files.write(file, "new\n".getBytes(), java.nio.file.StandardOpenOption.APPEND);
         Mockito.when(fixture.readStrategy.getLastReadBytes()).thenReturn(4L);
+        Mockito.when(fixture.readStrategy.getLastReadFingerprint()).thenReturn("current-content");
 
         fixture.reader.pollNext(fixture.collector);
 
         Mockito.verify(fixture.readStrategy).read(split, fixture.collector);
-        Assertions.assertEquals(4L, captureFinishedEvent(fixture.context).getProcessedBytes());
+        FileSplitFinishedEvent event = captureFinishedEvent(fixture.context);
+        Assertions.assertEquals(4L, event.getProcessedBytes());
+        Assertions.assertEquals("current-content", event.getContentFingerprint());
     }
 
     @Test
@@ -117,11 +120,14 @@ class MultipleTableFileSourceReaderTest {
                                 fixture.tableId, file.toString(), 0L, 4L, identity, "6162630a")));
         Files.write(file, "123456\n".getBytes());
         Assertions.assertEquals(identity, LocalFileIdentity.read(file.toString()));
+        Mockito.when(fixture.readStrategy.getLastReadFingerprint()).thenReturn("previous-content");
 
         fixture.reader.pollNext(fixture.collector);
 
         Mockito.verify(fixture.readStrategy, Mockito.never()).read(Mockito.any(), Mockito.any());
-        Assertions.assertEquals(0L, captureFinishedEvent(fixture.context).getProcessedBytes());
+        FileSplitFinishedEvent event = captureFinishedEvent(fixture.context);
+        Assertions.assertEquals(0L, event.getProcessedBytes());
+        Assertions.assertNull(event.getContentFingerprint());
     }
 
     @Test

@@ -84,6 +84,7 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
     public void pollNext(Collector<SeaTunnelRow> output) {
         FileSourceSplit split;
         long processedBytes = -1L;
+        String contentFingerprint = null;
         synchronized (output.getCheckpointLock()) {
             split = sourceSplits.poll();
             if (split != null) {
@@ -110,6 +111,7 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                                     "Local file identity or content changed while reading the tail split");
                         }
                         processedBytes = readStrategy.getLastReadBytes();
+                        contentFingerprint = readStrategy.getLastReadFingerprint();
                     }
                 } catch (Exception e) {
                     if (!readStarted
@@ -141,12 +143,9 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
 
         if (split != null) {
             if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
-                ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
                 SourceEvent event =
                         new FileSplitFinishedEvent(
-                                split.splitId(),
-                                readStrategy == null ? null : readStrategy.getLastReadFingerprint(),
-                                processedBytes);
+                                split.splitId(), contentFingerprint, processedBytes);
                 context.sendSourceEventToEnumerator(event);
             }
             return;

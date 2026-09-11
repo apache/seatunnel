@@ -27,6 +27,7 @@ public class FileSplitFinishedEvent implements SourceEvent {
 
     private final String splitId;
     private final String contentFingerprint;
+    /** Bytes acknowledged by this split: zero for no progress, or -1 when not reported. */
     private final long processedBytes;
 
     public FileSplitFinishedEvent(String splitId) {
