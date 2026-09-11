@@ -39,6 +39,7 @@ public class Mem0SinkFactory implements TableSinkFactory {
                 .required(Mem0SinkOptions.API_KEY, Mem0SinkOptions.MESSAGES_FIELD)
                 .optional(
                         Mem0SinkOptions.API_BASE_URL,
+                        Mem0SinkOptions.USER_ID_FIELD,
                         Mem0SinkOptions.AGENT_ID_FIELD,
                         Mem0SinkOptions.APP_ID_FIELD,
                         Mem0SinkOptions.RUN_ID_FIELD,
