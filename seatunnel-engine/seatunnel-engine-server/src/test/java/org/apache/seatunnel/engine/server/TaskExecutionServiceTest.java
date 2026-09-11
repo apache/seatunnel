@@ -516,12 +516,13 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     /**
-     * Verifies that a failure after context publication rolls back {@code executionContexts} and
+     * Verifies the {@code onContextPublished} half of the post-publication boundary in
+     * apache/seatunnel#12164 (paired with {@link
+     * #testDeployLocalTaskRollsBackAfterPartialBlockingSubmitRejection} which covers task
+     * submission): a failure after context publication rolls back {@code executionContexts} and
      * {@code cancellationFutures}, so a later {@link TaskExecutionService#deployTask(Data)} for the
      * same {@link TaskGroupLocation} actually redeploys instead of hitting the master-failover skip
      * branch forever.
-     *
-     * <p>See apache/seatunnel#12164.
      */
     @Test
     public void testDeployLocalTaskRollsBackAfterPostPublishFailureAndAllowsRedeploy()
@@ -596,13 +597,17 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     /**
-     * Regression for the partial-submission half of apache/seatunnel#12164 ("Site C"): {@code
-     * submitBlockingTask} throws {@link RejectedExecutionException} after at least one blocking
-     * worker was already accepted and after a thread-share task was already enqueued.
+     * Regression for the task-submission half of the post-publication boundary in
+     * apache/seatunnel#12164 (paired with {@link
+     * #testDeployLocalTaskRollsBackAfterPostPublishFailureAndAllowsRedeploy} which covers {@code
+     * onContextPublished}): {@code submitBlockingTask} throws {@link RejectedExecutionException}
+     * after at least one blocking worker was already accepted and after a thread-share task was
+     * already enqueued.
      *
      * <p>Asserts the failed attempt is fully rolled back (no active context, no cancellation
      * future, no residual cooperative-queue work, no leaked classloader reference) and a later
-     * {@code deployTask} for the same location actually executes.
+     * {@link TaskExecutionService#deployTask(Data)} for the same {@link TaskGroupLocation} actually
+     * executes rather than only returning success via the master-failover skip branch.
      */
     @Test
     public void testDeployLocalTaskRollsBackAfterPartialBlockingSubmitRejection() throws Exception {
@@ -721,21 +726,30 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
             AtomicBoolean stop = new AtomicBoolean(false);
             ExecutionMarkerTask.reset();
-            ExecutionMarkerTask redeployTask = new ExecutionMarkerTask(stop);
-            ConcurrentHashMap<Long, ClassLoader> redeployClassLoaders = new ConcurrentHashMap<>();
-            redeployClassLoaders.put(
-                    redeployTask.getTaskID(), Thread.currentThread().getContextClassLoader());
-            PassiveCompletableFuture<TaskExecutionState> redeployFuture =
-                    taskExecutionService.deployLocalTask(
-                            new TaskGroupDefaultImpl(
-                                    location,
-                                    "partial-submit-redeploy",
-                                    Lists.newArrayList(redeployTask)),
-                            redeployClassLoaders,
-                            new ConcurrentHashMap<>());
+            Task redeployTask = new ExecutionMarkerTask(stop);
+            TaskGroupImmutableInformation redeployInfo =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            1,
+                            TaskGroupType.DEFAULT,
+                            location,
+                            "partial-submit-redeploy",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(redeployTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data redeployData = nodeEngine.getSerializationService().toData(redeployInfo);
+
+            // Use deployTask (not deployLocalTask) so this assertion exercises the same
+            // executionContexts.containsKey skip branch that permanently blocked redeploy before
+            // the rollback fix.
+            TaskDeployState redeployState = taskExecutionService.deployTask(redeployData);
+            assertEquals(TaskDeployState.success(), redeployState);
             Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));
             await().atMost(10, TimeUnit.SECONDS).until(ExecutionMarkerTask::wasExecuted);
-            Assertions.assertFalse(redeployFuture.isCompletedExceptionally());
+            Assertions.assertTrue(
+                    ExecutionMarkerTask.wasExecuted(),
+                    "second deployTask must actually execute after partial-submit rollback");
             stop.set(true);
             taskExecutionService.cancelTaskGroup(location);
         } finally {
