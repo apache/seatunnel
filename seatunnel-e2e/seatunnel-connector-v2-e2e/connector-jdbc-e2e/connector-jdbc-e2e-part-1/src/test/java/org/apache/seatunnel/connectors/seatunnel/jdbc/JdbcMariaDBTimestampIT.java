@@ -71,7 +71,7 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class JdbcMariaDBTimestampIT extends TestSuiteBase implements TestResource {
 
-    private static final String MARIADB_IMAGE = "mariadb:11.6.2-ubi9";
+    private static final String MARIADB_IMAGE = "mariadb:10.11";
     private static final String MARIADB_HOST = "mariadb_ts_e2e";
     private static final String MARIADB_DATABASE = "ts_test";
     private static final String MARIADB_USER = "root";

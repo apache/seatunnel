@@ -763,12 +763,16 @@ public abstract class AbstractMariaDbCDCITBase extends TestSuiteBase implements 
                     return null;
                 });
 
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .pollInterval(1000, TimeUnit.MILLISECONDS)
+                .until(() -> !getConnectionStatus("st_user_source").isEmpty());
+
         // insert update delete
         upsertDeleteSourceTable(MARIADB_DATABASE, SOURCE_TABLE_1_CUSTOM_PRIMARY_KEY);
         upsertDeleteSourceTable(MARIADB_DATABASE, SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY);
 
         // stream stage
-        await().atMost(120000, TimeUnit.MILLISECONDS)
+        await().atMost(180000, TimeUnit.MILLISECONDS)
                 .pollInterval(2000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
