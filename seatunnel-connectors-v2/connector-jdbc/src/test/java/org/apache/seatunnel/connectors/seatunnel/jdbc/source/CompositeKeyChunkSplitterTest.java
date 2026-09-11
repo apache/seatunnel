@@ -34,7 +34,11 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -97,8 +101,33 @@ public class CompositeKeyChunkSplitterTest {
                         .build());
     }
 
+    private static DatabaseMetaData databaseMetaData(int majorVersion) throws SQLException {
+        DatabaseMetaData metaData = Mockito.mock(DatabaseMetaData.class);
+        Mockito.when(metaData.getDatabaseMajorVersion()).thenReturn(majorVersion);
+        return metaData;
+    }
+
+    private static Connection connectionWithMetadata(DatabaseMetaData metaData)
+            throws SQLException {
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(connection.getMetaData()).thenReturn(metaData);
+        return connection;
+    }
+
+    private static DynamicChunkSplitter splitterWithConnection(
+            JdbcSourceConfig config, Connection connection) {
+        // The composite-key gate reads the database metadata from the splitter's own connection
+        // provider; stub the connection so unit tests never hit a real database.
+        return new DynamicChunkSplitter(config) {
+            @Override
+            protected Connection getOrEstablishConnection() {
+                return connection;
+            }
+        };
+    }
+
     @Test
-    public void testFindSplitKeyReturnsAllCompositeKeyColumns() {
+    public void testFindSplitKeyReturnsAllCompositeKeyColumns() throws SQLException {
         JdbcSourceConfig config = config();
         Assertions.assertTrue(config.isUseDynamicSplitter());
 
@@ -108,7 +137,8 @@ public class CompositeKeyChunkSplitterTest {
                         new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
         JdbcSourceTable table = table(ct);
 
-        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        DynamicChunkSplitter splitter =
+                splitterWithConnection(config, connectionWithMetadata(databaseMetaData(8)));
         Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
 
         Assertions.assertTrue(splitKey.isPresent());
@@ -137,7 +167,7 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
-    public void testFindSplitKeyFallsBackToSingleColumnForUnsupportedType() {
+    public void testFindSplitKeyFallsBackToSingleColumnForUnsupportedType() throws SQLException {
         // A composite PK containing a non-splittable type (BOOLEAN here, standing for e.g.
         // BINARY/VARBINARY) must not reach compareArrays; findSplitKey falls back to the
         // first supported PK column.
@@ -158,7 +188,8 @@ public class CompositeKeyChunkSplitterTest {
                         new PrimaryKey("pk", Arrays.asList("order_id", "flag")));
         JdbcSourceTable table = table(ct);
 
-        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        DynamicChunkSplitter splitter =
+                splitterWithConnection(config, connectionWithMetadata(databaseMetaData(8)));
         Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
 
         Assertions.assertTrue(splitKey.isPresent());
@@ -168,7 +199,7 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
-    public void testFindSplitKeyFallsBackToSingleColumnForDialectNotOptedIn() {
+    public void testFindSplitKeyFallsBackToSingleColumnForDialectNotOptedIn() throws SQLException {
         // A dialect that has not opted in via supportCompositeKeySplit() (DB2 default false)
         // must keep the pre-PR single-column behavior even for an all-supported composite PK.
         JdbcSourceConfig config =
@@ -186,7 +217,8 @@ public class CompositeKeyChunkSplitterTest {
                         new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
         JdbcSourceTable table = table(ct);
 
-        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        DynamicChunkSplitter splitter =
+                splitterWithConnection(config, connectionWithMetadata(databaseMetaData(11)));
         Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
 
         Assertions.assertTrue(splitKey.isPresent());
@@ -298,31 +330,31 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
-    public void testCompositeKeySplitDialectSupport() {
+    public void testCompositeKeySplitDialectSupport() throws SQLException {
         // Composite split SQL is emitted in portable expanded OR/AND form (no row-value
-        // constructor). Each dialect opts in via supportCompositeKeySplit() only after its
-        // composite-PK path is validated by an official E2E; currently MySQL, PostgreSQL,
-        // SQLite, SQL Server and Oracle are covered.
+        // constructor). Each dialect opts in via supportCompositeKeySplit(DatabaseMetaData) only
+        // after its composite-PK path is validated by an official E2E; currently MySQL,
+        // PostgreSQL, SQLite, SQL Server and Oracle are covered.
         JdbcDialect mysql = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, null);
-        Assertions.assertTrue(mysql.supportCompositeKeySplit());
+        Assertions.assertTrue(mysql.supportCompositeKeySplit(databaseMetaData(8)));
         Assertions.assertEquals(" LIMIT 10", mysql.getLimitClause(10));
         Assertions.assertEquals(" LIMIT 1 OFFSET 9", mysql.getOffsetLimitClause(9, 1));
 
         JdbcDialect postgres =
                 JdbcDialectLoader.load("jdbc:postgresql://localhost:5432/test", null, null);
-        Assertions.assertTrue(postgres.supportCompositeKeySplit());
+        Assertions.assertTrue(postgres.supportCompositeKeySplit(databaseMetaData(15)));
         Assertions.assertEquals(" LIMIT 10", postgres.getLimitClause(10));
         Assertions.assertEquals(" LIMIT 1 OFFSET 9", postgres.getOffsetLimitClause(9, 1));
 
         JdbcDialect sqlite =
                 JdbcDialectLoader.load("jdbc:sqlite:/tmp/seatunnel_split_e2e.db", null, null);
-        Assertions.assertTrue(sqlite.supportCompositeKeySplit());
+        Assertions.assertTrue(sqlite.supportCompositeKeySplit(databaseMetaData(3)));
         Assertions.assertEquals(" LIMIT 10", sqlite.getLimitClause(10));
         Assertions.assertEquals(" LIMIT 1 OFFSET 9", sqlite.getOffsetLimitClause(9, 1));
 
         JdbcDialect sqlserver =
                 JdbcDialectLoader.load("jdbc:sqlserver://localhost:1433", null, null);
-        Assertions.assertTrue(sqlserver.supportCompositeKeySplit());
+        Assertions.assertTrue(sqlserver.supportCompositeKeySplit(databaseMetaData(15)));
         Assertions.assertEquals(
                 " OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY", sqlserver.getLimitClause(10));
         Assertions.assertEquals(
@@ -330,10 +362,100 @@ public class CompositeKeyChunkSplitterTest {
 
         JdbcDialect oracle =
                 JdbcDialectLoader.load("jdbc:oracle:thin:@localhost:1521:xe", null, null);
-        Assertions.assertTrue(oracle.supportCompositeKeySplit());
+        Assertions.assertTrue(oracle.supportCompositeKeySplit(databaseMetaData(23)));
         Assertions.assertEquals(" FETCH FIRST 10 ROWS ONLY", oracle.getLimitClause(10));
         Assertions.assertEquals(
                 " OFFSET 9 ROWS FETCH NEXT 1 ROWS ONLY", oracle.getOffsetLimitClause(9, 1));
+    }
+
+    @Test
+    public void testOracleCompositeSplitGatedOnDatabaseVersion() throws SQLException {
+        // The composite boundary queries use FETCH FIRST / OFFSET ... FETCH NEXT, which Oracle
+        // only parses from 12c onwards; on older releases (e.g. 11g) the dialect must decline so
+        // the splitter falls back to the single-column path instead of failing job startup.
+        JdbcDialect oracle =
+                JdbcDialectLoader.load("jdbc:oracle:thin:@localhost:1521:xe", null, null);
+        Assertions.assertFalse(
+                oracle.supportCompositeKeySplit(databaseMetaData(11)),
+                "Oracle 11g must fall back to single-column split");
+        Assertions.assertTrue(
+                oracle.supportCompositeKeySplit(databaseMetaData(12)),
+                "Oracle 12c supports the composite boundary SQL");
+        Assertions.assertTrue(
+                oracle.supportCompositeKeySplit(databaseMetaData(23)),
+                "Oracle 23ai (used by JdbcOracleSplitIT) supports the composite boundary SQL");
+    }
+
+    @Test
+    public void testVersionIndependentDialectsIgnoreMetadata() throws SQLException {
+        // MySQL, PostgreSQL, SQLite and SQL Server have no version-gated composite SQL; their
+        // opt-in must be unchanged regardless of the reported database version.
+        JdbcDialect mysql = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, null);
+        Assertions.assertTrue(mysql.supportCompositeKeySplit(databaseMetaData(1)));
+        Assertions.assertTrue(mysql.supportCompositeKeySplit(databaseMetaData(99)));
+
+        JdbcDialect postgres =
+                JdbcDialectLoader.load("jdbc:postgresql://localhost:5432/test", null, null);
+        Assertions.assertTrue(postgres.supportCompositeKeySplit(databaseMetaData(1)));
+        Assertions.assertTrue(postgres.supportCompositeKeySplit(databaseMetaData(99)));
+
+        JdbcDialect sqlite =
+                JdbcDialectLoader.load("jdbc:sqlite:/tmp/seatunnel_split_e2e.db", null, null);
+        Assertions.assertTrue(sqlite.supportCompositeKeySplit(databaseMetaData(1)));
+        Assertions.assertTrue(sqlite.supportCompositeKeySplit(databaseMetaData(99)));
+
+        JdbcDialect sqlserver =
+                JdbcDialectLoader.load("jdbc:sqlserver://localhost:1433", null, null);
+        Assertions.assertTrue(sqlserver.supportCompositeKeySplit(databaseMetaData(1)));
+        Assertions.assertTrue(sqlserver.supportCompositeKeySplit(databaseMetaData(99)));
+    }
+
+    @Test
+    public void testFindSplitKeyFallsBackWhenMetadataUnavailable() throws SQLException {
+        // If reading the database metadata fails, the composite gate must degrade to "not
+        // supported" (single-column split) instead of failing job startup.
+        JdbcSourceConfig config = config();
+        CatalogTable ct =
+                catalogTable(
+                        compositePkColumns(),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
+        JdbcSourceTable table = table(ct);
+
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(connection.getMetaData()).thenThrow(new SQLException("metadata unavailable"));
+        DynamicChunkSplitter splitter = splitterWithConnection(config, connection);
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        SeaTunnelRowType rowType = splitKey.get();
+        Assertions.assertEquals(1, rowType.getTotalFields());
+        Assertions.assertEquals("order_id", rowType.getFieldName(0));
+    }
+
+    @Test
+    public void testFindSplitKeyFallsBackWhenConnectionAcquisitionFails() {
+        // Same as above, but failing one step earlier: the connection needed for the metadata
+        // check cannot be established, so the splitter must still fall back to one column.
+        JdbcSourceConfig config = config();
+        CatalogTable ct =
+                catalogTable(
+                        compositePkColumns(),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
+        JdbcSourceTable table = table(ct);
+
+        DynamicChunkSplitter splitter =
+                new DynamicChunkSplitter(config) {
+                    @Override
+                    protected Connection getOrEstablishConnection() throws SQLException {
+                        throw new SQLException("connection failed");
+                    }
+                };
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        SeaTunnelRowType rowType = splitKey.get();
+        Assertions.assertEquals(1, rowType.getTotalFields());
+        Assertions.assertEquals("order_id", rowType.getFieldName(0));
     }
 
     @Test

@@ -47,6 +47,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -365,15 +366,26 @@ public interface JdbcDialect extends Serializable {
     }
 
     /**
-     * Returns whether this dialect supports composite-primary-key chunk splitting.
+     * Returns whether this dialect supports composite-primary-key chunk splitting on the database
+     * the given metadata belongs to.
      *
      * <p>Composite split SQL is emitted in a portable expanded OR/AND form (no row-value
      * constructor), so it is dialect-safe, but each dialect's composite path must be validated by
      * tests before it is enabled. Dialects default to {@code false}; override to {@code true} only
      * after the composite-PK path is covered by an official E2E for that dialect. The splitter
      * falls back to the single-column behavior when this returns {@code false}.
+     *
+     * <p>The metadata comes from the live connection, so dialects whose composite SQL depends on a
+     * minimum server release can gate on it (e.g. Oracle only emits {@code FETCH FIRST}/{@code
+     * OFFSET ... FETCH NEXT} from 12c onwards and must return {@code false} on older releases).
+     * Implementations must never throw: on any failure to inspect the metadata they should log and
+     * return {@code false} so the splitter falls back to the single-column path.
+     *
+     * @param metaData metadata of the live database connection; owned by the caller and never
+     *     closed by implementations
+     * @return whether composite-primary-key chunk splitting is supported for this connection
      */
-    default boolean supportCompositeKeySplit() {
+    default boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
         return false;
     }
 

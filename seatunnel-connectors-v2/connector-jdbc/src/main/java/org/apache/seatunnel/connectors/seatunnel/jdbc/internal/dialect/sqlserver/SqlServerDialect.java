@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -294,7 +295,7 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
-    public boolean supportCompositeKeySplit() {
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
         // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table)
         return true;
     }

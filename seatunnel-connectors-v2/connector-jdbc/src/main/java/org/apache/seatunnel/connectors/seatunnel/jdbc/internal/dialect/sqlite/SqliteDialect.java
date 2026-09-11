@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.sql.DatabaseMetaData;
 import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -48,7 +49,7 @@ public class SqliteDialect implements JdbcDialect {
     }
 
     @Override
-    public boolean supportCompositeKeySplit() {
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
         // Validated by JdbcSqliteSplitIT (embedded SQLite E2E, composite-PK table)
         return true;
     }
