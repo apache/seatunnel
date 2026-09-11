@@ -16,10 +16,10 @@
  */
 
 package org.apache.seatunnel.connectors.seatunnel.linear.config;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
 public class LinearSourceOptions extends HttpCommonOptions {
     public static final Option<String> API_KEY =
