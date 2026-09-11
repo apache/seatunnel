@@ -244,6 +244,20 @@ public class SapHanaTypeConverterTest {
         typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
+                        .columnType("NCHAR")
+                        .dataType("NCHAR")
+                        .length(1L)
+                        .build();
+        column = SapHanaTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(4, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
                         .columnType("ALPHANUM")
                         .dataType("ALPHANUM")
                         .length(1L)

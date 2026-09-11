@@ -25,6 +25,15 @@ import java.util.List;
 /** Configuration options specific to the Couchbase sink connector. */
 public class CouchbaseSinkOptions extends CouchbaseConfig {
 
+    /** Maximum time to wait for bucket readiness during writer initialization, in seconds. */
+    public static final Option<Integer> READY_TIMEOUT =
+            Options.key("ready.timeout")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription(
+                            "The timeout in seconds for waiting until the target bucket is ready"
+                                    + " during writer initialization. Must be greater than zero.");
+
     /**
      * Maximum number of rows buffered before a batch write is triggered.
      *
