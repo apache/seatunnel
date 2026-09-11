@@ -19,9 +19,13 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
@@ -39,7 +43,12 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
+import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -65,6 +74,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
@@ -97,6 +107,62 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testCoordinatorCollectsAndCleansEnumeratorProgress() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation =
+                new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId());
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 0, 0);
+        AtomicBoolean stop = new AtomicBoolean(false);
+        TestEnumeratorProgressTask task = new TestEnumeratorProgressTask(taskLocation, stop, 41L);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(
+                        groupLocation, "test-enumerator-progress", Collections.singletonList(task));
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        CompletableFuture<TaskExecutionState> taskFuture =
+                taskExecutionService.deployLocalTask(
+                        taskGroup, classLoaders, new ConcurrentHashMap<>(), 7L);
+
+        List<CdcProgressEnvelope<?>> reports =
+                taskExecutionService.collectEnumeratorCdcProgress(
+                        Collections.singletonList(groupLocation));
+        Assertions.assertEquals(1, reports.size());
+        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, reports.get(0).getOwner());
+        Assertions.assertEquals(7L, reports.get(0).getExecutionAttemptId());
+        Assertions.assertEquals(41L, reports.get(0).getSourceVertexId());
+
+        CdcProgressReportBatch batch =
+                (CdcProgressReportBatch)
+                        nodeEngine
+                                .getOperationService()
+                                .createInvocationBuilder(
+                                        SeaTunnelServer.SERVICE_NAME,
+                                        new CollectCdcEnumeratorProgressOperation(
+                                                Collections.singletonList(groupLocation)),
+                                        nodeEngine.getThisAddress())
+                                .invoke()
+                                .get();
+        server.getCdcProgressService().updateReports(batch.getReports());
+        Assertions.assertNotNull(
+                server.getCdcProgressService()
+                        .getEnumeratorReport(
+                                jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+
+        stop.set(true);
+        await().atMost(10, TimeUnit.SECONDS).until(taskFuture::isDone);
+        Assertions.assertTrue(
+                taskExecutionService
+                        .collectEnumeratorCdcProgress(Collections.singletonList(groupLocation))
+                        .isEmpty());
+
+        server.removeMetrics(new PipelineLocation(jobId, pipeLineId));
+        Assertions.assertNull(
+                server.getCdcProgressService()
+                        .getEnumeratorReport(
+                                jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+    }
+
+    @Test
     public void testCancel() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
 
@@ -119,6 +185,67 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
+    }
+
+    private static final class TestEnumeratorProgressTask
+            implements Task, CdcProgressReportSource<CdcEnumeratorProgressReport> {
+
+        private static final long serialVersionUID = 1L;
+
+        private final TaskLocation taskLocation;
+        private final AtomicBoolean stop;
+        private final long sourceVertexId;
+        private final AtomicLong sequence = new AtomicLong();
+
+        private TestEnumeratorProgressTask(
+                TaskLocation taskLocation, AtomicBoolean stop, long sourceVertexId) {
+            this.taskLocation = taskLocation;
+            this.stop = stop;
+            this.sourceVertexId = sourceVertexId;
+        }
+
+        @NonNull @Override
+        public ProgressState call() {
+            return stop.get() ? ProgressState.DONE : ProgressState.NO_PROGRESS;
+        }
+
+        @NonNull @Override
+        public Long getTaskID() {
+            return taskLocation.getTaskID();
+        }
+
+        @Override
+        public CdcProgressOwner getCdcProgressOwner() {
+            return CdcProgressOwner.ENUMERATOR;
+        }
+
+        @Override
+        public CdcEnumeratorProgressReport getCdcProgressReport() {
+            return new CdcEnumeratorProgressReport(
+                    "Test-CDC",
+                    CdcSnapshotAssignmentStatus.ASSIGNING,
+                    CdcProgressValue.exact(1),
+                    CdcProgressValue.exact(0),
+                    CdcProgressValue.exact(1),
+                    CdcProgressValue.exact(0),
+                    CdcProgressValue.exact(0),
+                    Collections.emptyList());
+        }
+
+        @Override
+        public TaskLocation getTaskLocation() {
+            return taskLocation;
+        }
+
+        @Override
+        public long getCdcProgressSourceVertexId() {
+            return sourceVertexId;
+        }
+
+        @Override
+        public long nextCdcProgressSequence() {
+            return sequence.incrementAndGet();
+        }
     }
 
     @Test

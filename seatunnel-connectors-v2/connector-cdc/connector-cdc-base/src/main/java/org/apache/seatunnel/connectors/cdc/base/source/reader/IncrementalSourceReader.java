@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,6 +28,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPh
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcReaderProgressTracker;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -62,7 +65,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 @Slf4j
 public class IncrementalSourceReader<T, C extends SourceConfig>
         extends SingleThreadMultiplexSourceReaderBase<
-                SourceRecords, T, SourceSplitBase, SourceSplitStateBase> {
+                SourceRecords, T, SourceSplitBase, SourceSplitStateBase>
+        implements CdcProgressProvider<CdcReaderProgressReport> {
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
 
@@ -73,6 +77,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private final DebeziumDeserializationSchema<T> debeziumDeserializationSchema;
 
     private final DataSourceDialect<C> dataSourceDialect;
+    private final CdcReaderProgressTracker cdcProgressTracker;
 
     private transient volatile Offset snapshotChangeLogOffset;
 
@@ -87,6 +92,28 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             SourceReader.Context context,
             C sourceConfig,
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
+        this(
+                dataSourceDialect,
+                elementsQueue,
+                splitReaderSupplier,
+                recordEmitter,
+                options,
+                context,
+                sourceConfig,
+                debeziumDeserializationSchema,
+                createLegacyProgressTracker(dataSourceDialect, recordEmitter));
+    }
+
+    public IncrementalSourceReader(
+            DataSourceDialect<C> dataSourceDialect,
+            BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
+            Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
+            RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context,
+            C sourceConfig,
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
+            CdcReaderProgressTracker cdcProgressTracker) {
         super(
                 elementsQueue,
                 new SingleThreadFetcherManager<>(elementsQueue, splitReaderSupplier::get),
@@ -98,6 +125,19 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         this.finishedUnackedSplits = new HashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
+        this.cdcProgressTracker = cdcProgressTracker;
+    }
+
+    private static <T> CdcReaderProgressTracker createLegacyProgressTracker(
+            DataSourceDialect<?> dataSourceDialect,
+            RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter) {
+        CdcReaderProgressTracker progressTracker =
+                new CdcReaderProgressTracker(dataSourceDialect.getName(), "UNKNOWN");
+        if (recordEmitter instanceof IncrementalSourceRecordEmitter) {
+            ((IncrementalSourceRecordEmitter<?>) recordEmitter)
+                    .setCdcProgressTracker(progressTracker);
+        }
+        return progressTracker;
     }
 
     @Override
@@ -229,8 +269,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     @Override
     protected SourceSplitStateBase initializedState(SourceSplitBase split) {
+        SourceSplitStateBase splitState;
         if (split.isSnapshotSplit()) {
-            return new SnapshotSplitState(split.asSnapshotSplit());
+            splitState = new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
             if (incrementalSplit.getCheckpointDataType() != null) {
@@ -241,20 +282,28 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 debeziumDeserializationSchema.restoreCheckpointProducedType(
                         incrementalSplit.getCheckpointTables());
             }
-            IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
-            if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
+            IncrementalSplitState incrementalSplitState =
+                    new IncrementalSplitState(incrementalSplit);
+            if (incrementalSplitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
                         "The incremental split[{}] startup position {} is equal the maxSnapshotSplitsHighWatermark {}, auto enter pure increment phase.",
                         incrementalSplit.splitId(),
-                        splitState.getStartupOffset(),
-                        splitState.getMaxSnapshotSplitsHighWatermark());
+                        incrementalSplitState.getStartupOffset(),
+                        incrementalSplitState.getMaxSnapshotSplitsHighWatermark());
                 log.info("Clean the IncrementalSplit#completedSnapshotSplitInfos to empty.");
                 CompletedSnapshotPhaseEvent event =
-                        new CompletedSnapshotPhaseEvent(splitState.getTableIds());
+                        new CompletedSnapshotPhaseEvent(incrementalSplitState.getTableIds());
                 context.sendSourceEventToEnumerator(event);
             }
-            return splitState;
+            splitState = incrementalSplitState;
         }
+        cdcProgressTracker.recordSplitState(splitState);
+        return splitState;
+    }
+
+    @Override
+    public CdcReaderProgressReport getCdcProgress() {
+        return cdcProgressTracker.current();
     }
 
     private List<TableId> discoverCapturedTables() {

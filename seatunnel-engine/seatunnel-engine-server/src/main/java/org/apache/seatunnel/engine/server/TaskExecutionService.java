@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.api.cdc.CdcProgressReport;
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
@@ -51,10 +52,14 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupUtils;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
 import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
+import org.apache.seatunnel.engine.server.task.operation.ReportCdcProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 
@@ -529,6 +534,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         taskGroup,
                         classLoaders,
                         taskJars,
+                        taskImmutableInfo.getExecutionId(),
                         () -> classLoaderOwnershipTransferred.set(true),
                         failure -> {
                             releaseClassLoadersAfterFailedDeployment(
@@ -593,13 +599,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars) {
-        return deployLocalTask(taskGroup, classLoaders, jars, () -> {}, failure -> {});
+        return deployLocalTask(taskGroup, classLoaders, jars, 0L, () -> {}, failure -> {});
+    }
+
+    PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            @NonNull TaskGroup taskGroup,
+            @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
+            ConcurrentHashMap<Long, Collection<URL>> jars,
+            long executionId) {
+        return deployLocalTask(taskGroup, classLoaders, jars, executionId, () -> {}, failure -> {});
     }
 
     private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars,
+            long executionId,
             Runnable onContextPublished,
             Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
@@ -672,7 +687,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             }));
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+                    new TaskGroupContext(taskGroup, executionId, classLoaders, jars));
             contextPublished = true;
             onContextPublished.run();
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -900,7 +915,108 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             payloadTaskCount, elapsedMillis),
                     e);
         }
+        reportCdcProgress();
         this.printTaskExecutionRuntimeInfo();
+    }
+
+    private void reportCdcProgress() {
+        reportReaderCdcProgress();
+    }
+
+    private void reportReaderCdcProgress() {
+        try {
+            List<CdcProgressEnvelope<?>> readerReports = new ArrayList<>();
+            long observedAt = System.currentTimeMillis();
+
+            executionContexts
+                    .values()
+                    .forEach(
+                            context ->
+                                    collectCdcProgress(
+                                            context,
+                                            CdcProgressOwner.READER,
+                                            observedAt,
+                                            readerReports));
+
+            if (readerReports.isEmpty()) {
+                return;
+            }
+
+            reportCdcProgressToMaster(readerReports);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warning("CDC reader progress reporting interrupted", e);
+        } catch (Exception e) {
+            logger.warning("CDC reader progress reporting failed", e);
+        }
+    }
+
+    /**
+     * Collects enumerator reports requested by the active coordinator.
+     *
+     * <p>The caller supplies the task groups currently assigned to this worker. Collection reads
+     * only immutable, non-blocking provider snapshots and preserves the execution attempt stored
+     * with each active task group. Reports are returned to the coordinator by the requesting
+     * operation; this method performs no network I/O.
+     */
+    public List<CdcProgressEnvelope<?>> collectEnumeratorCdcProgress(
+            Collection<TaskGroupLocation> taskGroupLocations) {
+        List<CdcProgressEnvelope<?>> reports = new ArrayList<>();
+        long observedAt = System.currentTimeMillis();
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            TaskGroupContext context = executionContexts.get(taskGroupLocation);
+            if (context != null) {
+                collectCdcProgress(context, CdcProgressOwner.ENUMERATOR, observedAt, reports);
+            }
+        }
+        return reports;
+    }
+
+    private void collectCdcProgress(
+            TaskGroupContext context,
+            CdcProgressOwner owner,
+            long observedAt,
+            List<CdcProgressEnvelope<?>> reports) {
+        for (Task task : context.getTaskGroup().getTasks()) {
+            if (task instanceof CdcProgressReportSource) {
+                CdcProgressReportSource<?> source = (CdcProgressReportSource<?>) task;
+                if (source.getCdcProgressOwner() == owner) {
+                    collectCdcProgress(source, context.getExecutionId(), observedAt, reports);
+                }
+            }
+        }
+    }
+
+    private void collectCdcProgress(
+            CdcProgressReportSource<?> source,
+            long executionAttemptId,
+            long observedAt,
+            List<CdcProgressEnvelope<?>> reports) {
+        CdcProgressReport report = source.getCdcProgressReport();
+        if (report == null) {
+            return;
+        }
+        reports.add(
+                new CdcProgressEnvelope<CdcProgressReport>(
+                        source.getCdcProgressOwner(),
+                        source.getTaskLocation(),
+                        source.getCdcProgressSourceVertexId(),
+                        executionAttemptId,
+                        source.nextCdcProgressSequence(),
+                        observedAt,
+                        report));
+    }
+
+    private void reportCdcProgressToMaster(List<? extends CdcProgressEnvelope<?>> reports)
+            throws ExecutionException, InterruptedException {
+        nodeEngine
+                .getOperationService()
+                .createInvocationBuilder(
+                        SeaTunnelServer.SERVICE_NAME,
+                        new ReportCdcProgressOperation(reports),
+                        nodeEngine.getMasterAddress())
+                .invoke()
+                .get();
     }
 
     private void recordReportMetricsOperationSuccess(int payloadTaskCount, long elapsedMillis) {

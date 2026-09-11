@@ -15,30 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.execution;
+package org.apache.seatunnel.api.cdc;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.net.URL;
-import java.util.Collection;
-import java.util.concurrent.ConcurrentHashMap;
+/** Current lifecycle stage observed and reported by a CDC reader. */
+@Experimental
+public enum CdcProgressLifecycle {
+    /** The reader is reading snapshot splits. */
+    SNAPSHOT,
 
-@Data
-@AllArgsConstructor
-public class TaskGroupContext {
-    private TaskGroup taskGroup;
+    /** Incremental consumption is catching up with snapshot high watermarks. */
+    CATCH_UP,
 
-    private long executionId;
+    /** The reader is consuming only the incremental change stream. */
+    INCREMENTAL,
 
-    private ConcurrentHashMap<Long, ClassLoader> classLoaders;
-    private ConcurrentHashMap<Long, Collection<URL>> jars;
-
-    public ClassLoader getClassLoader(long taskId) {
-        if (classLoaders != null) {
-            return classLoaders.get(taskId);
-        } else {
-            return null;
-        }
-    }
+    /** The lifecycle is not known yet. */
+    UNKNOWN
 }
