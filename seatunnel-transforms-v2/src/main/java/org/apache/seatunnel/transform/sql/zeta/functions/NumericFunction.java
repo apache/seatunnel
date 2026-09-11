@@ -221,6 +221,12 @@ public class NumericFunction {
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Mod by zero");
         }
         BigDecimal[] res = leftBD.divideAndRemainder(rightBD);
+        if (rightValue instanceof Byte) {
+            return res[1].byteValue();
+        }
+        if (rightValue instanceof Short) {
+            return res[1].shortValue();
+        }
         if (rightValue instanceof Integer) {
             return res[1].intValue();
         }

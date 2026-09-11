@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -60,6 +61,9 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
                         CouchbaseSinkOptions.RETRY_INTERVAL,
                         CouchbaseSinkOptions.UPSERT_ENABLE,
                         CouchbaseSinkOptions.PRIMARY_KEY)
+                .optional(
+                        CouchbaseSinkOptions.READY_TIMEOUT,
+                        Conditions.greaterThan(CouchbaseSinkOptions.READY_TIMEOUT, 0))
                 .build();
     }
 
@@ -88,6 +92,7 @@ public class CouchbaseSinkFactory implements TableSinkFactory {
                         .withUsername(config.get(CouchbaseSinkOptions.USERNAME))
                         .withPassword(config.get(CouchbaseSinkOptions.PASSWORD))
                         .withBucket(config.get(CouchbaseSinkOptions.BUCKET))
+                        .withReadyTimeout(config.get(CouchbaseSinkOptions.READY_TIMEOUT))
                         .withScope(config.get(CouchbaseSinkOptions.SCOPE))
                         .withCollection(config.get(CouchbaseSinkOptions.COLLECTION));
 

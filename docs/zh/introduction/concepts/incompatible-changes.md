@@ -170,6 +170,11 @@
 
 ### 转换变更
 
+- **行为变更：AMAZON 向量化遵循重试选项**
+  - **影响范围**：配置 `model_provider = AMAZON` 的 `Embedding` 转换。
+  - **变更说明**：配置的 SeaTunnel 重试和退避选项现在会传递到 Bedrock 运行时。此前 Transform 忽略这些设置，只执行一次 SeaTunnel 尝试。
+  - **影响及迁移**：大于 1 的 `model_retry_max_attempts` 现在会启用 SeaTunnel 重试，可能产生额外模型费用；设置为 1 可保留单次 SeaTunnel 尝试，默认值仍为 1。SDK 自身的重试和超时行为保持不变；`model_request_timeout_ms` 目前不应用于 Bedrock 调用。
+
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
   - Date: `yyyy-MM-dd`, `yyyy/MM/dd`, `yyyyMMdd`

@@ -129,6 +129,8 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 | incremental.snapshot.chunk.size.mb | Integer | 否   | 64      | 增量快照读取时的分片大小，单位为 MB。                                                                                       |
 | startup.mode                       | Enum    | 否   | INITIAL | MongoDB CDC 的启动模式，可选值为 `initial`、`latest` 和 `timestamp`。详见下方[启动模式](#启动模式)。                         |
 | startup.timestamp                  | Long    | 否   | -       | 从指定的毫秒级时间戳开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                                   |
+| stop.mode                          | Enum    | 否   | NEVER   | MongoDB CDC 的停止模式，可选值为 `never` 和 `timestamp`。详见下方[停止模式](#停止模式)。                                    |
+| stop.timestamp                     | Long    | 否   | -       | 在该毫秒级时间戳对应的变更流位置停止。仅在 `stop.mode` 为 `timestamp` 时使用。                                               |
 | exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。开启后，大表快照阶段恢复时可能增加内存使用。                                                              |
 | debezium                           | Config  | 否   | -       | 透传给内嵌 Debezium 引擎的配置。                                                                                            |
 | common-options                     |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。                                             |
@@ -152,6 +154,46 @@ source {
     database = ["inventory"]
     collection = ["inventory.products"]
     startup.mode = "latest"
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+### 停止模式
+
+`stop.mode` 选项控制连接器是持续运行，还是在指定的变更流位置完成作业：
+
+- `never`（默认）：持续读取变更流。
+- `timestamp`：读取到 `stop.timestamp` 对应的 MongoDB 变更流时间戳，排空源已产生的记录后完成作业。
+
+MongoDB 变更流时间戳的精度为秒。`stop.timestamp` 使用毫秒级 epoch 时间戳配置，并转换为 MongoDB 的时间戳表示。停止位置之后的事件不会输出。
+
+- 当启动和停止模式都使用时间戳时，停止位置必须晚于启动位置。位于同一秒内的不同毫秒值会转换为相同位置，因此会被拒绝。
+- 时间戳停止模式会将 source 设为有界模式，所有 split 到达停止位置后，流式作业会结束。
+- 使用 `startup.mode = initial` 时，初始快照会完整读取，停止时间戳只限制增量变更流阶段。
+- 使用 `startup.mode = latest` 时，如果停止位置已经过去，增量阶段不会输出记录，有界 source 会直接结束。
+- 从 checkpoint 或 savepoint 恢复后，恢复的 split 中保存的停止位置优先于重新提交配置中修改后的 `stop.timestamp`。
+- 对于空闲的有界变更流，连接器每次轮询会检查一次 MongoDB 集群时间，使其在没有变更事件到达边界时也能结束。
+
+例如，读取一个有界时间区间：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    startup.timestamp = 1785542400000
+    stop.mode = "timestamp"
+    stop.timestamp = 1785546000000
     schema = {
       fields {
         "_id" : string,
