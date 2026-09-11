@@ -14,28 +14,37 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.seatunnel.core.starter.seatunnel;
+package org.apache.seatunnel.engine.e2e.console;
+
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.net.JarURLConnection;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Enumeration;
 
 /** Verifies the packaged HTTP client with the distribution's lib-before-starter classpath. */
 class HttpReportPackagingIT {
 
     @Test
     void isolatesHttpClientFromHadoopOkio() throws Exception {
-        Path starter = Paths.get("target", "seatunnel-starter.jar").toAbsolutePath();
+        Path starter =
+                Paths.get(
+                        ContainerUtil.PROJECT_ROOT_PATH,
+                        "seatunnel-core",
+                        "seatunnel-starter",
+                        "target",
+                        "seatunnel-starter.jar");
         Assertions.assertTrue(Files.isRegularFile(starter), "Run after the package phase");
         URL starterJar = starter.toUri().toURL();
-        URL hadoopJar = findHadoopJar();
+        Path hadoop = Paths.get(MavenJarUtil.getHadoop3UberJarPath());
+        Assertions.assertTrue(Files.isRegularFile(hadoop), "The E2E Hadoop uber jar must exist");
+        URL hadoopJar = hadoop.toUri().toURL();
         // Do not inherit Maven's dependency ordering, which places the newer Okio first.
         try (URLClassLoader loader =
                 new URLClassLoader(
@@ -70,18 +79,5 @@ class HttpReportPackagingIT {
                             .getCodeSource()
                             .getLocation());
         }
-    }
-
-    private URL findHadoopJar() throws Exception {
-        Enumeration<URL> resources =
-                getClass().getClassLoader().getResources("okio/ByteString.class");
-        while (resources.hasMoreElements()) {
-            URL resource = resources.nextElement();
-            if ("jar".equals(resource.getProtocol())
-                    && resource.toExternalForm().contains("/seatunnel-shade-hadoop3-uber-")) {
-                return ((JarURLConnection) resource.openConnection()).getJarFileURL();
-            }
-        }
-        throw new AssertionError("The Hadoop uber jar must be present on the test classpath");
     }
 }
