@@ -73,6 +73,11 @@
         <!-- test -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-fake</artifactId>
             <version>${project.version}</version>
             <scope>test</scope>
@@ -137,6 +142,17 @@
                             <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <relocations>
+                        <!-- lib/ precedes the starter jar and Hadoop bundles an older Okio. -->
+                        <relocation>
+                            <pattern>okhttp3</pattern>
+                            <shadedPattern>${seatunnel.shade.package}.engine.okhttp3</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>okio</pattern>
+                            <shadedPattern>${seatunnel.shade.package}.engine.okio</shadedPattern>
+                        </relocation>
+                    </relocations>
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                     </transformers>
