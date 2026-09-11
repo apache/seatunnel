@@ -143,7 +143,7 @@ final class MppdbBinaryDecoder {
     private MppdbWalChange decodeInsert(ByteBuffer record, long lsn) {
         String schema = readInt16String(record, "schema name");
         String table = readInt16String(record, "table name");
-        consumeTupleMarker(record, 'N');
+        consumeTupleMarker(record, (byte) 'N');
         List<MppdbWalChange.ColumnValue> columns = decodeColumns(record);
         return new MppdbWalChange(lsn, 0, MppdbWalChange.Type.INSERT, schema, table, null, columns);
     }
