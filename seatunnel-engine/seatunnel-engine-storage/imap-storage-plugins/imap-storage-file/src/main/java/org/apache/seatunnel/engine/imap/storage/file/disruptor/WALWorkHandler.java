@@ -39,13 +39,16 @@ import java.io.IOException;
 /**
  * Single-threaded Disruptor consumer that appends WAL frames.
  *
- * <p>After any APPEND write failure the handler fail-closes further APPEND attempts: continuing to
- * write on the same open stream could place a complete frame after a partially written one, and
- * {@code DefaultReader} cannot resync past a mid-file torn frame (it stops when a length prefix
- * claims more bytes than remain). Leaving any partial frame as a trailing incomplete record keeps
- * prior complete records recoverable; see {@code DefaultReaderTornTrailingRecordTest} and {@code
- * DefaultReaderTornMidFileRecordTest}. Blind {@code fs.create} reopen is intentionally avoided
- * because it would truncate the fixed {@code wal.txt} path.
+ * <p>After any APPEND write failure the handler fail-closes further APPEND attempts for the
+ * remaining lifetime of this handler instance (recoverable only by process restart — there is no
+ * in-process reset path). Continuing to write on the same open stream could place a complete frame
+ * after a partially written one, and {@code DefaultReader} cannot resync past a mid-file torn frame
+ * (it stops when a length prefix claims more bytes than remain). Leaving any partial frame as a
+ * trailing incomplete record keeps prior complete records recoverable; see {@code
+ * DefaultReaderTornTrailingRecordTest} and {@code DefaultReaderTornMidFileRecordTest}. Blind {@code
+ * fs.create} reopen is intentionally avoided because it would truncate the fixed {@code wal.txt}
+ * path. Callers must treat a fail-closed write as a hard persistence failure (see {@link
+ * #isAppendBlockedAfterWriteFailure()}).
  */
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
@@ -53,10 +56,20 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
     private WALWriter writer;
 
     /**
-     * When true, further APPEND events fail without touching the stream so a possible torn trailer
-     * cannot become a mid-file tear.
+     * Sticky for this handler's lifetime: once set, further APPEND events fail without touching the
+     * stream so a possible torn trailer cannot become a mid-file tear. Never reset in-process;
+     * requires engine-node restart to clear.
      */
     private boolean appendBlockedAfterWriteFailure;
+
+    /**
+     * Whether APPEND is permanently fail-closed after a prior write failure.
+     *
+     * @return true once any write failure has tripped fail-close; stays true until process restart
+     */
+    public boolean isAppendBlockedAfterWriteFailure() {
+        return appendBlockedAfterWriteFailure;
+    }
 
     public WALWorkHandler(
             FileSystem fs,

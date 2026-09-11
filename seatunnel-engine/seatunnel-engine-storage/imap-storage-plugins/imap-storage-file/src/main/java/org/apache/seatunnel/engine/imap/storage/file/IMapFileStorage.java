@@ -182,6 +182,17 @@ public class IMapFileStorage implements IMapStorage {
         return queryExecuteStatus(requestId);
     }
 
+    /**
+     * Exposes WAL fail-close so MapStore adapters can fail the write-through call instead of
+     * treating a blocked APPEND as a silent success.
+     *
+     * @return true after the WAL worker has permanently fail-closed APPEND; cleared only by restart
+     */
+    @Override
+    public boolean isAppendPermanentlyBlocked() {
+        return walDisruptor != null && walDisruptor.isAppendBlockedAfterWriteFailure();
+    }
+
     @Override
     public Set<Object> storeAll(Map<Object, Object> map) {
         Map<Long, Object> requestMap = new HashMap<>(map.size());

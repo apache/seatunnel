@@ -123,6 +123,9 @@ class WALWorkHandlerSurvivabilityTest {
         Assertions.assertFalse(blockedFuture.get());
         Assertions.assertEquals(1, writeCalls.get());
         verify(failingWriter, times(1)).write(any(IMapFileData.class));
+        Assertions.assertTrue(
+                handler.isAppendBlockedAfterWriteFailure(),
+                "fail-close must be sticky for the handler lifetime");
 
         RequestFutureCache.remove(failedRequestId);
         RequestFutureCache.remove(blockedRequestId);
