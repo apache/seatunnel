@@ -63,7 +63,8 @@ public class Mem0Sink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.httpParameter.setRetry(config.getOptional(Mem0SinkOptions.RETRY).orElse(0));
         this.httpParameter.setRetryBackoffMultiplierMillis(
                 config.get(Mem0SinkOptions.RETRY_BACKOFF_MULTIPLIER_MS));
-        this.httpParameter.setRetryBackoffMaxMillis(config.get(Mem0SinkOptions.RETRY_BACKOFF_MAX_MS));
+        this.httpParameter.setRetryBackoffMaxMillis(
+                config.get(Mem0SinkOptions.RETRY_BACKOFF_MAX_MS));
     }
 
     private static String normalizeBaseUrl(String value) {
