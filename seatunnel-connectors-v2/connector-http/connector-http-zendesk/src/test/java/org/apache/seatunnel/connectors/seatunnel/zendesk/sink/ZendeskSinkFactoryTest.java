@@ -15,8 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.zendesk.source.config;
+package org.apache.seatunnel.connectors.seatunnel.zendesk.sink;
 
-import org.apache.seatunnel.connectors.seatunnel.zendesk.config.ZendeskConfig;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-public class ZendeskSourceOptions extends ZendeskConfig {}
+class ZendeskSinkFactoryTest {
+
+    @Test
+    void optionRule() {
+        Assertions.assertNotNull(new ZendeskSinkFactory().optionRule());
+    }
+
+    @Test
+    void factoryIdentifier() {
+        Assertions.assertEquals("Zendesk", new ZendeskSinkFactory().factoryIdentifier());
+    }
+}

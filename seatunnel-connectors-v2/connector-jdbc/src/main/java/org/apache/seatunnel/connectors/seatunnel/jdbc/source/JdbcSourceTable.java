@@ -39,4 +39,26 @@ public class JdbcSourceTable implements Serializable {
     private final Boolean useSelectCount;
     private final Boolean skipAnalyze;
     private final CatalogTable catalogTable;
+
+    /**
+     * Returns a copy of this table with its query replaced by {@code query}, preserving every other
+     * field. Used to scope split-metadata queries to a where-condition-filtered view of the table
+     * without mutating the original.
+     *
+     * <p>NOTE: keep this manual copy-constructor in sync whenever a new field is added to this
+     * class, otherwise the new field will be silently lost in the copy.
+     */
+    public JdbcSourceTable withQuery(String query) {
+        return JdbcSourceTable.builder()
+                .tablePath(this.tablePath)
+                .query(query)
+                .partitionColumn(this.partitionColumn)
+                .partitionNumber(this.partitionNumber)
+                .partitionStart(this.partitionStart)
+                .partitionEnd(this.partitionEnd)
+                .useSelectCount(this.useSelectCount)
+                .skipAnalyze(this.skipAnalyze)
+                .catalogTable(this.catalogTable)
+                .build();
+    }
 }
