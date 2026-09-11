@@ -341,7 +341,12 @@ def collect_cli_fingerprint() -> dict:
 
 
 def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
-                  max_repairs: int, trials: int, out_dir: Path) -> dict:
+                  max_repairs: int, trials: int, out_dir: Path,
+                  suite: str = "baseline") -> dict:
+    if suite not in ("baseline", "paraphrase"):
+        raise ValueError("Unknown benchmark suite")
+    if any(("parent_id" in task) != (suite == "paraphrase") for task in tasks):
+        raise ValueError("Task provenance does not match the selected suite")
     out_dir.mkdir(parents=True, exist_ok=True)
     configs_dir = out_dir / "configs"
     configs_dir.mkdir(exist_ok=True)
@@ -355,6 +360,7 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
     }
 
     all_results = {
+        "suite": suite,
         "levels": levels,
         "max_repairs": max_repairs,
         "trials": trials,
@@ -612,7 +618,7 @@ def main() -> None:
             os.environ.setdefault(key, value)
 
     results = run_benchmark(models, tasks, levels, args.max_repairs,
-                            args.trials, Path(args.out))
+                            args.trials, Path(args.out), suite=args.suite)
 
     from benchmark.report import print_summary, write_reports
     print_summary(results)

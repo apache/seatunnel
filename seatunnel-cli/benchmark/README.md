@@ -139,9 +139,14 @@ fixtures, and uses `<parent_id>_p1` as its stable task ID. It refuses unknown or
 duplicate parents, assertion overrides, unchanged wording, and parent fingerprint
 mismatches. A parent edit requires reviewing semantic equivalence and explicitly
 repinning the full parent contract; do not automatically refresh pins.
+This first slice intentionally uses one reviewed wording per parent; multiple
+wordings and their ID/weighting policy are left for a separate corpus expansion.
 
 Saved variant entries include `parent_id` and `parent_sha256`. The existing
 `task_sha256` covers the expanded variant, including its wording and provenance.
+New results also record `suite` at run level. Cross-suite comparisons are rejected
+before task pairing. Older baseline results without a suite marker remain
+compatible; unmarked paraphrase results must be collected again with this marker.
 Keep baseline and candidate runs in separate directories and compare the same
 variant IDs using `benchmark.compare`; parent tasks and variants are different
 tasks, not directly paired samples. Changed wording/contracts are excluded from

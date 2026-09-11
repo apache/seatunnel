@@ -32,6 +32,11 @@ expectation updates. Saved results retain parent provenance and fingerprint the
 complete expanded variant. Run the same suite in a separate candidate directory
 and use the comparison command below; do not compare parent IDs against variant
 IDs or combine their rates as independent evidence.
+New results record the run-level `suite`; cross-suite comparisons are rejected
+before task pairing. Older unmarked baseline results remain compatible, but
+unmarked paraphrase results need a fresh run. This initial corpus intentionally
+has one reviewed alternative wording per parent; additional wordings are a
+separate corpus expansion.
 
 This public suite is a regression tool, **not an unseen holdout**. Offline tests
 validate its harness contracts, not generation accuracy or full semantic

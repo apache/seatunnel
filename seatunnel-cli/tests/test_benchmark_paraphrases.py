@@ -283,6 +283,7 @@ def test_cli_dispatches_selected_suite_before_provider_setup(monkeypatch, tmp_pa
         runner.main()
         selected = run.call_args.args[1]
         assert [task["id"] for task in selected] == ["t1_probe_streaming_checkpoint_p1"]
+        assert run.call_args.kwargs["suite"] == "paraphrase"
         models.assert_called_once()
         sys.argv[-1] = "l3"
         sys.argv[6] = "unknown"
@@ -339,9 +340,14 @@ def test_saved_variants_compare_by_identity_and_keep_provenance(tmp_path, monkey
     tasks = runner.load_tasks([1, 2, 3], suite="paraphrase")
     original = copy.deepcopy(tasks)
     models = [{"name": "fixture", "provider": "openai", "model": "fixture"}]
-    first = runner.run_benchmark(models, tasks, ["l1"], 0, 1, tmp_path / "before")
-    runner.run_benchmark(models, tasks, ["l1"], 0, 1, tmp_path / "after")
+    first = runner.run_benchmark(
+        models, tasks, ["l1"], 0, 1, tmp_path / "before", suite="paraphrase"
+    )
+    runner.run_benchmark(
+        models, tasks, ["l1"], 0, 1, tmp_path / "after", suite="paraphrase"
+    )
     saved = json.loads((tmp_path / "after/results.json").read_text())
+    assert first["suite"] == saved["suite"] == "paraphrase"
     rows = compare_results(first, saved)["rows"]
     assert len(rows) == 12 and all(row["first"] == "pass→pass" for row in rows)
     assert tasks == original
@@ -359,7 +365,9 @@ def test_saved_variants_compare_by_identity_and_keep_provenance(tmp_path, monkey
             tmp_path / "legacy-reports" / filename
         ).read_bytes()
     tasks[0]["prompt"] += " Revised wording."
-    changed = runner.run_benchmark(models, tasks, ["l1"], 0, 1, tmp_path / "changed")
+    changed = runner.run_benchmark(
+        models, tasks, ["l1"], 0, 1, tmp_path / "changed", suite="paraphrase"
+    )
     assert (
         sum(
             row["reason"] == "task definition differs"
@@ -367,3 +375,12 @@ def test_saved_variants_compare_by_identity_and_keep_provenance(tmp_path, monkey
         )
         == 1
     )
+
+
+@pytest.mark.parametrize("suite", ["unknown", "baseline"])
+def test_runner_rejects_invalid_suite_before_creating_results(tmp_path, suite):
+    tasks = runner.load_tasks([1], suite="paraphrase")
+    output = tmp_path / "invalid"
+    with pytest.raises(ValueError, match="suite"):
+        runner.run_benchmark([], tasks, ["l1"], 0, 1, output, suite=suite)
+    assert not output.exists()
