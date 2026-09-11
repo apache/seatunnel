@@ -868,14 +868,16 @@ sink {
 
 Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset with the local file identity and a bounded content anchor. `start_mode="earliest"` reads existing complete rows. `start_mode="latest"` ignores content present during the initial scan, including an incomplete row, and reads new complete rows after that point.
 
+The initial `latest` listing is recorded by stable file identity before content inspection, so renamed files retain their baseline and replacement files do not inherit it. A temporarily unreadable initial file does not cause files discovered later to be skipped. If an initial file's identity cannot be inspected, no baseline is assumed: it is read from the configured header boundary if it becomes readable, which can include existing rows. If an initial file does not yet contain all configured header rows, its baseline is retained across checkpoints until the header boundary is complete; subsequent data rows are then read normally.
+
 This mode has the following operational constraints:
 
 - Only uncompressed UTF-8 text files with `post_sync_action="none"` are supported.
 - Delivery is at least once. A range is committed after the reader reports that the complete range was consumed.
 - A file is read serially. Source parallelism is used across files, not within one file.
-- Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Copy-truncate rewrites are detected by the content anchor and restarted from the configured header boundary.
+- Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Detected copy-truncate rewrites restart from the configured header boundary.
 - The source filesystem must expose a stable `BasicFileAttributes.fileKey()` for the configured path. The connector rejects tailing at startup when this is unavailable, including on the default Windows file provider, because creation time cannot safely distinguish a replaced file.
-- The content anchor hashes at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect unchanged content between those samples.
+- The content anchor samples at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect content between those samples. The reader also checks the assigned range's end anchor before and after reading. A stale range detected before reading is discarded without advancing its offset. A change detected after reading starts fails the task without acknowledging the range; already emitted rows cannot be retracted. Concurrent rewrites are not atomic reads, so append-only input remains required for reliable tailing.
 - The source path must expose the same files and file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
 - State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
 

@@ -38,6 +38,8 @@ public class FileSourceState implements Serializable {
     private Map<String, Long> processedFileOffsets;
     private Map<String, FileTailState> fileTailStates;
     private boolean textTailingInitialScanComplete;
+    private Map<String, Long> initialTailFileOffsets;
+    private Set<String> initializedTailTables;
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit) {
         this(
@@ -96,6 +98,28 @@ public class FileSourceState implements Serializable {
             Map<String, Long> processedFileOffsets,
             Map<String, FileTailState> fileTailStates,
             boolean textTailingInitialScanComplete) {
+        this(
+                assignedSplit,
+                discoveryStartTimeMillis,
+                pendingOpsByCheckpoint,
+                retentionLastRunMillisByPath,
+                processedFileOffsets,
+                fileTailStates,
+                textTailingInitialScanComplete,
+                Collections.emptyMap(),
+                Collections.emptySet());
+    }
+
+    public FileSourceState(
+            Set<FileSourceSplit> assignedSplit,
+            long discoveryStartTimeMillis,
+            Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
+            Map<String, Long> retentionLastRunMillisByPath,
+            Map<String, Long> processedFileOffsets,
+            Map<String, FileTailState> fileTailStates,
+            boolean textTailingInitialScanComplete,
+            Map<String, Long> initialTailFileOffsets,
+            Set<String> initializedTailTables) {
         this.assignedSplit = assignedSplit;
         this.discoveryStartTimeMillis = discoveryStartTimeMillis;
         this.pendingOpsByCheckpoint = pendingOpsByCheckpoint;
@@ -103,6 +127,8 @@ public class FileSourceState implements Serializable {
         this.processedFileOffsets = processedFileOffsets;
         this.fileTailStates = fileTailStates;
         this.textTailingInitialScanComplete = textTailingInitialScanComplete;
+        this.initialTailFileOffsets = initialTailFileOffsets;
+        this.initializedTailTables = initializedTailTables;
     }
 
     public Set<FileSourceSplit> getAssignedSplit() {
@@ -133,6 +159,14 @@ public class FileSourceState implements Serializable {
         return textTailingInitialScanComplete;
     }
 
+    public Map<String, Long> getInitialTailFileOffsets() {
+        return initialTailFileOffsets;
+    }
+
+    public Set<String> getInitializedTailTables() {
+        return initializedTailTables;
+    }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         if (assignedSplit == null) {
@@ -149,6 +183,12 @@ public class FileSourceState implements Serializable {
         }
         if (fileTailStates == null) {
             fileTailStates = new HashMap<>();
+        }
+        if (initialTailFileOffsets == null) {
+            initialTailFileOffsets = new HashMap<>();
+        }
+        if (initializedTailTables == null) {
+            initializedTailTables = new HashSet<>();
         }
         if (!processedFileOffsets.isEmpty()) {
             textTailingInitialScanComplete = true;

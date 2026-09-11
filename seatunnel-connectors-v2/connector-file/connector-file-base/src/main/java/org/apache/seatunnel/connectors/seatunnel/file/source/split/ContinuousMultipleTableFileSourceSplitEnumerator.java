@@ -131,6 +131,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private final Map<String, Long> retentionLastRunMillisByPath = new HashMap<>();
     private final Map<String, Long> legacyProcessedFileOffsets = new HashMap<>();
     private final Map<String, FileTailState> fileTailStates = new HashMap<>();
+    private final Map<String, Long> initialTailFileOffsets = new HashMap<>();
+    private final Set<String> initializedTailTables = new HashSet<>();
     private long tailScanGeneration;
     private boolean textTailingInitialScanComplete;
     private Set<FileSourceSplit> inFlightSplits;
@@ -208,6 +210,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                         .max()
                         .orElse(0L);
         this.textTailingInitialScanComplete = checkpointState.isTextTailingInitialScanComplete();
+        this.initialTailFileOffsets.putAll(checkpointState.getInitialTailFileOffsets());
+        this.initializedTailTables.addAll(checkpointState.getInitializedTailTables());
     }
 
     @Override
@@ -335,7 +339,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     new HashMap<>(retentionLastRunMillisByPath),
                     new HashMap<>(legacyProcessedFileOffsets),
                     new HashMap<>(fileTailStates),
-                    textTailingInitialScanComplete);
+                    textTailingInitialScanComplete,
+                    new HashMap<>(initialTailFileOffsets),
+                    new HashSet<>(initializedTailTables));
         }
     }
 
@@ -491,6 +497,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
         for (TableScanContext ctx : tableScanContexts) {
             List<FileStatus> files = ctx.listFiles(ctx.rootPath);
+            if (ctx.textTailing) {
+                captureInitialTailOffsets(ctx, files);
+            }
             scanned += files.size();
             for (FileStatus fileStatus : files) {
                 if (ctx.textTailing) {
@@ -532,9 +541,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 }
             }
         }
+        synchronized (lock) {
+            textTailingInitialScanComplete = true;
+            initializedTailTables.clear();
+        }
         if (tailScanComplete) {
             synchronized (lock) {
-                textTailingInitialScanComplete = true;
+                initialTailFileOffsets.keySet().retainAll(observedTailStateKeys);
             }
             cleanupStaleTailStates(currentTailScanGeneration, observedTailStateKeys);
         }
@@ -557,6 +570,39 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         assignSplitsToAwaitingReaders();
     }
 
+    /**
+     * Captures each table's first listing independently of content inspection and other tables. An
+     * initial file with unverifiable identity gets no baseline: reading it from zero later is safer
+     * than skipping bytes that could belong to a replacement file.
+     */
+    private void captureInitialTailOffsets(TableScanContext ctx, List<FileStatus> files) {
+        synchronized (lock) {
+            if (textTailingInitialScanComplete || initializedTailTables.contains(ctx.tableId)) {
+                return;
+            }
+        }
+        Map<String, Long> initialOffsets = new HashMap<>();
+        if (startMode == FileStartMode.LATEST) {
+            for (FileStatus file : files) {
+                try {
+                    String identity = LocalFileIdentity.read(file.getPath().toString());
+                    initialOffsets.put(tailingFileKey(ctx.tableId, identity), file.getLen());
+                } catch (IOException | RuntimeException e) {
+                    log.warn(
+                            "Cannot capture initial local file identity; if it becomes readable, "
+                                    + "it will be read from the configured header boundary. file={}",
+                            maskUriUserInfo(file.getPath().toString()),
+                            e);
+                }
+            }
+        }
+        synchronized (lock) {
+            if (initializedTailTables.add(ctx.tableId)) {
+                initialTailFileOffsets.putAll(initialOffsets);
+            }
+        }
+    }
+
     private boolean enqueueTextTailSplit(
             TableScanContext ctx,
             FileStatus fileStatus,
@@ -571,6 +617,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         synchronized (lock) {
             tailState = fileTailStates.get(fileKey);
             if (tailState != null) {
+                initialTailFileOffsets.remove(fileKey);
                 tailState =
                         new FileTailState(
                                 tailState.getTableId(),
@@ -590,24 +637,36 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             Long legacyOffset;
             synchronized (lock) {
                 legacyOffset =
-                        legacyProcessedFileOffsets.remove(tailingFileKey(ctx.tableId, filePath));
+                        legacyProcessedFileOffsets.get(tailingFileKey(ctx.tableId, filePath));
             }
-            boolean initialLatest;
+            Long initialLatestOffset;
             synchronized (lock) {
-                initialLatest =
-                        !textTailingInitialScanComplete && startMode == FileStartMode.LATEST;
+                initialLatestOffset = initialTailFileOffsets.get(fileKey);
+            }
+            if (initialLatestOffset != null && fileStatus.getLen() < initialLatestOffset) {
+                // A truncated initial file no longer contains the captured baseline.
+                initialLatestOffset = null;
+            }
+            long headerOffset =
+                    legacyOffset != null
+                            ? 0L
+                            : ctx.findInitialRowOffset(filePath, fileStatus.getLen());
+            if (legacyOffset == null && headerOffset < 0L) {
+                // Keep the first-listing EOF until all configured header rows exist. Once they do,
+                // skip only the headers and original content, not data appended in the meantime.
+                return false;
             }
             long initialOffset =
                     legacyOffset != null
                             ? legacyOffset
-                            : initialLatest
-                                    ? fileStatus.getLen()
-                                    : ctx.findInitialRowOffset(filePath, fileStatus.getLen());
+                            : initialLatestOffset != null
+                                    ? Math.max(initialLatestOffset, headerOffset)
+                                    : headerOffset;
             if (initialOffset < 0L) {
                 return false;
             }
             boolean discardUntilDelimiter =
-                    initialLatest
+                    initialLatestOffset != null
                             && initialOffset > 0L
                             && !ctx.endsWithDelimiter(filePath, initialOffset);
             tailState =
@@ -624,6 +683,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 if (existing != null) {
                     tailState = existing;
                 }
+                initialTailFileOffsets.remove(fileKey);
+                legacyProcessedFileOffsets.remove(tailingFileKey(ctx.tableId, filePath));
             }
         }
 
@@ -654,8 +715,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
 
         if (tailState.isDiscardUntilDelimiter()) {
+            // The original EOF can cut a multi-byte delimiter. Keep its possible prefix so that
+            // completing that delimiter does not cause the first new row to be discarded too.
             long firstDelimiterEnd =
-                    ctx.findFirstDelimiterEnd(filePath, committedOffset, fileStatus.getLen());
+                    ctx.findFirstDelimiterEnd(
+                            filePath,
+                            Math.max(0L, committedOffset - ctx.rowDelimiterBytes.length + 1L),
+                            fileStatus.getLen());
             long discardEnd = firstDelimiterEnd < 0L ? fileStatus.getLen() : firstDelimiterEnd;
             tailState =
                     new FileTailState(
@@ -2202,19 +2268,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
 
         private String contentAnchor(String filePath, long offset) throws IOException {
-            int prefixLength = (int) Math.min(2048L, offset);
-            int suffixLength = (int) Math.min(2048L, Math.max(0L, offset - prefixLength));
-            byte[] anchor = new byte[prefixLength + suffixLength];
             try (FSDataInputStream input = sourceFs.getInputStream(filePath)) {
-                if (prefixLength > 0) {
-                    input.readFully(anchor, 0, prefixLength);
-                }
-                if (suffixLength > 0) {
-                    input.seek(offset - suffixLength);
-                    input.readFully(anchor, prefixLength, suffixLength);
-                }
+                return LocalFileIdentity.contentAnchor(input, offset);
             }
-            return sha256Hex(anchor);
         }
 
         private static int[] buildPrefixTable(byte[] delimiter) {

@@ -58,6 +58,103 @@ class MultipleTableFileSourceReaderTest {
     @TempDir private Path tempDir;
 
     @Test
+    void testAppendingAfterAssignmentDoesNotInvalidateTailSplit() throws Exception {
+        assumeStableFileIdentity();
+        Path file = tempDir.resolve("application.log");
+        Files.write(file, "abc\n".getBytes());
+        ReaderFixture fixture = createReader();
+        FileSourceSplit split =
+                new FileSourceSplit(
+                        fixture.tableId,
+                        file.toString(),
+                        0L,
+                        4L,
+                        LocalFileIdentity.read(file.toString()),
+                        "6162630a");
+        fixture.reader.addSplits(Collections.singletonList(split));
+        Files.write(file, "new\n".getBytes(), java.nio.file.StandardOpenOption.APPEND);
+        Mockito.when(fixture.readStrategy.getLastReadBytes()).thenReturn(4L);
+
+        fixture.reader.pollNext(fixture.collector);
+
+        Mockito.verify(fixture.readStrategy).read(split, fixture.collector);
+        Assertions.assertEquals(4L, captureFinishedEvent(fixture.context).getProcessedBytes());
+    }
+
+    @Test
+    void testTruncatedShortTailSplitIsNotRead() throws Exception {
+        assumeStableFileIdentity();
+        Path file = tempDir.resolve("application.log");
+        Files.write(file, "abc\n".getBytes());
+        ReaderFixture fixture = createReader();
+        fixture.reader.addSplits(
+                Collections.singletonList(
+                        new FileSourceSplit(
+                                fixture.tableId,
+                                file.toString(),
+                                0L,
+                                4L,
+                                LocalFileIdentity.read(file.toString()),
+                                "6162630a")));
+        Files.write(file, new byte[0]);
+
+        fixture.reader.pollNext(fixture.collector);
+
+        Mockito.verify(fixture.readStrategy, Mockito.never()).read(Mockito.any(), Mockito.any());
+        Assertions.assertEquals(0L, captureFinishedEvent(fixture.context).getProcessedBytes());
+    }
+
+    @Test
+    void testCopyTruncateBeforeReadRejectsStaleContent() throws Exception {
+        assumeStableFileIdentity();
+        Path file = tempDir.resolve("application.log");
+        Files.write(file, "abc\n".getBytes());
+        String identity = LocalFileIdentity.read(file.toString());
+        ReaderFixture fixture = createReader();
+        fixture.reader.addSplits(
+                Collections.singletonList(
+                        new FileSourceSplit(
+                                fixture.tableId, file.toString(), 0L, 4L, identity, "6162630a")));
+        Files.write(file, "123456\n".getBytes());
+        Assertions.assertEquals(identity, LocalFileIdentity.read(file.toString()));
+
+        fixture.reader.pollNext(fixture.collector);
+
+        Mockito.verify(fixture.readStrategy, Mockito.never()).read(Mockito.any(), Mockito.any());
+        Assertions.assertEquals(0L, captureFinishedEvent(fixture.context).getProcessedBytes());
+    }
+
+    @Test
+    void testCopyTruncateDuringReadFailsBeforeAcknowledgement() throws Exception {
+        assumeStableFileIdentity();
+        Path file = tempDir.resolve("application.log");
+        Files.write(file, "abc\n".getBytes());
+        ReaderFixture fixture = createReader();
+        fixture.reader.addSplits(
+                Collections.singletonList(
+                        new FileSourceSplit(
+                                fixture.tableId,
+                                file.toString(),
+                                0L,
+                                4L,
+                                LocalFileIdentity.read(file.toString()),
+                                "6162630a")));
+        Mockito.doAnswer(
+                        invocation -> {
+                            fixture.collector.collect(new SeaTunnelRow(new Object[] {"abc"}));
+                            Files.write(file, "123456\n".getBytes());
+                            return null;
+                        })
+                .when(fixture.readStrategy)
+                .read(Mockito.any(), Mockito.any());
+
+        Assertions.assertThrows(
+                FileConnectorException.class, () -> fixture.reader.pollNext(fixture.collector));
+        Mockito.verify(fixture.context, Mockito.never()).sendSourceEventToEnumerator(Mockito.any());
+        Mockito.verify(fixture.collector).collect(Mockito.any(SeaTunnelRow.class));
+    }
+
+    @Test
     void testStaleTailSplitDoesNotReadReplacementFile() throws Exception {
         assumeStableFileIdentity();
         Path file = tempDir.resolve("application.log");

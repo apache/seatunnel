@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 
+import java.io.DataInput;
 import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -41,6 +44,46 @@ public final class LocalFileIdentity {
         BasicFileAttributes attributes =
                 Files.readAttributes(toNioPath(filePath), BasicFileAttributes.class);
         return fromAttributes(filePath, attributes);
+    }
+
+    /** Reads the bounded content sample used by local tail split checkpoints. */
+    public static String contentAnchor(String filePath, long offset) throws IOException {
+        try (RandomAccessFile input = new RandomAccessFile(toNioPath(filePath).toFile(), "r")) {
+            return contentAnchor(input, input::seek, offset);
+        }
+    }
+
+    /** Uses the same anchor encoding for discovery and reader-side validation. */
+    public static String contentAnchor(FSDataInputStream input, long offset) throws IOException {
+        return contentAnchor(input, input::seek, offset);
+    }
+
+    private static String contentAnchor(DataInput input, Seek seek, long offset)
+            throws IOException {
+        int prefixLength = (int) Math.min(2048L, offset);
+        int suffixLength = (int) Math.min(2048L, Math.max(0L, offset - prefixLength));
+        byte[] anchor = new byte[prefixLength + suffixLength];
+        if (prefixLength > 0) {
+            seek.to(0L);
+            input.readFully(anchor, 0, prefixLength);
+        }
+        if (suffixLength > 0) {
+            seek.to(offset - suffixLength);
+            input.readFully(anchor, prefixLength, suffixLength);
+        }
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[anchor.length * 2];
+        for (int i = 0; i < anchor.length; i++) {
+            int current = anchor[i] & 0xff;
+            encoded[i * 2] = digits[current >>> 4];
+            encoded[i * 2 + 1] = digits[current & 0x0f];
+        }
+        return new String(encoded);
+    }
+
+    @FunctionalInterface
+    private interface Seek {
+        void to(long offset) throws IOException;
     }
 
     static String fromAttributes(String filePath, BasicFileAttributes attributes)

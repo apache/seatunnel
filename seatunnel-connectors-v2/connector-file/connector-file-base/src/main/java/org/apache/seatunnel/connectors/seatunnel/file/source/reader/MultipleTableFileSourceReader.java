@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSpl
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -96,21 +97,17 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                                     + "]");
                 }
                 try {
-                    if (split.getFileIdentity() != null
-                            && !split.getFileIdentity()
-                                    .equals(LocalFileIdentity.read(split.getFilePath()))) {
+                    if (!isCurrentTailSplit(split)) {
                         log.warn(
-                                "Skip stale local tail split because the file identity changed: {}",
+                                "Skip stale local tail split because the file identity or content changed: {}",
                                 split.getFilePath());
                         processedBytes = 0L;
                     } else {
                         readStarted = true;
                         readStrategy.read(split, output);
-                        if (split.getFileIdentity() != null
-                                && !split.getFileIdentity()
-                                        .equals(LocalFileIdentity.read(split.getFilePath()))) {
+                        if (!isCurrentTailSplit(split)) {
                             throw new IOException(
-                                    "Local file identity changed while reading the tail split");
+                                    "Local file identity or content changed while reading the tail split");
                         }
                         processedBytes = readStrategy.getLastReadBytes();
                     }
@@ -176,6 +173,30 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
     @Override
     public List<FileSourceSplit> snapshotState(long checkpointId) {
         return new ArrayList<>(sourceSplits);
+    }
+
+    /**
+     * Rejects an assigned range whose sampled content changed without changing its file key. A
+     * change after reading starts must fail the task: emitted rows cannot be retracted, so a
+     * zero-byte completion would incorrectly allow an in-place retry after partial emission.
+     */
+    private static boolean isCurrentTailSplit(FileSourceSplit split) throws IOException {
+        if (split.getFileIdentity() == null) {
+            return true;
+        }
+        if (!split.getFileIdentity().equals(LocalFileIdentity.read(split.getFilePath()))) {
+            return false;
+        }
+        try {
+            return split.getEndContentAnchor() == null
+                    || split.getEndContentAnchor()
+                            .equals(
+                                    LocalFileIdentity.contentAnchor(
+                                            split.getFilePath(),
+                                            split.getStart() + split.getLength()));
+        } catch (EOFException e) {
+            return false;
+        }
     }
 
     @Override

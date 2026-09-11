@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.ChunkedInputHadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.LocalFileIdentity;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
@@ -45,7 +46,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -634,6 +639,349 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
             Assertions.assertEquals(activeStatus.getPath().toString(), split.getFilePath());
         } finally {
             enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testDeferredLatestBaselineDoesNotApplyToReplacementIdentity() throws Exception {
+        assertDeferredBaselineFollowsIdentity(true);
+    }
+
+    @Test
+    void testDeferredLatestBaselineFollowsRename() throws Exception {
+        assertDeferredBaselineFollowsIdentity(false);
+    }
+
+    private void assertDeferredBaselineFollowsIdentity(boolean replace) throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_deferred_identity"));
+        Path file = srcDir.resolve("application.log");
+        Files.write(file, "old\n".getBytes());
+        String identity = LocalFileIdentity.read(file.toString());
+        EnumeratorWithContext initial =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        FileSourceState checkpoint;
+        try {
+            HadoopFileSystemProxy fs =
+                    getTableScanContextFileSystem(initial.enumerator, "sourceFs");
+            FileStatus status = findFileStatus(fs.listStatus(srcDir.toString()), "application.log");
+            HadoopFileSystemProxy spy = Mockito.spy(fs);
+            Mockito.doThrow(new IOException("initial file unavailable"))
+                    .when(spy)
+                    .getInputStream(status.getPath().toString());
+            setTableScanContextFileSystem(initial.enumerator, "sourceFs", spy);
+            initial.enumerator.scanOnceForTest();
+            checkpoint = roundTrip(initial.enumerator.snapshotState(1L));
+        } finally {
+            initial.enumerator.close();
+        }
+        if (replace) {
+            Path replacement = srcDir.resolve("replacement.log");
+            Files.write(replacement, "replacement\n".getBytes());
+            Files.move(replacement, file, StandardCopyOption.REPLACE_EXISTING);
+            Assertions.assertNotEquals(identity, LocalFileIdentity.read(file.toString()));
+        } else {
+            file = Files.move(file, srcDir.resolve("renamed.log"));
+            Files.write(file, "new\n".getBytes(), StandardOpenOption.APPEND);
+            Assertions.assertEquals(identity, LocalFileIdentity.read(file.toString()));
+        }
+        EnumeratorWithContext restored = createTextTailingEnumerator(srcDir, "latest", checkpoint);
+        try {
+            restored.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(restored);
+            Assertions.assertEquals(replace ? 0L : 4L, split.getStart());
+            Assertions.assertEquals(replace ? 12L : 4L, split.getLength());
+            Assertions.assertTrue(
+                    restored.enumerator.snapshotState(2L).getInitialTailFileOffsets().isEmpty());
+        } finally {
+            restored.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLatestIdentityCaptureFailureDoesNotRecaptureLaterFiles() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_identity_failure"));
+        Path file = srcDir.resolve("application.log");
+        Files.write(file, "old\n".getBytes());
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        try {
+            HadoopFileSystemProxy fs =
+                    getTableScanContextFileSystem(fixture.enumerator, "sourceFs");
+            FileStatus[] statuses = fs.listStatus(srcDir.toString());
+            HadoopFileSystemProxy spy = Mockito.spy(fs);
+            Mockito.doAnswer(
+                            invocation -> {
+                                Files.delete(file);
+                                return statuses;
+                            })
+                    .doCallRealMethod()
+                    .when(spy)
+                    .listStatus(srcDir.toString());
+            setTableScanContextFileSystem(fixture.enumerator, "sourceFs", spy);
+            fixture.enumerator.scanOnceForTest();
+            Assertions.assertTrue(
+                    fixture.enumerator.snapshotState(1L).isTextTailingInitialScanComplete());
+            Files.write(file, "new\n".getBytes());
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(fixture);
+            Assertions.assertEquals(0L, split.getStart());
+            Assertions.assertEquals(4L, split.getLength());
+        } finally {
+            fixture.enumerator.close();
+        }
+    }
+
+    @Test
+    void testMissingDeferredLatestHeaderBaselineIsRemoved() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_header_disappears"));
+        Path file = srcDir.resolve("application.log");
+        Files.write(file, new byte[0]);
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(
+                        srcDir,
+                        "latest",
+                        new FileSourceState(Collections.emptySet()),
+                        Collections.singletonMap("skip_header_row_number", 1));
+        try {
+            fixture.enumerator.scanOnceForTest();
+            Assertions.assertEquals(
+                    1, fixture.enumerator.snapshotState(1L).getInitialTailFileOffsets().size());
+            Files.delete(file);
+            fixture.enumerator.scanOnceForTest();
+            Assertions.assertTrue(
+                    fixture.enumerator.snapshotState(2L).getInitialTailFileOffsets().isEmpty());
+        } finally {
+            fixture.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLatestRetainsDelimiterPrefixAtInitialEof() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_partial_delimiter"));
+        Path file = srcDir.resolve("application.log");
+        Files.write(file, "old<EN".getBytes());
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(
+                        srcDir,
+                        "latest",
+                        new FileSourceState(Collections.emptySet()),
+                        Collections.singletonMap("row_delimiter", "<END>"));
+        try {
+            fixture.enumerator.scanOnceForTest();
+            Files.write(file, "D>new<END>".getBytes(), StandardOpenOption.APPEND);
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(fixture);
+            Assertions.assertEquals(8L, split.getStart());
+            Assertions.assertEquals(8L, split.getLength());
+        } finally {
+            fixture.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLatestDoesNotRecaptureTableAfterInterruptedInitialScan() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_table_restore"));
+        Files.write(srcDir.resolve("new.log"), "new\n".getBytes());
+        // This table's empty first listing completed before a later table's listing failed.
+        FileSourceState checkpoint =
+                new FileSourceState(
+                        Collections.emptySet(),
+                        0L,
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        false,
+                        Collections.emptyMap(),
+                        Collections.singleton("db.table"));
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(srcDir, "latest", roundTrip(checkpoint));
+        try {
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(fixture);
+            Assertions.assertEquals(0L, split.getStart());
+            Assertions.assertEquals(4L, split.getLength());
+        } finally {
+            fixture.enumerator.close();
+        }
+    }
+
+    @Test
+    void testStaleTailCompletionReplansWithoutAdvancingOffset() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("stale_tail_replan"));
+        Path file = srcDir.resolve("application.log");
+        Files.write(file, "abc\n".getBytes());
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit oldSplit = assignAndCaptureSingleSplit(fixture);
+            Files.write(file, "123456\n".getBytes());
+            fixture.enumerator.handleSourceEvent(
+                    0, new FileSplitFinishedEvent(oldSplit.splitId(), null, 0L));
+            Assertions.assertEquals(
+                    0L,
+                    fixture.enumerator
+                            .snapshotState(1L)
+                            .getFileTailStates()
+                            .values()
+                            .iterator()
+                            .next()
+                            .getCommittedOffset());
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit replacement = assignAndCaptureSingleSplit(fixture);
+            Assertions.assertEquals(0L, replacement.getStart());
+            Assertions.assertEquals(7L, replacement.getLength());
+        } finally {
+            fixture.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLatestRestoresFailedInitialFileBaselineWithoutSkippingNewFiles() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_failed_restore"));
+        Path failedFile = srcDir.resolve("failed.log");
+        Files.write(failedFile, "old\n".getBytes());
+        EnumeratorWithContext initial =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        FileSourceState checkpoint;
+        try {
+            HadoopFileSystemProxy fs =
+                    getTableScanContextFileSystem(initial.enumerator, "sourceFs");
+            FileStatus status = findFileStatus(fs.listStatus(srcDir.toString()), "failed.log");
+            HadoopFileSystemProxy spy = Mockito.spy(fs);
+            Mockito.doThrow(new IOException("initial file unavailable"))
+                    .when(spy)
+                    .getInputStream(status.getPath().toString());
+            setTableScanContextFileSystem(initial.enumerator, "sourceFs", spy);
+            initial.enumerator.scanOnceForTest();
+            checkpoint = roundTrip(initial.enumerator.snapshotState(1L));
+            Assertions.assertEquals(1, checkpoint.getInitialTailFileOffsets().size());
+        } finally {
+            initial.enumerator.close();
+        }
+        Files.write(failedFile, "appended\n".getBytes(), StandardOpenOption.APPEND);
+        Files.write(srcDir.resolve("new.log"), "new\n".getBytes());
+        EnumeratorWithContext restored = createTextTailingEnumerator(srcDir, "latest", checkpoint);
+        try {
+            restored.enumerator.scanOnceForTest();
+            List<FileSourceSplit> splits = assignAndCaptureSplits(restored);
+            Assertions.assertEquals(2, splits.size());
+            for (FileSourceSplit split : splits) {
+                Assertions.assertEquals(
+                        split.getFilePath().endsWith("failed.log") ? 4L : 0L, split.getStart());
+            }
+            Assertions.assertTrue(
+                    restored.enumerator.snapshotState(2L).getInitialTailFileOffsets().isEmpty());
+        } finally {
+            restored.enumerator.close();
+        }
+    }
+
+    private FileSourceState roundTrip(FileSourceState state) throws Exception {
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        try (ObjectOutputStream output = new ObjectOutputStream(bytes)) {
+            output.writeObject(state);
+        }
+        try (ObjectInputStream input =
+                new ObjectInputStream(new ByteArrayInputStream(bytes.toByteArray()))) {
+            return (FileSourceState) input.readObject();
+        }
+    }
+
+    @Test
+    void testRestoreNormalizesNullInitialTailBaselines() throws Exception {
+        FileSourceState state = new FileSourceState(Collections.emptySet());
+        Field field = FileSourceState.class.getDeclaredField("initialTailFileOffsets");
+        field.setAccessible(true);
+        field.set(state, null);
+        Field initializedTables = FileSourceState.class.getDeclaredField("initializedTailTables");
+        initializedTables.setAccessible(true);
+        initializedTables.set(state, null);
+        Assertions.assertTrue(roundTrip(state).getInitialTailFileOffsets().isEmpty());
+        Assertions.assertTrue(roundTrip(state).getInitializedTailTables().isEmpty());
+        Assertions.assertEquals(
+                9208369906513934611L,
+                java.io.ObjectStreamClass.lookup(FileSourceState.class).getSerialVersionUID());
+    }
+
+    @Test
+    void testLatestReadsNewFileWhileInitialInspectionKeepsFailing() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_new_during_failure"));
+        Path failedFile = srcDir.resolve("failed.log");
+        Files.write(failedFile, "old\n".getBytes());
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(
+                        srcDir, "latest", new FileSourceState(Collections.emptySet()));
+        try {
+            HadoopFileSystemProxy sourceFs =
+                    getTableScanContextFileSystem(fixture.enumerator, "sourceFs");
+            FileStatus failedStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "failed.log");
+            HadoopFileSystemProxy spy = Mockito.spy(sourceFs);
+            Mockito.doThrow(new IOException("initial file unavailable"))
+                    .when(spy)
+                    .getInputStream(failedStatus.getPath().toString());
+            setTableScanContextFileSystem(fixture.enumerator, "sourceFs", spy);
+            fixture.enumerator.scanOnceForTest();
+            Files.write(srcDir.resolve("new.log"), "new\n".getBytes());
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(fixture);
+            Assertions.assertTrue(split.getFilePath().endsWith("new.log"));
+            Assertions.assertEquals(0L, split.getStart());
+            Assertions.assertEquals(4L, split.getLength());
+        } finally {
+            fixture.enumerator.close();
+        }
+    }
+
+    @Test
+    void testLatestWaitsForHeadersInInitiallyEmptyFile() throws Exception {
+        assertLatestWaitsForHeaders("", "header\nrow\n", 1, 7L);
+    }
+
+    @Test
+    void testLatestWaitsForRemainingHeaders() throws Exception {
+        assertLatestWaitsForHeaders("first\n", "second\nrow\n", 2, 13L);
+    }
+
+    @Test
+    void testLatestWaitsForIncompleteHeader() throws Exception {
+        assertLatestWaitsForHeaders("first\nsec", "ond\nrow\n", 2, 13L);
+    }
+
+    private void assertLatestWaitsForHeaders(
+            String initial, String appended, int headers, long start) throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("latest_headers"));
+        Path file = srcDir.resolve("application.log");
+        Files.write(file, initial.getBytes());
+        EnumeratorWithContext fixture =
+                createTextTailingEnumerator(
+                        srcDir,
+                        "latest",
+                        new FileSourceState(Collections.emptySet()),
+                        Collections.singletonMap("skip_header_row_number", headers));
+        try {
+            fixture.enumerator.scanOnceForTest();
+            FileSourceState checkpoint = roundTrip(fixture.enumerator.snapshotState(1L));
+            fixture.enumerator.close();
+            fixture =
+                    createTextTailingEnumerator(
+                            srcDir,
+                            "latest",
+                            checkpoint,
+                            Collections.singletonMap("skip_header_row_number", headers));
+            Files.write(file, appended.getBytes(), StandardOpenOption.APPEND);
+            fixture.enumerator.scanOnceForTest();
+            FileSourceSplit split = assignAndCaptureSingleSplit(fixture);
+            Assertions.assertEquals(start, split.getStart());
+            Assertions.assertEquals(4L, split.getLength());
+        } finally {
+            fixture.enumerator.close();
         }
     }
 
