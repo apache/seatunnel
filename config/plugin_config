@@ -71,6 +71,7 @@ connector-http-jira
 connector-http-klaviyo
 connector-http-stripe
 connector-http-lemlist
+connector-http-linear
 connector-http-myhours
 connector-http-notion
 connector-http-onesignal

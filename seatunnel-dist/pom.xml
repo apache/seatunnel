@@ -312,6 +312,13 @@
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-linear</artifactId>
                     <version>${project.version}</version>
+                    <scope>provided</scope>
+                    <exclusions>
+                        <exclusion>
+                            <groupId>org.apache.seatunnel</groupId>
+                            <artifactId>seatunnel-config-connector-http</artifactId>
+                        </exclusion>
+                    </exclusions>
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>

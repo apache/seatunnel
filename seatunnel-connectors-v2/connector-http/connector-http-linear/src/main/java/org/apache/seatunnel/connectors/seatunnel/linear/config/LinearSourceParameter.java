@@ -20,9 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.linear.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
+import java.util.HashMap;
+
 public class LinearSourceParameter extends HttpParameter {
     public void buildWithConfig(ReadonlyConfig pluginConfig, String apiKey) {
         super.buildWithConfig(pluginConfig);
+        if (this.headers == null) {
+            this.headers = new HashMap<>();
+        }
         this.headers.put("Authorization", apiKey);
     }
 }

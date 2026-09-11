@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
-import org.apache.seatunnel.connectors.seatunnel.linear.LinearSourceFactory;
+package org.apache.seatunnel.connectors.seatunnel.linear;
+
+import org.apache.seatunnel.connectors.seatunnel.linear.source.LinearSourceFactory;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 public class LinearSourceFactoryTest {
+
     @Test
     public void testFactoryIdentifier() {
         LinearSourceFactory factory = new LinearSourceFactory();
