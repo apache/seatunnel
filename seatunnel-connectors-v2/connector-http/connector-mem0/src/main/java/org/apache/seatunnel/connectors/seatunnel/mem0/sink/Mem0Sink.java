@@ -18,7 +18,6 @@ package org.apache.seatunnel.connectors.seatunnel.mem0.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
-import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -31,8 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
-public class Mem0Sink extends AbstractSimpleSink<SeaTunnelRow, Void>
-        implements SupportMultiTableSink {
+public class Mem0Sink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final CatalogTable catalogTable;
     private final SeaTunnelRowType rowType;
     private final HttpParameter httpParameter;
