@@ -71,12 +71,37 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     private Long checkpointIdToFinish;
     private final DataSourceDialect<C> dialect;
 
+    /**
+     * Whether this assigner is the last phase of its job, so a durably completed snapshot means the
+     * dialect's enumerator-owned resources (e.g. PostgreSQL's persistent replication slot for an
+     * exactly-once initial snapshot) are safe to release in {@link #close()}.
+     *
+     * <p>{@code false} when this assigner is wrapped by a {@link HybridSplitAssigner}: its
+     * incremental phase keeps depending on those same resources for the rest of the job's lifetime,
+     * and {@link #close()} fires indistinguishably on a genuine final stop or on a Zeta
+     * failover/restart, so releasing them here on a false signal would risk dropping a resource
+     * (like a replication slot) the restarted job still needs to resume from.
+     */
+    private final boolean releasesEnumeratorResourcesOnCompletion;
+
+    /**
+     * Whether {@link #open()} has an outstanding {@code dialect.openEnumerator(sourceConfig)} call
+     * that has not yet been paired with a {@code dialect.closeEnumerator(sourceConfig)}.
+     *
+     * <p>Guards against invoking {@code closeEnumerator} twice for one {@code openEnumerator}: once
+     * from {@link #open()}'s own catch-block cleanup, and again from {@link #close()}, which the
+     * enumerator framework still calls afterward. A dialect that drops a replication slot would
+     * otherwise fail with "slot does not exist" on the second call.
+     */
+    private boolean dialectOpened;
+
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
             int currentParallelism,
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
-            DataSourceDialect<C> dialect) {
+            DataSourceDialect<C> dialect,
+            boolean releasesEnumeratorResourcesOnCompletion) {
         this(
                 context,
                 currentParallelism,
@@ -88,14 +113,16 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 remainingTables,
                 isTableIdCaseSensitive,
                 true,
-                dialect);
+                dialect,
+                releasesEnumeratorResourcesOnCompletion);
     }
 
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
             int currentParallelism,
             SnapshotPhaseState checkpoint,
-            DataSourceDialect<C> dialect) {
+            DataSourceDialect<C> dialect,
+            boolean releasesEnumeratorResourcesOnCompletion) {
         this(
                 context,
                 currentParallelism,
@@ -107,7 +134,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
                 checkpoint.getRemainingTables(),
                 checkpoint.isTableIdCaseSensitive(),
                 checkpoint.isRemainingTablesCheckpointed(),
-                dialect);
+                dialect,
+                releasesEnumeratorResourcesOnCompletion);
     }
 
     private SnapshotSplitAssigner(
@@ -121,7 +149,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
             List<TableId> remainingTables,
             boolean isTableIdCaseSensitive,
             boolean isRemainingTablesCheckpointed,
-            DataSourceDialect<C> dialect) {
+            DataSourceDialect<C> dialect,
+            boolean releasesEnumeratorResourcesOnCompletion) {
         this.context = context;
         this.sourceConfig = context.getSourceConfig();
         this.currentParallelism = currentParallelism;
@@ -134,6 +163,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         this.isRemainingTablesCheckpointed = isRemainingTablesCheckpointed;
         this.isTableIdCaseSensitive = isTableIdCaseSensitive;
         this.dialect = dialect;
+        this.releasesEnumeratorResourcesOnCompletion = releasesEnumeratorResourcesOnCompletion;
 
         LOG.info("SnapshotSplitAssigner created with remaining tables: {}", this.remainingTables);
         LOG.info(
@@ -148,19 +178,35 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
 
     @Override
     public void open() {
-        chunkSplitter = dialect.createChunkSplitter(sourceConfig);
+        try {
+            // Set before the call, not after: if openEnumerator() itself fails partway through
+            // (for example a PostgreSQL replication slot gets created but a later verification
+            // step throws), the catch block below must still attempt closeEnumerator() so the
+            // partially acquired resource is not orphaned.
+            dialectOpened = true;
+            dialect.openEnumerator(sourceConfig);
+            chunkSplitter = dialect.createChunkSplitter(sourceConfig);
 
-        // the legacy state didn't snapshot remaining tables, discovery remaining table here
-        if (!isRemainingTablesCheckpointed && !assignerCompleted) {
-            try {
+            // the legacy state didn't snapshot remaining tables, discovery remaining table here
+            if (!isRemainingTablesCheckpointed && !assignerCompleted) {
                 final List<TableId> discoverTables = dialect.discoverDataCollections(sourceConfig);
                 context.getCapturedTables().addAll(discoverTables);
                 discoverTables.removeAll(alreadyProcessedTables);
                 this.remainingTables.addAll(discoverTables);
                 this.isTableIdCaseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
-            } catch (Exception e) {
-                throw new RuntimeException("Failed to discover remaining tables to capture", e);
             }
+        } catch (Exception e) {
+            try {
+                dialect.closeEnumerator(sourceConfig);
+            } catch (Exception closeException) {
+                e.addSuppressed(closeException);
+            } finally {
+                // The enumerator-owned resource is already released (or its release was already
+                // attempted) here, so close() -- which the framework still calls after open()
+                // fails -- must not invoke closeEnumerator() a second time.
+                dialectOpened = false;
+            }
+            throw new RuntimeException("Failed to open snapshot split assigner", e);
         }
     }
 
@@ -264,6 +310,19 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         if (checkpointIdToFinish != null && !assignerCompleted && allSplitsCompleted()) {
             assignerCompleted = checkpointId >= checkpointIdToFinish;
             LOG.info("Snapshot split assigner is turn into completed status.");
+        }
+    }
+
+    @Override
+    public void close() {
+        // See the releasesEnumeratorResourcesOnCompletion field Javadoc: only release
+        // dialect-owned enumerator resources once this assigner owns their entire lifecycle
+        // (no later incremental phase depends on them) AND the snapshot phase has durably,
+        // checkpoint-confirmed completed - not merely because close() was called, since close()
+        // cannot tell a genuine final stop apart from a Zeta failover/restart.
+        if (releasesEnumeratorResourcesOnCompletion && assignerCompleted && dialectOpened) {
+            dialect.closeEnumerator(sourceConfig);
+            dialectOpened = false;
         }
     }
 

@@ -57,12 +57,17 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             DataSourceDialect<C> dialect,
             OffsetFactory offsetFactory) {
         this(
+                // false: the incremental assigner constructed below keeps depending on the
+                // snapshot phase's enumerator-owned resources (e.g. a PostgreSQL persistent
+                // replication slot) for the rest of the job's lifetime, so the snapshot assigner
+                // must never release them from its own close().
                 new SnapshotSplitAssigner<>(
                         context,
                         currentParallelism,
                         remainingTables,
                         isTableIdCaseSensitive,
-                        dialect),
+                        dialect,
+                        false),
                 new IncrementalSplitAssigner<>(context, incrementalParallelism, offsetFactory));
     }
 
@@ -74,8 +79,13 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
             DataSourceDialect<C> dialect,
             OffsetFactory offsetFactory) {
         this(
+                // false: see the fresh-state constructor above for why.
                 new SnapshotSplitAssigner<>(
-                        context, currentParallelism, checkpoint.getSnapshotPhaseState(), dialect),
+                        context,
+                        currentParallelism,
+                        checkpoint.getSnapshotPhaseState(),
+                        dialect,
+                        false),
                 new IncrementalSplitAssigner<>(
                         context,
                         incrementalParallelism,
@@ -154,6 +164,19 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
     public void notifyCheckpointComplete(long checkpointId) {
         snapshotSplitAssigner.notifyCheckpointComplete(checkpointId);
         incrementalSplitAssigner.notifyCheckpointComplete(checkpointId);
+    }
+
+    @Override
+    public void close() {
+        // snapshotSplitAssigner.close() reaches dialect.closeEnumerator(), which can perform
+        // network I/O (for example dropping/validating a PostgreSQL replication slot). A failure
+        // there must not skip incrementalSplitAssigner.close(), or whatever it owns leaks on every
+        // enumerator shutdown where the snapshot-side cleanup happens to fail.
+        try {
+            snapshotSplitAssigner.close();
+        } finally {
+            incrementalSplitAssigner.close();
+        }
     }
 
     @VisibleForTesting

@@ -27,8 +27,10 @@ import io.debezium.connector.postgresql.PostgresConnector;
 import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
@@ -38,6 +40,16 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
+
+    /**
+     * PostgreSQL replication slot name charset, matching the server's own identifier rules. The
+     * derived backfill slot name ({@link PostgresSourceConfig#getSlotNameForBackfillTask()})
+     * appends a fixed-charset suffix to this value and truncates by Java {@code char} count to
+     * PostgreSQL's 63-byte identifier limit; restricting the configured name to single-byte ASCII
+     * here keeps that char-count truncation provably byte-accurate, and rejects invalid names at
+     * job submission instead of a late, confusing failure once the backfill slot lifecycle starts.
+     */
+    private static final Pattern SLOT_NAME_PATTERN = Pattern.compile("[a-z0-9_]{1,63}");
 
     private String decodingPluginName =
             PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue();
@@ -51,6 +63,13 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         super.fromReadonlyConfig(config);
         this.decodingPluginName = config.get(PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME);
         this.slotName = config.get(PostgresIncrementalSourceOptions.SLOT_NAME);
+        checkArgument(
+                SLOT_NAME_PATTERN.matcher(this.slotName).matches(),
+                "PostgreSQL slot.name '%s' is invalid: it must match %s (PostgreSQL replication"
+                        + " slot identifier rules), since it is also used to derive the per-reader"
+                        + " snapshot backfill slot name.",
+                this.slotName,
+                SLOT_NAME_PATTERN.pattern());
         this.schemaList = config.get(PostgresIncrementalSourceOptions.SCHEMA_NAME);
         return this;
     }
@@ -146,6 +165,7 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
                         connectMaxRetries,
                         connectionPoolSize,
                         exactlyOnce);
+        config.setSubtaskId(subtask);
         // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
         config.setEnableConcurrentRead(this.enableConcurrentRead);
         return config;

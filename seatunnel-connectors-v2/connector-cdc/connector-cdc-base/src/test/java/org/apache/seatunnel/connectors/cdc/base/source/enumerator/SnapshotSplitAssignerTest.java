@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -24,12 +25,19 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 
 public class SnapshotSplitAssignerTest {
 
@@ -114,6 +122,132 @@ public class SnapshotSplitAssignerTest {
         Assertions.assertFalse(restoredAssigner.waitingForCompletedSplits());
     }
 
+    /**
+     * A standalone assigner (mirrors {@link SnapshotOnlySplitAssigner}'s construction) may release
+     * dialect-owned enumerator resources once its snapshot phase has durably, checkpoint-confirmed
+     * completed - there is no incremental phase left that still needs them.
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void closeReleasesEnumeratorResourcesWhenStandaloneAndCompleted() {
+        DataSourceDialect dialect = mock(DataSourceDialect.class);
+        SnapshotSplitAssigner splitAssigner =
+                createSnapshotSplitAssignerForClose(
+                        dialect,
+                        /* releasesEnumeratorResourcesOnCompletion= */ true,
+                        /* assignerCompleted= */ true);
+
+        // close() only releases resources open() actually acquired; exercise the real lifecycle
+        // rather than calling close() on an assigner that was never opened.
+        splitAssigner.open();
+        splitAssigner.close();
+
+        verify(dialect, times(1)).openEnumerator(any());
+        verify(dialect, times(1)).closeEnumerator(any());
+    }
+
+    /**
+     * An assigner constructed the way {@link HybridSplitAssigner} constructs its snapshot phase
+     * must never release dialect-owned enumerator resources itself, even once its own snapshot work
+     * is durably complete: the incremental phase it hands off to keeps depending on the same
+     * resources (e.g. a PostgreSQL persistent replication slot) for the rest of the job's lifetime,
+     * and close() cannot tell a genuine final stop apart from a Zeta failover/restart.
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void closeSkipsEnumeratorResourcesWhenWrappedByHybridAssigner() {
+        DataSourceDialect dialect = mock(DataSourceDialect.class);
+        SnapshotSplitAssigner splitAssigner =
+                createSnapshotSplitAssignerForClose(
+                        dialect,
+                        /* releasesEnumeratorResourcesOnCompletion= */ false,
+                        /* assignerCompleted= */ true);
+
+        splitAssigner.open();
+        splitAssigner.close();
+
+        verify(dialect, times(1)).openEnumerator(any());
+        verify(dialect, never()).closeEnumerator(any());
+    }
+
+    /**
+     * Even a standalone assigner must not release dialect-owned enumerator resources on a close()
+     * reached before its snapshot phase is checkpoint-confirmed complete: that close() could be a
+     * Zeta failover/restart mid-snapshot rather than the job's genuine final stop, and the
+     * restarted job still needs those resources (e.g. a persistent replication slot) to resume.
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void closeSkipsEnumeratorResourcesWhenSnapshotNotYetDurablyCompleted() {
+        DataSourceDialect dialect = mock(DataSourceDialect.class);
+        SnapshotSplitAssigner splitAssigner =
+                createSnapshotSplitAssignerForClose(
+                        dialect,
+                        /* releasesEnumeratorResourcesOnCompletion= */ true,
+                        /* assignerCompleted= */ false);
+
+        splitAssigner.open();
+        splitAssigner.close();
+
+        verify(dialect, times(1)).openEnumerator(any());
+        verify(dialect, never()).closeEnumerator(any());
+    }
+
+    /**
+     * Regression for the enumerator-resource double-close: when {@code open()} fails after {@code
+     * dialect.openEnumerator(...)} has run, its catch block cleans up via {@code
+     * closeEnumerator(...)} exactly once. The enumerator framework still calls {@code close()}
+     * afterward (SeaTunnel's own contract, not simulated here directly) - that must not invoke
+     * {@code closeEnumerator(...)} a second time, which a slot-dropping dialect implementation
+     * would otherwise fail on with "slot does not exist".
+     */
+    @Test
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public void closeAfterFailedOpenDoesNotDoubleInvokeCloseEnumerator() {
+        DataSourceDialect dialect = mock(DataSourceDialect.class);
+        Mockito.when(dialect.createChunkSplitter(any()))
+                .thenThrow(new RuntimeException("simulated chunk splitter failure"));
+        SnapshotSplitAssigner splitAssigner =
+                createSnapshotSplitAssignerForClose(
+                        dialect,
+                        /* releasesEnumeratorResourcesOnCompletion= */ true,
+                        /* assignerCompleted= */ true);
+
+        Assertions.assertThrows(RuntimeException.class, splitAssigner::open);
+        verify(dialect, times(1)).openEnumerator(any());
+        verify(dialect, times(1)).closeEnumerator(any());
+
+        // The framework still calls close() after a failed open(); it must not re-invoke
+        // closeEnumerator() for a resource open() already gave up on.
+        splitAssigner.close();
+        verify(dialect, times(1)).closeEnumerator(any());
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static SnapshotSplitAssigner createSnapshotSplitAssignerForClose(
+            DataSourceDialect dialect,
+            boolean releasesEnumeratorResourcesOnCompletion,
+            boolean assignerCompleted) {
+        SnapshotPhaseState checkpointState =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        assignerCompleted,
+                        Collections.emptyList(),
+                        false,
+                        true);
+        SplitAssigner.Context context =
+                new SplitAssigner.Context<>(
+                        null,
+                        Collections.emptySet(),
+                        checkpointState.getAssignedSplits(),
+                        checkpointState.getSplitCompletedOffsets());
+        return new SnapshotSplitAssigner<>(
+                context, 1, checkpointState, dialect, releasesEnumeratorResourcesOnCompletion);
+    }
+
     private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(
             Map<String, SnapshotSplit> assignedSplits,
             Map<String, SnapshotSplitWatermark> completedOffsets) {
@@ -133,7 +267,7 @@ public class SnapshotSplitAssignerTest {
                         Collections.singleton(TableId.parse("db1.table1")),
                         checkpointState.getAssignedSplits(),
                         checkpointState.getSplitCompletedOffsets());
-        return new SnapshotSplitAssigner<>(context, 10, checkpointState, null);
+        return new SnapshotSplitAssigner<>(context, 10, checkpointState, null, true);
     }
 
     private SnapshotSplit createFinishedSnapshotSplit(String splitId) {
