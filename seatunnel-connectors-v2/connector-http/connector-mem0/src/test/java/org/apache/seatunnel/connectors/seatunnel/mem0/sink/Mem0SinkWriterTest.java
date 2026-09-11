@@ -116,7 +116,7 @@ class Mem0SinkWriterTest {
         HttpParameter parameter = parameter();
         parameter.setRetry(2);
         parameter.setRetryBackoffMultiplierMillis(1);
-        parameter.setRetryBackoffMaxMillis(1);
+        parameter.setRetryBackoffMaxMillis(2);
         Mem0SinkWriter writer =
                 new Mem0SinkWriter(
                         rowType, parameter, "messages", "user_id", null, null, null, null);
