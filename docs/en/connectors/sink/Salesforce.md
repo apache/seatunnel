@@ -24,6 +24,10 @@ It does not create objects, fields, external IDs, or connected apps.
 - [ ] cdc
 - [ ] support multiple table write
 
+Streaming support is limited to `INSERT` and `UPDATE_AFTER` rows. This is not a CDC sink:
+`UPDATE_BEFORE` and `DELETE` fail the job. See [Delivery Semantics](#delivery-semantics)
+before connecting a changelog source.
+
 ## Options
 
 | name | type | required | default value |
@@ -98,6 +102,9 @@ immediately. Retry-After is honored up to 60 seconds;
 larger or invalid values fail the task rather than retrying earlier than the service permits.
 `retry_interval_ms` is 0-60000. `request_timeout_ms` is a positive connection/pool/socket timeout,
 not a whole-job deadline. Choose parallelism and retry settings within your org's API quota.
+Flushing is synchronous, so size the checkpoint timeout to allow the complete flush, including
+request timeouts, retry delays, and any authentication refresh. A single request timeout is not
+the total flush budget, especially during sustained throttling or service failures.
 
 The writer flushes on count/byte bounds, checkpoint preparation, and normal close. It also
 registers the engine flush callback. Zeta can enable periodic flushing through
@@ -107,6 +114,11 @@ bound low-volume delivery latency.
 
 ## Delivery Semantics
 
+Only `INSERT` and `UPDATE_AFTER` are accepted; `DELETE` and `UPDATE_BEFORE` fail rather than
+being ignored. The sink does not reconcile deletes or external-ID changes. Silently discarding
+before-images could hide an unsupported changelog pipeline and leave old Salesforce records
+behind when a key changes.
+
 Delivery is at-least-once with a replay-capable source and checkpointing. An uncertain HTTP
 outcome or task recovery can repeat an upsert and re-run Salesforce triggers/flows. This is not
 an exactly-once or distributed-transaction sink; earlier successful requests cannot be rolled back.
@@ -114,7 +126,6 @@ an exactly-once or distributed-transaction sink; earlier successful requests can
 Repeated external IDs within one writer are flushed in input order in separate requests.
 For ordered updates to the same key, use parallelism 1 or ensure all updates for that key are
 routed in order to one writer. There is no global ordering across writers or recovery attempts.
-Only INSERT and UPDATE_AFTER are accepted; DELETE and UPDATE_BEFORE fail rather than being ignored.
 Delete, insert-only, Bulk API ingestion, and multi-object routing are outside this connector slice.
 
 ## Task Example

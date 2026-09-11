@@ -23,6 +23,9 @@ import ChangeLog from '../changelog/connector-salesforce.md';
 - [ ] 完整 CDC
 - [ ] 多表写入
 
+流处理仅支持 `INSERT` 和 `UPDATE_AFTER`。本连接器不是 CDC Sink：
+`UPDATE_BEFORE` 和 `DELETE` 会导致作业失败。连接变更日志 Source 前请阅读下方的投递语义。
+
 ## 配置
 
 | 名称 | 类型 | 必填 | 默认值 |
@@ -47,7 +50,7 @@ import ChangeLog from '../changelog/connector-salesforce.md';
 
 使用与 Source 相同的 OAuth 用户名密码流程，组织必须允许该认证方式。
 集成用户需要 API、对象创建/更新以及所有目标字段的写权限。security_token 追加在密码后。
-生产环境的 instance_url 应为 HTTPS 登录或组织地址，例如 https://login.salesforce.com，
+生产环境的 instance_url 应为 HTTPS 登录或组织地址，例如 [Salesforce 登录地址](https://login.salesforce.com)，
 不包含末尾斜杠、路径、内嵌凭证、查询参数或片段。HTTP 仅适用于显式配置的可信测试端点，
 会明文传输凭证，不应在生产环境使用。数据请求使用认证响应中的实例地址。
 Sink 不跟随重定向，也不接受认证地址从 HTTPS 降级到 HTTP。
@@ -85,6 +88,8 @@ max_retries 为额外尝试次数（0-10），仅重试 I/O 错误或 HTTP 429�
 遵守不超过 60 秒的 Retry-After；无效或更大的值直接失败，不提前重试。
 retry_interval_ms 范围 0-60000。request_timeout_ms 必须为正，是连接、连接池和 socket 超时，
 不是整个任务的截止时间。并行度和重试次数需要符合组织 API 配额。
+刷新是同步执行的，检查点超时需要覆盖完整刷新过程，包括请求超时、重试等待和可能发生的重新认证。
+单次请求超时并不等于总刷新预算，尤其是在持续限流或服务故障期间。
 
 达到批次数量/字节限制、检查点准备或正常关闭时刷新。
 同时注册引擎刷新回调。Zeta 可通过 env.sink.flush.interval 启用周期刷新（毫秒，默认 0 表示禁用）。
@@ -93,12 +98,15 @@ retry_interval_ms 范围 0-60000。request_timeout_ms 必须为正，是连接�
 
 ## 投递语义
 
+仅接受 `INSERT` 和 `UPDATE_AFTER`；`DELETE` 和 `UPDATE_BEFORE` 会失败而不是被忽略。
+本连接器不处理删除或外部 ID 变更的旧记录清理。静默丢弃更新前镜像可能掩盖不受支持的变更日志输入，
+并在键变更后将旧记录留在 Salesforce 中。
+
 配合可回放 Source 和检查点提供至少一次语义。不确定的 HTTP 结果和恢复可能再次 upsert，
 重复执行触发器或 Flow，因此不保证 exactly-once，也不能回滚之前成功的请求。
 
 单个 writer 内重复外部 ID 按输入顺序分批发送。同键有序更新应使用并行度 1，
 或确保同键更新有序路由到同一 writer；不同 writer 和恢复尝试之间不保证全局顺序。
-仅接受 INSERT 和 UPDATE_AFTER，DELETE 和 UPDATE_BEFORE 会失败而不是忽略。
 删除、仅插入模式、Bulk API 和多对象路由不属于本次范围。
 
 ## 示例

@@ -83,6 +83,7 @@ public class SalesforceSinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         SalesforceSinkConfig config = new SalesforceSinkConfig(context.getOptions());
+        // Fail during planning; the serializer also validates direct writer construction.
         SalesforceRowSerializer.validateSchema(
                 context.getCatalogTable().getSeaTunnelRowType(), config);
         return () -> new SalesforceSink(config, context.getCatalogTable());
