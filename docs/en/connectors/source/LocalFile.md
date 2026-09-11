@@ -66,6 +66,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | schema                     | config  | no       | -                                    |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
+| poi_excel_max_file_size    | long    | no       | 52428800                             |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
 | csv_use_header_line        | boolean | no       | false                                |
@@ -223,6 +224,19 @@ When this option is enabled for bounded Markdown file sources, the source enumer
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
+
 Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
@@ -338,7 +352,15 @@ Only need to be configured when file_format is excel.
 supported as the following file types:
 `POI` `EasyExcel`
 
-The default excel reading engine is POI, but POI can easily cause memory overflow when reading Excel with more than 65,000 rows, so you can switch to EasyExcel as the reading engine.
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
 
 
 ### xml_row_tag [string]
@@ -352,6 +374,12 @@ Specifies the tag name of the data rows within the XML file.
 Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### csv_use_header_line [boolean]
 
@@ -710,9 +738,14 @@ LocalFile {
       path = "/apps/hive/demo/teacher"
       file_format_type = "json"
     }
+  ]
 }
 
 ```
+
+Each entry under `tables_configs` is treated as an independent logical table: it has its own `path`,
+`file_format_type`, and inline `schema`. This is the recommended layout when each input folder uses a different
+format or a different schema.
 
 ### Read PDF File
 
@@ -738,6 +771,47 @@ sink {
 ```
 
 For best results, use PDF files that contain an outline (bookmarks/table of contents). This enables the parser to extract headings with hierarchy information.
+
+### Read JSON with structured schema
+
+When reading JSON, csv, text, excel or xml, declare an explicit schema so each row maps to a typed SeaTunnel row. The
+schema below is the same one used by the connector test suite and exercises every primitive SeaTunnel data type.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/json"
+    file_format_type = "json"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
 
 ### Transfer Binary File
 

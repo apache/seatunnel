@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.amazondynamodb;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -116,11 +114,6 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 AMAZONDYNAMODB_DOCKER_IMAGE)));
-        dynamoDB.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s",
-                                AMAZONDYNAMODB_CONTAINER_PORT, AMAZONDYNAMODB_CONTAINER_PORT)));
         Startables.deepStart(Stream.of(dynamoDB)).join();
         log.info("dynamodb container started");
         given().ignoreExceptions()
@@ -148,7 +141,8 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                                         "http://"
                                                 + dynamoDB.getHost()
                                                 + ":"
-                                                + AMAZONDYNAMODB_CONTAINER_PORT))
+                                                + dynamoDB.getMappedPort(
+                                                        AMAZONDYNAMODB_CONTAINER_PORT)))
                         // The region is meaningless for local DynamoDb but required for client
                         // builder validation
                         .region(Region.US_EAST_1)

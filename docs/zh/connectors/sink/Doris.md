@@ -65,7 +65,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | 数据保存模式，请参考下面的`data_save_mode`。                                                                                                                        |
 | save_mode_create_template      | string  | no       | see below                    | 见下文。                                                                                                                                                  |
 | custom_sql                     | String  | no       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，需要填写CUSTOM_SQL参数。 该参数通常填写一条可以执行的SQL。 SQL将在同步任务之前执行。                                                               |
-| doris.config                   | map     | yes      | -                            | 该选项用于支持自动生成sql时的insert、delete、update等操作，以及支持的格式。                                                                                                      |
+| doris.config                   | map     | yes      | -                            | 传递给 Doris Stream Load 的数据描述参数。常用参数包括 `format`、`read_json_by_line`、`column_separator`、`row_delimiter` 和 `partitions`。                                                   |
 
 ## Redirect 行为说明
 
@@ -93,7 +93,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 
 在开启同步任务之前，针对目标端已有的数据选择不同的处理方案。
 选项介绍：  
-`DROP_DATA`： 保留数据库结构并删除数据。  
+`DROP_DATA`： 保留数据库结构并删除数据。默认清空整个目标表。当 `doris.config.partitions` 配置了以逗号分隔的 Doris 正式分区名称时，只清空这些分区，后续 Stream Load 也只写入相同分区。多表任务中的每个目标表都必须包含这些分区；分区不存在时 Doris 会拒绝清理。不支持分区值或临时分区。
 `APPEND_DATA`：保留数据库结构，保留数据。  
 `CUSTOM_PROCESSING`：用户自定义处理。  
 `ERROR_WHEN_DATA_EXISTS`：有数据时报错。

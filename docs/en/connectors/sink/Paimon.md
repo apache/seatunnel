@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 ## Description
 
-Sink connector for Apache Paimon. It can support cdc mode 、auto create table.
+Sink connector for Apache Paimon. It supports CDC mode and auto-create table.
 
 ### Comparison between SeaTunnel and Paimon version
 
@@ -116,10 +116,13 @@ sink {
 When you set `checkpoint.interval` to a value greater than 0 in batch mode, the paimon connector will commit the data to the paimon table when the checkpoint triggers after a certain number of records have been written. At this moment, the written data in paimon that is visible. 
 However, if you do not set `checkpoint.interval` in batch mode, the paimon sink connector will commit the data after all records are written. The written data in paimon that is not visible until the batch task completes.
 
-## Changelog
-You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props` or `table_options`.
+## Changelog Producer
 
-The changelog producer mode of the paimon table has [four mode](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/) which is `none`、`input`、`lookup` and `full-compaction`.
+Configure `changelog-producer` to enable the changelog producer mode of the Paimon table. If you use
+the auto-create table function of the Paimon sink, set this property in `paimon.table.write-props`
+or `table_options`. For existing tables created out-of-band, set it on the table itself.
+
+The changelog producer mode of the Paimon table has [four modes](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/): `none`, `input`, `lookup`, and `full-compaction`.
 
 All `changelog-producer` modes are currently supported. The default is `none`.
 
@@ -127,35 +130,43 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 * [`input`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#input)
 * [`lookup`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#lookup)
 * [`full-compaction`](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/#full-compaction)
-> note： 
-> When you use a streaming mode to read paimon table，different mode will produce [different results](../source/Paimon.md#changelog)。
+
+> **Note**
+>
+> When you use a streaming mode to read a Paimon table, different `changelog-producer` modes will
+> produce [different results](../source/Paimon.md#changelog). Pick `input` for the most faithful
+> pass-through of upstream CDC events, or `lookup` / `full-compaction` if the upstream does not emit
+> full changelog records.
 
 ## Filesystems
-The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.
-If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
-Besides, the warehouse should start with `s3a://`.
+The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are HDFS and S3.
+If you use the S3 filesystem, configure `fs.s3a.access-key`, `fs.s3a.secret-key`, `fs.s3a.endpoint`, `fs.s3a.path.style.access`, and `fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
+The warehouse path should start with `s3a://`.
 
 ## Schema Evolution
-Cdc Ingestion supports a limited number of schema changes. Currently supported schema changes includes:
+
+CDC ingestion supports a limited number of schema changes. The currently supported schema changes are:
 
 * Adding columns.
 
-* Modify column. More specifically, If you modify the column type, the following changes are supported:
+* Modifying a column type. More specifically, when you modify the column type, the following changes are supported:
 
-  * altering from a string type (char, varchar, text) to another string type with longer length,
-  * altering from a binary type (binary, varbinary, blob) to another binary type with longer length,
-  * altering from an integer type (tinyint, smallint, int, bigint) to another integer type with wider range,
-  * altering from a floating-point type (float, double) to another floating-point type with wider range,
-    
+  * altering from a string type (`char`, `varchar`, `text`) to another string type with longer length,
+  * altering from a binary type (`binary`, `varbinary`, `blob`) to another binary type with longer length,
+  * altering from an integer type (`tinyint`, `smallint`, `int`, `bigint`) to another integer type with wider range,
+  * altering from a floating-point type (`float`, `double`) to another floating-point type with wider range.
 
-  are supported. 
-  > Note:
-  > 
-  > If {oldType} and {newType} belongs to the same type family, but old type has higher precision than new type. Ignore this convert.
+  > **Note**
+  >
+  > If `{oldType}` and `{newType}` belong to the same type family, but the old type has higher
+  > precision than the new type, this conversion is ignored.
 
-* Drop columns.
+* Dropping columns.
 
-* Change columns.
+* Renaming columns (optionally combined with the same type-widening / column-position /
+  comment / nullability changes listed under "Modifying a column type" above — the change
+  handler applies those updates and renames the column in the same step when the name
+  differs).
 
 
 ## Examples
@@ -658,6 +669,64 @@ sink {
     table = "${table_name}"
     user = "paimon"
     password = "******"
+  }
+}
+```
+
+### Truncate target table on startup with Hive catalog
+
+This example recreates the Hive-catalogued Paimon table from the upstream schema on each job start
+(`schema_save_mode = "RECREATE_SCHEMA"`) and clears existing data so the sink behaves as a fresh
+overwrite. Useful for full-refresh batch jobs.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "A", 100] }
+      { kind = INSERT, fields = [2, "B", 100] }
+      { kind = INSERT, fields = [3, "C", 100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A", 100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B", 100] }
+    ]
+  }
+}
+
+sink {
+  Paimon {
+    warehouse = "hdfs:///tmp/paimon"
+    catalog_type = "hive"
+    catalog_uri = "thrift://hadoop04:9083"
+    database = "seatunnel_namespace12"
+    table = "st_test"
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    paimon.hadoop.conf = {
+      fs.defaultFS = "hdfs://nameservice1"
+      dfs.nameservices = "nameservice1"
+      dfs.ha.namenodes.nameservice1 = "nn1,nn2"
+      dfs.namenode.rpc-address.nameservice1.nn1 = "hadoop03:8020"
+      dfs.namenode.rpc-address.nameservice1.nn2 = "hadoop04:8020"
+      dfs.client.failover.proxy.provider.nameservice1 = "org.apache.hadoop.hdfs.server.namenode.ha.ConfiguredFailoverProxyProvider"
+      dfs.client.use.datanode.hostname = "true"
+    }
   }
 }
 ```

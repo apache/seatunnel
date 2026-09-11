@@ -57,6 +57,9 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
+
+    public static final String DIAGNOSTICS = "diagnostics";
+
     public static final String LIMIT = "limit";
 
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";
@@ -93,6 +96,7 @@ public class RestConstant {
     public static final String REST_URL_RUNNING_THREADS = "/running-threads";
     public static final String REST_URL_SYSTEM_MONITORING_INFORMATION =
             "/system-monitoring-information";
+    public static final String REST_URL_WORKER_RESOURCES = "/resource/workers";
     public static final String REST_URL_SUBMIT_JOB = "/submit-job";
 
     public static final String REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE = "/submit-job/upload";
@@ -108,6 +112,8 @@ public class RestConstant {
     public static final String REST_URL_LOG = "/log";
     // Code internal Use , Get Node Log Name
     public static final String REST_URL_GET_ALL_LOG_NAME = "/get-all-log-name";
+    // Read and change runtime log levels
+    public static final String REST_URL_LOGGERS = "/loggers";
     public static final String REST_URL_METRICS = "/metrics";
     public static final String REST_URL_OPEN_METRICS = "/openmetrics";
     public static final String REST_URL_TRACE_TASK_MAPPING = "/trace/task-mapping";

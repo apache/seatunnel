@@ -152,7 +152,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                         .withCommand("sh", "-c", createJobManagerStartupCommand())
                         .withNetwork(NETWORK)
                         .withNetworkAliases("jobmanager")
-                        .withExposedPorts()
+                        .withExposedPorts(8081)
                         .withEnv("FLINK_PROPERTIES", properties)
                         .withLogConsumer(
                                 new org.testcontainers.containers.output.Slf4jLogConsumer(
@@ -167,11 +167,10 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 org.testcontainers.containers.BindMode.READ_WRITE);
+        applyJavaToolOptions(jobManager);
 
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-
-        jobManager.setPortBindings(java.util.Arrays.asList(String.format("%s:%s", 8081, 8081)));
 
         taskManager =
                 new org.testcontainers.containers.GenericContainer<>(dockerImage)
@@ -194,6 +193,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 org.testcontainers.containers.BindMode.READ_WRITE);
+        applyJavaToolOptions(taskManager);
 
         org.testcontainers.lifecycle.Startables.deepStart(java.util.stream.Stream.of(jobManager))
                 .join();

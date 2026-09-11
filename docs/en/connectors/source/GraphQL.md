@@ -116,6 +116,97 @@ sink {
 }
 ```
 
+### Query GraphQL With Authentication Headers
+
+When the GraphQL endpoint requires authentication, pass the bearer token through
+`headers`. Any HTTP header supported by the underlying client can be set this way.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_auth"
+    url = "https://graphql.example.com/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    headers = {
+      Authorization = "Bearer ${secret}"
+      X-Tenant = "acme"
+    }
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_auth"
+  }
+}
+```
+
+### Streaming Polling Query
+
+For HTTP endpoints that publish new data over time but do not offer a subscription,
+run the same query repeatedly in streaming mode. SeaTunnel sends the request every
+`poll_interval_millis` and forwards the new rows downstream.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_streaming"
+    url = "http://graphql:8080/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    poll_interval_millis = 10000
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+          val_double
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+        val_double = "double"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_streaming"
+  }
+}
+```
+
 ### Subscribe to GraphQL Data
 
 ```hocon

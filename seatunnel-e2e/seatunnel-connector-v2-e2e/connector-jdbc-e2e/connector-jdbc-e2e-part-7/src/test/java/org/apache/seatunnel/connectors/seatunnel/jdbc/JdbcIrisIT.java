@@ -30,11 +30,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.iris.IrisCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.iris.IrisDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
-import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
-import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -85,20 +83,6 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     private static final Integer GEN_ROWS = 100;
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_iris_source_to_sink_with_full_type.conf");
-
-    @TestContainerExtension
-    protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                // GitHub Pages serves the published IRIS driver artifact more reliably than the
-                // raw GitHub endpoint that intermittently fails TLS handshakes in CI containers.
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -fsSL --retry 5 --retry-delay 2 -k -O "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
 
     private static final String CREATE_SQL =
             "create table %s\n"
@@ -433,17 +417,6 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        // reference: https://intersystems-community.github.io/iris-driver-distribution/
-        return "https://intersystems-community.github.io/iris-driver-distribution/JDBC/JDK18/intersystems-jdbc-3.8.4.jar";
-    }
-
-    @Override
-    protected Class<?> loadDriverClass() {
-        return super.loadDriverClassFromUrl();
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
         LocalDate baseDate = LocalDate.of(2024, 1, 1);
@@ -567,8 +540,6 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IRIS_IMAGE)));
-
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", IRIS_PORT, IRIS_PORT)));
 
         return container;
     }

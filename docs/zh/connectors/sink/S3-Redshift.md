@@ -2,23 +2,23 @@ import ChangeLog from '../changelog/connector-s3-redshift.md';
 
 # S3Redshift
 
->S3Redshift的作用是将数据写入S3，然后使用Redshift的COPY命令将数据从S3导入Redshift。
+> S3Redshift 的作用是将数据写入 S3，然后使用 Redshift 的 COPY 命令将数据从 S3 导入 Redshift。
 
 ## 描述
 
-将数据输出到AWS Redshift。
+将数据输出到 AWS Redshift。
 
->提示：
-
->我们基于[S3File](S3File.md)来实现这个连接器。因此，您可以使用与S3File相同的配置。
->为了支持更多的文件类型，我们进行了一些权衡，因此我们使用HDFS协议对S3进行内部访问，而这个连接器需要一些hadoop依赖。
->它只支持hadoop版本**2.6.5+**。
+> 提示：
+>
+> 我们基于 [S3File](S3File.md) 来实现这个连接器。因此，您可以使用与 S3File 相同的配置。
+> 为了支持更多的文件类型，我们进行了一些权衡，因此我们使用 HDFS 协议对 S3 进行内部访问，而这个连接器需要一些 hadoop 依赖。
+> 它只支持 hadoop 版本 **2.6.5+**。
 
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
-默认情况下，我们使用2PC commit来确保“精确一次”`
+默认情况下，我们使用 2PC commit 来确保“精确一次”。
 
 - [x] 文件格式类型
   - [x] text
@@ -26,33 +26,33 @@ import ChangeLog from '../changelog/connector-s3-redshift.md';
   - [x] parquet
   - [x] orc
   - [x] json
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 
-|               名称               |  类型   | 是否必填 |                       默认值                       |
-|----------------------------------|---------|----------|-----------------------------------------------------------|
-| jdbc_url                         | string  | 是      | -                                                         |
-| jdbc_user                        | string  | 是      | -                                                         |
-| jdbc_password                    | string  | 是      | -                                                         |
-| execute_sql                      | string  | 是      | -                                                         |
-| path                             | string  | 是      | -                                                         |
-| bucket                           | string  | 是      | -                                                         |
-| access_key                       | string  | 否       | -                                                         |
-| access_secret                    | string  | 否       | -                                                         |
-| hadoop_s3_properties             | map     | 否       | -                                                         |
-| file_name_expression             | string  | 否       | "${transactionId}"                                        |
-| file_format_type                 | string  | 否       | "text"                                                    |
-| filename_time_format             | string  | 否       | "yyyy.MM.dd"                                              |
-| field_delimiter                  | string  | 否       | '\001'                                                    |
-| row_delimiter                    | string  | 否       | "\n"                                                      |
-| partition_by                     | array   | 否       | -                                                         |
-| partition_dir_expression         | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                |
-| is_partition_field_write_in_file | boolean | 否       | false                                                     |
-| sink_columns                     | array   | 否       | 当此参数为空时，所有字段都是sink列 |
-| is_enable_transaction            | boolean | 否       | true                                                      |
-| batch_size                       | int     | 否       | 1000000                                                   |
-| common-options                   |         | 否       | -                                                         |
+|               名称               |  类型   | 是否必填 |                       默认值                       | 描述 |
+|----------------------------------|---------|----------|-----------------------------------------------------------|------|
+| jdbc_url                         | string  | 是      | -                                                         | 连接 Redshift 数据库的 JDBC URL，例如 `jdbc:redshift://your-cluster.region.redshift.amazonaws.com:5439/your_database`。 |
+| jdbc_user                        | string  | 是      | -                                                         | 连接 Redshift 数据库的用户名。 |
+| jdbc_password                    | string  | 是      | -                                                         | 连接 Redshift 数据库的密码。 |
+| execute_sql                      | string  | 是      | -                                                         | 数据写入 S3 之后要执行的 SQL，通常是一条 Redshift `COPY` 命令（详见下方 `### execute_sql` 中必须包含的占位符）。 |
+| path                             | string  | 是      | -                                                         | bucket 下的目标目录路径，连接器会通过 `${path}` 占位符把实际写入路径追加到 `execute_sql` 中。 |
+| bucket                           | string  | 是      | -                                                         | S3 文件系统的 bucket 地址，例如 `s3a://seatunnel-test`。使用 Hadoop 读写时建议使用 `s3a` 协议。 |
+| access_key                       | string  | 否       | -                                                         | S3 文件系统的 access key。如果未配置，需要正确配置 Hadoop 凭据链，请参考 [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
+| access_secret                    | string  | 否       | -                                                         | S3 文件系统的 access secret。如果未配置，需要正确配置 Hadoop 凭据链，请参考 [hadoop-aws](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
+| hadoop_s3_properties             | map     | 否       | -                                                         | 额外的 Hadoop S3A / Hadoop-AWS 选项，可以用来设置 `fs.s3a.aws.credentials.provider` 等。请参考 [Hadoop-AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
+| file_name_expression             | string  | 否       | "${transactionId}"                                        | 在 `path` 下追加的文件名表达式，可使用 `${now}` 或 `${uuid}` 注入时间或 UUID。`is_enable_transaction = true` 时会自动在文件名前添加 `${transactionId}_`。 |
+| file_format_type                 | string  | 否       | "text"                                                    | 写入 S3 的文件格式，支持 `text`、`csv`、`parquet`、`orc`、`json`。最终文件名会带相应后缀（例如 `text` 是 `txt`）。 |
+| filename_time_format             | string  | 否       | "yyyy.MM.dd"                                              | 解析 `file_name_expression` 中 `${now}` 的时间格式，详见 [Java SimpleDateFormat](https://docs.oracle.com/javase/tutorial/i18n/format/simpleDateFormat.html)。 |
+| field_delimiter                  | string  | 否       | '\001'                                                    | `text` 和 `csv` 文件的列分隔符。 |
+| row_delimiter                    | string  | 否       | "\n"                                                      | `text` 和 `csv` 文件的行分隔符。 |
+| partition_by                     | array   | 否       | -                                                         | 按指定的上游字段对数据进行分区，分区目录由 `partition_dir_expression` 推导。 |
+| partition_dir_expression         | string  | 否       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/"                | 根据 `partition_by` 字段生成分区目录的表达式。 |
+| is_partition_field_write_in_file | boolean | 否       | false                                                     | 当为 `true` 时，分区字段及其值会写入数据文件。Hive 风格的数据文件请设为 `false`。 |
+| sink_columns                     | array   | 否       | 当此参数为空时，所有字段都是 sink 列                          | 需要写入文件的列，字段顺序决定文件实际写入顺序。 |
+| is_enable_transaction            | boolean | 否       | true                                                      | 为 `true` 时，连接器保证数据写入目标目录时不丢失、不重复。目前只支持 `true`。 |
+| batch_size                       | int     | 否       | 1000000                                                   | 单个文件的最大行数。在 SeaTunnel Zeta 引擎中，每文件的行数由 `batch_size` 与 `checkpoint.interval` 共同决定。 |
+| common-options                   |         | 否       | -                                                         | Sink 插件通用参数，详情请参考 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ### jdbc_url
 

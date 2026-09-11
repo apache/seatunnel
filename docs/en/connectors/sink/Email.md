@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-email.md';
 
 > Email sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Send the received rows as an attachment file to one or more email addresses.
@@ -64,7 +70,7 @@ password. When set to `false`, the connector sends mail over plain SMTP without 
 
 ### email_smtp_port [int]
 
-SMTP server port. The default `465` is the SMTPS port and is used together with
+SMTP server port. The value must be between `1` and `65535`, inclusive. The default `465` is the SMTPS port and is used together with
 `email_smtp_auth = true`. For plain SMTP without authentication, set the port that matches the
 server (for example `25` or `3025`).
 
@@ -270,6 +276,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How does Email sink format outgoing attachments?
+
+The connector buffers rows per table into a delimited CSV attachment file (`email_attachment_name`, default `emailsink.csv`) and attaches it to an email dispatched upon writer close.
+
+### Does Email sink send an email if no rows were received?
+
+No. If a table receives 0 rows, no attachment is generated and no email is sent for that table.
+
+### Can multiple recipients be specified?
+
+Yes. Set `email_to_address` with comma-separated recipient addresses (e.g. `user1@example.com,user2@example.com`).
 
 ## Changelog
 

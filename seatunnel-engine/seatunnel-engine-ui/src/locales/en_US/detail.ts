@@ -23,7 +23,7 @@ export default {
     overview: 'Overview',
     exception: 'Exception',
     configuration: 'Configuration',
-    log: 'Log',
+    log: 'Log'
   },
   table: {
     name: 'Name',
@@ -34,7 +34,7 @@ export default {
     receivedQps: 'Received QPS',
     writeQps: 'Write QPS',
     receivedBytesPerSecond: 'Received Bytes PerSecond',
-    writeBytesPerSecond: 'Write Bytes PerSecond',
+    writeBytesPerSecond: 'Write Bytes PerSecond'
   },
   observability: {
     time: 'Time',
@@ -51,6 +51,18 @@ export default {
     writeMsPerRecord: 'Write (ms/record)',
     // Edge
     bpRatio: 'Downstream Wait Ratio',
-    queueFillRatio: 'Queue Fill Ratio',
+    queueFillRatio: 'Queue Fill Ratio'
   },
+  liveMetrics: {
+    pinnedTitle: 'Pinned live metrics',
+    pinnedHint: 'Session · max {limit} · shared Overview poll',
+    emptyPinned: 'Pin a metric from the vertex/edge drawer to keep watching here.',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    pinLimit: 'Pin limit reached ({limit}). Unpin one first.',
+    chartEmpty: 'No series in the current window',
+    unitRatio: 'Ratio',
+    unitDuration: 'Duration (ms/record)',
+    unitCount: 'Records'
+  }
 }

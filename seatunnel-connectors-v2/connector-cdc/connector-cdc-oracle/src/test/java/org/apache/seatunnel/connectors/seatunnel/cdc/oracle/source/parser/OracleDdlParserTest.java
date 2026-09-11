@@ -21,8 +21,8 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oracle.OracleTypeConverter;
 
@@ -57,7 +57,7 @@ public class OracleDdlParserTest {
                         + "\" add ("
                         + "\"col21\" varchar2(20), col22 number(19));";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> addEvent1 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> addEvent1 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(2, addEvent1.size());
         testColumn(addEvent1.get(0), "col21", "varchar2(20)", "STRING", 20 * 4L, null, true, null);
         testColumn(
@@ -72,7 +72,7 @@ public class OracleDdlParserTest {
 
         ddl = "alter table " + TABLE_NAME + " add (col23 varchar2(20) not null);";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> addEvent2 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> addEvent2 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, addEvent2.size());
         testColumn(
                 addEvent2.get(0),
@@ -105,7 +105,7 @@ public class OracleDdlParserTest {
                         + "col15 timestamp(9) default to_timestamp('20190101 00:00:00.000000','yyyymmdd hh24:mi:ss.ff6') not null,\n"
                         + "col16 date default sysdate not null);";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> addEvent3 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> addEvent3 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(16, addEvent3.size());
         // Special default values are handled for reference:
         // io.debezium.connector.oracle.OracleDefaultValueConverter.castTemporalFunctionCall
@@ -261,7 +261,7 @@ public class OracleDdlParserTest {
                         + TABLE_NAME
                         + "\" ADD \"ADD_COL2\" TIMESTAMP(6) DEFAULT current_timestamp(6) NOT NULL ";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> addEvent4 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> addEvent4 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, addEvent4.size());
         testColumn(
                 addEvent4.get(0),
@@ -278,14 +278,14 @@ public class OracleDdlParserTest {
     public void testParseDDLForDropColumn() {
         String ddl = "ALTER TABLE \"" + SCHEMA_NAME + "\".\"" + TABLE_NAME + "\" DROP (T_VARCHAR2)";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> dropEvent1 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> dropEvent1 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, dropEvent1.size());
         Assertions.assertEquals(
                 "T_VARCHAR2", ((AlterTableDropColumnEvent) dropEvent1.get(0)).getColumn());
 
         ddl = "alter table " + TABLE_NAME + " drop (col22, col23);";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> dropEvent2 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> dropEvent2 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(2, dropEvent2.size());
         Assertions.assertEquals(
                 "col22".toUpperCase(), ((AlterTableDropColumnEvent) dropEvent2.get(0)).getColumn());
@@ -294,7 +294,7 @@ public class OracleDdlParserTest {
 
         ddl = "alter table " + TABLE_NAME + " drop (\"col22\");";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> dropEvent3 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> dropEvent3 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, dropEvent3.size());
         Assertions.assertEquals(
                 "col22", ((AlterTableDropColumnEvent) dropEvent3.get(0)).getColumn());
@@ -304,7 +304,7 @@ public class OracleDdlParserTest {
     public void testParseDDLForRenameColumn() {
         String ddl = "alter table " + TABLE_NAME + " rename column STUDENT_NAME to STUDENT_NAME1";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> renameEvent1 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> renameEvent1 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, renameEvent1.size());
         Assertions.assertEquals(
                 "STUDENT_NAME", ((AlterTableChangeColumnEvent) renameEvent1.get(0)).getOldColumn());
@@ -321,7 +321,7 @@ public class OracleDdlParserTest {
                         + "\" rename column CLASS_ID to CLASS_ID1\n";
 
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> renameEvent2 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> renameEvent2 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(2, renameEvent2.size());
         Assertions.assertEquals(
                 "STUDENT_ID", ((AlterTableChangeColumnEvent) renameEvent2.get(0)).getOldColumn());
@@ -339,14 +339,14 @@ public class OracleDdlParserTest {
     public void testParseDDLForModifyColumn() {
         String ddl = "ALTER TABLE " + TABLE_NAME + " MODIFY COL1 varchar2(50) not null;";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> modifyEvent1 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> modifyEvent1 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, modifyEvent1.size());
         testColumn(
                 modifyEvent1.get(0), "COL1", "varchar2(50)", "STRING", 50 * 4L, null, false, null);
 
         ddl = "alter table " + TABLE_NAME + " modify sex char(2) default 'M' not null ;";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> modifyEvent2 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> modifyEvent2 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, modifyEvent2.size());
         testColumn(
                 modifyEvent2.get(0),
@@ -364,7 +364,7 @@ public class OracleDdlParserTest {
                         + TABLE_NAME
                         + "\" MODIFY (ID NUMBER(*,0) NULL);";
         parser.parse(ddl, new Tables());
-        List<AlterTableColumnEvent> modifyEvent3 = parser.getAndClearParsedEvents();
+        List<AlterTableEvent> modifyEvent3 = parser.getAndClearParsedEvents();
         Assertions.assertEquals(1, modifyEvent3.size());
         testColumn(
                 modifyEvent3.get(0),
@@ -378,7 +378,7 @@ public class OracleDdlParserTest {
     }
 
     private void testColumn(
-            AlterTableColumnEvent alterTableColumnEvent,
+            AlterTableEvent alterTableEvent,
             String columnName,
             String sourceType,
             String dataType,
@@ -387,17 +387,17 @@ public class OracleDdlParserTest {
             boolean isNullable,
             Object defaultValue) {
         Column column;
-        switch (alterTableColumnEvent.getEventType()) {
+        switch (alterTableEvent.getEventType()) {
             case SCHEMA_CHANGE_ADD_COLUMN:
-                column = ((AlterTableAddColumnEvent) alterTableColumnEvent).getColumn();
+                column = ((AlterTableAddColumnEvent) alterTableEvent).getColumn();
                 break;
             case SCHEMA_CHANGE_MODIFY_COLUMN:
-                column = ((AlterTableModifyColumnEvent) alterTableColumnEvent).getColumn();
+                column = ((AlterTableModifyColumnEvent) alterTableEvent).getColumn();
                 break;
             default:
                 throw new UnsupportedOperationException(
-                        "Unsupported method named getColumn() for the AlterTableColumnEvent: "
-                                + alterTableColumnEvent.getEventType().name());
+                        "Unsupported method named getColumn() for the AlterTableEvent: "
+                                + alterTableEvent.getEventType().name());
         }
         Assertions.assertEquals(columnName, column.getName());
         Assertions.assertEquals(sourceType.toUpperCase(), column.getSourceType());

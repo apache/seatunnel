@@ -29,6 +29,8 @@ For each non-empty row, Console prints the subtask index, row index, table id, r
 
 Console can receive rows from multiple upstream tables and can apply schema change events for display. Because it writes to logs, it does not provide exactly-once delivery or CDC writes to an external system.
 
+> The Console sink always enables schema-evolution handling (`ADD_COLUMN`, `DROP_COLUMN`, `RENAME_COLUMN`, `UPDATE_COLUMN`) so changes to the upstream schema are reflected in the printed row types.
+
 ## Options
 
 | Name                     | Type    | Required | Default | Description                                                                                                  |
