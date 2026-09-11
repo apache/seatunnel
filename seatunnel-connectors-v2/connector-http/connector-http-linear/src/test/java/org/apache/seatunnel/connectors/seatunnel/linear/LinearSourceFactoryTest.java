@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.linear;
 
-import org.apache.seatunnel.connectors.seatunnel.linear.source.LinearSourceFactory;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
