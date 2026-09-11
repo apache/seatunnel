@@ -45,6 +45,7 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.VIRTUAL_HOST,
                         RabbitmqSinkOptions.QUEUE_NAME)
                 .bundled(RabbitmqSinkOptions.USERNAME, RabbitmqSinkOptions.PASSWORD)
+                .optional(RabbitmqSinkOptions.FORMAT)
                 .conditional(
                         RabbitmqSinkOptions.FORMAT,
                         RabbitmqMessageFormat.PROTOBUF,
@@ -62,7 +63,6 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
-                        RabbitmqSinkOptions.FORMAT,
                         RabbitmqSinkOptions.PROTOBUF_SCHEMA,
                         RabbitmqSinkOptions.PROTOBUF_MESSAGE_NAME,
                         RabbitmqSinkOptions.RABBITMQ_CONFIG)

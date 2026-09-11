@@ -410,4 +410,16 @@ public class RabbitmqSourceFactoryTest {
 
         Assertions.assertTrue(hasSchema, "SCHEMA should be registered as an optional option");
     }
+
+    @Test
+    public void testFormatIsRegisteredAsOptionalOption() {
+        RabbitmqSourceFactory factory = new RabbitmqSourceFactory();
+
+        boolean hasFormat =
+                factory.optionRule().getOptionalOptions().stream()
+                        .anyMatch(
+                                option -> option.key().equals(RabbitmqSourceOptions.FORMAT.key()));
+
+        Assertions.assertTrue(hasFormat, "FORMAT should be registered as an optional option");
+    }
 }

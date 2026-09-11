@@ -62,6 +62,17 @@ public class RabbitmqSinkFactoryTest {
                         .contains(RabbitmqSinkOptions.PROTOBUF_SCHEMA.key()));
     }
 
+    @Test
+    public void testFormatIsRegisteredAsOptionalOption() {
+        RabbitmqSinkFactory factory = new RabbitmqSinkFactory();
+
+        boolean hasFormat =
+                factory.optionRule().getOptionalOptions().stream()
+                        .anyMatch(option -> option.key().equals(RabbitmqSinkOptions.FORMAT.key()));
+
+        Assertions.assertTrue(hasFormat, "FORMAT should be registered as an optional option");
+    }
+
     private Map<String, Object> createValidConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(RabbitmqSinkOptions.HOST.key(), "localhost");

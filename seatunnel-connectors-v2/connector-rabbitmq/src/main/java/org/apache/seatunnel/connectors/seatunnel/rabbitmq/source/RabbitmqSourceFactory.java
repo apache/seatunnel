@@ -60,6 +60,7 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         Conditions.extension(
                                 RabbitmqSourceOptions.TABLE_CONFIGS,
                                 new RabbitmqTableConfigsValidator()))
+                .optional(RabbitmqSourceOptions.FORMAT)
                 .conditional(
                         RabbitmqSourceOptions.FORMAT,
                         RabbitmqMessageFormat.PROTOBUF,
@@ -83,7 +84,6 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         RabbitmqSourceOptions.REQUESTED_HEARTBEAT,
                         RabbitmqSourceOptions.PREFETCH_COUNT,
                         RabbitmqSourceOptions.DELIVERY_TIMEOUT,
-                        RabbitmqSourceOptions.FORMAT,
                         RabbitmqSourceOptions.PROTOBUF_SCHEMA,
                         RabbitmqSourceOptions.PROTOBUF_MESSAGE_NAME,
                         RabbitmqSourceOptions.SCHEMA,
