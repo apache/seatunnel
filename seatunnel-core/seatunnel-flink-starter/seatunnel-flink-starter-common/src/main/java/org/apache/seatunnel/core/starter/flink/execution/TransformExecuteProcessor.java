@@ -179,6 +179,13 @@ public class TransformExecuteProcessor
                 .filter(Objects::nonNull);
     }
 
+    /**
+     * Bridges Flink's rich-function lifecycle to a {@link SeaTunnelTransform} instance.
+     *
+     * <p>Opening and record processing run on the operator task thread, so {@code opened} does not
+     * require synchronization. The atomic close guard also makes cleanup safe when Flink invokes
+     * more than one cleanup path.
+     */
     private abstract static class LifecycleAwareTransformFunction extends AbstractRichFunction {
 
         protected final SeaTunnelTransform<SeaTunnelRow> transform;
@@ -199,6 +206,7 @@ public class TransformExecuteProcessor
 
         @Override
         public void close() {
+            // Close at most once and never let a cleanup failure mask the task's original outcome.
             if (!closed.compareAndSet(false, true)) {
                 return;
             }
@@ -210,6 +218,7 @@ public class TransformExecuteProcessor
         }
     }
 
+    /** Lifecycle-aware adapter for map transforms. */
     static class TransformMapFunction extends LifecycleAwareTransformFunction
             implements MapFunction<SeaTunnelRow, SeaTunnelRow> {
 
@@ -223,6 +232,7 @@ public class TransformExecuteProcessor
         }
     }
 
+    /** Lifecycle-aware adapter for flat-map transforms. */
     static class ArrayFlatMap extends LifecycleAwareTransformFunction
             implements FlatMapFunction<SeaTunnelRow, SeaTunnelRow> {
 

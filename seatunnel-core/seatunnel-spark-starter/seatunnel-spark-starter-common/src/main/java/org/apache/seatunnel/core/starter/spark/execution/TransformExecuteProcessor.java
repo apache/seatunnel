@@ -187,6 +187,13 @@ public class TransformExecuteProcessor
                 .filter(Objects::nonNull);
     }
 
+    /**
+     * Applies a transform and connects its lifecycle to the owning Spark task.
+     *
+     * <p>Spark invokes {@link #call(Row)} on the task thread, so the open and listener-registration
+     * flags do not require synchronization. The atomic close guard tolerates repeated or concurrent
+     * task-completion callbacks.
+     */
     static class TransformMapPartitionsFunction implements FlatMapFunction<Row, Row> {
         private final SeaTunnelTransform<SeaTunnelRow> transform;
         private final MultiTableManager inputManager;
@@ -206,7 +213,9 @@ public class TransformExecuteProcessor
 
         @Override
         public Iterator<Row> call(Row row) throws Exception {
-            initialize(TaskContext.get());
+            if (!opened) {
+                initialize(TaskContext.get());
+            }
             List<Row> rows = new ArrayList<>();
 
             SeaTunnelRow seaTunnelRow = inputManager.reconvert((GenericRow) row);
@@ -228,6 +237,12 @@ public class TransformExecuteProcessor
             return rows.iterator();
         }
 
+        /**
+         * Opens the transform once for this task.
+         *
+         * <p>The completion listener must be registered before {@link SeaTunnelTransform#open()} so
+         * resources created by a partially failed open attempt are still released.
+         */
         void initialize(TaskContext taskContext) {
             if (opened) {
                 return;
@@ -242,6 +257,7 @@ public class TransformExecuteProcessor
             opened = true;
         }
 
+        /** Closes the transform at most once without changing the task's existing outcome. */
         private void closeTransform() {
             if (!closed.compareAndSet(false, true)) {
                 return;
