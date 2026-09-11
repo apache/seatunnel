@@ -55,6 +55,7 @@ final class S3SourceDryRunValidator {
 
     private S3SourceDryRunValidator() {}
 
+    /** Rejects schemas that require opening files or altering the configured field layout. */
     static void validateSchemaOptions(ReadonlyConfig options) {
         if (options.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()
                 || !options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
@@ -80,7 +81,9 @@ final class S3SourceDryRunValidator {
         }
     }
 
+    /** Checks metadata with a private client, closing credentials even when client setup fails. */
     static void validate(ReadonlyConfig options) throws IOException {
+        // The connection hook can be called directly, without the preceding schema hook.
         validateSchemaOptions(options);
         URI bucket = bucketUri(options);
         Path path = sourcePath(options, bucket);
@@ -99,6 +102,7 @@ final class S3SourceDryRunValidator {
         }
     }
 
+    /** Accepts only a bare S3A bucket URI, without echoing potentially sensitive input. */
     static URI bucketUri(ReadonlyConfig options) {
         URI bucket;
         try {
@@ -120,6 +124,7 @@ final class S3SourceDryRunValidator {
         return bucket;
     }
 
+    /** Keeps metadata requests inside the configured bucket, using the source's absolute path. */
     static Path sourcePath(ReadonlyConfig options, URI bucket) {
         Path path;
         try {
@@ -139,6 +144,11 @@ final class S3SourceDryRunValidator {
         return path;
     }
 
+    /**
+     * Preserves S3A connection settings but rejects filesystem side effects, custom client
+     * lifecycle behavior, and encryption/credential-store paths not supported by this metadata-only
+     * client. Disables retries so a preflight check does not inherit the production retry budget.
+     */
     static Configuration validationConfiguration(ReadonlyConfig options, URI bucket) {
         HadoopConf hadoopConf = S3HadoopConf.buildWithReadOnlyConfig(options);
         Configuration configuration = hadoopConf.toConfiguration();
@@ -178,6 +188,7 @@ final class S3SourceDryRunValidator {
         return configuration;
     }
 
+    /** Caps each network wait at five seconds for preflight, retaining stricter user limits. */
     private static void clampTimeout(Configuration configuration, URI bucket, String key) {
         int configured = configuration.getInt(key, NETWORK_TIMEOUT_MILLIS);
         if (configured < 0) {
@@ -192,6 +203,11 @@ final class S3SourceDryRunValidator {
                         : Math.min(configured, NETWORK_TIMEOUT_MILLIS));
     }
 
+    /**
+     * Tries HEAD first so exact objects need no listing permission. Only a missing object falls
+     * back to one bounded prefix listing; permission and other failures must not be treated as
+     * absence.
+     */
     static void validatePath(
             AmazonS3 client,
             String bucket,
@@ -238,6 +254,7 @@ final class S3SourceDryRunValidator {
         }
     }
 
+    /** Owns the client and credential chain without creating a shared S3A filesystem. */
     private static final class DryRunClientFactory extends DefaultS3ClientFactory
             implements AutoCloseable {
         private AmazonS3 client;

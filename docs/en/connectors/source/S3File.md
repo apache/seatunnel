@@ -73,7 +73,9 @@ S3Guard, multipart purge, or custom S3 client factories. It does not prove objec
 content readability, file-format correctness, schema compatibility with the
 stored data, worker-side credentials, or target/update/post-sync permissions.
 
-For a supported job configuration, run:
+Save your job configuration meeting the requirements above as
+`config/s3-to-console.conf` (this is a user-created file, not a bundled template),
+then run from the SeaTunnel installation directory:
 
 ```bash
 bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local

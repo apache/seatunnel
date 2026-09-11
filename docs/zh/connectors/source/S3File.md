@@ -66,7 +66,8 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 通过检查不代表文件内容可读、格式或数据结构正确，也不验证工作节点凭证、目标端、更新
 或同步后操作的权限。
 
-对满足上述条件的作业配置执行：
+将满足上述条件的作业配置保存为 `config/s3-to-console.conf`（这是用户自行创建的文件，
+并非内置模板），然后在 SeaTunnel 安装目录中执行：
 
 ```bash
 bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local
