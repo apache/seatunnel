@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Test;
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.relational.TableId;
 
 import java.util.Arrays;
 import java.util.Collections;
