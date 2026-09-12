@@ -351,6 +351,13 @@ socket:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-socket/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(socket)/**'
+syslog:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-syslog/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-syslog-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(syslog)/**'
 starrocks:
   - all:
       - changed-files:
