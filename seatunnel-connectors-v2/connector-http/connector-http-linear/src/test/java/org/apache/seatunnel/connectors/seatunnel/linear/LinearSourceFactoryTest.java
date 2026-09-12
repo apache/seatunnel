@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.linear;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.linear.config.LinearSourceParameter;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
