@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 
 import java.util.Arrays;
+import java.util.List;
 
 public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements CatalogOptions {
 
