@@ -41,22 +41,24 @@ public class GoogleAnalytics4SourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        GoogleAnalytics4Options.PROPERTY_ID,
-                        GoogleAnalytics4Options.START_DATE,
-                        GoogleAnalytics4Options.END_DATE,
-                        GoogleAnalytics4Options.METRICS,
-                        GoogleAnalytics4Options.METRIC_TYPES,
+                        GoogleAnalytics4SourceOptions.PROPERTY_ID,
+                        GoogleAnalytics4SourceOptions.START_DATE,
+                        GoogleAnalytics4SourceOptions.END_DATE,
+                        GoogleAnalytics4SourceOptions.METRICS,
+                        GoogleAnalytics4SourceOptions.METRIC_TYPES,
                         ConnectorCommonOptions.SCHEMA)
-                .exclusive(GoogleAnalytics4Options.KEY_FILE, GoogleAnalytics4Options.EMULATOR_URL)
+                .exclusive(
+                        GoogleAnalytics4SourceOptions.KEY_FILE,
+                        GoogleAnalytics4SourceOptions.EMULATOR_URL)
                 .optional(
-                        GoogleAnalytics4Options.DIMENSIONS,
-                        GoogleAnalytics4Options.PAGE_SIZE,
-                        GoogleAnalytics4Options.MAX_ROWS,
-                        GoogleAnalytics4Options.MAX_BYTES,
-                        GoogleAnalytics4Options.TIMEOUT,
-                        GoogleAnalytics4Options.REPORT_TIMEOUT,
-                        GoogleAnalytics4Options.RETRIES,
-                        GoogleAnalytics4Options.BACKOFF)
+                        GoogleAnalytics4SourceOptions.DIMENSIONS,
+                        GoogleAnalytics4SourceOptions.PAGE_SIZE,
+                        GoogleAnalytics4SourceOptions.MAX_ROWS,
+                        GoogleAnalytics4SourceOptions.MAX_BYTES,
+                        GoogleAnalytics4SourceOptions.TIMEOUT,
+                        GoogleAnalytics4SourceOptions.REPORT_TIMEOUT,
+                        GoogleAnalytics4SourceOptions.RETRIES,
+                        GoogleAnalytics4SourceOptions.BACKOFF)
                 .build();
     }
 

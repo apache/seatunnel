@@ -23,8 +23,8 @@ import org.apache.seatunnel.api.configuration.Options;
 import java.util.Collections;
 import java.util.List;
 
-public final class GoogleAnalytics4Options {
-    private GoogleAnalytics4Options() {}
+public final class GoogleAnalytics4SourceOptions {
+    private GoogleAnalytics4SourceOptions() {}
 
     public static final Option<String> PROPERTY_ID =
             Options.key("property_id")

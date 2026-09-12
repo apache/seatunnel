@@ -52,7 +52,7 @@ import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.Google
 /**
  * Runs after shade, without permitting parent-classloader fallback for connector/private classes.
  */
-class GoogleAnalytics4PackagingIT {
+class TestGoogleAnalytics4PackagingIT {
     @Test
     void shadedArtifactLoadsFactoryOAuthAndBoundedHttp() throws Exception {
         Path artifact = Paths.get(System.getProperty("ga4.jar"));

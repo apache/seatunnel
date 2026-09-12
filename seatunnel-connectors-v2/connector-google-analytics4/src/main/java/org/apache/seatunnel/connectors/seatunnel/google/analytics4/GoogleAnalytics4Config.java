@@ -36,21 +36,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.BACKOFF;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.DIMENSIONS;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.EMULATOR_URL;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.END_DATE;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.KEY_FILE;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.MAX_BYTES;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.MAX_ROWS;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.METRICS;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.METRIC_TYPES;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.PAGE_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.PROPERTY_ID;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.REPORT_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.START_DATE;
-import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4Options.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.BACKOFF;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.DIMENSIONS;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.EMULATOR_URL;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.END_DATE;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.KEY_FILE;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.MAX_BYTES;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.MAX_ROWS;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.METRICS;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.METRIC_TYPES;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.PAGE_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.PROPERTY_ID;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.REPORT_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.RETRIES;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.START_DATE;
+import static org.apache.seatunnel.connectors.seatunnel.google.analytics4.GoogleAnalytics4SourceOptions.TIMEOUT;
 
 @Getter
 final class GoogleAnalytics4Config implements Serializable {
