@@ -44,6 +44,7 @@ JsonPath 转换插件支持使用 JSONPath 选择数据。
 
 * STRING
 * BYTES
+* VARBINARY（BYTES 的别名）
 * ARRAY
 * MAP
 * ROW
