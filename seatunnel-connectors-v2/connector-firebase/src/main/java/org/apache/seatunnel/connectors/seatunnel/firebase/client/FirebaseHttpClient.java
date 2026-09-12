@@ -133,7 +133,17 @@ public class FirebaseHttpClient {
 
     /** Constructs a full REST URL with .json extension and query string parameters. */
     String buildUrl(String subPath, String extraQueryParam, boolean includeExtraParams) {
-        StringBuilder urlBuilder = new StringBuilder(baseUrl);
+        String base = baseUrl;
+        String baseQuery = "";
+        int queryIdx = base.indexOf('?');
+        if (queryIdx != -1) {
+            baseQuery = base.substring(queryIdx + 1);
+            base = base.substring(0, queryIdx);
+        }
+
+        base = base.replaceAll("/+$", "");
+
+        StringBuilder urlBuilder = new StringBuilder(base);
         String cleanSubPath = subPath == null ? "" : subPath.replaceAll("^/+|/+$", "");
         urlBuilder.append("/").append(cleanSubPath);
 
@@ -142,6 +152,10 @@ public class FirebaseHttpClient {
         List<String> queryParts = new ArrayList<>();
         if (extraQueryParam != null && !extraQueryParam.isEmpty()) {
             queryParts.add(extraQueryParam);
+        }
+
+        if (!baseQuery.isEmpty()) {
+            queryParts.add(baseQuery);
         }
 
         if (databaseSecret != null && !databaseSecret.isEmpty()) {
