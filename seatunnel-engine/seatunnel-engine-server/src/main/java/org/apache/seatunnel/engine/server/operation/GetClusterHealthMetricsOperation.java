@@ -44,7 +44,14 @@ public class GetClusterHealthMetricsOperation extends Operation
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        response = service.getSeaTunnelHealthMonitor().getHealthMetrics().render();
+        response =
+                service.getSeaTunnelHealthMonitor().getHealthMetrics().render()
+                        + ", nodeRole="
+                        + service.getClusterRole()
+                        + ", coordinator="
+                        + service.isCoordinatorNode()
+                        + ", worker="
+                        + service.isWorkerNode();
     }
 
     @Override

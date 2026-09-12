@@ -518,6 +518,9 @@ network:
 [
   {
     "isMaster": "true",
+    "nodeRole": "MASTER_AND_WORKER",
+    "coordinator": "true",
+    "worker": "true",
     "host": "localhost",
     "port": "5801",
     "processors":"8",
@@ -568,6 +571,12 @@ network:
   }
 ]
 ```
+
+- `isMaster`：当前节点是否为激活中的 SeaTunnel coordinator。在 master / worker 分离部署中，
+  这个字段可能与 Hazelcast master 身份不同。
+- `nodeRole`：节点的静态能力角色，合法取值为 `MASTER`、`WORKER`、`MASTER_AND_WORKER`。
+- `coordinator`：当前节点是否具备 coordinator 能力。
+- `worker`：当前节点是否具备 worker 能力。
 
 </details>
 

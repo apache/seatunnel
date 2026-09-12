@@ -32,8 +32,11 @@ export default defineComponent({
 
     const fetch = async () => {
       let res = await managerService.getMonitors()
-      const isMaster = route?.path.endsWith('/master') || false
-      res = res.filter((row) => row.isMaster === String(isMaster)) || []
+      const showCoordinator = route?.path.endsWith('/master') || false
+      res =
+        res.filter((row) =>
+          showCoordinator ? row.coordinator === 'true' : row.worker === 'true'
+        ) || []
       monitors.value = res
     }
     fetch()

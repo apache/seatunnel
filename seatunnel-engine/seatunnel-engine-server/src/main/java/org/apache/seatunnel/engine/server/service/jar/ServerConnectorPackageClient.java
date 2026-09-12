@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.service.jar;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import com.hazelcast.logging.ILogger;
@@ -29,6 +30,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -76,18 +78,34 @@ public class ServerConnectorPackageClient {
                 .collect(Collectors.toSet());
     }
 
+    /**
+     * Stores a connector jar atomically with respect to local reads and cleanup.
+     *
+     * <p>Storage failures are propagated so remote callers never treat a missing standby copy as a
+     * successful replication.
+     *
+     * @param connectorJarByteData connector jar contents
+     * @param connectorJarIdentifier connector jar storage identifier
+     */
     public void storageConnectorJarFile(
             byte[] connectorJarByteData, ConnectorJarIdentifier connectorJarIdentifier) {
         readWriteLock.writeLock().lock();
-        storageConnectorJarFile(
-                connectorJarByteData, new File(connectorJarIdentifier.getStoragePath()));
-        readWriteLock.writeLock().unlock();
+        try {
+            storageConnectorJarFile(
+                    connectorJarByteData, new File(connectorJarIdentifier.getStoragePath()));
+        } finally {
+            readWriteLock.writeLock().unlock();
+        }
     }
 
     private void storageConnectorJarFile(byte[] connectorJarByteData, File storageFile) {
         boolean success = false;
         try {
             if (!storageFile.exists()) {
+                File parentDirectory = storageFile.getParentFile();
+                if (parentDirectory != null) {
+                    Files.createDirectories(parentDirectory.toPath());
+                }
                 try (FileOutputStream fos = new FileOutputStream(storageFile)) {
                     fos.write(connectorJarByteData);
                 }
@@ -99,10 +117,10 @@ public class ServerConnectorPackageClient {
                                 storageFile));
             }
             success = true;
-        } catch (IOException ioe) {
-            LOGGER.warning(
-                    String.format(
-                            "The connector jar package file %s storage failed.", storageFile));
+        } catch (IOException e) {
+            throw new SeaTunnelEngineException(
+                    String.format("The connector jar package file %s storage failed.", storageFile),
+                    e);
         } finally {
             if (!success) {
                 // delete storageFile from a failed download
@@ -129,7 +147,8 @@ public class ServerConnectorPackageClient {
 
     private void deleteConnectorJarInternal(File storageFile) {
         if (!storageFile.delete() && storageFile.exists()) {
-            LOGGER.warning(String.format("Failed to delete connector jar file %s", storageFile));
+            throw new SeaTunnelEngineException(
+                    String.format("Failed to delete connector jar file %s", storageFile));
         }
     }
 }

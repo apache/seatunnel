@@ -58,7 +58,7 @@ public class SendConnectorJarToMemberNodeOperation extends Operation
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
         ServerConnectorPackageClient serverConnectorPackageClient =
-                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+                seaTunnelServer.getServerConnectorPackageClient();
         serverConnectorPackageClient.storageConnectorJarFile(
                 connectorJar.getData(), connectorJarIdentifier);
     }

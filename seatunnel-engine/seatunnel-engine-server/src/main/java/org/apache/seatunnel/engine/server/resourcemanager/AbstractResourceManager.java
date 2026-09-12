@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
@@ -30,6 +31,8 @@ import org.apache.seatunnel.engine.server.resourcemanager.opeartion.SyncWorkerPr
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.service.slot.SlotService;
+import org.apache.seatunnel.engine.server.service.slot.WrongTargetSlotException;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -264,6 +267,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
+        if (profile.getWorker().equals(nodeEngine.getThisAddress())) {
+            return releaseLocalResource(jobId, profile);
+        }
         if (nodeEngine.getClusterService().getMember(profile.getWorker()) != null) {
             CompletableFuture<WorkerProfile> future =
                     sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
@@ -271,6 +277,29 @@ public abstract class AbstractResourceManager implements ResourceManager {
         } else {
             return CompletableFuture.completedFuture(null);
         }
+    }
+
+    /**
+     * Releases slots on the local worker directly to avoid blocking Hazelcast operation threads on
+     * self-targeted release invocations.
+     */
+    private CompletableFuture<Void> releaseLocalResource(long jobId, SlotProfile profile) {
+        SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+        SlotService slotService = server == null ? null : server.getSlotService();
+        if (slotService == null) {
+            return CompletableFuture.completedFuture(null);
+        }
+        try {
+            slotService.releaseSlot(jobId, profile);
+        } catch (WrongTargetSlotException ignore) {
+            log.warn(
+                    "wrong target release operation with job {} and slot profile {}, exception: {}",
+                    jobId,
+                    profile,
+                    ignore.getMessage());
+        }
+        heartbeat(slotService.getWorkerProfile());
+        return CompletableFuture.completedFuture(null);
     }
 
     @Override

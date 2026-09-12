@@ -33,7 +33,7 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 
 | MetricName                                | Type  | Labels                                                                                                                             | DESCRIPTION                                                             |
 |-------------------------------------------|-------|------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
-| cluster_info                              | Gauge | **hazelcastVersion**, the version of hazelcast. **master**, seatunnel master address.                                              | Cluster info                                                            |
+| cluster_info                              | Gauge | **hazelcastVersion**, the version of hazelcast. **master**, active SeaTunnel coordinator address.                                  | Cluster info                                                            |
 | cluster_time                              | Gauge | **hazelcastVersion**, the version of hazelcast.                                                                                    | Cluster time                                                            |
 | node_count                                | Gauge | -                                                                                                                                  | Cluster node total count                                                |
 | node_state                                | Gauge | **address**, server instance address,for example: "127.0.0.1:5801"                                                                 | Whether is up of seatunnel node                                         |
@@ -48,6 +48,9 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | hazelcast_partition_activePartition       | Gauge | -                                                                                                                                  | The activePartition of seatunnel cluster node                           |
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Whether is cluster safe of partition                                    |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Whether is local member safe of partition                               |
+
+`cluster_info{master=...}` reports the active SeaTunnel coordinator address. In separated
+master/worker deployments, that label can differ from Hazelcast mastership.
 
 ### Engine State Store Metrics
 
@@ -181,6 +184,10 @@ The `result` label has the following meanings:
   current slot state are diverging, or that concurrent allocation is consuming slots between
   pre-check and request execution.
 - `failure`: the master-to-worker invocation failed or the operation completed exceptionally.
+
+During cancellation, SeaTunnel attempts a final best-effort `ReportMetricsOperation` flush with a
+bounded timeout. If the active coordinator is unavailable or the bounded flush does not complete in
+time, the final reported metrics can still lag behind the most recent task-local progress.
 
 ### Job info detail
 

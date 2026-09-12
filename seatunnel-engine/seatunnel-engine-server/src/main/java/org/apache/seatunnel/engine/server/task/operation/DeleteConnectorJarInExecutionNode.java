@@ -53,7 +53,7 @@ public class DeleteConnectorJarInExecutionNode extends Operation
     public void run() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
         ServerConnectorPackageClient serverConnectorPackageClient =
-                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+                seaTunnelServer.getServerConnectorPackageClient();
         serverConnectorPackageClient.deleteConnectorJar(connectorJarIdentifier);
     }
 

@@ -822,6 +822,25 @@ public class RestApiIT {
 
     @Test
     public void testOverview() {
+        Awaitility.await()
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                given().get(
+                                                HOST
+                                                        + node1Config
+                                                                .getEngineConfig()
+                                                                .getHttpConfig()
+                                                                .getPort()
+                                                        + node1Config
+                                                                .getEngineConfig()
+                                                                .getHttpConfig()
+                                                                .getContextPath()
+                                                        + RestConstant.REST_URL_OVERVIEW)
+                                        .then()
+                                        .statusCode(200)
+                                        .body("totalSlot", equalTo("40"))
+                                        .body("workers", equalTo("2")));
         Arrays.asList(node2, node1)
                 .forEach(
                         instance -> {

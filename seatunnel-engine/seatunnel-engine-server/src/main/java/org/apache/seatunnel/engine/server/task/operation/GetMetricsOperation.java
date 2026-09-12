@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.operation;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.engine.server.metrics.ZetaMetricsCollector;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.metrics.MetricDescriptor;
@@ -67,7 +68,7 @@ public class GetMetricsOperation extends Operation implements IdentifiedDataSeri
                 || nodeEngine.getClusterService().getMember(callerAddress) == null) {
             throw new SecurityException("Caller is not a cluster member: " + callerAddress);
         }
-        Address masterAddress = getNodeEngine().getMasterAddress();
+        Address masterAddress = NodeEngineUtil.getActiveMasterAddress(getNodeEngine());
         if (!callerAddress.equals(masterAddress)) {
             throw new IllegalStateException(
                     "Caller "
