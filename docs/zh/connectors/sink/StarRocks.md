@@ -153,7 +153,7 @@ sink {
     base-url = "jdbc:mysql://127.0.0.1:9030"
     nodeUrls = ["127.0.0.1:8030"]
     username = "root"
-    password = ""
+    password = "secret"
     database = "test"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
     table_options = {
@@ -185,8 +185,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     batch_max_rows = 10000
@@ -265,8 +265,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -285,8 +285,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     ...
@@ -304,8 +304,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -325,8 +325,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "e2e_table_sink"
     batch_max_rows = 10
@@ -346,8 +346,8 @@ sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
     base-url = "jdbc:mysql://e2e_starRocksdb:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "test"
     table = "test_${schema_name}_${table_name}"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
@@ -390,8 +390,8 @@ sink {
   StarRocks {
     nodeUrls = ["starrocks-fe:8030"]
     base-url = "jdbc:mysql://starrocks-fe:9030/"
-    username = root
-    password = ""
+    username = "root"
+    password = "secret"
     database = "mydb"
     table = "mytable"
     labelPrefix = "unique-job-label"
