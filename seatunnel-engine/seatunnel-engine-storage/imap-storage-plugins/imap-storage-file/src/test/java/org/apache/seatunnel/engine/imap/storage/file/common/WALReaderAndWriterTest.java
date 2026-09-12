@@ -20,6 +20,7 @@
 
 package org.apache.seatunnel.engine.imap.storage.file.common;
 
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
@@ -50,6 +51,7 @@ public class WALReaderAndWriterTest {
     private static final Path PARENT_PATH = new Path("/tmp/9/");
     private static final Path SAME_TIMESTAMP_TOMBSTONE_PATH =
             new Path("/tmp/imap-wal-same-timestamp-tombstone/");
+    private static final Path LEGACY_JOB_STATUS_PATH = new Path("/tmp/imap-wal-legacy-job-status/");
     private static final Serializer SERIALIZER = new ProtoStuffSerializer();
 
     @BeforeAll
@@ -150,10 +152,34 @@ public class WALReaderAndWriterTest {
         Assertions.assertFalse(reader.loadAllKeys(SAME_TIMESTAMP_TOMBSTONE_PATH).contains(key));
     }
 
+    @Test
+    public void testReaderLoadsJobStatusWrittenWithLegacyClassName() throws Exception {
+        String key = "job-status";
+        try (WALWriter writer =
+                new WALWriter(FS, FileConfiguration.HDFS, LEGACY_JOB_STATUS_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(key))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize(JobStatus.RUNNING))
+                            .valueClassName("org.apache.seatunnel.engine.core.job.JobStatus")
+                            .deleted(false)
+                            .timestamp(System.nanoTime())
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> data = reader.loadAllData(LEGACY_JOB_STATUS_PATH, new HashSet<>());
+
+        Assertions.assertEquals(JobStatus.class, data.get(key).getClass());
+        Assertions.assertEquals(JobStatus.RUNNING.name(), data.get(key).toString());
+    }
+
     @AfterAll
     public static void close() throws IOException {
         FS.delete(PARENT_PATH, true);
         FS.delete(SAME_TIMESTAMP_TOMBSTONE_PATH, true);
+        FS.delete(LEGACY_JOB_STATUS_PATH, true);
         FS.close();
     }
 }
