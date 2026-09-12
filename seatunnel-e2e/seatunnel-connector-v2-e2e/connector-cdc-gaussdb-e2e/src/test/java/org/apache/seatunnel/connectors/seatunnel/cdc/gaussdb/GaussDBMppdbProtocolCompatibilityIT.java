@@ -36,6 +36,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -76,11 +77,21 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
     /** Pattern used to remove trailing SQL comments from the DDL fixture. */
     private static final Pattern COMMENT_PATTERN = Pattern.compile("^(.*)--.*$");
 
-    /** Administrative account created by the openGauss image. */
-    private static final String USERNAME = "gaussdb";
+    /**
+     * Replication-capable account created by {@link #INIT_SCRIPT}. The image-provided {@code
+     * gaussdb} account stores a sha256-only password that the PostgreSQL JDBC driver cannot
+     * authenticate with, so all test, source and sink connections use this md5-compatible user.
+     */
+    private static final String USERNAME = "seatunnel_cdc";
 
-    /** Test-only password required by the openGauss image policy. */
+    /** Test-only password required by the openGauss image policy; must match the init script. */
     private static final String PASSWORD = "openGauss@123";
+
+    /**
+     * Init script sourced by the openGauss entrypoint before the final server start. It enables
+     * md5-compatible password hashing, opens md5 replication access and creates {@link #USERNAME}.
+     */
+    private static final String INIT_SCRIPT = "init/opengauss-init-cdc-user.sh";
 
     /** Database containing the source and sink tables. */
     private static final String GAUSSDB_DATABASE = "gaussdb_cdc";
@@ -124,6 +135,9 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
                     .withNetworkAliases(OPENGAUSS_HOST)
                     .withExposedPorts(OPENGAUSS_PORT)
                     .withEnv("GS_PASSWORD", PASSWORD)
+                    .withCopyFileToContainer(
+                            MountableFile.forClasspathResource(INIT_SCRIPT, 0644),
+                            "/docker-entrypoint-initdb.d/opengauss-init-cdc-user.sh")
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
     /** Copies JDBC drivers into both source and sink plugin directories. */
@@ -135,7 +149,11 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
                 DependencyJar.of(org.postgresql.Driver.class).copyTo(container, JDBC_PLUGIN_LIB);
             };
 
-    /** Starts the database, creates fixtures, and enables replication authentication. */
+    /**
+     * Starts the database and creates fixtures. Authentication for the PostgreSQL JDBC driver is
+     * prepared by {@link #INIT_SCRIPT} during image initialization, so readiness is verified with
+     * the same driver and user the SeaTunnel job will use.
+     */
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -147,7 +165,6 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
                 .atMost(2, TimeUnit.MINUTES)
                 .untilAsserted(this::assertDatabaseReady);
         initializeGaussDB();
-        configureReplicationAuthentication();
     }
 
     /** Verifies snapshot rows and subsequent INSERT, UPDATE, and DELETE events end to end. */
@@ -320,26 +337,6 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
             return result;
         } catch (SQLException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    /** Enables replication authentication compatible with the PostgreSQL JDBC driver. */
-    private void configureReplicationAuthentication() throws Exception {
-        Container.ExecResult passwordEncryption =
-                OPENGAUSS_CONTAINER.execInContainer(
-                        "/bin/sh",
-                        "-c",
-                        "sed -i 's/^#password_encryption_type = 2/password_encryption_type = 1/' /var/lib/opengauss/data/postgresql.conf");
-        Assertions.assertEquals(0, passwordEncryption.getExitCode());
-        Container.ExecResult replicationAuthentication =
-                OPENGAUSS_CONTAINER.execInContainer(
-                        "/bin/sh",
-                        "-c",
-                        "sed -i 's/host replication gaussdb 0.0.0.0\\/0 md5/host replication gaussdb 0.0.0.0\\/0 sha256/' /var/lib/opengauss/data/pg_hba.conf");
-        Assertions.assertEquals(0, replicationAuthentication.getExitCode());
-        try (Connection connection = getJdbcConnection(GAUSSDB_DATABASE);
-                Statement statement = connection.createStatement()) {
-            statement.execute("SELECT pg_reload_conf()");
         }
     }
 
