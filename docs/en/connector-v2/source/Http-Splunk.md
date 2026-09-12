@@ -25,10 +25,10 @@ Read data from the Splunk API via HTTP.
 ```hocon
 source {
   Http-Splunk {
-    url = "https://your-splunk-instance:8089/services/search/jobs"
+    url = "https://your-splunk-instance:8089/services/search/jobs/export"
     api_key = "Splunk your_splunk_auth_token"
     method = "POST"
-    body = "search=search index=_internal | head 10"
+    body = "search=search index=_internal | head 10&output_mode=json"
     plugin_output = "splunk_data"
   }
 }
