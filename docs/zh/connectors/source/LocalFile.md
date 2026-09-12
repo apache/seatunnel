@@ -63,7 +63,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | datetime_format            | string  | 否    | yyyy-MM-dd HH:mm:ss |
 | time_format                | string  | 否    | HH:mm:ss            |
 | skip_header_row_number     | long    | 否    | 0                   |
-| schema                     | config  | 否    | -                   |
+| schema                     | config  | 视情况而定 | -                   |
 | sheet_name                 | string  | 否    | -                   |
 | excel_engine               | string  | 否    | POI                 |
 | poi_excel_max_file_size    | long    | 否    | 52428800            |
@@ -155,23 +155,11 @@ schema {
 |------|-------------|---------|
 | 200  | get success | true    |
 
-如果您将文件类型指定为 `parquet` `orc`，则不需要 schema 选项，连接器可以自动找到上游数据的 schema。
+如果您将文件类型指定为 `parquet` 或 `orc`，则不需要 schema 选项，因为连接器可以从文件元数据中读取 schema。
 
-如果您将文件类型指定为 `text` `csv`，您可以选择指定或不指定 schema 信息。
+如果您将文件类型指定为 `json`、`excel` 或 `xml`，则必须指定 schema，因为这些格式不提供 SeaTunnel 所需的字段类型。
 
-例如，上游数据如下：
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-如果您不指定数据 schema，连接器将把上游数据视为如下：
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+对于 `text` 和 `csv`，schema 是可选的。未配置 schema 时，连接器会将每个输入行读取为一个 string 类型的 `content` 字段；此模式不支持 `read_columns`。如果需要有类型的字段或列映射，请配置 schema。
 
 如果您指定数据 schema，除了 CSV 文件类型外，您还应该指定选项 `field_delimiter`
 
@@ -323,7 +311,7 @@ PDF 特有的解析行为如下：
 
 ### schema [config]
 
-仅在 file_format_type 为 text、json、excel、xml 或 csv（或其他我们无法从元数据读取 schema 的格式）时需要配置。
+当 `file_format_type` 为 `json`、`excel` 或 `xml` 时必须配置。对于 `text` 和 `csv`，schema 是可选的；未配置时，每个输入行会被读取为一个 string 类型的 `content` 字段，并且不支持 `read_columns`。
 
 #### fields [Config]
 
@@ -383,7 +371,7 @@ POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值
 
 ### csv_use_header_line [boolean]
 
-是否使用标题行解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用
+启用后，连接器会将第一个符合 RFC 4180 的 CSV 记录作为标题行，并按列名映射到已配置 `schema` 中的字段。此选项不会推断 schema 或字段类型。不要再使用 `skip_header_row_number` 跳过同一个标题行。
 
 ### file_filter_pattern [string]
 
