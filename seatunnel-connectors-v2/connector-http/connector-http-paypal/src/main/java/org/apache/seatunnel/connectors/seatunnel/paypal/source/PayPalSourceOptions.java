@@ -20,7 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.paypal.source;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-public final class PayPalOptions {
+public final class PayPalSourceOptions {
     public static final Option<String> CLIENT_ID =
             Options.key("client_id")
                     .stringType()
@@ -81,5 +81,5 @@ public final class PayPalOptions {
                     .defaultValue(8388608)
                     .withDescription("Maximum uncompressed response bytes, 1024 to 16777216.");
 
-    private PayPalOptions() {}
+    private PayPalSourceOptions() {}
 }

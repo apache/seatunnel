@@ -41,19 +41,19 @@ public class PayPalSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        PayPalOptions.CLIENT_ID,
-                        PayPalOptions.CLIENT_SECRET,
-                        PayPalOptions.START_DATE,
-                        PayPalOptions.END_DATE)
+                        PayPalSourceOptions.CLIENT_ID,
+                        PayPalSourceOptions.CLIENT_SECRET,
+                        PayPalSourceOptions.START_DATE,
+                        PayPalSourceOptions.END_DATE)
                 .optional(
                         MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY,
-                        PayPalOptions.API_BASE_URL,
-                        PayPalOptions.MOCK_MODE,
-                        PayPalOptions.PAGE_SIZE,
-                        PayPalOptions.MAX_RETRIES,
-                        PayPalOptions.RETRY_DELAY_MS,
-                        PayPalOptions.REQUEST_TIMEOUT_MS,
-                        PayPalOptions.MAX_RESPONSE_BYTES)
+                        PayPalSourceOptions.API_BASE_URL,
+                        PayPalSourceOptions.MOCK_MODE,
+                        PayPalSourceOptions.PAGE_SIZE,
+                        PayPalSourceOptions.MAX_RETRIES,
+                        PayPalSourceOptions.RETRY_DELAY_MS,
+                        PayPalSourceOptions.REQUEST_TIMEOUT_MS,
+                        PayPalSourceOptions.MAX_RESPONSE_BYTES)
                 .build();
     }
 

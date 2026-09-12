@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class PayPalPackagingIT {
+class TestPayPalPackagingIT {
     @Test
     void packagedFactoryAndOAuthTransportLoadWithoutConnectorParentFallback() throws Exception {
         File[] files =

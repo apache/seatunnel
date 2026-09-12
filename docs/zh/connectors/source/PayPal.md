@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-paypal.md';
+
 # PayPal
 
 > PayPal Transaction Search 数据源连接器。
@@ -102,4 +104,4 @@ sink {
 
 ## 变更日志
 
-[变更日志](../changelog/connector-http-paypal.md)
+<ChangeLog />

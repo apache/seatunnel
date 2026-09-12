@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-paypal.md';
+
 # PayPal
 
 > PayPal Transaction Search source connector.
@@ -102,4 +104,4 @@ sink {
 
 ## Changelog
 
-[Changelog](../changelog/connector-http-paypal.md)
+<ChangeLog />

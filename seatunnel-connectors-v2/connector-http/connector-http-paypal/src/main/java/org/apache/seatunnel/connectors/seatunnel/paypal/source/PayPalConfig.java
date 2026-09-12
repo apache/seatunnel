@@ -51,36 +51,37 @@ final class PayPalConfig implements Serializable {
         if (get(config, EnvCommonOptions.PARALLELISM) != 1) {
             throw new IllegalArgumentException("PayPal source requires parallelism=1");
         }
-        clientId = credential(get(config, PayPalOptions.CLIENT_ID), "client_id");
-        clientSecret = credential(get(config, PayPalOptions.CLIENT_SECRET), "client_secret");
-        start = date(get(config, PayPalOptions.START_DATE));
-        end = date(get(config, PayPalOptions.END_DATE));
+        clientId = credential(get(config, PayPalSourceOptions.CLIENT_ID), "client_id");
+        clientSecret = credential(get(config, PayPalSourceOptions.CLIENT_SECRET), "client_secret");
+        start = date(get(config, PayPalSourceOptions.START_DATE));
+        end = date(get(config, PayPalSourceOptions.END_DATE));
         if (!start.isBefore(end)
                 || Duration.between(start, end).compareTo(Duration.ofDays(31)) > 0) {
             throw new IllegalArgumentException(
                     "PayPal requires start_date < end_date and a window <=31 days");
         }
-        if (get(config, PayPalOptions.MOCK_MODE)
+        if (get(config, PayPalSourceOptions.MOCK_MODE)
                 && !(clientId.equals("mock-client") && clientSecret.equals("mock-secret"))) {
             throw new IllegalArgumentException(
                     "PayPal mock_mode requires client_id=mock-client and client_secret=mock-secret");
         }
         origin =
                 origin(
-                        get(config, PayPalOptions.API_BASE_URL),
-                        get(config, PayPalOptions.MOCK_MODE));
-        pageSize = range(get(config, PayPalOptions.PAGE_SIZE), 1, 500, "page_size");
-        retries = range(get(config, PayPalOptions.MAX_RETRIES), 0, 5, "max_retries");
-        retryDelay = range(get(config, PayPalOptions.RETRY_DELAY_MS), 1, 60000, "retry_delay_ms");
+                        get(config, PayPalSourceOptions.API_BASE_URL),
+                        get(config, PayPalSourceOptions.MOCK_MODE));
+        pageSize = range(get(config, PayPalSourceOptions.PAGE_SIZE), 1, 500, "page_size");
+        retries = range(get(config, PayPalSourceOptions.MAX_RETRIES), 0, 5, "max_retries");
+        retryDelay =
+                range(get(config, PayPalSourceOptions.RETRY_DELAY_MS), 1, 60000, "retry_delay_ms");
         timeout =
                 range(
-                        get(config, PayPalOptions.REQUEST_TIMEOUT_MS),
+                        get(config, PayPalSourceOptions.REQUEST_TIMEOUT_MS),
                         1,
                         120000,
                         "request_timeout_ms");
         maxBytes =
                 range(
-                        get(config, PayPalOptions.MAX_RESPONSE_BYTES),
+                        get(config, PayPalSourceOptions.MAX_RESPONSE_BYTES),
                         1024,
                         16777216,
                         "max_response_bytes");
