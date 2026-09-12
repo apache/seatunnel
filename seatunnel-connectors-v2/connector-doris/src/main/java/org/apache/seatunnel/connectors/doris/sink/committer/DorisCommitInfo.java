@@ -33,10 +33,16 @@ public class DorisCommitInfo implements Serializable {
     private final String hostPort;
     private final String db;
     private final long txbID;
+    private final String label;
 
     public DorisCommitInfo(String hostPort, String db, long txbID) {
+        this(hostPort, db, txbID, null);
+    }
+
+    public DorisCommitInfo(String hostPort, String db, long txbID, String label) {
         this.hostPort = hostPort;
         this.db = db;
         this.txbID = txbID;
+        this.label = label;
     }
 }
