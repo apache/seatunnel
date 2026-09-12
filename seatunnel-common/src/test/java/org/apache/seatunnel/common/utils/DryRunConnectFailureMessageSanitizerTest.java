@@ -57,6 +57,20 @@ public class DryRunConnectFailureMessageSanitizerTest {
     }
 
     @Test
+    public void testMaskSensitiveQuotedKeys() {
+        String sanitized =
+                sanitize(
+                        "Connection config: {\"username\": \"alice\", "
+                                + "\"password\": \"secret password\", "
+                                + "'api_key': 'secret key'}");
+
+        Assertions.assertEquals(
+                "Connection config: {\"username\": \"alice\", "
+                        + "\"password\": ***, 'api_key': ***}",
+                sanitized);
+    }
+
+    @Test
     public void testReplaceGenericJdbcUrlOutsideKnownFailurePhrases() {
         String sanitized =
                 sanitize(
