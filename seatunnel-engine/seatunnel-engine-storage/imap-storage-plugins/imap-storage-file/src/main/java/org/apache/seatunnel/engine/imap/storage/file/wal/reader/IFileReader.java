@@ -33,4 +33,22 @@ public interface IFileReader<R> {
     void initialize(FileSystem fs, Serializer serializer) throws IOException;
 
     List<R> readAllData(Path parentPath) throws IOException;
+
+    /**
+     * Passes records to the consumer.
+     *
+     * <p>Implementations should override this method to stream records without retaining the
+     * complete history in memory. The default implementation preserves compatibility with readers
+     * that only implement {@link #readAllData(Path)}.
+     */
+    default void forEachData(Path parentPath, RecordConsumer<R> consumer) throws IOException {
+        for (R record : readAllData(parentPath)) {
+            consumer.accept(record);
+        }
+    }
+
+    @FunctionalInterface
+    interface RecordConsumer<R> {
+        void accept(R record) throws IOException;
+    }
 }
