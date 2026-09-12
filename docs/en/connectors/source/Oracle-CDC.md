@@ -446,7 +446,14 @@ source {
 
 ### Read tables without a primary key
 
-For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and redo-log phases both use the configured key for
+  consistent row identity.
 
 ```hocon
 source {
@@ -463,6 +470,7 @@ source {
         primaryKeys = ["ID"]
       }
     ]
+    exactly_once = true
   }
 }
 ```
@@ -555,6 +563,17 @@ Yes. Set `database-names` to the CDB name and configure the JDBC URL to point to
 ### Does Oracle CDC support tables without primary keys?
 
 By default, Oracle CDC requires primary keys. You can specify a custom primary key column via `table-names-config` with the `primaryKeys` field if the table has a suitable unique column.
+
+### How do I use a custom snapshot query?
+
+Use Debezium's `snapshot.select.statement.overrides` properties inside the `debezium` block. The query is applied before SeaTunnel adds the snapshot-split boundaries, so it must include every column needed by the configured table schema and its split key.
+
+```hocon
+debezium {
+  snapshot.select.statement.overrides = "DEBEZIUM.FULL_TYPES"
+  snapshot.select.statement.overrides.DEBEZIUM.FULL_TYPES = "SELECT * FROM DEBEZIUM.FULL_TYPES WHERE ACTIVE = 1"
+}
+```
 
 ### How do I improve LogMiner performance?
 

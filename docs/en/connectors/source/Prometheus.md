@@ -161,8 +161,9 @@ source {
 ## Streaming Range Query Example
 
 Run a range query continuously against a Prometheus or VictoriaMetrics server. The
-source re-runs the same range query every `poll_interval_millis` and forwards the
-newest samples to downstream operators.
+source re-runs the same fixed time-window query every `poll_interval_millis`.
+`start` and `end` are resolved when the job starts, so the time window does not
+advance between polls.
 
 ```hocon
 env {
@@ -178,7 +179,7 @@ source {
     query = "rate(node_cpu_seconds_total{mode!=\"idle\"}[1m])"
     query_type = "Range"
     start = "2026-08-10T00:00:00Z"
-    end = "now"
+    end = CURRENT_TIMESTAMP
     step = "30s"
     content_field = "$.data.result.*"
     format = "json"

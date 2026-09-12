@@ -29,10 +29,14 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 public class S3Utils implements AutoCloseable {
     private static Logger logger = LoggerFactory.getLogger(S3Utils.class);
@@ -87,6 +91,43 @@ public class S3Utils implements AutoCloseable {
         PutObjectRequest putObjectRequest =
                 new PutObjectRequest(BUCKET, dir, emptyContent, metadata);
         getS3Client().putObject(putObjectRequest);
+    }
+
+    public static void uploadContent(String targetFilePath, String content) {
+        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(contentBytes.length);
+        getS3Client()
+                .putObject(
+                        new PutObjectRequest(
+                                BUCKET,
+                                targetFilePath,
+                                new ByteArrayInputStream(contentBytes),
+                                metadata));
+    }
+
+    public static String readContent(String targetFilePath) throws IOException {
+        try (S3Object object = getS3Client().getObject(BUCKET, targetFilePath);
+                InputStream inputStream = object.getObjectContent();
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            return new String(outputStream.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    public static boolean objectExists(String targetFilePath) {
+        return getS3Client().doesObjectExist(BUCKET, targetFilePath);
+    }
+
+    public static void deletePrefix(String prefix) {
+        getS3Client()
+                .listObjectsV2(BUCKET, prefix)
+                .getObjectSummaries()
+                .forEach(summary -> getS3Client().deleteObject(BUCKET, summary.getKey()));
     }
 
     @Override

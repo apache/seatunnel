@@ -97,6 +97,12 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     }
 
     @Override
+    public synchronized void newFilePart() {
+        finishAndCloseFile();
+        super.newFilePart();
+    }
+
+    @Override
     public void finishAndCloseFile() {
         List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(
@@ -207,7 +213,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
                 for (int i = 0; i < fieldTypes.length; i++) {
                     struct.addField(
-                            ((SeaTunnelRowType) type).getFieldName(i).toLowerCase(),
+                            ((SeaTunnelRowType) type).getFieldName(i),
                             buildFieldWithRowType(fieldTypes[i]));
                 }
                 return struct;

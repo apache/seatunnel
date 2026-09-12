@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.scheduler.Cancellable;
 import org.apache.seatunnel.api.source.scheduler.CoordinatorScheduler;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorException;
@@ -512,7 +513,7 @@ public class KafkaSourceSplitEnumerator
     }
 
     private static int getSplitOwner(TopicPartition tp, int numReaders) {
-        int startIndex = ((tp.topic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
+        int startIndex = HashUtils.bucketIndex(tp.topic().hashCode() * 31, numReaders);
         return (startIndex + tp.partition()) % numReaders;
     }
 

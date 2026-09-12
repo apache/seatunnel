@@ -445,7 +445,10 @@ source {
 
 ### 读取没有主键的表
 
-对于没有物理主键的表，将 `exactly_once` 设为 `false`，并通过 `table-names-config.primaryKeys` 提供一列作为下游 upsert 所需的稳定行标识。
+根据源表能够提供的保证来选择合适的路径：
+
+- **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 redo log 阶段都使用同一配置主键作为稳定的行标识。
 
 ```hocon
 source {
@@ -462,6 +465,7 @@ source {
         primaryKeys = ["ID"]
       }
     ]
+    exactly_once = true
   }
 }
 ```
@@ -553,6 +557,17 @@ ALTER TABLE schema_name.table_name ADD SUPPLEMENTAL LOG DATA (ALL) COLUMNS;
 ### Oracle CDC 是否支持无主键表？
 
 默认情况下，Oracle CDC 需要主键。如果表中存在合适的唯一列，可通过 `table-names-config` 中的 `primaryKeys` 字段指定自定义主键列。
+
+### 如何使用自定义快照查询？
+
+在 `debezium` 块中配置 Debezium 的 `snapshot.select.statement.overrides` 属性。SeaTunnel 会先使用该查询，再追加快照分片边界条件，因此查询必须包含已配置表结构和分片键所需的全部列。
+
+```hocon
+debezium {
+  snapshot.select.statement.overrides = "DEBEZIUM.FULL_TYPES"
+  snapshot.select.statement.overrides.DEBEZIUM.FULL_TYPES = "SELECT * FROM DEBEZIUM.FULL_TYPES WHERE ACTIVE = 1"
+}
+```
 
 ### 如何提升 LogMiner 性能？
 

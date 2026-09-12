@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 `Sink: HugeGraph`
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The HugeGraph sink connector allows you to write data from SeaTunnel to Apache HugeGraph, a fast and scalable graph database.
@@ -18,7 +24,7 @@ This connector supports writing data as vertices or edges, providing flexible ma
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-The connector writes rows as either vertices or edges. It supports insert, update, and delete row kinds, and it can flush buffered records by `batch_size` or `batch_interval_ms`.
+The connector writes rows as either vertices or edges. It supports insert, update, and delete row kinds, and it flushes buffered records by `batch_size`, checkpoint, or close.
 
 :::caution
 
@@ -38,7 +44,7 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `username`          | String  | No       | -             | The username for HugeGraph authentication.                                     |
 | `password`          | String  | No       | -             | The password for HugeGraph authentication.                                     |
 | `batch_size`        | Integer | No       | 500           | The number of records to buffer before writing to HugeGraph in a single batch. |
-| `batch_interval_ms` | Integer | No       | 5000          | The maximum time in milliseconds to wait before flushing a batch.              |
+| `batch_interval_ms` | Integer | No       | 5000          | Retained for compatibility. To schedule timer flush on Zeta, configure `sink.flush.interval` in the job `env` block. |
 | `batch_failure_fallback` | Boolean | No  | true          | When a batch insert fails, fall back to inserting the batch record by record so a single bad ("poison") record no longer fails the whole batch. Failed records are logged and skipped; the rest succeed. If every record fails (systemic error), it is surfaced. Set to `false` to fail the whole batch instead. |
 | `max_insert_errors` | Integer | No       | 500           | Maximum number of records that may be skipped by the single-record fallback (`batch_failure_fallback=true`) before the task is failed. Bounds the otherwise unlimited silent skipping of poison records. Set to `-1` for unlimited. Only applies when `batch_failure_fallback` is enabled. |
 | `failure_data_path` | String  | No       | -             | Optional local directory. When set, every record skipped by the single-record fallback is appended (mapped id, label, properties and the server error) to a per-subtask file (`hugegraph-sink-failures-subtask-N.log`) for offline investigation. In cluster mode the file is created on the worker node running the sink subtask. |
@@ -60,6 +66,18 @@ New `mappings` configurations default to `schema_save_mode = CREATE_SCHEMA_WHEN_
 | `ignored_fields`           | List    | No       | -             | Deprecated. Still honored with legacy `schema_config`; use mapping `properties` for new jobs. |
 
 If both `mappings` and `schema_config` are configured, `mappings` wins and `schema_config` is ignored with a warning.
+
+## Timer Flush
+
+Timer flush is an engine-level feature supported only by Zeta. Configure `sink.flush.interval` in the job `env` block to write pending HugeGraph records even when `batch_size` has not been reached. Spark and Flink do not inject `FlushSignal` records and therefore do not trigger this scheduled flush.
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+HugeGraph timer flush reuses the connector's synchronized batch flush. Failures are propagated to the engine instead of being delayed in a connector-owned background thread.
 
 ### Mapping Configuration (`mappings`)
 
@@ -276,6 +294,89 @@ sink {
           person1_name = "name"
           person2_name = "name"
         }
+      }
+    ]
+  }
+}
+```
+
+### 3. Writing DELETE rows
+
+The sink honours the row kind. `DELETE` rows only need to carry the columns
+required to rebuild the element id; other columns can be omitted. With
+`delete_vertex_with_edges = true`, deleting a vertex also deletes its incident
+edges.
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields = {
+        name = "string"
+      }
+    }
+    rows = [
+      {
+        kind = DELETE
+        fields = ["bob"]
+      }
+    ]
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    delete_vertex_with_edges = true
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "PRIMARY_KEY"
+        idFields = ["name"]
+      }
+    ]
+  }
+}
+```
+
+### 4. Cloning from a HugeGraph Source
+
+When the upstream is the HugeGraph Source, each row already carries the
+reserved columns with the assembled element ids (`~id` for a vertex;
+`~source_id` / `~target_id` for an edge). Reusing these ids preserves the
+original graph exactly. The example below sets `multi_table_sink_replica` so the
+sink can fan out across parallel writers when the source reads multiple labels.
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  HugeGraph {
+    host = "src-host"
+    port = 8080
+    graph_name = "hugegraph"
+    label_type = "VERTEX"
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "dst-host"
+    port = 8080
+    graph_name = "hugegraph"
+    multi_table_sink_replica = 2
+    batch_size = 500
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "CUSTOMIZE_STRING"
+        idFields = ["~id"]
       }
     ]
   }

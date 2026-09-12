@@ -74,6 +74,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     }
 
     protected String getHazelcastConfig() {
+        // Use the IPv4 loopback address to avoid dual-stack localhost resolution on Windows CI.
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"

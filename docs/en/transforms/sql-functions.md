@@ -670,6 +670,8 @@ RAND()
 
 Rounds to a number of fractional digits. This method returns value of the same type as argument, but with adjusted precision and scale, if applicable.
 
+Note that when `digitsInt` is negative and the argument is an integral type, the rounded value can fall outside the range of that type. For example, ROUND(2147483647, -1) should be 2147483650, but this value is not allowed for the INT data type. It leads to an exception. To avoid it cast argument of this function to a higher data type. CEIL and FLOOR overflow the same way; TRUNC rounds toward zero and therefore cannot.
+
 Example:
 
 ROUND(N, 2)

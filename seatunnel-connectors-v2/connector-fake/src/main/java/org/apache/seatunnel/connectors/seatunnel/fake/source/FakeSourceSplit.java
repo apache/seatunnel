@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 import org.apache.seatunnel.api.source.SourceSplit;
 
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 @Data
+@EqualsAndHashCode(of = {"tableId", "splitId"})
 public class FakeSourceSplit implements SourceSplit {
 
     private static final long serialVersionUID = -3321891887156360959L;

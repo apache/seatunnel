@@ -31,6 +31,14 @@ public interface JdbcBatchStatementExecutor<T> {
     /** Submits a batch of commands to the database for execution. */
     void executeBatch() throws SQLException;
 
+    /**
+     * Clears pending batched statements without executing them. Override if maintaining custom
+     * buffers.
+     */
+    default void clearBatch() throws SQLException {
+        // no-op by default
+    }
+
     /** Close JDBC related statements. */
     void closeStatements() throws SQLException;
 }
