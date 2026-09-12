@@ -17,7 +17,25 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplitEnumeratorState;
 
-/** State for RabbitMQ source reader. */
-public class RabbitmqSourceState implements Serializable {}
+import java.util.Collections;
+
+/**
+ * Legacy checkpoint state created by RabbitMQ sources before the split enumerator state fix.
+ *
+ * @deprecated only used to restore checkpoints written by older connector versions
+ */
+@Deprecated
+public class RabbitmqSourceState extends RabbitmqSplitEnumeratorState {
+    private static final long serialVersionUID = -1143819030309308746L;
+
+    public RabbitmqSourceState() {
+        super(Collections.emptyMap());
+    }
+
+    /** Restores fields from the current superclass that are absent from legacy streams. */
+    private Object readResolve() {
+        return new RabbitmqSourceState();
+    }
+}
