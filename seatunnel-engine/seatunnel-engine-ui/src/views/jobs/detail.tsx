@@ -360,6 +360,8 @@ export default defineComponent({
       )
     })
 
+    const hasPinnedMetrics = computed(() => pinStore.pins.length > 0)
+
     const drawerVertexChartSeries = computed(() => {
       const vertex = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === focusedId.value)
       if (!vertex) return []
@@ -557,83 +559,101 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
-        <div class="font-bold text-xl">
-          {job.jobName}
-          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)} class="ml-3">
+      <div class="job-detail-page w-full bg-white border border-gray-100 rounded-xl">
+        <div class="job-detail-title font-bold text-xl">
+          <span>{job.jobName}</span>
+          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)}>
             {job.jobStatus}
           </NTag>
           {realtimeError.value ? (
             <span title={realtimeError.value}>
-              <NTag bordered={false} type="warning" class="ml-3">
+              <NTag bordered={false} type="warning">
                 Realtime metrics unavailable
               </NTag>
             </span>
           ) : null}
         </div>
-        <div class="mt-3 flex items-center gap-3">
-          <span>{t('detail.id')}:</span>
-          <span class="font-bold">{job.jobId}</span>
-          <NDivider vertical />
-          <span>{t('detail.createTime')}:</span>
-          <span class="font-bold">{job.createTime}</span>
-          <NDivider vertical />
-          <span>{t('detail.duration')}:</span>
-          <span class="font-bold">{duration.value}</span>
+        <div class="job-detail-meta mt-3">
+          <div class="job-detail-meta-item">
+            <span>{t('detail.id')}:</span>
+            <span class="font-bold">{job.jobId}</span>
+          </div>
+          <NDivider class="job-detail-meta-divider" vertical />
+          <div class="job-detail-meta-item">
+            <span>{t('detail.createTime')}:</span>
+            <span class="font-bold">{job.createTime}</span>
+          </div>
+          <NDivider class="job-detail-meta-divider" vertical />
+          <div class="job-detail-meta-item">
+            <span>{t('detail.duration')}:</span>
+            <span class="font-bold">{duration.value}</span>
+          </div>
         </div>
         <div class="tab-wrap relative">
           <NTabs v-model:value={select.value} type="line" animated>
             <NTabPane name="Overview" tab={t('detail.tabs.overview')}>
-              <DAG
-                job={job}
-                focusedId={focusedId.value}
-                onNodeClick={onFocus}
-                onEdgeClick={onEdgeFocus}
-                realtimeEdgeStats={realtimeEdgeStats.value}
-                realtimeVertexStats={realtimeVertexStats.value}
-                realtimeTick={realtimeTick.value}
-              />
-              <div class="mt-2 mb-2 border border-gray-100 rounded-lg px-3 pt-2 pb-2 bg-gray-50">
-                <div class="flex items-baseline justify-between mb-2">
-                  <div class="font-semibold text-base">{t('detail.liveMetrics.pinnedTitle')}</div>
-                  <div class="text-xs text-gray-500">
-                    {t('detail.liveMetrics.pinnedHint', { limit: LIVE_METRICS_PIN_LIMIT })}
-                    {pinStore.pins.length
-                      ? ` · ${pinStore.pins.length}/${LIVE_METRICS_PIN_LIMIT}`
-                      : ''}
-                  </div>
-                </div>
-                {pinStore.pins.length ? (
-                  <NSpace class="mb-2" size="small" wrap>
-                    {pinStore.pins.map((p) => (
-                      <NTag key={p.id} closable type="info" onClose={() => pinStore.unpin(p.id)}>
-                        {p.name}
-                      </NTag>
-                    ))}
-                  </NSpace>
-                ) : null}
-                <LiveMetricsBoard
-                  series={pinnedSeries.value}
-                  windowMs={effectiveRealtimeWindowMs(realtimeWindowMs)}
-                  emptyText={t('detail.liveMetrics.emptyPinned')}
-                  height={140}
-                  layout="row"
-                  unitTitles={{
-                    ratio: t('detail.liveMetrics.unitRatio'),
-                    duration: t('detail.liveMetrics.unitDuration'),
-                    count: t('detail.liveMetrics.unitCount')
-                  }}
+              <div
+                class={`job-detail-overview ${
+                  hasPinnedMetrics.value ? 'has-pinned-metrics' : 'has-no-pinned-metrics'
+                }`}
+              >
+                <DAG
+                  job={job}
+                  focusedId={focusedId.value}
+                  onNodeClick={onFocus}
+                  onEdgeClick={onEdgeFocus}
+                  realtimeEdgeStats={realtimeEdgeStats.value}
+                  realtimeVertexStats={realtimeVertexStats.value}
+                  realtimeTick={realtimeTick.value}
                 />
+                <div class="job-detail-pinned-metrics border border-gray-100 rounded-lg px-3 pt-2 pb-2 bg-gray-50">
+                  <div class="live-metrics-header flex items-baseline justify-between mb-2">
+                    <div class="font-semibold text-base">{t('detail.liveMetrics.pinnedTitle')}</div>
+                    <div class="text-xs text-gray-500">
+                      {t('detail.liveMetrics.pinnedHint', { limit: LIVE_METRICS_PIN_LIMIT })}
+                      {pinStore.pins.length
+                        ? ` · ${pinStore.pins.length}/${LIVE_METRICS_PIN_LIMIT}`
+                        : ''}
+                    </div>
+                  </div>
+                  {pinStore.pins.length ? (
+                    <NSpace class="mb-2" size="small" wrap>
+                      {pinStore.pins.map((p) => (
+                        <NTag key={p.id} closable type="info" onClose={() => pinStore.unpin(p.id)}>
+                          {p.name}
+                        </NTag>
+                      ))}
+                    </NSpace>
+                  ) : null}
+                  <LiveMetricsBoard
+                    series={pinnedSeries.value}
+                    windowMs={effectiveRealtimeWindowMs(realtimeWindowMs)}
+                    emptyText={
+                      pinStore.pins.length
+                        ? t('detail.liveMetrics.chartEmpty')
+                        : t('detail.liveMetrics.emptyPinned')
+                    }
+                    height="100%"
+                    layout="row"
+                    unitTitles={{
+                      ratio: t('detail.liveMetrics.unitRatio'),
+                      duration: t('detail.liveMetrics.unitDuration'),
+                      count: t('detail.liveMetrics.unitCount')
+                    }}
+                  />
+                </div>
+                <div class="job-detail-table">
+                  <NDataTable
+                    columns={columns}
+                    data={tableData.value}
+                    pagination={false}
+                    scrollX={1200}
+                    bordered
+                    rowClassName={rowClassName}
+                    rowProps={rowProps}
+                  />
+                </div>
               </div>
-              <NDataTable
-                columns={columns}
-                data={tableData.value}
-                pagination={false}
-                scrollX="auto"
-                bordered
-                rowClassName={rowClassName}
-                rowProps={rowProps}
-              />
             </NTabPane>
             <NTabPane name="Exception" tab={t('detail.tabs.exception')}>
               <pre style="white-space: pre-wrap; word-wrap: break-word; background-color: #f5f5f5; padding: 12px; border-radius: 4px; overflow: auto; max-height: 600px; font-family: monospace; line-height: 1.5;">
@@ -648,6 +668,7 @@ export default defineComponent({
             </NTabPane>
           </NTabs>
           <NDrawer
+            class="job-detail-drawer"
             show={select.value === 'Overview' && drawerShow.value}
             showMask={false}
             width={'40%'}

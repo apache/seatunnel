@@ -248,6 +248,10 @@ public class HiveSinkFactoryTest {
                 factory.optionRule()
                         .getOptionalOptions()
                         .contains(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
+        assertTrue(
+                factory.optionRule().getOptionalOptions().contains(HiveSinkOptions.METASTORE_URI));
+        assertTrue(
+                factory.optionRule().getOptionalOptions().contains(HiveSinkOptions.HIVE_SITE_PATH));
     }
 
     @Test
