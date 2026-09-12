@@ -34,6 +34,7 @@ import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
@@ -141,14 +142,7 @@ public class JdbcSink
                             new ArrayList<>());
 
         } else {
-            Integer primaryKeyIndex = null;
-            if (catalogTable.getTableSchema().getPrimaryKey() != null) {
-                String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
-                int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
-                if (index > -1) {
-                    primaryKeyIndex = index;
-                }
-            }
+            Integer primaryKeyIndex = getPrimaryKeyIndex(tableSchema).orElse(null);
             sinkWriter =
                     new JdbcSinkWriter(
                             sinkTablePath,
@@ -160,6 +154,17 @@ public class JdbcSink
                             primaryKeyIndex);
         }
         return sinkWriter;
+    }
+
+    static Optional<Integer> getPrimaryKeyIndex(TableSchema tableSchema) {
+        PrimaryKey primaryKey = tableSchema.getPrimaryKey();
+        if (primaryKey == null
+                || primaryKey.getColumnNames() == null
+                || primaryKey.getColumnNames().isEmpty()) {
+            return Optional.empty();
+        }
+        int index = tableSchema.toPhysicalRowDataType().indexOf(primaryKey.getColumnNames().get(0));
+        return index > -1 ? Optional.of(index) : Optional.empty();
     }
 
     @Override
