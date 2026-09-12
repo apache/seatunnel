@@ -182,6 +182,13 @@ google-ads:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-ads/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-ads)/**'
+google-analytics4:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-google-analytics4/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-google-analytics4-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-analytics4)/**'
 google-firestore:
   - all:
       - changed-files:
