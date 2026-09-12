@@ -723,6 +723,78 @@ source {
 
 ```
 
+## Streaming Mode
+
+In `STREAMING` jobs, the connector polls the configured URL on a fixed interval so the source behaves like a long
+running pull job. `poll_interval_millis` controls the interval between requests; `retry`, `retry_backoff_multiplier_ms`,
+and `retry_backoff_max_ms` together tune the retry behaviour on `IOException`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Http {
+    url = "https://api.example.com/events"
+    method = "GET"
+    format = "json"
+    poll_interval_millis = 5000
+    retry = 3
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+    schema = {
+      fields {
+        id = string
+        type = string
+        timestamp = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+## FAQ
+
+### How do I download a binary file (PDF, image, ZIP) through Http?
+
+Set `format = binary`. The response body is split into chunks of `binary_chunk_size` bytes (default 10 MiB) and
+emitted as `(data: bytes, relativePath: string, partIndex: long)` rows. Combine this with a `LocalFile` sink in
+BATCH mode to write the chunks to disk.
+
+### How do I keep the page number as a URL parameter?
+
+Set `keep_page_param_as_http_param = true`. The connector copies the paging field into `params` so it travels as
+a query string parameter on every request. When `false`, the connector only updates existing keys or `${page}`
+placeholders in `headers`, `params`, or `body`.
+
+### What does `use_placeholder_replacement` actually do?
+
+When `true`, the connector recognises `${page}` and `${cursor}` placeholders in headers, params, and body, and
+replaces them with the actual page/cursor value. Prefixed or suffixed forms such as `"10${page}"` (becomes
+`"105"` when `page=5`) are also supported. When `false`, only key-based replacement is applied: the paging field
+must already exist as a key in the target map.
+
+### Why does the request body look empty when `method = POST` and I did not set `body`?
+
+With `keep_params_as_form = false`, the default non-form branch serialises `body` as JSON. When no `body` is
+configured the connector still sends a JSON object `{}` as the request body, so HTTP servers see a well-formed
+JSON payload. Switch to `keep_params_as_form = true` (and optionally set `Content-Type: application/x-www-form-urlencoded`)
+to use the form-body branch instead.
+
+### How do I limit retries and slow down reconnect attempts?
+
+Use `retry` for the maximum retry count on `IOException`. `retry_backoff_multiplier_ms` (default `100`) is the
+base backoff in milliseconds; `retry_backoff_max_ms` (default `10000`) caps the backoff so a misconfigured value
+does not stall the job.
+
 ## Changelog
 
 <ChangeLog />
+

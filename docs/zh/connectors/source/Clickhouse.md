@@ -195,26 +195,30 @@ sink {
 ```
 
 ### 多表配置
+
+当 `table_list` 包含多个条目时，SeaTunnel 会为每个上游表生成一个独立的数据流，下游连接器可以使用 `${table_name}`
+占位符将每条数据流路由到对应的目标表。结合 Clickhouse 接收端的 `table = "${table_name}_multi_table_sink"` 等
+配置，可以把每个上游表分别写入各自的目标表。
+
 ```hocon
 env {
   job.mode = "BATCH"
-  parallelism = 5
+  parallelism = 3
 }
 
 source {
   Clickhouse {
     host = "localhost:8123"
-    username = "xxx"
-    password = "xxx"
+    username = "default"
+    password = ""
     table_list = [
       {
-        table_path = "default.table1"
-        sql = "select * from default.table1 where id > 2 and type = 1"
+        table_path = "default.source_table"
+        sql = "select * from source_table"
       },
       {
-        table_path = "default.table2"
-        sql = "select * from default.table2 where age > 18"
-        split_size = 1
+        table_path = "default.source_merge_tree_table"
+        filter_query = "id < 47"
       }
     ]
     server_time_zone = "UTC"
@@ -224,13 +228,41 @@ source {
   }
 }
 
-# Console printing of the read Clickhouse data
+# 每个上游表写入一个独立的目标表
 sink {
-  Console {
-    parallelism = 1
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "${table_name}_multi_table_sink"
+    username = "default"
+    password = ""
   }
 }
 ```
+
+## 常见问题
+
+### 如何只读取 ClickHouse 表的部分分区或部分行？
+
+优先使用 `partition_list` 按分区过滤，或使用 `filter_query` 在服务端下推谓词；这两种方式都能在大表上避免全表扫描。
+当同时需要投影特定列时，可以把它们和 `sql` 一起配置；此时连接器会进入 SQL 模式，并结合分区/过滤提示一起执行用户查询。
+
+### 什么时候使用 SQL 模式，什么时候使用查表模式？
+
+需要 join、聚合、子查询或多表投影时使用 SQL 模式（设置了 `sql`）。只需按主键读取单张逻辑表并希望基于
+`system.parts` 做并行切分时使用查表模式（仅设置 `table_path`）。对于必须在单分片上运行的 SQL，连接器会自动
+降级为单并发，即使配置了更高的 `parallelism` 也不会真正并行。
+
+### 如何调节吞吐和内存压力？
+
+两个主要参数是 `split.size`（每个 SeaTunnel split 合并多少 ClickHouse part）和 `batch_size`（每次往返拉取
+的行数）。在小 part 较多的场景调小 `split.size` 可以提高并行度；在 part 较大的场景调大 `batch_size` 可以摊薄
+往返开销。`clickhouse.config` 这个 map 暴露了所有 `clickhouse-jdbc` 参数（例如 `socket_timeout`）供进一步调优。
+
+### `table_list` 和单个 `table_path` 是什么关系？
+
+当配置只对应一张逻辑表时，可以把表级配置直接展平到外层，并把参数写成 `split.size`（注意带点）。当 `table_list`
+中有多张表时，每张表的选项都要写在各自的条目里，并在条目内继续使用 `split_size`。
 
 ## 变更日志
 

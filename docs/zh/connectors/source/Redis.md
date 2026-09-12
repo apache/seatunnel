@@ -538,6 +538,34 @@ sink {
 }
 ```
 
+### 使用自定义键名和值列名读取
+
+通过 `key_field_name`、`single_field_name` 和 `read_key_enabled = true` 可以把 Redis 键纳入输出，并控制其
+值映射到 schema 中的哪一列。对于基础值类型（`string`、`list`、`set`、`zset`），必须设置 `single_field_name`，
+让连接器知道哪个 schema 列接收该值。
+
+```hocon
+source {
+  Redis {
+    host = "localhost"
+    port = 6379
+    keys = "string_test*"
+    data_type = string
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        { name = "custom_key",   type = "string" }
+        { name = "custom_value", type = "string" }
+      ]
+    }
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
