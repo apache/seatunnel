@@ -16,6 +16,10 @@ Spark 3.5 部署则可以使用 Spark 3.5.8 启动器：
 - `seatunnel-spark-3-starter.jar` 用于 Spark 3.3.x
 - `seatunnel-spark-3.5-starter.jar` 用于 Spark 3.5.x
 
+现有 Spark 3.4 部署应继续使用原来的 `seatunnel-spark-3-starter.jar` 和
+`start-seatunnel-spark-3-connector-v2` 启动脚本。本次变更不新增独立的 Spark 3.4
+启动器，也不扩展其兼容性验证范围。
+
 ## 什么时候选择 Spark
 
 以下场景通常更适合使用 Spark：

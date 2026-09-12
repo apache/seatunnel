@@ -16,6 +16,10 @@ their current runtime while Spark 3.5 deployments use the Spark 3.5.8 starter:
 - `seatunnel-spark-3-starter.jar` for Spark 3.3.x
 - `seatunnel-spark-3.5-starter.jar` for Spark 3.5.x
 
+For an existing Spark 3.4 deployment, retain the existing `seatunnel-spark-3-starter.jar`
+and `start-seatunnel-spark-3-connector-v2` launcher. This change does not add a separate
+Spark 3.4 starter or extend its compatibility coverage.
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:
