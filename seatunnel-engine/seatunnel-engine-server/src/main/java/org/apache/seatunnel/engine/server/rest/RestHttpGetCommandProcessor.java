@@ -258,7 +258,13 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     }
 
     private void handleRunningJobsSlotUsage(HttpGetCommand command) {
-        this.prepareResponse(command, runningJobSlotUsageService.getRunningJobSlotUsageJson());
+        // The service returns the JSON as a String so the worker-side forwarding operation can
+        // relay it unchanged. Hazelcast's prepareResponse(HttpCommand, Object) serves a String as
+        // text/plain, so parse it into a JsonArray here to keep the legacy endpoint on
+        // application/json like the other running-jobs endpoints.
+        this.prepareResponse(
+                command,
+                Json.parse(runningJobSlotUsageService.getRunningJobSlotUsageJson()).asArray());
     }
 
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
