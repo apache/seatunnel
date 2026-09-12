@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.linear;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.linear.config.LinearSourceParameter;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
 
 public class LinearSourceFactoryTest {
 
@@ -26,5 +30,17 @@ public class LinearSourceFactoryTest {
     public void testFactoryIdentifier() {
         LinearSourceFactory factory = new LinearSourceFactory();
         Assertions.assertEquals("Linear", factory.factoryIdentifier());
+    }
+
+    @Test
+    public void testHeadersInitializationWithoutExistingHeaders() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(new HashMap<>());
+        String apiKey = "test-linear-api-key";
+
+        LinearSourceParameter parameter = new LinearSourceParameter();
+        parameter.buildWithConfig(config, apiKey);
+
+        Assertions.assertNotNull(parameter.getHeaders());
+        Assertions.assertEquals(apiKey, parameter.getHeaders().get("Authorization"));
     }
 }

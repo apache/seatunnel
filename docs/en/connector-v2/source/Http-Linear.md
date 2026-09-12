@@ -25,10 +25,11 @@ Read data from the Linear API via HTTP.
 ```hocon
 source {
   Http-Linear {
-    url = "[https://api.linear.app/graphql](https://api.linear.app/graphql)"
+    url = "https://api.linear.app/graphql"
     api_key = "your_linear_api_key"
     method = "POST"
     body = "{\"query\": \"{ issues { nodes { id title } } }\"}"
     plugin_output = "linear_data"
   }
 }
+```
