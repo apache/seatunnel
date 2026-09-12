@@ -15,17 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.slack;
-
-import org.apache.seatunnel.connectors.seatunnel.slack.sink.SlackSinkFactory;
+package org.apache.seatunnel.connectors.seatunnel.zendesk.sink;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class SlackFactoryTest {
+class ZendeskSinkFactoryTest {
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new SlackSinkFactory()).optionRule());
+        Assertions.assertNotNull(new ZendeskSinkFactory().optionRule());
+    }
+
+    @Test
+    void factoryIdentifier() {
+        Assertions.assertEquals("Zendesk", new ZendeskSinkFactory().factoryIdentifier());
     }
 }
