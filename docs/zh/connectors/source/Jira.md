@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 
 > Jira 源连接器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 Jira REST API 读取数据。连接器会根据 `email` 和 `api_token` 自动生成 Jira Basic 认证请求头，然后复用 HTTP Source 的能力解析返回结果。
@@ -15,7 +21,7 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -53,7 +59,11 @@ Jira Source 只支持批处理。如果作业以流模式运行，连接器会�
 - `email`：Jira 账号邮箱。
 - `api_token`：Jira API Token。
 
-连接器会自动生成 Basic 认证请求头。
+连接器会自动生成 Basic 认证请求头。请不要在 `headers` 中再单独添加 `Authorization`，否则会覆盖掉自动生成
+的认证头，导致认证失败。
+
+如果 Jira 站点部署在反向代理之后，请把代理相关的请求头（如 `X-Atlassian-Token`）放到 `headers` 中，不要
+尝试覆盖 Basic 认证头。
 
 ### 返回结果解析
 
@@ -90,7 +100,13 @@ schema = {
 | cursor_response_field | String | 否 | - | 从响应中读取下一页游标的 JSONPath 字段。 |
 | use_placeholder_replacement | boolean | 否 | false | 是否在请求头、参数和请求体中使用 `${field}` 占位符替换。 |
 
+Jira REST 搜索接口（`/rest/api/3/search`）既支持 `startAt` / `maxResults` 这种偏移量分页，也支持基于
+`nextPageToken` 的游标分页。请根据目标端点实际支持的形式选择 —— 大多数云端接口仍然接受旧的偏移量分页，
+而较新的接口只接受游标分页。
+
 ## 示例
+
+### 通过 REST 搜索接口读取 Jira Issues
 
 ```hocon
 env {
@@ -120,6 +136,92 @@ source {
 sink {
   Console {
     plugin_input = "jira"
+  }
+}
+```
+
+### 读取支持游标分页的 Jira 端点
+
+对于只支持游标分页的接口（例如较新的 comment、sprint 接口），把 `page_type` 切换为 `Cursor`，并把
+`cursor_response_field` 指向响应中返回下一页游标的字段。连接器会一直翻页，直到响应里找不到游标为止。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jira {
+    plugin_output = "jira_paged"
+    url = "https://example.atlassian.net/rest/api/3/search"
+    email = "admin@example.com"
+    api_token = "replace-with-token"
+    method = "POST"
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = "{\"jql\":\"project = DEMO AND created >= -30d\",\"maxResults\":100,\"fields\":[\"summary\",\"status\"]}"
+    format = "json"
+    content_field = "$.issues.*"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "nextPageToken"
+      cursor_response_field = "$.nextPageToken"
+      batch_size = 100
+    }
+    schema = {
+      fields {
+        id = string
+        key = string
+        summary = string
+        status_name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "jira_paged"
+  }
+}
+```
+
+### 通过 JQL + `content_field` 发起 POST 请求
+
+Jira 较新的搜索接口接受 JSON 形式的 JQL，请用 `POST` 提交。当 JQL 较长或包含需要 URL 编码的字符时，这种方式
+比把它们拼到 `params` 里更可靠。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jira {
+    plugin_output = "jira_jql"
+    url = "https://example.atlassian.net/rest/api/3/search"
+    email = "admin@example.com"
+    api_token = "replace-with-token"
+    method = "POST"
+    body = "{\"jql\":\"project = DEMO AND created >= -7d\"}"
+    format = "json"
+    content_field = "$.issues.*"
+    schema = {
+      fields {
+        id = string
+        key = string
+        summary = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "jira_jql"
   }
 }
 ```
