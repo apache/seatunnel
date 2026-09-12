@@ -23,6 +23,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
 import org.junit.jupiter.api.Test;
@@ -82,6 +83,19 @@ class BigQuerySinkFactoryTest {
                 () ->
                         ConfigValidator.of(ReadonlyConfig.fromConfig(config))
                                 .validate(factory.optionRule()));
+    }
+
+    @Test
+    void testInvalidWriteModeRejectedBySinkConstructor() {
+        Config config =
+                ConfigFactory.parseString(
+                        requiredOptions()
+                                + BigQuerySinkOptions.WRITE_MODE.key()
+                                + " = \"invalid\"\n");
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+
+        assertThrows(SeaTunnelRuntimeException.class, () -> new BigQuerySink(readonlyConfig, null));
     }
 
     @Test
