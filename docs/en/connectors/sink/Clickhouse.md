@@ -48,6 +48,14 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | ARRAY               | Array                                                                                                                                         |
 | MAP                 | Map                                                                                                                                           |
 
+### Timezone-aware timestamps
+
+Scalar `TIMESTAMP_TZ` values can be written to existing `DateTime` and `DateTime64` columns, including nullable columns. The sink preserves the instant represented by the input offset. `DateTime` stores whole seconds; `DateTime64` stores fractional seconds up to the target column's precision. ClickHouse uses a column-level timezone and does not retain the original offset of each row.
+
+The sink uses explicit UTC conversions for these fields, including update and delete conditions. Inserts containing these fields use the driver's SQL-based batching instead of its binary input path. Inserts without these fields retain the existing path.
+
+Create the target table before running the job. Automatic table creation for `TIMESTAMP_TZ` and timezone-aware timestamps inside arrays or maps are not supported by this mapping.
+
 ## Sink Options
 
 |                 Name                  |  Type   | Required | Default |                                                                                                                                                 Description                                                                                                                                                 |
