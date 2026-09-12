@@ -345,7 +345,10 @@ map:
            fs.oss.endpoint: OSS endpoint
 ```
 
-Notice: When using OSS, make sure that the following jars are in the lib directory.
+Notice: In the official binary package, the jars required by OSS IMAP storage are copied to
+`starter/zeta/common` and `starter/zeta/oss`. You do not need to add them to `lib/` again when
+using the packaged distribution. If you build a custom distribution, make sure the following
+jars are available in those directories.
 
 The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
 
@@ -386,7 +389,10 @@ map:
          fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
 ```
 
-Notice: When using S3, make sure that the following jars are in the lib directory.
+Notice: In the official binary package, the jars required by S3 IMAP storage are copied to
+`starter/zeta/common` and `starter/zeta/s3`. You do not need to add them to `lib/` again when
+using the packaged distribution. If you build a custom distribution, make sure the following
+jars are available in those directories.
 
 Both JARs come from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project:
 - `seatunnel-shade-hadoop3-uber` — shaded Hadoop client with relocated packages

@@ -21,6 +21,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 
 import lombok.NonNull;
 
@@ -28,9 +30,16 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class FileUtilsTest {
     @Test
@@ -144,5 +153,125 @@ public class FileUtilsTest {
         Assertions.assertEquals(
                 "",
                 FileUtils.readFileToStr(Paths.get("/tmp/newfolder/newfolder2/newfolde3/test.txt")));
+    }
+
+    @Test
+    public void testSearchJarFilesForStorageLoadsCommonAndStorageDirectories() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta");
+        Files.createDirectories(zetaDir.resolve("common"));
+        Files.createDirectories(zetaDir.resolve("s3"));
+        Files.createDirectories(zetaDir.resolve("oss"));
+        Path commonJar = Files.createFile(zetaDir.resolve("common").resolve("common.jar"));
+        Path storageJar = Files.createFile(zetaDir.resolve("s3").resolve("s3.jar"));
+        Files.createFile(zetaDir.resolve("oss").resolve("oss.jar"));
+
+        Set<String> jarNames =
+                extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "  S3  "));
+
+        Assertions.assertEquals(
+                new HashSet<>(
+                        Arrays.asList(
+                                commonJar.getFileName().toString(),
+                                storageJar.getFileName().toString())),
+                jarNames);
+    }
+
+    @Test
+    public void testSearchJarFilesForStorageFallsBackToLegacyLayout() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta-legacy");
+        Path legacyJar = Files.createFile(zetaDir.resolve("legacy.jar"));
+
+        Set<String> jarNames = extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "hdfs"));
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(legacyJar.getFileName().toString())), jarNames);
+    }
+
+    @Test
+    public void testSearchJarFilesForStorageKeepsLegacyRootJarsInMixedLayout() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta-mixed");
+        Files.createDirectories(zetaDir.resolve("common"));
+        Path commonJar = Files.createFile(zetaDir.resolve("common/common.jar"));
+        Path legacyJar = Files.createFile(zetaDir.resolve("legacy-storage.jar"));
+
+        Set<String> jarNames = extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "s3"));
+
+        Assertions.assertEquals(
+                new HashSet<>(
+                        Arrays.asList(
+                                commonJar.getFileName().toString(),
+                                legacyJar.getFileName().toString())),
+                jarNames);
+    }
+
+    /**
+     * storage.type is user configuration: a path-shaped value must never widen the JAR scan beyond
+     * the starter/zeta root. A traversal value has to fall back to the legacy scan of the root
+     * itself and must not pick up JARs from a sibling directory.
+     */
+    @Test
+    public void testSearchJarFilesForStorageRejectsTraversalStorageType() throws Exception {
+        Path parent = Files.createTempDirectory("seatunnel-zeta-traversal");
+        Path zetaDir = Files.createDirectories(parent.resolve("starter"));
+        Path outsideDir = Files.createDirectories(parent.resolve("outside"));
+        Files.createFile(outsideDir.resolve("escaped.jar"));
+        Path legacyJar = Files.createFile(zetaDir.resolve("legacy.jar"));
+
+        Set<String> jarNames =
+                extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "../outside"));
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(legacyJar.getFileName().toString())), jarNames);
+    }
+
+    /** An absolute storage.type is just as illegal as a relative traversal and must not scan. */
+    @Test
+    public void testSearchJarFilesForStorageRejectsAbsoluteStorageType() throws Exception {
+        Path zetaDir = Files.createTempDirectory("seatunnel-zeta-absolute");
+        Path legacyJar = Files.createFile(zetaDir.resolve("legacy.jar"));
+        Path outsideDir = Files.createTempDirectory("seatunnel-zeta-absolute-outside");
+        Files.createFile(outsideDir.resolve("escaped.jar"));
+
+        Set<String> jarNames =
+                extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, outsideDir.toString()));
+
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList(legacyJar.getFileName().toString())), jarNames);
+    }
+
+    /**
+     * Even a clean identifier must not be scanned when the matching subdirectory is a symlink
+     * escaping the starter/zeta root: the JAR walk follows links, so an escaping link would load
+     * plugins from unrelated filesystem locations. Disabled on Windows because creating symlinks
+     * there requires elevated privileges on the CI runners.
+     */
+    @Test
+    @DisabledOnOs(OS.WINDOWS)
+    public void testSearchJarFilesForStorageIgnoresSymlinkEscapingRoot() throws Exception {
+        Path parent = Files.createTempDirectory("seatunnel-zeta-symlink");
+        Path zetaDir = Files.createDirectories(parent.resolve("starter"));
+        Path outsideDir = Files.createDirectories(parent.resolve("outside"));
+        Files.createFile(outsideDir.resolve("escaped.jar"));
+        Files.createSymbolicLink(zetaDir.resolve("s3"), outsideDir);
+        Files.createDirectories(zetaDir.resolve("common"));
+        Path commonJar = Files.createFile(zetaDir.resolve("common").resolve("common.jar"));
+
+        Set<String> jarNames = extractJarNames(FileUtils.searchJarFilesForStorage(zetaDir, "s3"));
+
+        Assertions.assertFalse(jarNames.contains("escaped.jar"));
+        Assertions.assertTrue(jarNames.contains(commonJar.getFileName().toString()));
+    }
+
+    private Set<String> extractJarNames(List<URL> jarUrls) {
+        return jarUrls.stream()
+                .map(
+                        url -> {
+                            try {
+                                return Paths.get(url.toURI()).getFileName().toString();
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        })
+                .collect(Collectors.toSet());
     }
 }
