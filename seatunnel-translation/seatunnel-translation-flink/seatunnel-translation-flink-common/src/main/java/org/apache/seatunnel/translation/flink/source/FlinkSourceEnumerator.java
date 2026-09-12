@@ -67,9 +67,27 @@ public class FlinkSourceEnumerator<SplitT extends SourceSplit, EnumStateT>
             SourceSplitEnumerator<SplitT, EnumStateT> enumerator,
             SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext,
             Set<Integer> noMoreSplitsSignaledReaders) {
+        this(
+                enumerator,
+                enumContext,
+                new FlinkSourceSplitEnumeratorContext<>(
+                        enumContext, noMoreSplitsSignaledReaders::add),
+                noMoreSplitsSignaledReaders);
+    }
+
+    /**
+     * Prefer this constructor when the SeaTunnel enumerator was already created with a shared
+     * context (e.g. restore), so Flink job-id reflection and no-more-splits tracking stay
+     * consistent.
+     */
+    public FlinkSourceEnumerator(
+            SourceSplitEnumerator<SplitT, EnumStateT> enumerator,
+            SplitEnumeratorContext<SplitWrapper<SplitT>> enumContext,
+            SourceSplitEnumerator.Context<SplitT> context,
+            Set<Integer> noMoreSplitsSignaledReaders) {
         this.sourceSplitEnumerator = enumerator;
         this.enumeratorContext = enumContext;
-        this.context = new FlinkSourceSplitEnumeratorContext<>(enumeratorContext);
+        this.context = context;
         this.parallelism = enumeratorContext.currentParallelism();
         this.noMoreSplitsSignaledReaders = noMoreSplitsSignaledReaders;
     }
