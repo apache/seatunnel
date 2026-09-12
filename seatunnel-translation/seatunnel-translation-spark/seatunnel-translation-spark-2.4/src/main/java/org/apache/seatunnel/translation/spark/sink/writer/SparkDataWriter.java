@@ -114,15 +114,22 @@ public class SparkDataWriter<CommitInfoT, StateT> implements DataWriter<Internal
 
     @Override
     public void abort() throws IOException {
-        sinkWriter.abortPrepare();
-        if (sinkCommitter != null) {
-            if (latestCommitInfoT == null) {
-                sinkCommitter.abort(Collections.emptyList());
-            } else {
-                sinkCommitter.abort(Collections.singletonList(latestCommitInfoT));
+        try {
+            sinkWriter.abortPrepare();
+            if (sinkCommitter != null) {
+                if (latestCommitInfoT == null) {
+                    sinkCommitter.abort(Collections.emptyList());
+                } else {
+                    sinkCommitter.abort(Collections.singletonList(latestCommitInfoT));
+                }
             }
+            cleanCommitInfo();
+        } catch (Throwable e) {
+            log.error("Abort spark writer throw error", e);
+            throw e;
+        } finally {
+            sinkWriter.close();
         }
-        cleanCommitInfo();
     }
 
     private void cleanCommitInfo() {
