@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -177,6 +178,17 @@ class FacebookAdsSourceTest {
         Assertions.assertEquals("2222222222", configs.get(0).getAdAccountId());
         Assertions.assertEquals("facebook_ads.insights", configs.get(1).getTableId());
         Assertions.assertEquals(AD_ACCOUNT_ID, configs.get(1).getAdAccountId());
+    }
+
+    @Test
+    void tablesConfigsRejectsEmptyList() {
+        Map<String, Object> map = baseConfig();
+        map.put("tables_configs", Collections.emptyList());
+
+        FacebookAdsConnectorException ex = assertBuildFails(map);
+        Assertions.assertEquals(
+                FacebookAdsConnectorErrorCode.INVALID_CONFIG, ex.getSeaTunnelErrorCode());
+        Assertions.assertTrue(ex.getMessage().contains("tables_configs"));
     }
 
     @Test

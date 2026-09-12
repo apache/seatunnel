@@ -53,8 +53,9 @@ public class FacebookAdsSource extends AbstractSingleSplitSource<SeaTunnelRow>
 
     private static final String PLUGIN_NAME = "FacebookAds";
     private static final String DEFAULT_DATABASE = "facebook_ads";
-    private static final Pattern FIELD_PATTERN = Pattern.compile("^[a-z0-9_]+$");
-    private static final Pattern RESOURCE_PATTERN = Pattern.compile("^[a-z0-9_]+$");
+    /** Shared by field and resource names: both are snake_case Graph API identifiers. */
+    private static final Pattern NAME_PATTERN = Pattern.compile("^[a-z0-9_]+$");
+
     private static final Pattern AD_ACCOUNT_ID_PATTERN = Pattern.compile("^[0-9]+$");
 
     /** Query parameters the connector manages itself; user-supplied params must not clash. */
@@ -78,6 +79,11 @@ public class FacebookAdsSource extends AbstractSingleSplitSource<SeaTunnelRow>
         if (config.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
             List<Map<String, Object>> tableConfigMaps =
                     config.get(ConnectorCommonOptions.TABLE_CONFIGS);
+            if (tableConfigMaps == null || tableConfigMaps.isEmpty()) {
+                throw new FacebookAdsConnectorException(
+                        FacebookAdsConnectorErrorCode.INVALID_CONFIG,
+                        "tables_configs must contain at least one table entry");
+            }
             List<FacebookAdsTableConfig> configs = new ArrayList<>();
             for (Map<String, Object> map : tableConfigMaps) {
                 ReadonlyConfig tableConfig = ReadonlyConfig.fromMap(map);
@@ -135,7 +141,7 @@ public class FacebookAdsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                                                                 .INVALID_CONFIG,
                                                         "One of resource or tables_configs is "
                                                                 + "required"));
-        if (!RESOURCE_PATTERN.matcher(resource).matches()) {
+        if (!NAME_PATTERN.matcher(resource).matches()) {
             throw new FacebookAdsConnectorException(
                     FacebookAdsConnectorErrorCode.INVALID_CONFIG,
                     "Invalid resource: '"
@@ -217,7 +223,7 @@ public class FacebookAdsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     }
 
     private String validateField(String field) {
-        if (!FIELD_PATTERN.matcher(field).matches()) {
+        if (!NAME_PATTERN.matcher(field).matches()) {
             throw new FacebookAdsConnectorException(
                     FacebookAdsConnectorErrorCode.INVALID_CONFIG,
                     "Invalid field name: '"
