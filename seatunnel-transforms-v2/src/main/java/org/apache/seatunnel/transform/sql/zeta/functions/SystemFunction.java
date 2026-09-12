@@ -233,9 +233,35 @@ public class SystemFunction {
                         CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                         String.format("Unsupported CAST AS type: %s", v2));
             case "DECIMAL":
-                BigDecimal bigDecimal = new BigDecimal(v1.toString());
+                BigDecimal bigDecimal;
+                RoundingMode roundingMode;
+                if (v1 instanceof BigDecimal) {
+                    bigDecimal = (BigDecimal) v1;
+                    roundingMode = RoundingMode.CEILING;
+                } else if (v1 instanceof Float) {
+                    // Translate the exact binary value, mirroring CAST semantics in
+                    // databases (e.g. MySQL). Float.toString() returns the shortest
+                    // round-trip representation and drops the hidden binary digits
+                    // (126.752251f -> "126.75225"), which would turn CAST(... AS
+                    // DECIMAL(20,10)) into 126.7522500000 instead of the exact
+                    // 126.7522506714 (issue #10198). Round half away from zero to
+                    // match MySQL CAST semantics; CEILING would otherwise push the
+                    // hidden binary tail of 0.1f (0.10000000149...) up to 0.11
+                    // at scale 2 and silently corrupt ordinary DECIMAL casts.
+                    bigDecimal = new BigDecimal((Float) v1);
+                    roundingMode = RoundingMode.HALF_UP;
+                } else if (v1 instanceof Double) {
+                    // Same reasoning as for Float above; the exact binary tail of
+                    // 0.1d (0.10000000000000000555...) plus CEILING at scale 2
+                    // would also become 0.11 instead of 0.10.
+                    bigDecimal = new BigDecimal((Double) v1);
+                    roundingMode = RoundingMode.HALF_UP;
+                } else {
+                    bigDecimal = new BigDecimal(v1.toString());
+                    roundingMode = RoundingMode.CEILING;
+                }
                 Integer scale = (Integer) args.get(3);
-                return bigDecimal.setScale(scale, RoundingMode.CEILING);
+                return bigDecimal.setScale(scale, roundingMode);
             case "BOOLEAN":
                 if (v1 instanceof Number) {
                     if (Arrays.asList(1, 0).contains(((Number) v1).intValue())) {

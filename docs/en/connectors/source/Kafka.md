@@ -23,6 +23,27 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 Source connector for Apache Kafka.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` validates the Kafka source using only topic metadata. It uses the configured
+`bootstrap.servers` and `kafka.config` security settings, checks explicit topics with `describeTopics`,
+and resolves `pattern = true` with the same full-name matching as normal execution. Both
+`tables_configs` and the legacy `table_list` are supported. Output schemas, including native fields,
+Kafka header fields and event-time metadata, are inferred through the normal source configuration path.
+
+Metadata requests share a 30-second time budget; a smaller `kafka.config.default.api.timeout.ms`
+is honored. The request timeout is capped by this budget and client cleanup has a bounded wait.
+As in normal Kafka startup, an explicitly configured API timeout must not be smaller than the
+configured (or Kafka-default) `request.timeout.ms` before these dry-run limits are applied.
+Client setup, including DNS and authentication-provider initialization, can take additional time.
+Normal job execution and its timeouts are unchanged. No consumer or producer is created, no records
+are read or written, no consumer offsets are accessed or committed, and missing topics are not created.
+
+Successful validation proves metadata access, **not** permission to consume records, access a consumer
+group, or deserialize actual messages. A pattern with no currently visible matches is allowed, as it
+is at runtime; validation in that case checks topic listing only, not access to future topics. Kafka
+sinks remain unsupported by connectivity dry-run.
+
 ## Supported DataSource Info
 
 In order to use the Kafka connector, the following dependencies are required.
@@ -61,7 +82,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
+| strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf or avro. For protobuf, strips the Confluent Schema Registry header before deserialization. For avro, strips the fixed five-byte header (magic byte and schema ID); `avro_schema` is required when enabled, and no Schema Registry lookup is performed. |
 | reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
 | is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
@@ -711,7 +732,7 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 
 Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
 
-`format = avro` expects raw Avro-encoded messages. Unlike `protobuf` (see [Protobuf with Schema Registry wire format](#protobuf-with-schema-registry-wire-format)), there is no `strip_schema_registry_header`-equivalent option for `avro`: if a topic was produced by a Confluent `KafkaAvroSerializer` and its messages carry the Confluent Schema Registry wire-format header (magic byte + schema id), `format = avro` does not strip that header before deserializing, so reading will fail or produce corrupted data. `avro_schema` only supplies the writer schema for plain (non-registry) Avro messages.
+`format = avro` expects raw Avro-encoded messages by default. For messages produced by a Confluent `KafkaAvroSerializer`, set `strip_schema_registry_header = true` and provide `avro_schema`. SeaTunnel detects the header by its leading magic byte and strips the fixed five-byte wire header (magic byte `0` plus four-byte schema ID) before decoding, without contacting Schema Registry. The option is opt-in, so raw Avro behavior is unchanged when it is `false`.
 
 ### How do I configure SASL/Kerberos authentication?
 

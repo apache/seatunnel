@@ -23,16 +23,22 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
+import com.couchbase.client.core.error.AuthenticationFailureException;
+import com.couchbase.client.core.error.UnambiguousTimeoutException;
 import com.couchbase.client.java.Bucket;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.Collection;
 import com.couchbase.client.java.Scope;
 
 import java.time.Duration;
+import java.util.stream.Stream;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -59,6 +65,39 @@ import static org.mockito.Mockito.when;
  */
 class CouchbaseWriterConstructorLeakTest {
 
+    @ParameterizedTest
+    @MethodSource("readinessFailures")
+    void testReadinessFailureIsNotRetriedOrMasked(RuntimeException failure) {
+        Bucket bucket = mock(Bucket.class);
+        doThrow(failure).when(bucket).waitUntilReady(any(Duration.class));
+        Cluster cluster = mockCluster(bucket);
+        RuntimeException disconnectFailure = new RuntimeException("disconnect failed");
+        doThrow(disconnectFailure).when(cluster).disconnect();
+
+        try (MockedStatic<Cluster> staticCluster = Mockito.mockStatic(Cluster.class)) {
+            staticCluster
+                    .when(() -> Cluster.connect(anyString(), anyString(), anyString()))
+                    .thenReturn(cluster);
+            RuntimeException thrown =
+                    assertThrows(
+                            RuntimeException.class,
+                            () ->
+                                    new CouchbaseWriter(
+                                            minimalOptions(), minimalCatalogTable(), null));
+            assertSame(failure, thrown);
+            assertSame(disconnectFailure, thrown.getSuppressed()[0]);
+            verify(bucket).waitUntilReady(Duration.ofSeconds(30));
+            verify(cluster).disconnect();
+        }
+    }
+
+    private static Stream<RuntimeException> readinessFailures() {
+        return Stream.of(
+                new UnambiguousTimeoutException("readiness timed out", null),
+                new AuthenticationFailureException("authentication failed", null, null),
+                new RuntimeException(new InterruptedException("readiness interrupted")));
+    }
+
     /** Minimal {@link CouchbaseWriterOptions} pointing at a fake cluster. */
     private static CouchbaseWriterOptions minimalOptions() {
         return CouchbaseWriterOptions.builder()
@@ -68,7 +107,6 @@ class CouchbaseWriterConstructorLeakTest {
                 .withBucket("test-bucket")
                 .withScope("_default")
                 .withCollection("test-collection")
-                .withBatchIntervalMs(-1) // disable background scheduler
                 .build();
     }
 

@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 > RabbitMQ source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to read data from RabbitMQ queues.
@@ -271,6 +277,21 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Why must parallelism be set to 1 to achieve exactly-once?
+
+RabbitMQ dispatches messages among multiple active consumers on the same queue in a round-robin manner. When multiple parallel readers consume from the same queue, message ordering and deterministic offset/acknowledgement coordination across distributed workers cannot be guaranteed. Therefore, setting parallelism to 1 is required for deterministic exactly-once delivery.
+
+### What message formats are supported by RabbitMQ source?
+
+RabbitMQ source uses SeaTunnel deserialization schemas (such as JSON, Text, etc.) to deserialize message payloads into SeaTunnel rows according to the configured `schema`.
+
+### How does the source handle unacknowledged messages when a failure occurs?
+
+When a SeaTunnel task fails or crashes, the RabbitMQ connection drops, and RabbitMQ automatically requeues any unacknowledged messages. Upon job restoration from a checkpoint, the reader resumes processing without message loss.
+
 ## Changelog
 
 <ChangeLog />
