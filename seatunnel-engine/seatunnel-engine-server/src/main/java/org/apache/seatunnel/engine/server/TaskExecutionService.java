@@ -637,8 +637,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
-            TaskGroupExecutionTracker executionTracker =
-                    new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
                     new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
@@ -670,9 +668,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
-            executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+            TaskGroupContext context = new TaskGroupContext(taskGroup, classLoaders, jars);
+            TaskGroupExecutionTracker executionTracker =
+                    new TaskGroupExecutionTracker(
+                            cancellationFuture, taskGroup, context, resultFuture);
+            executionContexts.put(taskGroup.getTaskGroupLocation(), context);
             contextPublished = true;
             onContextPublished.run();
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -1374,13 +1374,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
+        /**
+         * The TaskGroupContext that this tracker owns. Used to guard against stale taskDone calls
+         * from a previous restore generation removing resources installed by a newer generation for
+         * the same TaskGroupLocation.
+         */
+        private final TaskGroupContext ownedContext;
+
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
                 @NonNull TaskGroup taskGroup,
+                @NonNull TaskGroupContext ownedContext,
                 @NonNull CompletableFuture<TaskExecutionState> future) {
             this.future = future;
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
             this.taskGroup = taskGroup;
+            this.ownedContext = ownedContext;
             cancellationFuture.whenComplete(
                     withTryCatch(
                             logger,
@@ -1455,20 +1464,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
-                cancellationFutures.remove(taskGroupLocation);
-                try {
-                    cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel async function failed", t);
-                }
-                try {
-                    cancelTimerFlushForTaskGroup(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel timer-flush tasks failed", t);
-                }
+                finishOwnedResources(taskGroupLocation);
                 try {
                     updateMetricsContextInImap();
                 } catch (Throwable t) {
@@ -1504,12 +1500,63 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
-        private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
-            TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
+        private void recycleClassLoader(
+                TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
+            context.setClassLoaders(null);
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
+        }
+
+        /**
+         * Finishes all resources owned by this tracker under the same monitor used by deployment.
+         *
+         * <p>TaskGroupLocation is reused across restore generations. The ownership check and
+         * teardown must therefore be one critical section: otherwise an older generation can remove
+         * its context, let a newer deployment install resources for the same location, and then
+         * accidentally tear down the newer generation's cancellation future, async functions, or
+         * timer flushes.
+         */
+        private void finishOwnedResources(TaskGroupLocation taskGroupLocation) {
+            synchronized (TaskExecutionService.this) {
+                if (!finishExecutionContext(taskGroupLocation)) {
+                    logger.warning(
+                            String.format(
+                                    "Skip stale taskDone shared cleanup for %s because the active "
+                                            + "context is no longer owned by this tracker.",
+                                    taskGroupLocation));
+                    recycleClassLoader(taskGroupLocation, ownedContext);
+                    return;
+                }
+                recycleClassLoader(taskGroupLocation, ownedContext);
+                cancellationFutures.remove(taskGroupLocation);
+                try {
+                    cancelAsyncFunction(taskGroupLocation);
+                } catch (Throwable t) {
+                    logger.severe("cancel async function failed", t);
+                }
+                try {
+                    cancelTimerFlushForTaskGroup(taskGroupLocation);
+                } catch (Throwable t) {
+                    logger.severe("cancel timer-flush tasks failed", t);
+                }
+            }
+        }
+
+        /**
+         * Moves the execution context from the active map to the finished map only when the active
+         * map still points to the exact context object installed by this tracker.
+         */
+        private boolean finishExecutionContext(TaskGroupLocation taskGroupLocation) {
+            TaskGroupContext activeContext = executionContexts.get(taskGroupLocation);
+            if (activeContext != ownedContext) {
+                return false;
+            }
+            if (executionContexts.remove(taskGroupLocation, ownedContext)) {
+                finishedExecutionContexts.put(taskGroupLocation, ownedContext);
+                return true;
+            }
+            return false;
         }
 
         boolean executionCompletedExceptionally() {
