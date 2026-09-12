@@ -14,7 +14,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 [Qdrant](https://qdrant.tech/) 是一个高性能的向量搜索引擎和向量数据库。
 
-Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。普通列会写入 point payload，向量列会写成命名向量；如果上游 schema 中有主键列，主键值会作为 Qdrant point ID。
+Qdrant sink 会把 SeaTunnel 行写入一个已经存在的 Qdrant collection。普通列会写入 point payload，
+向量列会写成命名向量；如果上游 schema 中有主键列，主键值会作为 Qdrant point ID。它非常适合把上游 CDC
+或批处理源中的向量数据加载进来，也适合把一个 Qdrant collection 镜像到另一个。
+
+目标 collection 必须已经存在，并且向量名、维度要匹配；sink 不会创建 collection 或向量索引，也不会把
+`UPDATE`/`DELETE` 行类型当作 CDC 语义来执行。每个写入器最多缓存 64 个 point，再发起一次 upsert 请求。
 
 ## 主要特性
 
