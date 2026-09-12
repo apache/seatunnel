@@ -65,7 +65,6 @@ public class SourceRegisterOperation extends TracingOperation
                     SourceSplitEnumeratorTask<?> task =
                             server.getTaskExecutionService().getTask(enumeratorTaskID);
                     task.getExecutionContext()
-                            .getTaskExecutionService()
                             .asyncExecuteFunction(
                                     enumeratorTaskID.getTaskGroupLocation(),
                                     () -> {

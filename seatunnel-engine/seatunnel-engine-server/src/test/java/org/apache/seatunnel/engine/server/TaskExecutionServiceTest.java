@@ -559,6 +559,58 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.cancelTaskGroup(location);
     }
 
+    @Test
+    public void testStaleTaskCompletionKeepsNewExecutionContext() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location =
+                new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId());
+
+        AtomicBoolean oldTaskStop = new AtomicBoolean(false);
+        CompletableFuture<TaskExecutionState> oldTaskFuture =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(
+                                location,
+                                "old-generation",
+                                Lists.newArrayList(new TestTask(oldTaskStop, 50, false))));
+        TaskGroupContext oldTaskContext = taskExecutionService.getActiveExecutionContext(location);
+
+        AtomicBoolean newTaskStop = new AtomicBoolean(false);
+        CompletableFuture<TaskExecutionState> newTaskFuture =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(
+                                location,
+                                "new-generation",
+                                Lists.newArrayList(new TestTask(newTaskStop, 50, false))));
+        try {
+            TaskGroupContext newTaskContext =
+                    taskExecutionService.getActiveExecutionContext(location);
+            Assertions.assertNotSame(
+                    oldTaskContext,
+                    newTaskContext,
+                    "the test must exercise two distinct execution generations");
+
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertEquals(CANCELED, oldTaskFuture.get().getExecutionState()));
+
+            Assertions.assertSame(
+                    newTaskContext,
+                    taskExecutionService.getActiveExecutionContext(location),
+                    "a stale task completion must not remove the newer execution context");
+
+            taskExecutionService.cancelTaskGroup(location);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertEquals(CANCELED, newTaskFuture.get().getExecutionState()));
+        } finally {
+            oldTaskStop.set(true);
+            newTaskStop.set(true);
+            taskExecutionService.cancelTaskGroup(location);
+        }
+    }
+
     public List<Task> buildFixedTestTask(
             long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();
@@ -630,6 +682,32 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertFalse(second.isCancelled(), "new future must remain active");
 
         taskExecutionService.closeTimerFlushTask(taskLocation);
+    }
+
+    @Test
+    public void testTimerFlushCloseOnlyCancelsOwnedExecutionGeneration() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 204L);
+        TaskLocation oldTaskLocation = new TaskLocation(groupLocation, 1L, 1);
+        TaskLocation newTaskLocation = new TaskLocation(groupLocation, 2L, 2);
+        TaskExecutionService.ExecutionGeneration oldGeneration =
+                new TaskExecutionService.ExecutionGeneration();
+        TaskExecutionService.ExecutionGeneration newGeneration =
+                new TaskExecutionService.ExecutionGeneration();
+
+        ScheduledFuture<?> oldFuture =
+                taskExecutionService.registerTimerFlushTask(
+                        oldTaskLocation, () -> {}, 1_000L, oldGeneration);
+        ScheduledFuture<?> newFuture =
+                taskExecutionService.registerTimerFlushTask(
+                        newTaskLocation, () -> {}, 1_000L, newGeneration);
+
+        taskExecutionService.closeTimerFlushTask(oldTaskLocation, oldGeneration);
+
+        Assertions.assertTrue(oldFuture.isCancelled(), "old generation timer must be closed");
+        Assertions.assertFalse(newFuture.isCancelled(), "new generation timer must remain active");
+
+        taskExecutionService.closeTimerFlushTask(newTaskLocation, newGeneration);
     }
 
     @Test
