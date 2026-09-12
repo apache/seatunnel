@@ -29,6 +29,11 @@ public abstract class OffsetFactory implements Serializable {
 
     public abstract Offset latest();
 
+    public Offset committedOffset() {
+        throw new UnsupportedOperationException(
+                "not supported create new Offset by committed offset.");
+    }
+
     public abstract Offset specific(Map<String, String> offset);
 
     public abstract Offset specific(String filename, Long position);

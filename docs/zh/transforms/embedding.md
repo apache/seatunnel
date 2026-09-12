@@ -75,7 +75,11 @@ provider 侧副作用。该配置不会改变下游 Sink 的幂等语义。
 运行时会记录 provider、model、batch size、attempt number、error category、retryable flag、elapsed time 等安全诊断上下文。
 日志不会记录 API key、secret key、完整源文本 chunk、二进制 payload 或完整 provider response body。
 
-Bedrock 现在也走统一的 common runtime 路径，因此 retry、timeout、响应解析和返回数量校验在各个 provider 之间保持一致。
+Bedrock 也走统一的 common runtime 路径，因此 retry、响应解析和返回数量校验在各个 provider 之间保持一致。
+
+对于 `AMAZON`，`model_retry_max_attempts` 统计 SeaTunnel 层的尝试次数。AWS SDK 在每次尝试内部仍可能执行 HTTP 重试，
+SDK 的重试策略保持不变。配置的重试和退避选项现在会传递到 Bedrock 运行时，而不再被 Transform 忽略。
+默认仍只执行一次 SeaTunnel 尝试。`model_request_timeout_ms` 目前不应用于 Bedrock SDK 调用；本次修改保留现有的 SDK 超时行为。
 
 运行时也提供了一个 cache 边界。当接入 cache 实现时，key 由 provider、model、输出配置、modality、format、规范化后的 metadata，
 以及规范化输入内容的 SHA-256 摘要组成。默认的生产 wiring 仍然使用 `ModelInvocationCache.NOOP`，因此在接入层显式启用缓存之前，
@@ -134,6 +138,58 @@ vectorization_fields {
 }
 ```
 
+**多字段混合多模态向量化：**  
+> 注意: 目前，仅 `DOUBAO` 提供商支持多模态数据处理
+```hocon
+vectorization_fields {
+    # 多字段文本
+    multi_field_text_vector = [product_name, description]
+
+    # 多字段图片
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # 多字段视频
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # 多字段混合多模态
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **字段规范格式：**
 
 **支持的模态类型：**
@@ -147,7 +203,7 @@ vectorization_fields {
 - `binary` - 二进制数据格式
 
 **自动模态检测：**
-当未显式指定 `modality` 且 `format` 不是 `binary` 时，系统会根据字段值的文件后缀自动检测模态类型：
+当未显式指定 `modality` 且 `format` 是 `url` 时，系统会根据字段值的文件后缀自动检测模态类型：
 
 > **重要：** 使用多模态字段（图片或视频）时，请确保您的模型提供商支持多模态 embedding。图片和视频字段必须包含有效的 URL 或二进制数据。目前，`DOUBAO` 提供商支持多模态数据处理。
 

@@ -41,6 +41,15 @@ sh bin/install-plugin.sh
 sh bin/install-plugin.sh 3.0.0
 ```
 
+对于正式发布的连接器版本，`install-plugin.sh` 通过 HTTPS 直接下载 JAR 及其校验文件，因此 Linux 和 macOS 不需要 Maven。该方式需要 `curl`、`mktemp`，以及 `sha512sum`、`sha1sum`、`shasum` 或 `openssl` 中的任意一个。Windows 的 `install-plugin.cmd` 仍使用发行包内置的 Maven Wrapper。如果需要为 `install-plugin.sh` 使用 Maven 兼容的 HTTPS 镜像，可以通过 `SEATUNNEL_MAVEN_REPOSITORY` 指定仓库根地址：
+
+```bash
+SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \
+  sh bin/install-plugin.sh 3.0.0
+```
+
+直接下载仅支持提供 `.sha512` 或 `.sha1` 校验文件的不可变正式版本。`SNAPSHOT`、`LATEST`、`RELEASE` 和版本范围需要解析 Maven 元数据，因此脚本会自动使用发行包内置的 Maven Wrapper。如果需要继续使用 Maven `settings.xml` 中的镜像、认证仓库、代理或自定义 TLS 策略，也可以设置 `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven`。
+
 通常情况下，你不需要所有的连接器插件。你可以通过配置`config/plugin_config`来指定所需的插件。例如，如果你想让示例应用程序正常工作，你将需要`connector-console`和`connector-fake`插件。你可以修改`plugin_config`配置文件，如下所示：
 
 ```plugin_config
@@ -58,26 +67,11 @@ connector-console
 
 :::
 
-## 从源码构建SeaTunnel
+:::note 开发者说明
 
-### 下载源码
+本地部署指南默认面向使用官方二进制发行包的用户。如果您需要验证未发布代码、调试 SeaTunnel 源码，或构建自定义发行包，请参考[搭建开发环境](../../developer/setup.md)。
 
-从源码构建SeaTunnel。下载源码的方式与下载二进制包的方式相同。
-您可以从[下载页面](https://seatunnel.apache.org/download/)下载源码，或者从[GitHub仓库](https://github.com/apache/seatunnel/releases)克隆源码。
-
-### 构建源码
-
-```shell
-cd seatunnel
-sh ./mvnw clean install -DskipTests -Dskip.spotless=true
-# 获取构建好的二进制包
-cp seatunnel-dist/target/apache-seatunnel-3.0.0-bin.tar.gz /The-Path-You-Want-To-Copy
-
-cd /The-Path-You-Want-To-Copy
-tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
-```
-
-当从源码构建时，所有的连接器插件和一些必要的依赖（例如：mysql驱动）都包含在二进制包中。您可以直接使用连接器插件，而无需单独安装它们。
+:::
 
 # 启动SeaTunnel
 

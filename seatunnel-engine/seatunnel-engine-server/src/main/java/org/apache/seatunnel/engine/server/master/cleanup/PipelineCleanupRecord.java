@@ -136,6 +136,16 @@ public class PipelineCleanupRecord implements IdentifiedDataSerializable {
                 && cleanedTaskGroups.containsAll(taskGroups.keySet());
     }
 
+    /**
+     * Merges a newer cleanup intent into this record while preserving completed cleanup progress.
+     *
+     * <p>The caller passes the newer terminal-state record as {@code other}. Its final status must
+     * win so an older FAILED or CANCELED intent cannot keep driving cleanup after a later terminal
+     * state is reported for the same pipeline location.
+     *
+     * @param other newer cleanup record for the same pipeline location
+     * @return merged cleanup record
+     */
     public PipelineCleanupRecord mergeFrom(PipelineCleanupRecord other) {
         if (other == null) {
             return this;
@@ -161,7 +171,7 @@ public class PipelineCleanupRecord implements IdentifiedDataSerializable {
                         this.pipelineLocation != null
                                 ? this.pipelineLocation
                                 : other.pipelineLocation,
-                        this.finalStatus != null ? this.finalStatus : other.finalStatus,
+                        other.finalStatus != null ? other.finalStatus : this.finalStatus,
                         this.savepointEnd || other.savepointEnd,
                         mergedTaskGroups,
                         mergedCleaned,

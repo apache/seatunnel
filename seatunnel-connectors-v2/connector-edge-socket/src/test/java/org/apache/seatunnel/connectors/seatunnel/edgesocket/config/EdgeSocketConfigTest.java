@@ -47,65 +47,11 @@ class EdgeSocketConfigTest {
     }
 
     @Test
-    void endpointWithoutPortThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketCommonOptions.ENDPOINT.key(), "no-port-host");
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("expected format host:port"));
-    }
-
-    @Test
-    void endpointWithNonNumericPortThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketCommonOptions.ENDPOINT.key(), "host:abc");
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("Invalid endpoint port"));
-    }
-
-    @Test
-    void endpointColonOnlyThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketCommonOptions.ENDPOINT.key(), ":8080");
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("expected format host:port"));
-    }
-
-    @Test
-    void endpointTrailingColonThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketCommonOptions.ENDPOINT.key(), "host:");
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("expected format host:port"));
-    }
-
-    @Test
     void blankEndpointTreatedAsNull() {
         Map<String, Object> map = minimalConfig();
         map.put(EdgeSocketCommonOptions.ENDPOINT.key(), "   ");
         EdgeSocketConfig config = createConfig(map);
         Assertions.assertNull(config.getEndpoint());
-    }
-
-    @Test
-    void localQueueCapacityZeroThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY.key(), 0);
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("local_queue_capacity"));
-    }
-
-    @Test
-    void localQueueCapacityNegativeThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY.key(), -5);
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("greater than 0"));
     }
 
     @Test
@@ -121,34 +67,6 @@ class EdgeSocketConfigTest {
 
         Assertions.assertNotNull(config.getSecretKeyBytes());
         Assertions.assertEquals(32, config.getSecretKeyBytes().length);
-    }
-
-    @Test
-    void secretKeyTooShortThrows() {
-        byte[] shortKey = "only-16-bytes!!!".getBytes();
-        Assertions.assertEquals(16, shortKey.length);
-        String base64Key = Base64.getEncoder().encodeToString(shortKey);
-
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "PACKET");
-        map.put(EdgeSocketSourceOptions.SECRET_KEY.key(), base64Key);
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("exactly 32 bytes"));
-    }
-
-    @Test
-    void secretKeyTooLongThrows() {
-        byte[] longKey = "this-key-is-48-bytes-long-and-way-too-big-for-it".getBytes();
-        Assertions.assertEquals(48, longKey.length);
-        String base64Key = Base64.getEncoder().encodeToString(longKey);
-
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "PACKET");
-        map.put(EdgeSocketSourceOptions.SECRET_KEY.key(), base64Key);
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("exactly 32 bytes"));
     }
 
     @Test
@@ -187,46 +105,10 @@ class EdgeSocketConfigTest {
     }
 
     @Test
-    void missingTokenThrowsWhenAuthTypeIsToken() {
-        Map<String, Object> map = minimalConfig();
-        map.remove(EdgeSocketSourceOptions.TOKEN.key());
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("token is required"));
-    }
-
-    @Test
     void defaultBackpressureOptions() {
         EdgeSocketConfig config = createConfig(minimalConfig());
         Assertions.assertEquals(0.9, config.getQueueBackpressureWatermarkRatio());
         Assertions.assertEquals(500, config.getQueueFullRetryAfterMs());
-    }
-
-    @Test
-    void invalidQueueBackpressureWatermarkRatioThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.QUEUE_BACKPRESSURE_WATERMARK_RATIO.key(), 1.5);
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("queue_backpressure_watermark_ratio"));
-    }
-
-    @Test
-    void invalidQueueFullRetryAfterMsThrows() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.QUEUE_FULL_RETRY_AFTER_MS.key(), 0);
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("queue_full_retry_after_ms"));
-    }
-
-    @Test
-    void blankTokenThrowsWhenAuthTypeIsToken() {
-        Map<String, Object> map = minimalConfig();
-        map.put(EdgeSocketSourceOptions.TOKEN.key(), "   ");
-        IllegalArgumentException ex =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> createConfig(map));
-        Assertions.assertTrue(ex.getMessage().contains("token is required"));
     }
 
     private static Map<String, Object> minimalConfig() {

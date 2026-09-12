@@ -138,7 +138,7 @@ public class TableSchemaUtil {
                 builder.addFields(
                         TableFieldSchema.newBuilder()
                                 .setName(SEQUENCE_NUM)
-                                .setType(TableFieldSchema.Type.INT64)
+                                .setType(TableFieldSchema.Type.STRING)
                                 .setMode(TableFieldSchema.Mode.NULLABLE)
                                 .build());
             }

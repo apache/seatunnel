@@ -70,7 +70,17 @@ Use `env` for job-level and engine-level settings such as `job.mode`, `paralleli
 
 Common parameters are shared across engines. Engine-specific parameters are separated by prefix. For Flink and Spark, see [JobEnvConfig](../configuration/JobEnvConfig.md).
 
-<!-- TODO add supported env parameters -->
+The most common `env` parameters are:
+
+- `job.mode`: chooses `BATCH` or `STREAMING`
+- `job.name`: sets the job name shown by the engine and UI
+- `parallelism`: controls how many parallel readers and writers SeaTunnel uses
+- `checkpoint.interval`: enables periodic checkpoints in streaming jobs
+- `checkpoint.timeout`: limits how long a checkpoint can run before the job fails
+- `jars`: loads extra third-party JARs needed by the job
+- `shade.identifier`: selects the config encryption or decryption strategy
+
+For the full parameter list, engine-specific prefixes, and more examples, see [JobEnvConfig](../configuration/JobEnvConfig.md).
 
 ### source
 

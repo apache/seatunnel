@@ -51,6 +51,10 @@ public interface ReadStrategy extends Serializable, Closeable {
         read(split.getFilePath(), split.getTableId(), output);
     }
 
+    default String getLastReadFingerprint() {
+        return null;
+    }
+
     SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException;
 
     default SeaTunnelRowType getSeaTunnelRowTypeInfo(TablePath tablePath, String path)

@@ -79,12 +79,23 @@ public class StarRocksCatalog implements Catalog {
     protected String defaultUrl;
     private final JdbcUrlUtil.UrlInfo urlInfo;
     private final String template;
+    private final Map<String, String> tableOptions;
     private Connection conn;
 
     private static final Logger LOG = LoggerFactory.getLogger(StarRocksCatalog.class);
 
     public StarRocksCatalog(
             String catalogName, String username, String pwd, String defaultUrl, String template) {
+        this(catalogName, username, pwd, defaultUrl, template, Collections.emptyMap());
+    }
+
+    public StarRocksCatalog(
+            String catalogName,
+            String username,
+            String pwd,
+            String defaultUrl,
+            String template,
+            Map<String, String> tableOptions) {
 
         checkArgument(StringUtils.isNotBlank(username));
         checkArgument(StringUtils.isNotBlank(defaultUrl));
@@ -98,6 +109,7 @@ public class StarRocksCatalog implements Catalog {
         this.username = username;
         this.pwd = pwd;
         this.template = template;
+        this.tableOptions = tableOptions;
     }
 
     @Override
@@ -210,7 +222,8 @@ public class StarRocksCatalog implements Catalog {
                         tablePath.getTableName(),
                         table.getTableSchema(),
                         table.getComment(),
-                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()));
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
+                        tableOptions));
     }
 
     @Override
@@ -514,7 +527,8 @@ public class StarRocksCatalog implements Catalog {
                             tablePath.getTableName(),
                             catalogTable.get().getTableSchema(),
                             catalogTable.get().getComment(),
-                            StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key()));
+                            StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.key(),
+                            tableOptions));
         } else if (actionType == ActionType.DROP_TABLE) {
             return new SQLPreviewResult(
                     StarRocksSaveModeUtil.INSTANCE.getDropTableSql(tablePath, true));

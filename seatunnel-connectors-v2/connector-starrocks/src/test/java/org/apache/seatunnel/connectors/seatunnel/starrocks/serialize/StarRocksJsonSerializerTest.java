@@ -29,6 +29,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.temporal.ChronoField;
@@ -69,5 +71,25 @@ public class StarRocksJsonSerializerTest {
         Assertions.assertEquals(
                 "{\"id\":1,\"name\":\"Tom\",\"array\":[\"tag1\",\"tag2\"],\"map\":{\"key1\":\"value1\"},\"timestamp\":\"2024-01-25 07:55:45.123\"}",
                 jsonString);
+    }
+
+    @Test
+    public void serializeTimestampTz() {
+        // TIMESTAMP_TZ (OffsetDateTime / LTZ) → StarRocks DATETIME string (wall-clock, no tz)
+        String[] fieldNames = {"id", "ts_tz"};
+        SeaTunnelDataType<?>[] fieldTypes = {
+            BasicType.LONG_TYPE, LocalTimeType.OFFSET_DATE_TIME_TYPE
+        };
+
+        SeaTunnelRowType seaTunnelRowType = new SeaTunnelRowType(fieldNames, fieldTypes);
+        StarRocksJsonSerializer serializer = new StarRocksJsonSerializer(seaTunnelRowType, false);
+
+        // 2026-04-15T04:15:23Z → toLocalDateTime() → "2026-04-15 04:15:23"
+        OffsetDateTime odt = OffsetDateTime.of(2026, 4, 15, 4, 15, 23, 0, ZoneOffset.UTC);
+        Object[] fields = {1L, odt};
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+
+        String jsonString = serializer.serialize(row);
+        Assertions.assertEquals("{\"id\":1,\"ts_tz\":\"2026-04-15 04:15:23\"}", jsonString);
     }
 }

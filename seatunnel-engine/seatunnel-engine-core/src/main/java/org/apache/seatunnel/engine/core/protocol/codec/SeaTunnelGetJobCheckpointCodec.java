@@ -17,9 +17,12 @@
 
 package org.apache.seatunnel.engine.core.protocol.codec;
 
+import org.apache.seatunnel.engine.core.job.RestoreMode;
+
 import com.hazelcast.client.impl.protocol.ClientMessage;
 import com.hazelcast.client.impl.protocol.Generated;
 import com.hazelcast.client.impl.protocol.codec.builtin.DataCodec;
+import com.hazelcast.client.impl.protocol.codec.builtin.FixedSizeTypesCodec;
 
 import static com.hazelcast.client.impl.protocol.ClientMessage.PARTITION_ID_FIELD_OFFSET;
 import static com.hazelcast.client.impl.protocol.ClientMessage.RESPONSE_BACKUP_ACKS_FIELD_OFFSET;
@@ -48,14 +51,29 @@ public final class SeaTunnelGetJobCheckpointCodec {
     public static final int RESPONSE_MESSAGE_TYPE = 14552833;
     private static final int REQUEST_JOB_ID_FIELD_OFFSET =
             PARTITION_ID_FIELD_OFFSET + INT_SIZE_IN_BYTES;
-    private static final int REQUEST_INITIAL_FRAME_SIZE =
+    private static final int REQUEST_RESTORE_MODE_FIELD_OFFSET =
             REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
+    private static final int LEGACY_REQUEST_INITIAL_FRAME_SIZE =
+            REQUEST_JOB_ID_FIELD_OFFSET + LONG_SIZE_IN_BYTES;
+    private static final int REQUEST_INITIAL_FRAME_SIZE =
+            REQUEST_RESTORE_MODE_FIELD_OFFSET + INT_SIZE_IN_BYTES;
     private static final int RESPONSE_INITIAL_FRAME_SIZE =
             RESPONSE_BACKUP_ACKS_FIELD_OFFSET + BYTE_SIZE_IN_BYTES;
 
     private SeaTunnelGetJobCheckpointCodec() {}
 
+    public static class RequestParameters {
+
+        public long jobId;
+
+        public int restoreModeCode;
+    }
+
     public static ClientMessage encodeRequest(long jobId) {
+        return encodeRequest(jobId, RestoreMode.SAVEPOINT.getCode());
+    }
+
+    public static ClientMessage encodeRequest(long jobId, int restoreModeCode) {
         ClientMessage clientMessage = ClientMessage.createForEncode();
         clientMessage.setRetryable(true);
         clientMessage.setOperationName("SeaTunnel.GetJobCheckpoint");
@@ -64,15 +82,33 @@ public final class SeaTunnelGetJobCheckpointCodec {
         encodeInt(initialFrame.content, TYPE_FIELD_OFFSET, REQUEST_MESSAGE_TYPE);
         encodeInt(initialFrame.content, PARTITION_ID_FIELD_OFFSET, -1);
         encodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET, jobId);
+        encodeInt(initialFrame.content, REQUEST_RESTORE_MODE_FIELD_OFFSET, restoreModeCode);
         clientMessage.add(initialFrame);
         return clientMessage;
     }
 
     /** */
     public static long decodeRequest(ClientMessage clientMessage) {
+        return decodeRequestParameters(clientMessage).jobId;
+    }
+
+    /** */
+    public static RequestParameters decodeRequestParameters(ClientMessage clientMessage) {
         ClientMessage.ForwardFrameIterator iterator = clientMessage.frameIterator();
         ClientMessage.Frame initialFrame = iterator.next();
-        return decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
+        RequestParameters request = new RequestParameters();
+        request.jobId = decodeLong(initialFrame.content, REQUEST_JOB_ID_FIELD_OFFSET);
+        if (initialFrame.content.length == REQUEST_INITIAL_FRAME_SIZE) {
+            request.restoreModeCode =
+                    FixedSizeTypesCodec.decodeInt(
+                            initialFrame.content, REQUEST_RESTORE_MODE_FIELD_OFFSET);
+        } else if (initialFrame.content.length == LEGACY_REQUEST_INITIAL_FRAME_SIZE) {
+            request.restoreModeCode = RestoreMode.SAVEPOINT.getCode();
+        } else {
+            throw new IllegalArgumentException(
+                    "Invalid GetJobCheckpoint request frame size: " + initialFrame.content.length);
+        }
+        return request;
     }
 
     public static ClientMessage encodeResponse(com.hazelcast.internal.serialization.Data response) {

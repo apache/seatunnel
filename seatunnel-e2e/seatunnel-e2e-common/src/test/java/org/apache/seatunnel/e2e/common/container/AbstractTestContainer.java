@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.common.container;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +29,7 @@ import org.testcontainers.containers.GenericContainer;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -52,6 +54,9 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected Integer hostGid = Integer.parseInt(System.getProperty("user.gid", "1000"));
 
     protected static final String CONTAINER_VOLUME_MOUNT_PATH = "/tmp/seatunnel_mnt";
+    protected static final Path CONTAINER_HADOOP_JAR_PATH =
+            Paths.get(
+                    SEATUNNEL_HOME, String.format("lib/%s", MavenJarUtil.getHadoop3UberJarName()));
 
     public static final String HOST_VOLUME_MOUNT_PATH =
             isWindows
@@ -204,6 +209,55 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected Container.ExecResult restoreJob(
             GenericContainer<?> container, String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
+        return restoreJob(container, confFile, jobId, variables, getRestoreCommand());
+    }
+
+    protected Container.ExecResult restoreJob(
+            GenericContainer<?> container,
+            String confFile,
+            String sourceJobId,
+            String restoreJobId,
+            List<String> variables,
+            String restoreCommand)
+            throws IOException, InterruptedException {
+        final String confInContainerPath = copyConfigFileToContainer(container, confFile);
+        copyConnectorJarToContainer(
+                container,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        command.add(adaptPathForWin(binPath));
+        command.add("--config");
+        command.add(adaptPathForWin(confInContainerPath));
+        command.add(restoreCommand);
+        command.add(sourceJobId);
+        if (StringUtils.isNoneEmpty(restoreJobId)) {
+            command.add("--set-job-id");
+            command.add(restoreJobId);
+        }
+        List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
+        if (variables != null && !variables.isEmpty()) {
+            variables.forEach(
+                    v -> {
+                        extraStartShellCommands.add("-i");
+                        extraStartShellCommands.add(v);
+                    });
+        }
+        command.addAll(extraStartShellCommands);
+        return executeCommand(container, command);
+    }
+
+    protected Container.ExecResult restoreJob(
+            GenericContainer<?> container,
+            String confFile,
+            String jobId,
+            List<String> variables,
+            String restoreCommand)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -219,7 +273,7 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(binPath));
         command.add("--config");
         command.add(adaptPathForWin(confInContainerPath));
-        command.add(getRestoreCommand());
+        command.add(restoreCommand);
         command.add(jobId);
         List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
         if (variables != null && !variables.isEmpty()) {

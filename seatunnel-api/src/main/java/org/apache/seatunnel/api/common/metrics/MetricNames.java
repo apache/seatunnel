@@ -68,6 +68,12 @@ public final class MetricNames {
     /** Total records received by Sink (writer.write call count). */
     public static final String SINK_RECORDS_IN = "SinkRecordsIn";
 
+    /** Total row-level sink errors routed to the configured ErrorData sink. */
+    public static final String SINK_ERROR_RECORDS_ROUTED = "SinkErrorRecordsRouted";
+
+    /** Total row-level sink errors dropped after logging. */
+    public static final String SINK_ERROR_RECORDS_DROPPED = "SinkErrorRecordsDropped";
+
     /** Total nanoseconds spent in Sink writer.prepareCommit. */
     public static final String SINK_PREPARE_COMMIT_NANOS = "SinkPrepareCommitNs";
 
@@ -76,4 +82,12 @@ public final class MetricNames {
 
     /** Total nanoseconds spent in SinkCommitter.abort. */
     public static final String SINK_ABORT_NANOS = "SinkAbortNs";
+
+    public static final String FLUSH_SIGNAL_TOTAL = "FlushSignalTotal";
+    public static final String FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL = "FlushSignalQueueSuccessTotal";
+    public static final String FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL = "FlushSignalQueueFailureTotal";
+    public static final String FLUSH_SIGNAL_SINK_SUCCESS_TOTAL = "FlushSignalSinkSuccessTotal";
+    public static final String FLUSH_SIGNAL_SINK_FAILURE_TOTAL = "FlushSignalSinkFailureTotal";
+    public static final String FLUSH_SIGNAL_QPS = "FlushSignalQPS";
+    public static final String FLUSH_SIGNAL_SINK_QPS = "FlushSignalSinkQPS";
 }

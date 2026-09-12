@@ -39,6 +39,9 @@ import java.sql.SQLException;
 @Slf4j
 public class PostgresCatalog extends AbstractJdbcCatalog {
 
+    public static final String TABLE_OPTION_TABLESPACE = "tablespace";
+    public static final String TABLE_OPTION_FILLFACTOR = "fillfactor";
+
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT \n"
                     + "    a.attname AS column_name, \n"
@@ -78,6 +81,9 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "    n.nspname = '%s'\n"
                     + "    AND c.relname = '%s'\n"
                     + "    AND a.attnum > 0\n"
+                    // PostgreSQL-compatible catalogs retain placeholder attributes after DROP
+                    // COLUMN.
+                    + "    AND NOT a.attisdropped\n"
                     + "ORDER BY \n"
                     + "    a.attnum;";
 

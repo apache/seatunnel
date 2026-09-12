@@ -52,6 +52,7 @@ public class CastFunction {
     public static final String DATE = "DATE";
     public static final String TIME = "TIME";
     public static final String BOOLEAN = "BOOLEAN";
+    public static final String TIMESTAMP_TZ = "TIMESTAMP_TZ";
 
     public static final List<SqlType> INT_CAST_TYPE =
             Arrays.asList(
@@ -78,6 +79,8 @@ public class CastFunction {
                     SqlType.TINYINT,
                     SqlType.FLOAT,
                     SqlType.DOUBLE);
+    public static final List<SqlType> TIMESTAMP_TZ_CAST_TYPES =
+            Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.BIGINT, SqlType.STRING);
     public static final List<SqlType> DATETIME_CAST_TYPES =
             Arrays.asList(SqlType.TIMESTAMP, SqlType.TIMESTAMP_TZ, SqlType.BIGINT);
     public static final List<SqlType> DATE_CAST_TYPES =
@@ -132,6 +135,11 @@ public class CastFunction {
             case BYTES:
             case BINARY:
                 return PrimitiveByteArrayType.INSTANCE;
+            case TIMESTAMP_TZ:
+                if (TIMESTAMP_TZ_CAST_TYPES.contains(originType)) {
+                    return LocalTimeType.OFFSET_DATE_TIME_TYPE;
+                }
+                break;
             case TIMESTAMP:
             case DATETIME:
                 if (DATETIME_CAST_TYPES.contains(originType)) {

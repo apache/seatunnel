@@ -86,6 +86,9 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected int subTaskIndex;
     protected HadoopConf hadoopConf;
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
+    /** Template whose resources are already parsed; see {@link #getConfiguration(HadoopConf)}. */
+    private transient Configuration parsedConfiguration;
+
     protected String transactionId;
     /** The uuid prefix to make sure same job different file sink will not conflict. */
     protected String uuidPrefix;
@@ -167,13 +170,44 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     /**
      * use hadoop conf generate hadoop configuration
      *
+     * <p>Callers get a fresh, independently mutable Configuration, because some of them mutate it
+     * ({@code ParquetWriteStrategy#init} sets {@code AvroWriteSupport.WRITE_FIXED_AS_INT96}). The
+     * expensive part is not the object but the resource load: the first property access on a new
+     * Configuration parses {@code core-default.xml} and friends. Since this is called once per
+     * output file, that parse used to be repeated for every file the subtask wrote. So parse once
+     * and hand out copies — Hadoop's copy constructor clones the already-loaded properties instead
+     * of re-reading the XML.
+     *
      * @param hadoopConf hadoop conf
      * @return Configuration
      */
     @Override
     public Configuration getConfiguration(HadoopConf hadoopConf) {
+        // The cache is only valid for the HadoopConf this strategy was initialised with.
+        if (hadoopConf != this.hadoopConf) {
+            return buildConfiguration(hadoopConf);
+        }
+        if (parsedConfiguration == null) {
+            parsedConfiguration = buildConfiguration(hadoopConf);
+        }
+        return new Configuration(parsedConfiguration);
+    }
+
+    /**
+     * Does the full, expensive work — the resource parse plus the extra options — for one
+     * HadoopConf. This is the thing {@link #getConfiguration(HadoopConf)} caches, so it must stay
+     * free of any per-output-file state.
+     *
+     * <p>Both steps read the same {@code hadoopConf}. That matters because {@link
+     * HadoopConf#setExtraOptionsForConfiguration} does not only copy {@code extraOptions} in: it
+     * also decides which keys an {@code hdfs-site.xml} resource may not overwrite, and those keys
+     * are derived from the conf's own {@code getSchema()}, which every filesystem subclass
+     * overrides. Taking them from a different conf would let that resource overwrite the very
+     * properties {@code unsetUnwantedOverwritingProps} exists to protect.
+     */
+    private Configuration buildConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = hadoopConf.toConfiguration();
-        this.hadoopConf.setExtraOptionsForConfiguration(configuration);
+        hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }
 

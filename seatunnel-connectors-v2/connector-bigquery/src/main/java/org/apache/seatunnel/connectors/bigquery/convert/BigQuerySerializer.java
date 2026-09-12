@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
@@ -33,9 +34,12 @@ import org.json.JSONObject;
 import com.google.protobuf.ByteString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Locale;
 
 import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.CHANGE_TYPE;
 import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.SEQUENCE_NUM;
@@ -100,10 +104,88 @@ public class BigQuerySerializer {
                             element.getRowKind().toString(), "Unsupported RowKind");
             }
             if (sequenceFieldIndex != -1) {
-                jsonObject.put(SEQUENCE_NUM, element.getField(sequenceFieldIndex));
+                jsonObject.put(
+                        SEQUENCE_NUM, encodeSequenceNumber(element.getField(sequenceFieldIndex)));
             }
         }
 
         return jsonObject;
+    }
+
+    private String encodeSequenceNumber(Object value) {
+        if (value == null) {
+            throw invalidSequenceNumber("must not be null");
+        }
+
+        if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long) {
+            return encodeIntegralSequenceNumber(BigInteger.valueOf(((Number) value).longValue()));
+        }
+
+        if (value instanceof BigDecimal) {
+            try {
+                return encodeIntegralSequenceNumber(((BigDecimal) value).toBigIntegerExact());
+            } catch (ArithmeticException e) {
+                throw invalidSequenceNumber("must not contain a fractional value");
+            }
+        }
+
+        if (value instanceof String) {
+            String encodedValue = (String) value;
+            if (encodedValue.isEmpty()) {
+                throw invalidSequenceNumber("must not be empty");
+            }
+
+            String[] sections = encodedValue.split("/", -1);
+            if (sections.length > 4) {
+                throw invalidSequenceNumber("must contain at most 4 sections");
+            }
+            for (String section : sections) {
+                validateSequenceSection(section);
+            }
+            return encodedValue;
+        }
+
+        throw invalidSequenceNumber(
+                String.format(
+                        "must be an integer or an encoded hexadecimal string, but was %s",
+                        value.getClass().getSimpleName()));
+    }
+
+    private String encodeIntegralSequenceNumber(BigInteger number) {
+        if (number.signum() < 0) {
+            throw invalidSequenceNumber("must not be negative");
+        }
+        if (number.bitLength() > 64) {
+            throw invalidSequenceNumber("must not exceed the unsigned 64-bit range");
+        }
+        return number.toString(16).toUpperCase(Locale.ROOT);
+    }
+
+    private void validateSequenceSection(String section) {
+        if (section.isEmpty()) {
+            throw invalidSequenceNumber("must not contain an empty section");
+        }
+        if (section.length() > 16) {
+            throw invalidSequenceNumber("each section must contain at most 16 characters");
+        }
+        for (int i = 0; i < section.length(); i++) {
+            char character = section.charAt(i);
+            boolean isHexDigit =
+                    (character >= '0' && character <= '9')
+                            || (character >= 'A' && character <= 'F')
+                            || (character >= 'a' && character <= 'f');
+            if (!isHexDigit) {
+                throw invalidSequenceNumber("must contain only hexadecimal characters");
+            }
+        }
+    }
+
+    private SeaTunnelRuntimeException invalidSequenceNumber(String reason) {
+        return CommonError.illegalArgument(
+                String.format("BigQuery CDC sequence number %s", reason),
+                BigQuerySinkOptions.SEQUENCE_NUMBER_COLUMN.key());
     }
 }

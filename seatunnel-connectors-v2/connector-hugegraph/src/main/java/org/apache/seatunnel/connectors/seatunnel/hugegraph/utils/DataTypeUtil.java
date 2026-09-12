@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.utils;
 
+import org.apache.seatunnel.connectors.seatunnel.hugegraph.config.ListFormat;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hugegraph.exception.HugeGraphConnectorException;
 
@@ -24,12 +25,14 @@ import org.apache.hugegraph.structure.constant.Cardinality;
 import org.apache.hugegraph.structure.constant.DataType;
 import org.apache.hugegraph.structure.schema.PropertyKey;
 
+import java.lang.reflect.Array;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
@@ -61,6 +64,32 @@ public final class DataTypeUtil {
 
     public static Object convert(
             Object value, PropertyKey propertyKey, String dateFormat, String timeZone) {
+        return convert(
+                value,
+                propertyKey,
+                dateFormat,
+                timeZone,
+                Collections.emptyList(),
+                new ListFormat());
+    }
+
+    public static Object convert(
+            Object value,
+            PropertyKey propertyKey,
+            String dateFormat,
+            String timeZone,
+            ListFormat listFormat) {
+        return convert(
+                value, propertyKey, dateFormat, timeZone, Collections.emptyList(), listFormat);
+    }
+
+    public static Object convert(
+            Object value,
+            PropertyKey propertyKey,
+            String dateFormat,
+            String timeZone,
+            List<String> extraDateFormats,
+            ListFormat listFormat) {
         E.checkArgumentNotNull(value, "The value to be converted can't be null");
 
         String key = propertyKey.name();
@@ -68,10 +97,19 @@ public final class DataTypeUtil {
         Cardinality cardinality = propertyKey.cardinality();
         switch (cardinality) {
             case SINGLE:
-                return parseSingleValue(key, value, dataType, dateFormat, timeZone);
+                return parseSingleValue(
+                        key, value, dataType, dateFormat, timeZone, extraDateFormats);
             case SET:
             case LIST:
-                return parseMultiValues(key, value, dataType, cardinality, dateFormat, timeZone);
+                return parseMultiValues(
+                        key,
+                        value,
+                        dataType,
+                        cardinality,
+                        dateFormat,
+                        timeZone,
+                        extraDateFormats,
+                        listFormat);
             default:
                 throw new HugeGraphConnectorException(
                         HugeGraphConnectorErrorCode.INVALID_GRAPH_SCHEMA,
@@ -89,25 +127,36 @@ public final class DataTypeUtil {
             DataType dataType,
             Cardinality cardinality,
             String dateFormat,
-            String timeZone) {
-        // JSON file should not parse again
-        if (values instanceof Collection
-                && checkCollectionDataType(key, (Collection<?>) values, dataType)) {
-            return values;
+            String timeZone,
+            List<String> extraDateFormats,
+            ListFormat listFormat) {
+        Collection<?> sourceValues;
+        if (values instanceof Collection) {
+            sourceValues = (Collection<?>) values;
+        } else if (values.getClass().isArray()) {
+            List<Object> arrayValues = new ArrayList<>(Array.getLength(values));
+            for (int i = 0; i < Array.getLength(values); i++) {
+                arrayValues.add(Array.get(values, i));
+            }
+            sourceValues = arrayValues;
+        } else {
+            E.checkState(
+                    values instanceof String,
+                    "The value(key='%s') must be a Collection, array, or String type, "
+                            + "but got '%s'(%s)",
+                    key,
+                    values,
+                    values.getClass());
+            sourceValues = split(key, (String) values, listFormat);
         }
 
-        E.checkState(
-                values instanceof String,
-                "The value(key='%s') must be String type, " + "but got '%s'(%s)",
-                key,
-                values);
-        String rawValue = (String) values;
-        List<Object> valueColl = split(key, rawValue);
         Collection<Object> results =
                 cardinality == Cardinality.LIST ? new ArrayList<>() : new LinkedHashSet<>();
-        valueColl.forEach(
+        sourceValues.forEach(
                 value -> {
-                    results.add(parseSingleValue(key, value, dataType, dateFormat, timeZone));
+                    results.add(
+                            parseSingleValue(
+                                    key, value, dataType, dateFormat, timeZone, extraDateFormats));
                 });
         E.checkArgument(
                 checkCollectionDataType(key, results, dataType),
@@ -124,8 +173,15 @@ public final class DataTypeUtil {
             Collection<?> collection = (Collection<?>) rawColumnValue;
             return new ArrayList<>(collection);
         }
+        if (rawColumnValue.getClass().isArray()) {
+            List<Object> values = new ArrayList<>(Array.getLength(rawColumnValue));
+            for (int i = 0; i < Array.getLength(rawColumnValue); i++) {
+                values.add(Array.get(rawColumnValue, i));
+            }
+            return values;
+        }
         String rawValue = rawColumnValue.toString();
-        return split(key, rawValue);
+        return split(key, rawValue, new ListFormat());
     }
 
     public static UUID parseUUID(String key, Object rawValue) {
@@ -150,7 +206,12 @@ public final class DataTypeUtil {
     }
 
     private static Object parseSingleValue(
-            String key, Object rawValue, DataType dataType, String dateFormat, String timeZone) {
+            String key,
+            Object rawValue,
+            DataType dataType,
+            String dateFormat,
+            String timeZone,
+            List<String> extraDateFormats) {
         Object value = trimString(rawValue);
         if (value == null) {
             return null;
@@ -166,7 +227,7 @@ public final class DataTypeUtil {
             case BOOLEAN:
                 return parseBoolean(key, value);
             case DATE:
-                return parseDate(key, value, dateFormat, timeZone);
+                return parseDate(key, value, dateFormat, timeZone, extraDateFormats);
             case UUID:
                 return parseUUID(key, value);
             default:
@@ -308,7 +369,12 @@ public final class DataTypeUtil {
                         key, value, value.getClass()));
     }
 
-    private static Date parseDate(String key, Object value, String dateFormat, String timeZone) {
+    private static Date parseDate(
+            String key,
+            Object value,
+            String dateFormat,
+            String timeZone,
+            List<String> extraDateFormats) {
         if (value instanceof Date) {
             return (Date) value;
         }
@@ -351,7 +417,21 @@ public final class DataTypeUtil {
                 }
             }
 
-            if (dateFormat == null || dateFormat.isEmpty()) {
+            // Candidate patterns, primary first then the extras — tried in order (deterministic,
+            // unlike the loader which uses a HashSet), first successful parse wins.
+            List<String> formats = new ArrayList<>();
+            if (dateFormat != null && !dateFormat.isEmpty()) {
+                formats.add(dateFormat);
+            }
+            if (extraDateFormats != null) {
+                for (String extra : extraDateFormats) {
+                    if (extra != null && !extra.isEmpty()) {
+                        formats.add(extra);
+                    }
+                }
+            }
+
+            if (formats.isEmpty()) {
                 // Fallback for when no format is provided.
                 try {
                     return new Date(Long.parseLong(strValue));
@@ -363,19 +443,27 @@ public final class DataTypeUtil {
                 }
             }
 
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(dateFormat);
-                LocalDateTime ldt = LocalDateTime.parse(strValue, formatter);
-                ZonedDateTime zdt = ldt.atZone(zoneId);
-                return Date.from(zdt.toInstant());
-            } catch (Exception e) {
-                throw new HugeGraphConnectorException(
-                        HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
-                        String.format(
-                                "Failed to parse date string '%s' with format '%s'",
-                                value, dateFormat),
-                        e);
+            Exception lastFailure = null;
+            for (String format : formats) {
+                try {
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern(format);
+                    LocalDateTime ldt;
+                    try {
+                        ldt = LocalDateTime.parse(strValue, formatter);
+                    } catch (java.time.format.DateTimeParseException dateTimeFailure) {
+                        ldt = LocalDate.parse(strValue, formatter).atStartOfDay();
+                    }
+                    return Date.from(ldt.atZone(zoneId).toInstant());
+                } catch (Exception e) {
+                    lastFailure = e;
+                }
             }
+            throw new HugeGraphConnectorException(
+                    HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
+                    String.format(
+                            "Failed to parse date string '%s' with any of the formats %s",
+                            value, formats),
+                    lastFailure);
         }
         throw new HugeGraphConnectorException(
                 HugeGraphConnectorErrorCode.ILLEGAL_CONFIG_ARGUMENT,
@@ -384,26 +472,35 @@ public final class DataTypeUtil {
                         key, value, value.getClass()));
     }
 
-    private static List<Object> split(String key, String rawValue) {
+    private static List<Object> split(String key, String rawValue, ListFormat listFormat) {
         List<Object> valueColl = new ArrayList<>();
         if (rawValue == null || rawValue.isEmpty()) {
             return valueColl;
         }
 
         String value = rawValue.trim();
-        String startSymbol = "[";
-        String endSymbol = "]";
-        if (value.startsWith(startSymbol) && value.endsWith(endSymbol)) {
+        String startSymbol = listFormat.getStartSymbol();
+        String endSymbol = listFormat.getEndSymbol();
+        if (startSymbol != null
+                && !startSymbol.isEmpty()
+                && endSymbol != null
+                && !endSymbol.isEmpty()
+                && value.startsWith(startSymbol)
+                && value.endsWith(endSymbol)) {
             value = value.substring(startSymbol.length(), value.length() - endSymbol.length());
         }
 
-        String elemDelimiter = ",";
-        // TODO: use a configurable list format
-        com.google.common.base.Splitter.on(elemDelimiter)
+        Set<String> ignoredElems = new HashSet<>(listFormat.getIgnoredElems());
+        com.google.common.base.Splitter.on(listFormat.getElemDelimiter())
                 .trimResults()
                 .omitEmptyStrings()
                 .split(value)
-                .forEach(valueColl::add);
+                .forEach(
+                        elem -> {
+                            if (!ignoredElems.contains(elem)) {
+                                valueColl.add(elem);
+                            }
+                        });
         return valueColl;
     }
 

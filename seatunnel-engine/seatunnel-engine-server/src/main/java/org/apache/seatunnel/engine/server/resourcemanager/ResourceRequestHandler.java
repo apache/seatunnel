@@ -44,6 +44,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -230,6 +231,7 @@ public class ResourceRequestHandler {
 
     private CompletableFuture<SlotAndWorkerProfile> singleResourceRequestToMember(
             int i, ResourceProfile r, WorkerProfile workerProfile) {
+        long invocationStartNanos = System.nanoTime();
         CompletableFuture<SlotAndWorkerProfile> future =
                 resourceManager.sendToMember(
                         new RequestSlotOperation(jobId, r), workerProfile.getAddress());
@@ -237,13 +239,25 @@ public class ResourceRequestHandler {
                 withTryCatch(
                         LOGGER,
                         (slotAndWorkerProfile, error) -> {
+                            long elapsedMillis = elapsedMillisSince(invocationStartNanos);
                             if (error != null) {
+                                resourceManager.recordRequestSlotOperationFailure(elapsedMillis);
                                 throw new RuntimeException(error);
                             } else {
+                                if (slotAndWorkerProfile.getSlotProfile() == null) {
+                                    resourceManager.recordRequestSlotOperationNoSlot(elapsedMillis);
+                                } else {
+                                    resourceManager.recordRequestSlotOperationSuccess(
+                                            elapsedMillis);
+                                }
                                 resourceManager.heartbeat(slotAndWorkerProfile.getWorkerProfile());
                                 addSlotToCacheMap(i, slotAndWorkerProfile.getSlotProfile());
                             }
                         }));
+    }
+
+    private long elapsedMillisSince(long startNanos) {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 
     @VisibleForTesting

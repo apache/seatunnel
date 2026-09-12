@@ -35,7 +35,10 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class MultimodalConfigTest {
 
@@ -44,7 +47,10 @@ public class MultimodalConfigTest {
             PhysicalColumn.of("text_field", BasicType.STRING_TYPE, 255L, true, null, ""),
             PhysicalColumn.of("image_field", BasicType.STRING_TYPE, 255L, true, null, ""),
             PhysicalColumn.of("video_field", BasicType.STRING_TYPE, 255L, true, null, ""),
-            PhysicalColumn.of("mixed_field", BasicType.STRING_TYPE, 255L, true, null, "")
+            PhysicalColumn.of("mixed_field", BasicType.STRING_TYPE, 255L, true, null, ""),
+            PhysicalColumn.of("text_field_2", BasicType.STRING_TYPE, 255L, true, null, ""),
+            PhysicalColumn.of("image_field_2", BasicType.STRING_TYPE, 255L, true, null, ""),
+            PhysicalColumn.of("video_field_2", BasicType.STRING_TYPE, 255L, true, null, ""),
         };
 
         TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
@@ -182,6 +188,110 @@ public class MultimodalConfigTest {
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
         // This should work since DOUBAO supports multimodal
+        EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);
+        Assertions.assertNotNull(transform);
+        Assertions.assertTrue(transform.isMultimodalFields());
+    }
+
+    @Test
+    void testIsMultimodalFieldsDetectionWithMixedListFields() {
+        CatalogTable catalogTable = createTestCatalogTable();
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(ModelTransformConfig.MODEL_PROVIDER.key(), ModelProvider.DOUBAO.name());
+        configMap.put(ModelTransformConfig.MODEL.key(), "doubao-embedding-vision");
+        configMap.put(ModelTransformConfig.API_KEY.key(), "test-api-key");
+        configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
+
+        Map<String, Object> vectorizationFields = new HashMap<>();
+        // Text type
+        List<Object> textFieldConfigList = Arrays.asList("text_field", "text_field_2");
+        if (ThreadLocalRandom.current().nextBoolean()) {
+            textFieldConfigList = new ArrayList<>();
+            Map<String, Object> textFieldConfig = new HashMap<>();
+            textFieldConfig.put("field", "text_field");
+            textFieldConfig.put("modality", "text");
+            textFieldConfigList.add(textFieldConfig);
+            Map<String, Object> textFieldConfig2 = new HashMap<>();
+            textFieldConfig2.put("field", "text_field_2");
+            textFieldConfig2.put("modality", "text");
+            textFieldConfigList.add(textFieldConfig2);
+        }
+        vectorizationFields.put("text_vector", textFieldConfigList);
+
+        // Image type
+        List<Map<String, Object>> imageFieldConfigList = new ArrayList<>();
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", "image_field");
+        imageFieldConfig.put("modality", "png");
+        imageFieldConfigList.add(imageFieldConfig);
+        Map<String, Object> imageFieldConfig2 = new HashMap<>();
+        imageFieldConfig2.put("field", "image_field_2");
+        imageFieldConfig2.put("modality", "png");
+        imageFieldConfigList.add(imageFieldConfig2);
+        vectorizationFields.put("image_vector", imageFieldConfigList);
+
+        // Video type
+        List<Map<String, Object>> videoFieldConfigList = new ArrayList<>();
+        Map<String, Object> videoFieldConfig = new HashMap<>();
+        videoFieldConfig.put("field", "video_field");
+        videoFieldConfig.put("modality", "mp4");
+        videoFieldConfig.put("format", "url");
+        videoFieldConfigList.add(videoFieldConfig);
+        Map<String, Object> videoFieldConfig2 = new HashMap<>();
+        videoFieldConfig2.put("field", "video_field_2");
+        videoFieldConfig2.put("modality", "mp4");
+        videoFieldConfig2.put("format", "url");
+        videoFieldConfigList.add(videoFieldConfig2);
+        vectorizationFields.put("video_vector", videoFieldConfigList);
+
+        configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);
+        Assertions.assertNotNull(transform);
+        Assertions.assertTrue(transform.isMultimodalFields());
+    }
+
+    @Test
+    void testIsMultimodalFieldsDetectionWithMixedTypeFields() {
+        CatalogTable catalogTable = createTestCatalogTable();
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(ModelTransformConfig.MODEL_PROVIDER.key(), ModelProvider.DOUBAO.name());
+        configMap.put(ModelTransformConfig.MODEL.key(), "doubao-embedding-vision");
+        configMap.put(ModelTransformConfig.API_KEY.key(), "test-api-key");
+        configMap.put(ModelTransformConfig.API_PATH.key(), "https://api.test.com/embeddings");
+
+        Map<String, Object> vectorizationFields = new LinkedHashMap<>();
+        // Video type
+        Map<String, Object> videoFieldConfig = new HashMap<>();
+        videoFieldConfig.put("field", "video_field");
+        videoFieldConfig.put("modality", "mp4");
+        videoFieldConfig.put("format", "url");
+        vectorizationFields.put("video_vector", videoFieldConfig);
+
+        // Image type
+        List<Map<String, Object>> imageFieldConfigList = new ArrayList<>();
+        Map<String, Object> imageFieldConfig = new HashMap<>();
+        imageFieldConfig.put("field", "image_field");
+        imageFieldConfig.put("modality", "png");
+        imageFieldConfigList.add(imageFieldConfig);
+        Map<String, Object> imageFieldConfig2 = new HashMap<>();
+        imageFieldConfig2.put("field", "image_field_2");
+        imageFieldConfig2.put("modality", "png");
+        imageFieldConfigList.add(imageFieldConfig2);
+        vectorizationFields.put("image_vector", imageFieldConfigList);
+
+        // Text type
+        Object textFieldConfig = "text_field";
+        vectorizationFields.put("text_vector", textFieldConfig);
+
+        configMap.put(EmbeddingTransformConfig.VECTORIZATION_FIELDS.key(), vectorizationFields);
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
         EmbeddingTransform transform = new EmbeddingTransform(config, catalogTable);
         Assertions.assertNotNull(transform);
         Assertions.assertTrue(transform.isMultimodalFields());

@@ -177,7 +177,7 @@ public class RedshiftTypeConverter extends PostgresTypeConverter {
                 break;
             case REDSHIFT_TIMESTAMPTZ:
                 builder.sourceType(REDSHIFT_TIMESTAMPTZ);
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(MAX_TIMESTAMP_SCALE);
                 break;
             default:
@@ -372,6 +372,23 @@ public class RedshiftTypeConverter extends PostgresTypeConverter {
                 builder.columnType(REDSHIFT_TIMESTAMP);
                 builder.dataType(REDSHIFT_TIMESTAMP);
                 builder.scale(timestampScale);
+                break;
+            case TIMESTAMP_TZ:
+                Integer timestampTzScale = column.getScale();
+                if (timestampTzScale != null && timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                    timestampTzScale = MAX_TIMESTAMP_SCALE;
+                    log.warn(
+                            "The timestamp_tz column {} type timestamptz({}) is out of range, "
+                                    + "which exceeds the maximum scale of {}, "
+                                    + "it will be converted to timestamptz({})",
+                            column.getName(),
+                            column.getScale(),
+                            MAX_TIMESTAMP_SCALE,
+                            timestampTzScale);
+                }
+                builder.columnType(REDSHIFT_TIMESTAMPTZ);
+                builder.dataType(REDSHIFT_TIMESTAMPTZ);
+                builder.scale(timestampTzScale);
                 break;
             case MAP:
             case ARRAY:

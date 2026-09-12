@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarClientConfig;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConsumerConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
@@ -43,6 +44,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarParti
 
 import org.apache.pulsar.client.api.Message;
 import org.apache.pulsar.client.api.MessageId;
+import org.apache.pulsar.client.api.PulsarClient;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -57,6 +59,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicReference;
 
 class PulsarSourceReaderRestoreTest {
 
@@ -230,6 +233,45 @@ class PulsarSourceReaderRestoreTest {
                         collector.records.get(1).getTableId()));
     }
 
+    @Test
+    void shouldCloseSplitReadersBeforeClientWithConnectorClassLoader() throws Exception {
+        TablePath tablePath = TablePath.of("db.orders");
+        List<String> closeOrder = new ArrayList<>();
+        AtomicReference<ClassLoader> splitCloseClassLoader = new AtomicReference<>();
+        AtomicReference<ClassLoader> clientCloseClassLoader = new AtomicReference<>();
+        CloseTrackingPulsarSourceReader reader =
+                new CloseTrackingPulsarSourceReader(
+                        new TestingReaderContext(),
+                        Collections.singletonMap(tablePath, createMetadata(tablePath)),
+                        closeOrder,
+                        splitCloseClassLoader);
+        reader.pulsarClient = createPulsarClientProxy(closeOrder, clientCloseClassLoader);
+        PulsarPartitionSplit split =
+                new PulsarPartitionSplit(
+                        new TopicPartition("persistent://public/default/orders", 0),
+                        StopCursor.never(),
+                        null,
+                        tablePath);
+        reader.addSplits(Collections.singletonList(split));
+
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader unrelatedClassLoader = new ClassLoader(null) {};
+        try {
+            Thread.currentThread().setContextClassLoader(unrelatedClassLoader);
+
+            reader.close();
+
+            Assertions.assertSame(
+                    unrelatedClassLoader, Thread.currentThread().getContextClassLoader());
+        } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+        }
+        Assertions.assertEquals(Arrays.asList("split", "client"), closeOrder);
+        Assertions.assertSame(PulsarConfigUtil.class.getClassLoader(), splitCloseClassLoader.get());
+        Assertions.assertSame(
+                PulsarConfigUtil.class.getClassLoader(), clientCloseClassLoader.get());
+    }
+
     private static PulsarConsumerMetadata createMetadata(TablePath tablePath) {
         return createMetadata(tablePath, new TestingDeserializationSchema());
     }
@@ -305,6 +347,34 @@ class PulsarSourceReaderRestoreTest {
                         });
     }
 
+    @SuppressWarnings("unchecked")
+    private static PulsarClient createPulsarClientProxy(
+            List<String> closeOrder, AtomicReference<ClassLoader> closeClassLoader) {
+        return (PulsarClient)
+                Proxy.newProxyInstance(
+                        PulsarClient.class.getClassLoader(),
+                        new Class<?>[] {PulsarClient.class},
+                        (proxy, method, args) -> {
+                            if ("close".equals(method.getName())) {
+                                closeOrder.add("client");
+                                closeClassLoader.set(
+                                        Thread.currentThread().getContextClassLoader());
+                                return null;
+                            }
+                            Class<?> returnType = method.getReturnType();
+                            if (returnType.equals(boolean.class)) {
+                                return false;
+                            }
+                            if (returnType.equals(int.class)) {
+                                return 0;
+                            }
+                            if (returnType.equals(long.class)) {
+                                return 0L;
+                            }
+                            return null;
+                        });
+    }
+
     private static final class TestingPulsarSourceReader extends PulsarSourceReader<SeaTunnelRow> {
 
         private TestingPulsarSourceReader(
@@ -370,6 +440,76 @@ class PulsarSourceReaderRestoreTest {
 
         @Override
         public void close() throws IOException {}
+    }
+
+    /** Source reader that records the close order without opening a real Pulsar consumer. */
+    private static final class CloseTrackingPulsarSourceReader
+            extends PulsarSourceReader<SeaTunnelRow> {
+
+        private final List<String> closeOrder;
+        private final AtomicReference<ClassLoader> splitCloseClassLoader;
+
+        private CloseTrackingPulsarSourceReader(
+                SourceReader.Context context,
+                Map<TablePath, PulsarConsumerMetadata> metadataMap,
+                List<String> closeOrder,
+                AtomicReference<ClassLoader> splitCloseClassLoader) {
+            super(
+                    context,
+                    PulsarClientConfig.builder().serviceUrl("pulsar://localhost:6650").build(),
+                    metadataMap,
+                    false,
+                    100,
+                    50L,
+                    1);
+            this.closeOrder = closeOrder;
+            this.splitCloseClassLoader = splitCloseClassLoader;
+        }
+
+        @Override
+        protected PulsarSplitReaderThread createPulsarSplitReaderThread(
+                PulsarPartitionSplit split) {
+            return new CloseTrackingSplitReaderThread(
+                    this, split, handover, closeOrder, splitCloseClassLoader);
+        }
+    }
+
+    /** Split reader that records cleanup metadata without touching a Pulsar broker. */
+    private static final class CloseTrackingSplitReaderThread extends PulsarSplitReaderThread {
+
+        private final List<String> closeOrder;
+        private final AtomicReference<ClassLoader> closeClassLoader;
+
+        private CloseTrackingSplitReaderThread(
+                PulsarSourceReader sourceReader,
+                PulsarPartitionSplit split,
+                org.apache.seatunnel.common.Handover<RecordWithSplitId> handover,
+                List<String> closeOrder,
+                AtomicReference<ClassLoader> closeClassLoader) {
+            super(
+                    sourceReader,
+                    split,
+                    null,
+                    PulsarConsumerConfig.builder().subscriptionName("seatunnel-sub").build(),
+                    100,
+                    50L,
+                    StartCursor.earliest(),
+                    handover);
+            this.closeOrder = closeOrder;
+            this.closeClassLoader = closeClassLoader;
+        }
+
+        @Override
+        public void open() {}
+
+        @Override
+        public synchronized void start() {}
+
+        @Override
+        public void close() {
+            closeOrder.add("split");
+            closeClassLoader.set(Thread.currentThread().getContextClassLoader());
+        }
     }
 
     private static final class TestingReaderContext implements SourceReader.Context {

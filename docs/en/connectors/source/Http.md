@@ -23,15 +23,6 @@ import ChangeLog from '../changelog/connector-http.md';
 
 Used to read data from Http.
 
-## Key features
-
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
-
 Supported DataSource Info
 -------------------------
 
@@ -51,10 +42,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | schema.fields                 | Config  | No       | -           | The schema fields of upstream data                                                                                                                                            |
 | json_field                    | Config  | No       | -           | This parameter helps you configure the schema,so this parameter must be used with schema.                                                                                     |
 | pageing                       | Config  | No       | -           | This parameter is used for paging queries                                                                                                                                     |
-| pageing.page_field            | String  | No       | -           | This parameter is used to specify the page field name in the request. It can be used in headers, params, or body with placeholders like ${page_field}.                        |
+| pageing.page_field            | String  | No       | page        | This parameter is used to specify the page field name in the request. It can be used in headers, params, or body with placeholders like `${page}`.                        |
 | pageing.use_placeholder_replacement | Boolean | No | false | If true, use placeholder replacement (${field}) for headers, parameters and body values, otherwise use key-based replacement.                                                 |
-| pageing.total_page_size       | Int     | No       | -           | This parameter is used to control the total number of pages                                                                                                                   |
-| pageing.batch_size            | Int     | No       | -           | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown                                                        |
+| pageing.total_page_size       | Long    | No       | 0           | This parameter is used to control the total number of pages. `0` means the connector continues until the returned row count is less than `pageing.batch_size`.                                                                                                                   |
+| pageing.batch_size            | Int     | No       | 100         | The batch size returned per request is used to determine whether to continue when the total number of pages is unknown.                                                        |
 | pageing.start_page_number     | Int     | No       | 1           | Specify the page number from which synchronization starts                                                                                                                     |
 | pageing.page_type             | String  | No       | PageNumber  | this parameter is used to specify the page type ,or PageNumber if not set, only support `PageNumber` and `Cursor`.                                  |
 | pageing.cursor_field          | String  | No       | -           | this parameter is used to specify the Cursor field name in the request parameter.                                                                                       |
@@ -77,6 +68,12 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | keep_params_as_form           |    Boolean  | No       | false       | Whether the params are submitted according to the form, used for compatibility with legacy behaviors. When true, the value of the params parameter is submitted through the form. |
 | keep_page_param_as_http_param |    Boolean  | No       | false       | Whether to set the paging parameters to params. For compatibility with legacy behaviors.|
 | json_filed_missed_return_null         |    Boolean     | No       | false       | When the json field is missing, set true return null else error.|
+
+## Option Notes
+
+- `pageing` is intentionally spelled this way in the connector option name. Keep this spelling in job configs.
+- `format = json` normally needs `schema`. `json_field` is used with `schema` when fields are extracted from nested JSON paths. `content_field` can extract a JSON array or object fragment directly.
+- `format = binary` outputs fixed fields `(data: bytes, relativePath: string, partIndex: long)`, only works in batch mode, and cannot be used with `pageing`.
 
 
 ## How to Create a Http Data Synchronization Jobs
@@ -256,7 +253,7 @@ The HTTP body is used to carry the actual data in requests or responses, includi
 
 The reference format is as follows：
 ```hocon
-body="{"id":1,"name":"seatunnel"}"
+body="""{"id":1,"name":"seatunnel"}"""
 ```
 
 For form submissions,please set the content-type as follows.

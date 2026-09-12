@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
+
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.Struct;
@@ -29,6 +31,7 @@ import org.bson.BsonTimestamp;
 import org.bson.BsonValue;
 import org.bson.json.JsonWriterSettings;
 
+import com.mongodb.client.model.changestream.OperationType;
 import com.mongodb.kafka.connect.source.json.formatter.DefaultJson;
 import com.mongodb.kafka.connect.source.schema.AvroSchemaDefaults;
 import com.mongodb.kafka.connect.source.schema.BsonValueToSchemaAndValue;
@@ -43,6 +46,7 @@ import java.util.Map;
 
 import static com.mongodb.kafka.connect.source.schema.AvroSchema.fromJson;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent.isWatermarkEvent;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COLL_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COPY_KEY_FIELD;
@@ -51,6 +55,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OUTPUT_SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SOURCE_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.buildConnectionNamespacePrefix;
@@ -69,6 +74,29 @@ public class MongodbRecordUtils {
 
     public static boolean isDataChangeRecord(SourceRecord sourceRecord) {
         return !isWatermarkEvent(sourceRecord) && !isHeartbeatEvent(sourceRecord);
+    }
+
+    public static @Nonnull OperationType getOperationType(@Nonnull SourceRecord sourceRecord) {
+        Struct value = (Struct) sourceRecord.value();
+        if (value == null) {
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    "MongoDB CDC data change record has no value: " + sourceRecord);
+        }
+
+        String operationType = null;
+        if (value.schema().field(OPERATION_TYPE) != null) {
+            operationType = value.getString(OPERATION_TYPE);
+        }
+        if (StringUtils.isEmpty(operationType)) {
+            if (isSnapshotRecord(sourceRecord)) {
+                return OperationType.INSERT;
+            }
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    "MongoDB CDC data change record has no operationType field: " + sourceRecord);
+        }
+        return OperationType.fromString(operationType);
     }
 
     public static BsonDocument getResumeToken(SourceRecord sourceRecord) {

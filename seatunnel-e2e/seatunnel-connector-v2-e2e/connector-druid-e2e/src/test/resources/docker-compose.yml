@@ -36,8 +36,6 @@ services:
 
   postgres:
     image: postgres:latest
-    ports:
-      - "5432:5432"
     volumes:
       - metadata_data:/var/lib/postgresql
     environment:
@@ -50,8 +48,6 @@ services:
   # Need 3.5 or later for container nodes
   zookeeper:
     image: zookeeper:3.5.10
-    ports:
-      - "2181:2181"
     environment:
       - ZOO_MY_ID=1
     depends_on:
@@ -66,8 +62,6 @@ services:
       - zookeeper
       - postgres
       - chmod-service
-    ports:
-      - "8032:8081"
     command:
       - coordinator
     env_file:
@@ -82,8 +76,6 @@ services:
       - postgres
       - coordinator
       - chmod-service
-    ports:
-      - "8082:8082"
     command:
       - broker
     env_file:
@@ -99,8 +91,6 @@ services:
       - postgres
       - coordinator
       - chmod-service
-    ports:
-      - "8083:8083"
     command:
       - historical
     env_file:
@@ -116,9 +106,6 @@ services:
       - postgres
       - coordinator
       - chmod-service
-    ports:
-      - "8091:8091"
-      - "8100-8105:8100-8105"
     command:
       - middleManager
     env_file:
@@ -133,8 +120,6 @@ services:
       - postgres
       - coordinator
       - chmod-service
-    ports:
-      - "8888:8888"
     command:
       - router
     env_file:

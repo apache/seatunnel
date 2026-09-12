@@ -126,11 +126,6 @@ public class JdbcMariaDBIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/mariadb/jdbc/mariadb-java-client/3.5.1/mariadb-java-client-3.5.1.jar"; // Use the appropriate version
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -185,8 +180,6 @@ public class JdbcMariaDBIT extends AbstractJdbcIT {
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MARIADB_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%d:%d", MARIADB_PORT, MARIADB_PORT)));
         return container;
     }
 }

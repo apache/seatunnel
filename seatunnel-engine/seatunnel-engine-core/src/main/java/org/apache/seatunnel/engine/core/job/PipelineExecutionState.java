@@ -23,6 +23,7 @@ import java.io.Serializable;
 
 @Getter
 public class PipelineExecutionState implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private final int pipelineId;
 

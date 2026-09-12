@@ -1027,6 +1027,23 @@ public class StarRocksTypeConverterTest {
     }
 
     @Test
+    public void testReconvertDatetimeTz() {
+        // OFFSET_DATE_TIME_TYPE (TIMESTAMP_TZ / LTZ) → StarRocks DATETIME
+        // StarRocks DATETIME does not support timezone, so LTZ maps to DATETIME with potential
+        // timezone loss.
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .build();
+
+        BasicTypeDefine<StarRocksType> typeDefine = converter.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(SR_DATETIME, typeDefine.getColumnType());
+        Assertions.assertEquals(SR_DATETIME, typeDefine.getDataType());
+    }
+
+    @Test
     public void testReconvertArray() {
         Column column =
                 PhysicalColumn.builder()

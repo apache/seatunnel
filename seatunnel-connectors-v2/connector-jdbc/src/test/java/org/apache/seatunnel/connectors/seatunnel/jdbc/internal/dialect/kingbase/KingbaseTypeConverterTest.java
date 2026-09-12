@@ -862,4 +862,19 @@ public class KingbaseTypeConverterTest {
                 KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getColumnType());
         Assertions.assertEquals(KingbaseTypeConverter.PG_SMALLINT_ARRAY, typeDefine.getDataType());
     }
+
+    @Test
+    public void testConvertSqlServerDatetimeoffsetIsLtz() {
+        // SQL Server DATETIMEOFFSET (LTZ) compatibility in Kingbase → must map to
+        // OFFSET_DATE_TIME_TYPE
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("DATETIMEOFFSET")
+                        .dataType("DATETIMEOFFSET")
+                        .build();
+        Column column = KingbaseTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
+    }
 }

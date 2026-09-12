@@ -291,8 +291,11 @@ public class OceanBaseMySqlTypeConverter
                 builder.scale(typeDefine.getScale());
                 break;
             case MYSQL_DATETIME:
-            case MYSQL_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case MYSQL_TIMESTAMP:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             case VECTOR_NAME:
@@ -516,6 +519,28 @@ public class OceanBaseMySqlTypeConverter
                     builder.scale(timestampScale);
                 } else {
                     builder.columnType(MYSQL_DATETIME);
+                }
+                break;
+            case TIMESTAMP_TZ:
+                builder.nativeType(OceanBaseMysqlType.TIMESTAMP);
+                builder.dataType(MYSQL_TIMESTAMP);
+                if (column.getScale() != null && column.getScale() > 0) {
+                    int timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(String.format("%s(%s)", MYSQL_TIMESTAMP, timestampTzScale));
+                    builder.scale(timestampTzScale);
+                } else {
+                    builder.columnType(MYSQL_TIMESTAMP);
                 }
                 break;
             case FLOAT_VECTOR:

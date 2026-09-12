@@ -117,18 +117,24 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
 
     @Override
     public void close() throws IOException {
-        if (pulsarClient != null) {
-            pulsarClient.close();
-        }
+        Throwable closeFailure = null;
+        // Close split readers first so consumers stop before the shared Pulsar client disappears.
         for (PulsarSplitReaderThread pulsarSplitReaderThread : splitReaders.values()) {
             try {
-                pulsarSplitReaderThread.close();
-            } catch (IOException e) {
-                throw new PulsarConnectorException(
-                        CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
-                        "Failed to close the split reader thread.",
-                        e);
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarSplitReaderThread::close);
+            } catch (Throwable throwable) {
+                closeFailure = appendSuppressed(closeFailure, throwable);
             }
+        }
+        if (pulsarClient != null) {
+            try {
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarClient::close);
+            } catch (Throwable throwable) {
+                closeFailure = appendSuppressed(closeFailure, throwable);
+            }
+        }
+        if (closeFailure != null) {
+            rethrowCloseFailure(closeFailure);
         }
     }
 
@@ -271,6 +277,31 @@ public class PulsarSourceReader<T> implements SourceReader<T, PulsarPartitionSpl
     private TablePath resolveTablePath(String splitId) {
         TablePath tablePath = splitIdToTablePath.get(splitId);
         return tablePath != null ? tablePath : defaultTablePath;
+    }
+
+    /**
+     * Preserves all cleanup failures while still allowing the remaining Pulsar resources to close.
+     */
+    private Throwable appendSuppressed(Throwable existingFailure, Throwable newFailure) {
+        if (existingFailure == null) {
+            return newFailure;
+        }
+        existingFailure.addSuppressed(newFailure);
+        return existingFailure;
+    }
+
+    /**
+     * Converts deferred cleanup failures to the reader close contract after all resources are
+     * tried.
+     */
+    private void rethrowCloseFailure(Throwable throwable) throws IOException {
+        if (throwable instanceof IOException) {
+            throw (IOException) throwable;
+        }
+        throw new PulsarConnectorException(
+                CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                "Failed to close the Pulsar source reader.",
+                throwable);
     }
 
     private TablePath resolveTablePath(PulsarPartitionSplit split) {

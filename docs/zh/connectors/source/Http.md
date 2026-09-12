@@ -41,10 +41,10 @@ import ChangeLog from '../changelog/connector-http.md';
 | schema.fields                 | Config  | 否       | -           | 上游数据的 schema 字段                                                                                                                                                                |
 | json_field                    | Config  | 否       | -           | 此参数帮助您配置 schema，因此此参数必须与 schema 一起使用。                                                                                         |
 | pageing                       | Config  | 否       | -           | 此参数用于分页查询                                                                                                                                                         |
-| pageing.page_field            | String  | 否       | -           | 此参数用于指定请求中的页面字段名称。它可以在 headers、params 或 body 中使用占位符，如 ${page_field}。                             |
+| pageing.page_field            | String  | 否       | page        | 此参数用于指定请求中的分页字段名。它可以在 headers、params 或 body 中使用占位符，例如 `${page}`。                             |
 | pageing.use_placeholder_replacement | Boolean | 否 | false | 如果为 true，则使用占位符替换（${field}）用于 headers、parameters 和 body 值，否则使用基于键的替换。                                                  |
-| pageing.total_page_size       | Int     | 否       | -           | 此参数用于控制总页数                                                                                                                       |
-| pageing.batch_size            | Int     | 否       | -           | 每个请求返回的批量大小，用于在总页数未知时确定是否继续                                                            |
+| pageing.total_page_size       | Long    | 否       | 0           | 用于控制总页数。`0` 表示总页数未知，连接器会在返回行数小于 `pageing.batch_size` 时停止。                                                                                                                       |
+| pageing.batch_size            | Int     | 否       | 100         | 每个请求返回的批量大小，用于在总页数未知时判断是否继续。                                                            |
 | pageing.start_page_number     | Int     | 否       | 1           | 指定同步开始的页码                                                                                                                         |
 | pageing.page_type             | String  | 否       | PageNumber  | 此参数用于指定页面类型，如果未设置则为 PageNumber，仅支持 `PageNumber` 和 `Cursor`。                                  |
 | pageing.cursor_field          | String  | 否       | -           | 此参数用于指定请求参数中的游标字段名称。                                                                                       |
@@ -67,6 +67,12 @@ import ChangeLog from '../changelog/connector-http.md';
 | keep_params_as_form           | Boolean | 否       | false       | 是否按照表单提交参数，用于兼容旧行为。当为 true 时，params 参数的值通过表单提交。 |
 | keep_page_param_as_http_param | Boolean | 否       | false       | 是否将分页参数设置为 params。用于兼容旧行为。                                                                                          |
 | json_filed_missed_return_null | Boolean | 否      | false        | 当 JSON 字段缺失时，设置为 true 并返回 null，否则返回错误。|
+
+## 参数说明
+
+- `pageing` 是连接器现有参数名，作业配置中需要保持这个拼写。
+- `format = json` 通常需要配置 `schema`。当字段来自嵌套 JSON 路径时，可以配合 `json_field` 使用；如果想直接抽取某个 JSON 数组或对象片段，可以使用 `content_field`。
+- `format = binary` 会输出固定字段 `(data: bytes, relativePath: string, partIndex: long)`，只支持批模式，且不能和 `pageing` 一起使用。
 
 ## 如何创建 Http 数据同步作业
 
@@ -245,7 +251,7 @@ HTTP body 用于在请求或响应中携带实际数据，包括 JSON、表单�
 
 参考格式如下：
 ```hocon
-body="{"id":1,"name":"seatunnel"}"
+body="""{"id":1,"name":"seatunnel"}"""
 ```
 
 对于表单提交，请按如下设置 content-type。

@@ -34,6 +34,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -250,6 +252,63 @@ public class TextFormatSchemaTest {
         SeaTunnelRow seaTunnelRow = deserializationSchema.deserialize(content.getBytes());
         Assertions.assertEquals(1, seaTunnelRow.getField(0));
         Assertions.assertEquals("tyrantlucifer", seaTunnelRow.getField(1));
+    }
+
+    @Test
+    void testTimestampTzRoundTrip() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+
+        TextSerializationSchema ser =
+                TextSerializationSchema.builder().seaTunnelRowType(rowType).delimiter(",").build();
+        TextDeserializationSchema deser =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .build();
+
+        OffsetDateTime[] cases = {
+            OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.ofHours(9)),
+            OffsetDateTime.of(2024, 1, 1, 12, 0, 0, 0, ZoneOffset.ofHours(-8)),
+            OffsetDateTime.of(2024, 6, 15, 0, 0, 0, 0, ZoneOffset.UTC),
+            OffsetDateTime.of(2024, 3, 10, 8, 30, 0, 0, ZoneOffset.ofHoursMinutes(5, 30)),
+        };
+
+        for (OffsetDateTime original : cases) {
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {original});
+            byte[] serialized = ser.serialize(row);
+            SeaTunnelRow deserialized = deser.deserialize(serialized);
+            OffsetDateTime result = (OffsetDateTime) deserialized.getField(0);
+            Assertions.assertEquals(
+                    original.toInstant(), result.toInstant(), "Epoch mismatch for " + original);
+            Assertions.assertEquals(
+                    original.getOffset(), result.getOffset(), "Offset mismatch for " + original);
+        }
+    }
+
+    @Test
+    void testTimestampTzBackwardCompatFallback() throws IOException {
+        // Old SeaTunnel wrote TIMESTAMP_TZ as wall-clock ("2024-01-01 03:00:00").
+        // The new deserialization must not throw; it falls back to LocalDateTime.atOffset(UTC).
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        TextDeserializationSchema deser =
+                TextDeserializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .build();
+
+        SeaTunnelRow row = deser.deserialize("2024-01-01 03:00:00".getBytes());
+        OffsetDateTime result = (OffsetDateTime) row.getField(0);
+        Assertions.assertNotNull(result);
+        Assertions.assertEquals(ZoneOffset.UTC, result.getOffset());
+        Assertions.assertEquals(
+                java.time.LocalDateTime.of(2024, 1, 1, 3, 0, 0).toInstant(ZoneOffset.UTC),
+                result.toInstant());
     }
 
     @Test

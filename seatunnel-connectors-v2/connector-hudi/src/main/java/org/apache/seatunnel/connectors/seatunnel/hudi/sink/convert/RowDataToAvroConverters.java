@@ -162,6 +162,19 @@ public class RowDataToAvroConverters implements Serializable {
                             }
                         };
                 break;
+            case TIMESTAMP_TZ:
+                converter =
+                        new RowDataToAvroConverter() {
+                            private static final long serialVersionUID = 1L;
+
+                            @Override
+                            public Object convert(Schema schema, Object object) {
+                                return ((java.time.OffsetDateTime) object)
+                                        .toInstant()
+                                        .toEpochMilli();
+                            }
+                        };
+                break;
             case DECIMAL:
                 converter =
                         new RowDataToAvroConverter() {

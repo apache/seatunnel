@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -24,10 +26,13 @@ import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.transform.common.AbstractMultiCatalogFlatMapTransform;
 import org.apache.seatunnel.transform.common.IdentityFlatMapTransform;
+import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import java.util.List;
 
-public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMapTransform {
+public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMapTransform
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
 
     public SQLMultiCatalogFlatMapTransform(
             List<CatalogTable> inputCatalogTables, ReadonlyConfig config) {
@@ -43,6 +48,35 @@ public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMap
     protected SeaTunnelFlatMapTransform<SeaTunnelRow> buildTransform(
             CatalogTable inputCatalogTable, ReadonlyConfig config) {
         return new SQLTransform(config, inputCatalogTable);
+    }
+
+    @Override
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
+        TransformException transformException = findTransformException(t);
+        if (transformException == null) {
+            return RowErrorClassification.SYSTEM_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR
+                && !SQLTransform.hasUnsupportedOperationCause(transformException)) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        return RowErrorClassification.SYSTEM_ERROR;
+    }
+
+    private TransformException findTransformException(Throwable t) {
+        Throwable current = t;
+        while (current != null) {
+            if (current instanceof TransformException) {
+                return (TransformException) current;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     @Override

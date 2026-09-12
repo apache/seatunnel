@@ -38,6 +38,8 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_CAPACITY;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
@@ -58,16 +60,22 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
         private final Counter totalQueueSize;
         private final Counter queueSize;
         private final Counter putBlockedNs;
+        private final Counter flushSignalQueueSuccessTotal;
+        private final Counter flushSignalQueueFailureTotal;
 
         private QueueWithMetrics(
                 Disruptor<RecordEvent> disruptor,
                 Counter totalQueueSize,
                 Counter queueSize,
-                Counter putBlockedNs) {
+                Counter putBlockedNs,
+                Counter flushSignalQueueSuccessTotal,
+                Counter flushSignalQueueFailureTotal) {
             this.disruptor = disruptor;
             this.totalQueueSize = totalQueueSize;
             this.queueSize = queueSize;
             this.putBlockedNs = putBlockedNs;
+            this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
+            this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
         }
     }
 
@@ -95,6 +103,10 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
                     Counter capacityCounter =
                             metricsContext.counter(INTERMEDIATE_QUEUE_CAPACITY + "#" + i);
                     capacityCounter.set(effectiveCapacity);
+                    Counter flushSignalQueueSuccessTotal =
+                            metricsContext.counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+                    Counter flushSignalQueueFailureTotal =
+                            metricsContext.counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
 
                     EventFactory<RecordEvent> eventFactory = new RecordEventFactory();
                     Disruptor<RecordEvent> disruptor =
@@ -104,12 +116,23 @@ public class TaskGroupWithIntermediateDisruptor extends AbstractTaskGroupWithInt
                                     DaemonThreadFactory.INSTANCE,
                                     ProducerType.SINGLE,
                                     new YieldingWaitStrategy());
-                    return new QueueWithMetrics(disruptor, totalQueueSize, queueSize, putBlockedNs);
+                    return new QueueWithMetrics(
+                            disruptor,
+                            totalQueueSize,
+                            queueSize,
+                            putBlockedNs,
+                            flushSignalQueueSuccessTotal,
+                            flushSignalQueueFailureTotal);
                 });
 
         QueueWithMetrics cache = disruptor.get(id);
         return new IntermediateDisruptor(
-                cache.disruptor, cache.totalQueueSize, cache.queueSize, cache.putBlockedNs);
+                cache.disruptor,
+                cache.totalQueueSize,
+                cache.queueSize,
+                cache.putBlockedNs,
+                cache.flushSignalQueueSuccessTotal,
+                cache.flushSignalQueueFailureTotal);
     }
 
     private static int roundUpToPowerOfTwo(int value) {

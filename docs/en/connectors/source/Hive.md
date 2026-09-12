@@ -4,11 +4,17 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Read data from Hive.
+Read data from Apache Hive tables. The connector talks to Hive Metastore for schema discovery and reads the underlying files from HDFS (or S3/OSS when configured). The supported file formats include text, CSV, parquet, ORC, JSON, and markdown. Each table can be read as one batch split, with parallelism and snapshot/offset resume supported through the checkpoint mechanism.
 
-When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each element is converted to a row with the following schema:
+When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -24,7 +30,7 @@ Note: Markdown format only supports reading, not writing.
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
 
-If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, You need put seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
 :::
 
 ## Key features
@@ -48,26 +54,39 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 ## Options
 
-|         name          |  type  | required | default value  |
-|-----------------------|--------|----------|----------------|
-| table_name            | string | yes      | -              |
-| use_regex             | boolean| no       | false          |
-| metastore_uri         | string | yes      | -              |
-| krb5_path             | string | no       | /etc/krb5.conf |
-| kerberos_principal    | string | no       | -              |
-| kerberos_keytab_path  | string | no       | -              |
-| hdfs_site_path        | string | no       | -              |
-| hive_site_path        | string | no       | -              |
-| hive.hadoop.conf      | Map    | no       | -              |
-| hive.hadoop.conf-path | string | no       | -              |
-| read_partitions       | list   | no       | -              |
-| read_columns          | list   | no       | -              |
-| compress_codec        | string | no       | none           |
-| common-options        |        | no       | -              |
+|         name          |  type  | required | default value  | description |
+|-----------------------|--------|----------|----------------|-------------|
+| table_name            | string | no       | Required for single-table mode | Target Hive table name in the form `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` to match multiple tables. |
+| table_list            | array  | no       | Deprecated, use `tables_configs` instead | Deprecated multi-table configuration list. New jobs should use `tables_configs`. Kept for backward compatibility; will be removed in a future release. |
+| tables_configs        | array  | no       | -              | List of Hive table configurations for multi-table reading. Each item can override any of the root-level options. |
+| use_regex             | boolean| no       | false          | Treat `table_name` as a regular expression that matches multiple tables. Works at the root level and inside each `table_list` / `tables_configs` entry. |
+| metastore_uri         | string | no       | Required for single-table mode | Hive metastore URI. Comma-separated values enable HA failover; whitespace is ignored. |
+| krb5_path             | string | no       | /etc/krb5.conf | Path of the `krb5.conf` file used for Kerberos authentication. |
+| kerberos_principal    | string | no       | -              | Principal for Kerberos authentication against Hive Metastore / HDFS. |
+| kerberos_keytab_path  | string | no       | -              | Path to the keytab file paired with `kerberos_principal`. |
+| hdfs_site_path        | string | no       | -              | Local path of `hdfs-site.xml`. Used to load HDFS HA configuration. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
+| hive_site_path        | string | no       | -              | Local path of `hive-site.xml`. |
+| hive.hadoop.conf      | Map    | no       | -              | Inline Hadoop configuration properties (equivalent to entries from `core-site.xml` / `hdfs-site.xml` / `hive-site.xml`). |
+| hive.hadoop.conf-path | string | no       | -              | Directory that contains `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml`. |
+| remote_user           | string | no       | -              | Hadoop remote user name used when connecting to HDFS / Hive storage without Kerberos. |
+| read_partitions       | list   | no       | -              | Restrict the read to a subset of partitions. All entries must have the same directory depth. |
+| read_columns          | list   | no       | -              | Column projection list. Only the listed columns are read from the source. |
+| compress_codec        | string | no       | none           | Compression codec for text / CSV / JSON outputs. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| common-options        |        | no       | -              | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
 ### table_name [string]
 
 Target Hive table name eg: `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` (Hive has no schema) to match multiple tables from Hive metastore.
+
+For a single-table source, configure `table_name` and `metastore_uri` at the root level. For multi-table reading, configure `tables_configs`. `table_list` is still accepted for backward compatibility, but `tables_configs` is the current option.
+
+### table_list [array]
+
+Deprecated multi-table configuration list. Kept for backward compatibility; new jobs should use `tables_configs`.
+
+### tables_configs [array]
+
+List of Hive table configurations for multi-table reading. Each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
 
 ### use_regex [boolean]
 
@@ -84,6 +103,10 @@ Regex syntax notes:
 ### metastore_uri [string]
 
 Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
+
+### remote_user [string]
+
+Hadoop remote user name used when connecting to HDFS/Hive storage without Kerberos credentials.
 
 ### hdfs_site_path [string]
 
@@ -138,7 +161,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ### Example 1: Single table
 
-```bash
+```hocon
 
   Hive {
     table_name = "default.seatunnel_orc"
@@ -149,7 +172,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ### Example 2: Metastore URI failover
 
-```bash
+```hocon
   Hive {
     table_name = "default.seatunnel_orc"
     metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
@@ -157,27 +180,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 ```
 
 ### Example 3: Multiple tables
-> Note: Hive is a structured data source and should be use 'table_list', and 'tables_configs' will be removed in the future.
+> Note: Hive is a structured data source and should use 'tables_configs'; the older 'table_list' key is deprecated and will be removed in a future release.
 > You can also set `use_regex = true` in each table config to match multiple tables.
 
-```bash
-
-  Hive {
-    table_list = [
-        {
-          table_name = "default.seatunnel_orc_1"
-          metastore_uri = "thrift://namenode001:9083"
-        },
-        {
-          table_name = "default.seatunnel_orc_2"
-          metastore_uri = "thrift://namenode001:9083"
-        }
-    ]
-  }
-
-```
-
-```bash
+```hocon
 
   Hive {
     tables_configs = [
@@ -194,9 +200,9 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ```
 
-### Example 3: Regex matching (whole database / subset)
+### Example 4: Regex matching (whole database / subset)
 
-```bash
+```hocon
   Hive {
     metastore_uri = "thrift://namenode001:9083"
 
@@ -206,7 +212,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
   }
 ```
 
-```bash
+```hocon
   Hive {
     metastore_uri = "thrift://namenode001:9083"
 
@@ -216,7 +222,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
   }
 ```
 
-```bash
+```hocon
   Hive {
     metastore_uri = "thrift://namenode001:9083"
 
@@ -227,9 +233,9 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
   }
 ```
 
-### Example 4 : Kerberos
+### Example 5: Kerberos
 
-```bash
+```hocon
 source {
   Hive {
     table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
@@ -253,7 +259,7 @@ Description:
 
 Run the case:
 
-```bash
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"

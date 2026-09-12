@@ -67,7 +67,12 @@ public class PulsarSinkCommitter implements SinkCommitter<PulsarCommitInfo> {
             client.abort(txnID);
         }
         if (this.pulsarClient != null) {
-            pulsarClient.close();
+            try {
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarClient::close);
+            } catch (Exception e) {
+                throw new IOException(
+                        "Failed to close Pulsar client after aborting transactions.", e);
+            }
         }
     }
 

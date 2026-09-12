@@ -20,10 +20,13 @@ package org.apache.seatunnel.connectors.seatunnel.common.source.arrow.converter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.TimeStampMilliVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
 
+import com.google.auto.service.AutoService;
+
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 
+@AutoService(Converter.class)
 public class TimeStampMilliConverter implements Converter<TimeStampMilliVector> {
     @Override
     public Object convert(int rowIndex, TimeStampMilliVector fieldVector) {

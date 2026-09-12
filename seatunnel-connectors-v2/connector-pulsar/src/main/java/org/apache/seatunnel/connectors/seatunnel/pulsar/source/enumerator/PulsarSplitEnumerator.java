@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarAdminConfig;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
@@ -229,7 +230,7 @@ public class PulsarSplitEnumerator
     }
 
     static int getSplitOwner(TopicPartition tp, int numReaders) {
-        int startIndex = ((tp.getTopic().hashCode() * 31) & 0x7FFFFFFF) % numReaders;
+        int startIndex = HashUtils.bucketIndex(tp.getTopic().hashCode() * 31, numReaders);
 
         // here, the assumption is that the id of pulsar partitions are always ascending
         // starting from 0, and therefore can be used directly as the offset clockwise from the
@@ -267,11 +268,16 @@ public class PulsarSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        if (pulsarAdmin != null) {
-            pulsarAdmin.close();
-        }
         if (executor != null) {
-            executor.shutdown();
+            // Stop periodic discovery before closing the shared admin client it uses.
+            executor.shutdownNow();
+        }
+        if (pulsarAdmin != null) {
+            try {
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarAdmin::close);
+            } catch (Exception e) {
+                throw new IOException("Failed to close Pulsar admin.", e);
+            }
         }
     }
 

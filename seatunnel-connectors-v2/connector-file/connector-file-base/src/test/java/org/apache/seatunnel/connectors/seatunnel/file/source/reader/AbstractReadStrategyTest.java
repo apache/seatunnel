@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
@@ -46,6 +47,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -65,6 +67,22 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME
 
 @Slf4j
 public class AbstractReadStrategyTest {
+
+    @Test
+    void testCloseSourceProxyWhenTargetProxyCloseFails() throws Exception {
+        HadoopFileSystemProxy targetProxy = Mockito.mock(HadoopFileSystemProxy.class);
+        HadoopFileSystemProxy sourceProxy = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.doThrow(new IOException("target close failed")).when(targetProxy).close();
+
+        BinaryReadStrategy strategy = new BinaryReadStrategy();
+        strategy.targetHadoopFileSystemProxy = targetProxy;
+        strategy.hadoopFileSystemProxy = sourceProxy;
+
+        strategy.close();
+
+        Mockito.verify(targetProxy).close();
+        Mockito.verify(sourceProxy).close();
+    }
 
     @Test
     void testSafeSliceUsesSeekForSeekableStream() throws Exception {

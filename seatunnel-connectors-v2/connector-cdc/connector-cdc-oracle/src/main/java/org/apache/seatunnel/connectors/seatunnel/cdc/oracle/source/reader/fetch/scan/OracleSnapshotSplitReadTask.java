@@ -206,7 +206,8 @@ public class OracleSnapshotSplitReadTask
             LOG.info("Switched to PDB '{}' for table {}", connectorConfig.getPdbName(), table.id());
         }
         final String selectSql =
-                OracleUtils.buildSplitScanQuery(
+                OracleUtils.buildSnapshotSplitScanQuery(
+                        connectorConfig,
                         snapshotSplit.getTableId(),
                         snapshotSplit.getSplitKeyType(),
                         snapshotSplit.getSplitStart() == null,

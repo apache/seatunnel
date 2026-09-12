@@ -146,7 +146,7 @@ SEATUNNEL_HOME/
 相关文档：
 
 - [配置与 Option 系统](./configuration-and-option-system.md)
-- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
 
 ## 常见失败模式
 

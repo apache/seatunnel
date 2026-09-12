@@ -40,7 +40,9 @@ import org.junit.jupiter.api.Test;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -148,6 +150,36 @@ public class MysqlCreateTableSqlBuilderTest {
                         + ") COMMENT = 'User table';";
         CONSOLE.println(expectSkipIndex);
         Assertions.assertEquals(expectSkipIndex, createTableSqlSkipIndex);
+    }
+
+    @Test
+    public void testBuildCreateTableSqlWithTableOptions() {
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 0, false, null, "id"))
+                        .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
+                        .build();
+        Map<String, String> options = new HashMap<>();
+        options.put(MySqlCatalog.TABLE_OPTION_ENGINE, "InnoDB");
+        options.put(MySqlCatalog.TABLE_OPTION_CHARSET, "utf8mb4");
+        options.put(MySqlCatalog.TABLE_OPTION_COLLATE, "utf8mb4_unicode_ci");
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "test_db", "test_table"),
+                        tableSchema,
+                        options,
+                        Collections.emptyList(),
+                        "table with options");
+
+        String createTableSql =
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, true)
+                        .build(DatabaseIdentifier.MYSQL);
+
+        Assertions.assertTrue(createTableSql.contains("ENGINE = InnoDB"));
+        Assertions.assertTrue(createTableSql.contains("DEFAULT CHARSET = utf8mb4"));
+        Assertions.assertTrue(createTableSql.contains("COLLATE = utf8mb4_unicode_ci"));
     }
 
     @Test

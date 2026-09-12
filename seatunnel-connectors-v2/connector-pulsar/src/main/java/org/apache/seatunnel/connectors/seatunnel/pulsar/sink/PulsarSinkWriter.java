@@ -37,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnecto
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.state.PulsarSinkState;
+import org.apache.seatunnel.format.avro.AvroSerializationSchema;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
@@ -249,14 +250,14 @@ public class PulsarSinkWriter
         Throwable closeFailure = null;
         for (Producer<byte[]> producer : producerMap.values()) {
             try {
-                producer.close();
+                PulsarConfigUtil.runWithConnectorClassLoader(producer::close);
             } catch (Throwable throwable) {
                 closeFailure = appendSuppressed(closeFailure, throwable);
             }
         }
         if (pulsarClient != null) {
             try {
-                pulsarClient.close();
+                PulsarConfigUtil.runWithConnectorClassLoader(pulsarClient::close);
             } catch (Throwable throwable) {
                 closeFailure = appendSuppressed(closeFailure, throwable);
             }
@@ -281,6 +282,8 @@ public class PulsarSinkWriter
                     .seaTunnelRowType(rowType)
                     .delimiter(delimiter)
                     .build();
+        } else if (PulsarSinkOptions.AVRO_FORMAT.equals(format)) {
+            return new AvroSerializationSchema(rowType);
         } else {
             throw new SeaTunnelJsonFormatException(
                     CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);

@@ -17,14 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.utils;
 
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
-import org.apache.seatunnel.shade.com.google.common.collect.ImmutableList;
-
 import org.tikv.common.key.RowKey;
 import org.tikv.common.util.KeyRangeUtils;
 import org.tikv.kvproto.Coprocessor.KeyRange;
 
 import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /** Utils to obtain the keyRange of table. */
@@ -36,10 +35,12 @@ public class TableKeyRangeUtils {
     }
 
     public static List<KeyRange> getTableKeyRanges(final long tableId, final int num) {
-        Preconditions.checkArgument(num > 0, "Illegal value of num");
+        if (num <= 0) {
+            throw new IllegalArgumentException("Illegal value of num");
+        }
 
         if (num == 1) {
-            return ImmutableList.of(getTableKeyRange(tableId));
+            return Collections.singletonList(getTableKeyRange(tableId));
         }
 
         final long delta =
@@ -47,7 +48,7 @@ public class TableKeyRangeUtils {
                         .subtract(BigInteger.valueOf(Long.MIN_VALUE + 1))
                         .divide(BigInteger.valueOf(num))
                         .longValueExact();
-        final ImmutableList.Builder<KeyRange> builder = ImmutableList.builder();
+        final List<KeyRange> keyRanges = new ArrayList<>(num);
         for (int i = 0; i < num; i++) {
             final RowKey startKey =
                     (i == 0)
@@ -57,13 +58,13 @@ public class TableKeyRangeUtils {
                     (i == num - 1)
                             ? RowKey.createBeyondMax(tableId)
                             : RowKey.toRowKey(tableId, Long.MIN_VALUE + delta * (i + 1));
-            builder.add(
+            keyRanges.add(
                     KeyRangeUtils.makeCoprocRange(startKey.toByteString(), endKey.toByteString()));
         }
-        return builder.build();
+        return Collections.unmodifiableList(keyRanges);
     }
 
     public static boolean isRecordKey(final byte[] key) {
-        return key[9] == '_' && key[10] == 'r';
+        return key.length > 10 && key[9] == '_' && key[10] == 'r';
     }
 }

@@ -8,47 +8,47 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 支持读取 Elasticsearch2.x 版本和 8.x 版本之间的数据
 
-## Key features
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义的分片](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置参数选项
 
 | 参数名称                | 类型    | 是否必须 | 默认值或者描述                             |
 | ----------------------- | ------- | -------- |-------------------------------------|
-| hosts                   | 数组    | yes      | -                                   |
-| auth_type               | string  | no       | basic                               |
-| username                | string  | no       | -                                   |
-| password                | string  | no       | -                                   |
-| auth.api_key_id         | string  | no       | -                                   |
-| auth.api_key            | string  | no       | -                                   |
-| auth.api_key_encoded    | string  | no       | -                                   |
-| index                   | string  | No       | 单索引同步配置，如果index_list没有配置，则必须配置index |
-| index_list              | array   | no       | 用来定义多索引同步任务                         |
-| source                  | array   | no       | -                                   |
-| query                   | json    | no       | {"match_all": {}}                   |
-| search_type             | enum    | no       | 查询类型，SQL 或 DSL，默认 DSL              |
-| search_api_type         | enum    | no       | 分页 API 类型，SCROLL 或 PIT，默认 SCROLL    |
-| sql_query               | json    | no       | SQL 查询语句，当 search_type 为 SQL 时必须    |
-| scroll_time             | string  | no       | 1m                                  |
-| scroll_size             | int     | no       | 100                                 |
-| tls_verify_certificate  | boolean | no       | true                                |
-| tls_verify_hostname     | boolean | no       | true                                |
-| array_column            | map     | no       |                                     |
-| tls_keystore_path       | string  | no       | -                                   |
-| tls_keystore_password   | string  | no       | -                                   |
-| tls_truststore_path     | string  | no       | -                                   |
-| tls_truststore_password | string  | no       | -                                   |
-| pit_keep_alive          | long    | no       | 60000 (1 minute)                    |
-| pit_batch_size          | int     | no       | 100                                 |
-| slice_max               | int     | no       | 1（SCROLL 需 ES >= 5.0，PIT 需 ES >= 7.10） |
-| runtime_fields          | array   | no       | -                                   |
-| common-options          |         | no       | -                                   |
+| hosts                   | 数组    | 是       | -                                   |
+| auth_type               | string  | 否       | basic                               |
+| username                | string  | 否       | -                                   |
+| password                | string  | 否       | -                                   |
+| auth.api_key_id         | string  | 否       | -                                   |
+| auth.api_key            | string  | 否       | -                                   |
+| auth.api_key_encoded    | string  | 否       | -                                   |
+| index                   | string  | 否       | 未配置 `index_list` 时必须配置              |
+| index_list              | array   | 否       | 用来定义多索引同步任务                         |
+| source                  | array   | 否       | -                                   |
+| query                   | json    | 否       | {"match_all": {}}                   |
+| search_type             | enum    | 否       | 查询类型，SQL 或 DSL，默认 DSL              |
+| search_api_type         | enum    | 否       | 分页 API 类型，SCROLL 或 PIT，默认 SCROLL    |
+| sql_query               | string  | 否       | SQL 查询语句，当 search_type 为 SQL 时必须    |
+| scroll_time             | string  | 否       | 1m                                  |
+| scroll_size             | int     | 否       | 100                                 |
+| tls_verify_certificate  | boolean | 否       | true                                |
+| tls_verify_hostname     | boolean | 否       | true                                |
+| array_column            | map     | 否       |                                     |
+| tls_keystore_path       | string  | 否       | -                                   |
+| tls_keystore_password   | string  | 否       | -                                   |
+| tls_truststore_path     | string  | 否       | -                                   |
+| tls_truststore_password | string  | 否       | -                                   |
+| pit_keep_alive          | long    | 否       | 60000 (1 minute)                    |
+| pit_batch_size          | int     | 否       | 100                                 |
+| slice_max               | int     | 否       | 1（SCROLL 需 ES >= 5.0，PIT 需 ES >= 7.10） |
+| runtime_fields          | array   | 否       | -                                   |
+| common-options          |         | 否       | -                                   |
 
 ### hosts [array]
 
@@ -134,6 +134,8 @@ source {
 ### index [string]
 
 Elasticsearch 索引名称，支持 * 模糊匹配。比如存在索引index1,index2,可以指定index*同时读取两个索引的数据。
+
+`index` 和 `index_list` 至少需要配置一个。单索引或索引通配场景使用 `index`；不同索引需要单独配置 `query`、`source`、`schema` 或分页参数时，使用 `index_list`。
 
 ### source [array]
 
@@ -247,6 +249,8 @@ runtime_fields = [
 - PIT 切片需要 Elasticsearch 7.10 及以上版本（PIT 在 7.10.0 引入）。
 
 **取舍说明：**切片能提升吞吐，但可能降低跨切片的一致性。对一致性要求高时，建议使用 PIT（共享快照）或将 `slice_max = 1`；对追加写或写入较少的场景，开启切片通常可以接受。
+
+当 `search_type = "SQL"` 时，Elasticsearch SQL 查询不支持切片，`slice_max` 会被忽略。
 
 ### common options
 

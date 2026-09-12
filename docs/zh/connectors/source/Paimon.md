@@ -51,10 +51,10 @@ import ChangeLog from '../changelog/connector-paimon.md';
 | warehouse               | String   | 是      | -             |
 | catalog_name            | String   | 否      | paimon        |
 | catalog_type            | String   | 否      | filesystem    |
-| catalog_uri             | String   | 否      | -             |
+| catalog_uri             | String   | 当 `catalog_type` 为 `hive` 时是 | -             |
 | database                | String   | 是      | -             |
-| table                   | String   | 否      | -             |
-| table_list              | array    | 否      | -             |
+| table                   | String   | 未配置 `table_list` 时是 | -             |
+| table_list              | array    | 未配置 `table` 时是 | -             |
 | user                    | String   | 否      | -             |
 | password                | String   | 否      | -             |
 | hdfs_site_path          | String   | 否      | -             |
@@ -72,7 +72,7 @@ Paimon Catalog 类型，支持 filesystem 和 hive
 
 ### catalog_uri [string]
 
-Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
+Paimon 的 catalog URI。当 `catalog_type` 为 `hive` 时必须配置。
 
 ### database [string]
 
@@ -80,15 +80,15 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 ### table [string]
 
-需要访问的表
+需要访问的表。`table` 和 `table_list` 必须二选一配置。
 
 ### table_list [array]
 
-`Paimon` 表名列表，当需要同时读取多表时使用此配置代替 table
+`Paimon` 表名列表。当一个 Source 需要读取多张 Paimon 表时，使用此配置代替 `table`。`table` 和 `table_list` 必须二选一配置。每个配置项必须包含 `table`，也可以配置该表自己的 `query`。
 
 ### hdfs_site_path [string]
 
-`hdfs-site.xml` 文件地址
+`hdfs-site.xml` 文件地址。该选项已废弃，新作业建议使用 `paimon.hadoop.conf` 或 `paimon.hadoop.conf-path`。
 
 ### query [string]
 
@@ -130,9 +130,9 @@ hadoop conf 属性
 
 指定 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' 文件加载路径。
 
-## Filesystems
+## 文件系统
 
-Paimon 连接器支持向多个文件系统写入数据。目前，支持的文件系统有 `hdfs` 和 `s3`。 
+Paimon 连接器支持从多个文件系统读取数据。目前，支持的文件系统有 `hdfs` 和 `s3`。
 如果使用 `s3` 文件系统，可以在 `paimon.hadoop.conf` 中配置`fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` 属性，数仓地址应该以 `s3a://` 开头。
 
 ## 示例

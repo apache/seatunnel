@@ -41,6 +41,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
@@ -52,11 +53,14 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     private final DataSaveMode dataSaveMode;
     private final SchemaSaveMode schemaSaveMode;
     private final CatalogTable catalogTable;
+    private final Map<String, String> tableOptions;
 
-    public StarRocksSink(SinkConfig sinkConfig, CatalogTable catalogTable) {
+    public StarRocksSink(
+            SinkConfig sinkConfig, CatalogTable catalogTable, Map<String, String> tableOptions) {
         this.sinkConfig = sinkConfig;
         this.tableSchema = catalogTable.getTableSchema();
         this.catalogTable = catalogTable;
+        this.tableOptions = tableOptions;
         this.dataSaveMode = sinkConfig.getDataSaveMode();
         this.schemaSaveMode = sinkConfig.getSchemaSaveMode();
         // Load the JDBC driver in to DriverManager
@@ -81,7 +85,7 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
             log.warn("Failed to load JDBC driver {}", "com.mysql.cj.jdbc.Driver", e);
         }
         TablePath sinkTablePath = catalogTable.getTablePath();
-        return new StarRocksSinkWriter(sinkConfig, tableSchema, sinkTablePath);
+        return new StarRocksSinkWriter(context, sinkConfig, tableSchema, sinkTablePath);
     }
 
     @Override
@@ -103,7 +107,8 @@ public class StarRocksSink extends AbstractSimpleSink<SeaTunnelRow, Void>
                         sinkConfig.getUsername(),
                         sinkConfig.getPassword(),
                         sinkConfig.getJdbcUrl(),
-                        sinkConfig.getSaveModeCreateTemplate());
+                        sinkConfig.getSaveModeCreateTemplate(),
+                        tableOptions);
         return Optional.of(
                 new DefaultSaveModeHandler(
                         schemaSaveMode,

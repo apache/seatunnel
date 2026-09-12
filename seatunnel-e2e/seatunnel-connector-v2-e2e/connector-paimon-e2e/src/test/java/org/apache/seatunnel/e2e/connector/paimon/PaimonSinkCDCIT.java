@@ -65,6 +65,10 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
 
+    /** Config used to verify the schema mismatch error after the target Paimon table exists. */
+    private static final String ERROR_SCHEMA_CONF =
+            "/fake_cdc_sink_paimon_case1_with_error_schema.conf";
+
     @BeforeEach
     @Override
     public void startUp() throws Exception {
@@ -138,8 +142,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
     public void testSinkWithIncompatibleSchema(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Container.ExecResult errResult =
-                container.executeJob("/fake_cdc_sink_paimon_case1_with_error_schema.conf");
+        Container.ExecResult errResult = container.executeJob(ERROR_SCHEMA_CONF);
         Assertions.assertEquals(1, errResult.getExitCode());
         Assertions.assertTrue(
                 errResult

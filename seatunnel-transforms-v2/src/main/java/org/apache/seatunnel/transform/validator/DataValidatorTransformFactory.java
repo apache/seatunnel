@@ -53,6 +53,7 @@ public class DataValidatorTransformFactory implements TableTransformFactory {
                                 .and(Conditions.extension(FIELD_RULES, new FieldRulesValidator())))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .optional(TransformCommonOptions.ROW_ERROR_HANDLE_WAY_OPTION)
                 .optional(TransformCommonOptions.ERROR_TABLE_OPTION)
                 .build();

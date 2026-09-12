@@ -51,6 +51,7 @@ public class KuduOutputFormat implements Serializable {
     private final KuduSinkConfig.SaveMode saveMode;
     private final KuduSinkConfig kuduSinkConfig;
     private KuduClient kuduClient;
+    private transient KuduClientResource kuduClientResource;
     private KuduSession kuduSession;
     private KuduTable kuduTable;
 
@@ -71,18 +72,36 @@ public class KuduOutputFormat implements Serializable {
     }
 
     private void openOutputFormat() {
-        this.kuduClient = KuduUtil.getKuduClient(kuduSinkConfig);
-        this.kuduSession = getSession();
         try {
+            this.kuduClientResource = KuduUtil.getKuduClientResource(kuduSinkConfig);
+            this.kuduClient = kuduClientResource.getClient();
+            this.kuduSession = getSession();
             kuduTable = kuduClient.openTable(kuduTableName);
+            seaTunnelRowSerializer = new KuduRowSerializer(kuduTable, saveMode, seaTunnelRowType);
         } catch (KuduException e) {
+            closeClientAfterInitializationFailure(e);
             throw new KuduConnectorException(KuduConnectorErrorCode.INIT_KUDU_CLIENT_FAILED, e);
+        } catch (RuntimeException e) {
+            closeClientAfterInitializationFailure(e);
+            throw e;
         }
         log.info(
                 "The Kudu client for Master: {} is initialized successfully.",
                 kuduSinkConfig.getMasters());
+    }
 
-        seaTunnelRowSerializer = new KuduRowSerializer(kuduTable, saveMode, seaTunnelRowType);
+    private void closeClientAfterInitializationFailure(Exception initializationException) {
+        if (kuduClientResource == null) {
+            return;
+        }
+        try {
+            kuduClientResource.close();
+        } catch (Exception closeException) {
+            initializationException.addSuppressed(closeException);
+        } finally {
+            kuduClient = null;
+            kuduClientResource = null;
+        }
     }
 
     private KuduSession getSession() {
@@ -108,11 +127,16 @@ public class KuduOutputFormat implements Serializable {
                 log.error("Error while closing session.", e);
             }
             try {
-                if (kuduClient != null) {
+                if (kuduClientResource != null) {
+                    kuduClientResource.close();
+                } else if (kuduClient != null) {
                     kuduClient.close();
                 }
             } catch (Exception e) {
                 log.error("Error while closing client.", e);
+            } finally {
+                kuduClient = null;
+                kuduClientResource = null;
             }
         }
     }

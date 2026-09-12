@@ -46,6 +46,16 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
         return IDENTIFIER;
     }
 
+    /**
+     * Doris 1.x decimals are DecimalV2, which is limited to a scale of 9 regardless of the
+     * precision. Emitting a larger scale makes the generated DDL fail with "Scale of decimal must
+     * between 0 and 9".
+     */
+    @Override
+    protected int getMaxDecimalScale() {
+        return MAX_DECIMALV2_SCALE;
+    }
+
     @Override
     public Column convert(BasicTypeDefine typeDefine) {
         return convert(typeDefine, true);
@@ -103,6 +113,9 @@ public class DorisTypeConverterV1 extends AbstractDorisTypeConverter {
                 builder.dataType(DORIS_DATEV2);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
+                // Doris has no timezone-aware datetime type; TIMESTAMP_TZ is stored as DATETIMEV2
+                // (wall-clock value, timezone offset is lost).
                 if (column.getScale() != null
                         && column.getScale() > 0
                         && column.getScale() <= MAX_DATETIME_SCALE) {

@@ -51,10 +51,10 @@ Read data from Apache Paimon.
 | warehouse               | String   | Yes            | -             |
 | catalog_name            | String   | No             | paimon        |
 | catalog_type            | String   | No             | filesystem    |
-| catalog_uri             | String   | No             | -             |
+| catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             |
 | database                | String   | Yes            | -             |
-| table                   | String   | no             | -             |
-| table_list              | array    | no             | -             |
+| table                   | String   | Yes when `table_list` is absent | -             |
+| table_list              | array    | Yes when `table` is absent | -             |
 | user                    | String   | No             | -             |
 | password                | String   | No             | -             |
 | hdfs_site_path          | String   | No             | -             |
@@ -72,7 +72,7 @@ Catalog type of Paimon, support filesystem and hive
 
 ### catalog_uri [string]
 
-Catalog uri of Paimon, only needed when catalog_type is hive
+Catalog URI of Paimon. This option is required when `catalog_type` is `hive`.
 
 ### database [string]
 
@@ -80,15 +80,15 @@ The database you want to access
 
 ### table [string]
 
-The table you want to access
+The table you want to access. Configure exactly one of `table` and `table_list`.
 
 ### table_list [array]
 
-The list of tables to be read, you can use this configuration instead of `table`
+The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `table`, and can contain its own `query`.
 
 ### hdfs_site_path [string]
 
-The file path of `hdfs-site.xml`
+The file path of `hdfs-site.xml`. This option is deprecated; prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs.
 
 ### query [string]
 
@@ -126,7 +126,7 @@ Properties in hadoop conf
 The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
 
 ## Filesystems
-The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.
+The Paimon connector supports reading data from multiple file systems. Currently, the supported file systems are hdfs and s3.
 If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
 Besides, the warehouse should start with `s3a://`.
 

@@ -28,6 +28,10 @@
     <artifactId>connector-cdc-mysql</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : MySql</name>
 
+    <properties>
+        <debezium.version>1.9.8.Final</debezium.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>

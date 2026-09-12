@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.serializable;
 
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -52,6 +53,8 @@ public class RecordSerializer implements StreamSerializer<Record> {
     private static final int EXTENDED_ROW_ARITY_MAGIC = 0x524F5741;
     private static final int MAX_TRACE_PAYLOAD_LENGTH = 8 * 1024;
 
+    private static final byte TYPE_SEATUNNEL_FLUSH_SIGNAL_V1 = 4;
+
     /**
      * Writes checkpoints or rows while filtering oversized stain trace payloads from row options.
      */
@@ -80,6 +83,12 @@ public class RecordSerializer implements StreamSerializer<Record> {
             if (opts != null) {
                 out.writeObject(opts);
             }
+        } else if (data instanceof FlushSignal) {
+            FlushSignal flushSignal = (FlushSignal) data;
+            out.writeByte(TYPE_SEATUNNEL_FLUSH_SIGNAL_V1);
+            out.writeLong(flushSignal.getJobId());
+            out.writeLong(flushSignal.getTaskId());
+            out.writeLong(flushSignal.getCreatedTime());
         } else {
             throw new UnsupportedEncodingException(
                     "Unsupported serialize class: " + data.getClass());
@@ -128,6 +137,8 @@ public class RecordSerializer implements StreamSerializer<Record> {
                 row.setOptions(opts);
             }
             data = row;
+        } else if (dataType == TYPE_SEATUNNEL_FLUSH_SIGNAL_V1) {
+            data = new FlushSignal(in.readLong(), in.readLong(), in.readLong());
         } else {
             throw new UnsupportedEncodingException(
                     "Unsupported deserialize data type: " + dataType);

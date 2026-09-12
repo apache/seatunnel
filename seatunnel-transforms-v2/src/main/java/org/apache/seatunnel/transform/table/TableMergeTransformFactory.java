@@ -41,6 +41,7 @@ public class TableMergeTransformFactory implements TableTransformFactory {
                 .optional(TableMergeConfig.DATABASE, TableMergeConfig.SCHEMA)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

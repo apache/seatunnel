@@ -317,8 +317,12 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                 builder.scale(typeDefine.getScale());
                 break;
             case MYSQL_DATETIME:
-            case MYSQL_TIMESTAMP:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
+            case MYSQL_TIMESTAMP:
+                // MySQL TIMESTAMP is LTZ (stored as UTC, displayed in session timezone)
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             default:
@@ -535,6 +539,31 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
                     builder.scale(timestampScale);
                 } else {
                     builder.columnType(MYSQL_DATETIME);
+                }
+                break;
+            case TIMESTAMP_TZ:
+                // TIMESTAMP_TZ (LTZ) maps back to MySQL TIMESTAMP
+                builder.nativeType(MysqlType.TIMESTAMP);
+                builder.dataType(MYSQL_TIMESTAMP);
+                if (version.isAtOrBefore(MySqlVersion.V_5_5)) {
+                    builder.columnType(MYSQL_TIMESTAMP);
+                } else if (column.getScale() != null && column.getScale() > 0) {
+                    int timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type timestamp({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to timestamp({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(String.format("%s(%s)", MYSQL_TIMESTAMP, timestampTzScale));
+                    builder.scale(timestampTzScale);
+                } else {
+                    builder.columnType(MYSQL_TIMESTAMP);
                 }
                 break;
             default:

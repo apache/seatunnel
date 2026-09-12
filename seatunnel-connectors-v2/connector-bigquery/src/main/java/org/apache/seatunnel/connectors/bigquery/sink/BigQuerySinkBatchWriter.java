@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
@@ -45,12 +46,44 @@ import java.util.concurrent.TimeUnit;
 public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
     public static final String BATCH = "batch";
 
+    private final String restoredStreamName;
+    private final long restoredNextOffset;
+
+    public BigQuerySinkBatchWriter(ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer) {
+        this(readOnlyConfig, serializer, null, 0L);
+    }
+
+    public BigQuerySinkBatchWriter(
+            ReadonlyConfig readOnlyConfig,
+            BigQuerySerializer serializer,
+            String restoredStreamName,
+            long restoredNextOffset) {
+        super(readOnlyConfig, serializer);
+        this.restoredStreamName = restoredStreamName;
+        this.restoredNextOffset = restoredNextOffset;
+    }
+
     public BigQuerySinkBatchWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
-            BigQuerySerializer serializer,
-            BigQueryWriteClient client) {
-        super(readOnlyConfig, streamWriter, serializer, client);
+            BigQuerySerializer serializer) {
+        super(readOnlyConfig, streamWriter, serializer);
+        this.restoredStreamName = null;
+        this.restoredNextOffset = 0L;
+    }
+
+    @Override
+    public void setMultiTableResourceManager(
+            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
+        log.info("Injecting shared client and initializing Batch stream writer...");
+        this.client = manager.getSharedResource().get();
+        if (restoredStreamName != null) {
+            this.streamWriter =
+                    BigQueryBatchWriter.restore(
+                            client, config, restoredStreamName, restoredNextOffset);
+        } else {
+            this.streamWriter = BigQueryBatchWriter.of(client, config);
+        }
     }
 
     @Override
@@ -67,8 +100,8 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
 
             if (response.hasError()) {
-                if (isOffsetConflict(response)) {
-                    recreateBatchStreamAndRetry(dataToSend);
+                if (isAlreadyExists(response)) {
+                    markAppendAsSuccessful(dataToSend);
                     return;
                 }
                 throw new BigQueryConnectorException(
@@ -83,8 +116,8 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             buffer = dataToSend;
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
         } catch (Exception e) {
-            if (isOffsetConflict(e)) {
-                recreateBatchStreamAndRetry(dataToSend);
+            if (isAlreadyExists(e)) {
+                markAppendAsSuccessful(dataToSend);
                 return;
             }
             buffer = dataToSend;
@@ -92,62 +125,32 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         }
     }
 
-    private void recreateBatchStreamAndRetry(JSONArray dataToSend) {
-        log.warn(
-                "Detected BigQuery buffered stream offset conflict. "
-                        + "Recreating buffered stream and retrying append.");
-        recreateBatchStream();
-        try {
-            ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
-            AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
-
-            if (response.hasError()) {
-                throw new BigQueryConnectorException(
-                        BigQueryConnectorErrorCode.APPEND_ROWS_FAILED,
-                        response.getError().getMessage());
-            }
-
-            streamWriter.onAppendSuccess(dataToSend.length());
-            log.info("Successfully appended {} rows.", dataToSend.length());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            buffer = dataToSend;
-            throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
-        } catch (Exception e) {
-            buffer = dataToSend;
-            throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
-        }
+    private void markAppendAsSuccessful(JSONArray dataToSend) {
+        streamWriter.onAppendSuccess(dataToSend.length());
+        log.info(
+                "BigQuery already accepted the append at the requested offset; "
+                        + "advancing the local offset by {} rows.",
+                dataToSend.length());
     }
 
-    private boolean isOffsetConflict(AppendRowsResponse response) {
+    private boolean isAlreadyExists(AppendRowsResponse response) {
         if (response == null || !response.hasError()) {
             return false;
         }
 
-        int code = response.getError().getCode();
-        return code == Code.ALREADY_EXISTS_VALUE || code == Code.OUT_OF_RANGE_VALUE;
+        return response.getError().getCode() == Code.ALREADY_EXISTS_VALUE;
     }
 
-    private boolean isOffsetConflict(Throwable throwable) {
+    private boolean isAlreadyExists(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
             if (current instanceof ApiException) {
                 StatusCode.Code code = ((ApiException) current).getStatusCode().getCode();
-                return code == StatusCode.Code.ALREADY_EXISTS
-                        || code == StatusCode.Code.OUT_OF_RANGE;
+                return code == StatusCode.Code.ALREADY_EXISTS;
             }
             current = current.getCause();
         }
         return false;
-    }
-
-    private void recreateBatchStream() {
-        try {
-            streamWriter.close();
-        } catch (Exception e) {
-            log.warn("Failed to close stale BigQuery buffered stream writer", e);
-        }
-        streamWriter = BigQueryBatchWriter.of(client, config);
     }
 
     @Override
@@ -194,7 +197,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         // Batch mode uses BigQuery buffered streams and stores streamName + nextOffset
         // in checkpoint state. Flushing during close could append rows outside the
         // latest checkpoint state and make the external stream offset move ahead of
-        // the restored nextOffset.
+        // the restored nextOffset, breaking 2PC state recovery contract.
         return false;
     }
 }

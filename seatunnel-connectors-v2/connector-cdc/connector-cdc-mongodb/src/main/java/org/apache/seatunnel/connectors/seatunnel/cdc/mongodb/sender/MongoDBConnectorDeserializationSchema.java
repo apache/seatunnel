@@ -76,6 +76,8 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getOperationType;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.isHeartbeatEvent;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Slf4j
@@ -101,10 +103,14 @@ public class MongoDBConnectorDeserializationSchema
             throws Exception {
         super.deserialize(record, out);
 
+        if (isHeartbeatEvent(record)) {
+            return;
+        }
+
         Struct value = (Struct) record.value();
         Schema valueSchema = record.valueSchema();
 
-        OperationType op = operationTypeFor(record);
+        OperationType op = getOperationType(record);
         BsonDocument documentKey =
                 checkNotNull(
                         Objects.requireNonNull(
@@ -176,11 +182,6 @@ public class MongoDBConnectorDeserializationSchema
     @Override
     public List<CatalogTable> getProducedType() {
         return tables;
-    }
-
-    private @Nonnull OperationType operationTypeFor(@Nonnull SourceRecord record) {
-        Struct value = (Struct) record.value();
-        return OperationType.fromString(value.getString("operationType"));
     }
 
     // TODO:The dynamic schema will be completed based on this method later.

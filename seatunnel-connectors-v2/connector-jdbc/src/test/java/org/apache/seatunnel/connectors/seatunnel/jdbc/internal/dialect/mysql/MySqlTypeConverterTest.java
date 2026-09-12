@@ -626,6 +626,7 @@ public class MySqlTypeConverterTest {
 
     @Test
     public void testConvertTimestamp() {
+        // MySQL TIMESTAMP is LTZ → should map to OFFSET_DATE_TIME_TYPE (TIMESTAMP_TZ)
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
@@ -634,7 +635,7 @@ public class MySqlTypeConverterTest {
                         .build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
 
         typeDefine =
@@ -646,7 +647,7 @@ public class MySqlTypeConverterTest {
                         .build();
         column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(typeDefine.getScale(), column.getScale());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
@@ -1086,6 +1087,39 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(MysqlType.DATETIME, typeDefine.getNativeType());
         Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATETIME, typeDefine.getColumnType());
         Assertions.assertEquals(MySqlTypeConverter.MYSQL_DATETIME, typeDefine.getDataType());
+    }
+
+    @Test
+    public void testReconvertTimestampTz() {
+        // TIMESTAMP_TZ (LTZ) should map back to MySQL TIMESTAMP
+        Column column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .build();
+
+        BasicTypeDefine<MysqlType> typeDefine =
+                MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                        .scale(3)
+                        .build();
+
+        typeDefine = MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(MysqlType.TIMESTAMP, typeDefine.getNativeType());
+        Assertions.assertEquals(
+                String.format("%s(%s)", MySqlTypeConverter.MYSQL_TIMESTAMP, column.getScale()),
+                typeDefine.getColumnType());
+        Assertions.assertEquals(MySqlTypeConverter.MYSQL_TIMESTAMP, typeDefine.getDataType());
+        Assertions.assertEquals(column.getScale(), typeDefine.getScale());
     }
 
     @Test

@@ -46,15 +46,10 @@ public final class ConditionEvaluators {
             throw new OptionValidationException(
                     "Condition for option '%s' has a null operator", condition.getOption().key());
         }
-        try {
-            Object value = config.get(condition.getOption());
-            Evaluator evaluator = REGISTRY.get(operator);
-            return evaluator.evaluate(value, condition, config);
-        } catch (OptionValidationException e) {
-            throw new OptionValidationException(
-                    "Failed to evaluate constraint '%s' on option '%s': %s",
-                    condition.toString(), condition.getOption().key(), e.getRawMessage());
-        }
+
+        Object value = config.get(condition.getOption());
+        Evaluator evaluator = REGISTRY.get(operator);
+        return evaluator.evaluate(value, condition, config);
     }
 
     @SuppressWarnings({"rawtypes"})

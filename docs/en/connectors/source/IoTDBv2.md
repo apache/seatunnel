@@ -1,8 +1,8 @@
 import ChangeLog from '../changelog/connector-iotdb.md';
 
-# IoTDB
+# IoTDBv2
 
-> IoTDB source connector
+> IoTDBv2 source connector
 
 ## Support Those Engines
 
@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## Description
 
-Used to read data from IoTDB.
+Used to read data from IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
 
 ## Key features
 
@@ -55,20 +55,20 @@ Used to read data from IoTDB.
 | node_urls                  | Array   | Yes      | -             | IoTDB cluster address, the format is `["host1:port"]` or `["host1:port","host2:port"]`                            |
 | username                   | String  | Yes      | -             | IoTDB username                                                                                                    |
 | password                   | String  | Yes      | -             | IoTDB user password                                                                                               |
-| sql_dialect                | String  | No       | tree          | The sql dialect of IoTDB, options available is `"tree"` or `"table"`                                              |
-| database                   | String  | No       | -             | The database selected (only valid when `sql_dielct` is `"table"`)                                                 |
+| sql_dialect                | String  | No       | tree          | The SQL dialect of IoTDB. Available values are `"tree"` and `"table"`.                                            |
+| database                   | String  | No       | -             | The selected database. This option is only valid when `sql_dialect` is `"table"`.                                 |
 | sql                        | String  | Yes      | -             | The sql statement to be executed                                                                                  |
 | schema                     | Config  | Yes      | -             | The data schema. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                   |
-| fetch_size                 | Integer | No       | -             | The fetch_size of the IoTDB when you select                                                                       |
-| lower_bound                | Long    | No       | -             | The lower_bound of the IoTDB when you select                                                                      |
-| upper_bound                | Long    | No       | -             | The upper_bound of the IoTDB when you select                                                                      |
-| num_partitions             | Integer | No       | -             | The num_partitions of the IoTDB when you select                                                                   |
-| default_thrift_buffer_size | Integer | No       | -             | The thrift_default_buffer_size of the IoTDB when you select                                                       |
+| fetch_size                 | Integer | No       | -             | The number of rows fetched from IoTDB in one request.                                                             |
+| lower_bound                | Long    | No       | -             | The lower bound of the time range used for source partition splitting.                                            |
+| upper_bound                | Long    | No       | -             | The upper bound of the time range used for source partition splitting.                                            |
+| num_partitions             | Integer | No       | -             | The number of partitions used to split the time range.                                                            |
+| default_thrift_buffer_size | Integer | No       | -             | The default Thrift buffer size used by the IoTDB client.                                                          |
 | max_thrift_frame_size      | Integer | No       | -             | The thrift max frame size                                                                                         |
-| enable_cache_leader        | Boolean | No       | -             | Enable_cache_leader of the IoTDB when you select                                                                  |
+| enable_cache_leader        | Boolean | No       | -             | Whether to enable leader cache in the IoTDB client.                                                               |
 | common-options             |         | no       | -             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details |
 
-We can use time column as a partition key in SQL queries.
+You can use the time column to split a source query into multiple partitions. To enable this, set `lower_bound`, `upper_bound`, and `num_partitions` together.
 
 #### num_partitions [int]
 
@@ -106,7 +106,7 @@ env {
 }
 
 source {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -164,7 +164,7 @@ env {
 }
 
 source {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -219,4 +219,3 @@ The data format loaded to SeaTunnelRow is as follows:
 ## Changelog
 
 <ChangeLog />
-

@@ -55,15 +55,23 @@ Cloudberry uses PostgreSQL's data type implementation. Please refer to PostgreSQ
 Cloudberry connector uses the same options as PostgreSQL. For detailed configuration options, please refer to the PostgreSQL documentation.
 
 Key options include:
+
 - url (required): The JDBC connection URL
 - driver (required): The driver class name (org.postgresql.Driver)
-- user/password: Authentication credentials
+- username/password: Authentication credentials. `user` is also accepted as a fallback key for `username`.
 - query or table_path: What data to read
 - partition options for parallel reading
 
 ## Parallel Reader
 
 Cloudberry supports parallel reading following the same rules as PostgreSQL connector. For detailed information on split strategies and parallel reading options, please refer to the PostgreSQL connector documentation.
+
+## Notes
+
+- Use the `Jdbc` plugin name for Cloudberry jobs.
+- Cloudberry uses the PostgreSQL JDBC driver and PostgreSQL-compatible dialect path, so keep `driver = "org.postgresql.Driver"`.
+- Use a PostgreSQL-style URL such as `jdbc:postgresql://host:5432/database`.
+- Keep database passwords out of shared examples, logs, and screenshots.
 
 ## Task Example
 

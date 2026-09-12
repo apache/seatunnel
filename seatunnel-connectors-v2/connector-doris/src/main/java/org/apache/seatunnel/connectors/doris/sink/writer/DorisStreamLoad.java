@@ -85,6 +85,10 @@ public class DorisStreamLoad implements Serializable {
     private final RecordStream recordStream;
     @Getter private Future<CloseableHttpResponse> pendingLoadFuture;
     private final CloseableHttpClient httpClient;
+    // Dedicated client for the stream-load upload path. Unlike the control requests that share
+    // httpClient, the upload sends a non-repeatable body and needs HttpUtil's longer
+    // waitForContinue window so a slow FE 307 redirect does not force the body to FE first.
+    private final CloseableHttpClient streamLoadHttpClient;
     private final ExecutorService executorService;
     private volatile boolean loadBatchFirstRecord;
     private volatile boolean loading = false;
@@ -113,6 +117,7 @@ public class DorisStreamLoad implements Serializable {
         this.streamLoadProp = dorisSinkConfig.getStreamLoadProps();
         this.enableDelete = dorisSinkConfig.getEnableDelete();
         this.httpClient = httpClient;
+        this.streamLoadHttpClient = new HttpUtil().getStreamLoadHttpClient();
         this.executorService =
                 new ThreadPoolExecutor(
                         1,
@@ -297,7 +302,7 @@ public class DorisStreamLoad implements Serializable {
                             () -> {
                                 log.info("start execute load");
                                 return HttpUtil.executeWithRedirectTracking(
-                                        httpClient,
+                                        streamLoadHttpClient,
                                         putBuilder.build(),
                                         loadUrlStr,
                                         directToBe,
@@ -356,6 +361,13 @@ public class DorisStreamLoad implements Serializable {
     }
 
     public void close() throws IOException {
+        if (null != streamLoadHttpClient) {
+            try {
+                streamLoadHttpClient.close();
+            } catch (IOException e) {
+                throw new IOException("Closing streamLoadHttpClient failed.", e);
+            }
+        }
         if (null != httpClient) {
             try {
                 httpClient.close();

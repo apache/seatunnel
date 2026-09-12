@@ -1,8 +1,8 @@
 import ChangeLog from '../changelog/connector-iotdb.md';
 
-# IoTDB
+# IoTDBv2
 
-> IoTDB sink connector
+> IoTDBv2 sink connector
 
 ## Support Those Engines
 
@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## Description
 
-Used to write data to IoTDB.
+Used to write data to IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
 
 ## Key Features
 
@@ -49,23 +49,27 @@ Used to write data to IoTDB.
 | node_urls                   | Array   | Yes      | -                    | IoTDB cluster address, the format is `["host1:port"]` or `["host1:port","host2:port"]`                                                                                                                                                                                                                                                                                     |
 | username                    | String  | Yes      | -                    | IoTDB username                                                                                                                                                                                                                                                                                                                                                             |
 | password                    | String  | Yes      | -                    | IoTDB user password                                                                                                                                                                                                                                                                                                                                                        |
-| sql_dialect                 | String  | No       | tree                 | the sql dialect of IoTDB, options available is `"tree"` or `"table"`                                                                                                                                                                                                                                                                                                       |
-| storage_group               | String  | Yes      | -                    | IoTDB-tree: Specify the device storage group(path prefix) <br/> example: deviceId = \${storage_group} + "." +  \${key_device} <br/> IoTDB-table: Specify the database                                                                                                                                                                                                      |
+| sql_dialect                 | String  | No       | tree                 | The SQL dialect of IoTDB. Available values are `"tree"` and `"table"`.                                                                                                                                                                                                                                                                                                     |
+| storage_group               | String  | Yes      | -                    | IoTDB tree model: device path prefix. For example, the device path is `storage_group + "." + key_device`. Set it to an empty string when `key_device` already contains the full device path. <br/> IoTDB table model: database name.                                                                                                                                      |
 | key_device                  | String  | Yes      | -                    | IoTDB-tree: Specify the field name in SeaTunnelRow to be used as device id <br/> IoTDB-table: Specify the field name in SeaTunnelRow to be used as table name                                                                                                                                                                                                              |
 | key_timestamp               | String  | No       | processing time      | IoTDB-tree: Specify the field name in SeaTunnelRow to be used as timestamp (processing time will be used by default) <br/> IoTDB-table: Specify the field name in SeaTunnelRow to be used as time column (processing time will be used by default)                                                                                                                         |
 | key_measurement_fields      | Array   | No       | refer to description | IoTDB-tree: Specify the field names in SeaTunnelRow to be used as measurement (all fields excluding `key_device`&`key_timestamp` will be used by default) <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as FIELD columns (all fields excluding `key_device`, `key_timestamp`, `key_tag_fields` and `key_attribute_fields` will be used by default) |
 | key_tag_fields              | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as TAG columns                                                                                                                                                                                                                                                                   |
 | key_attribute_fields        | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as ATTRIBUTE columns                                                                                                                                                                                                                                                             |
-| batch_size                  | Integer | No       | 1024                 | In batch writing, the data will be flushed into the IoTDB either when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`                                                                                                                                                                                                     |
-| max_retries                 | Integer | No       | -                    | The number of times retrying to flush                                                                                                                                                                                                                                                                                                                                      |
-| retry_backoff_multiplier_ms | Integer | No       | -                    | Used as a multiplier for generating the next delay for backoff                                                                                                                                                                                                                                                                                                             |
-| max_retry_backoff_ms        | Integer | No       | -                    | The amount of time to wait before attempting to retry a request to IoTDB                                                                                                                                                                                                                                                                                                   |
+| batch_size                  | Integer | No       | 1024                 | The connector flushes buffered records to IoTDB when the number of buffered records reaches `batch_size`. It also flushes before checkpoint commit and when the writer is closed.                                                                                                                             |
+| max_retries                 | Integer | No       | 0                    | The maximum number of retries when flushing records fails.                                                                                                                                                                                                                                                                                                                 |
+| retry_backoff_multiplier_ms | Integer | No       | 0                    | The multiplier used to calculate the retry backoff delay.                                                                                                                                                                                                                                                                                                                  |
+| max_retry_backoff_ms        | Integer | No       | 0                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
 | default_thrift_buffer_size  | Integer | No       | -                    | Thrift init buffer size in IoTDB client                                                                                                                                                                                                                                                                                                                                    |
 | max_thrift_frame_size       | Integer | No       | -                    | Thrift max frame size in IoTDB client                                                                                                                                                                                                                                                                                                                                      |
 | zone_id                     | String  | No       | -                    | java.time.ZoneId in IoTDB client                                                                                                                                                                                                                                                                                                                                           |
 | enable_rpc_compression      | Boolean | No       | -                    | Enable rpc compression in IoTDB client, only valid in IoTDB-tree                                                                                                                                                                                                                                                                                                           |
 | connection_timeout_in_ms    | Integer | No       | -                    | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                                                                                                                                                                                                                                  |
-| common-options              |         | no       | -                    | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                                |
+| common-options              |         | no       | -                    | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                 |
+
+For the tree model, `key_device` is used as the IoTDB device path, and `key_measurement_fields` controls which fields become measurements. If `key_measurement_fields` is not set, all fields except `key_device` and `key_timestamp` are written as measurements.
+
+For the table model, `storage_group` is the database, `key_device` is the target table name field, `key_tag_fields` are TAG columns, `key_attribute_fields` are ATTRIBUTE columns, and `key_measurement_fields` are FIELD columns. If `key_measurement_fields` is not set, all fields except the table name, time, TAG, and ATTRIBUTE fields are written as FIELD columns.
 
 ## Examples
 
@@ -117,8 +121,8 @@ Only required options used:
 
 ```hocon
 sink {
-  IoTDB {
-    node_urls = "localhost:6667"
+  IoTDBv2 {
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     key_device = "device_name" # specify the `deviceId` use device_name field
@@ -147,8 +151,8 @@ Use source event's time:
 
 ```hocon
 sink {
-  IoTDB {
-    node_urls = "localhost:6667"
+  IoTDBv2 {
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     key_device = "device_name" # specify the `deviceId` use device_name field
@@ -178,8 +182,8 @@ Use source event's time and limit measurement fields:
 
 ```hocon
 sink {
-  IoTDB {
-    node_urls = "localhost:6667"
+  IoTDBv2 {
+    node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
     key_device = "device_name"
@@ -244,7 +248,7 @@ Only required options used:
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -291,7 +295,7 @@ Use source event's time and limit TAG and ATTRIBUTE columns:
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -339,7 +343,7 @@ Use source event's time and limit FIELD columns:
 
 ```hocon
 sink {
-  IoTDB {
+  IoTDBv2 {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
@@ -373,6 +377,55 @@ IoTDB> DESC "test_database"."0700HK";
 |     status|  BOOLEAN|   FIELD|
 |temperature|   DOUBLE|   FIELD|
 +-----------+---------+-------+
+```
+
+#### Case 4: Combined TAG, ATTRIBUTE, and FIELD columns
+
+This case wires all three column categories at once: a TAG column for high-cardinality
+filterable metadata, an ATTRIBUTE column for low-cardinality profile-like metadata, and explicit
+FIELD columns for measurements. All three are required for a fully-tagged IoTDB-table write.
+
+```hocon
+sink {
+  IoTDBv2 {
+    node_urls = ["localhost:6667"]
+    username = "root"
+    password = "root"
+    sql_dialect = "table"
+    storage_group = "test_database"
+    key_device = "region"
+    key_timestamp = "ts"
+    key_tag_fields = ["tag"]
+    key_attribute_fields = ["model_id"]
+    key_measurement_fields = ["status", "arrival_date", "temperature"]
+  }
+}
+```
+
+The data format of IoTDB output is as follows:
+
+```shell
+IoTDB> SELECT * FROM "test_database"."0700HK";
++-----------------------------+----+--------+------+------------+-----------+
+|                         time| tag|model_id|status|arrival_date|temperature|
++-----------------------------+----+--------+------+------------+-----------+
+|2025-07-30T17:52:34.851+08:00|tag1|     id1|  true|  2024-11-12|       4.34|
+|2025-07-29T17:51:34.851+08:00|tag2|     id2| false|  2024-12-01|       5.54|
+|2025-07-28T17:50:34.851+08:00|tag3|     id3| false|  2024-12-22|       7.34|
++-----------------------------+----+--------+------+------------+-----------+
+```
+```shell
+IoTDB> DESC "test_database"."0700HK";
++-------------+---------+---------+
+|    ColumnName| DataType| Category|
++-------------+---------+---------+
+|         time|TIMESTAMP|     TIME|
+|          tag|   STRING|      TAG|
+|     model_id|   STRING|ATTRIBUTE|
+|       status|  BOOLEAN|    FIELD|
+| arrival_date|     DATE|    FIELD|
+|  temperature|   DOUBLE|    FIELD|
++-------------+---------+---------+
 ```
 
 ## Changelog

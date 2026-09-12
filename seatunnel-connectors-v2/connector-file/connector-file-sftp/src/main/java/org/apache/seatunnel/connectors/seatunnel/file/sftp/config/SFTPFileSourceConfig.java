@@ -20,6 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.sftp.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileDiscoveryMode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
@@ -38,6 +41,13 @@ public class SFTPFileSourceConfig extends BaseFileSourceConfig {
     @Override
     public String getPluginName() {
         return FileSystemType.SFTP.getFileSystemPluginName();
+    }
+
+    @Override
+    protected boolean shouldDeferFileDiscovery(ReadonlyConfig readonlyConfig) {
+        return readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE) == FileFormat.BINARY
+                && readonlyConfig.get(FileBaseSourceOptions.DISCOVERY_MODE)
+                        == FileDiscoveryMode.ONCE;
     }
 
     public SFTPFileSourceConfig(

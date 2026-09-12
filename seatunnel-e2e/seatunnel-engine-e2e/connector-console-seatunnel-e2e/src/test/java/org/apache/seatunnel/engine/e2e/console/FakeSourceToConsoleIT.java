@@ -24,12 +24,33 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class FakeSourceToConsoleIT extends SeaTunnelEngineContainer {
 
     @Test
     public void testFakeSourceToConsoleSink() throws IOException, InterruptedException {
         Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testCommaParams() {
+        List<String> variables = new ArrayList<>();
+        variables.add("date=2026-07-13");
+        variables.add("cols=\"addr1,addr2\"");
+        variables.add("required_cols=[date,id,name,addr1]");
+        Container.ExecResult execResult = null;
+        try {
+            execResult =
+                    executeSeaTunnelJob("/fakesource_to_console_with_comma_params.conf", variables);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

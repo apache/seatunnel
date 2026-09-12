@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -46,7 +47,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Source task entry point that wires collectors, split serializers, and source flow lifecycle. */
+import static org.apache.seatunnel.api.options.EnvCommonOptions.SINK_FLUSH_INTERVAL;
+
 public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
@@ -64,14 +66,11 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
             int indexID,
             PhysicalExecutionFlow<SourceAction, SourceConfig> executionFlow,
             Map<String, Object> envOption) {
-        super(jobID, taskID, indexID, executionFlow);
+        super(jobID, taskID, indexID, executionFlow, envOption);
         this.sourceFlow = executionFlow;
         this.envOption = envOption;
     }
 
-    /**
-     * Creates the collector with the effective stain trace settings resolved from engine and task.
-     */
     @Override
     public void init() throws Exception {
         super.init();
@@ -114,7 +113,10 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                             tablePaths,
                             this,
                             engineConfig,
-                            envOption);
+                            envOption,
+                            () ->
+                                    ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
+                                            .signalNoMoreElement());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
         }
     }
@@ -125,6 +127,15 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
             SourceConfig config,
             CompletableFuture<Void> completableFuture,
             MetricsContext metricsContext) {
+
+        long flushIntervalMs = ReadonlyConfig.fromMap(envOption).get(SINK_FLUSH_INTERVAL);
+        if (flushIntervalMs > 0 && flushIntervalMs < 100) {
+            LOGGER.warning(
+                    String.format(
+                            "sink.flush.interval=%dms is too small (< 100ms), "
+                                    + "this may cause excessive flush overhead.",
+                            flushIntervalMs));
+        }
         return new SourceFlowLifeCycle<>(
                 sourceAction,
                 indexID,
@@ -132,7 +143,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                 this,
                 taskLocation,
                 completableFuture,
-                metricsContext);
+                metricsContext,
+                flushIntervalMs);
     }
 
     @Override

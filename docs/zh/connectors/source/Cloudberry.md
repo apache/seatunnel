@@ -2,7 +2,7 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 
 # Cloudberry
 
-> JDBC Cludberry源连接器
+> JDBC Cloudberry 源连接器
 
 ## 支持引擎
 
@@ -25,11 +25,11 @@ import ChangeLog from '../changelog/connector-cloudberry.md';
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列映射](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 
-> 支持查询SQL，可以实现映射效果。
+> 支持查询 SQL，可以实现列投影效果。
 
 ## 描述
 
@@ -58,13 +58,20 @@ Cloudberry 连接器使用与 PostgreSQL 相同的配置项。有关详细的配
 
 - url (必需): JDBC 连接 URL。
 - driver (必需): 驱动程序类名 (org.postgresql.Driver)。
-- user/password: 认证凭据。
+- username/password: 认证凭据。`user` 也可以作为 `username` 的兼容写法。
 - query or table_path: 要读取的数据。
 - 用于并行读取的分区选项。
 
 ## 并行读取
 
 Cloudberry 支持与 PostgreSQL 连接器相同的并行读取规则。有关切片策略和并行读取选项的详细信息，请参考 PostgreSQL 连接器文档。
+
+## 注意事项
+
+- Cloudberry 作业使用 `Jdbc` 插件名。
+- Cloudberry 使用 PostgreSQL JDBC 驱动和兼容实现，请配置 `driver = "org.postgresql.Driver"`。
+- URL 使用 PostgreSQL 风格，例如 `jdbc:postgresql://host:5432/database`。
+- 不要把真实数据库密码写进共享示例、日志或截图。
 
 ## 任务示例
 

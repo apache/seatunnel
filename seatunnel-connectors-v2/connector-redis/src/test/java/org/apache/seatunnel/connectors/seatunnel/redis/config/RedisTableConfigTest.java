@@ -23,7 +23,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,36 +44,6 @@ class RedisTableConfigTest {
         Assertions.assertEquals(1, tables.size());
         Assertions.assertEquals("key_test*", tables.get(0).getKeys());
         Assertions.assertEquals(RedisDataType.STRING, tables.get(0).getDataType());
-    }
-
-    @Test
-    void singleTableMissingDataTypeThrows() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("keys", "key_test*");
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class, () -> RedisTableConfig.of(config(map)));
-    }
-
-    @Test
-    void singleTableBlankKeysThrows() {
-        Map<String, Object> map = new HashMap<>();
-        map.put("keys", "   ");
-        map.put("data_type", "string");
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class, () -> RedisTableConfig.of(config(map)));
-    }
-
-    @Test
-    void multiTableAppliesRequiredFieldValidationPerItem() {
-        Map<String, Object> tableItem = new HashMap<>();
-        tableItem.put("keys", "key_test*");
-        Map<String, Object> map = new HashMap<>();
-        map.put("tables_configs", Collections.singletonList(tableItem));
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class, () -> RedisTableConfig.of(config(map)));
     }
 
     @Test

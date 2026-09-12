@@ -28,7 +28,8 @@ import org.apache.seatunnel.transform.nlpmodel.ModelInvocationErrorType;
 import org.apache.seatunnel.transform.nlpmodel.ModelInvocationException;
 import org.apache.seatunnel.transform.nlpmodel.ModelInvocationOptions;
 import org.apache.seatunnel.transform.nlpmodel.ProviderAdapter;
-import org.apache.seatunnel.transform.nlpmodel.embedding.FieldSpec;
+import org.apache.seatunnel.transform.nlpmodel.embedding.SrcField;
+import org.apache.seatunnel.transform.nlpmodel.embedding.SrcFieldSpec;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.ModalityType;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalFieldValue;
 import org.apache.seatunnel.transform.nlpmodel.embedding.multimodal.MultimodalModel;
@@ -45,6 +46,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 public class DoubaoModel extends MultimodalModel {
@@ -143,7 +145,7 @@ public class DoubaoModel extends MultimodalModel {
     public List<List<Float>> multimodalVector(Object[] fields) throws IOException {
         if (singleVectorizedInputNumber > 1) {
             throw new IllegalArgumentException(
-                    "Doubao does not support batch multimodal vectorization in a single request. ");
+                    "Doubao does not support batch multimodal vectorization in a single request.");
         }
         List<List<Float>> vectors = new ArrayList<>();
         for (Object field : fields) {
@@ -188,7 +190,10 @@ public class DoubaoModel extends MultimodalModel {
                 ? multimodalVector(
                                 new Object[] {
                                     new MultimodalFieldValue(
-                                            new FieldSpec(DIMENSION_EXAMPLE), DIMENSION_EXAMPLE)
+                                            Collections.singletonList(
+                                                    new SrcField(
+                                                            new SrcFieldSpec(DIMENSION_EXAMPLE),
+                                                            DIMENSION_EXAMPLE)))
                                 })
                         .get(0)
                         .size()
@@ -355,35 +360,40 @@ public class DoubaoModel extends MultimodalModel {
         ObjectNode requestNode = OBJECT_MAPPER.createObjectNode();
         requestNode.put("model", model);
         requestNode.put("encoding_format", "float");
-        ArrayNode inputDatas = OBJECT_MAPPER.createArrayNode();
-        inputDatas.add(inputRawData(field));
-        requestNode.set("input", inputDatas);
+        ArrayNode inputNode = OBJECT_MAPPER.createArrayNode();
+        inputNode.addAll(inputRawData(field));
+        requestNode.set("input", inputNode);
         return requestNode;
     }
 
-    protected ObjectNode inputRawData(MultimodalFieldValue field) {
-        ObjectNode rawDataNode = OBJECT_MAPPER.createObjectNode();
-        FieldSpec fieldSpec = field.getFieldSpec();
-        String fieldValue = field.getValue().toString().trim();
-        ModalityType fieldSpecModalityType = fieldSpec.getModalityType();
-        String modalityParamName = getModalityParamName(fieldSpecModalityType);
-        rawDataNode.put("type", modalityParamName);
-        if (ModalityType.TEXT == fieldSpecModalityType) {
-            rawDataNode.put(modalityParamName, fieldValue);
-            return rawDataNode;
-        }
+    protected List<ObjectNode> inputRawData(MultimodalFieldValue field) {
+        List<ObjectNode> rawDataNodes = new ArrayList<>();
+        List<SrcField> srcFields = field.getSrcFields();
+        for (SrcField srcField : srcFields) {
+            ObjectNode rawDataNode = OBJECT_MAPPER.createObjectNode();
+            String fieldValue = srcField.getFieldValue().toString().trim();
+            ModalityType fieldSpecModalityType = srcField.getFieldSpec().getModalityType();
+            String modalityParamName = getModalityParamName(fieldSpecModalityType);
+            rawDataNode.put("type", modalityParamName);
+            if (ModalityType.TEXT == fieldSpecModalityType) {
+                rawDataNode.put(modalityParamName, fieldValue);
+                rawDataNodes.add(rawDataNode);
+                continue;
+            }
 
-        if (fieldSpec.isBinary()) {
-            fieldValue =
-                    String.format(
-                            BASE64_PARAM_TEMPLATE,
-                            fieldSpecModalityType.getGroup().name().toLowerCase(),
-                            fieldSpecModalityType.getName(),
-                            field.toBase64());
+            if (srcField.getFieldSpec().isBinary()) {
+                fieldValue =
+                        String.format(
+                                BASE64_PARAM_TEMPLATE,
+                                fieldSpecModalityType.getGroup().name().toLowerCase(),
+                                fieldSpecModalityType.getName(),
+                                srcField.toBase64());
+            }
+            rawDataNode.set(
+                    modalityParamName, OBJECT_MAPPER.createObjectNode().put("url", fieldValue));
+            rawDataNodes.add(rawDataNode);
         }
-        rawDataNode.set(modalityParamName, OBJECT_MAPPER.createObjectNode().put("url", fieldValue));
-
-        return rawDataNode;
+        return rawDataNodes;
     }
 
     private String getModalityParamName(ModalityType inputType) {

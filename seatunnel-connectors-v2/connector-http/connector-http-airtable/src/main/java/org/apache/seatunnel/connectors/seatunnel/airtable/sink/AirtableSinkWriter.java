@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 public class AirtableSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
@@ -175,13 +177,49 @@ public class AirtableSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         lastRequestTimeMillis = System.currentTimeMillis();
     }
 
-    private long calculateBackoffMillis(int retryCount) {
+    @VisibleForTesting
+    long calculateBackoffMillis(int retryCount) {
         if (rateLimitBackoffMs <= 0) {
             return 0L;
         }
         long exponential = 1L << Math.min(20, Math.max(0, retryCount - 1));
-        long waitMillis = rateLimitBackoffMs * exponential;
-        return Math.min(waitMillis, MAX_BACKOFF_MILLIS);
+        long waitMillis = Math.min(rateLimitBackoffMs * exponential, MAX_BACKOFF_MILLIS);
+
+        // Spread the delay by adding a random amount on top of it. Without this
+        // the delay is a pure function of the retry count, so every reader and
+        // writer that hits the rate limit at the same moment retries at the same
+        // instants and the burst that caused the 429 reforms on each attempt.
+        //
+        // The jitter is added rather than centred so the wait is never shorter
+        // than rateLimitBackoffMs asked for: this fires on 429, so retrying
+        // sooner than configured would work against the setting's purpose. The
+        // result stays capped at MAX_BACKOFF_MILLIS.
+        long extra = Math.min(waitMillis, MAX_BACKOFF_MILLIS - waitMillis);
+        if (extra > 0) {
+            return waitMillis + ThreadLocalRandom.current().nextLong(extra + 1);
+        }
+
+        // Once the wait reaches MAX_BACKOFF_MILLIS there is no headroom left to
+        // add into, so every retry past that point would come back unjittered
+        // and the callers would be back in lockstep exactly when the rate limit
+        // is at its most persistent. Spread the wait downwards instead. The cap
+        // is an upper bound rather than a target, so drawing below it breaks
+        // nothing.
+        //
+        // The floor is the last scheduled wait that still fitted under the cap,
+        // or half the wait when the very first retry is already capped. Flooring
+        // there keeps the minimum from dropping as the schedule crosses the cap:
+        // half of MAX can be less than the previous retry's wait, which would let
+        // a later retry sleep for less than an earlier one. It also keeps the
+        // wait at or above rateLimitBackoffMs for free, since the last uncapped
+        // wait is never smaller than the configured backoff.
+        long floor = waitMillis / 2;
+        for (long scheduled = rateLimitBackoffMs; scheduled < MAX_BACKOFF_MILLIS; scheduled <<= 1) {
+            if (scheduled > floor) {
+                floor = scheduled;
+            }
+        }
+        return waitMillis - ThreadLocalRandom.current().nextLong(waitMillis - floor + 1);
     }
 
     @Override

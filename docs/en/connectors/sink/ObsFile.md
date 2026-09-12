@@ -22,6 +22,10 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 By default, we use 2PC commit to ensure `exactly-once`
 
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
 - [x] file format type
   - [x] text
   - [x] csv
@@ -61,33 +65,33 @@ It only supports hadoop version **2.9.X+**.
 
 | name                             | type    | required | default                                    | description                                                                                                                                                                     |
 |----------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                             | string  | yes      | -                                          | The target dir path.                                                                                                                                                            |
-| bucket                           | string  | yes      | -                                          | The bucket address of obs file system, for example: `obs://obs-bucket-name`.                                                                                                    |
-| access_key                       | string  | yes      | -                                          | The access key of obs file system.                                                                                                                                              |
-| access_secret                    | string  | yes      | -                                          | The access secret of obs file system.                                                                                                                                           |
-| endpoint                         | string  | yes      | -                                          | The endpoint of obs file system.                                                                                                                                                |
+| path                             | string  | yes      | -                                          | The target directory the sink writes to. Combined with `bucket`, the actual OBS path is `obs://<bucket><path>`.                                                                 |
+| bucket                           | string  | yes      | -                                          | The bucket address of OBS file system, for example: `obs://obs-bucket-name`.                                                                                                    |
+| access_key                       | string  | yes      | -                                          | The access key of the OBS bucket.                                                                                                                                               |
+| access_secret                    | string  | yes      | -                                          | The access secret of the OBS bucket.                                                                                                                                            |
+| endpoint                         | string  | yes      | -                                          | The OBS endpoint, for example `obs.cn-north-4.myhuaweicloud.com`.                                                                                                               |
 | custom_filename                  | boolean | no       | false                                      | Whether you need custom the filename.                                                                                                                                           |
 | file_name_expression             | string  | no       | "${transactionId}"                         | Describes the file expression which will be created into the `path`. Only used when custom_filename is true. [Tips](#file_name_expression)                                      |
 | filename_time_format             | string  | no       | "yyyy.MM.dd"                               | Specify the time format of the `path`. Only used when custom_filename is true. [Tips](#filename_time_format)                                                                    |
-| file_format_type                 | string  | no       | "csv"                                      | Supported file types. [Tips](#file_format_type)                                                                                                                                 |
-| field_delimiter                  | string  | no       | '\001'                                     | The separator between columns in a row of data.Only used when file_format is text.                                                                                              |
+| file_format_type                 | string  | no       | "csv"                                      | File format type, supported: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `canal_json`, `debezium_json`, `maxwell_json`. [Tips](#file_format_type)                          |
+| field_delimiter                  | string  | no       | '\001'                                     | The separator between columns in a row of data. Only used when file_format_type is text and csv.                                                                                |
 | row_delimiter                    | string  | no       | "\n"                                       | The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.                                                                                      |
 | have_partition                   | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
-| partition_by                     | array   | no       | -                                          | Partition data based on selected fields. Only used then have_partition is true.                                                                                                 |
-| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true.[Tips](#partition_dir_expression)                                                                                                         |
-| is_partition_field_write_in_file | boolean | no       | false                                      | Only used then have_partition is true.[Tips](#is_partition_field_write_in_file)                                                                                                 |
-| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns.[Tips](#sink_columns)                                                                                                 |
-| is_enable_transaction            | boolean | no       | true                                       | [Tips](#is_enable_transaction)                                                                                                                                                  |
-| batch_size                       | int     | no       | 1000000                                    | [Tips](#batch_size)                                                                                                                                                             |
+| partition_by                     | array   | no       | -                                          | Partition data based on selected fields. Only used when have_partition is true.                                                                                                 |
+| partition_dir_expression         | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used when have_partition is true. [Tips](#partition_dir_expression)                                                                                                        |
+| is_partition_field_write_in_file | boolean | no       | false                                      | Only used when have_partition is true. [Tips](#is_partition_field_write_in_file)                                                                                                |
+| sink_columns                     | array   | no       |                                            | When this parameter is empty, all fields are sink columns. [Tips](#sink_columns)                                                                                                |
+| is_enable_transaction            | boolean | no       | true                                       | If `true`, data will not be lost or duplicated when written to the target directory. When `true`, `${transactionId}_` is automatically prefixed to the file name. [Tips](#is_enable_transaction) |
+| batch_size                       | int     | no       | 1000000                                    | The maximum number of rows in a file. For SeaTunnel Engine the file row count is jointly decided by `batch_size` and `checkpoint.interval`. [Tips](#batch_size)                  |
 | single_file_mode                 | boolean | no       | false                                      | Each parallelism will only output one file. When this parameter is turned on, batch_size will not take effect. The output file name does not have a file block suffix.          |
 | create_empty_file_when_no_data   | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                               |
-| compress_codec                   | string  | no       | none                                       | [Tips](#compress_codec)                                                                                                                                                         |
-| common-options                   | object  | no       | -                                          | [Tips](#common_options)                                                                                                                                                         |
-| max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel,The maximum number of data items that can be cached in the memory.Only used when file_format is excel.                                                |
-| sheet_name                       | string  | no       | Sheet${Random number}                      | Writer the sheet of the workbook. Only used when file_format is excel.                                                                                                          |
-| sheet_max_rows                   | int     | no       | 1048576                                    | Only used when file format_type is excel.                                                                                                                                       |
+| compress_codec                   | string  | no       | none                                       | The compress codec of files. Excel does not support any compression format. [Tips](#compress_codec)                                                                             |
+| common-options                   | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. [Tips](#common_options)                            |
+| max_rows_in_memory               | int     | no       | -                                          | When File Format is Excel, the maximum number of data items that can be cached in the memory. Only used when file_format_type is excel.                                          |
+| sheet_name                       | string  | no       | Sheet${Random number}                      | Writer the sheet of the workbook. Only used when file_format_type is excel.                                                                                                     |
+| sheet_max_rows                   | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
 | merge_update_event               | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
-| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
+| schema_evolution_enabled         | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### Tips
 
@@ -317,8 +321,12 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
+ObsFile {
     path = "/tmp/cdc/${table_name}"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxx"
+    endpoint = "obs.xxxxx.myhuaweicloud.com"
     file_format_type = "parquet"
     schema_evolution_enabled = true
     have_partition = true

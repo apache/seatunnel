@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -404,17 +405,24 @@ public class StainTraceFlowTest {
 
     private static IntermediateQueueFlowLifeCycle<?> createQueueFlow() throws Exception {
         SeaTunnelTask queueTask = mockTask(200L, null);
+        SeaTunnelMetricsContext metricsContext = new SeaTunnelMetricsContext();
+        Mockito.when(queueTask.getMetricsContext()).thenReturn(metricsContext);
+
         BlockingQueue<Record<?>> queue = new LinkedBlockingQueue<>();
         IntermediateBlockingQueue blockingQueue =
                 new IntermediateBlockingQueue(
                         queue,
                         new ThreadSafeCounter("total-qsize"),
                         new ThreadSafeCounter("qsize"),
-                        new ThreadSafeCounter("put-blocked-ns"));
-        setField(blockingQueue, "stainTraceMaxEntriesPerTrace", 32);
-        setField(blockingQueue, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("c"));
-        return new IntermediateQueueFlowLifeCycle<>(
-                queueTask, new CompletableFuture<>(), blockingQueue);
+                        new ThreadSafeCounter("put-blocked-ns"),
+                        new ThreadSafeCounter("flush-signal-success"),
+                        new ThreadSafeCounter("flush-signal-failure"));
+        IntermediateQueueFlowLifeCycle<?> flow =
+                new IntermediateQueueFlowLifeCycle<>(
+                        queueTask, new CompletableFuture<>(), blockingQueue);
+        setField(flow, "stainTraceMaxEntriesPerTrace", 32);
+        setField(flow, "stainTraceEntriesTruncatedTotal", new ThreadSafeCounter("c"));
+        return flow;
     }
 
     private static SeaTunnelTask mockTask(long taskId, TaskExecutionContext executionContext) {

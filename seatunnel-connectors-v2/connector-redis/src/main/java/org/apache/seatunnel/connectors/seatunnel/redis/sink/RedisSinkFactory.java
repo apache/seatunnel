@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisNodesValidator;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -69,6 +71,19 @@ public class RedisSinkFactory implements TableSinkFactory {
                         RedisBaseOptions.MODE,
                         RedisBaseOptions.RedisMode.CLUSTER,
                         RedisBaseOptions.NODES)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        Conditions.notBlank(RedisBaseOptions.HOST),
+                        Conditions.greaterOrEqual(RedisBaseOptions.PORT, RedisBaseOptions.MIN_PORT)
+                                .and(
+                                        Conditions.lessOrEqual(
+                                                RedisBaseOptions.PORT, RedisBaseOptions.MAX_PORT)))
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        Conditions.notEmpty(RedisBaseOptions.NODES),
+                        Conditions.extension(RedisBaseOptions.NODES, new RedisNodesValidator()))
                 .build();
     }
 }

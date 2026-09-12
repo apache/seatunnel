@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarConfigUtil;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
 
 import org.apache.pulsar.client.api.Producer;
@@ -177,6 +178,43 @@ public class PulsarSinkWriterTest {
         assertTrue(clientClosed.get());
     }
 
+    @Test
+    public void testCloseRunsPulsarCleanupWithConnectorClassLoader() throws Exception {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("format", "json");
+        configMap.put("field_delimiter", ",");
+        configMap.put("transaction_timeout", 1000);
+        configMap.put("semantics", "NON");
+        configMap.put("message.routing.mode", "RoundRobinPartition");
+
+        AtomicReference<ClassLoader> producerCloseClassLoader = new AtomicReference<>();
+        AtomicReference<ClassLoader> clientCloseClassLoader = new AtomicReference<>();
+        PulsarSinkWriter writer =
+                new PulsarSinkWriter(
+                        new SeaTunnelRowType(new String[] {}, new SeaTunnelDataType[] {}),
+                        ReadonlyConfig.fromMap(configMap),
+                        java.util.Collections.emptyList(),
+                        createPulsarClientProxy(new AtomicBoolean(false), clientCloseClassLoader),
+                        topic ->
+                                createProducerProxy(
+                                        new AtomicBoolean(false), producerCloseClassLoader));
+        writer.getOrCreateProducer("topic-a");
+
+        ClassLoader originalClassLoader = Thread.currentThread().getContextClassLoader();
+        ClassLoader unrelatedClassLoader = new ClassLoader(null) {};
+        try {
+            Thread.currentThread().setContextClassLoader(unrelatedClassLoader);
+
+            writer.close();
+
+            assertSame(unrelatedClassLoader, Thread.currentThread().getContextClassLoader());
+        } finally {
+            Thread.currentThread().setContextClassLoader(originalClassLoader);
+        }
+        assertSame(PulsarConfigUtil.class.getClassLoader(), producerCloseClassLoader.get());
+        assertSame(PulsarConfigUtil.class.getClassLoader(), clientCloseClassLoader.get());
+    }
+
     @SuppressWarnings("unchecked")
     private static Producer<byte[]> createProducerProxy() {
         return createProducerProxy(new AtomicBoolean(false));
@@ -184,6 +222,12 @@ public class PulsarSinkWriterTest {
 
     @SuppressWarnings("unchecked")
     private static Producer<byte[]> createProducerProxy(AtomicBoolean closed) {
+        return createProducerProxy(closed, new AtomicReference<>());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Producer<byte[]> createProducerProxy(
+            AtomicBoolean closed, AtomicReference<ClassLoader> closeClassLoader) {
         return (Producer<byte[]>)
                 Proxy.newProxyInstance(
                         Producer.class.getClassLoader(),
@@ -191,6 +235,8 @@ public class PulsarSinkWriterTest {
                         (proxy, method, args) -> {
                             if ("close".equals(method.getName())) {
                                 closed.set(true);
+                                closeClassLoader.set(
+                                        Thread.currentThread().getContextClassLoader());
                                 return null;
                             }
                             Class<?> returnType = method.getReturnType();
@@ -215,6 +261,12 @@ public class PulsarSinkWriterTest {
 
     @SuppressWarnings("unchecked")
     private static PulsarClient createPulsarClientProxy(AtomicBoolean closed) {
+        return createPulsarClientProxy(closed, new AtomicReference<>());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static PulsarClient createPulsarClientProxy(
+            AtomicBoolean closed, AtomicReference<ClassLoader> closeClassLoader) {
         return (PulsarClient)
                 Proxy.newProxyInstance(
                         PulsarClient.class.getClassLoader(),
@@ -222,6 +274,8 @@ public class PulsarSinkWriterTest {
                         (proxy, method, args) -> {
                             if ("close".equals(method.getName())) {
                                 closed.set(true);
+                                closeClassLoader.set(
+                                        Thread.currentThread().getContextClassLoader());
                                 return null;
                             }
                             Class<?> returnType = method.getReturnType();

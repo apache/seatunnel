@@ -47,7 +47,8 @@ public class AllFileSpecificationCheckTest {
     public static void beforeAll() throws IOException {
         List<String> fileTypesCanNotRead =
                 Arrays.asList(
-                        "parquet", "orc", "xlsx", "xls", "png", "jar", "lzo", "zip", "ico", "jks");
+                        "parquet", "orc", "xlsx", "xls", "png", "jar", "lzo", "zip", "ico", "jks",
+                        "pdf");
         List<String> fileCanNotRead =
                 Arrays.asList(
                         "seatunnel-connectors-v2/connector-file/connector-file-base/src/test/resources/encoding/gbk.json",

@@ -44,6 +44,7 @@ import net.sf.jsqlparser.schema.Column;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -154,6 +155,11 @@ public class ZetaSQLFilter {
             if (leftValue != null) {
                 if (leftValue instanceof Number && rightValue instanceof Number) {
                     if (((Number) leftValue).doubleValue() == ((Number) rightValue).doubleValue()) {
+                        return !inExpression.isNot();
+                    }
+                } else if (leftValue instanceof OffsetDateTime
+                        && rightValue instanceof OffsetDateTime) {
+                    if (((OffsetDateTime) leftValue).isEqual((OffsetDateTime) rightValue)) {
                         return !inExpression.isNot();
                     }
                 } else if (leftValue.equals(rightValue)) {
@@ -273,6 +279,9 @@ public class ZetaSQLFilter {
         if (leftVal instanceof Number && rightVal instanceof Number) {
             return ((Number) leftVal).doubleValue() == ((Number) rightVal).doubleValue();
         }
+        if (leftVal instanceof OffsetDateTime && rightVal instanceof OffsetDateTime) {
+            return ((OffsetDateTime) leftVal).isEqual((OffsetDateTime) rightVal);
+        }
         return leftVal.equals(rightVal);
     }
 
@@ -284,6 +293,9 @@ public class ZetaSQLFilter {
         }
         if (leftVal instanceof Number && rightVal instanceof Number) {
             return ((Number) leftVal).doubleValue() != ((Number) rightVal).doubleValue();
+        }
+        if (leftVal instanceof OffsetDateTime && rightVal instanceof OffsetDateTime) {
+            return !((OffsetDateTime) leftVal).isEqual((OffsetDateTime) rightVal);
         }
         return !leftVal.equals(rightVal);
     }
@@ -299,6 +311,9 @@ public class ZetaSQLFilter {
         }
         if (leftVal instanceof String && rightVal instanceof String) {
             return ((String) leftVal).compareTo((String) rightVal) > 0;
+        }
+        if (leftVal instanceof OffsetDateTime && rightVal instanceof OffsetDateTime) {
+            return ((OffsetDateTime) leftVal).isAfter((OffsetDateTime) rightVal);
         }
         if (leftVal instanceof LocalDateTime && rightVal instanceof LocalDateTime) {
             return ((LocalDateTime) leftVal).isAfter((LocalDateTime) rightVal);
@@ -328,6 +343,10 @@ public class ZetaSQLFilter {
         if (leftVal instanceof String && rightVal instanceof String) {
             return ((String) leftVal).compareTo((String) rightVal) >= 0;
         }
+        if (leftVal instanceof OffsetDateTime && rightVal instanceof OffsetDateTime) {
+            return ((OffsetDateTime) leftVal).isAfter((OffsetDateTime) rightVal)
+                    || ((OffsetDateTime) leftVal).isEqual((OffsetDateTime) rightVal);
+        }
         if (leftVal instanceof LocalDateTime && rightVal instanceof LocalDateTime) {
             return ((LocalDateTime) leftVal).isAfter((LocalDateTime) rightVal)
                     || ((LocalDateTime) leftVal).isEqual((LocalDateTime) rightVal);
@@ -351,6 +370,9 @@ public class ZetaSQLFilter {
         Object rightVal = pair.getRight();
         if (leftVal == null || rightVal == null) {
             return false;
+        }
+        if (leftVal instanceof OffsetDateTime && rightVal instanceof OffsetDateTime) {
+            return ((OffsetDateTime) leftVal).isBefore((OffsetDateTime) rightVal);
         }
         if (leftVal instanceof LocalDateTime && rightVal instanceof LocalDateTime) {
             return ((LocalDateTime) leftVal).isBefore((LocalDateTime) rightVal);
@@ -379,6 +401,10 @@ public class ZetaSQLFilter {
         Object rightVal = pair.getRight();
         if (leftVal == null || rightVal == null) {
             return false;
+        }
+        if (leftVal instanceof OffsetDateTime && rightVal instanceof OffsetDateTime) {
+            return ((OffsetDateTime) leftVal).isBefore((OffsetDateTime) rightVal)
+                    || ((OffsetDateTime) leftVal).isEqual((OffsetDateTime) rightVal);
         }
         if (leftVal instanceof LocalDateTime && rightVal instanceof LocalDateTime) {
             return ((LocalDateTime) leftVal).isBefore((LocalDateTime) rightVal)

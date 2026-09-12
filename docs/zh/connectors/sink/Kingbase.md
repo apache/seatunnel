@@ -18,16 +18,17 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
-> 使用 `Xa transactions` 来确保 `精确一次`。因此仅支持支持 `Xa transactions` 的数据库的 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。Kingbase 目前不支持
+> 使用 `XA 事务` 来确保 `精确一次`。因此仅支持支持 `XA 事务` 的数据库的 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。Kingbase 目前不支持
 
 ## 支持的数据源信息
 
 | 数据源 | 支持的版本 |        驱动        |                   URL                    |                                             Maven                                              |
 |--------|-----------|----------------------|------------------------------------------|------------------------------------------------------------------------------------------------|
-| Kingbase   | 8.6                | com.kingbase8.Driver | jdbc:kingbase8://localhost:54321/db_test | [Download](https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar) |
+| Kingbase   | 8.6                | com.kingbase8.Driver | jdbc:kingbase8://localhost:54321/db_test | [下载](https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar) |
 
 ## 数据库依赖
 
@@ -56,9 +57,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                   参数名                    |  类型   | 必须 | 默认值 |                                                                                                                 描述                                                                                                                  |
 |-------------------------------------------|---------|------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | 是   | -       | JDBC 连接的 URL。参考示例：jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                           |
-| driver                                    | String  | 是   | -       | 用于连接到远程数据源的 jdbc 类名，<br/> 如果使用 DB2，则值为 `com.ibm.db2.jdbc.app.DB2Driver`。                                                                                                            |
-| username                                      | String  | 否   | -       | 连接实例用户名                                                                                                                                                                                                                |
+| url                                       | String  | 是   | -       | JDBC 连接的 URL。参考示例：jdbc:kingbase8://localhost:54321/db_test                                                                                                                                                           |
+| driver                                    | String  | 是   | -       | 用于连接到远程数据源的 jdbc 类名，<br/> 如果使用 Kingbase，则值为 `com.kingbase8.Driver`。                                                                                                            |
+| username                                      | String  | 否   | -       | 连接实例用户名。旧配置名 `user` 仍可作为兼容写法使用。                                                                                                                                                                                                                |
 | password                                  | String  | 否   | -       | 连接实例密码                                                                                                                                                                                                                 |
 | query                                     | String  | 否   | -       | 使用此 sql 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                                                                                                                       |
 | database                                  | String  | 否   | -       | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥，具有更高的优先级。                                                     |
@@ -67,6 +68,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec              | Int     | 否   | 30      | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                          |
 | max_retries                               | Int     | 否   | 0       | 提交失败的重试次数 (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | 否   | 1000    | 对于批量写入，当缓冲记录数达到 `batch_size` 数量或时间达到 `checkpoint.interval` 时<br/>，数据将被刷新到数据库                                                         |
+| batch_interval_ms                         | Long    | 否   | 0       | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 `0` 时，每次写入会检查距离上次刷新是否已超过该间隔，超过则同步刷新。 |
 | is_exactly_once                           | Boolean | 否   | false   | 是否启用精确一次语义，这将使用 Xa 事务。如果启用，您需要<br/>设置 `xa_data_source_class_name`。Kingbase 目前不支持                                                                        |
 | generate_sink_sql                         | Boolean | 否   | false   | 根据您要写入的数据库表生成 sql 语句                                                                                                                                                                     |
 | xa_data_source_class_name                 | String  | 否   | -       | 数据库驱动程序的 xa 数据源类名，Kingbase 目前不支持                                                                                                                                                     |
@@ -158,8 +160,23 @@ sink {
 }
 ```
 
+### 写入 Schema 表
+
+> 使用自定义 `query` 写入时，占位符数量必须和上游字段数量一致。Kingbase 带 schema 的表可以写成 `public.table_name`。
+
+```
+sink {
+  Jdbc {
+    driver = "com.kingbase8.Driver"
+    url = "jdbc:kingbase8://localhost:54321/test"
+    user = "SYSTEM"
+    password = "123456"
+    query = "INSERT INTO public.e2e_table_sink (c1, c2, c3) VALUES (?, ?, ?)"
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
-
 

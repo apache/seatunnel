@@ -94,7 +94,10 @@ public class AvroSchemaConverter implements Serializable {
                 Schema binary = SchemaBuilder.builder().bytesType();
                 return nullableSchema(binary);
             case TIMESTAMP:
-                // use long to represents Timestamp
+            case TIMESTAMP_TZ:
+                // use long to represents Timestamp / Timestamp with timezone
+                // TIMESTAMP_TZ (OffsetDateTime/LTZ) is stored as timestampMillis (UTC epoch)
+                // same as TIMESTAMP, as Avro/Hudi does not have a native timezone-aware type
                 LogicalType avroLogicalType;
                 avroLogicalType = LogicalTypes.timestampMillis();
                 Schema timestamp = avroLogicalType.addToSchema(SchemaBuilder.builder().longType());

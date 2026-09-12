@@ -164,8 +164,10 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_TIME_TYPE);
                 break;
             case DUCKDB_TIMESTAMP:
-            case DUCKDB_TIMESTAMP_WITH_TZ:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                break;
+            case DUCKDB_TIMESTAMP_WITH_TZ:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 break;
             case DUCKDB_INTERVAL:
                 builder.dataType(BasicType.STRING_TYPE);
@@ -280,6 +282,10 @@ public class DuckDBTypeConverter implements TypeConverter<BasicTypeDefine> {
             case TIMESTAMP:
                 builder.columnType(DUCKDB_TIMESTAMP);
                 builder.dataType(DUCKDB_TIMESTAMP);
+                break;
+            case TIMESTAMP_TZ:
+                builder.columnType(DUCKDB_TIMESTAMP_WITH_TZ);
+                builder.dataType(DUCKDB_TIMESTAMP_WITH_TZ);
                 break;
             case BYTES:
                 builder.columnType(DUCKDB_BLOB);

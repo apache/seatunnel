@@ -90,8 +90,10 @@ If this works, your basic local path is healthy and you can move on to real pipe
 ## Next step
 
 - For the full local walkthrough, continue with [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md).
-- For runnable source-to-sink examples, start with these recipes:
+- For a newly verified source-to-sink walkthrough, start with [MySQL CDC to Kafka](../recipes/mysql-cdc-to-kafka.md).
+- For other pipeline shapes, continue with:
   - [MySQL CDC to Doris](../recipes/mysql-cdc-to-doris.md)
+  - [MySQL CDC to Kafka](../recipes/mysql-cdc-to-kafka.md)
   - [JDBC to S3](../recipes/jdbc-to-s3.md)
   - [Kafka to Iceberg](../recipes/kafka-to-iceberg.md)
   - [Http to JDBC](../recipes/http-to-jdbc.md)

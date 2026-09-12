@@ -56,6 +56,7 @@ public class TableFilterTransformFactory implements TableTransformFactory {
                 .optional(TableFilterConfig.PATTERN_MODE)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

@@ -57,6 +57,7 @@ public class DynamicCompileTransformFactory implements TableTransformFactory {
                         Conditions.notBlank(DynamicCompileTransformConfig.ABSOLUTE_PATH))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

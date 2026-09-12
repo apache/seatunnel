@@ -88,7 +88,7 @@ transform {
 ### model
 
 要使用的模型。不同的模型提供者有不同的模型。例如，OpenAI 模型可以是 `gpt-4o-mini`。
-如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/models/model-endpoint-compatibility 文档的`/v1/chat/completions` 端点。
+如果使用 OpenAI 模型，请参考 https://developers.openai.com/api/docs/models 了解当前支持的模型与端点，包括可用的 `/v1/chat/completions`。
 
 ### api_key
 

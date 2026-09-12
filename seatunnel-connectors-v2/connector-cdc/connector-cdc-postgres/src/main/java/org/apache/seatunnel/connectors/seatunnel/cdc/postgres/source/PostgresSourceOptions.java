@@ -33,12 +33,14 @@ public class PostgresSourceOptions {
                                     StartupMode.class,
                                     Arrays.asList(
                                             StartupMode.INITIAL,
+                                            StartupMode.SNAPSHOT_ONLY,
+                                            StartupMode.COMMITTED_OFFSET,
                                             StartupMode.EARLIEST,
                                             StartupMode.LATEST))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\"");
+                                            + "\"initial\", \"snapshot-only\", \"committed-offset\", \"earliest\", \"latest\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             (SingleChoiceOption)

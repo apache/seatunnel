@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.bigtable.source;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.Set;
 
 public class BigtableSourceState implements Serializable {
@@ -25,12 +27,31 @@ public class BigtableSourceState implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private final Set<BigtableSourceSplit> assignedSplits;
+    /**
+     * Splits returned via {@code addSplitsBack()} but not yet reassigned. Added in #11144; absent
+     * (null) when an older checkpoint payload is deserialized with the same {@link
+     * #serialVersionUID}.
+     */
+    private final Set<BigtableSourceSplit> pendingSplits;
 
-    public BigtableSourceState(Set<BigtableSourceSplit> assignedSplits) {
-        this.assignedSplits = assignedSplits;
+    public BigtableSourceState(
+            Set<BigtableSourceSplit> assignedSplits, Set<BigtableSourceSplit> pendingSplits) {
+        // Defensive copies: never alias the enumerator's live mutable sets into checkpoint state,
+        // otherwise later mutations could corrupt an already-snapshotted state object.
+        this.assignedSplits = copyOrEmpty(assignedSplits);
+        this.pendingSplits = copyOrEmpty(pendingSplits);
     }
 
     public Set<BigtableSourceSplit> getAssignedSplits() {
         return assignedSplits;
+    }
+
+    public Set<BigtableSourceSplit> getPendingSplits() {
+        // Null only when Java deserializes a pre-#11144 checkpoint that lacked this field.
+        return pendingSplits == null ? Collections.emptySet() : pendingSplits;
+    }
+
+    private static Set<BigtableSourceSplit> copyOrEmpty(Set<BigtableSourceSplit> splits) {
+        return splits == null ? new HashSet<>() : new HashSet<>(splits);
     }
 }

@@ -48,6 +48,8 @@ public class WALReaderAndWriterTest {
 
     private static FileSystem FS;
     private static final Path PARENT_PATH = new Path("/tmp/9/");
+    private static final Path SAME_TIMESTAMP_TOMBSTONE_PATH =
+            new Path("/tmp/imap-wal-same-timestamp-tombstone/");
     private static final Serializer SERIALIZER = new ProtoStuffSerializer();
 
     @BeforeAll
@@ -114,9 +116,44 @@ public class WALReaderAndWriterTest {
         Assertions.assertNull(result.get("key519"));
     }
 
+    @Test
+    public void testReplayKeepsTombstoneForSameKeyAndTimestamp() throws Exception {
+        String key = "deleted-key";
+        long timestamp = 1000L;
+
+        try (WALWriter writer =
+                new WALWriter(
+                        FS, FileConfiguration.HDFS, SAME_TIMESTAMP_TOMBSTONE_PATH, SERIALIZER)) {
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(key))
+                            .keyClassName(String.class.getName())
+                            .value(SERIALIZER.serialize("value"))
+                            .valueClassName(String.class.getName())
+                            .deleted(false)
+                            .timestamp(timestamp)
+                            .build());
+            writer.write(
+                    IMapFileData.builder()
+                            .key(SERIALIZER.serialize(key))
+                            .keyClassName(String.class.getName())
+                            .deleted(true)
+                            .timestamp(timestamp)
+                            .build());
+        }
+
+        WALReader reader = new WALReader(FS, FileConfiguration.HDFS, SERIALIZER);
+        Map<Object, Object> data =
+                reader.loadAllData(SAME_TIMESTAMP_TOMBSTONE_PATH, new HashSet<>());
+
+        Assertions.assertFalse(data.containsKey(key));
+        Assertions.assertFalse(reader.loadAllKeys(SAME_TIMESTAMP_TOMBSTONE_PATH).contains(key));
+    }
+
     @AfterAll
     public static void close() throws IOException {
         FS.delete(PARENT_PATH, true);
+        FS.delete(SAME_TIMESTAMP_TOMBSTONE_PATH, true);
         FS.close();
     }
 }

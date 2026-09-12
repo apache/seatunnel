@@ -28,6 +28,10 @@
     <artifactId>connector-cdc-sqlserver</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : SqlServer</name>
 
+    <properties>
+        <debezium.version>1.9.8.Final</debezium.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>

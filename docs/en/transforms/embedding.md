@@ -85,8 +85,13 @@ The runtime records safe diagnostic context such as provider, model, batch size,
 retryable flag, and elapsed time. It does not log API keys, secret keys, full source text chunks, binary payloads, or full
 provider response bodies.
 
-Bedrock now uses the same common runtime path as the other embedding providers, so retry, timeout, response parsing,
+Bedrock uses the same common runtime path as the other embedding providers, so retry, response parsing,
 and response-count validation behave consistently across providers.
+
+For `AMAZON`, `model_retry_max_attempts` counts SeaTunnel attempts. The AWS SDK can perform its own HTTP retries within
+each attempt; its retry policy is unchanged. Configured retry and backoff options now reach the Bedrock runtime instead
+of being ignored by the transform. The default remains one SeaTunnel attempt. `model_request_timeout_ms` is not currently
+applied to Bedrock SDK calls; this change preserves the existing SDK timeout behavior.
 
 The runtime also has a cache boundary. When a cache implementation is wired in, keys are built from provider, model,
 output configuration, modality, format, normalized metadata, and a SHA-256 digest of normalized input content. The
@@ -149,6 +154,58 @@ vectorization_fields {
 }
 ```
 
+**Multi-field Mixing Multimodal Vectorization:**  
+> Note: Currently, only the `DOUBAO` provider supports multimodal data processing.
+```hocon
+vectorization_fields {
+    # Multi-field text
+    multi_field_text_vector = [product_name, description]
+    
+    # Multi-field image
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # Multi-field video
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # Multi-field mix multimodal
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **Field Specification Formats:**
 
 **Supported Modality Types:**
@@ -162,7 +219,7 @@ vectorization_fields {
 - `binary` - Binary data format
 
 **Automatic Modality Detection:**
-When `modality` is not explicitly specified and `format` is not `binary`, the system automatically detects the modality type based on the file suffix of the field value:
+When `modality` is not explicitly specified and `format` is `url`, the system automatically detects the modality type based on the file suffix of the field value:
 
 > **Important:** When using multimodal fields (image or video), ensure your model provider supports multimodal embedding. Image and video fields must contain valid URLs or binary data. Currently, `DOUBAO` provider supports multimodal data processing.
 

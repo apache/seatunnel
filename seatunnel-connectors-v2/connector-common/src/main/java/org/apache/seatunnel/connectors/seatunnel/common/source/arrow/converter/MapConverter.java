@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.MapVector;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionMapReader;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.Types;
 
+import com.google.auto.service.AutoService;
+
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -28,6 +30,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
+@AutoService(Converter.class)
 public class MapConverter implements Converter<MapVector> {
     @Override
     public Object convert(int rowIndex, MapVector fieldVector) {

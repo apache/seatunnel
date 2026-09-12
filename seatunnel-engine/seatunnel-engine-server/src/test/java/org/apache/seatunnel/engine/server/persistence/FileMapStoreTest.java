@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.persistence;
 
 import org.apache.seatunnel.engine.imap.storage.file.common.FileConstants;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.io.TempDir;
 import com.hazelcast.core.HazelcastInstance;
 
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.Properties;
 
 import static org.mockito.Mockito.mock;
@@ -99,6 +101,25 @@ public class FileMapStoreTest {
                 msg.contains("non-existent-storage-type")
                         || msg.contains("Could not find any factories"),
                 "Exception message should identify the unknown type. Got: " + msg);
+    }
+
+    @Test
+    public void testMetricsSnapshotMapSkipsPersistentStorageInitialization() {
+        FileMapStore store = new FileMapStore();
+        Properties props = new Properties();
+        props.setProperty("type", "non-existent-storage-type");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        store.init(
+                                mock(HazelcastInstance.class),
+                                props,
+                                EngineStateStoreNames.RUNNING_JOB_METRICS));
+        Assertions.assertEquals(Collections.emptySet(), store.loadAllKeys());
+        Assertions.assertDoesNotThrow(() -> store.store("k", "v"));
+        Assertions.assertDoesNotThrow(() -> store.delete("k"));
+
+        store.destroy();
     }
 
     private Properties buildLocalFsProperties(String namespace) {

@@ -48,6 +48,10 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
+if [ -z "${SEATUNNEL_HOME:-}" ]; then
+    SEATUNNEL_HOME=${APP_DIR}
+fi
+
 if [ $# == 0 ]
 then
     args=""
@@ -56,6 +60,8 @@ else
 fi
 
 set +u
+
+JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.home=${SEATUNNEL_HOME} -DSEATUNNEL_HOME=${SEATUNNEL_HOME}"
 
 if [ -z $SEATUNNEL_CONFIG ]; then
     SEATUNNEL_CONFIG=${CONF_DIR}/seatunnel.yaml

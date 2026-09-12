@@ -50,6 +50,7 @@ public class FilterFieldTransformFactory implements TableTransformFactory {
                         Conditions.notEmpty(FilterFieldTransformConfig.EXCLUDE_FIELDS))
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

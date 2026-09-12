@@ -313,9 +313,6 @@ class EngineStateStoreLogicalMetricExportsTest {
         String yaml =
                 "seatunnel:\n"
                         + "  engine:\n"
-                        + "    telemetry:\n"
-                        + "      metric:\n"
-                        + "        enabled: true\n"
                         + "    history-job-expire-minutes: 1\n"
                         + "    jar-storage:\n"
                         + "      enable: true\n"

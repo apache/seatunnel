@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -29,6 +27,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -44,11 +43,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
 import java.sql.Connection;
-import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -57,7 +53,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -70,16 +65,16 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "starrocks_e2e";
     private static final int SR_DOCKER_PORT = 9030;
-    private static final int SR_PORT = 9033;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
-    private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
+    private static final String URL = "jdbc:mysql://%s:%s";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SOURCE_TABLE_3 = "e2e_table_source_3";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String SR_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
+    private static final String TABLE_OPTIONS_SINK_TABLE = "sink_table_options";
+    private static final String TABLE_OPTIONS_CONFIG_FILE =
+            "/fake-to-starrocks-with-table-options.conf";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
@@ -221,15 +216,12 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + SR_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/Jdbc/lib",
+                                    "mysql-connector-java.jar");
 
     @BeforeAll
     @Override
@@ -238,9 +230,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(SR_DOCKER_PORT)
                         .withLogConsumer(new Slf4jLogConsumer(log));
-        starRocksServer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", SR_PORT, SR_DOCKER_PORT)));
         Startables.deepStart(Stream.of(starRocksServer)).join();
         log.info("StarRocks container started");
         // wait for starrocks fully start
@@ -342,18 +333,29 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
-    private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)}, StarRocksIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
-        Properties props = new Properties();
-        props.put("user", USERNAME);
-        props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, starRocksServer.getHost()), props);
+    @TestTemplate
+    public void testTableOptionsSink(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        try {
+            dropTableIfExists(TABLE_OPTIONS_SINK_TABLE);
+            Container.ExecResult execResult = container.executeJob(TABLE_OPTIONS_CONFIG_FILE);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            assertTableOptionsSink();
+        } finally {
+            dropTableIfExists(TABLE_OPTIONS_SINK_TABLE);
+        }
+    }
+
+    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException {
+        Class.forName(DRIVER_CLASS);
+        jdbcConnection =
+                DriverManager.getConnection(
+                        String.format(
+                                URL,
+                                starRocksServer.getHost(),
+                                starRocksServer.getMappedPort(SR_DOCKER_PORT)),
+                        USERNAME,
+                        PASSWORD);
     }
 
     private void initializeJdbcTable() {
@@ -409,6 +411,35 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    private void assertTableOptionsSink() throws SQLException {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            ResultSet createTableResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SHOW CREATE TABLE %s.%s", DATABASE, TABLE_OPTIONS_SINK_TABLE));
+            Assertions.assertTrue(createTableResult.next());
+            String createTableSql = createTableResult.getString(2).toLowerCase();
+            Assertions.assertTrue(
+                    createTableSql.contains("\"storage_format\" = \"v2\""), createTableSql);
+
+            ResultSet countResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT COUNT(*) FROM %s.%s",
+                                    DATABASE, TABLE_OPTIONS_SINK_TABLE));
+            Assertions.assertTrue(countResult.next());
+            Assertions.assertEquals(100, countResult.getInt(1));
+        }
+    }
+
+    private void dropTableIfExists(String table) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to drop table " + table, e);
+        }
+    }
+
     @Test
     public void testCatalog() {
         TablePath tablePathStarRocksSource = TablePath.of("test", "e2e_table_source");
@@ -418,7 +449,10 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "StarRocks",
                         "root",
                         PASSWORD,
-                        String.format(URL, starRocksServer.getHost()),
+                        String.format(
+                                URL,
+                                starRocksServer.getHost(),
+                                starRocksServer.getMappedPort(SR_DOCKER_PORT)),
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n COMMENT '${comment}' \n DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
 

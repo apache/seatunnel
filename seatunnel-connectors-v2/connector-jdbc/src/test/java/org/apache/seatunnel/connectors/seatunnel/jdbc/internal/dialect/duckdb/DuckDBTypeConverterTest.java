@@ -242,7 +242,8 @@ public class DuckDBTypeConverterTest {
     @Test
     void testConvertTimestampWithTimezone() {
         Column column = convert("f_timestamp_tz", "timestamp with time zone");
-        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        // TIMESTAMP WITH TIME ZONE is LTZ → must map to OFFSET_DATE_TIME_TYPE
+        Assertions.assertEquals(LocalTimeType.OFFSET_DATE_TIME_TYPE, column.getDataType());
     }
 
     @Test
@@ -465,6 +466,21 @@ public class DuckDBTypeConverterTest {
                                 .build());
         Assertions.assertEquals(DuckDBTypeConverter.DUCKDB_TIMESTAMP, typeDefine.getColumnType());
         Assertions.assertEquals(DuckDBTypeConverter.DUCKDB_TIMESTAMP, typeDefine.getDataType());
+    }
+
+    @Test
+    void testReconvertTimestampTz() {
+        BasicTypeDefine<?> typeDefine =
+                DuckDBTypeConverter.INSTANCE.reconvert(
+                        PhysicalColumn.builder()
+                                .name("f_timestamp_tz")
+                                .dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE)
+                                .build());
+        // OFFSET_DATE_TIME_TYPE → DUCKDB_TIMESTAMP_WITH_TZ
+        Assertions.assertEquals(
+                DuckDBTypeConverter.DUCKDB_TIMESTAMP_WITH_TZ, typeDefine.getColumnType());
+        Assertions.assertEquals(
+                DuckDBTypeConverter.DUCKDB_TIMESTAMP_WITH_TZ, typeDefine.getDataType());
     }
 
     @Test

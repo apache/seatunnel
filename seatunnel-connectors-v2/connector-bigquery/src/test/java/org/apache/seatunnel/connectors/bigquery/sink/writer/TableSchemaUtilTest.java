@@ -29,7 +29,14 @@ import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.Schema;
+import com.google.cloud.bigquery.StandardSQLTypeName;
+import com.google.cloud.bigquery.Table;
+import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
+import com.google.cloud.bigquery.storage.v1.TableFieldSchema;
+import com.google.cloud.bigquery.storage.v1.TableSchema;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -39,6 +46,44 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
 class TableSchemaUtilTest {
+
+    @Test
+    void testChangeSequenceNumberFieldUsesStringSchema() {
+        Config config =
+                ConfigFactory.parseString(
+                        "project_id = \"test-project\"\n"
+                                + "dataset_id = \"test_dataset\"\n"
+                                + "table_id = \"test_table\"\n");
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+
+        BigQuery bigQuery = mock(BigQuery.class);
+        Table table = mock(Table.class);
+        TableDefinition tableDefinition = mock(TableDefinition.class);
+        when(bigQuery.getTable(TableId.of("test-project", "test_dataset", "test_table")))
+                .thenReturn(table);
+        when(table.getDefinition()).thenReturn(tableDefinition);
+        when(tableDefinition.getSchema())
+                .thenReturn(Schema.of(Field.of("id", StandardSQLTypeName.INT64)));
+
+        try (MockedStatic<BigQueryClientFactory> mockedFactory =
+                mockStatic(BigQueryClientFactory.class)) {
+            mockedFactory
+                    .when(() -> BigQueryClientFactory.getBigQuery(any(ReadonlyConfig.class)))
+                    .thenReturn(bigQuery);
+
+            TableSchema schema = TableSchemaUtil.getActualTableSchema(readonlyConfig, true);
+
+            TableFieldSchema sequenceField =
+                    schema.getFieldsList().stream()
+                            .filter(
+                                    field ->
+                                            BigQueryStreamWriter.SEQUENCE_NUM.equals(
+                                                    field.getName()))
+                            .findFirst()
+                            .orElseThrow(AssertionError::new);
+            assertEquals(TableFieldSchema.Type.STRING, sequenceField.getType());
+        }
+    }
 
     @Test
     void testGetActualTableSchemaThrowsWhenTargetTableDoesNotExist() {

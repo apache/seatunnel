@@ -28,7 +28,6 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.data.PaimonTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
 
-import org.apache.paimon.CoreOptions;
 import org.apache.paimon.schema.Schema;
 import org.apache.paimon.shade.jackson2.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.paimon.types.DataField;
@@ -80,13 +79,13 @@ public class SchemaUtil {
         if (!partitionKeys.isEmpty()) {
             paiSchemaBuilder.partitionKeys(partitionKeys);
         }
-        Map<String, String> writeProps = paimonSinkConfig.getWriteProps();
-        CoreOptions.ChangelogProducer changelogProducer = paimonSinkConfig.getChangelogProducer();
-        if (changelogProducer != null) {
-            writeProps.remove(PaimonSinkOptions.CHANGELOG_TMP_PATH);
-        }
-        if (!writeProps.isEmpty()) {
-            paiSchemaBuilder.options(writeProps);
+        Map<String, String> schemaOptions =
+                PaimonSinkConfig.mergeSchemaCreationOptions(
+                        paimonSinkConfig.getTableOptions(), paimonSinkConfig.getWriteProps());
+        // SeaTunnel-only runtime key; never pass it to Paimon table options.
+        schemaOptions.remove(PaimonSinkOptions.CHANGELOG_TMP_PATH);
+        if (!schemaOptions.isEmpty()) {
+            paiSchemaBuilder.options(schemaOptions);
         }
         if (StringUtils.isNotBlank(comment)) {
             paiSchemaBuilder.comment(comment);

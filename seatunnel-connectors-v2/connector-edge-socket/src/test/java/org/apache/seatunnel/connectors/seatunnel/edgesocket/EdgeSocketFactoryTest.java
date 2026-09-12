@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.edgesocket;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -57,6 +59,105 @@ class EdgeSocketFactoryTest {
         Assertions.assertTrue(
                 optionalKeys.contains(EdgeSocketSourceOptions.QUEUE_FULL_RETRY_AFTER_MS.key()),
                 "optionRule must include queue_full_retry_after_ms");
+    }
+
+    @Test
+    void optionRuleShouldAcceptValidConfig() {
+        assertValidOptionRule(validConfig());
+    }
+
+    @Test
+    void optionRuleShouldRejectNonPositivePort() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketCommonOptions.PORT.key(), 0);
+
+        assertInvalidOptionRule(configMap);
+
+        configMap.put(EdgeSocketCommonOptions.PORT.key(), -1);
+        assertInvalidOptionRule(configMap);
+    }
+
+    @Test
+    void optionRuleShouldRejectBlankToken() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.TOKEN.key(), " ");
+
+        assertInvalidOptionRule(configMap);
+
+        configMap = validConfig();
+        configMap.remove(EdgeSocketSourceOptions.TOKEN.key());
+        assertInvalidOptionRule(configMap);
+    }
+
+    @Test
+    void optionRuleShouldRejectInvalidEndpoint() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketCommonOptions.ENDPOINT.key(), "edge.lb.example.com");
+
+        assertInvalidOptionRule(configMap);
+
+        configMap.put(EdgeSocketCommonOptions.ENDPOINT.key(), "edge.lb.example.com:abc");
+        assertInvalidOptionRule(configMap);
+    }
+
+    @Test
+    void optionRuleShouldAllowBlankEndpoint() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketCommonOptions.ENDPOINT.key(), " ");
+
+        assertValidOptionRule(configMap);
+    }
+
+    @Test
+    void optionRuleShouldRejectInvalidBackpressureOptions() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.LOCAL_QUEUE_CAPACITY.key(), 0);
+        assertInvalidOptionRule(configMap);
+
+        configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.QUEUE_BACKPRESSURE_WATERMARK_RATIO.key(), 0.0);
+        assertInvalidOptionRule(configMap);
+
+        configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.QUEUE_BACKPRESSURE_WATERMARK_RATIO.key(), 1.01);
+        assertInvalidOptionRule(configMap);
+
+        configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.QUEUE_FULL_RETRY_AFTER_MS.key(), 0);
+        assertInvalidOptionRule(configMap);
+    }
+
+    @Test
+    void optionRuleShouldRejectInvalidPacketAndAuthMode() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "unsupported");
+        assertInvalidOptionRuleOrType(configMap);
+
+        configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.AUTH_TYPE.key(), "unsupported");
+        assertInvalidOptionRuleOrType(configMap);
+    }
+
+    @Test
+    void optionRuleShouldValidateSecretKeyOnlyInPacketMode() {
+        Map<String, Object> configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "PACKET");
+        configMap.put(EdgeSocketSourceOptions.SECRET_KEY.key(), "c2hvcnQ=");
+
+        assertInvalidOptionRule(configMap);
+
+        configMap.put(EdgeSocketSourceOptions.SECRET_KEY.key(), "invalid-not-base64!!!");
+        assertInvalidOptionRule(configMap);
+
+        configMap.put(
+                EdgeSocketSourceOptions.SECRET_KEY.key(),
+                "dGVzdC1zZWNyZXQta2V5LTMyLWJ5dGVzLWFlczI1NiE=");
+        assertValidOptionRule(configMap);
+
+        configMap = validConfig();
+        configMap.put(EdgeSocketSourceOptions.PACKET_MODE.key(), "RAW");
+        configMap.put(EdgeSocketSourceOptions.SECRET_KEY.key(), "c2hvcnQ=");
+        assertValidOptionRule(configMap);
     }
 
     @Test
@@ -109,15 +210,28 @@ class EdgeSocketFactoryTest {
         Assertions.assertEquals("edge.lb.example.com:10091", config.getEndpoint());
     }
 
-    @Test
-    void shouldRejectInvalidEndpoint() {
+    private static Map<String, Object> validConfig() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put(EdgeSocketCommonOptions.PORT.key(), 10001);
         configMap.put(EdgeSocketSourceOptions.TOKEN.key(), "token");
-        configMap.put(EdgeSocketCommonOptions.ENDPOINT.key(), "edge.lb.example.com");
+        return configMap;
+    }
 
+    private static void assertValidOptionRule(Map<String, Object> configMap) {
+        Assertions.assertDoesNotThrow(() -> validateOptionRule(configMap));
+    }
+
+    private static void assertInvalidOptionRule(Map<String, Object> configMap) {
         Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new EdgeSocketConfig(ReadonlyConfig.fromMap(configMap)));
+                OptionValidationException.class, () -> validateOptionRule(configMap));
+    }
+
+    private static void assertInvalidOptionRuleOrType(Map<String, Object> configMap) {
+        Assertions.assertThrows(RuntimeException.class, () -> validateOptionRule(configMap));
+    }
+
+    private static void validateOptionRule(Map<String, Object> configMap) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(configMap))
+                .validate(new EdgeSocketSourceFactory().optionRule());
     }
 }

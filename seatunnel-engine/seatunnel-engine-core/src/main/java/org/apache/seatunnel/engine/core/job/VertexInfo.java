@@ -31,6 +31,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VertexInfo implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     private long vertexId;
 

@@ -38,6 +38,8 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -50,6 +52,8 @@ public class TextSerializationSchema implements SerializationSchema {
     private final TimeUtils.Formatter timeFormatter;
     private final Charset charset;
     private final String nullValue;
+    /** When true, TIMESTAMP_TZ is serialized as wall-clock (no offset) for DB sinks like Doris. */
+    private final boolean wallClockTimestampTz;
 
     private TextSerializationSchema(
             @NonNull SeaTunnelRowType seaTunnelRowType,
@@ -58,7 +62,8 @@ public class TextSerializationSchema implements SerializationSchema {
             DateTimeUtils.Formatter dateTimeFormatter,
             TimeUtils.Formatter timeFormatter,
             Charset charset,
-            String nullValue) {
+            String nullValue,
+            boolean wallClockTimestampTz) {
         this.seaTunnelRowType = seaTunnelRowType;
         this.separators = separators;
         this.dateFormatter = dateFormatter;
@@ -66,6 +71,7 @@ public class TextSerializationSchema implements SerializationSchema {
         this.timeFormatter = timeFormatter;
         this.charset = charset;
         this.nullValue = nullValue;
+        this.wallClockTimestampTz = wallClockTimestampTz;
     }
 
     public static Builder builder() {
@@ -81,6 +87,7 @@ public class TextSerializationSchema implements SerializationSchema {
         private TimeUtils.Formatter timeFormatter = TimeUtils.Formatter.HH_MM_SS;
         private Charset charset = StandardCharsets.UTF_8;
         private String nullValue = "";
+        private boolean wallClockTimestampTz = false;
 
         private Builder() {}
 
@@ -124,6 +131,16 @@ public class TextSerializationSchema implements SerializationSchema {
             return this;
         }
 
+        /**
+         * When set to true, TIMESTAMP_TZ fields are serialized as wall-clock local datetime
+         * (dropping the timezone offset). Use this for DB sinks whose column type has no native
+         * timezone support (e.g. Doris DATETIME).
+         */
+        public Builder wallClockTimestampTz(boolean wallClockTimestampTz) {
+            this.wallClockTimestampTz = wallClockTimestampTz;
+            return this;
+        }
+
         public TextSerializationSchema build() {
             return new TextSerializationSchema(
                     seaTunnelRowType,
@@ -132,7 +149,8 @@ public class TextSerializationSchema implements SerializationSchema {
                     dateTimeFormatter,
                     timeFormatter,
                     charset,
-                    nullValue);
+                    nullValue,
+                    wallClockTimestampTz);
         }
     }
 
@@ -175,6 +193,12 @@ public class TextSerializationSchema implements SerializationSchema {
                 return TimeUtils.toString((LocalTime) field, timeFormatter);
             case TIMESTAMP:
                 return DateTimeUtils.toString((LocalDateTime) field, dateTimeFormatter);
+            case TIMESTAMP_TZ:
+                OffsetDateTime odt = (OffsetDateTime) field;
+                if (wallClockTimestampTz) {
+                    return DateTimeUtils.toString(odt.toLocalDateTime(), dateTimeFormatter);
+                }
+                return odt.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME);
             case NULL:
                 return "";
             case BYTES:

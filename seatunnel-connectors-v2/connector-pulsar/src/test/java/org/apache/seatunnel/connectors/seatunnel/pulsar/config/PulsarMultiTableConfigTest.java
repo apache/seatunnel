@@ -59,6 +59,57 @@ class PulsarMultiTableConfigTest {
     }
 
     @Test
+    void shouldAllowAvroFormatInTablesConfigs() {
+        Map<String, Object> config = createBaseConfig();
+        config.put(
+                "tables_configs",
+                Collections.singletonList(
+                        createTableConfig(
+                                "db.events", "persistent://public/default/events", null, "AVRO")));
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals("AVRO", multiTableConfig.getTableConfigs().get(0).getFormat());
+    }
+
+    @Test
+    void shouldAllowTextFormatInSingleTable() {
+        Map<String, Object> config = createBaseConfig();
+        config.put("topic", "persistent://public/default/events");
+        config.put("format", "text");
+        config.put("field_delimiter", "|");
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        PulsarTableConfig tableConfig = multiTableConfig.getTableConfigs().get(0);
+        Assertions.assertEquals("text", tableConfig.getFormat());
+        Assertions.assertEquals(
+                "|", tableConfig.getSchemaConfig().get(PulsarSourceOptions.FIELD_DELIMITER));
+    }
+
+    @Test
+    void shouldRejectTextFormatInTablesConfigs() {
+        Map<String, Object> config = createBaseConfig();
+        config.put(
+                "tables_configs",
+                Collections.singletonList(
+                        createTableConfig(
+                                "db.events", "persistent://public/default/events", null, "text")));
+
+        PulsarConnectorException exception =
+                Assertions.assertThrows(
+                        PulsarConnectorException.class,
+                        () -> PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config)));
+
+        Assertions.assertEquals(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("TEXT is only supported in single-table mode"));
+    }
+
+    @Test
     void shouldRejectOverlappingTopicDeclarations() {
         Map<String, Object> config = createBaseConfig();
         config.put(
@@ -171,6 +222,67 @@ class PulsarMultiTableConfigTest {
                 SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
     }
 
+    @Test
+    void shouldRejectAvroFormatWithoutSchemaInSingleTable() {
+        Map<String, Object> config = createBaseConfig();
+        config.put("topic", "persistent://public/default/events");
+        config.put("format", "AVRO");
+
+        PulsarConnectorException exception =
+                Assertions.assertThrows(
+                        PulsarConnectorException.class,
+                        () -> PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config)));
+
+        Assertions.assertEquals(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("uses format 'AVRO' but 'schema' is not configured"));
+    }
+
+    @Test
+    void shouldRejectAvroFormatWithoutSchemaInTablesConfigs() {
+        Map<String, Object> config = createBaseConfig();
+        Map<String, Object> tableConfig =
+                createTableConfigWithoutSchema(
+                        "db.events", "persistent://public/default/events", null, "AVRO");
+        config.put("tables_configs", Collections.singletonList(tableConfig));
+
+        PulsarConnectorException exception =
+                Assertions.assertThrows(
+                        PulsarConnectorException.class,
+                        () -> PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config)));
+
+        Assertions.assertEquals(
+                SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("uses format 'AVRO' but 'schema' is not configured"));
+    }
+
+    @Test
+    void shouldAllowAvroFormatWithGlobalSchemaInTablesConfigs() {
+        Map<String, Object> config = createBaseConfig();
+        config.put("format", "AVRO");
+        Map<String, Object> schema = new HashMap<>();
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("id", "bigint");
+        schema.put("fields", fields);
+        config.put("schema", schema);
+        config.put(
+                "tables_configs",
+                Collections.singletonList(
+                        createTableConfigWithoutSchema(
+                                "db.events", "persistent://public/default/events", null, null)));
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals("AVRO", multiTableConfig.getTableConfigs().get(0).getFormat());
+    }
+
     private Map<String, Object> createBaseConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put("subscription.name", "seatunnel-sub");
@@ -206,6 +318,22 @@ class PulsarMultiTableConfigTest {
         fields.put("id", "bigint");
         schema.put("fields", fields);
         config.put("schema", schema);
+        return config;
+    }
+
+    private Map<String, Object> createTableConfigWithoutSchema(
+            String tablePath, String topic, String topicPattern, String format) {
+        Map<String, Object> config = new HashMap<>();
+        config.put("table_path", tablePath);
+        if (topic != null) {
+            config.put("topic", topic);
+        }
+        if (topicPattern != null) {
+            config.put("topic-pattern", topicPattern);
+        }
+        if (format != null) {
+            config.put("format", format);
+        }
         return config;
     }
 }

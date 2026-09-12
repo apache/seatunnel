@@ -1,0 +1,516 @@
+{
+  "tier": 3,
+  "description": "Complex tier: multi-source DAG pipelines, fan-out, conditional routing, heterogeneous mixes. SQL transform tasks stay within Zeta SQL capability (projection + WHERE; no GROUP BY/JOIN/ORDER BY). Connection details match benchmark/docker/docker-compose.yml.",
+  "tasks": [
+    {
+      "id": "t3_mp_two_jdbc_two_sinks",
+      "name": "PIPELINE: two MySQL sources to Console and Assert",
+      "category": "multi_pipeline",
+      "prompt": "Create a job with 2 MySQL JDBC sources from database shop (host localhost, port 3306, user root): pipeline 1 reads the audit_log and orders tables and writes to Console; pipeline 2 reads the users table and writes to an Assert sink that checks at least 1 row arrives. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input", "(?i)min_row|MIN_ROW"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_mp_three_pipelines_zh",
+      "name": "PIPELINE: three pipelines in one job (Chinese)",
+      "category": "multi_pipeline",
+      "prompt": "创建一个包含三条流水线的作业（MySQL 主机 localhost，端口 3306，数据库 shop，用户 root，批处理）：流水线1把 audit_log 表同步到 Console；流水线2把 orders 表导出到本地目录 /tmp/st_bench/orders_backup（JSON 格式）；流水线3把 users 表同步到 Assert sink，校验至少 1 行数据。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "LocalFile", "Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_mp_four_pipelines",
+      "name": "PIPELINE: four independent pipelines",
+      "category": "multi_pipeline",
+      "prompt": "One batch job with four pipelines from MySQL shop (host localhost, port 3306, user root): users → Console, products → Console, orders → local JSON files under /tmp/st_bench/p_orders, payments → local JSON files under /tmp/st_bench/p_payments. Use distinct routing labels for every pipeline.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input", "(?i)p_orders", "(?i)p_payments"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_mp_mixed_transform_pipelines",
+      "name": "PIPELINE: one pipeline with transform, one without",
+      "category": "multi_pipeline",
+      "prompt": "One batch job, two pipelines from MySQL shop (host localhost, port 3306, user root): pipeline 1 reads transactions, filters amount > 500 via SQL transform, writes to Console; pipeline 2 reads users unchanged into an Assert sink checking at least 1 row. Wire routing labels so the transform only applies to pipeline 1.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "Assert"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["plugin_output", "plugin_input", "(?i)where"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_mp_fake_parallel_writers",
+      "name": "PIPELINE: two generators, two file sinks",
+      "category": "multi_pipeline",
+      "prompt": "One batch job with two FakeSource pipelines: generator A produces 30 rows (fields id bigint, tag string) into local JSON files at /tmp/st_bench/gen_a; generator B produces 40 rows (fields id bigint, score double) into local JSON files at /tmp/st_bench/gen_b. Distinct routing labels required.",
+      "expect": {
+        "source": ["FakeSource"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input", "gen_a", "gen_b"],
+        "must_not_match": []
+      },
+      "execution": {"services": [], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_mp_probe_label_mismatch",
+      "name": "PROBE: routing labels must pair exactly",
+      "category": "failure_probe",
+      "prompt": "Two pipelines in one batch job from MySQL shop (host localhost, port 3306, user root): audit_log → Console and users → Console. Every source block must declare plugin_output and every sink block must declare a matching plugin_input — no orphan labels.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_ms_mysql_pg_console",
+      "name": "DAG: MySQL + PostgreSQL heterogeneous sources",
+      "category": "multi_source_dag",
+      "prompt": "Build one job that reads the orders table from MySQL (host localhost, port 3306, database shop, user root) and the web_events table from PostgreSQL (host localhost, port 5432, database analytics, user bench), and writes both streams to Console, keeping the two pipelines separate with routing labels. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:mysql://", "jdbc:postgresql://", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "postgres"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_ms_kafka_jdbc_es",
+      "name": "DAG: Kafka + JDBC mixed sources to Elasticsearch",
+      "category": "multi_source_dag",
+      "prompt": "Build one streaming job with two pipelines: (1) stream click events from Kafka topic clicks (broker localhost:9092, earliest offset, JSON with fields event_id string, user_id bigint, url string) into Elasticsearch index clicks; (2) load the users table from MySQL (host localhost, port 3306, database shop, user root) into Elasticsearch index users. Elasticsearch is at localhost:9200 with security disabled.",
+      "expect": {
+        "source": ["Kafka", "Jdbc"],
+        "sink": ["Elasticsearch"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka", "mysql", "elasticsearch"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_ms_file_db_clickhouse",
+      "name": "DAG: MySQL + CSV file sources with cast to ClickHouse",
+      "category": "multi_source_dag",
+      "prompt": "Build one batch job with two pipelines targeting ClickHouse (host localhost, port 8123, database bench, user default; both target tables exist): (1) copy the products table from MySQL (host localhost, port 3306, database shop, user root) into ClickHouse table dim_products; (2) read CSV files from /tmp/st_bench/price_updates (no header; fields sku string, new_price string), cast new_price to decimal(10,2) via SQL transform, and write into ClickHouse table price_updates.",
+      "expect": {
+        "source": ["Jdbc", "LocalFile"],
+        "sink": ["Clickhouse"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["plugin_output", "plugin_input", "(?i)cast"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["mysql", "clickhouse"], "mode": "batch", "l3": "run",
+        "setup_files": {
+          "/tmp/st_bench/price_updates/prices.csv": "SKU-001,19.99\nSKU-002,5.50\nSKU-003,120.00\n"
+        }
+      }
+    },
+    {
+      "id": "t3_ms_kafka_file_mixed_zh",
+      "name": "DAG: Kafka + local file mixed sources (Chinese)",
+      "category": "multi_source_dag",
+      "prompt": "一个流式作业里跑两条流水线：流水线1从 Kafka 的 clicks topic（broker localhost:9092，最早位点，JSON 字段 event_id string、user_id bigint、url string）读取事件写到控制台；流水线2从本地目录 /tmp/st_bench/json_in 读 JSON 文件（字段 id bigint、msg string）也写到控制台。注意本地文件源是有界的，整个作业用 STREAMING 模式。",
+      "expect": {
+        "source": ["Kafka", "LocalFile"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {
+        "services": ["kafka"], "mode": "streaming", "l3": "run",
+        "setup_files": {
+          "/tmp/st_bench/json_in/data.json": "{\"id\": 1, \"msg\": \"hello\"}\n{\"id\": 2, \"msg\": \"world\"}\n"
+        }
+      }
+    },
+    {
+      "id": "t3_ms_three_sources",
+      "name": "DAG: three heterogeneous sources",
+      "category": "multi_source_dag",
+      "prompt": "One batch job, three pipelines, all to Console: (1) MySQL shop.users (host localhost, port 3306, user root); (2) PostgreSQL analytics.customers (host localhost, port 5432, user bench); (3) 10 rows of fake data with fields id bigint, note string. Distinct routing labels for each.",
+      "expect": {
+        "source": ["Jdbc", "FakeSource"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["jdbc:mysql://", "jdbc:postgresql://", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "postgres"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_ms_probe_shared_sink_labels",
+      "name": "PROBE: two sources may not share one sink label",
+      "category": "failure_probe",
+      "prompt": "One batch job: MySQL shop.users and shop.products (host localhost, port 3306, user root) each go to their OWN Console sink block — two source blocks, two sink blocks, each pair wired by its own unique routing label. Do not reuse a label across pipelines.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cf_cdc_console_kafka",
+      "name": "FANOUT: MySQL CDC to Console and Kafka",
+      "category": "cdc_fanout",
+      "prompt": "Capture changes from the MySQL orders table (host localhost, port 3306, database shop, user root, account has CDC privileges) in real time, and deliver the same change stream to two destinations at once: the console and the Kafka topic shop.orders.changelog (broker localhost:9092).",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console", "Kafka"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cf_cdc_file_archive",
+      "name": "FANOUT: CDC to live console plus file archive",
+      "category": "cdc_fanout",
+      "prompt": "Set up MySQL CDC on shop.transactions (host localhost, port 3306, user root, CDC privileges granted). The change stream must go simultaneously to the console for live monitoring AND to local JSON files under /tmp/st_bench/tx_archive for audit.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console", "LocalFile"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input", "tx_archive"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cf_kafka_dual_topics",
+      "name": "FANOUT: one Kafka stream to two topics",
+      "category": "cdc_fanout",
+      "prompt": "Consume JSON events from Kafka topic clicks (broker localhost:9092, earliest offset, fields event_id string, user_id bigint, url string) once, and publish the same stream to BOTH Kafka topics clicks_copy_a and clicks_copy_b on the same broker. Streaming mode.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Kafka"],
+        "job_mode": "STREAMING",
+        "must_match": ["clicks_copy_a", "clicks_copy_b", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cf_batch_fanout_three",
+      "name": "FANOUT: one table to three destinations",
+      "category": "cdc_fanout",
+      "prompt": "Read the MySQL orders table (host localhost, port 3306, database shop, user root) ONCE and deliver the same rows to three sinks in one batch job: Console, local JSON files under /tmp/st_bench/orders_fan, and an Assert sink checking at least 1 row.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "LocalFile", "Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input", "orders_fan"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cf_probe_single_read",
+      "name": "PROBE: fanout must not duplicate the source",
+      "category": "failure_probe",
+      "prompt": "Send the MySQL users table (host localhost, port 3306, database shop, user root) to both Console and an Assert sink (min 1 row) using exactly ONE Jdbc source block — do not read the table twice. Both sinks consume the same plugin_output label. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cr_amount_split",
+      "name": "ROUTE: split stream by amount threshold",
+      "category": "conditional_routing",
+      "prompt": "Read the transactions table from MySQL (host localhost, port 3306, database shop, user root). Route rows with amount >= 1000 to local files under /tmp/st_bench/tx_large (JSON), and rows with amount < 1000 to local files under /tmp/st_bench/tx_small (JSON), using two SQL transforms on the same source output. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["plugin_output", "plugin_input", "(?i)where", "1000"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cr_status_routing",
+      "name": "ROUTE: route by status value",
+      "category": "conditional_routing",
+      "prompt": "From the MySQL orders table (host localhost, port 3306, database shop, user root), route PAID orders (status = 'PAID') to Console and everything else (status <> 'PAID') to local JSON files under /tmp/st_bench/unpaid, using two SQL transforms fed by one source. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "LocalFile"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)PAID", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cr_log_level_split_zh",
+      "name": "ROUTE: split by log level (Chinese)",
+      "category": "conditional_routing",
+      "prompt": "从 PostgreSQL（主机 localhost，端口 5432，数据库 analytics，用户 bench）读取 app_logs 表，用两个 SQL transform 把 level = 'ERROR' 的日志路由到控制台，其余（level <> 'ERROR'）写到本地 /tmp/st_bench/non_error_logs（JSON 格式）。批处理模式。",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "LocalFile"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)ERROR", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cr_stream_split",
+      "name": "ROUTE: streaming split of Kafka events",
+      "category": "conditional_routing",
+      "prompt": "Stream JSON events from Kafka topic clicks (broker localhost:9092, earliest offset, fields event_id string, user_id bigint, url string). Route events where user_id = 1 to Kafka topic vip_clicks and all other events to Kafka topic other_clicks (same broker), using two SQL transforms on one source.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Kafka"],
+        "job_mode": "STREAMING",
+        "transform": ["Sql"],
+        "must_match": ["vip_clicks", "other_clicks", "(?i)where"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cr_probe_no_overlap",
+      "name": "PROBE: routing predicates must not overlap",
+      "category": "failure_probe",
+      "prompt": "Split the MySQL transactions table (host localhost, port 3306, database shop, user root) into exactly two non-overlapping partitions by amount: strictly greater than 100 goes to Console, less than or equal to 100 goes to local JSON files under /tmp/st_bench/small_tx. Make sure the two WHERE conditions are mutually exclusive and cover all rows. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console", "LocalFile"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["(?i)>\\s*100", "(?i)<=\\s*100"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_cdc_transform_fanout",
+      "name": "COMBO: CDC + filter + fanout",
+      "category": "multi_source_dag",
+      "prompt": "Capture MySQL CDC changes of shop.orders (host localhost, port 3306, user root, CDC privileges). Filter to rows where amount > 100 with a SQL transform, then deliver the filtered stream to both the console and local JSON files under /tmp/st_bench/big_order_changes.",
+      "expect": {
+        "source": ["MySQL-CDC"],
+        "sink": ["Console", "LocalFile"],
+        "job_mode": "STREAMING",
+        "transform": ["Sql"],
+        "must_match": ["(?i)where", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_es_and_ch_targets",
+      "name": "COMBO: one job, ES + ClickHouse targets",
+      "category": "multi_source_dag",
+      "prompt": "One batch job, two pipelines: (1) PostgreSQL analytics.web_events (host localhost, port 5432, user bench) into Elasticsearch index web-events (localhost:9200, security off); (2) MySQL shop.products (host localhost, port 3306, user root) into the existing ClickHouse table products in database bench (localhost:8123, user default).",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Elasticsearch", "Clickhouse"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "mysql", "elasticsearch", "clickhouse"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_transform_chain_routing",
+      "name": "COMBO: chained transforms inside a DAG",
+      "category": "multi_source_dag",
+      "prompt": "One batch job from MySQL shop.orders (host localhost, port 3306, user root): first a SQL transform keeps rows with amount > 10, then a FieldMapper transform renames order_id to id and amount to total; the final result goes to Console. All blocks wired with explicit routing labels forming a chain: source → sql → fieldmapper → sink.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql", "FieldMapper"],
+        "must_match": ["plugin_output", "plugin_input", "(?i)total"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_streaming_batch_semantics",
+      "name": "COMBO: bounded + unbounded sources in one job",
+      "category": "multi_source_dag",
+      "prompt": "One STREAMING job with two pipelines: (1) unbounded Kafka topic events (broker localhost:9092, earliest, fields id bigint, name string, ts string) to console; (2) the bounded MySQL table users from shop (host localhost, port 3306, user root) also to console. Remember the whole job must run in streaming mode because of the Kafka source.",
+      "expect": {
+        "source": ["Kafka", "Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka", "mysql"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_assert_data_quality",
+      "name": "COMBO: data-quality gate with Assert rules",
+      "category": "multi_pipeline",
+      "prompt": "Batch job from MySQL shop.users (host localhost, port 3306, user root) into an Assert sink acting as a data-quality gate: at least 3 rows, and the name column must never be null. Add both rule types to the Assert sink.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Assert"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)min_row|MIN_ROW", "(?i)not_null|NOT_NULL"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_kafka_to_es_and_file",
+      "name": "COMBO: stream fanout to ES and files",
+      "category": "cdc_fanout",
+      "prompt": "Stream JSON events from Kafka topic clicks (broker localhost:9092, earliest, fields event_id string, user_id bigint, url string) once, and deliver the same stream to Elasticsearch index click-stream (localhost:9200, security off) AND to local JSON files under /tmp/st_bench/click_backup.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Elasticsearch", "LocalFile"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input", "click_backup"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["kafka", "elasticsearch"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_pg_cdc_dual_sink_zh",
+      "name": "COMBO: PostgreSQL CDC fanout (Chinese)",
+      "category": "cdc_fanout",
+      "prompt": "对 PostgreSQL（主机 localhost，端口 5432，数据库 analytics，用户 bench，解码插件 pgoutput，已开启逻辑复制）的 inventory 表做实时 CDC，把变更流同时发到 Kafka 的 inventory.changelog topic（broker localhost:9092）和控制台。",
+      "expect": {
+        "source": ["PostgreSQL-CDC"],
+        "sink": ["Kafka", "Console"],
+        "job_mode": "STREAMING",
+        "must_match": ["plugin_output", "plugin_input", "inventory.changelog"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["postgres", "kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_localfile_multi_format",
+      "name": "COMBO: same data, two output formats",
+      "category": "multi_pipeline",
+      "prompt": "Read the MySQL products table (host localhost, port 3306, database shop, user root) once and write it simultaneously as JSON files to /tmp/st_bench/products_json and as CSV files to /tmp/st_bench/products_csv. Batch mode.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["LocalFile"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)json", "(?i)csv", "plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_probe_env_parallelism",
+      "name": "PROBE: env-level vs source-level parallelism",
+      "category": "failure_probe",
+      "prompt": "Batch job: MySQL shop.fact_sales (host localhost, port 3306, user root) to Console with GLOBAL job parallelism 2 set in the env block — not on individual connectors.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)env\\s*\\{[^}]*parallelism\\s*=\\s*2"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_probe_streaming_infers",
+      "name": "PROBE: unbounded source forces STREAMING",
+      "category": "failure_probe",
+      "prompt": "Create a job that follows the Kafka topic events (broker localhost:9092, fields id bigint, name string, ts string) forever and mirrors every message to topic events_mirror. Pick the correct job mode yourself.",
+      "expect": {
+        "source": ["Kafka"],
+        "sink": ["Kafka"],
+        "job_mode": "STREAMING",
+        "must_match": ["(?i)STREAMING", "(?i)checkpoint"],
+        "must_not_match": ["(?i)job\\.mode\\s*=\\s*\"?BATCH"]
+      },
+      "execution": {"services": ["kafka"], "mode": "streaming", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_probe_bounded_batch",
+      "name": "PROBE: bounded sources should stay BATCH",
+      "category": "failure_probe",
+      "prompt": "Create a job that copies the MySQL users table (host localhost, port 3306, database shop, user root) to the console. It is a one-off full copy — pick the correct job mode yourself and do not add streaming-only options.",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "must_match": ["(?i)job\\.mode\\s*=\\s*\"?BATCH"],
+        "must_not_match": ["(?i)checkpoint\\.interval"]
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_wide_dag",
+      "name": "COMBO: five-block DAG",
+      "category": "multi_source_dag",
+      "prompt": "One batch job with this exact DAG: a FakeSource generating 25 rows (fields id bigint, val double) feeds a SQL transform keeping val > 0.5, whose output goes to Console; in parallel, MySQL shop.audit_log (host localhost, port 3306, user root) goes straight to a second Console sink. Five blocks total, all wired with explicit labels.",
+      "expect": {
+        "source": ["FakeSource", "Jdbc"],
+        "sink": ["Console"],
+        "job_mode": "BATCH",
+        "transform": ["Sql"],
+        "must_match": ["plugin_output", "plugin_input", "(?i)where"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql"], "mode": "batch", "l3": "run"}
+    },
+    {
+      "id": "t3_cx_doris_starrocks_dual",
+      "name": "COMBO: OLAP dual-target",
+      "category": "multi_source_dag",
+      "prompt": "One batch job, two pipelines both reading MySQL shop.orders (host localhost, port 3306, user root): pipeline 1 writes to Doris (fenodes localhost:8030, query port 9030, database bench, table orders, user root, empty password); pipeline 2 writes to StarRocks (FE localhost:8031, query port 9031, database bench, table orders, user root, empty password).",
+      "expect": {
+        "source": ["Jdbc"],
+        "sink": ["Doris", "StarRocks"],
+        "job_mode": "BATCH",
+        "must_match": ["plugin_output", "plugin_input"],
+        "must_not_match": []
+      },
+      "execution": {"services": ["mysql", "doris", "starrocks"], "mode": "batch", "l3": "run"}
+    }
+  ]
+}

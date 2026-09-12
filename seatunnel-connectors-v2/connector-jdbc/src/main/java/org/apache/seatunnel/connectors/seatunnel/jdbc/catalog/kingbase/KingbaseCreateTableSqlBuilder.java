@@ -37,6 +37,8 @@ public class KingbaseCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
     private String sourceCatalogName;
     private String fieldIde;
+    private String tablespace;
+    private String fillfactor;
     private boolean createIndex;
 
     public KingbaseCreateTableSqlBuilder(CatalogTable catalogTable, boolean createIndex) {
@@ -44,6 +46,8 @@ public class KingbaseCreateTableSqlBuilder {
         this.primaryKey = catalogTable.getTableSchema().getPrimaryKey();
         this.sourceCatalogName = catalogTable.getCatalogName();
         this.fieldIde = catalogTable.getOptions().get("fieldIde");
+        this.tablespace = catalogTable.getOptions().get(KingbaseCatalog.TABLE_OPTION_TABLESPACE);
+        this.fillfactor = catalogTable.getOptions().get(KingbaseCatalog.TABLE_OPTION_FILLFACTOR);
         this.createIndex = createIndex;
     }
 
@@ -69,6 +73,15 @@ public class KingbaseCreateTableSqlBuilder {
 
         createTableSql.append(String.join(",\n", columnSqls));
         createTableSql.append("\n)");
+        if (StringUtils.isNotBlank(fillfactor)) {
+            // Value is validated as 10-100 by KingbaseDialect.validateTableOptions.
+            createTableSql.append("\nWITH (fillfactor=").append(fillfactor.trim()).append(")");
+        }
+        if (StringUtils.isNotBlank(tablespace)) {
+            // Tablespace is a storage object name: quote literally, do NOT apply fieldIde
+            // case rewriting (that policy is only for table/column identifiers).
+            createTableSql.append("\nTABLESPACE \"").append(tablespace.trim()).append("\"");
+        }
 
         List<String> commentSqls =
                 columns.stream()

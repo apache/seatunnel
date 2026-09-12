@@ -49,15 +49,19 @@ import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
 import org.apache.paimon.types.DataTypes;
+import org.apache.paimon.types.LocalZonedTimestampType;
 import org.apache.paimon.types.RowType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.utils.DateTimeUtils;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -309,6 +313,24 @@ public class RowConverter {
                     Timestamp timestamp = rowData.getTimestamp(i, precision);
                     objects[i] = timestamp.toLocalDateTime();
                     break;
+                case TIMESTAMP_TZ:
+                    int tzPrecision = LocalZonedTimestampType.DEFAULT_PRECISION;
+                    Optional<DataField> tzPrecisionOptional =
+                            tableSchema.fields().stream()
+                                    .filter(dataField -> dataField.name().equals(fieldName))
+                                    .findFirst();
+                    if (tzPrecisionOptional.isPresent()
+                            && tzPrecisionOptional.get().type()
+                                    instanceof LocalZonedTimestampType) {
+                        tzPrecision =
+                                ((LocalZonedTimestampType) tzPrecisionOptional.get().type())
+                                        .getPrecision();
+                    }
+                    Timestamp tzTimestamp = rowData.getTimestamp(i, tzPrecision);
+                    objects[i] =
+                            Instant.ofEpochMilli(tzTimestamp.getMillisecond())
+                                    .atOffset(ZoneOffset.UTC);
+                    break;
                 case ARRAY:
                     InternalArray paimonArray = rowData.getArray(i);
                     ArrayType<?, ?> seatunnelArray = (ArrayType<?, ?>) fieldType;
@@ -450,6 +472,17 @@ public class RowConverter {
                     LocalDateTime datetime = (LocalDateTime) fieldValue;
                     binaryWriter.writeTimestamp(
                             i, Timestamp.fromLocalDateTime(datetime), precision);
+                    break;
+                case TIMESTAMP_TZ:
+                    DataField tzDataField = SchemaUtil.getDataField(sinkFields, fieldName);
+                    int tzWritePrecision =
+                            ((LocalZonedTimestampType) tzDataField.type()).getPrecision();
+                    Instant instant = ((OffsetDateTime) fieldValue).toInstant();
+                    binaryWriter.writeTimestamp(
+                            i,
+                            Timestamp.fromEpochMillis(
+                                    instant.toEpochMilli(), instant.getNano() % 1_000_000),
+                            tzWritePrecision);
                     break;
                 case TIME:
                     LocalTime time = (LocalTime) fieldValue;
