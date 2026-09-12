@@ -63,7 +63,14 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.await;
 import static org.awaitility.Awaitility.given;
 
-/** Protocol-compatibility E2E for the GaussDB mppdb reader against openGauss. */
+/**
+ * Protocol-compatibility E2E for the GaussDB mppdb reader against openGauss.
+ *
+ * <p>The test classpath carries the openGauss JDBC driver, which keeps the {@code org.postgresql}
+ * package and API of PostgreSQL JDBC but implements the openGauss replication protocol. The stock
+ * PostgreSQL driver cannot stream from openGauss because the server rejects its standby status
+ * message layout, so that driver is what production GaussDB deployments must replace as well.
+ */
 @Slf4j
 @DisabledOnContainer(
         value = {},
@@ -79,8 +86,9 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
 
     /**
      * Replication-capable account created by {@link #INIT_SCRIPT}. The image-provided {@code
-     * gaussdb} account stores a sha256-only password that the PostgreSQL JDBC driver cannot
-     * authenticate with, so all test, source and sink connections use this md5-compatible user.
+     * gaussdb} account stores a sha256-only password, which PostgreSQL-protocol drivers cannot
+     * generally authenticate with, so all test, source and sink connections use this md5-compatible
+     * user and the E2E does not depend on driver-specific sha256 support.
      */
     private static final String USERNAME = "seatunnel_cdc";
 
@@ -140,7 +148,10 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
                             "/docker-entrypoint-initdb.d/opengauss-init-cdc-user.sh")
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
-    /** Copies JDBC drivers into both source and sink plugin directories. */
+    /**
+     * Copies the openGauss JDBC driver (resolved through its {@code org.postgresql.Driver} class)
+     * into both source and sink plugin directories.
+     */
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {

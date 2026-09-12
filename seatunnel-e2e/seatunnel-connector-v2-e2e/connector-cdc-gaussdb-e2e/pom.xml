@@ -29,6 +29,14 @@
     <artifactId>connector-cdc-gaussdb-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : CDC GaussDB mppdb Protocol Compatibility</name>
 
+    <properties>
+        <!-- Same driver version as connector-cdc-opengauss. The openGauss JDBC driver keeps the
+             org.postgresql package of PostgreSQL JDBC but speaks the openGauss replication
+             protocol, which the stock PostgreSQL driver cannot (the openGauss standby status
+             message layout differs). -->
+        <opengauss.jdbc.version>5.1.0</opengauss.jdbc.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -78,9 +86,9 @@
         </dependency>
 
         <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <version>42.5.1</version>
+            <groupId>org.opengauss</groupId>
+            <artifactId>opengauss-jdbc</artifactId>
+            <version>${opengauss.jdbc.version}</version>
         </dependency>
     </dependencies>
 </project>
