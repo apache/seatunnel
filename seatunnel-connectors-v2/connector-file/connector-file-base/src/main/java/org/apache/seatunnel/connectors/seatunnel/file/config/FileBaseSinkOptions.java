@@ -163,6 +163,13 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .defaultValue(false)
                     .withDescription("Whether custom the output filename");
 
+    public static final Option<Boolean> PRESERVE_SOURCE_FILENAME =
+            Options.key("preserve_source_filename")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to preserve the basename of each file read by an upstream file source");
+
     public static final Option<String> FILE_NAME_EXPRESSION =
             Options.key("file_name_expression")
                     .stringType()

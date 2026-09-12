@@ -70,7 +70,10 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
         }
         byte[] data = (byte[]) seaTunnelRow.getField(0);
         String relativePath = (String) seaTunnelRow.getField(1);
-        String filePath = getOrCreateFilePathBeingWritten(relativePath);
+        String filePath =
+                fileSinkConfig.isPreserveSourceFilename()
+                        ? super.getOrCreateFilePathBeingWritten(seaTunnelRow)
+                        : getOrCreateFilePathBeingWritten(relativePath);
         FSDataOutputStream fsDataOutputStream = getOrCreateOutputStream(filePath);
         if (partIndex - 1 != partIndexMap.get(filePath)) {
             throw new FileConnectorException(

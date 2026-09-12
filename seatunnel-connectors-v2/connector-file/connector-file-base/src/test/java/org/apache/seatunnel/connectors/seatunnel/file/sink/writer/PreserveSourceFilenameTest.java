@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.writer;
 
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
-import org.apache.hadoop.fs.Path;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -30,9 +26,16 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.SourceFileNameCollector;
+
+import org.apache.hadoop.fs.Path;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 class PreserveSourceFilenameTest {
 
@@ -72,6 +75,19 @@ class PreserveSourceFilenameTest {
     }
 
     @Test
+    void doesNotRotateANameWhenTheBatchSizeIsReached() {
+        TestWriteStrategy strategy = newStrategy(1);
+        SeaTunnelRow row = row("orders.csv", "file-1");
+
+        strategy.write(row);
+        String firstPath = strategy.getOrCreateFilePathBeingWritten(row);
+        strategy.write(row);
+        String secondPath = strategy.getOrCreateFilePathBeingWritten(row);
+
+        Assertions.assertEquals(firstPath, secondPath);
+    }
+
+    @Test
     void rejectsConflictingFilenameOptions() {
         Map<String, Object> values = new HashMap<>();
         values.put("path", "/output");
@@ -95,10 +111,15 @@ class PreserveSourceFilenameTest {
     }
 
     private static TestWriteStrategy newStrategy() {
+        return newStrategy(1000);
+    }
+
+    private static TestWriteStrategy newStrategy(int batchSize) {
         FileSinkConfig config = Mockito.mock(FileSinkConfig.class);
         Mockito.when(config.getSinkColumnsIndexInRow()).thenReturn(Collections.emptyList());
+        Mockito.when(config.getSinkColumnList()).thenReturn(Collections.emptyList());
         Mockito.when(config.getPartitionFieldsIndexInRow()).thenReturn(Collections.emptyList());
-        Mockito.when(config.getBatchSize()).thenReturn(1000);
+        Mockito.when(config.getBatchSize()).thenReturn(batchSize);
         Mockito.when(config.getCompressFormat()).thenReturn(CompressFormat.NONE);
         Mockito.when(config.isSingleFileMode()).thenReturn(false);
         Mockito.when(config.isPreserveSourceFilename()).thenReturn(true);

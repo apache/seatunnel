@@ -45,6 +45,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemPro
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.SourceFileNameCollector;
 
 import org.apache.commons.collections4.CollectionUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -96,6 +97,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected String transactionDirectory;
     protected LinkedHashMap<String, String> needMoveFiles;
     protected LinkedHashMap<String, String> beingWrittenFile = new LinkedHashMap<>();
+    private final Map<String, String> preservedSourceFileIds = new HashMap<>();
     private LinkedHashMap<String, List<String>> partitionDirAndValuesMap;
     protected SeaTunnelRowType seaTunnelRowType;
     protected TableSchema tableSchema;
@@ -138,11 +140,13 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     @Override
     public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
-        if (currentBatchSize >= batchSize && !singleFileMode) {
-            newFilePart();
-            currentBatchSize = 0;
+        if (!fileSinkConfig.isPreserveSourceFilename()) {
+            if (currentBatchSize >= batchSize && !singleFileMode) {
+                newFilePart();
+                currentBatchSize = 0;
+            }
+            currentBatchSize++;
         }
-        currentBatchSize++;
     }
 
     public synchronized void newFilePart() {
@@ -627,6 +631,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         this.transactionDirectory = getTransactionDir(this.transactionId);
         this.needMoveFiles = new LinkedHashMap<>();
         this.partitionDirAndValuesMap = new LinkedHashMap<>();
+        this.preservedSourceFileIds.clear();
     }
 
     private String getTransactionId(Long checkpointId) {
@@ -690,7 +695,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     }
 
     public String createFilePathWithoutPartition() {
-        return getPathWithPartitionInfo(null, true);
+        return getPathWithPartitionInfo(null, true, null);
     }
 
     public String getOrCreateFilePathBeingWritten(@NonNull SeaTunnelRow seaTunnelRow) {
@@ -699,30 +704,79 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         boolean noPartition =
                 FileBaseSinkOptions.NON_PARTITION.equals(
                         dataPartitionDirAndValuesMap.keySet().toArray()[0].toString());
-        return getPathWithPartitionInfo(dataPartitionDirAndValuesMap, noPartition);
+        return getPathWithPartitionInfo(dataPartitionDirAndValuesMap, noPartition, seaTunnelRow);
     }
 
     private String getPathWithPartitionInfo(
-            LinkedHashMap<String, List<String>> dataPartitionDirAndValuesMap, boolean noPartition) {
-        String beingWrittenFileKey =
+            LinkedHashMap<String, List<String>> dataPartitionDirAndValuesMap,
+            boolean noPartition,
+            SeaTunnelRow seaTunnelRow) {
+        String partitionKey =
                 noPartition
                         ? FileBaseSinkOptions.NON_PARTITION
                         : dataPartitionDirAndValuesMap.keySet().toArray()[0].toString();
+        String beingWrittenFileKey = partitionKey;
+        String fileName;
+        if (fileSinkConfig.isPreserveSourceFilename()) {
+            String sourceFileName =
+                    getRequiredSourceFileOption(
+                            seaTunnelRow, SourceFileNameCollector.SOURCE_FILE_NAME);
+            String sourceFileId =
+                    getRequiredSourceFileOption(
+                            seaTunnelRow, SourceFileNameCollector.SOURCE_FILE_ID);
+            validateSourceFileName(sourceFileName);
+            beingWrittenFileKey = String.join(File.separator, partitionKey, sourceFileName);
+            String existingSourceFileId =
+                    preservedSourceFileIds.putIfAbsent(beingWrittenFileKey, sourceFileId);
+            if (existingSourceFileId != null && !existingSourceFileId.equals(sourceFileId)) {
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "Cannot preserve source filename '"
+                                + sourceFileName
+                                + "' because another source file has the same basename in output directory '"
+                                + partitionKey
+                                + "'");
+            }
+            fileName = sourceFileName;
+        } else {
+            fileName = generateFileName(transactionId);
+        }
         // get filePath from beingWrittenFile
         String beingWrittenFilePath = beingWrittenFile.get(beingWrittenFileKey);
         if (beingWrittenFilePath != null) {
             return beingWrittenFilePath;
         } else {
-            String[] pathSegments =
-                    new String[] {
-                        transactionDirectory, beingWrittenFileKey, generateFileName(transactionId)
-                    };
+            String[] pathSegments = new String[] {transactionDirectory, partitionKey, fileName};
             String newBeingWrittenFilePath = String.join(File.separator, pathSegments);
             beingWrittenFile.put(beingWrittenFileKey, newBeingWrittenFilePath);
             if (!noPartition) {
                 partitionDirAndValuesMap.putAll(dataPartitionDirAndValuesMap);
             }
             return newBeingWrittenFilePath;
+        }
+    }
+
+    private String getRequiredSourceFileOption(SeaTunnelRow seaTunnelRow, String option) {
+        Object value = seaTunnelRow.getOptions().get(option);
+        if (!(value instanceof String) || StringUtils.isBlank((String) value)) {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "preserve_source_filename requires source file metadata '"
+                            + option
+                            + "' from an upstream SeaTunnel file source");
+        }
+        return (String) value;
+    }
+
+    private void validateSourceFileName(String sourceFileName) {
+        if (".".equals(sourceFileName)
+                || "..".equals(sourceFileName)
+                || sourceFileName.indexOf('/') >= 0
+                || sourceFileName.indexOf('\\') >= 0
+                || sourceFileName.indexOf('\0') >= 0) {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    "Invalid source filename for preserve_source_filename: " + sourceFileName);
         }
     }
 

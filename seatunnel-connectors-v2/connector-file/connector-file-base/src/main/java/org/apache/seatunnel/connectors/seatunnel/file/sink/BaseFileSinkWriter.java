@@ -103,6 +103,11 @@ public class BaseFileSinkWriter
     }
 
     private void preCheckConfig(SinkWriter.Context context) {
+        if (writeStrategy.getFileSinkConfig().isPreserveSourceFilename()
+                && context.getNumberOfParallelSubtasks() > 1) {
+            throw new IllegalArgumentException(
+                    "preserve_source_filename requires sink parallelism to be 1.");
+        }
         if (writeStrategy.getFileSinkConfig().getFileFormat() == FileFormat.BINARY
                 && writeStrategy.getFileSinkConfig().isCustomFilename()
                 && context.getNumberOfParallelSubtasks() > 1
