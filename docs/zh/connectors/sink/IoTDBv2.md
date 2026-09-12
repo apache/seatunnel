@@ -4,23 +4,27 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDBv2 数据接收器
 
-## 支持引擎
+## 描述
+
+用于将数据写入 IoTDB 2.x。作业配置中的连接器名称为 `IoTDBv2`。
+
+连接器同时支持 IoTDB 树模型（`sql_dialect = "tree"`，默认）和表模型（`sql_dialect = "table"`）。每一条上游记录会被写入一条 IoTDB 记录，树模型下是某个设备的时序记录，表模型下是某个表的一行。树模型在 `(device, timestamp)` 上幂等，表模型在表的主键上幂等，这也是它能够提供精确一次保证的基础。
+
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
-
-## 描述
-
-用于将数据写入 IoTDB 2.x。作业配置中的连接器名称为 `IoTDBv2`。
 
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
     > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
-  
+
 ## 支持的数据源信息
 
 | 数据源   | 支持的版本            | 地址             |
@@ -57,9 +61,9 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | key_tag_fields              | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 标签列（TAG）的字段名                                                                                                                                                                     |
 | key_attribute_fields        | Array   | 否    | -      | IoTDB 树模型：不生效；<br/> IoTDB 表模型：在 SeaTunnelRow 中指定 IoTDB 属性列（ATTRIBUTE）的字段名                                                                                                                                                               |
 | batch_size                  | Integer | 否    | 1024   | 缓存的记录数达到 `batch_size` 时，连接器会把数据刷新到 IoTDB；在 checkpoint 提交前和写入器关闭时也会刷新。                                                                                                                                                                  |
-| max_retries                 | Integer | 否    | 0      | 刷新失败时的最大重试次数。                                                                                                                                                                                                                           |
-| retry_backoff_multiplier_ms | Integer | 否    | 0      | 计算重试等待时间的退避倍数，单位为毫秒。                                                                                                                                                                                                                   |
-| max_retry_backoff_ms        | Integer | 否    | 0      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
+| max_retries                 | Integer | 否    | -      | 刷新失败时的最大重试次数。如果不填写，刷新失败时不会自动重试。                                                                                                                                                                                                  |
+| retry_backoff_multiplier_ms | Integer | 否    | -      | 计算重试等待时间的退避倍数，单位为毫秒。和 `max_retry_backoff_ms` 都不填写时不使用指数退避。                                                                                                                                                                              |
+| max_retry_backoff_ms        | Integer | 否    | -      | 最大重试等待时间，单位为毫秒。                                                                                                                                                                                                                         |
 | default_thrift_buffer_size  | Integer | 否    | -      | IoTDB 客户端使用的默认 Thrift 缓冲区大小。                                                                                                                                                                                                             |
 | max_thrift_frame_size       | Integer | 否    | -      | IoTDB 客户端使用的最大 Thrift 帧大小。                                                                                                                                                                                                               |
 | zone_id                     | String  | 否    | -      | IoTDB 客户端使用的 `java.time.ZoneId`。                                                                                                                                                                                                        |
@@ -71,6 +75,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 表模型下，`storage_group` 表示数据库，`key_device` 表示目标表名字段，`key_tag_fields` 表示 TAG 列，`key_attribute_fields` 表示 ATTRIBUTE 列，`key_measurement_fields` 表示 FIELD 列。未配置 `key_measurement_fields` 时，除表名、时间、TAG 和 ATTRIBUTE 字段之外的所有字段都会写成 FIELD 列。
 
+连接器会缓存数据行，当缓存大小达到 `batch_size` 时刷新到 IoTDB。checkpoint 提交前和写入器关闭时也会触发刷新。连接器不提供独立的定时刷新配置，请通过 `batch_size` 在吞吐和时延之间取舍。
 
 ## 示例
 
@@ -126,6 +131,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "root.test_group"
     key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
@@ -140,7 +146,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
 |2023-09-01T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
 |2023-09-01T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
-|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
+|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc3|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
 +------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
@@ -156,6 +162,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "root.test_group"
     key_device = "device_name" # specify the `deviceId` use device_name field
     key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
@@ -171,7 +178,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
 |2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
 |2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc3|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
 +------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
@@ -187,6 +194,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "root.test_group"
     key_device = "device_name"
     key_timestamp = "event_ts"
     key_measurement_fields = ["temperature", "moisture"]

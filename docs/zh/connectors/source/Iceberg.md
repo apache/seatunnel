@@ -217,7 +217,7 @@ source {
 
 ### Kerberos 认证
 
-以下示例演示了在使用 Hadoop Catalog 和 HDFS 时如何配置 Iceberg Source 的 Kerberos 认证：
+以下示例展示在使用 Hadoop Catalog 并访问 HDFS 时如何配置 Iceberg Source 的 Kerberos 认证。该环境下需要同时配置这三个 Kerberos 选项。
 
 ```hocon
 source {
@@ -236,12 +236,6 @@ source {
   }
 }
 ```
-
-说明：
-
-- `krb5_path`：用于 Kerberos 认证的 `krb5.conf` 文件路径。
-- `kerberos_principal`：Kerberos 认证的 principal，格式为 `primary/instance@REALM`。
-- `kerberos_keytab_path`：Kerberos 认证的 keytab 文件路径。
 
 ### 列投影
 
