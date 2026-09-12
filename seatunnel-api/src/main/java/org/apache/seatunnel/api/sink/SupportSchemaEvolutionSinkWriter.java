@@ -20,6 +20,7 @@ package org.apache.seatunnel.api.sink;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import java.io.IOException;
+import java.lang.reflect.Method;
 import java.util.Optional;
 
 public interface SupportSchemaEvolutionSinkWriter {
@@ -45,5 +46,57 @@ public interface SupportSchemaEvolutionSinkWriter {
      */
     default Optional<String> getPhysicalSinkTableIdentifier() {
         return Optional.empty();
+    }
+
+    /**
+     * Applies a schema change only when the sink writer explicitly declares schema evolution
+     * support.
+     *
+     * <p>The deprecated {@link SinkWriter#applySchemaChange(SchemaChangeEvent)} path is kept only
+     * for legacy writers that really override it. Writers that inherit the default no-op method
+     * must fail fast, otherwise a CDC schema change could be silently dropped while new-schema
+     * records continue downstream.
+     *
+     * @param writer sink writer that receives the schema change event
+     * @param event schema change event from upstream
+     * @throws IOException if the sink writer fails while applying the schema change
+     */
+    @SuppressWarnings("deprecation")
+    static void applySchemaChangeToWriter(SinkWriter<?, ?, ?> writer, SchemaChangeEvent event)
+            throws IOException {
+        if (writer instanceof SupportSchemaEvolutionSinkWriter) {
+            ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
+            return;
+        }
+        if (overridesDeprecatedApplySchemaChange(writer)) {
+            writer.applySchemaChange(event);
+            return;
+        }
+        throw new UnsupportedOperationException(
+                String.format(
+                        "Sink writer %s received schema change event for table %s, but it does "
+                                + "not implement SupportSchemaEvolutionSinkWriter or override "
+                                + "SinkWriter.applySchemaChange(SchemaChangeEvent). "
+                                + "Schema evolution requires a schema-evolution-capable sink.",
+                        writer.getClass().getName(), event.tablePath()));
+    }
+
+    /**
+     * Checks whether a legacy sink writer provides its own deprecated schema change implementation.
+     *
+     * @param writer sink writer to inspect
+     * @return true when the writer overrides {@link
+     *     SinkWriter#applySchemaChange(SchemaChangeEvent)}
+     */
+    static boolean overridesDeprecatedApplySchemaChange(SinkWriter<?, ?, ?> writer) {
+        try {
+            Method method =
+                    writer.getClass().getMethod("applySchemaChange", SchemaChangeEvent.class);
+            return method.getDeclaringClass() != SinkWriter.class;
+        } catch (NoSuchMethodException e) {
+            throw new IllegalStateException(
+                    "SinkWriter.applySchemaChange(SchemaChangeEvent) is missing from the writer API",
+                    e);
+        }
     }
 }

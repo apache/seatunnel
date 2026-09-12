@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.error;
 import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -146,7 +147,7 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        delegate.applySchemaChange(event);
+        SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(delegate, event);
     }
 
     @Override
