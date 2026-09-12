@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
+import org.apache.seatunnel.engine.server.execution.CooperativeWorkerBudget;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.Task;
@@ -229,6 +230,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Service for reporting events. */
     private final EventService eventService;
 
+    /** Admission policy bounding the cooperative workers promoted to a single slow task. */
+    private final CooperativeWorkerBudget cooperativeWorkerBudget;
+
+    /** Number of cooperative workers that still serve the shared task queue. */
+    private final AtomicInteger sharedCooperativeWorkers = new AtomicInteger();
+
     /**
      * Creates a new TaskExecutionService.
      *
@@ -266,6 +273,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         this.eventService = eventService;
 
+        this.cooperativeWorkerBudget =
+                new CooperativeWorkerBudget(
+                        seaTunnelConfig.getEngineConfig().getMaxPromotedCooperativeWorkers(),
+                        seaTunnelConfig.getEngineConfig().getMaxPromotedCooperativeWorkersPerJob());
+
         int timerPoolSize = seaTunnelConfig.getEngineConfig().getTimerFlushPoolSize();
         timerFlushWorker =
                 new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
@@ -280,6 +292,26 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     public NodeEngineImpl getNodeEngine() {
         return nodeEngine;
+    }
+
+    /**
+     * Gets the budget that bounds how many cooperative workers this node may hold exclusively for
+     * slow task calls.
+     *
+     * @return the cooperative worker budget of this node
+     */
+    public CooperativeWorkerBudget getCooperativeWorkerBudget() {
+        return cooperativeWorkerBudget;
+    }
+
+    /**
+     * Gets the number of cooperative workers that still serve the shared task queue, that is, the
+     * workers that have not been promoted to a single slow task.
+     *
+     * @return the number of workers serving the shared task queue
+     */
+    public int getSharedCooperativeWorkers() {
+        return sharedCooperativeWorkers.get();
     }
 
     /** Starts the task execution service by creating initial cooperative task worker threads. */
@@ -988,7 +1020,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             "completedTaskCount",
                             completedTaskCount,
                             "taskCount",
-                            taskCount));
+                            taskCount,
+                            "sharedCooperativeWorkers",
+                            sharedCooperativeWorkers.get(),
+                            "promotedCooperativeWorkers",
+                            cooperativeWorkerBudget.getPromotedWorkers(),
+                            "totalCooperativePromotions",
+                            cooperativeWorkerBudget.getTotalPromotions(),
+                            "deniedCooperativePromotions",
+                            cooperativeWorkerBudget.getDeniedPromotions()));
         }
     }
 
@@ -1211,6 +1251,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
+        /** Job this worker was promoted for, or null while it still serves the shared queue. */
+        private volatile Long promotedJobId;
+
         public CooperativeTaskWorker(
                 LinkedBlockingDeque<TaskTracker> taskQueue,
                 RunBusWorkSupplier runBusWorkSupplier,
@@ -1239,6 +1282,43 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         @SneakyThrows
         @Override
         public void run() {
+            try {
+                runBusWork();
+            } finally {
+                releaseWorkerBudget();
+            }
+        }
+
+        /**
+         * Marks this worker as exclusive to one slow task. Called from the task call timer once the
+         * promotion has been admitted by the cooperative worker budget.
+         *
+         * @param taskTracker the slow task this worker keeps running
+         * @param jobId the job the budget was acquired for
+         */
+        void promote(TaskTracker taskTracker, long jobId) {
+            keep.set(true);
+            promotedJobId = jobId;
+            sharedCooperativeWorkers.decrementAndGet();
+            exclusiveTaskTracker.set(taskTracker);
+        }
+
+        /**
+         * Returns what this worker holds when its thread ends: either the promotion budget, or its
+         * place among the workers serving the shared queue.
+         */
+        private void releaseWorkerBudget() {
+            Long jobId = promotedJobId;
+            if (jobId != null) {
+                promotedJobId = null;
+                cooperativeWorkerBudget.release(jobId);
+            } else {
+                sharedCooperativeWorkers.decrementAndGet();
+            }
+        }
+
+        @SneakyThrows
+        private void runBusWork() {
             thisTaskFuture = futureBlockingQueue.take();
             futureBlockingQueue = null;
             myThread = currentThread();
@@ -1349,11 +1429,59 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
                 CooperativeTaskWorker cooperativeTaskWorker =
                         new CooperativeTaskWorker(taskQueue, this, futureBlockingQueue);
-                Future<?> submit = executorService.submit(cooperativeTaskWorker);
+                sharedCooperativeWorkers.incrementAndGet();
+                Future<?> submit;
+                try {
+                    submit = executorService.submit(cooperativeTaskWorker);
+                } catch (RuntimeException e) {
+                    // The worker never runs, so it can never return its place itself.
+                    sharedCooperativeWorkers.decrementAndGet();
+                    throw e;
+                }
                 futureBlockingQueue.add(submit);
                 return true;
             }
             return false;
+        }
+
+        /**
+         * Decides whether a worker running a slow task call may be promoted to an exclusive worker.
+         *
+         * <p>A promotion costs one worker thread: the current worker stays with the slow task and a
+         * replacement is started for the shared queue. The promotion is therefore admitted by
+         * {@link CooperativeWorkerBudget} first. When the budget is exhausted the worker keeps the
+         * slow task on the shared queue side and the caller retries later, except that a
+         * replacement is still started when this is the last worker serving the queue, so an
+         * exhausted budget can never stop queued tasks from reaching readiness.
+         *
+         * @param worker the worker that is executing the slow task call
+         * @param taskTracker the slow task
+         * @return true when the worker was promoted, false when the budget denied it
+         */
+        public boolean tryPromoteCooperativeWorker(
+                CooperativeTaskWorker worker, TaskTracker taskTracker) {
+            long jobId =
+                    taskTracker
+                            .taskGroupExecutionTracker
+                            .taskGroup
+                            .getTaskGroupLocation()
+                            .getJobId();
+            if (!cooperativeWorkerBudget.tryAcquire(jobId)) {
+                logger.fine(
+                        String.format(
+                                "Promotion of a cooperative worker for job %d was denied with reason BUDGET_EXHAUSTED, "
+                                        + "promoted workers: %d, denied promotions: %d",
+                                jobId,
+                                cooperativeWorkerBudget.getPromotedWorkers(),
+                                cooperativeWorkerBudget.getDeniedPromotions()));
+                if (sharedCooperativeWorkers.get() <= 1) {
+                    runNewBusWork(false);
+                }
+                return false;
+            }
+            worker.promote(taskTracker, jobId);
+            runNewBusWork(false);
+            return true;
         }
     }
 

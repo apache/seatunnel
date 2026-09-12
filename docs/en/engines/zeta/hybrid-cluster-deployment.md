@@ -217,6 +217,30 @@ but setting it too high can introduce additional overhead in distribution and me
 The partition count should be configured before starting a job.
 Changing the partition count after a job has started may result in metric key mismatches, so it is recommended to restart Seatunnel after modifying this option.
 
+### 4.9 Promoted Cooperative Worker Budget (This parameter is invalid on the Master node)
+
+When thread sharing is enabled (`task_execution_thread_share_mode` is `ALL` or `PART`), many tasks share one cooperative worker thread. If one task call runs longer than the call timer allows, that worker is promoted: it stays with the slow task and a new worker is started for the remaining tasks. Every promotion therefore adds one thread, so a node running many slow cooperative tasks grows threads with the number of slow calls instead of with the number of slots.
+
+**max-promoted-cooperative-workers**
+
+The maximum number of cooperative workers this worker node may hold exclusively for slow task calls. `0`, the default, means unlimited and keeps the previous behavior.
+
+**max-promoted-cooperative-workers-per-job**
+
+The maximum number of promoted cooperative workers a single job may hold on this node, so that one job cannot consume the whole budget. `0`, the default, means unlimited.
+
+When the budget is exhausted, the promotion is not dropped: the slow task keeps running and the promotion is retried with a bounded backoff. A replacement worker is still started when the denied worker is the last one serving the shared queue, so an exhausted budget never stops queued tasks from starting.
+
+Example:
+
+```yaml
+seatunnel:
+  engine:
+    task_execution_thread_share_mode: ALL
+    max-promoted-cooperative-workers: 16
+    max-promoted-cooperative-workers-per-job: 4
+```
+
 ## 5. Configure The SeaTunnel Engine Network Service
 
 All SeaTunnel Engine network-related configurations are in the `hazelcast.yaml` file.
