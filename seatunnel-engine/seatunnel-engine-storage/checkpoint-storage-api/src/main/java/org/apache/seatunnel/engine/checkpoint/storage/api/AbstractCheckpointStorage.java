@@ -151,13 +151,19 @@ public abstract class AbstractCheckpointStorage implements CheckpointStorage {
             List<String> fileNames, String pipelineId) {
         AtomicReference<String> latestFileName = new AtomicReference<>();
         AtomicLong latestVersion = new AtomicLong();
+        AtomicLong latestCheckpointId = new AtomicLong(-1L);
         fileNames.forEach(
                 fileName -> {
                     String[] fileNameSegments = getFileNameSegments(fileName);
                     long fileVersion = Long.parseLong(fileNameSegments[FILE_SORT_ID_INDEX]);
                     String filePipelineId = fileNameSegments[FILE_NAME_PIPELINE_ID_INDEX];
-                    if (pipelineId.equals(filePipelineId) && fileVersion > latestVersion.get()) {
+                    long fileCheckpointId = Long.parseLong(getCheckpointIdByFileName(fileName));
+                    if (pipelineId.equals(filePipelineId)
+                            && (fileVersion > latestVersion.get()
+                                    || (fileVersion == latestVersion.get()
+                                            && fileCheckpointId > latestCheckpointId.get()))) {
                         latestVersion.set(fileVersion);
+                        latestCheckpointId.set(fileCheckpointId);
                         latestFileName.set(fileName);
                     }
                 });

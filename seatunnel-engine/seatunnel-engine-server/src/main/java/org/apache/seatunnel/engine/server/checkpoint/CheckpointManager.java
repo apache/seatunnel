@@ -20,6 +20,10 @@ package org.apache.seatunnel.engine.server.checkpoint;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointData;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointWriter;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -45,6 +49,7 @@ import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.savepoint.serialization.SavepointReaderRegistry;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -58,8 +63,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -85,6 +92,9 @@ public class CheckpointManager {
 
     private final CheckpointStorage checkpointStorage;
 
+    /** Savepoint bundle capability; null when the storage plugin does not support it. */
+    private final SavepointStorage savepointStorage;
+
     private final CheckpointConfig checkpointConfig;
 
     private final JobMaster jobMaster;
@@ -103,6 +113,7 @@ public class CheckpointManager {
             Map<Integer, CheckpointPlan> checkpointPlanMap,
             CheckpointConfig checkpointConfig,
             CheckpointStorage checkpointStorage,
+            SavepointStorage savepointStorage,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
             SeaTunnelEngineContext engineContext,
@@ -111,6 +122,7 @@ public class CheckpointManager {
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
         this.checkpointStorage = checkpointStorage;
+        this.savepointStorage = savepointStorage;
         this.checkpointConfig = checkpointConfig;
         this.checkpointMonitorService = checkpointMonitorService;
         CounterStateStore<String> checkpointCounterStore =
@@ -168,8 +180,22 @@ public class CheckpointManager {
                                         CheckpointCoordinator::getPipelineId, Function.identity()));
     }
 
+    public SavepointStorage getSavepointStorage() {
+        return savepointStorage;
+    }
+
     private PipelineState getLatestCheckpointStateByType(
             String sourceJobId, String pipelineId, RestoreMode restoreMode) throws Exception {
+        if (restoreMode == RestoreMode.SAVEPOINT && savepointStorage != null) {
+            PipelineState bundleState = getPipelineStateFromLatestBundle(sourceJobId, pipelineId);
+            if (bundleState != null) {
+                return bundleState;
+            }
+            // No bundle: fall through to the legacy CP-directory scan (best-effort).
+            log.warn(
+                    "No savepoint bundle found for job {}, fall back to legacy checkpoint-directory restore",
+                    sourceJobId);
+        }
         if (restoreMode == null || !restoreMode.isRestore()) {
             return checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(
                     sourceJobId, pipelineId);
@@ -184,6 +210,36 @@ public class CheckpointManager {
                                         restoreMode))
                 .max(Comparator.comparingLong(PipelineState::getCheckpointId))
                 .orElse(null);
+    }
+
+    /**
+     * Reads the newest completed savepoint bundle of the restore source job and returns the
+     * requested pipeline payload normalized to the legacy runtime byte layout.
+     */
+    private PipelineState getPipelineStateFromLatestBundle(String sourceJobId, String pipelineId)
+            throws Exception {
+        List<SavepointHandle> handles = savepointStorage.listCompletedSavepoints(sourceJobId);
+        if (handles.isEmpty()) {
+            return null;
+        }
+        SavepointHandle newest = handles.get(0);
+        SavepointData data = savepointStorage.readSavepoint(sourceJobId, newest.getSavepointId());
+        Map<Integer, byte[]> payloads = new HashMap<>();
+        data.getPipelineStates().forEach((pid, state) -> payloads.put(pid, state.getStates()));
+        Map<Integer, CompletedCheckpoint> restored =
+                SavepointReaderRegistry.forVersion(data.getMeta()).read(data.getMeta(), payloads);
+        PipelineState pipelineState = data.getPipelineStates().get(Integer.valueOf(pipelineId));
+        CompletedCheckpoint checkpoint = restored.get(Integer.valueOf(pipelineId));
+        if (pipelineState == null || checkpoint == null) {
+            throw new RuntimeException(
+                    String.format(
+                            "Savepoint bundle %s of job %s has no payload for pipeline %s",
+                            newest.getSavepointId(), sourceJobId, pipelineId));
+        }
+        // engine-wire payload -> runtime CompletedCheckpoint -> legacy byte layout expected by
+        // CheckpointCoordinator.
+        pipelineState.setStates(serializer.serialize(checkpoint));
+        return pipelineState;
     }
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
@@ -203,6 +259,18 @@ public class CheckpointManager {
         return MDCTracer.tracing(coordinatorMap.values().parallelStream())
                 .map(CheckpointCoordinator::startSavepoint)
                 .toArray(PassiveCompletableFuture[]::new);
+    }
+
+    /**
+     * Trigger savepoints and return futures that complete after every checkpoint coordinator
+     * reaches a stable terminal state. All coordinators write into the same savepoint attempt via
+     * the given writer (engine-wire v1 payloads); a null writer keeps the legacy behavior.
+     */
+    @SuppressWarnings("unchecked")
+    public PassiveCompletableFuture<CheckpointCoordinatorState>[] triggerSavePointsAndWaitComplete(
+            SavepointWriter writer) {
+        coordinatorMap.values().forEach(coordinator -> coordinator.setSavepointWriter(writer));
+        return triggerSavePointsAndWaitComplete();
     }
 
     /**
@@ -377,6 +445,11 @@ public class CheckpointManager {
                 .map(CheckpointCoordinator::isEndOfSavePoint)
                 .reduce((v1, v2) -> v1 && v2)
                 .orElse(false);
+    }
+
+    /** Pipeline ids of the job; a savepoint bundle must cover exactly these pipelines. */
+    public Set<Integer> getPipelineIds() {
+        return coordinatorMap.keySet();
     }
 
     public boolean isPipelineSavePointEnd(PipelineLocation pipelineLocation) {

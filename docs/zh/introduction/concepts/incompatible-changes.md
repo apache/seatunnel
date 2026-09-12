@@ -4,6 +4,21 @@
 
 ## dev
 
+### Zeta Savepoint 存储
+
+- **新格式：Savepoint 变为带版本的 bundle**
+  - **影响范围**：`seatunnel-engine`（Zeta checkpoint 存储）
+  - **变更说明**：新写入的 Savepoint 存储在 `<namespace>/savepoint/<job-id>/<savepoint-id>/`，
+    以 `_metadata.ser`（`formatVersion=1`，Manifest 记录每个文件的长度与 SHA-256 校验和）作为提交标记。
+    它们不再写入 checkpoint 目录，且不参与 checkpoint 的保留/轮换与作业终态清理——Savepoint 将
+    一直保留到显式删除。
+  - **兼容性**：旧引擎写入的 Savepoint（仍位于 checkpoint 目录、无版本标记）保持"尽力而为"可读，
+    且仅在该 job 没有新 bundle 时才被使用。**不承诺前向兼容**：由更新引擎写入的 Savepoint 会被
+    明确拒绝并报错。connector 内部状态字节（offset、事务 ID）原样透传；connector 状态的跨版本兼容
+    仍由 connector 自行保证。
+  - **影响**：从 Savepoint 恢复的作业行为不变。升级后建议对作业重新执行一次 `stop-with-savepoint`
+    以生成新布局；旧 bundle 可手动迁移（迁移工具在规划中）。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**

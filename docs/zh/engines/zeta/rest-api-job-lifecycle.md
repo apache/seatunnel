@@ -319,6 +319,10 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
 
 ### 6.3 从指定 Savepoint 路径恢复
 
+> **说明**：`restore.mode` / `savepoint.path` 环境变量选项为**规划中（暂未实现）**。当前引擎会
+> 自动选择恢复源 job 最新提交的 Savepoint bundle（参见 [提交作业](rest-api-v2.md#提交作业)）；
+> 如需从指定 bundle 恢复，需删除或重命名 `<namespace>/savepoint/<job-id>/` 中不需要的 bundle。
+
 ```bash
 curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \
