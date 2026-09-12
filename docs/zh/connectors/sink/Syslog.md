@@ -1,3 +1,7 @@
+import ChangeLog from '../changelog/connector-syslog.md';
+
+# Syslog
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -14,10 +18,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-import ChangeLog from '../changelog/connector-syslog.md';
-
-# Syslog
 
 > 使用 TLS 发送 RFC 5424 消息，采用 RFC 5425 字节计数分帧。
 
