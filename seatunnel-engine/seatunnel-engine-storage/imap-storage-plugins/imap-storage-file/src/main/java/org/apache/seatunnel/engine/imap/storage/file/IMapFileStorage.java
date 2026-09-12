@@ -232,8 +232,8 @@ public class IMapFileStorage implements IMapStorage {
                 key -> {
                     try {
                         IMapFileData data = buildDeleteIMapFileData(key);
+                        // sendToDisruptorQueue already publishes APPEND; do not double-publish.
                         long requestId = sendToDisruptorQueue(data, WALEventType.APPEND);
-                        walDisruptor.tryAppendPublish(data, requestId);
                         requestMap.put(requestId, data);
                     } catch (IOException e) {
                         log.error("parse to IMapFileData error", e);
