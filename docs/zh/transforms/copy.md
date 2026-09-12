@@ -62,4 +62,4 @@ transform {
 
 - 添加复制转换连接器
 - 支持将字段复制到新字段
-
+- 支持 timestamp_tz、vector 类型和 multiple_row
