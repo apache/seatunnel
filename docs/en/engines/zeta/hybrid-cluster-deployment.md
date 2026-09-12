@@ -54,20 +54,10 @@ seatunnel:
 
 ### 4.2 Slot Configuration
 
-The number of slots determines the number of task groups that the cluster node can run in parallel. The formula for the number of slots required for a task is N = 2 + P (the parallelism configured by the task). By default, the number of slots in the SeaTunnel Engine is dynamic, that is, there is no limit on the number.
+The number of slots determines the number of task groups that the cluster node can run in parallel. The formula for the number of slots required for a task is N = 2 + P (the parallelism configured by the task). By default, the number of slots in the SeaTunnel Engine is static, that is, the number of slots is fixed (defaulting to twice the number of CPU cores when `slot-num` is not set).
 We recommend that the number of slots be set to twice the number of CPU cores on the node, it's a default value when `dynamic-slot` is set to false and not set `slot-num`.
 
-Configuration of dynamic slot number (default):
-
-```yaml
-seatunnel:
-    engine:
-        slot-service:
-            dynamic-slot: true
-        # Other configurations
-```
-
-Configuration of static slot number:
+Configuration of static slot number (default):
 
 ```yaml
 seatunnel:
@@ -75,6 +65,16 @@ seatunnel:
         slot-service:
             dynamic-slot: false
             slot-num: 20
+        # Other configurations
+```
+
+Configuration of dynamic slot number:
+
+```yaml
+seatunnel:
+    engine:
+        slot-service:
+            dynamic-slot: true
 ```
 
 ### 4.3 Checkpoint Manager
@@ -101,7 +101,7 @@ seatunnel:
         backup-count: 1
         print-execution-info-interval: 10
         slot-service:
-            dynamic-slot: true
+            dynamic-slot: false
         checkpoint:
             interval: 300000
             timeout: 10000
