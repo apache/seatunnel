@@ -90,6 +90,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
@@ -110,6 +111,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
@@ -225,6 +227,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
+
+    private final AtomicBoolean cdcProgressReportInFlight = new AtomicBoolean();
 
     /** Client for managing connector packages on the server. */
     private final ScheduledThreadPoolExecutor timerFlushWorker;
@@ -924,30 +928,55 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     private void reportReaderCdcProgress() {
+        reportCdcProgressAsync(
+                cdcProgressReportInFlight,
+                () -> {
+                    List<CdcProgressEnvelope<?>> readerReports = new ArrayList<>();
+                    long observedAt = System.currentTimeMillis();
+
+                    executionContexts
+                            .values()
+                            .forEach(
+                                    context ->
+                                            collectCdcProgress(
+                                                    context,
+                                                    CdcProgressOwner.READER,
+                                                    observedAt,
+                                                    readerReports));
+
+                    if (readerReports.isEmpty()) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+
+                    return reportCdcProgressToMaster(readerReports);
+                },
+                error -> logger.warning("CDC reader progress reporting failed", error));
+    }
+
+    /**
+     * Never wait for CDC transport on the metrics-backup thread. While a report is outstanding,
+     * skip ticks rather than queue snapshots; the next tick collects fresh state after completion.
+     * The completion callback must remain cheap because it can run on a Hazelcast thread.
+     */
+    static void reportCdcProgressAsync(
+            AtomicBoolean inFlight,
+            Supplier<? extends CompletionStage<?>> report,
+            Consumer<Throwable> onFailure) {
+        if (!inFlight.compareAndSet(false, true)) {
+            return;
+        }
         try {
-            List<CdcProgressEnvelope<?>> readerReports = new ArrayList<>();
-            long observedAt = System.currentTimeMillis();
-
-            executionContexts
-                    .values()
-                    .forEach(
-                            context ->
-                                    collectCdcProgress(
-                                            context,
-                                            CdcProgressOwner.READER,
-                                            observedAt,
-                                            readerReports));
-
-            if (readerReports.isEmpty()) {
-                return;
-            }
-
-            reportCdcProgressToMaster(readerReports);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.warning("CDC reader progress reporting interrupted", e);
-        } catch (Exception e) {
-            logger.warning("CDC reader progress reporting failed", e);
+            report.get()
+                    .whenComplete(
+                            (ignored, error) -> {
+                                inFlight.set(false);
+                                if (error != null) {
+                                    onFailure.accept(error);
+                                }
+                            });
+        } catch (Exception error) {
+            inFlight.set(false);
+            onFailure.accept(error);
         }
     }
 
@@ -1007,16 +1036,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         report));
     }
 
-    private void reportCdcProgressToMaster(List<? extends CdcProgressEnvelope<?>> reports)
-            throws ExecutionException, InterruptedException {
-        nodeEngine
+    private CompletionStage<?> reportCdcProgressToMaster(
+            List<? extends CdcProgressEnvelope<?>> reports) {
+        return nodeEngine
                 .getOperationService()
                 .createInvocationBuilder(
                         SeaTunnelServer.SERVICE_NAME,
                         new ReportCdcProgressOperation(reports),
                         nodeEngine.getMasterAddress())
-                .invoke()
-                .get();
+                .invoke();
     }
 
     private void recordReportMetricsOperationSuccess(int payloadTaskCount, long elapsedMillis) {
