@@ -15,8 +15,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# Changelog
+<details><summary> Change Log </summary>
 
-## next version
+| Change | Commit | Version |
+| --- | --- | --- |
+| Add bounded BASIC AUCTION_AD synchronous reporting source with typed metrics and fail-closed pagination | | next version |
 
-- Add bounded BASIC AUCTION_AD synchronous reporting source with typed metrics and fail-closed pagination.
+</details>

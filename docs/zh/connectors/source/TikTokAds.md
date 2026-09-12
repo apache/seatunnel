@@ -1,3 +1,7 @@
+import ChangeLog from '../changelog/connector-tiktok-ads.md';
+
+# TikTokAds
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -14,8 +18,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# TikTokAds
 
 ## 描述
 
@@ -54,7 +56,7 @@ limitations under the License.
 | max_retries | int | 否 | 3 | 每页额外尝试次数，0-5；仅对 HTTP 429、500、502、503、504 重试。 |
 | max_retry_wait_ms | int | 否 | 30000 | 最大重试等待，1000-120000 毫秒；Retry-After 超出时失败，不提前重试。 |
 | mock_url | string | 否 | - | 仅测试使用的 HTTP origin，要求 token 为字面值 mock-token；禁止真实令牌。不是官方模拟器。 |
-| common-options | | 否 | - | 支持 parallelism=1 和 plugin_output / result_table_name。 |
+| common-options | | 否 | - | 支持 parallelism=1 和 plugin_output。 |
 
 ### 类型和报表语义
 
@@ -137,4 +139,4 @@ sink {
 
 ## 变更日志
 
-[连接器变更日志](../changelog/connector-tiktok-ads.md)
+<ChangeLog />

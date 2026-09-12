@@ -15,8 +15,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 -->
 
-# 变更日志
+<details><summary> Change Log </summary>
 
-## 下个版本
+| Change | Commit | Version |
+| --- | --- | --- |
+| 新增有界 BASIC AUCTION_AD 同步报表源，支持类型化指标和严格分页校验 | | next version |
 
-- 新增有界 BASIC AUCTION_AD 同步报表源，支持类型化指标和严格分页校验。
+</details>

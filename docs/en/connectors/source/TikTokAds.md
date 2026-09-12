@@ -1,3 +1,7 @@
+import ChangeLog from '../changelog/connector-tiktok-ads.md';
+
+# TikTokAds
+
 <!--
 Licensed to the Apache Software Foundation (ASF) under one or more
 contributor license agreements.  See the NOTICE file distributed with
@@ -14,8 +18,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# TikTokAds
 
 ## Description
 
@@ -57,7 +59,7 @@ or change those records. Choose downstream staging/reconciliation appropriate fo
 | max_retries | int | no | 3 | Additional attempts per page, 0-5, only for HTTP 429, 500, 502, 503, 504. |
 | max_retry_wait_ms | int | no | 30000 | Maximum retry delay, 1000-120000 ms. Retry-After beyond this bound fails instead of retrying early. |
 | mock_url | string | no | - | Test-only HTTP origin. Requires literal `token = "mock-token"`. Never use real credentials. Not an official emulator. |
-| common-options | | no | - | Supports `parallelism = 1` and `plugin_output` / `result_table_name`. |
+| common-options | | no | - | Supports `parallelism = 1` and `plugin_output`. |
 
 ### Schema and Report Semantics
 
@@ -154,4 +156,4 @@ sink {
 
 ## Changelog
 
-[Connector changelog](../changelog/connector-tiktok-ads.md)
+<ChangeLog />

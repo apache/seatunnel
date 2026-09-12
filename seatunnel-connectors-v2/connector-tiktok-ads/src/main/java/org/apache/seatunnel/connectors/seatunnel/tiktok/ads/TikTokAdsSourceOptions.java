@@ -22,8 +22,8 @@ import org.apache.seatunnel.api.configuration.Options;
 
 import java.util.List;
 
-public final class TikTokAdsOptions {
-    private TikTokAdsOptions() {}
+public final class TikTokAdsSourceOptions {
+    private TikTokAdsSourceOptions() {}
 
     public static final Option<String> TOKEN =
             Options.key("token")

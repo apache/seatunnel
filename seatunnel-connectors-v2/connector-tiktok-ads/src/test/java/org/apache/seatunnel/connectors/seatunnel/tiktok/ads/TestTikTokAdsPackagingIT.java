@@ -55,7 +55,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class TikTokAdsPackagingIT {
+class TestTikTokAdsPackagingIT {
     @Test
     void packagedFactoryAndRelocatedHttpExecuteRealLocalRequest() throws Exception {
         Path artifact;

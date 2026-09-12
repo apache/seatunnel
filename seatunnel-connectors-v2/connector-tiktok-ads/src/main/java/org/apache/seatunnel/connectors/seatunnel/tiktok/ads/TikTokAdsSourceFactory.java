@@ -42,24 +42,24 @@ public class TikTokAdsSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        TikTokAdsOptions.TOKEN,
-                        TikTokAdsOptions.ADVERTISER_ID,
-                        TikTokAdsOptions.DATA_LEVEL,
-                        TikTokAdsOptions.START_DATE,
-                        TikTokAdsOptions.END_DATE,
-                        TikTokAdsOptions.DIMENSIONS,
-                        TikTokAdsOptions.METRICS,
+                        TikTokAdsSourceOptions.TOKEN,
+                        TikTokAdsSourceOptions.ADVERTISER_ID,
+                        TikTokAdsSourceOptions.DATA_LEVEL,
+                        TikTokAdsSourceOptions.START_DATE,
+                        TikTokAdsSourceOptions.END_DATE,
+                        TikTokAdsSourceOptions.DIMENSIONS,
+                        TikTokAdsSourceOptions.METRICS,
                         ConnectorCommonOptions.SCHEMA)
                 .optional(
                         MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY,
-                        TikTokAdsOptions.MOCK_URL,
-                        TikTokAdsOptions.PAGE_SIZE,
-                        TikTokAdsOptions.MAX_ROWS,
-                        TikTokAdsOptions.MAX_BYTES,
-                        TikTokAdsOptions.TIMEOUT,
-                        TikTokAdsOptions.REPORT_TIMEOUT,
-                        TikTokAdsOptions.RETRIES,
-                        TikTokAdsOptions.RETRY_WAIT)
+                        TikTokAdsSourceOptions.MOCK_URL,
+                        TikTokAdsSourceOptions.PAGE_SIZE,
+                        TikTokAdsSourceOptions.MAX_ROWS,
+                        TikTokAdsSourceOptions.MAX_BYTES,
+                        TikTokAdsSourceOptions.TIMEOUT,
+                        TikTokAdsSourceOptions.REPORT_TIMEOUT,
+                        TikTokAdsSourceOptions.RETRIES,
+                        TikTokAdsSourceOptions.RETRY_WAIT)
                 .build();
     }
 

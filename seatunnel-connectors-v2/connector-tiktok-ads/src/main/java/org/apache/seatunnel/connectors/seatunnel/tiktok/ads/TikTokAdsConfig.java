@@ -41,21 +41,21 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.ADVERTISER_ID;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.DATA_LEVEL;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.DIMENSIONS;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.END_DATE;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.MAX_BYTES;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.MAX_ROWS;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.METRICS;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.MOCK_URL;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.PAGE_SIZE;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.REPORT_TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.RETRIES;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.RETRY_WAIT;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.START_DATE;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.TIMEOUT;
-import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsOptions.TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.ADVERTISER_ID;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.DATA_LEVEL;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.DIMENSIONS;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.END_DATE;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.MAX_BYTES;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.MAX_ROWS;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.METRICS;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.MOCK_URL;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.PAGE_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.REPORT_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.RETRIES;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.RETRY_WAIT;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.START_DATE;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.tiktok.ads.TikTokAdsSourceOptions.TOKEN;
 
 @Getter
 final class TikTokAdsConfig implements Serializable {
