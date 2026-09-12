@@ -92,8 +92,12 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStartupOffset(),
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
-                split.getTableStartOffsets(),
                 checkpointDataType);
+        // Carry the per-table lower bounds over without adding another 7-argument constructor:
+        // a (.., Map, SeaTunnelDataType) overload would be ambiguous with the existing
+        // (.., List, Map) overload for callers that pass null arguments, such as
+        // IncrementalSplitTest, and break compilation.
+        this.tableStartOffsets = new HashMap<>(split.getTableStartOffsets());
     }
 
     public IncrementalSplit(
@@ -119,34 +123,13 @@ public class IncrementalSplit extends SourceSplitBase {
             Offset stopOffset,
             List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
             SeaTunnelDataType checkpointDataType) {
-        this(
-                splitId,
-                capturedTables,
-                startupOffset,
-                stopOffset,
-                completedSnapshotSplitInfos,
-                Collections.emptyMap(),
-                checkpointDataType);
-    }
-
-    @Deprecated
-    public IncrementalSplit(
-            String splitId,
-            List<TableId> capturedTables,
-            Offset startupOffset,
-            Offset stopOffset,
-            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
-            Map<TableId, Offset> tableStartOffsets,
-            SeaTunnelDataType checkpointDataType) {
         super(splitId);
         this.tableIds = capturedTables;
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
-        this.tableStartOffsets =
-                tableStartOffsets == null
-                        ? Collections.emptyMap()
-                        : new HashMap<>(tableStartOffsets);
+        // Legacy checkpoint splits predate per-table lower bounds, so they start with none.
+        this.tableStartOffsets = Collections.emptyMap();
         this.checkpointDataType = checkpointDataType;
         this.historyTableChanges = new HashMap<>();
     }
