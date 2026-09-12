@@ -1129,17 +1129,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
-            ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
-            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             ProgressState result = null;
+            ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             try {
                 startedLatch.countDown();
+                // Resolve through the tracker-owned context: the location-keyed map may
+                // already point to a newer generation published after a restore.
+                ClassLoader classLoader =
+                        taskGroupExecutionTracker.getTaskClassLoader(t.getTaskID());
+                Thread.currentThread().setContextClassLoader(classLoader);
                 t.init();
                 do {
                     result = t.call();
@@ -1458,9 +1457,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
+                recycleClassLoader();
+                // Remove only this generation's context: a newer generation may already be
+                // published at the same location after a restore, and it must stay there.
+                executionContexts.remove(taskGroupLocation, ownedContext);
+                finishedExecutionContexts.put(taskGroupLocation, ownedContext);
                 cancellationFutures.remove(taskGroupLocation);
                 try {
                     cancelAsyncFunction(taskGroupLocation);
@@ -1507,16 +1508,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
-        private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
-            TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
-            for (Collection<URL> jars : context.getJars().values()) {
-                classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
+        private void recycleClassLoader() {
+            // Recycle this generation's own context. Resolving through the location-keyed map
+            // could hit a newer generation's context published at the same TaskGroupLocation
+            // after a restore, which would release the newer generation's classloaders.
+            ownedContext.setClassLoaders(null);
+            for (Collection<URL> jars : ownedContext.getJars().values()) {
+                classLoaderService.releaseClassLoader(
+                        taskGroup.getTaskGroupLocation().getJobId(), jars);
             }
         }
 
         ClassLoader getTaskClassLoader(long taskId) {
-            return ownedContext.getClassLoader(taskId);
+            ConcurrentHashMap<Long, ClassLoader> classLoaders = ownedContext.getClassLoaders();
+            if (classLoaders == null) {
+                // The context was recycled (its loader map nulled) by a stale generation
+                // finishing late, which means this task can no longer run safely.
+                throw new IllegalStateException(
+                        String.format(
+                                "Classloaders for task group %s have already been recycled",
+                                taskGroup.getTaskGroupLocation()));
+            }
+            // A task without a registered per-task loader falls back to the system TCCL,
+            // which is the case for task groups deployed without connector jars.
+            return classLoaders.get(taskId);
         }
 
         boolean executionCompletedExceptionally() {
