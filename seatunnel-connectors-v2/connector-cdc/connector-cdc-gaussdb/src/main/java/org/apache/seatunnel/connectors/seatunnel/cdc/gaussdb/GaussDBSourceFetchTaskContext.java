@@ -112,12 +112,21 @@ final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext
                         getDbzConnectorConfig(),
                         "gaussdb-source-fetch-task-context",
                         sourceConfig.getServerTimeZone());
-        this.mppdbStream =
-                new MppdbReplicationStream(
-                        dataConnection.connection(),
-                        mppdbConfig,
-                        sourceConfig.getUsername(),
-                        sourceConfig.getPassword());
+        try {
+            this.mppdbStream =
+                    new MppdbReplicationStream(
+                            dataConnection.connection(),
+                            mppdbConfig,
+                            sourceConfig.getUsername(),
+                            sourceConfig.getPassword());
+        } catch (SQLException e) {
+            // Context construction cannot propagate checked JDBC failures through the dialect SPI.
+            throw new DebeziumException(
+                    "Failed to initialize GaussDB mppdb stream for slot '"
+                            + mppdbConfig.getSlotName()
+                            + "'",
+                    e);
+        }
     }
 
     @Override

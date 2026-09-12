@@ -80,6 +80,7 @@ final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
         try {
             while (taskRunning && stream.isRunning()) {
                 List<MppdbWalChange> changes = stream.readPending(maxBatchSize);
+                transactionBuffer.warnIfStalled();
                 if (changes.isEmpty()) {
                     Thread.sleep(pollIntervalMillis);
                     continue;

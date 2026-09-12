@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,6 +26,8 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.function.LongSupplier;
 
 /**
  * Buffers mppdb records until their transaction commits and preserves transaction order.
@@ -33,7 +37,25 @@ import java.util.Map;
  * transaction. Binary protocol records omit transaction ids before COMMIT, so one anonymous
  * transaction is also supported when records are delivered as a contiguous group.
  */
+@Slf4j
 final class MppdbTransactionBuffer {
+
+    // Warn every five minutes while an unfinished transaction prevents prefix release.
+    private static final long STALL_WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
+
+    // Monotonic clock used only for diagnostics, never for transaction ordering.
+    private final LongSupplier nanoClock;
+
+    /**
+     * Last diagnostic timestamp shared across head changes to bound task-wide warning frequency.
+     */
+    private long lastWarningNanos;
+
+    // Whether a diagnostic timestamp has been recorded, including a possible zero clock value.
+    private boolean warned;
+
+    // Number of DML records held across open and blocked committed transactions.
+    private long bufferedChanges;
 
     /** Transactions indexed by the non-zero id carried by text and SQL-fallback records. */
     private final Map<Long, PendingTransaction> transactionsById = new HashMap<>();
@@ -43,6 +65,16 @@ final class MppdbTransactionBuffer {
 
     /** Active transaction whose binary records do not expose an id until COMMIT. */
     private PendingTransaction anonymousTransaction;
+
+    // Creates a task-owned buffer with a monotonic diagnostic clock.
+    MppdbTransactionBuffer() {
+        this(System::nanoTime);
+    }
+
+    // Supplies a monotonic clock for deterministic warning-boundary tests.
+    MppdbTransactionBuffer(LongSupplier nanoClock) {
+        this.nanoClock = nanoClock;
+    }
 
     /**
      * Adds one decoded record and returns all newly releasable committed transactions.
@@ -62,12 +94,42 @@ final class MppdbTransactionBuffer {
             case UPDATE:
             case DELETE:
                 transactionForData(change.getTransactionId()).changes.add(change);
+                bufferedChanges++;
                 break;
             default:
                 throw new IllegalArgumentException(
                         "Unsupported mppdb transaction record " + change.getType());
         }
         return drainCommittedPrefix();
+    }
+
+    /**
+     * Reports stalled prefix release without dropping records or advancing checkpoint positions.
+     * Called on every reader poll, including polls that return no WAL records.
+     *
+     * @return whether this poll emitted a warning
+     */
+    boolean warnIfStalled() {
+        PendingTransaction oldest = transactionOrder.peekFirst();
+        if (oldest == null) {
+            return false;
+        }
+        long now = nanoClock.getAsLong();
+        if (now - oldest.beginNanos < STALL_WARNING_INTERVAL_NANOS
+                || (warned && now - lastWarningNanos < STALL_WARNING_INTERVAL_NANOS)) {
+            return false;
+        }
+        lastWarningNanos = now;
+        warned = true;
+        log.warn(
+                "GaussDB mppdb transaction {} has blocked checkpoint progress for {} seconds; "
+                        + "{} transactions and {} row changes are buffered. Check long-running source "
+                        + "transactions and COMMIT delivery; buffered rows cannot be released safely.",
+                oldest.transactionId,
+                TimeUnit.NANOSECONDS.toSeconds(now - oldest.beginNanos),
+                transactionOrder.size(),
+                bufferedChanges);
+        return true;
     }
 
     /** Starts a named or binary anonymous transaction. */
@@ -77,7 +139,7 @@ final class MppdbTransactionBuffer {
                 throw new IllegalStateException(
                         "Received overlapping anonymous mppdb transactions");
             }
-            anonymousTransaction = new PendingTransaction(0, false);
+            anonymousTransaction = new PendingTransaction(0, false, nanoClock.getAsLong());
             transactionOrder.addLast(anonymousTransaction);
             return;
         }
@@ -85,7 +147,8 @@ final class MppdbTransactionBuffer {
             throw new IllegalStateException(
                     "Received duplicate BEGIN for mppdb transaction " + transactionId);
         }
-        PendingTransaction transaction = new PendingTransaction(transactionId, true);
+        PendingTransaction transaction =
+                new PendingTransaction(transactionId, true, nanoClock.getAsLong());
         transactionsById.put(transactionId, transaction);
         transactionOrder.addLast(transaction);
     }
@@ -164,6 +227,7 @@ final class MppdbTransactionBuffer {
         List<CommittedTransaction> committed = new ArrayList<>();
         while (!transactionOrder.isEmpty() && transactionOrder.peekFirst().committed) {
             PendingTransaction transaction = transactionOrder.removeFirst();
+            bufferedChanges -= transaction.changes.size();
             if (transaction.indexed) {
                 transactionsById.remove(transaction.transactionId, transaction);
             }
@@ -192,10 +256,14 @@ final class MppdbTransactionBuffer {
         /** Server LSN of the transaction COMMIT record. */
         private long commitLsn;
 
+        // Monotonic arrival time of BEGIN, used to report how long release has been blocked.
+        private final long beginNanos;
+
         /** Creates pending state for one named or anonymous transaction. */
-        private PendingTransaction(long transactionId, boolean indexed) {
+        private PendingTransaction(long transactionId, boolean indexed, long beginNanos) {
             this.transactionId = transactionId;
             this.indexed = indexed;
+            this.beginNanos = beginNanos;
         }
     }
 

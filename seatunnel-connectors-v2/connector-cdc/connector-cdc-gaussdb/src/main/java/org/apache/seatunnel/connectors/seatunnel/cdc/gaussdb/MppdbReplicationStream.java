@@ -29,8 +29,10 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -73,6 +75,9 @@ final class MppdbReplicationStream implements AutoCloseable {
 
     /** Driver-specific PGReplicationStream object accessed through reflection. */
     private Object replicationStream;
+
+    // Per-stream no-argument method cache, including the hot polling and LSN conversion calls.
+    private final Map<Class<?>, Map<String, Method>> noArgumentMethods = new HashMap<>();
 
     /** Whether this stream accepts further reads. */
     private volatile boolean running;
@@ -408,9 +413,25 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Invokes a named driver method with consistent SQLException unwrapping. */
-    private Object invoke(Object target, String methodName, Object... arguments)
-            throws SQLException {
-        Method method = findCompatibleMethod(target.getClass(), methodName, arguments);
+    Object invoke(Object target, String methodName, Object... arguments) throws SQLException {
+        Method method;
+        if (arguments.length == 0) {
+            // Cache by concrete class as driver stream and LSN objects have different contracts.
+            Map<String, Method> methods =
+                    noArgumentMethods.computeIfAbsent(
+                            target.getClass(), ignored -> new HashMap<>());
+            method = methods.get(methodName);
+            if (method == null) {
+                method = findCompatibleMethod(target.getClass(), methodName, arguments);
+                if (method != null) {
+                    methods.put(methodName, method);
+                }
+            }
+        } else {
+            // Builder methods are overloaded; preserve argument-aware resolution outside the hot
+            // path.
+            method = findCompatibleMethod(target.getClass(), methodName, arguments);
+        }
         if (method == null) {
             throw new SQLException(
                     "JDBC replication type "
@@ -520,6 +541,7 @@ final class MppdbReplicationStream implements AutoCloseable {
                 replicationStream = null;
             }
         }
+        noArgumentMethods.clear();
         if (replicationConnection != null) {
             try {
                 replicationConnection.close();

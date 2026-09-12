@@ -22,6 +22,8 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 /** Tests transaction-boundary and parallel-order guarantees of the mppdb WAL buffer. */
 class MppdbTransactionBufferTest {
@@ -87,6 +89,60 @@ class MppdbTransactionBufferTest {
         Assertions.assertThrows(
                 IllegalStateException.class,
                 () -> buffer.add(change(42, 0, MppdbWalChange.Type.INSERT)));
+    }
+
+    /**
+     * Verifies idle warnings are rate limited and cannot release a blocked committed transaction.
+     */
+    @Test
+    void testStalledPrefixWarningDoesNotChangeReleaseOrder() {
+        AtomicLong now = new AtomicLong();
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(now::get);
+        Assertions.assertFalse(buffer.warnIfStalled());
+        buffer.add(change(10, 1, MppdbWalChange.Type.BEGIN));
+        buffer.add(change(11, 2, MppdbWalChange.Type.BEGIN));
+        buffer.add(change(12, 2, MppdbWalChange.Type.INSERT));
+        Assertions.assertTrue(buffer.add(change(13, 2, MppdbWalChange.Type.COMMIT)).isEmpty());
+
+        now.set(TimeUnit.MINUTES.toNanos(5) - 1);
+        Assertions.assertFalse(buffer.warnIfStalled());
+        now.incrementAndGet();
+        Assertions.assertTrue(buffer.warnIfStalled());
+        Assertions.assertFalse(buffer.warnIfStalled());
+        now.set(TimeUnit.MINUTES.toNanos(10));
+        Assertions.assertTrue(buffer.warnIfStalled());
+
+        List<MppdbTransactionBuffer.CommittedTransaction> committed =
+                buffer.add(change(14, 1, MppdbWalChange.Type.COMMIT));
+        Assertions.assertEquals(2, committed.size());
+        Assertions.assertEquals(1, committed.get(0).getTransactionId());
+        Assertions.assertEquals(2, committed.get(1).getTransactionId());
+        Assertions.assertEquals(1, committed.get(1).getChanges().size());
+        Assertions.assertFalse(buffer.warnIfStalled());
+
+        buffer.add(change(15, 0, MppdbWalChange.Type.BEGIN));
+        Assertions.assertFalse(buffer.warnIfStalled());
+        now.addAndGet(TimeUnit.MINUTES.toNanos(5));
+        Assertions.assertTrue(buffer.warnIfStalled());
+        Assertions.assertEquals(1, buffer.add(change(16, 3, MppdbWalChange.Type.COMMIT)).size());
+        Assertions.assertFalse(buffer.warnIfStalled());
+    }
+
+    // Verifies changing the oldest transaction cannot bypass the task-wide warning cooldown.
+    @Test
+    void testStallWarningCooldownSurvivesHeadChange() {
+        AtomicLong now = new AtomicLong();
+        MppdbTransactionBuffer buffer = new MppdbTransactionBuffer(now::get);
+        buffer.add(change(10, 1, MppdbWalChange.Type.BEGIN));
+        buffer.add(change(11, 2, MppdbWalChange.Type.BEGIN));
+        now.set(TimeUnit.MINUTES.toNanos(5));
+        Assertions.assertTrue(buffer.warnIfStalled());
+        Assertions.assertEquals(1, buffer.add(change(12, 1, MppdbWalChange.Type.COMMIT)).size());
+        Assertions.assertFalse(buffer.warnIfStalled());
+        now.set(TimeUnit.MINUTES.toNanos(10) - 1);
+        Assertions.assertFalse(buffer.warnIfStalled());
+        now.incrementAndGet();
+        Assertions.assertTrue(buffer.warnIfStalled());
     }
 
     /** Creates a minimal transaction or row record for buffer tests. */

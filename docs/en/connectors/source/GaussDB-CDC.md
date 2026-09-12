@@ -51,6 +51,8 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 
 `mppdb_decoding` emits row changes but no PostgreSQL `RELATION` messages, so `schema-changes.enabled` must remain `false`. Use `pgoutput` when schema evolution is required.
 
+When an unfinished transaction blocks checkpoint progress for five minutes, the reader logs a warning with its transaction id, age, buffered transaction count, and buffered row count. The warning repeats at most once every five minutes per reader, including while no new WAL arrives. Inspect long-running source transactions and COMMIT delivery. This diagnostic does not limit buffer memory, discard rows, or advance checkpoint acknowledgements.
+
 ## Source Options
 
 | Name | Type | Required | Default | Description |

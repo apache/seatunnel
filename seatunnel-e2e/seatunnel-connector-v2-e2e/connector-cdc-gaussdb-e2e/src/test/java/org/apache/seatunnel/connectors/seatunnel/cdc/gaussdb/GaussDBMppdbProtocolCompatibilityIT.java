@@ -155,37 +155,62 @@ public class GaussDBMppdbProtocolCompatibilityIT extends TestSuiteBase implement
     public void testMppdbProtocolCompatibilityE2e(TestContainer container) {
         String slotVariable = toSlotVariable(createSlotName());
         try {
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            container.executeJob(
-                                    "/gaussdbcdc_to_opengauss_mppdb.conf",
-                                    Collections.singletonList(slotVariable));
-                        } catch (Exception e) {
-                            log.error("Commit task exception: {}", e.getMessage(), e);
-                            throw new RuntimeException(e);
-                        }
-                        return null;
-                    });
+            CompletableFuture<Container.ExecResult> jobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/gaussdbcdc_to_opengauss_mppdb.conf",
+                                            Collections.singletonList(slotVariable));
+                                } catch (Exception e) {
+                                    throw new IllegalStateException(
+                                            "GaussDB CDC job execution failed", e);
+                                }
+                            });
 
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertIterableEquals(
-                                            query(getQuerySQL(GAUSSDB_SCHEMA, SOURCE_TABLE)),
-                                            query(getQuerySQL(GAUSSDB_SCHEMA, SINK_TABLE))));
+                            () -> {
+                                checkJobFailure(jobFuture);
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(GAUSSDB_SCHEMA, SOURCE_TABLE)),
+                                        query(getQuerySQL(GAUSSDB_SCHEMA, SINK_TABLE)));
+                            });
 
             upsertDeleteSourceTable(GAUSSDB_SCHEMA, SOURCE_TABLE);
 
             await().atMost(60000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () ->
-                                    Assertions.assertIterableEquals(
-                                            query(getQuerySQL(GAUSSDB_SCHEMA, SOURCE_TABLE)),
-                                            query(getQuerySQL(GAUSSDB_SCHEMA, SINK_TABLE))));
+                            () -> {
+                                checkJobFailure(jobFuture);
+                                Assertions.assertIterableEquals(
+                                        query(getQuerySQL(GAUSSDB_SCHEMA, SOURCE_TABLE)),
+                                        query(getQuerySQL(GAUSSDB_SCHEMA, SINK_TABLE)));
+                            });
+            checkJobFailure(jobFuture);
         } finally {
             clearTable(GAUSSDB_SCHEMA, SOURCE_TABLE);
             clearTable(GAUSSDB_SCHEMA, SINK_TABLE);
+        }
+    }
+
+    /**
+     * Propagates completed job failures on the test thread without joining an active streaming job.
+     * Runtime exceptions escape Awaitility immediately instead of being retried as row assertions.
+     */
+    private static void checkJobFailure(CompletableFuture<Container.ExecResult> jobFuture) {
+        if (!jobFuture.isDone()) {
+            return;
+        }
+        Container.ExecResult result = jobFuture.join();
+        if (result.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    "GaussDB CDC job exited with code "
+                            + result.getExitCode()
+                            + "; stderr: "
+                            + result.getStderr()
+                            + "; stdout: "
+                            + result.getStdout());
         }
     }
 

@@ -51,6 +51,8 @@ ALTER TABLE your_schema.your_table REPLICA IDENTITY FULL;
 
 `mppdb_decoding` 会输出行变更，但不会输出 PostgreSQL `RELATION` 消息，因此必须保持 `schema-changes.enabled = false`。需要 Schema 演进时，请使用 `pgoutput`。
 
+当未完成的事务阻塞 checkpoint 进度达到五分钟时，读取器会记录警告，包含事务 ID、等待时间、缓存事务数和缓存行数。每个读取器的警告最多每五分钟重复一次，即使没有新的 WAL 到达也会检查。请排查源端长事务和 COMMIT 消息是否正常到达。该诊断不会限制缓存内存、丢弃数据或推进 checkpoint 确认位置。
+
 ## 源端可选项
 
 | Name | Type | Required | Default | Description |
