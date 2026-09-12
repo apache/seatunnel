@@ -67,8 +67,8 @@
 
         <!-- drivers -->
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -84,6 +84,11 @@
         <dependency>
             <groupId>com.microsoft.sqlserver</groupId>
             <artifactId>mssql-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.intersystems</groupId>
+            <artifactId>intersystems-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
@@ -124,6 +129,11 @@
         <dependency>
             <groupId>com.yashandb</groupId>
             <artifactId>yashandb-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.opengauss</groupId>
+            <artifactId>opengauss-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
 

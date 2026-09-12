@@ -79,4 +79,9 @@ public class MetadataColumn extends Column {
     public Column reSourceType(String sourceType) {
         throw new UnsupportedOperationException("Not implemented");
     }
+
+    @Override
+    public Column copyWithComment(String newComment) {
+        return MetadataColumn.of(name, dataType, columnLength, nullable, defaultValue, newComment);
+    }
 }

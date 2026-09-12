@@ -31,10 +31,12 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Slf4j
 public class TypesenseSourceSplitEnumerator
@@ -46,7 +48,9 @@ public class TypesenseSourceSplitEnumerator
 
     private final Object stateLock = new Object();
 
-    private Map<Integer, List<TypesenseSourceSplit>> pendingSplit;
+    private final Map<Integer, List<TypesenseSourceSplit>> pendingSplit;
+
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     private volatile boolean shouldEnumerate;
 
@@ -66,6 +70,7 @@ public class TypesenseSourceSplitEnumerator
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplit.putAll(sourceState.getPendingSplit());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -95,11 +100,21 @@ public class TypesenseSourceSplitEnumerator
 
     private void addPendingSplit(Collection<TypesenseSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (TypesenseSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
-            log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
-        }
+        splits.stream()
+                .sorted(Comparator.comparing(TypesenseSourceSplit::splitId))
+                .forEach(
+                        split -> {
+                            int ownerReader =
+                                    getSplitOwner(assignCount.getAndIncrement(), readerCount);
+                            log.info("Assigning {} to {} reader.", split, ownerReader);
+                            pendingSplit
+                                    .computeIfAbsent(ownerReader, r -> new ArrayList<>())
+                                    .add(split);
+                        });
+    }
+
+    private void addPendingSplit(Collection<TypesenseSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -123,8 +138,8 @@ public class TypesenseSourceSplitEnumerator
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     private List<TypesenseSourceSplit> getTypesenseSplit() {
@@ -148,14 +163,21 @@ public class TypesenseSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<TypesenseSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
+        return pendingSplit.values().stream().mapToInt(List::size).sum();
     }
 
     @Override
@@ -176,7 +198,7 @@ public class TypesenseSourceSplitEnumerator
     @Override
     public TypesenseSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new TypesenseSourceState(shouldEnumerate, pendingSplit);
+            return new TypesenseSourceState(shouldEnumerate, pendingSplit, assignCount.get());
         }
     }
 

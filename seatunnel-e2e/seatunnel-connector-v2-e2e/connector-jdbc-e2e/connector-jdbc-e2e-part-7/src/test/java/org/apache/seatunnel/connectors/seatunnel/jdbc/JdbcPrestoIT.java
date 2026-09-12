@@ -28,10 +28,10 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.presto.Pr
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -88,15 +88,9 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.ofClassName(DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @Override
     protected void initializeJdbcConnection(String jdbcUrl)
@@ -217,11 +211,6 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                     OffsetDateTime.parse("2024-01-01T12:01:01+08:00"),
                     JdbcFieldTypeUtils.getOffsetDateTime(resultSet, 1));
         }
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar";
     }
 
     @Override

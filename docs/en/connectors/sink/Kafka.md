@@ -41,6 +41,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | semantics             | String | No       | NON     | Semantics that can be chosen EXACTLY_ONCE/AT_LEAST_ONCE/NON, default NON.                                                                                                                                                                                                                                                                                                                                                                                    |
 | partition_key_fields  | Array  | No       | -       | Configure which fields are used as the key of the kafka message.                                                                                                                                                                                                                                                                                                                                                                                             |
 | kafka_headers_fields  | Array  | No       | -       | Configure which fields are used as the headers of the kafka message. The field value will be converted to a string and used as the header value.                                                                                                                                                                                                                                                                                                             |
+| kafka_message_value_fields | Array  | No       | -       | Configure which fields are used as the value of the kafka message. If not specified, all fields in the row (except those listed in `kafka_headers_fields`) will be used. Note: This option is not supported for `native`, `compatible_debezium_json`, and `compatible_kafka_connect_json` formats.                                                                       |
 | partition             | Int    | No       | -       | We can specify the partition, all messages will be sent to this partition.                                                                                                                                                                                                                                                                                                                                                                                   |
 | assign_partitions     | Array  | No       | -       | We can decide which partition to send based on the content of the message. The function of this parameter is to distribute information.                                                                                                                                                                                                                                                                                                                      |
 | transaction_prefix    | String | No       | -       | If `semantics` is `EXACTLY_ONCE`, the producer writes messages in Kafka transactions. Kafka distinguishes transactions by transaction id, so use a different prefix for each job.                                                                                                                                                                                                               |
@@ -472,6 +473,17 @@ sink {
 ```
 
 Ensure the Kafka broker has transactions enabled and that `transaction.timeout.ms` is aligned with your checkpoint interval.
+
+Under `EXACTLY_ONCE`, a failed send fails the checkpoint instead of silently dropping records. Two
+errors can be reported in that situation:
+
+| Code     | Name                    | Meaning                                                                       | What to do                                                                                                   |
+|----------|-------------------------|-------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | The transaction carries records but Kafka never registered it on the broker.   | Check broker availability and whether `transaction.timeout.ms` is shorter than the checkpoint interval.       |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | A record of the transaction failed to be sent asynchronously.                  | Read the exception cause; retriable causes usually recover on checkpoint retry, others need broker-side work. |
+
+Both errors abort the current transaction, so the affected records are re-sent from the last
+completed checkpoint rather than lost.
 
 ### How do I configure SASL/Kerberos authentication?
 

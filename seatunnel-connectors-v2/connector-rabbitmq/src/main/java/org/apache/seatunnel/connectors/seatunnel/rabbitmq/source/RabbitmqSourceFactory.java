@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -24,8 +25,10 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSingleTableValidator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqTableConfigsValidator;
 
 import com.google.auto.service.AutoService;
 
@@ -44,6 +47,18 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                 .required(RabbitmqSourceOptions.HOST, RabbitmqSourceOptions.PORT)
                 .bundled(RabbitmqSourceOptions.USERNAME, RabbitmqSourceOptions.PASSWORD)
                 .exclusive(RabbitmqSourceOptions.TABLE_CONFIGS, RabbitmqSourceOptions.QUEUE_NAME)
+                .optional(
+                        RabbitmqSourceOptions.QUEUE_NAME,
+                        Conditions.notBlank(RabbitmqSourceOptions.QUEUE_NAME),
+                        Conditions.extension(
+                                RabbitmqSourceOptions.QUEUE_NAME,
+                                new RabbitmqSingleTableValidator()))
+                .optional(
+                        RabbitmqSourceOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(RabbitmqSourceOptions.TABLE_CONFIGS),
+                        Conditions.extension(
+                                RabbitmqSourceOptions.TABLE_CONFIGS,
+                                new RabbitmqTableConfigsValidator()))
                 .optional(
                         RabbitmqSourceOptions.VIRTUAL_HOST,
                         RabbitmqSourceOptions.URL,

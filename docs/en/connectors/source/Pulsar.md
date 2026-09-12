@@ -41,7 +41,7 @@ Source connector for Apache Pulsar.
 | cursor.stop.mode         | Enum    | No       | NEVER         | Stop position mode. Options: `NEVER` (streaming), `LATEST` (batch), `TIMESTAMP` (batch)                         |
 | cursor.stop.timestamp    | Long    | No       | -             | Stop timestamp (ms) when `cursor.stop.mode=TIMESTAMP`                                                            |
 | schema                   | Config  | No       | -             | Data structure including field names and types                                                                   |
-| format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json and avro. **Multi-table mode only supports JSON, CANAL_JSON and AVRO**                            |
+| format                   | String  | No       | json          | Data format. Default is json. Supported formats: json, canal_json, avro and text. **Text is supported only in single-table mode; multi-table mode supports JSON, CANAL_JSON and AVRO** |
 | field_delimiter          | String  | No       | ,             | Field delimiter for `text` format.                                                                               |
 | common-options           |         | No       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details           |
 
@@ -163,7 +163,7 @@ reference to [Schema-Feature](../../introduction/concepts/schema-feature.md)
 
 ### format [String]
 
-Data format. The default format is json. Supported formats are json, canal_json and avro. The `schema` option is required when using avro format. See [formats](../formats) for more details.
+Data format. The default format is json. Supported formats are json, canal_json, avro and text. The `schema` option is required when using avro format. Text format is supported only in single-table mode. See [formats](../formats) for more details.
 
 ### field_delimiter [String]
 
@@ -200,6 +200,31 @@ source {
         c_bigint = bigint
         c_double = double
         c_timestamp = timestamp
+      }
+    }
+  }
+}
+```
+
+### Read Text Messages
+
+Use `format = text` in single-table mode to split each message into schema fields with `field_delimiter`.
+
+```hocon
+source {
+  Pulsar {
+    topic = "text-events"
+    subscription.name = "seatunnel-text-sub"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = text
+    field_delimiter = "|"
+    schema = {
+      fields {
+        id = int
+        name = string
       }
     }
   }
@@ -272,6 +297,94 @@ source {
 ```
 
 For batch jobs, use a bounded stop mode such as `LATEST` or `TIMESTAMP`. Use `cursor.stop.mode = "NEVER"` for streaming jobs.
+
+### Read Avro Messages
+
+When the topic carries Avro-encoded records, set `format = avro` and declare the field types in `schema`. The connector decodes the Avro payload using the SeaTunnel type system.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Pulsar {
+    topic = "test_avro_topic"
+    subscription.name = "seatunnel-avro"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = avro
+    schema = {
+      fields {
+        id = bigint
+        c_string = string
+        c_int = int
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+```
+
+### Streaming Read From a Topic
+
+Use `cursor.stop.mode = "NEVER"` to keep reading new messages until the job is stopped. Pair it with `cursor.startup.mode = "LATEST"` to start from the latest message and avoid replaying history.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Pulsar {
+    topic = "persistent://public/default/events"
+    subscription.name = "seatunnel-stream"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "LATEST"
+    cursor.stop.mode = "NEVER"
+    format = json
+    schema = {
+      fields {
+        event_id = string
+        user_id = bigint
+        payload = string
+      }
+    }
+  }
+}
+```
+
+### Read From a Topic Pattern With Discovery
+
+When the topic list grows over time, combine `topic-pattern` with `topic-discovery.interval` to pick up newly created topics automatically.
+
+```hocon
+source {
+  Pulsar {
+    topic-pattern = "persistent://public/default/orders-.*"
+    subscription.name = "seatunnel-orders"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    topic-discovery.interval = 30000
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+```
 
 ## Changelog
 

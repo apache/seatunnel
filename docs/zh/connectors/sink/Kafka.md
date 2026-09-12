@@ -41,6 +41,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                                    |
 | partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                                                |
 | kafka_headers_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的headers。字段值将被转换为字符串并用作 header 值                                                                                                                                                                                                                   |
+| kafka_message_value_fields | Array  | 否    | -    | 配置哪些字段作为 kafka 消息的 value。如果没有指定，则将使用行中的所有字段（除了 `kafka_headers_fields` 中的字段）。 注意：此选项不支持 `native`, `compatible_debezium_json` 和 `compatible_kafka_connect_json` 格式。                                                                                      |
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
 | transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。                                                                                                                                           |
@@ -472,6 +473,15 @@ sink {
 ```
 
 确保 Kafka Broker 开启了事务支持，且 `transaction.timeout.ms` 与 checkpoint 间隔相匹配。
+
+在 `EXACTLY_ONCE` 语义下，发送失败会让 checkpoint 失败，而不是静默丢弃数据。此时可能出现两种错误：
+
+| 错误码      | 名称                      | 含义                                        | 处理建议                                                             |
+|----------|-------------------------|-------------------------------------------|------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | 事务中已有数据，但 Kafka 始终未在 Broker 端完成该事务的注册。    | 检查 Broker 是否可用，以及 `transaction.timeout.ms` 是否小于 checkpoint 间隔。   |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | 事务中的某条数据异步发送失败。                           | 查看异常 cause；可重试的异常通常在 checkpoint 重试后恢复，其他异常需要排查 Broker 端问题。      |
+
+两种错误都会中止当前事务，受影响的数据会从上一个已完成的 checkpoint 重新发送，不会丢失。
 
 ### 如何配置 SASL/Kerberos 认证？
 
