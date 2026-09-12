@@ -84,6 +84,15 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     /* Route MySQL specific startup through the map-based offset path for GTID and skip metadata. */
     static StartupConfig createStartupConfig(ReadonlyConfig config) {
         StartupMode startupMode = config.get(MySqlIncrementalSourceOptions.STARTUP_MODE);
+        if (StartupMode.MIXED.equals(startupMode)
+                && !Boolean.TRUE.equals(config.get(SourceOptions.EXACTLY_ONCE))) {
+            // The option rule cannot enforce this: exactly_once has a default value, so an omitted
+            // key never counts as absent, and value constraints are only evaluated for keys the
+            // user actually set. Reject it here so a mixed job fails at source creation instead of
+            // when the enumerator builds the per-table start offsets.
+            throw new IllegalArgumentException(
+                    "The mixed startup mode requires exactly_once to be true.");
+        }
         if (StartupMode.SPECIFIC.equals(startupMode) || StartupMode.MIXED.equals(startupMode)) {
             return new StartupConfig(startupMode, createSpecificStartupOffset(config));
         }

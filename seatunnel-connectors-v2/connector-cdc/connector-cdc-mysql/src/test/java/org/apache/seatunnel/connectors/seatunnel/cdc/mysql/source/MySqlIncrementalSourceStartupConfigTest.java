@@ -65,16 +65,26 @@ public class MySqlIncrementalSourceStartupConfigTest {
                 .validate(new MySqlIncrementalSourceFactory().optionRule());
     }
 
+    /**
+     * An omitted exactly_once falls back to its default of false, which the option rule cannot
+     * flag: options with defaults never count as absent and value constraints only apply to keys
+     * the user set. The startup config path must therefore reject a mixed job itself.
+     */
     @Test
-    public void testOptionRuleRejectsMixedStartupWithoutExactlyOnce() {
+    public void testCreateMixedStartupConfigRejectsMissingExactlyOnce() {
         Map<String, Object> options = mixedOptions();
         options.remove(SourceOptions.EXACTLY_ONCE.key());
 
-        Assertions.assertThrows(
-                OptionValidationException.class,
-                () ->
-                        ConfigValidator.of(ReadonlyConfig.fromMap(options))
-                                .validate(new MySqlIncrementalSourceFactory().optionRule()));
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new MySqlIncrementalSourceFactory().optionRule());
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                MySqlIncrementalSource.createStartupConfig(
+                                        ReadonlyConfig.fromMap(options)));
+        Assertions.assertEquals(
+                "The mixed startup mode requires exactly_once to be true.", exception.getMessage());
     }
 
     @Test
