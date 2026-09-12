@@ -159,6 +159,11 @@ email:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-email/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(email)/**'
+facebook-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-facebook-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(facebook-ads)/**'
 file:
   - all:
       - changed-files:
