@@ -47,15 +47,21 @@ public class JobDAGInfo implements Serializable {
     public JsonObject toJsonObject() {
         JsonObject pipelineEdgesJsonObject = new JsonObject();
 
-        for (Map.Entry<Integer, List<Edge>> entry : pipelineEdges.entrySet()) {
-            JsonArray jsonArray = new JsonArray();
-            for (Edge edge : entry.getValue()) {
-                JsonObject edgeJsonObject = new JsonObject();
-                edgeJsonObject.add("inputVertexId", edge.getInputVertexId().toString());
-                edgeJsonObject.add("targetVertexId", edge.getTargetVertexId().toString());
-                jsonArray.add(edgeJsonObject);
+        if (pipelineEdges != null) {
+            for (Map.Entry<Integer, List<Edge>> entry : pipelineEdges.entrySet()) {
+                JsonArray jsonArray = new JsonArray();
+                if (entry.getValue() != null) {
+                    for (Edge edge : entry.getValue()) {
+                        if (edge != null) {
+                            JsonObject edgeJsonObject = new JsonObject();
+                            edgeJsonObject.add("inputVertexId", edge.getInputVertexId().toString());
+                            edgeJsonObject.add("targetVertexId", edge.getTargetVertexId().toString());
+                            jsonArray.add(edgeJsonObject);
+                        }
+                    }
+                }
+                pipelineEdgesJsonObject.add(entry.getKey() != null ? entry.getKey().toString() : "", jsonArray);
             }
-            pipelineEdgesJsonObject.add(entry.getKey().toString(), jsonArray);
         }
 
         JsonObject jsonObject = new JsonObject();
