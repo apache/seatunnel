@@ -22,17 +22,20 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.event.TableEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
-import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
@@ -90,6 +93,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
     private final SupportSchemaEvolution source;
     private final Config pluginConfig;
+    private final SchemaChangeBehavior schemaChangeBehavior;
     private volatile Long lastProcessedEventTime;
     private transient LocalSchemaCoordinator coordinator;
     private transient Queue<BufferedRecord> pendingQueue;
@@ -113,6 +117,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         this.jobId = jobId;
         this.source = source;
         this.pluginConfig = pluginConfig;
+        this.schemaChangeBehavior = SchemaChangePolicy.resolveBehavior(source);
         this.localSchemaState = new ConcurrentHashMap<>();
     }
 
@@ -165,14 +170,29 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     }
 
     private void handleSchemaChangeDetected(SchemaChangeEvent event) {
-        List<SchemaChangeType> supportedTypes = source.supports();
-        if (supportedTypes == null || supportedTypes.isEmpty()) {
-            log.info("Source does not support any schema change types, skipping");
-            return;
-        }
-        if (!isSchemaChangeSupported(event, supportedTypes)) {
-            log.warn("Schema change type {} not supported, skipping", event.getEventType());
-            return;
+        try {
+            SchemaChangePolicy.validateStrict(schemaChangeBehavior, event, jobId);
+            SchemaChangePolicy.validateIgnore(schemaChangeBehavior, event, jobId);
+            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior)) {
+                log.info(
+                        "Drop schema change event {} for table {} because schema change behavior is IGNORE.",
+                        event.getEventType(),
+                        event.tableIdentifier());
+                return;
+            }
+            List<SchemaChangeType> supportedTypes = source.supports();
+            if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                    && SchemaChangePolicy.isSafeToIgnore(event)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {} "
+                                + "at the Flink policy gate before schema coordination.",
+                        event.getEventType(),
+                        event.tableIdentifier());
+                return;
+            }
+            SchemaChangePolicy.validateSupported(event, supportedTypes, jobId);
+        } catch (SchemaChangePolicyException e) {
+            throw new SuppressRestartsException(e);
         }
 
         if (event instanceof TableEvent) {
@@ -544,34 +564,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private boolean isSchemaEvolutionEnabled(Config config) {
         return config.hasPath("schema-changes.enabled")
                 && config.getBoolean("schema-changes.enabled");
-    }
-
-    private boolean isSchemaChangeSupported(
-            SchemaChangeEvent event, List<SchemaChangeType> supportedTypes) {
-        switch (event.getEventType()) {
-            case SCHEMA_CHANGE_ADD_COLUMN:
-                return supportedTypes.contains(SchemaChangeType.ADD_COLUMN);
-            case SCHEMA_CHANGE_DROP_COLUMN:
-                return supportedTypes.contains(SchemaChangeType.DROP_COLUMN);
-            case SCHEMA_CHANGE_MODIFY_COLUMN:
-                return supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN);
-            case SCHEMA_CHANGE_CHANGE_COLUMN:
-                return supportedTypes.contains(SchemaChangeType.RENAME_COLUMN);
-            case SCHEMA_CHANGE_ALTER_TABLE_COMMENT:
-                return supportedTypes.contains(SchemaChangeType.ALTER_TABLE_COMMENT);
-            case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:
-                return supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
-            case SCHEMA_CHANGE_UPDATE_COLUMNS:
-                return supportedTypes.contains(SchemaChangeType.ADD_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.DROP_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.RENAME_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
-            default:
-                log.error("Unknown schema change event type: {}", event.getEventType());
-                throw SchemaValidationException.unsupportedChangeType(
-                        event.tableIdentifier(), jobId);
-        }
     }
 
     private void sendSchemaChangeEventToDownstream(SchemaChangeEvent schemaChangeEvent) {

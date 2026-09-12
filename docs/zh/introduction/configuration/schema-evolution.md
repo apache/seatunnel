@@ -4,6 +4,10 @@
 ## 已支持的引擎
 
 - Zeta
+- Flink
+
+Spark 不支持 schema evolution，也不会执行 `schema-changes.behavior` 策略。Spark 作业请勿开启
+`schema-changes.enabled`。
 
 ## 已支持的模式变更事件类型
 
@@ -126,6 +130,48 @@ sink {
 }
 ```
 
+## Schema 变更行为策略
+
+CDC Source 在配置 `schema-changes.enabled = true` 时，可以继续配置 `schema-changes.behavior`。
+默认值是 `evolve`，因此已有作业只配置 `schema-changes.enabled = true` 时，会保持最接近现有语义的行为。
+当 `schema-changes.enabled = false` 时，schema change event 不会发送到下游，该选项不会改变当前行为。
+配置值不区分大小写；下面使用的小写形式是配置示例中的规范写法。
+
+CDC 反序列化器会先应用 `schema-changes.include` 和 `schema-changes.exclude`，再执行 behavior
+策略。完全被过滤的事件既不会更新 Source 输出行结构，也不会进入 behavior 策略。因此，例如
+`strict` 不会因为一个已排除的事件而失败。
+
+| 值 | 运行时契约 |
+| --- | --- |
+| `strict` | 一旦观察到 schema change event，立即让作业失败，并且不会尝试下游 schema 协调或 Sink 侧 schema 变更。 |
+| `evolve` | 将受支持的 schema change event 转发到正常的 schema 协调路径。不支持的行结构变更和 Sink 侧 apply 失败都会让作业失败；不受支持的纯注释事件会在各 Sink 路径记录日志并丢弃，因为它们不影响行编码。 |
+| `ignore` | 只在下游 schema 协调和 Sink 侧 schema evolution 之前丢弃 `ALTER_TABLE_COMMENT` 和 `ALTER_COLUMN_COMMENT`。ADD、DROP、RENAME、MODIFY COLUMN 会改变运行时行结构，因此会失败而不是被忽略。 |
+
+行为矩阵：
+
+| 场景 | `strict` | `evolve` | `ignore` |
+| --- | --- | --- | --- |
+| Source 发出受支持的 schema change 类型 | 在下游传播前失败 | 通过 Sink 协调并应用 | 仅在可以安全忽略时，在下游传播前丢弃 |
+| Source 发出不支持的 schema change 类型 | 在下游传播前失败 | 每个 Sink 路径独立处理：Flink 在协调前的策略门禁记录并丢弃纯注释事件，Zeta 在协调后的 Sink 生命周期记录并丢弃；其他事件在 Sink 侧 apply 前失败 | 在协调前丢弃 `ALTER_TABLE_COMMENT` 和 `ALTER_COLUMN_COMMENT`；行结构变更失败 |
+| Sink 支持 schema evolution | 不会到达 Sink | 通过 `SupportSchemaEvolutionSinkWriter` 应用 | 不会到达 Sink |
+| Sink 不支持 schema evolution | 不会到达 Sink | 纯注释事件记录日志后丢弃；在一个版本的兼容窗口内，调用显式覆写的 deprecated 方法，继承默认 no-op 时记录告警并丢弃 | 不会到达 Sink |
+| Sink apply 在运行时抛出异常 | 不会到达 Sink | 使用 Sink apply 错误让作业失败 | 不会到达 Sink |
+
+升级说明：在 `evolve` 模式下，Sink writer 应实现 `SupportSchemaEvolutionSinkWriter` 来接收并应用
+schema change event。在 deprecated 兼容窗口内，Zeta 单表、Zeta 多表以及两个 Flink sink 路径仍会调用 Sink writer 显式覆写的
+`SinkWriter.applySchemaChange`，并记录迁移告警。为避免升级后直接破坏已有作业，在一个版本的兼容窗口内，
+继承的默认 no-op 也会记录告警并丢弃事件；该兜底将在下一个版本移除。请将 Sink writer 迁移到
+`SupportSchemaEvolutionSinkWriter`、关闭 `schema-changes.enabled`，或排除 Sink 不应接收的事件类型。
+`schema-changes.behavior = ignore` 只适用于纯注释变更。
+
+策略拒绝是确定性失败。Zeta 会将其标记为不可重试，Flink 会用 `SuppressRestartsException` 包装，
+因此从同一 checkpoint 恢复时不会反复重放同一条被拒绝的 DDL。请修改为 `evolve` 并使用兼容的
+Sink、关闭 `schema-changes.enabled`，或调整过滤规则后重新提交作业。
+
+在 `evolve` 模式下，如果外部 DDL 已成功但随后的 checkpoint 未完成，恢复后 schema change event
+可能再次投递。因此 `SupportSchemaEvolutionSinkWriter` 实现必须幂等应用事件。JDBC 实现会在重放
+ADD、DROP、RENAME COLUMN 前检查当前 Sink schema；其他 Sink 必须为其声明支持的事件类型提供等价保证。
+
 ## 示例
 
 ### Mysql-CDC -> Jdbc-Mysql
@@ -148,6 +194,7 @@ source {
     url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
     
     schema-changes.enabled = true
+    schema-changes.behavior = evolve
   }
 }
 

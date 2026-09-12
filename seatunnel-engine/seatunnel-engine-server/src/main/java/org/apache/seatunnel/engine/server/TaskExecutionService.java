@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCScheduledExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
+import org.apache.seatunnel.common.exception.NonRetryableException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -73,7 +74,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1160,14 +1160,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 taskGroupExecutionTracker.exception(e);
             } finally {
-                taskGroupExecutionTracker.taskDone(t);
                 if (result == null || !result.isDone()) {
                     try {
                         tracker.task.close();
-                    } catch (IOException e) {
+                    } catch (Throwable e) {
                         logger.severe("Close task error", e);
+                        taskGroupExecutionTracker.exception(e);
                     }
                 }
+                // Complete the task group only after connector-owned resources are closed.
+                taskGroupExecutionTracker.taskDone(t);
             }
             Thread.currentThread().setContextClassLoader(oldClassLoader);
         }
@@ -1370,6 +1372,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private final AtomicInteger completionLatch;
         private final AtomicReference<Throwable> executionException = new AtomicReference<>();
 
+        private final AtomicBoolean nonRetryableFailure = new AtomicBoolean(false);
+
         private final AtomicBoolean isCancel = new AtomicBoolean(false);
 
         private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
@@ -1403,7 +1407,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * @param t the exception that occurred
          */
         void exception(Throwable t) {
+            Throwable current = t;
+            while (current != null) {
+                if (current instanceof NonRetryableException) {
+                    nonRetryableFailure.set(true);
+                    break;
+                }
+                current = current.getCause();
+            }
             executionException.compareAndSet(null, t);
+        }
+
+        boolean hasNonRetryableFailure() {
+            return nonRetryableFailure.get();
         }
 
         private void cancelAllTask(TaskGroupLocation taskGroupLocation) {
@@ -1492,7 +1508,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     logger.info(
                             String.format("taskGroup %s complete with FAILED", taskGroupLocation));
                     future.complete(
-                            new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, ex));
+                            new TaskExecutionState(
+                                    taskGroupLocation,
+                                    ExecutionState.FAILED,
+                                    ex,
+                                    hasNonRetryableFailure()));
                 }
             }
             if (!isCancel.get() && ex != null) {

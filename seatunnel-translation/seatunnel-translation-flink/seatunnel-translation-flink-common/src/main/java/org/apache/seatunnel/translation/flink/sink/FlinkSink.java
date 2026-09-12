@@ -18,7 +18,9 @@
 package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.serialization.CommitWrapperSerializer;
 import org.apache.seatunnel.translation.flink.serialization.FlinkSimpleVersionedSerializer;
@@ -32,6 +34,7 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 import java.io.IOException;
 import java.sql.DriverManager;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -81,15 +84,24 @@ public class FlinkSink<InputT, CommT, WriterStateT, GlobalCommT>
         org.apache.seatunnel.api.sink.SinkWriter.Context stContext =
                 new FlinkSinkWriterContext(context, parallelism);
         if (states == null || states.isEmpty()) {
-            return new FlinkSinkWriter<>(sink.createWriter(stContext), 1, stContext);
+            return new FlinkSinkWriter<>(
+                    sink.createWriter(stContext), 1, stContext, resolveSinkSupportedTypes());
         } else {
             List<WriterStateT> restoredState =
                     states.stream().map(FlinkWriterState::getState).collect(Collectors.toList());
             return new FlinkSinkWriter<>(
                     sink.restoreWriter(stContext, restoredState),
                     states.get(0).getCheckpointId() + 1,
-                    stContext);
+                    stContext,
+                    resolveSinkSupportedTypes());
         }
+    }
+
+    private List<SchemaChangeType> resolveSinkSupportedTypes() {
+        if (sink instanceof SupportSchemaEvolutionSink) {
+            return ((SupportSchemaEvolutionSink) sink).supports();
+        }
+        return Collections.emptyList();
     }
 
     @Override

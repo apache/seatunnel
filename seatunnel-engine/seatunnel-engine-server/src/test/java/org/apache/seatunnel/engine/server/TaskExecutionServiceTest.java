@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.common.exception.NonRetryableException;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -62,6 +63,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -450,6 +452,51 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 .untilAsserted(() -> assertEquals(FINISHED, taskCts.get().getExecutionState()));
     }
 
+    @Test
+    public void testFailedTaskClosesBeforeTaskGroupCompletes() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        CloseTrackingFailingTask task = new CloseTrackingFailingTask();
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "close-before-complete",
+                        Collections.singletonList(task));
+
+        CompletableFuture<TaskExecutionState> result =
+                deployLocalTask(taskExecutionService, taskGroup);
+
+        Assertions.assertTrue(task.closeStarted.await(10, TimeUnit.SECONDS));
+        try {
+            Assertions.assertFalse(
+                    result.isDone(),
+                    "task group must not complete before failed task resources close");
+        } finally {
+            task.allowClose.countDown();
+        }
+        Assertions.assertEquals(FAILED, result.get(10, TimeUnit.SECONDS).getExecutionState());
+        Assertions.assertTrue(task.closed.get());
+    }
+
+    @Test
+    public void testNonRetryableFailureIsPreservedAfterEarlierFailure() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        CloseTrackingFailingTask task = new CloseTrackingFailingTask();
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "preserve-non-retryable-failure",
+                        Collections.singletonList(task));
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(), taskGroup, new CompletableFuture<>());
+
+        tracker.exception(new IOException("earlier transient failure"));
+        tracker.exception(new DeterministicTaskFailure());
+
+        Assertions.assertTrue(tracker.hasNonRetryableFailure());
+    }
+
     @RepeatedTest(2)
     public void testDelay() throws InterruptedException {
 
@@ -568,6 +615,39 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         }
         return taskQueue;
     }
+
+    private static class CloseTrackingFailingTask implements Task {
+        private final CountDownLatch closeStarted = new CountDownLatch(1);
+        private final CountDownLatch allowClose = new CountDownLatch(1);
+        private final AtomicBoolean closed = new AtomicBoolean(false);
+
+        @NonNull @Override
+        public ProgressState call() throws IOException {
+            throw new IOException("expected task failure");
+        }
+
+        @NonNull @Override
+        public Long getTaskID() {
+            return (long) System.identityHashCode(this);
+        }
+
+        @Override
+        public void close() throws IOException {
+            closeStarted.countDown();
+            try {
+                if (!allowClose.await(10, TimeUnit.SECONDS)) {
+                    throw new IOException("timed out waiting to finish test task close");
+                }
+                closed.set(true);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IOException("interrupted while closing test task", e);
+            }
+        }
+    }
+
+    private static class DeterministicTaskFailure extends RuntimeException
+            implements NonRetryableException {}
 
     public List<Task> buildStopTestTask(
             long callTime,

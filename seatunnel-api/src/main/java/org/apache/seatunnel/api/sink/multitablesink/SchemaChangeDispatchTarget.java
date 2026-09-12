@@ -18,7 +18,10 @@
 package org.apache.seatunnel.api.sink.multitablesink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
+import java.util.List;
 
 /**
  * Records one concrete sub-writer that must observe the current schema change, together with the
@@ -30,13 +33,19 @@ final class SchemaChangeDispatchTarget {
     private final SinkIdentifier sinkIdentifier;
     /** Target writer that will execute the schema-change mutation. */
     private final SinkWriter<SeaTunnelRow, ?, ?> writer;
+    /** Capabilities advertised by the sub-sink, or null when unavailable to legacy callers. */
+    private final List<SchemaChangeType> supportedSchemaChangeTypes;
     /** Explains whether this target came from source match or shared physical sink match. */
     private final String reason;
 
     SchemaChangeDispatchTarget(
-            SinkIdentifier sinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?> writer, String reason) {
+            SinkIdentifier sinkIdentifier,
+            SinkWriter<SeaTunnelRow, ?, ?> writer,
+            List<SchemaChangeType> supportedSchemaChangeTypes,
+            String reason) {
         this.sinkIdentifier = sinkIdentifier;
         this.writer = writer;
+        this.supportedSchemaChangeTypes = supportedSchemaChangeTypes;
         this.reason = reason;
     }
 
@@ -46,6 +55,10 @@ final class SchemaChangeDispatchTarget {
 
     SinkWriter<SeaTunnelRow, ?, ?> getWriter() {
         return writer;
+    }
+
+    List<SchemaChangeType> getSupportedSchemaChangeTypes() {
+        return supportedSchemaChangeTypes;
     }
 
     String getReason() {

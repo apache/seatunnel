@@ -22,6 +22,8 @@ import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
@@ -275,6 +277,23 @@ class SchemaChangeEventFilterTest {
                 EventType.SCHEMA_CHANGE_UPDATE_COLUMNS,
                 SchemaChangeEventType.fromCanonicalName("update.columns"));
         Assertions.assertEquals(5, SchemaChangeEventType.canonicalNames().size());
+    }
+
+    @Test
+    void excludedEventDoesNotReachStrictBehaviorGate() {
+        SchemaChangeEventFilter filter =
+                filter(Collections.emptyList(), Collections.singletonList("add.column"));
+        SchemaChangeEvent event =
+                filter.filter(AlterTableAddColumnEvent.add(TABLE, column("excluded")));
+
+        Assertions.assertNull(event);
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    if (event != null) {
+                        SchemaChangePolicy.validateStrict(
+                                SchemaChangeBehavior.STRICT, event, "job-under-test");
+                    }
+                });
     }
 
     /**

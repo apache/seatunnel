@@ -30,12 +30,15 @@ import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -885,11 +888,57 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
+        boolean supportsSchemaEvolution =
+                sinkAction.getSink() instanceof SupportSchemaEvolutionSink;
+        if (!supportsSchemaEvolution) {
+            if (SchemaChangePolicy.isSafeToIgnore(event)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {} "
+                                + "because sink {} does not advertise schema evolution support.",
+                        event.getEventType(),
+                        event.tableIdentifier(),
+                        sinkAction.getSink().getPluginName());
+                return;
+            }
+        }
+        SchemaChangePolicy.validateSinkSupportsSchemaEvolution(
+                supportsSchemaEvolution,
+                event,
+                sinkAction.getSink().getPluginName(),
+                event.getJobId());
+        List<SchemaChangeType> supportedTypes =
+                ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports();
+        if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                && SchemaChangePolicy.isSafeToIgnore(event)) {
+            log.warn(
+                    "Drop unsupported comment-only schema change event {} for table {} "
+                            + "because sink {} does not advertise this capability.",
+                    event.getEventType(),
+                    event.tableIdentifier(),
+                    sinkAction.getSink().getPluginName());
+            return;
+        }
+        SchemaChangePolicy.validateSupported(event, supportedTypes, event.getJobId());
         if (writer instanceof SupportSchemaEvolutionSinkWriter) {
             ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
-        } else {
-            // todo remove deprecated method
+        } else if (SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(writer)) {
+            log.warn(
+                    "Sink writer {} for table {} still uses the deprecated "
+                            + "SinkWriter.applySchemaChange method. Migrate it to "
+                            + "SupportSchemaEvolutionSinkWriter.",
+                    writer.getClass().getName(),
+                    event.tableIdentifier());
             writer.applySchemaChange(event);
+        } else {
+            log.warn(
+                    "Drop schema change event {} for table {} because sink writer {} inherits "
+                            + "the deprecated no-op applySchemaChange method. This compatibility "
+                            + "fallback will be removed in the next release; implement "
+                            + "SupportSchemaEvolutionSinkWriter, disable schema-changes.enabled, "
+                            + "or exclude this event type.",
+                    event.getEventType(),
+                    event.tableIdentifier(),
+                    writer.getClass().getName());
         }
     }
 

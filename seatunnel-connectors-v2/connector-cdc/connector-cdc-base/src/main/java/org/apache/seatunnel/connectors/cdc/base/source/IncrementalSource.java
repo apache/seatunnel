@@ -25,11 +25,13 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.MetadataColumn;
 import org.apache.seatunnel.api.table.catalog.MetadataSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -88,7 +90,8 @@ import java.util.stream.Stream;
 @NoArgsConstructor
 @Slf4j
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>,
+                SupportSchemaChangeBehavior {
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -115,6 +118,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     protected StopMode stopMode;
     protected DebeziumDeserializationSchema<T> deserializationSchema;
+    protected SchemaChangeBehavior schemaChangeBehavior;
 
     protected IncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         this.readonlyConfig = options;
@@ -122,6 +126,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         this.startupConfig = getStartupConfig(readonlyConfig);
         this.stopConfig = getStopConfig(readonlyConfig);
         this.stopMode = stopConfig.getStopMode();
+        this.schemaChangeBehavior = readonlyConfig.get(SourceOptions.SCHEMA_CHANGES_BEHAVIOR);
         this.incrementalParallelism = readonlyConfig.get(SourceOptions.INCREMENTAL_PARALLELISM);
         this.configFactory = createSourceConfigFactory(readonlyConfig);
         this.dataSourceDialect = createDataSourceDialect(readonlyConfig);
@@ -256,6 +261,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         && startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY
                 ? Boundedness.UNBOUNDED
                 : Boundedness.BOUNDED;
+    }
+
+    @Override
+    public SchemaChangeBehavior getSchemaChangeBehavior() {
+        return schemaChangeBehavior;
     }
 
     @SuppressWarnings("MagicNumber")

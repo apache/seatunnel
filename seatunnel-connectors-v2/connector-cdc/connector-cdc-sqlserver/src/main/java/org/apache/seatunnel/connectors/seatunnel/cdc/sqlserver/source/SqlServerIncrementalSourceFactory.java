@@ -74,7 +74,8 @@ public class SqlServerIncrementalSourceFactory implements TableSourceFactory {
                         SqlServerIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
                         SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
-                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE)
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        SqlServerIncrementalSourceOptions.SCHEMA_CHANGES_BEHAVIOR)
                 .optional(
                         SqlServerIncrementalSourceOptions.STARTUP_MODE,
                         SqlServerIncrementalSourceOptions.STOP_MODE)

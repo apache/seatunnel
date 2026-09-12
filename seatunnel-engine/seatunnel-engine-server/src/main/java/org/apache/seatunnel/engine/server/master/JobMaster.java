@@ -1309,6 +1309,9 @@ public class JobMaster {
     }
 
     public void updateTaskExecutionState(TaskExecutionState taskExecutionState) {
+        if (taskExecutionState.isNonRetryable()) {
+            neverNeedRestore();
+        }
         this.physicalPlan
                 .getPipelineList()
                 .forEach(

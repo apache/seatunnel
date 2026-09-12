@@ -150,7 +150,8 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        getSupportedSchemaChangeTypesByTable());
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
@@ -218,7 +219,8 @@ public class MultiTableSink
                         getJobMode(),
                         effectiveFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        getSupportedSchemaChangeTypesByTable());
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
@@ -421,6 +423,18 @@ public class MultiTableSink
             return ((SupportSchemaEvolutionSink) firstSink).supports();
         }
         return Collections.emptyList();
+    }
+
+    private Map<String, List<SchemaChangeType>> getSupportedSchemaChangeTypesByTable() {
+        Map<String, List<SchemaChangeType>> supportedTypesByTable = new HashMap<>();
+        sinks.forEach(
+                (tablePath, sink) ->
+                        supportedTypesByTable.put(
+                                tablePath.toString(),
+                                sink instanceof SupportSchemaEvolutionSink
+                                        ? ((SupportSchemaEvolutionSink) sink).supports()
+                                        : Collections.emptyList()));
+        return supportedTypesByTable;
     }
 
     private JobMode getJobMode() {
