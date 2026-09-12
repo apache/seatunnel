@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.source.reader.SourceFileNameCollector;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import lombok.extern.slf4j.Slf4j;
@@ -74,7 +75,10 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
                 try {
                     // todo: If there is only one table , the tableId is not needed, but it's better
                     // to set this
-                    readStrategy.read(split.splitId(), "", output);
+                    readStrategy.read(
+                            split.splitId(),
+                            "",
+                            SourceFileNameCollector.wrap(output, split.getFilePath()));
                 } catch (Exception e) {
                     String sourceContext = split.splitId();
                     Throwable cause = e;

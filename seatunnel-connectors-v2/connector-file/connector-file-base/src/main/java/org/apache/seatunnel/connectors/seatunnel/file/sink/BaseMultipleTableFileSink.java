@@ -36,6 +36,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.factory.CatalogFactory;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -85,6 +86,11 @@ public abstract class BaseMultipleTableFileSink
                 && jobContext.isEnableCheckpoint()) {
             throw new IllegalArgumentException(
                     "Single file mode is not supported when checkpoint is enabled or in streaming mode.");
+        }
+        if (fileSinkConfig.isPreserveSourceFilename()
+                && (jobContext.getJobMode() != JobMode.BATCH || jobContext.isEnableCheckpoint())) {
+            throw new IllegalArgumentException(
+                    "preserve_source_filename is supported only in batch mode with checkpoints disabled.");
         }
     }
 

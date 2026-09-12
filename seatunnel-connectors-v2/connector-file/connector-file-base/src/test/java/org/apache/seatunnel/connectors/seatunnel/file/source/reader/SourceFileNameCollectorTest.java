@@ -17,12 +17,19 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
-import java.util.ArrayList;
-import java.util.List;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 class SourceFileNameCollectorTest {
 
@@ -55,6 +62,35 @@ class SourceFileNameCollectorTest {
         Assertions.assertEquals(
                 rows.get(0).getOptions().get(SourceFileNameCollector.SOURCE_FILE_ID),
                 rows.get(1).getOptions().get(SourceFileNameCollector.SOURCE_FILE_ID));
+    }
+
+    @Test
+    void baseFileSourceReaderAddsMetadataForTheCurrentSplit() throws Exception {
+        ReadStrategy readStrategy = Mockito.mock(ReadStrategy.class);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Collector<SeaTunnelRow> output = invocation.getArgument(2);
+                            output.collect(new SeaTunnelRow(new Object[] {1}));
+                            return null;
+                        })
+                .when(readStrategy)
+                .read(
+                        Mockito.eq("/data/in/orders.csv"),
+                        Mockito.eq(""),
+                        Mockito.<Collector<SeaTunnelRow>>any());
+        BaseFileSourceReader reader = new BaseFileSourceReader(readStrategy, context);
+        reader.addSplits(Collections.singletonList(new FileSourceSplit("/data/in/orders.csv")));
+        List<SeaTunnelRow> rows = new ArrayList<>();
+
+        reader.pollNext(new ListCollector(rows));
+
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(
+                "orders.csv",
+                rows.get(0).getOptions().get(SourceFileNameCollector.SOURCE_FILE_NAME));
+        Assertions.assertNotNull(
+                rows.get(0).getOptions().get(SourceFileNameCollector.SOURCE_FILE_ID));
     }
 
     private static class ListCollector implements Collector<SeaTunnelRow> {

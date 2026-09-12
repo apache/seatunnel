@@ -42,6 +42,8 @@ connector-dingtalk
 connector-doris
 connector-elasticsearch
 connector-email
+connector-file-adls
+connector-file-adls-runtime
 connector-file-ftp
 connector-file-cos
 connector-file-hadoop

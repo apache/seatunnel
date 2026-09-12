@@ -17,13 +17,14 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.UUID;
-import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 /** Adds the source file identity to every row emitted for a file split. */
 public final class SourceFileNameCollector implements Collector<SeaTunnelRow> {

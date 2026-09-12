@@ -98,6 +98,8 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         checkArgument(
                 !CollectionUtils.isEmpty(Arrays.asList(seaTunnelRowTypeInfo.getFieldNames())));
 
+        validatePreserveSourceFilenameOptions();
+
         if (pluginConfig.getOptional(FileBaseSinkOptions.SINK_COLUMNS).isPresent()) {
             this.sinkColumnList = pluginConfig.get(FileBaseSinkOptions.SINK_COLUMNS);
         }
@@ -234,5 +236,33 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
         // rebuilds both sinkColumnsIndexInRow and partitionFieldsIndexInRow from column NAMES
         // against the post-ALTER row type. Dropping a partition column itself is rejected at
         // rebuild time (throws IllegalStateException) so the partition tree never corrupts.
+    }
+
+    private void validatePreserveSourceFilenameOptions() {
+        if (!isPreserveSourceFilename()) {
+            return;
+        }
+        if (isCustomFilename()) {
+            throw incompatiblePreserveSourceFilenameOption(
+                    FileBaseSinkOptions.CUSTOM_FILENAME.key());
+        }
+        if (isSingleFileMode()) {
+            throw incompatiblePreserveSourceFilenameOption(
+                    FileBaseSinkOptions.SINGLE_FILE_MODE.key());
+        }
+        if (getFilenameExtension() != null) {
+            throw incompatiblePreserveSourceFilenameOption(
+                    FileBaseSinkOptions.FILENAME_EXTENSION.key());
+        }
+        if (isCreateEmptyFileWhenNoData()) {
+            throw incompatiblePreserveSourceFilenameOption(
+                    FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA.key());
+        }
+    }
+
+    private FileConnectorException incompatiblePreserveSourceFilenameOption(String option) {
+        return new FileConnectorException(
+                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                "preserve_source_filename cannot be combined with " + option);
     }
 }
