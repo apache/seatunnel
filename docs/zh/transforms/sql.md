@@ -155,7 +155,52 @@ sink {
 }
 ```
 
+## 模式演进（DDL）
+
+当上游 source 发出模式变更事件时（例如 `MySQL-CDC` 配置了 `schema-changes.enabled = true`），SQL transform 会把每个列级变更翻译成自身输出的变更，而不是原样转发上游事件。因此到达 sink 的事件描述的始终是 sink 实际收到的列。只有 Zeta 引擎会把模式变更事件传递给 transform。
+
+```hocon
+transform {
+  Sql {
+    plugin_input = "products_cdc"
+    plugin_output = "products_sql"
+    query = "select id, name, weight, weight * 2 as double_weight from products"
+  }
+}
+```
+
+对于上面的查询，上游的 `ADD COLUMN description` 会被吸收，上游的 `MODIFY COLUMN name` 会以 `name` 列的 modify 到达 sink，上游的 `MODIFY COLUMN weight` 会以 `weight` 和 `double_weight` 两列的 modify 到达 sink。
+
+### 规则
+
+| 上游变更 | 查询形态 | 对输出和 sink 的影响 |
+|----------|----------|----------------------|
+| `ADD COLUMN` | `select *` | 在相同位置新增该列。 |
+| `ADD COLUMN` | `select *, expr AS x` | 在最后一个星号列之后、表达式列之前新增该列。 |
+| `ADD COLUMN` | 不含 `*` 的查询 | 被吸收，不会到达 sink。 |
+| `DROP COLUMN` | `select *` | 删除该列。 |
+| `DROP COLUMN` | 查询未引用的列 | 被吸收。 |
+| 删除或重命名查询引用的列 | 任意 | 作业以 `TRANSFORM_COMMON-09` 失败，除非同一条语句重新创建了同名列（见下文血缘说明）。 |
+| 重命名（`CHANGE COLUMN`） | `select *` | 重命名该列。 |
+| `MODIFY COLUMN` | `select *`、`select c`、`select c AS d` | 以新的源类型修改输出列。 |
+| `MODIFY COLUMN` | 表达式列，例如 `weight * 2 AS double_weight` | 仅当表达式的推导类型发生变化时才修改该列；其 sink 类型由 SeaTunnel 类型转换得到，而不是复制源类型。 |
+| `MODIFY COLUMN` | `cast(c AS ...)` | 被吸收，cast 固定了输出类型。 |
+| 列注释 | `select *`、`select c` | 更新输出列的注释。 |
+| 表注释 | 任意 | 原样转发。 |
+
+血缘。变更按物理源列的身份归属到输出列。同一条语句中先重命名再新增同名列（`ALTER TABLE t CHANGE a b INT, ADD COLUMN a INT`）会在 sink 上重命名旧列并新增一列；同一条语句中先删除再重建同名列（`ALTER TABLE t DROP COLUMN a, ADD COLUMN a BIGINT`）会在 sink 上删除并重建该列，即使查询直接引用了 `a`。同一条语句中改名后又改回原名，则不产生任何变更。
+
+### 限制
+
+- 删除或重命名属于输出主键、约束键或分区键的列会使作业以 `TRANSFORM_COMMON-09` 失败，因为 sink 无法通过模式变更事件更新键；修改这类列是支持的。
+- 同一条语句中形成环的重命名（`a -> b, b -> a`）会使作业失败。
+- 会产生两个同名输出列的变更（例如 `select *, id AS age` 且源表新增了 `age`）会使作业失败。
+- 类型变更会在事件到达时针对 select 列表以及 `WHERE` 中的比较（例如 `c > 0`）进行检查；仅出现在函数调用、UDF 或 lateral view 参数内部的类型变更不会在事件到达时被发现，会像以前一样在处理数据行时失败。
+- 位于 SQL transform 之前的 transform 转发的事件必须能描述其自身输出。如果上游产出的表结构与事件不一致，作业会以 `TRANSFORM_COMMON-09` 失败，而不是写入错位的数据行。
+
 ## 更新日志
+
+- 支持模式演进（DDL）事件
 
 ### 新版本
 

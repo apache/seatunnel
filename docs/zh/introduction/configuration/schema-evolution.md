@@ -30,8 +30,16 @@
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#模式演变)
 [Redis](../../connectors/sink/Redis.md#模式演变)
 
+### Transform
+
+| 状态 | Transform | 原因 |
+|------|-----------|------|
+| 支持，事件会被翻译 | [Sql](../../transforms/sql.md)、FieldRename、TableRename | 它们会把事件改写成描述自身输出的事件。 |
+| 支持，事件透传 | FilterRowKind、Replace、FieldEncrypt、DataValidator | 列集合、顺序和类型都不变，因此上游事件即可描述其输出。限制：当这类 transform 位于同一条链路中另一个 transform 之后时，列重命名会失败。 |
+| 不支持 | Filter、FieldMapper、Copy、Split、JsonPath、Metadata、RowKindExtractor、RegexExtract、Embedding、LLM、DynamicCompile、Python、TextChunk、Calcite、TableFilter、TableMerge、DefineSinkType | 它们会新增、删除或重排列、改变表标识或持有过期的表结构，却原样转发上游事件。在 `schema-changes.enabled = true` 时使用它们会导致 sink 表结构与数据行不一致。 |
+
 注意: 
-* 目前模式演进不支持transform。不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
+* 不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
 
 * 当你使用Oracle-CDC时，你不能使用用户名`SYS`或`SYSTEM`来修改表结构，否则ddl事件将被过滤，这可能导致模式演进不起作用；
 另外，如果你的表名以`ORA_TEMP_`开头，也会有相同的问题。
