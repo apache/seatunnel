@@ -28,7 +28,7 @@ GaussDB CDC 连接器通过 PostgreSQL 兼容的逻辑复制协议读取 GaussDB
 
 请使用 PostgreSQL 兼容形式的 JDBC URL，例如 `jdbc:postgresql://host:port/database`。连接器仍支持 `pgoutput` 等与 PostgreSQL 兼容的 Debezium 插件，此时复用 PostgreSQL CDC 运行时。
 
-选择 `mppdb_decoding` 时，所配置的 JDBC 驱动和复制端口必须提供 PostgreSQL 兼容的逻辑复制 API。如果该 API 不可用，连接器会在启动阶段失败，不会通过 SQL 轮询消费尚未完成 checkpoint 的 WAL。
+选择 `mppdb_decoding` 时，所配置的 JDBC 驱动和复制端口必须提供 PostgreSQL 兼容的逻辑复制 API。如果该 API 不可用，连接器会在启动阶段失败，不会通过 SQL 轮询消费尚未完成 checkpoint 的 WAL。放入 `GaussDB-CDC` 插件目录的驱动还必须实现 GaussDB 的复制协议（例如 GaussDB 或 openGauss JDBC 驱动，它们保留了 `org.postgresql` 包名和 API）。原生 PostgreSQL JDBC 驱动可以完成快照，但无法进行流式读取：GaussDB 和 openGauss 的 `StandbyReplyMessage` 包含额外字段，会以 `insufficient data left in message` 拒绝该驱动发送的 standby 状态更新。
 
 ## 使用步骤
 

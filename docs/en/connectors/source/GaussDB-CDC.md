@@ -28,7 +28,7 @@ The repository's automated E2E uses openGauss only to exercise the shared `mppdb
 
 Configure a PostgreSQL-compatible JDBC URL, for example `jdbc:postgresql://host:port/database`. PostgreSQL-compatible Debezium plugins such as `pgoutput` remain supported and use the PostgreSQL CDC runtime.
 
-When `mppdb_decoding` is selected, the configured JDBC driver and replication port must expose the PostgreSQL-compatible logical replication API. The connector fails at startup if that API is unavailable; it does not consume uncheckpointed WAL through SQL polling.
+When `mppdb_decoding` is selected, the configured JDBC driver and replication port must expose the PostgreSQL-compatible logical replication API. The connector fails at startup if that API is unavailable; it does not consume uncheckpointed WAL through SQL polling. The driver placed in the `GaussDB-CDC` plugin directory must also implement the GaussDB replication protocol (for example the GaussDB or openGauss JDBC driver, which keep the `org.postgresql` package and API). The stock PostgreSQL JDBC driver can run the snapshot but cannot stream: GaussDB and openGauss reject its standby status update with `insufficient data left in message` because their `StandbyReplyMessage` carries additional fields.
 
 ## Using steps
 
