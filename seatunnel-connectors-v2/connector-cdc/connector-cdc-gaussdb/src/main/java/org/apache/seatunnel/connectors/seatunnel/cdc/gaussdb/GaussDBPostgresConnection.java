@@ -17,16 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
 
+import io.debezium.connector.postgresql.CustomPostgresValueConverter;
+import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConfiguration;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
+import java.nio.charset.Charset;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.ZoneId;
 
 /**
  * PostgreSQL connection adapter for GaussDB's fixed PostgreSQL 9.2 compatibility version.
@@ -54,6 +58,36 @@ final class GaussDBPostgresConnection extends PostgresConnection {
             PostgresValueConverterBuilder valueConverterBuilder,
             String connectionUsage) {
         super(config, valueConverterBuilder, connectionUsage);
+    }
+
+    /**
+     * Creates a converter-less GaussDB connection for metadata lookups such as the database
+     * charset, mirroring Debezium's own two-argument constructor.
+     */
+    GaussDBPostgresConnection(JdbcConfiguration config, String connectionUsage) {
+        super(config, connectionUsage);
+    }
+
+    /**
+     * Builds the PostgreSQL value converter factory for GaussDB. This mirrors {@code
+     * PostgresConnectionUtils#newPostgresValueConverterBuilder} but resolves the database charset
+     * through this adapter, because the stock {@link PostgresConnection} used by that helper
+     * rejects GaussDB's reported PostgreSQL 9.2 version before any query can run.
+     *
+     * @param config connector configuration supplying JDBC settings and converter options
+     * @param connectionUsage Debezium connection usage label for the short-lived lookup connection
+     * @param serverTimezone zone applied to temporal conversions
+     * @return builder producing value converters for a Debezium type registry
+     */
+    static PostgresValueConverterBuilder newValueConverterBuilder(
+            PostgresConnectorConfig config, String connectionUsage, String serverTimezone) {
+        try (GaussDBPostgresConnection charsetConnection =
+                new GaussDBPostgresConnection(config.getJdbcConfig(), connectionUsage)) {
+            final Charset databaseCharset = charsetConnection.getDatabaseCharset();
+            return typeRegistry ->
+                    CustomPostgresValueConverter.of(
+                            config, databaseCharset, typeRegistry, ZoneId.of(serverTimezone));
+        }
     }
 
     /** Supplies compatibility metadata only while Debezium executes its initial version check. */

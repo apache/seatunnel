@@ -30,12 +30,10 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresDia
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.PostgresSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.snapshot.PostgresSnapshotFetchTask;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils;
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.jdbc.JdbcConnection;
-import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
@@ -80,7 +78,7 @@ final class GaussDBDialect extends PostgresDialect {
                 (PostgresConnectorConfig) sourceConfig.getDbzConnectorConfig();
         return new GaussDBPostgresConnection(
                 connectorConfig.getJdbcConfig(),
-                PostgresConnectionUtils.newPostgresValueConverterBuilder(
+                GaussDBPostgresConnection.newValueConverterBuilder(
                         connectorConfig, "gaussdb-dialect", sourceConfig.getServerTimeZone()),
                 "gaussdb-dialect");
     }
@@ -91,15 +89,19 @@ final class GaussDBDialect extends PostgresDialect {
     @Override
     public PostgresSourceFetchTaskContext createFetchTaskContext(
             SourceSplitBase sourceSplit, JdbcSourceConfig taskSourceConfig) {
-        RelationalDatabaseConnectorConfig connectorConfig =
-                taskSourceConfig.getDbzConnectorConfig();
+        PostgresConnectorConfig connectorConfig =
+                (PostgresConnectorConfig) taskSourceConfig.getDbzConnectorConfig();
+        // Resolve the converter builder once through the GaussDB adapter; the stock PostgreSQL
+        // helper would reject GaussDB's reported 9.2 server version.
+        PostgresConnection.PostgresValueConverterBuilder valueConverterBuilder =
+                GaussDBPostgresConnection.newValueConverterBuilder(
+                        connectorConfig,
+                        "gaussdb-source-fetch-task",
+                        taskSourceConfig.getServerTimeZone());
         PostgresConnection jdbcConnection =
                 new GaussDBPostgresConnection(
                         connectorConfig.getJdbcConfig(),
-                        PostgresConnectionUtils.newPostgresValueConverterBuilder(
-                                (PostgresConnectorConfig) connectorConfig,
-                                "gaussdb-source-fetch-task",
-                                taskSourceConfig.getServerTimeZone()),
+                        valueConverterBuilder,
                         "gaussdb-source-fetch-task");
 
         List<TableChanges.TableChange> tableChanges = new ArrayList<>();
@@ -125,10 +127,16 @@ final class GaussDBDialect extends PostgresDialect {
                     jdbcConnection,
                     tableChanges,
                     schemaBaseline,
+                    valueConverterBuilder,
                     mppdbConfig);
         }
         return new PostgresSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, tableChanges, schemaBaseline);
+                taskSourceConfig,
+                this,
+                jdbcConnection,
+                tableChanges,
+                schemaBaseline,
+                valueConverterBuilder);
     }
 
     /** Uses the existing snapshot task and the GaussDB-specific incremental task. */

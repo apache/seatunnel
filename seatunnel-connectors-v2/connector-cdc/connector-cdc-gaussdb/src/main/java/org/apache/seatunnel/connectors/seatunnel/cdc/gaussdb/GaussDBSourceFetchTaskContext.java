@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.PostgresSourceFetchTaskContext;
-import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.utils.PostgresConnectionUtils;
 
 import io.debezium.DebeziumException;
 import io.debezium.connector.base.ChangeEventQueue;
@@ -91,27 +90,31 @@ final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext
     private PostgresTaskContext taskContext;
     private SnapshotChangeEventSourceMetrics<PostgresPartition> snapshotMetrics;
 
-    /** Creates a task context for one GaussDB source split. */
+    /**
+     * Creates a task context for one GaussDB source split.
+     *
+     * @param valueConverterBuilder converter builder already resolved through {@link
+     *     GaussDBPostgresConnection}; it is handed to the PostgreSQL parent so no stock Debezium
+     *     connection, which would reject GaussDB's server version, is opened during construction
+     */
     GaussDBSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
             PostgresConnection dataConnection,
             Collection<TableChanges.TableChange> engineHistory,
             List<CatalogTable> relationSchemaBaseline,
+            PostgresConnection.PostgresValueConverterBuilder valueConverterBuilder,
             GaussDBMppdbConfig mppdbConfig) {
         super(
                 sourceConfig,
                 dataSourceDialect,
                 dataConnection,
                 engineHistory,
-                relationSchemaBaseline);
+                relationSchemaBaseline,
+                valueConverterBuilder);
         this.dataConnection = dataConnection;
         this.metadataProvider = PostgresObjectUtils.newEventMetadataProvider();
-        this.valueConverterBuilder =
-                PostgresConnectionUtils.newPostgresValueConverterBuilder(
-                        getDbzConnectorConfig(),
-                        "gaussdb-source-fetch-task-context",
-                        sourceConfig.getServerTimeZone());
+        this.valueConverterBuilder = valueConverterBuilder;
         try {
             this.mppdbStream =
                     new MppdbReplicationStream(
