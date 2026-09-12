@@ -428,6 +428,14 @@ public class StringFunctionTest {
     }
 
     @Test
+    public void testLowerAndUpperAreIndependentOfDefaultLocale() {
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            Assertions.assertEquals("i", StringFunction.lower(Collections.singletonList("I")));
+            Assertions.assertEquals("I", StringFunction.upper(Collections.singletonList("i")));
+        } finally {
+            Locale.setDefault(original);
     public void testLowerAndUpperAreLocaleIndependent() {
         Locale originalLocale = Locale.getDefault();
         try {
