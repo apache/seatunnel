@@ -15,23 +15,31 @@ import ChangeLog from '../changelog/connector-http-myhours.md';
 Used to read data from My Hours through the My Hours REST API. The connector logs in with the configured
 `email` and `password`, obtains an access token, and then sends the configured HTTP request with that token.
 
+The My Hours connector shares its HTTP request, retry, and pagination runtime with other HTTP-based source connectors. Set `email` and `password` to a My Hours account, then point `url` at the endpoint you want to call.
+
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
+:::tip
+
+In streaming mode, the connector repeatedly calls the configured endpoint. Set `poll_interval_millis` to control the request interval.
+
+:::
+
 ## Supported DataSource Info
 
-In order to use the My Hours connector, the following dependencies are required.
-They can be downloaded via install-plugin.sh or from the Maven central repository.
+In order to use the My Hours connector, the following dependency is required.
+It can be downloaded via install-plugin.sh or from the Maven central repository.
 
 | Datasource | Supported Versions |                                         Dependency                                          |
 |------------|--------------------|---------------------------------------------------------------------------------------------|
-| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel) |
+| My Hours   | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)      |
 
 ## Source Options
 
@@ -54,6 +62,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds.                                                                             |
 | retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds.                                                                                |
 | json_filed_missed_return_null | Boolean | No     | false   | Return `null` when a configured JSON field is missing.                                                                |
+| pageing                     | Config  | No       | -       | Pagination settings for paginated My Hours endpoints. See [Pagination](#pagination).                                  |
 | common-options              |         | No       | -       | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md).             |
 
 ## How to Create a My Hours Data Synchronization Jobs
@@ -109,7 +118,99 @@ sink {
 }
 ```
 
+### Polling read in streaming mode
+
+For My Hours endpoints that grow over time, run the connector in `STREAMING`
+mode and use `poll_interval_millis` to control how often SeaTunnel re-issues
+the same request.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  MyHours {
+    plugin_output = "myhours_stream"
+    url = "https://api2.myhours.com/api/Projects/getAll"
+    email = "seatunnel@test.com"
+    password = "********"
+    method = "GET"
+    poll_interval_millis = 30000
+    format = "json"
+    schema = {
+      fields {
+        id = string
+        name = string
+        archived = boolean
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "myhours_stream"
+  }
+}
+```
+
+### Paginated batch read
+
+For paginated My Hours endpoints, configure `pageing` so the connector keeps
+walking pages until the configured total count is reached.
+
+```hocon
+source {
+  MyHours {
+    plugin_output = "myhours_pages"
+    url = "https://api2.myhours.com/api/Clients/getAll"
+    email = "seatunnel@test.com"
+    password = "********"
+    method = "GET"
+    format = "json"
+    pageing = {
+      total_page_size = 10
+      batch_size = 100
+      page_field = "page"
+      page_type = "PageNumber"
+    }
+    schema = {
+      fields {
+        id = string
+        name = string
+        archived = boolean
+      }
+    }
+  }
+}
+```
+
 ## Parameter Interpretation
+
+### Authentication
+
+Set `email` and `password` to your My Hours login. The connector exchanges
+those credentials for an access token, then attaches it to subsequent HTTP
+requests as the My Hours `Authorization` header. Keep `headers` for any
+additional headers the endpoint requires.
+
+### Pagination
+
+`pageing` is available for paginated My Hours endpoints.
+
+| name                       | type    | required | default value | description |
+|----------------------------|---------|----------|---------------|-------------|
+| total_page_size            | long    | No       | 0             | Total number of pages to request. |
+| batch_size                 | int     | No       | 100           | Page size returned by each request. |
+| start_page_number          | long    | No       | 1             | First page number. |
+| page_field                 | String  | No       | page          | Request parameter name for page-number pagination. |
+| page_type                  | String  | No       | PageNumber    | Pagination type. Supported values are `PageNumber` and `Cursor`. |
+| cursor_field               | String  | No       | -             | Request parameter name for cursor pagination. |
+| cursor_response_field      | String  | No       | -             | JSONPath field used to read the next cursor from the response. |
+| use_placeholder_replacement | boolean | No      | false         | Use `${field}` placeholder replacement in headers, parameters, and body. |
 
 ### format
 

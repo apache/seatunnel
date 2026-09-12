@@ -4,9 +4,25 @@ import ChangeLog from '../changelog/connector-http-klaviyo.md';
 
 > Klaviyo 源连接器
 
+## 支持这些引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 Klaviyo API 读取数据。连接器会根据 `private_key` 和 `revision` 生成 Klaviyo 请求头，然后复用 HTTP Source 的能力解析返回结果。
+
+Klaviyo 连接器与其他基于 HTTP 的源连接器共用同一套 HTTP 请求、重试和分页能力。把 `private_key` 配置为 Klaviyo 私有 API Key，把 `revision` 配置为 API 版本日期（例如 `2020-10-17`），再把 `url` 指向要调用的 Klaviyo 接口。
+
+## 支持的数据源信息
+
+使用 Klaviyo 连接器需要安装下面的依赖。可以通过 install-plugin.sh 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源     | 支持版本 | 依赖                                                                                            |
+|------------|----------|-------------------------------------------------------------------------------------------------|
+| Klaviyo    | 通用     | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)              |
 
 ## 关键特性
 
@@ -99,6 +115,8 @@ schema = {
 
 ## 示例
 
+### 批量读取 Klaviyo 列表
+
 ```hocon
 env {
   parallelism = 1
@@ -133,6 +151,94 @@ source {
 sink {
   Console {
     plugin_input = "klaviyo"
+  }
+}
+```
+
+### 使用游标分页读取
+
+通过 `pageing` 跟随 Klaviyo 在响应中返回的 `next` 游标。连接器会读取
+`cursor_response_field`，把值写回 `cursor_field`，直到响应不再带下游
+游标为止。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Klaviyo {
+    plugin_output = "klaviyo_cursor"
+    url = "https://a.klaviyo.com/api/events"
+    private_key = "replace-with-private-key"
+    revision = "2020-10-17"
+    method = "GET"
+    format = "json"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "page[cursor]"
+      cursor_response_field = "$.links.next"
+    }
+    schema = {
+      fields {
+        type = string
+        id = string
+        attributes = {
+          name = string
+          created = string
+          updated = string
+        }
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "klaviyo_cursor"
+  }
+}
+```
+
+### 流模式下轮询读取
+
+对于数据随时间增长的接口，使用 `STREAMING` 模式运行连接器，通过
+`poll_interval_millis` 控制 SeaTunnel 重新发起请求的频率。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Klaviyo {
+    plugin_output = "klaviyo_stream"
+    url = "https://a.klaviyo.com/api/metrics"
+    private_key = "replace-with-private-key"
+    revision = "2020-10-17"
+    method = "GET"
+    poll_interval_millis = 30000
+    format = "json"
+    schema = {
+      fields {
+        type = string
+        id = string
+        attributes = {
+          name = string
+          created = string
+          updated = string
+        }
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "klaviyo_stream"
   }
 }
 ```
