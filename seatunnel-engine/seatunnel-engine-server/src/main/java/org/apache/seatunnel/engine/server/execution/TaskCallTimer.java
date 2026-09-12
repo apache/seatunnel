@@ -40,6 +40,11 @@ public class TaskCallTimer extends Thread {
     boolean started = false;
     AtomicBoolean wait0 = new AtomicBoolean(false);
 
+    /** Upper bound of the backoff used while a denied promotion is retried. */
+    private static final long MAX_PROMOTION_RETRY_DELAY_MS = 1000;
+
+    private long promotionRetryDelay;
+
     public TaskCallTimer(
             long delay,
             AtomicBoolean keep,
@@ -49,6 +54,7 @@ public class TaskCallTimer extends Thread {
         this.keep = keep;
         this.runBusWorkSupplier = runBusWorkSupplier;
         this.cooperativeTaskWorker = cooperativeTaskWorker;
+        this.promotionRetryDelay = delay;
     }
 
     private void startTimer() {
@@ -79,6 +85,7 @@ public class TaskCallTimer extends Thread {
     public void timerStart(TaskTracker taskTracker) {
         wait0.set(false);
         this.taskTracker = taskTracker;
+        this.promotionRetryDelay = delay;
         nextExecutionTime = System.currentTimeMillis() + delay;
         if (started) {
             synchronized (lock) {
@@ -107,8 +114,17 @@ public class TaskCallTimer extends Thread {
                     currentTime = System.currentTimeMillis();
                     executionTime = this.nextExecutionTime;
                     if (!wait && executionTime <= currentTime) {
-                        timeoutAct(this.taskTracker.expiredTimes.incrementAndGet());
-                        break;
+                        if (timeoutAct(this.taskTracker.expiredTimes.incrementAndGet())) {
+                            break;
+                        }
+                        // The promotion was denied by the cooperative worker budget. Keep the
+                        // task where it is and retry the promotion after a bounded backoff
+                        // instead of dropping the timeout.
+                        promotionRetryDelay =
+                                Math.min(promotionRetryDelay * 2, MAX_PROMOTION_RETRY_DELAY_MS);
+                        nextExecutionTime = System.currentTimeMillis() + promotionRetryDelay;
+                        executionTime = nextExecutionTime;
+                        currentTime = System.currentTimeMillis();
                     }
                 }
                 if (wait) {
@@ -117,7 +133,7 @@ public class TaskCallTimer extends Thread {
                     }
                 } else {
                     synchronized (lock) {
-                        lock.wait(executionTime - currentTime);
+                        lock.wait(Math.max(1, executionTime - currentTime));
                     }
                 }
             } catch (InterruptedException e) {
@@ -126,20 +142,24 @@ public class TaskCallTimer extends Thread {
         }
     }
 
-    /** The action to be performed when the task call method execution times out */
-    private void timeoutAct(int expiredTimes) {
+    /**
+     * The action to be performed when the task call method execution times out.
+     *
+     * @param expiredTimes how often this task call has already expired
+     * @return true when the timer is done with this task call, false when the promotion was denied
+     *     by the cooperative worker budget and has to be retried
+     */
+    private boolean timeoutAct(int expiredTimes) {
         if (expiredTimes >= 1) {
-            // 1 busWork keep on running
-            keep.set(true);
-            // 2 busWork exclusive to the current taskTracker
-            cooperativeTaskWorker.exclusiveTaskTracker.set(taskTracker);
-            // 3 Submit a new BusWork to execute other tasks
-            runBusWorkSupplier.runNewBusWork(false);
-        } else {
-            // 1 Stop the current busWork from continuing to execute the new Task
-            keep.set(false);
-            // 2 Submit a new BusWork to execute other tasks
-            runBusWorkSupplier.runNewBusWork(false);
+            // busWork keeps running the current taskTracker exclusively and a new BusWork is
+            // submitted for the other tasks, but only if the promotion fits the worker budget
+            return runBusWorkSupplier.tryPromoteCooperativeWorker(
+                    cooperativeTaskWorker, taskTracker);
         }
+        // 1 Stop the current busWork from continuing to execute the new Task
+        keep.set(false);
+        // 2 Submit a new BusWork to execute other tasks
+        runBusWorkSupplier.runNewBusWork(false);
+        return true;
     }
 }
