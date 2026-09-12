@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -32,10 +33,13 @@ import org.junit.jupiter.api.Test;
 import io.debezium.config.Configuration;
 import io.debezium.connector.mysql.MySqlConnectorConfig;
 import io.debezium.connector.mysql.MySqlOffsetContext;
+import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 public class MySqlIncrementalSourceStartupConfigTest {
 
@@ -51,6 +55,98 @@ public class MySqlIncrementalSourceStartupConfigTest {
 
         ConfigValidator.of(ReadonlyConfig.fromMap(options))
                 .validate(new MySqlIncrementalSourceFactory().optionRule());
+    }
+
+    @Test
+    public void testOptionRuleAcceptsMixedStartup() {
+        Map<String, Object> options = mixedOptions();
+
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new MySqlIncrementalSourceFactory().optionRule());
+    }
+
+    /**
+     * An omitted exactly_once falls back to its default of false, which the option rule cannot
+     * flag: options with defaults never count as absent and value constraints only apply to keys
+     * the user set. The startup config path must therefore reject a mixed job itself.
+     */
+    @Test
+    public void testCreateMixedStartupConfigRejectsMissingExactlyOnce() {
+        Map<String, Object> options = mixedOptions();
+        options.remove(SourceOptions.EXACTLY_ONCE.key());
+
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new MySqlIncrementalSourceFactory().optionRule());
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                MySqlIncrementalSource.createStartupConfig(
+                                        ReadonlyConfig.fromMap(options)));
+        Assertions.assertEquals(
+                "The mixed startup mode requires exactly_once to be true.", exception.getMessage());
+    }
+
+    @Test
+    public void testOptionRuleRejectsMixedStartupWithExactlyOnceDisabled() {
+        Map<String, Object> options = mixedOptions();
+        options.put(SourceOptions.EXACTLY_ONCE.key(), false);
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                                .validate(new MySqlIncrementalSourceFactory().optionRule()));
+    }
+
+    @Test
+    public void testOptionRuleRejectsMixedStartupWithMultipleIncrementalReaders() {
+        Map<String, Object> options = mixedOptions();
+        options.put(SourceOptions.INCREMENTAL_PARALLELISM.key(), 2);
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                                .validate(new MySqlIncrementalSourceFactory().optionRule()));
+    }
+
+    @Test
+    public void testCreateMixedStartupConfigUsesSpecificOffset() {
+        StartupConfig startupConfig =
+                MySqlIncrementalSource.createStartupConfig(
+                        config(
+                                SourceOptions.STARTUP_MODE_KEY,
+                                "mixed",
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                                "mysql-bin.000123",
+                                SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                                456789L));
+
+        Offset startupOffset = startupConfig.getStartupOffset(new TestOffsetFactory());
+
+        Assertions.assertEquals(
+                "mysql-bin.000123",
+                startupOffset.getOffset().get(BinlogOffset.BINLOG_FILENAME_OFFSET_KEY));
+        Assertions.assertEquals(
+                "456789", startupOffset.getOffset().get(BinlogOffset.BINLOG_POSITION_OFFSET_KEY));
+    }
+
+    @Test
+    public void testResolveMixedSnapshotTablesUsesCapturedTableCase() {
+        Map<String, Object> options = requiredOptions();
+        options.put(
+                MySqlIncrementalSourceOptions.STARTUP_SNAPSHOT_TABLE_NAMES.key(),
+                Collections.singletonList("TEST.TABLE1"));
+
+        Set<TableId> snapshotTables =
+                MySqlIncrementalSource.resolveMixedSnapshotTables(
+                        ReadonlyConfig.fromMap(options),
+                        Arrays.asList(TableId.parse("test.table1"), TableId.parse("test.table2")),
+                        false);
+
+        Assertions.assertEquals(
+                Collections.singleton(TableId.parse("test.table1")), snapshotTables);
     }
 
     @Test
@@ -271,6 +367,18 @@ public class MySqlIncrementalSourceStartupConfigTest {
         options.put(
                 MySqlIncrementalSourceOptions.TABLE_NAMES.key(),
                 Collections.singletonList("test.table1"));
+        return options;
+    }
+
+    private static Map<String, Object> mixedOptions() {
+        Map<String, Object> options = requiredOptions();
+        options.put(SourceOptions.STARTUP_MODE_KEY, "mixed");
+        options.put(
+                MySqlIncrementalSourceOptions.STARTUP_SNAPSHOT_TABLE_NAMES.key(),
+                Collections.singletonList("test.table1"));
+        options.put(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(), "mysql-bin.000123");
+        options.put(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(), 456789L);
+        options.put(SourceOptions.EXACTLY_ONCE.key(), true);
         return options;
     }
 

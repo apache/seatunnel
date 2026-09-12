@@ -24,6 +24,7 @@ import io.debezium.relational.TableId;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 
@@ -71,7 +72,10 @@ public class IncrementalSplitState extends SourceSplitStateBase {
                 getTableIds(),
                 getStartupOffset(),
                 getStopOffset(),
-                incrementalSplit.getCompletedSnapshotSplitInfos());
+                incrementalSplit.getCompletedSnapshotSplitInfos(),
+                incrementalSplit.getTableStartOffsets(),
+                Collections.emptyList(),
+                Collections.emptyMap());
     }
 
     public synchronized boolean markEnterPureIncrementPhaseIfNeed(Offset currentRecordPosition) {

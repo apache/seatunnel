@@ -28,6 +28,7 @@ import lombok.ToString;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -46,6 +47,9 @@ public class IncrementalSplit extends SourceSplitBase {
 
     /** Minimum watermark for SnapshotSplits for all tables in this IncrementalSplit */
     private final Offset startupOffset;
+
+    /** Per-table lower bounds used when tables have different initial synchronization policies. */
+    private Map<TableId, Offset> tableStartOffsets;
 
     /** Obtained by configuration, may not end */
     private final Offset stopOffset;
@@ -75,6 +79,7 @@ public class IncrementalSplit extends SourceSplitBase {
                 startupOffset,
                 stopOffset,
                 completedSnapshotSplitInfos,
+                Collections.emptyMap(),
                 new ArrayList<>(),
                 new HashMap<>());
     }
@@ -88,6 +93,11 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
                 checkpointDataType);
+        // Carry the per-table lower bounds over without adding another 7-argument constructor:
+        // a (.., Map, SeaTunnelDataType) overload would be ambiguous with the existing
+        // (.., List, Map) overload for callers that pass null arguments, such as
+        // IncrementalSplitTest, and break compilation.
+        this.tableStartOffsets = new HashMap<>(split.getTableStartOffsets());
     }
 
     public IncrementalSplit(
@@ -100,6 +110,7 @@ public class IncrementalSplit extends SourceSplitBase {
                 split.getStartupOffset(),
                 split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
+                split.getTableStartOffsets(),
                 tables,
                 historyTableChanges);
     }
@@ -117,6 +128,8 @@ public class IncrementalSplit extends SourceSplitBase {
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
+        // Legacy checkpoint splits predate per-table lower bounds, so they start with none.
+        this.tableStartOffsets = Collections.emptyMap();
         this.checkpointDataType = checkpointDataType;
         this.historyTableChanges = new HashMap<>();
     }
@@ -129,13 +142,47 @@ public class IncrementalSplit extends SourceSplitBase {
             List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
             List<CatalogTable> checkpointTables,
             Map<TableId, byte[]> historyTableChanges) {
+        this(
+                splitId,
+                capturedTables,
+                startupOffset,
+                stopOffset,
+                completedSnapshotSplitInfos,
+                Collections.emptyMap(),
+                checkpointTables,
+                historyTableChanges);
+    }
+
+    public IncrementalSplit(
+            String splitId,
+            List<TableId> capturedTables,
+            Offset startupOffset,
+            Offset stopOffset,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            Map<TableId, Offset> tableStartOffsets,
+            List<CatalogTable> checkpointTables,
+            Map<TableId, byte[]> historyTableChanges) {
         super(splitId);
         this.tableIds = capturedTables;
         this.startupOffset = startupOffset;
         this.stopOffset = stopOffset;
         this.completedSnapshotSplitInfos = completedSnapshotSplitInfos;
+        this.tableStartOffsets =
+                tableStartOffsets == null
+                        ? Collections.emptyMap()
+                        : new HashMap<>(tableStartOffsets);
         this.checkpointTables = checkpointTables;
         this.historyTableChanges = historyTableChanges;
+    }
+
+    /**
+     * Returns the table-specific lower bounds for this split.
+     *
+     * <p>Checkpoints written before this field was introduced deserialize it as {@code null}; treat
+     * them as having no table-specific lower bounds to preserve restore compatibility.
+     */
+    public Map<TableId, Offset> getTableStartOffsets() {
+        return tableStartOffsets == null ? Collections.emptyMap() : tableStartOffsets;
     }
 
     /**
