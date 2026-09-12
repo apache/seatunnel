@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -38,7 +38,7 @@ import java.util.function.LongSupplier;
  * transaction is also supported when records are delivered as a contiguous group.
  */
 @Slf4j
-final class MppdbTransactionBuffer {
+public final class MppdbTransactionBuffer {
 
     // Warn every five minutes while an unfinished transaction prevents prefix release.
     private static final long STALL_WARNING_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(5);
@@ -67,12 +67,12 @@ final class MppdbTransactionBuffer {
     private PendingTransaction anonymousTransaction;
 
     // Creates a task-owned buffer with a monotonic diagnostic clock.
-    MppdbTransactionBuffer() {
+    public MppdbTransactionBuffer() {
         this(System::nanoTime);
     }
 
     // Supplies a monotonic clock for deterministic warning-boundary tests.
-    MppdbTransactionBuffer(LongSupplier nanoClock) {
+    public MppdbTransactionBuffer(LongSupplier nanoClock) {
         this.nanoClock = nanoClock;
     }
 
@@ -82,7 +82,7 @@ final class MppdbTransactionBuffer {
      * @param change decoded BEGIN, DML, or COMMIT record
      * @return committed transactions in safe checkpoint order
      */
-    List<CommittedTransaction> add(MppdbWalChange change) {
+    public List<CommittedTransaction> add(MppdbWalChange change) {
         switch (change.getType()) {
             case BEGIN:
                 begin(change.getTransactionId());
@@ -109,7 +109,7 @@ final class MppdbTransactionBuffer {
      *
      * @return whether this poll emitted a warning
      */
-    boolean warnIfStalled() {
+    public boolean warnIfStalled() {
         PendingTransaction oldest = transactionOrder.peekFirst();
         if (oldest == null) {
             return false;
@@ -268,7 +268,7 @@ final class MppdbTransactionBuffer {
     }
 
     /** Immutable committed transaction released to the WAL fetch task. */
-    static final class CommittedTransaction {
+    public static final class CommittedTransaction {
 
         /** Transaction id propagated to Debezium source metadata. */
         private final long transactionId;
@@ -288,17 +288,17 @@ final class MppdbTransactionBuffer {
         }
 
         /** Returns the transaction id, or zero when the protocol omitted it. */
-        long getTransactionId() {
+        public long getTransactionId() {
             return transactionId;
         }
 
         /** Returns the server COMMIT LSN. */
-        long getCommitLsn() {
+        public long getCommitLsn() {
             return commitLsn;
         }
 
         /** Returns the transaction DML records in decoding order. */
-        List<MppdbWalChange> getChanges() {
+        public List<MppdbWalChange> getChanges() {
             return changes;
         }
     }

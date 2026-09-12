@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.offset;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;

@@ -32,6 +32,10 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config.GaussDBMppdbConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config.GaussDBSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.GaussDBDialect;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.offset.GaussDBLsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;

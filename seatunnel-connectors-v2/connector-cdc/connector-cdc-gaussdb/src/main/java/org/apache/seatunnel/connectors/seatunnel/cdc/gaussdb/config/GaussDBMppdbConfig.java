@@ -15,9 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.GaussDBIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import lombok.Getter;
@@ -28,7 +29,7 @@ import java.util.Optional;
 
 /** Immutable runtime settings for the GaussDB {@code mppdb_decoding} reader. */
 @Getter
-final class GaussDBMppdbConfig implements Serializable {
+public final class GaussDBMppdbConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -54,7 +55,7 @@ final class GaussDBMppdbConfig implements Serializable {
     private final boolean sendingBatch;
 
     /** Creates and validates a runtime configuration from connector options. */
-    GaussDBMppdbConfig(ReadonlyConfig config) {
+    public GaussDBMppdbConfig(ReadonlyConfig config) {
         this.pluginName =
                 config.get(GaussDBIncrementalSourceOptions.DECODING_PLUGIN_NAME)
                         .trim()
@@ -74,7 +75,7 @@ final class GaussDBMppdbConfig implements Serializable {
     }
 
     /** Returns whether this configuration selects the GaussDB-specific WAL reader. */
-    boolean usesMppdbDecoding() {
+    public boolean usesMppdbDecoding() {
         return "mppdb_decoding".equals(pluginName);
     }
 

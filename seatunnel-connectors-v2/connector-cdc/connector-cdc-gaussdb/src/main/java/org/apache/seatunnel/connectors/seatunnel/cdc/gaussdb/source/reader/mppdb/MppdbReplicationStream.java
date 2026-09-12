@@ -15,7 +15,9 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb;
+
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config.GaussDBMppdbConfig;
 
 import io.debezium.connector.postgresql.connection.Lsn;
 import lombok.extern.slf4j.Slf4j;
@@ -43,7 +45,7 @@ import java.util.regex.Pattern;
  * contract so deployments can supply either compatible driver.
  */
 @Slf4j
-final class MppdbReplicationStream implements AutoCloseable {
+public final class MppdbReplicationStream implements AutoCloseable {
 
     /** SQLSTATE raised when a concurrent reader has already created the same slot. */
     private static final String DUPLICATE_OBJECT_SQL_STATE = "42710";
@@ -83,7 +85,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     private volatile boolean running;
 
     /** Creates a stream bound to one source-reader task context. */
-    MppdbReplicationStream(
+    public MppdbReplicationStream(
             Connection dataConnection,
             GaussDBMppdbConfig config,
             String username,
@@ -95,7 +97,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Ensures the configured logical slot exists and uses {@code mppdb_decoding}. */
-    synchronized void ensureSlot() throws SQLException {
+    public synchronized void ensureSlot() throws SQLException {
         String existingPlugin = findSlotPlugin();
         if (existingPlugin != null) {
             verifySlotPlugin(existingPlugin);
@@ -134,7 +136,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Starts reading from the supplied checkpoint or snapshot boundary. */
-    synchronized void start(long startLsn) throws SQLException {
+    public synchronized void start(long startLsn) throws SQLException {
         ensureSlot();
         try {
             initializeReplicationApi(startLsn);
@@ -155,7 +157,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Reads up to {@code maxChanges} currently available records without blocking indefinitely. */
-    synchronized List<MppdbWalChange> readPending(int maxChanges) throws SQLException {
+    public synchronized List<MppdbWalChange> readPending(int maxChanges) throws SQLException {
         if (!running) {
             return new ArrayList<>();
         }
@@ -163,7 +165,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Advances the server flush position only after SeaTunnel completes a checkpoint. */
-    synchronized void acknowledge(long checkpointLsn) throws SQLException {
+    public synchronized void acknowledge(long checkpointLsn) throws SQLException {
         if (checkpointLsn == 0) {
             return;
         }
@@ -180,7 +182,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Returns whether the reader loop should continue polling. */
-    boolean isRunning() {
+    public boolean isRunning() {
         return running;
     }
 
@@ -299,7 +301,7 @@ final class MppdbReplicationStream implements AutoCloseable {
     }
 
     /** Adds replication protocol parameters and optionally rewrites the dedicated server port. */
-    String buildReplicationUrl() {
+    public String buildReplicationUrl() {
         String url = config.getJdbcUrl();
         if (config.getReplicationPort() != null) {
             Matcher matcher = JDBC_SERVER_URL.matcher(url);

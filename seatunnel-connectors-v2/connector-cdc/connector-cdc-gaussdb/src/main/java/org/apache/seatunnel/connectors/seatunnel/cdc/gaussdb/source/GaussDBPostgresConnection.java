@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source;
 
 import io.debezium.connector.postgresql.CustomPostgresValueConverter;
 import io.debezium.connector.postgresql.PostgresConnectorConfig;

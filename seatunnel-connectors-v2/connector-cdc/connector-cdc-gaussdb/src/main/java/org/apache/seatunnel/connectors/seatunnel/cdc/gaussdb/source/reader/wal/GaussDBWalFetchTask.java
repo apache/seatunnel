@@ -15,11 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.wal;
 
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.GaussDBSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb.MppdbReplicationMessage;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb.MppdbReplicationStream;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb.MppdbTransactionBuffer;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb.MppdbWalChange;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 
 import io.debezium.connector.postgresql.PostgresChangeRecordEmitter;
@@ -36,7 +41,7 @@ import java.util.List;
 
 /** Incremental fetch task that emits mppdb changes through Debezium's record schemas. */
 @Slf4j
-final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
+public final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
 
     /** Incremental split carrying startup, stopping, and captured-table state. */
     private final IncrementalSplit split;
@@ -57,7 +62,7 @@ final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
     private long lastCompletedLsn;
 
     /** Creates an incremental fetch task for one stream split. */
-    GaussDBWalFetchTask(IncrementalSplit split) {
+    public GaussDBWalFetchTask(IncrementalSplit split) {
         this.split = split;
     }
 
@@ -102,7 +107,7 @@ final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     /** Acknowledges only monotonically increasing offsets from completed checkpoints. */
-    synchronized void commitCurrentOffset(LsnOffset offset) throws SQLException {
+    public synchronized void commitCurrentOffset(LsnOffset offset) throws SQLException {
         if (stream == null || offset == null) {
             return;
         }
@@ -228,7 +233,7 @@ final class GaussDBWalFetchTask implements FetchTask<SourceSplitBase> {
     }
 
     /** Returns the greatest COMMIT LSN in a released prefix without depending on BEGIN order. */
-    static long maximumCommitLsn(
+    public static long maximumCommitLsn(
             List<MppdbTransactionBuffer.CommittedTransaction> transactions, long baselineLsn) {
         long maximumLsn = baselineLsn;
         for (MppdbTransactionBuffer.CommittedTransaction transaction : transactions) {

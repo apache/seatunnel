@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb;
 
 import lombok.Getter;
 
@@ -24,10 +24,10 @@ import java.util.List;
 
 /** A normalized transaction or row-change record emitted by {@code mppdb_decoding}. */
 @Getter
-final class MppdbWalChange {
+public final class MppdbWalChange {
 
     /** Supported mppdb logical decoding record kinds. */
-    enum Type {
+    public enum Type {
         BEGIN,
         COMMIT,
         INSERT,
@@ -37,7 +37,7 @@ final class MppdbWalChange {
 
     /** A decoded column value together with the server type identity. */
     @Getter
-    static final class ColumnValue {
+    public static final class ColumnValue {
 
         /** Column name exactly as emitted by the decoding plugin. */
         private final String name;
@@ -86,7 +86,7 @@ final class MppdbWalChange {
     private final List<ColumnValue> newColumns;
 
     /** Creates an immutable normalized WAL record. */
-    MppdbWalChange(
+    public MppdbWalChange(
             long lsn,
             long transactionId,
             Type type,
@@ -110,7 +110,7 @@ final class MppdbWalChange {
     }
 
     /** Returns whether this record carries a table row change. */
-    boolean isDataChange() {
+    public boolean isDataChange() {
         return type == Type.INSERT || type == Type.UPDATE || type == Type.DELETE;
     }
 }

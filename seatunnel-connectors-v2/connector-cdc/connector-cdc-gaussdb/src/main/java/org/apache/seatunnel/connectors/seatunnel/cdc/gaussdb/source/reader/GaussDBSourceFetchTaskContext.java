@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -24,6 +24,8 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config.GaussDBMppdbConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb.MppdbReplicationStream;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.exception.PostgresConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.PostgresSourceFetchTaskContext;
@@ -67,7 +69,7 @@ import static io.debezium.connector.postgresql.PostgresConnectorConfig.SNAPSHOT_
 
 /** PostgreSQL snapshot context extended with the GaussDB mppdb replication stream. */
 @Slf4j
-final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext {
+public final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext {
 
     private static final String CONTEXT_NAME = "gaussdb-cdc-connector-task";
 
@@ -97,7 +99,7 @@ final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext
      *     GaussDBPostgresConnection}; it is handed to the PostgreSQL parent so no stock Debezium
      *     connection, which would reject GaussDB's server version, is opened during construction
      */
-    GaussDBSourceFetchTaskContext(
+    public GaussDBSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
             JdbcDataSourceDialect dataSourceDialect,
             PostgresConnection dataConnection,
@@ -249,7 +251,7 @@ final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext
     }
 
     /** Returns the mppdb stream consumed by the incremental fetch task. */
-    MppdbReplicationStream getMppdbStream() {
+    public MppdbReplicationStream getMppdbStream() {
         return mppdbStream;
     }
 
@@ -310,7 +312,7 @@ final class GaussDBSourceFetchTaskContext extends PostgresSourceFetchTaskContext
     }
 
     /** Returns the connection-scoped type registry used to convert mppdb text values. */
-    TypeRegistry getTypeRegistry() {
+    public TypeRegistry getTypeRegistry() {
         return dataConnection.getTypeRegistry();
     }
 

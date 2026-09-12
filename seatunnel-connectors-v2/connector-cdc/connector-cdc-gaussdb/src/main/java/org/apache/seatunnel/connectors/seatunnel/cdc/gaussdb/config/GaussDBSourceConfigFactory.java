@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
@@ -27,7 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** PostgreSQL snapshot configuration used alongside the GaussDB-specific WAL reader. */
-final class GaussDBSourceConfigFactory extends PostgresSourceConfigFactory {
+public final class GaussDBSourceConfigFactory extends PostgresSourceConfigFactory {
 
     private static final long serialVersionUID = 1L;
 

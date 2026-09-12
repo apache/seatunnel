@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -25,6 +25,10 @@ import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.config.GaussDBMppdbConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.GaussDBSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb.MppdbReplicationStream;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.wal.GaussDBWalFetchTask;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffset;
@@ -43,7 +47,7 @@ import java.util.List;
 import java.util.Map;
 
 /** GaussDB-compatible PostgreSQL dialect that optionally replaces the WAL reader with mppdb. */
-final class GaussDBDialect extends PostgresDialect {
+public final class GaussDBDialect extends PostgresDialect {
 
     private static final long serialVersionUID = 1L;
 
@@ -60,7 +64,7 @@ final class GaussDBDialect extends PostgresDialect {
     private transient GaussDBWalFetchTask walFetchTask;
 
     /** Creates the GaussDB dialect while retaining PostgreSQL snapshot and catalog behavior. */
-    GaussDBDialect(
+    public GaussDBDialect(
             PostgresSourceConfigFactory configFactory,
             List<CatalogTable> catalogTables,
             boolean requireReplicaIdentityFull,
@@ -171,12 +175,12 @@ final class GaussDBDialect extends PostgresDialect {
     }
 
     /** Returns whether this dialect uses the native mppdb WAL task. */
-    boolean usesMppdbDecoding() {
+    public boolean usesMppdbDecoding() {
         return mppdbConfig.usesMppdbDecoding();
     }
 
     /** Ensures the mppdb slot exists before latest-offset enumeration reads its boundary. */
-    void ensureSlot(JdbcSourceConfig taskSourceConfig) {
+    public void ensureSlot(JdbcSourceConfig taskSourceConfig) {
         try (JdbcConnection jdbcConnection = openJdbcConnection(taskSourceConfig)) {
             MppdbReplicationStream stream =
                     new MppdbReplicationStream(

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.reader.mppdb;
 
 import io.debezium.connector.postgresql.PostgresStreamingChangeEventSource.PgConnectionSupplier;
 import io.debezium.connector.postgresql.PostgresType;
@@ -29,7 +29,7 @@ import java.util.OptionalLong;
 import java.util.stream.Collectors;
 
 /** Adapts normalized mppdb rows to Debezium's PostgreSQL change-record emitter contract. */
-final class MppdbReplicationMessage implements ReplicationMessage {
+public final class MppdbReplicationMessage implements ReplicationMessage {
 
     /** Normalized mppdb row change. */
     private final MppdbWalChange change;
@@ -41,7 +41,8 @@ final class MppdbReplicationMessage implements ReplicationMessage {
     private final Instant eventTime;
 
     /** Creates a Debezium message for one mppdb row change. */
-    MppdbReplicationMessage(MppdbWalChange change, TypeRegistry typeRegistry, Instant eventTime) {
+    public MppdbReplicationMessage(
+            MppdbWalChange change, TypeRegistry typeRegistry, Instant eventTime) {
         this.change = change;
         this.typeRegistry = typeRegistry;
         this.eventTime = eventTime;

@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb;
+package org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.offset;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.gaussdb.source.GaussDBDialect;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
@@ -30,7 +31,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 /** Offset factory that prepares the mppdb slot before latest-offset discovery. */
-final class GaussDBLsnOffsetFactory extends OffsetFactory {
+public final class GaussDBLsnOffsetFactory extends OffsetFactory {
 
     /** Existing PostgreSQL LSN implementation reused for offset serialization and slot queries. */
     private final LsnOffsetFactory delegate;
@@ -42,7 +43,8 @@ final class GaussDBLsnOffsetFactory extends OffsetFactory {
     private final GaussDBDialect dialect;
 
     /** Creates a checkpoint-compatible offset factory. */
-    GaussDBLsnOffsetFactory(PostgresSourceConfigFactory configFactory, GaussDBDialect dialect) {
+    public GaussDBLsnOffsetFactory(
+            PostgresSourceConfigFactory configFactory, GaussDBDialect dialect) {
         this.delegate = new LsnOffsetFactory(configFactory, dialect);
         this.sourceConfig = configFactory.create(0);
         this.dialect = dialect;
