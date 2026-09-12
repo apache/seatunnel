@@ -11,15 +11,18 @@ import TabItem from '@theme/TabItem';
 
 Before starting to download SeaTunnel, you need to ensure that you have installed the following software required by SeaTunnel:
 
-* Install [Java](https://www.java.com/en/download/) (Java 8 or 11, and other versions higher than Java 8 can theoretically work) and set `JAVA_HOME`.
+* Install [Java](https://www.java.com/en/download/) (Java 8 or 11 for the standard `-bin` package; **JDK 17+** for Spark 4.1) and set `JAVA_HOME`.
 
 ## Download SeaTunnel Release Package
 
 ### Download The Binary Package
 
-Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to download the latest binary package `seatunnel-<version>-bin.tar.gz`.
+Visit the [SeaTunnel Download Page](https://seatunnel.apache.org/download) to download the latest binary package:
 
-Or you can also download it through the terminal:
+- `apache-seatunnel-<version>-bin.tar.gz` — Spark 2.4 / 3.3, Flink, and SeaTunnel Engine (JDK 8+)
+- `apache-seatunnel-<version>-spark41-bin.tar.gz` — Spark 4.1 starter and a minimal connector set (**JDK 17+**). See [SeaTunnel With Spark](../../engines/spark.md#spark-41-distribution).
+
+Or you can also download the standard package through the terminal:
 
 ```shell
 export version="3.0.0"

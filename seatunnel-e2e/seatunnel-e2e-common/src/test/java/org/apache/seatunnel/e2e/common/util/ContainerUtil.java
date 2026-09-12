@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.FLINK_1_18;
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.FLINK_1_20;
 import static org.apache.seatunnel.e2e.common.container.TestContainerId.SPARK_3_3;
+import static org.apache.seatunnel.e2e.common.container.TestContainerId.SPARK_4_1;
 
 @Slf4j
 public final class ContainerUtil {
@@ -168,6 +169,27 @@ public final class ContainerUtil {
         return targetConfInContainer;
     }
 
+    /**
+     * Spark 4.1 starter excludes Scala from its shaded jar; copy Scala 2.13 libs separately so
+     * executors can deserialize Spark tasks.
+     */
+    public static void copySpark41ScalaLibrariesToContainer(
+            GenericContainer<?> container,
+            String startModulePath,
+            String seatunnelHomeInContainer) {
+        final String scalaLibPath =
+                startModulePath
+                        + File.separator
+                        + "target"
+                        + File.separator
+                        + "scala-e2e"
+                        + File.separator;
+        checkPathExist(scalaLibPath);
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(scalaLibPath),
+                Paths.get(seatunnelHomeInContainer, "lib").toString());
+    }
+
     public static void copySeaTunnelStarterLoggingToContainer(
             GenericContainer<?> container,
             String startModulePath,
@@ -191,6 +213,16 @@ public final class ContainerUtil {
             String startModuleName,
             String startModulePath,
             String seatunnelHomeInContainer) {
+        copySeaTunnelStarterToContainer(
+                container, startModuleName, startModulePath, seatunnelHomeInContainer, true);
+    }
+
+    public static void copySeaTunnelStarterToContainer(
+            GenericContainer<?> container,
+            String startModuleName,
+            String startModulePath,
+            String seatunnelHomeInContainer,
+            boolean copyTransformJars) {
         // solve the problem of multi modules such as
         // seatunnel-flink-starter/seatunnel-flink-13-starter
         final String[] splits = StringUtils.split(startModuleName, File.separator);
@@ -204,30 +236,32 @@ public final class ContainerUtil {
                 MountableFile.forHostPath(startJarPath),
                 Paths.get(seatunnelHomeInContainer, "starter", startJarName).toString());
 
-        // copy transform
-        String transformJar = "seatunnel-transforms-v2.jar";
-        Path transformJarPath =
-                Paths.get(PROJECT_ROOT_PATH, "seatunnel-transforms-v2", "target", transformJar);
-        if (transformJarPath.toFile().exists()) {
-            container.withCopyFileToContainer(
-                    MountableFile.forHostPath(transformJarPath),
-                    Paths.get(seatunnelHomeInContainer, "lib", transformJar).toString());
-        }
+        if (copyTransformJars) {
+            // copy transform
+            String transformJar = "seatunnel-transforms-v2.jar";
+            Path transformJarPath =
+                    Paths.get(PROJECT_ROOT_PATH, "seatunnel-transforms-v2", "target", transformJar);
+            if (transformJarPath.toFile().exists()) {
+                container.withCopyFileToContainer(
+                        MountableFile.forHostPath(transformJarPath),
+                        Paths.get(seatunnelHomeInContainer, "lib", transformJar).toString());
+            }
 
-        // copy transform-udf
-        String transformUdfJar = "seatunnel-transforms-v2-udf.jar";
-        Path transformUdfJarPath =
-                Paths.get(
-                        PROJECT_ROOT_PATH,
-                        "seatunnel-e2e",
-                        "seatunnel-transforms-v2-e2e",
-                        "seatunnel-transforms-v2-udf",
-                        "target",
-                        transformUdfJar);
-        if (transformUdfJarPath.toFile().exists()) {
-            container.withCopyFileToContainer(
-                    MountableFile.forHostPath(transformUdfJarPath),
-                    Paths.get(seatunnelHomeInContainer, "lib", transformUdfJar).toString());
+            // copy transform-udf
+            String transformUdfJar = "seatunnel-transforms-v2-udf.jar";
+            Path transformUdfJarPath =
+                    Paths.get(
+                            PROJECT_ROOT_PATH,
+                            "seatunnel-e2e",
+                            "seatunnel-transforms-v2-e2e",
+                            "seatunnel-transforms-v2-udf",
+                            "target",
+                            transformUdfJar);
+            if (transformUdfJarPath.toFile().exists()) {
+                container.withCopyFileToContainer(
+                        MountableFile.forHostPath(transformUdfJarPath),
+                        Paths.get(seatunnelHomeInContainer, "lib", transformUdfJar).toString());
+            }
         }
 
         // copy bin
@@ -405,6 +439,12 @@ public final class ContainerUtil {
                         .filter(container -> container.identifier().isTestInPR())
                         .filter(
                                 container -> {
+                                    if (container.identifier().equals(SPARK_4_1)) {
+                                        return Boolean.parseBoolean(
+                                                System.getenv()
+                                                        .getOrDefault(
+                                                                "RUN_SPARK_41_CONTAINER", "false"));
+                                    }
                                     if (testAllContainer
                                             || container.identifier().equals(FLINK_1_18)
                                             || container.identifier().equals(FLINK_1_20)
