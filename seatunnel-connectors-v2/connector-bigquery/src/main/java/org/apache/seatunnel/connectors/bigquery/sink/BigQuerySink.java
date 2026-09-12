@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.connectors.bigquery.catalog.BigQueryCatalog;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
@@ -54,8 +55,16 @@ public class BigQuerySink
 
     public BigQuerySink(ReadonlyConfig config, CatalogTable catalogTable) {
         this.config = config;
-        this.isBatch =
-                BigQuerySinkBatchWriter.BATCH.equals(config.get(BigQuerySinkOptions.WRITE_MODE));
+        if (BigQuerySinkBatchWriter.BATCH.equals(config.get(BigQuerySinkOptions.WRITE_MODE))) {
+            this.isBatch = true;
+        } else if (BigQuerySinkStreamWriter.STREAMING.equals(
+                config.get(BigQuerySinkOptions.WRITE_MODE))) {
+            this.isBatch = false;
+        } else {
+            throw CommonError.illegalArgument(
+                    config.get(BigQuerySinkOptions.WRITE_MODE),
+                    BigQuerySinkOptions.WRITE_MODE.key());
+        }
         this.catalogTable = catalogTable;
     }
 
