@@ -48,7 +48,8 @@ public class DorisCommitInfoSerializer implements Serializer<DorisCommitInfo> {
             final String hostPort = in.readUTF();
             final String db = in.readUTF();
             final long txnId = in.readLong();
-            return new DorisCommitInfo(hostPort, db, txnId);
+            final String label = in.readUTF();
+            return new DorisCommitInfo(hostPort, db, txnId, label);
         }
     }
 }
