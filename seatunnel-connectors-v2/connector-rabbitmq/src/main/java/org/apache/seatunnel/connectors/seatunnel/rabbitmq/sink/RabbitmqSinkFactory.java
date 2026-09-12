@@ -63,8 +63,6 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
-                        RabbitmqSinkOptions.PROTOBUF_SCHEMA,
-                        RabbitmqSinkOptions.PROTOBUF_MESSAGE_NAME,
                         RabbitmqSinkOptions.RABBITMQ_CONFIG)
                 .build();
     }
