@@ -202,15 +202,25 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
         completedSplitWatermarks.forEach(
                 watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
         if (allSplitsCompleted()) {
-            // Skip the waiting checkpoint when current parallelism is 1 which means we do not need
-            // to care about the global output data order of snapshot splits and incremental split.
             if (currentParallelism == 1) {
+                // A single-reader job completes immediately. Zeta disables checkpointing
+                // entirely for batch jobs without 'checkpoint.interval', so waiting for
+                // notifyCheckpointComplete would hang such a job forever. The failover risk
+                // of skipping the checkpoint wait is covered by the durable finished-unacked
+                // splits in the reader's own checkpoint, whose re-report on restore and the
+                // back-fill in restoreCompletedSnapshotSplit reconstruct the completion state
+                // without replaying the splits.
                 assignerCompleted = true;
                 LOG.info(
-                        "Snapshot split assigner received all splits completed and the job parallelism is 1, snapshot split assigner is turn into completed status.");
+                        "Snapshot split assigner received all splits completed at parallelism 1, snapshot split assigner is turn into completed status.");
             } else {
+                // Multi-reader jobs must wait for a complete checkpoint before switching to
+                // the incremental phase, so that all records of snapshot splits are completely
+                // processed in the pipeline and no incremental record can overtake a snapshot
+                // record of the same key.
                 LOG.info(
-                        "Snapshot split assigner received all splits completed, waiting for a complete checkpoint to mark the assigner completed.");
+                        "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
+                        currentParallelism);
             }
         }
     }
@@ -219,9 +229,9 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     public void addSplits(Collection<SourceSplitBase> splits) {
         for (SourceSplitBase split : splits) {
             SnapshotSplit snapshotSplit = split.asSnapshotSplit();
-            if (hasCheckpointedCompletionState(snapshotSplit)) {
+            if (restoreCompletedSnapshotSplit(snapshotSplit)) {
                 LOG.info(
-                        "Ignore add-back for completed snapshot split {}, keep checkpointed completion state",
+                        "Restore completed snapshot split {} from checkpoint without replaying it",
                         snapshotSplit.splitId());
                 continue;
             }
@@ -291,16 +301,31 @@ public class SnapshotSplitAssigner<C extends SourceConfig> implements SplitAssig
     }
 
     /**
-     * Returns whether the restored split already has durable completion state in the checkpoint.
+     * Returns whether the restored split already has durable completion state in the checkpoint,
+     * and back-fills any missing completion watermark from the split itself.
      *
-     * <p>We can safely skip add-back only when the checkpoint persisted both the original
-     * assignment and the finished watermark. If either side is missing, the split still needs to be
-     * replayed after restore so the enumerator can rebuild the missing completion state.
+     * <p>A finished reader that never reported its watermark before failover (for example because
+     * the reader crashed immediately after marking the split as snapshot-read-finished but before
+     * its next CompletedSnapshotSplitsReportEvent went out) can show up after restore as a finished
+     * split whose watermark has not yet been checkpointed. Without back-fill, the enumerator would
+     * re-enqueue the split and the snapshot phase would never finish.
+     *
+     * <p>The split is skipped on add-back in that case, and the missing watermark is reconstructed
+     * from the split's own low/high watermark. If the split was not finished before the failover we
+     * still re-enqueue it so the reader can replay it from its persisted state.
      */
-    private boolean hasCheckpointedCompletionState(SnapshotSplit snapshotSplit) {
-        return snapshotSplit.isSnapshotReadFinished()
-                && assignedSplits.containsKey(snapshotSplit.splitId())
-                && splitCompletedOffsets.containsKey(snapshotSplit.splitId());
+    private boolean restoreCompletedSnapshotSplit(SnapshotSplit snapshotSplit) {
+        if (!snapshotSplit.isSnapshotReadFinished()
+                || !assignedSplits.containsKey(snapshotSplit.splitId())) {
+            return false;
+        }
+        splitCompletedOffsets.putIfAbsent(
+                snapshotSplit.splitId(),
+                new SnapshotSplitWatermark(
+                        snapshotSplit.splitId(),
+                        snapshotSplit.getLowWatermark(),
+                        snapshotSplit.getHighWatermark()));
+        return true;
     }
 
     @VisibleForTesting

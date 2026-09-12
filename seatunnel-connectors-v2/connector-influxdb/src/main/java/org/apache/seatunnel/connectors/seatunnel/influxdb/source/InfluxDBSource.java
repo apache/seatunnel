@@ -55,12 +55,20 @@ public class InfluxDBSource
 
     private final CatalogTable catalogTable;
     private final SourceConfig sourceConfig;
+    private final List<InfluxDBSourceTable> tables;
 
     private static final String QUERY_LIMIT = " limit 1";
 
     public InfluxDBSource(CatalogTable catalogTable, SourceConfig sourceConfig) {
         this.catalogTable = catalogTable;
         this.sourceConfig = sourceConfig;
+        this.tables = Collections.emptyList();
+    }
+
+    InfluxDBSource(List<InfluxDBSourceTable> tables) {
+        this.tables = Collections.unmodifiableList(new ArrayList<>(tables));
+        this.catalogTable = tables.get(0).getCatalogTable();
+        this.sourceConfig = tables.get(0).getSourceConfig();
     }
 
     @Override
@@ -75,7 +83,13 @@ public class InfluxDBSource
 
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) throws Exception {
-        List<Integer> columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
+        if (!tables.isEmpty()) {
+            return new InfluxdbSourceReader(sourceConfig, readerContext, tables);
+        }
+        List<Integer> columnsIndexList;
+        try (InfluxDB client = InfluxDBClient.getInfluxDB(sourceConfig)) {
+            columnsIndexList = initColumnsIndex(client);
+        }
         return new InfluxdbSourceReader(
                 sourceConfig, readerContext, catalogTable.getSeaTunnelRowType(), columnsIndexList);
     }
@@ -83,7 +97,7 @@ public class InfluxDBSource
     @Override
     public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext)
             throws Exception {
-        return new InfluxDBSourceSplitEnumerator(enumeratorContext, sourceConfig);
+        return new InfluxDBSourceSplitEnumerator(enumeratorContext, null, sourceConfig, tables);
     }
 
     @Override
@@ -91,11 +105,17 @@ public class InfluxDBSource
             SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext,
             InfluxDBSourceState checkpointState)
             throws Exception {
-        return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
+        return new InfluxDBSourceSplitEnumerator(
+                enumeratorContext, checkpointState, sourceConfig, tables);
     }
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
+        if (!tables.isEmpty()) {
+            return tables.stream()
+                    .map(InfluxDBSourceTable::getCatalogTable)
+                    .collect(Collectors.toList());
+        }
         return Collections.singletonList(catalogTable);
     }
 

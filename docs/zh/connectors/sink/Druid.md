@@ -36,7 +36,7 @@ import ChangeLog from '../changelog/connector-druid.md';
 |----------------|--------|------|--------|------|
 | coordinatorUrl | string | 是   | -      | Druid 协调器或路由节点的主机和端口。 |
 | datasource     | string | 是   | -      | Druid datasource 名称，支持 `${table_name}` 这类占位符。 |
-| batchSize      | int    | 否   | 10000  | 缓存多少行后提交一次索引任务。 |
+| batchSize      | int    | 否   | 10000  | 缓存多少行后提交一次索引任务，取值必须大于 `0`。 |
 | common-options |        | 否   | -      | Sink 通用参数。 |
 
 ### coordinatorUrl [string]
@@ -53,7 +53,7 @@ SeaTunnel 会向 `http://{coordinatorUrl}/druid/indexer/v1/task` 提交索引任
 
 ### batchSize [int]
 
-SeaTunnel 缓存多少行之后向 Druid 提交一次索引任务。默认值为 `10000`。
+SeaTunnel 缓存多少行之后向 Druid 提交一次索引任务。默认值为 `10000`，配置值必须大于 `0`。
 
 写入器关闭时，SeaTunnel 也会把剩余缓存数据提交到 Druid。
 
