@@ -880,6 +880,7 @@ This mode has the following operational constraints:
 - File keys are filesystem-local identities, not permanent identifiers. Inode reuse after deletion or a filesystem remount can invalidate that identity assumption. Keep the same source filesystem across restores; sampled content anchors detect some replacements but do not guarantee detection of every rewrite or reused inode.
 - The content anchor samples at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect content between those samples. The reader also checks the assigned range's end anchor before and after reading. A stale range detected before reading is discarded without advancing its offset. A change detected after reading starts fails the task without acknowledging the range; already emitted rows cannot be retracted. Concurrent rewrites are not atomic reads, so append-only input remains required for reliable tailing.
 - The source path must expose the same files and file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
+- If an assigned file disappears before reading starts, the range is discarded without advancing its offset. Other inspection or read I/O failures, including access-denied errors, fail the task rather than silently skipping data. Correct the filesystem or permissions problem before restarting.
 - State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
 
 ```hocon
