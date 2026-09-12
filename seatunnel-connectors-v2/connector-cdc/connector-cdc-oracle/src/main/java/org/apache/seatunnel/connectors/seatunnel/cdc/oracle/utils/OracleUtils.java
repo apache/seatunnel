@@ -100,9 +100,18 @@ public class OracleUtils {
                         String.format(
                                 "analyze table %s compute statistics for table",
                                 quoteSchemaAndTable(tableId));
-                // not skip analyze
                 log.info("analyze table sql: {}", analyzeTable);
-                jdbc.execute(analyzeTable);
+                try {
+                    jdbc.execute(analyzeTable);
+                } catch (SQLException e) {
+                    log.warn(
+                            "Failed to analyze table {}, falling back to select count(*). Error: {}",
+                            tableId,
+                            e.getMessage());
+                    useSelectCount = true;
+                    rowCountQuery =
+                            String.format("select count(*) from %s", quoteSchemaAndTable(tableId));
+                }
             }
         }
         log.info("row count query: {}", rowCountQuery);
