@@ -47,6 +47,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcQueryCustomSqlSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
@@ -303,8 +304,36 @@ public class JdbcSink
                     throw new JdbcConnectorException(HANDLE_SAVE_MODE_FAILED, e);
                 }
             }
+            // Query write path has no catalog; still execute custom_sql once at save-mode stage.
+            return createQueryCustomSqlSaveModeHandler();
         }
         return Optional.empty();
+    }
+
+    /**
+     * Builds a save-mode handler for the JDBC {@code query} write path when {@code
+     * data_save_mode=CUSTOM_PROCESSING} and {@code custom_sql} is set. Returns empty for other
+     * save-mode combinations on the query path (schema/data modes still require catalog).
+     */
+    private Optional<SaveModeHandler> createQueryCustomSqlSaveModeHandler() {
+        if (StringUtils.isBlank(jdbcSinkConfig.getSimpleSql())) {
+            return Optional.empty();
+        }
+        if (dataSaveMode != DataSaveMode.CUSTOM_PROCESSING) {
+            return Optional.empty();
+        }
+        String customSql = config.get(JdbcSinkOptions.CUSTOM_SQL);
+        if (StringUtils.isBlank(customSql)) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new JdbcQueryCustomSqlSaveModeHandler(
+                        schemaSaveMode,
+                        dataSaveMode,
+                        catalogTable.getTablePath(),
+                        customSql,
+                        dialect.getJdbcConnectionProvider(
+                                jdbcSinkConfig.getJdbcConnectionConfig())));
     }
 
     private Optional<Catalog> getCatalog() {

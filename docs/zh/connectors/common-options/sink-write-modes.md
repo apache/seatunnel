@@ -16,7 +16,7 @@ Sink 配置里有两个容易混淆的决策：
 | 目标 | 优先选择 | 说明 |
 |------|----------|------|
 | 让 SeaTunnel 为 JDBC 目标端生成 INSERT / UPSERT / UPDATE / DELETE SQL | `generate_sink_sql = true`，并配置 `database`、`table`，通常还要配置 `primary_keys` | 这是 JDBC Sink 的能力。SeaTunnel 能解析目标 Catalog 表时，也可以执行 save mode 和自动建表。 |
-| 完全控制 JDBC 写入 SQL | `query = "INSERT ... VALUES (?, ...)"` | 不要和 `generate_sink_sql = true` 同时配置。JDBC Sink 在这个模式下不会执行 `schema_save_mode`、`data_save_mode` 或 `custom_sql`。 |
+| 完全控制 JDBC 写入 SQL | `query = "INSERT ... VALUES (?, ...)"` | 不要和 `generate_sink_sql = true` 同时配置。基于 Catalog 的 `schema_save_mode` / `DROP_DATA` 等数据模式会跳过；`CUSTOM_PROCESSING` + `custom_sql` 仍会在写入前执行一次。 |
 | 目标表不存在时自动创建，或不存在时报错 | `schema_save_mode` | 仅适用于显式暴露 save mode 参数，并且能通过 Catalog 创建或检查目标端的 Sink。 |
 | 写入前保留、清空或检查目标端已有数据 | `data_save_mode` | 支持值取决于具体 connector。File Sink 通常只支持 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。 |
 | 写入数据前先执行一条自定义 SQL | `data_save_mode = "CUSTOM_PROCESSING"` 和 `custom_sql` | 仅适用于同时暴露这两个参数的 connector。这是写入前钩子，不是逐行写入 SQL。 |
@@ -30,7 +30,7 @@ JDBC Sink 有两种互斥的写入模式。
 | 模式 | 必需参数 | 是否执行 Save Mode | 典型场景 |
 |------|----------|-------------------|----------|
 | 自动生成 SQL | `generate_sink_sql = true`、`database`，通常还有 `table` | 是，前提是能解析目标 Catalog 表 | 大多数数据库写入、CDC 写入、自动建表、upsert、update、delete |
-| 自定义 SQL | `query = "INSERT ... VALUES (?, ...)"` | 否 | 必须完全控制目标 SQL，并接受跳过 save mode 处理 |
+| 自定义 SQL | `query = "INSERT ... VALUES (?, ...)"` | 基于 Catalog 的 schema/data 模式：否；`CUSTOM_PROCESSING` + `custom_sql`：是（写入前执行一次） | 必须完全控制逐行写入 SQL；可用 `custom_sql` 做写入前清理（如按天删除） |
 
 不要同时配置 `generate_sink_sql = true` 和 `query`。
 
@@ -73,7 +73,8 @@ JDBC Sink 以及 MySQL、PostgreSQL、Oracle、SQL Server 等 JDBC 系列 Sink �
 - 支持 `generate_sink_sql`。
 - 支持 `query`。
 - 自动生成 SQL 模式下支持 `schema_save_mode` 和 `data_save_mode`。
-- `custom_sql` 只有在 save mode 处理真正执行时才会执行。
+- 在 `query` 模式下，`CUSTOM_PROCESSING` + `custom_sql` 仍会在写入前执行一次；其他基于 Catalog 的 save mode 不生效。
+- `custom_sql` 只有在 save mode 处理真正执行时才会执行（自动生成 SQL 路径，或 query 路径下的 `CUSTOM_PROCESSING`）。
 - `enable_upsert` 只有在 SeaTunnel 拿到可用主键或唯一键后才有意义。
 
 完整参数和示例请看 [JDBC Sink](../sink/Jdbc.md)。
@@ -142,7 +143,7 @@ sink {
 }
 ```
 
-在这个模式下，JDBC Sink 只通过 `query` 写入每一行，不会执行 `schema_save_mode`、`data_save_mode` 或 `custom_sql`。
+在这个模式下，JDBC Sink 通过 `query` 写入每一行。基于 Catalog 的 `schema_save_mode` 以及 `DROP_DATA` 等数据模式不会生效。如需写入前执行 SQL（例如按天删除），可配置 `data_save_mode = CUSTOM_PROCESSING` 与 `custom_sql`。
 
 ### S3File 写入前清空已有数据
 
@@ -171,7 +172,7 @@ sink {
 
 ### JDBC Sink 的 `custom_sql` 没有执行
 
-检查 Sink 是否配置了 `query`。JDBC 自定义 query 模式不会执行 save mode 处理，因此会跳过 `custom_sql`。
+确认已设置 `data_save_mode = CUSTOM_PROCESSING` 且配置了 `custom_sql`。`DROP_DATA` 等基于 Catalog 的模式仍需自动生成 SQL 模式（`generate_sink_sql = true` 并配置 `database`/`table`）。在 `query` 模式下，仅 `CUSTOM_PROCESSING` + `custom_sql` 会执行。
 
 ### File Sink 不接受 `data_save_mode`
 
