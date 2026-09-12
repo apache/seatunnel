@@ -373,6 +373,17 @@ public class OptionRule {
         }
 
         /**
+         * Adds value constraints for options that are already registered by another rule, such as
+         * an exclusive option.
+         */
+        public Builder valueConstraint(
+                @NonNull Condition<?> condition1, @NonNull Condition<?>... conditions) {
+            this.valueConstraints.add(condition1);
+            Collections.addAll(this.valueConstraints, conditions);
+            return this;
+        }
+
+        /**
          * Conditional value constraints: when {@code conditionalOption == expectValue}, the given
          * conditions must hold.
          */
