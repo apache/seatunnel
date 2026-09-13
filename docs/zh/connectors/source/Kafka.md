@@ -23,6 +23,26 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 用于 Apache Kafka 的源连接器。
 
+### 连通性 dry-run
+
+Zeta 的 `--dry-run connect` 仅通过主题元数据校验 Kafka source。它使用配置的
+`bootstrap.servers` 和 `kafka.config` 安全设置，通过 `describeTopics` 检查显式主题，
+并对 `pattern = true` 使用与正常运行一致的主题全名匹配规则。支持 `tables_configs`
+及旧版 `table_list`。输出 schema 复用正常 source 配置路径，包括 native 字段、Kafka
+header 字段和事件时间元数据。
+
+元数据请求共享 30 秒的时间预算；如果 `kafka.config.default.api.timeout.ms` 更小，
+则使用该值。请求超时不会超过此预算，客户端清理也使用有界等待。与 Kafka 正常启动一致，
+在应用 dry-run 限制之前，显式配置的 API 超时不得小于配置值或 Kafka 默认值的
+`request.timeout.ms`。客户端初始化（包括 DNS
+和认证提供方初始化）可能需要额外时间。正常作业运行及其超时
+配置保持不变。校验不会创建 consumer 或 producer，不会读写消息、访问或提交消费位点，
+也不会创建缺失的主题。
+
+校验成功仅证明可以访问元数据，**不代表**具备消费消息、访问消费组或反序列化实际消息
+的能力。与运行时一致，允许正则表达式当前没有可见的匹配主题；此时仅校验主题列表访问，
+不验证未来主题的访问权限。Kafka sink 仍不支持连通性 dry-run。
+
 ## 支持的数据源信息
 
 使用 Kafka 连接器需要以下依赖项。  

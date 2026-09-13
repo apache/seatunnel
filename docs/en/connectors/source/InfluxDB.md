@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 Read data from InfluxDB 1.x by using an InfluxQL query. The connector supports a normal single
 query and an optional parallel scan mode that splits one query by an integer column range.
+Use `tables_configs` to read multiple queries, databases, and output schemas through one source.
 
 ## Key Features
 
@@ -23,6 +24,7 @@ query and an optional parallel scan mode that splits one query by an integer col
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [multi-table](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
@@ -43,9 +45,10 @@ Other SeaTunnel types are not supported by the current InfluxDB source converter
 | name               | type   | required | default value | description                                                                                      |
 |--------------------|--------|----------|---------------|--------------------------------------------------------------------------------------------------|
 | url                | string | yes      | -             | InfluxDB server URL, for example `http://influxdb-host:8086`.                                    |
-| sql                | string | yes      | -             | InfluxQL query used to read data.                                                                |
-| schema             | config | yes      | -             | Output schema returned by the source.                                                            |
-| database           | string | yes      | -             | InfluxDB database name.                                                                          |
+| sql                | string | no       | -             | Required in single-table mode; mutually exclusive with `tables_configs`.                         |
+| schema             | config | no       | -             | Required in single-table mode; define it per entry in multi-table mode.                            |
+| database           | string | no       | -             | Required in single-table mode; optional default for multi-table entries.                           |
+| tables_configs     | list   | no       | -             | Queries and schemas to read in multi-table mode; see below.                                       |
 | username           | string | no       | -             | InfluxDB username. It must be configured together with `password`.                               |
 | password           | string | no       | -             | InfluxDB password. It must be configured together with `username`.                               |
 | lower_bound        | int    | no       | -             | Lower bound of `split_column` when parallel scan is enabled.                                      |
@@ -61,6 +64,33 @@ Other SeaTunnel types are not supported by the current InfluxDB source converter
 ### url [string]
 
 The URL to connect to InfluxDB, for example `http://influxdb-host:8086`.
+
+### tables_configs [list]
+
+An alternative to the root-level `sql` and `schema`. Each entry requires:
+
+- `sql`: its InfluxQL query.
+- `database`: its database, or inherit the root-level `database`.
+- `schema`: its output fields and a non-blank `schema.table` that uniquely identifies the output table.
+
+An entry can also configure `split_column`, `lower_bound`, `upper_bound`, and `partition_num`
+together. Configure range options inside each entry, not at root level. In this mode the inclusive
+integer range is divided without overlaps, including uneven ranges; no more than one split per
+integer value is created. The existing single-table range behavior is unchanged.
+Partitioned entries support simple `SELECT fields FROM measurement` queries with an optional
+`WHERE` predicate (case-insensitive). Quoted identifiers, string literals, functions, subqueries,
+multiple statements, and trailing clauses such as `LIMIT`, `ORDER BY`, or `tz(...)` are rejected
+for range splitting. Use an unpartitioned entry for these queries; it is sent unchanged.
+
+All entries share the root connection options: `url`, credentials, `epoch`, and timeouts.
+Connection options inside entries are rejected. Root-level `sql` or `schema`, an empty list,
+missing table names, and duplicate output table identities are rejected before connecting.
+The table identity is independent of the measurement name in the query and is used for downstream
+table routing. Keep these identities and their query/schema definitions stable when restoring a
+checkpoint; changing from single-table to multi-table mode requires a fresh job.
+
+Each query must return the columns declared in its own schema. Empty query results are allowed.
+Queries without range splitting, including `tz(...)`, are sent unchanged to InfluxDB.
 
 ### sql [string]
 
@@ -173,6 +203,42 @@ Connection timeout for the InfluxDB client, in milliseconds.
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
 
 ## Task Example
+
+### Read Multiple Tables
+
+```hocon
+env {
+    parallelism = 2
+    job.mode = "BATCH"
+}
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        tables_configs = [
+            {
+                database = "telemetry"
+                sql = "select value from temperature"
+                schema {
+                    table = "temperatures"
+                    fields { value = DOUBLE }
+                }
+            },
+            {
+                database = "operations"
+                sql = "select active, label from alerts"
+                schema {
+                    table = "alerts"
+                    fields {
+                        active = BOOLEAN
+                        label = STRING
+                    }
+                }
+            }
+        ]
+    }
+}
+sink { Console {} }
+```
 
 ### Read With Parallel Range Splits
 
