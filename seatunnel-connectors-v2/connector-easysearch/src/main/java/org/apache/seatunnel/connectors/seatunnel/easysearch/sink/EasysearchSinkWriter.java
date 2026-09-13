@@ -104,7 +104,7 @@ public class EasysearchSinkWriter
         try {
             RetryUtils.retryWithException(
                     () -> {
-                        if (requestEzsList.size() > 0) {
+                        if (!requestEzsList.isEmpty()) {
                             String requestBody = String.join("\n", requestEzsList) + "\n";
                             BulkResponse bulkResponse = ezsClient.bulk(requestBody);
                             if (bulkResponse.isErrors()) {

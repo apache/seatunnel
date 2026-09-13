@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -40,10 +44,12 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -129,6 +135,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
         List<SourceSplitBase> unfinishedSplits = new ArrayList<>();
+        List<TableId> capturedTables = null;
+        boolean capturedTablesDiscovered = false;
         log.info(
                 "subtask {} add splits: {}",
                 subtaskId,
@@ -146,7 +154,23 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                unfinishedSplits.add(split.asIncrementalSplit());
+                IncrementalSplit incrementalSplit = split.asIncrementalSplit();
+                if (hasRestoredCheckpointMetadata(incrementalSplit)) {
+                    if (!capturedTablesDiscovered) {
+                        capturedTables = discoverCapturedTables();
+                        capturedTablesDiscovered = true;
+                    }
+                    incrementalSplit =
+                            pruneRestoredIncrementalSplit(incrementalSplit, capturedTables);
+                }
+                if (incrementalSplit.getTableIds().isEmpty()) {
+                    log.info(
+                            "subtask {} skip restored incremental split {} because all tables have been removed from current configuration.",
+                            subtaskId,
+                            incrementalSplit.splitId());
+                } else {
+                    unfinishedSplits.add(incrementalSplit);
+                }
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -214,14 +238,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            if (incrementalSplit.getCheckpointDataType() != null) {
-                log.info(
-                        "The incremental split[{}] has checkpoint datatype {} for restore.",
-                        incrementalSplit.splitId(),
-                        incrementalSplit.getCheckpointDataType());
-                debeziumDeserializationSchema.restoreCheckpointProducedType(
-                        incrementalSplit.getCheckpointTables());
-            }
+            restoreCheckpointState(incrementalSplit, debeziumDeserializationSchema);
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
                 log.info(
@@ -236,6 +253,135 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             }
             return splitState;
         }
+    }
+
+    static <T> void restoreCheckpointState(
+            IncrementalSplit incrementalSplit,
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
+        List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
+        if (checkpointTables != null && !checkpointTables.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has {} checkpoint table(s) for restore: {}.",
+                    incrementalSplit.splitId(),
+                    checkpointTables.size(),
+                    toCheckpointTablePaths(checkpointTables));
+            debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
+        } else if (incrementalSplit.getCheckpointDataType() != null) {
+            // Keep reading checkpoints written before checkpoint tables were introduced.
+            List<CatalogTable> legacyCheckpointTables =
+                    restoreLegacyCheckpointTables(incrementalSplit);
+            if (legacyCheckpointTables.isEmpty()) {
+                log.warn(
+                        "Skip restoring the legacy checkpoint data type for incremental split[{}] because the table identity cannot be recovered from split state.",
+                        incrementalSplit.splitId());
+            } else {
+                log.info(
+                        "The incremental split[{}] restores {} legacy checkpoint table(s): {}.",
+                        incrementalSplit.splitId(),
+                        legacyCheckpointTables.size(),
+                        toCheckpointTablePaths(legacyCheckpointTables));
+                debeziumDeserializationSchema.restoreCheckpointProducedType(legacyCheckpointTables);
+            }
+        }
+
+        Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
+        if (historyTableChanges != null && !historyTableChanges.isEmpty()) {
+            log.info(
+                    "The incremental split[{}] has checkpoint history table changes for restore.",
+                    incrementalSplit.splitId());
+            debeziumDeserializationSchema.restoreCheckpointHistoryTableChanges(historyTableChanges);
+        }
+    }
+
+    private static List<CatalogTable> restoreLegacyCheckpointTables(
+            IncrementalSplit incrementalSplit) {
+        if (incrementalSplit.getCheckpointDataType() instanceof MultipleRowType) {
+            MultipleRowType checkpointTables =
+                    (MultipleRowType) incrementalSplit.getCheckpointDataType();
+            return Arrays.stream(checkpointTables.getTableIds())
+                    .map(
+                            tableId ->
+                                    toLegacyCheckpointTable(
+                                            tableId, checkpointTables.getRowType(tableId)))
+                    .collect(Collectors.toList());
+        }
+
+        List<TableId> tableIds = incrementalSplit.getTableIds();
+        if (tableIds == null || tableIds.size() != 1) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(
+                CatalogTableUtil.getCatalogTable(
+                        "schema",
+                        tableIds.get(0).catalog(),
+                        tableIds.get(0).schema(),
+                        tableIds.get(0).table(),
+                        (SeaTunnelRowType) incrementalSplit.getCheckpointDataType()));
+    }
+
+    private static CatalogTable toLegacyCheckpointTable(
+            String tableId, org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType) {
+        TablePath tablePath = TablePath.of(tableId);
+        // The deprecated getCatalogTable(String, RowType) overload treats the full table path as a
+        // plain tableName and injects a synthetic "default" prefix. Build the identifier
+        // explicitly so restored legacy checkpoint tables keep their original path.
+        return CatalogTableUtil.getCatalogTable(
+                "schema",
+                tablePath.getDatabaseName(),
+                tablePath.getSchemaName(),
+                tablePath.getTableName(),
+                rowType);
+    }
+
+    private static List<String> toCheckpointTablePaths(List<CatalogTable> checkpointTables) {
+        return checkpointTables.stream()
+                .map(table -> table.getTablePath().getFullName())
+                .collect(Collectors.toList());
+    }
+
+    private List<TableId> discoverCapturedTables() {
+        try {
+            return dataSourceDialect.discoverDataCollections(sourceConfig);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to discover captured tables while restoring CDC split. "
+                            + "Keeping restored checkpoint state unchanged.",
+                    e);
+            return null;
+        }
+    }
+
+    private IncrementalSplit pruneRestoredIncrementalSplit(
+            IncrementalSplit incrementalSplit, List<TableId> capturedTables) {
+        if (capturedTables == null) {
+            return incrementalSplit;
+        }
+        if (capturedTables.isEmpty() && !incrementalSplit.getTableIds().isEmpty()) {
+            log.warn(
+                    "Skip pruning restored incremental split {} because captured table discovery returned "
+                            + "an empty result. Keeping restored checkpoint state unchanged.",
+                    incrementalSplit.splitId());
+            return incrementalSplit;
+        }
+        IncrementalSplit prunedSplit =
+                incrementalSplit.pruneTables(capturedTables, dataSourceDialect::toTableId);
+        if (prunedSplit.getTableIds().size() != incrementalSplit.getTableIds().size()) {
+            log.info(
+                    "Pruned restored incremental split {} tables from {} to {} based on current captured tables.",
+                    incrementalSplit.splitId(),
+                    incrementalSplit.getTableIds(),
+                    prunedSplit.getTableIds());
+        }
+        return prunedSplit;
+    }
+
+    private boolean hasRestoredCheckpointMetadata(IncrementalSplit incrementalSplit) {
+        return incrementalSplit.getCheckpointDataType() != null
+                || (incrementalSplit.getCheckpointTables() != null
+                        && !incrementalSplit.getCheckpointTables().isEmpty())
+                || (incrementalSplit.getHistoryTableChanges() != null
+                        && !incrementalSplit.getHistoryTableChanges().isEmpty());
     }
 
     @Override
