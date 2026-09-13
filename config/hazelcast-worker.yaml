@@ -28,6 +28,7 @@ hazelcast:
       auto-increment: false
       port: 5802
   properties:
+    hazelcast.shutdownhook.policy: GRACEFUL
     hazelcast.invocation.max.retry.count: 20
     hazelcast.tcp.join.port.try.count: 30
     hazelcast.logging.type: log4j2
@@ -38,4 +39,3 @@ hazelcast:
     hazelcast.heartbeat.phiaccrual.failuredetector.threshold: 10
     hazelcast.heartbeat.phiaccrual.failuredetector.sample.size: 200
     hazelcast.heartbeat.phiaccrual.failuredetector.min.std.dev.millis: 100
-

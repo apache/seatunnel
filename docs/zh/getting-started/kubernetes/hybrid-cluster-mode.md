@@ -56,6 +56,7 @@ data:
             service-name: seatunnel-cluster
             service-port: 5801
       properties:
+        hazelcast.shutdownhook.policy: GRACEFUL
         hazelcast.invocation.max.retry.count: 20
         hazelcast.tcp.join.port.try.count: 30
         hazelcast.logging.type: log4j2

@@ -437,6 +437,7 @@ hazelcast:
       auto-increment: false
       port: 5801
   properties:
+    hazelcast.shutdownhook.policy: GRACEFUL
     hazelcast.heartbeat.failuredetector.type: phi-accrual
     hazelcast.heartbeat.interval.seconds: 2
     hazelcast.max.no.heartbeat.seconds: 180
@@ -464,6 +465,7 @@ hazelcast:
       auto-increment: false
       port: 5802
   properties:
+    hazelcast.shutdownhook.policy: GRACEFUL
     hazelcast.heartbeat.failuredetector.type: phi-accrual
     hazelcast.heartbeat.interval.seconds: 2
     hazelcast.max.no.heartbeat.seconds: 180

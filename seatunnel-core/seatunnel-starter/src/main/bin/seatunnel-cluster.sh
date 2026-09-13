@@ -203,5 +203,6 @@ if [[ $DAEMON == true && $HELP == false ]]; then
   touch $OUT
   nohup java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args} > "$OUT" 200<&- 2>&1 < /dev/null &
   else
-  java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
+  # Keep the server JVM as the foreground process so container runtimes deliver SIGTERM to it.
+  exec java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}
 fi
