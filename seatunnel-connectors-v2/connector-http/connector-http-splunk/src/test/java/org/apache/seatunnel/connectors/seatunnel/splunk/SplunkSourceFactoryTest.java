@@ -94,7 +94,8 @@ public class SplunkSourceFactoryTest {
 
     @Test
     public void testHttpClientPayloadCapture() throws Exception {
-        try (okhttp3.mockwebserver.MockWebServer server = new okhttp3.mockwebserver.MockWebServer()) {
+        try (okhttp3.mockwebserver.MockWebServer server =
+                new okhttp3.mockwebserver.MockWebServer()) {
             server.enqueue(
                     new okhttp3.mockwebserver.MockResponse()
                             .setBody("{\"preview\": false, \"result\": {\"test\": \"data\"}}")
@@ -129,7 +130,8 @@ public class SplunkSourceFactoryTest {
             Assertions.assertEquals("POST", recordedRequest.getMethod());
             Assertions.assertEquals(
                     "application/x-www-form-urlencoded", recordedRequest.getHeader("Content-Type"));
-            Assertions.assertEquals("Splunk test-auth-token", recordedRequest.getHeader("Authorization"));
+            Assertions.assertEquals(
+                    "Splunk test-auth-token", recordedRequest.getHeader("Authorization"));
 
             String requestBody = recordedRequest.getBody().readUtf8();
             String decodedBody = java.net.URLDecoder.decode(requestBody, "UTF-8");
