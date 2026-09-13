@@ -19,19 +19,13 @@ package org.apache.seatunnel.connectors.seatunnel.neo4j.config;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
-import org.apache.seatunnel.common.config.CheckConfigUtil;
-import org.apache.seatunnel.common.config.CheckResult;
-import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.constants.SinkWriteMode;
-import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import lombok.Getter;
 import lombok.Setter;
 
 import java.util.Map;
 
-import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jBaseOptions.PLUGIN_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkOptions.MAX_BATCH_SIZE;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkOptions.QUERY_PARAM_POSITION;
 import static org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSinkOptions.WRITE_MODE;
@@ -50,7 +44,7 @@ public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
     }
 
     public Neo4jSinkQueryInfo(Config config) {
-        super(config, PluginType.SINK);
+        super(config);
 
         this.writeMode = prepareWriteMode(config);
 
@@ -62,35 +56,14 @@ public class Neo4jSinkQueryInfo extends Neo4jQueryInfo {
     }
 
     private void prepareOneByOneConfig(Config config) {
-
-        CheckResult queryConfigCheck =
-                CheckConfigUtil.checkAllExists(config, QUERY_PARAM_POSITION.key());
-
-        if (!queryConfigCheck.isSuccess()) {
-            throw new Neo4jConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    String.format(
-                            "PluginName: %s, PluginType: %s, Message: %s",
-                            PLUGIN_NAME, PluginType.SINK, queryConfigCheck.getMsg()));
-        }
-
         // set queryParamPosition
         this.queryParamPosition = config.getObject(QUERY_PARAM_POSITION.key()).unwrapped();
     }
 
     private void prepareBatchWriteConfig(Config config) {
-
         // batch size
         if (config.hasPath(MAX_BATCH_SIZE.key())) {
-            int batchSize = config.getInt(MAX_BATCH_SIZE.key());
-            if (batchSize <= 0) {
-                throw new Neo4jConnectorException(
-                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                        String.format(
-                                "PluginName: %s, PluginType: %s, Message: %s",
-                                PLUGIN_NAME, PluginType.SINK, "maxBatchSize must greater than 0"));
-            }
-            this.maxBatchSize = batchSize;
+            this.maxBatchSize = config.getInt(MAX_BATCH_SIZE.key());
         } else {
             this.maxBatchSize = MAX_BATCH_SIZE.defaultValue();
         }

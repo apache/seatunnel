@@ -44,24 +44,12 @@ jobs:
           cache: maven
       # Compile the standard modules with the CI profile.
       - name: Compile main and test sources
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 28
-          max_attempts: 3
-          retry_wait_seconds: 10
-          retry_on: error
-          command: |
-            ./mvnw -B -T 1C -Pci clean install -DskipTests \
-              -D"license.skipAddThirdParty"=true -D"skip.ui"=true \
-              --no-snapshot-updates
+        run: |
+          ./mvnw -B -T 1C -Pci clean install -DskipTests \
+            -D"license.skipAddThirdParty"=true -D"skip.ui"=true \
+            --no-snapshot-updates
       # Build the opt-in seatunnel-benchmarks module with its dedicated profile.
       - name: Compile benchmark main and test sources
-        uses: nick-fields/retry@v3
-        with:
-          timeout_minutes: 8
-          max_attempts: 3
-          retry_wait_seconds: 10
-          retry_on: error
-          command: |
-            ./mvnw -B -Pbenchmark -pl seatunnel-benchmarks clean install -DskipTests \
-              -D"license.skipAddThirdParty"=true --no-snapshot-updates
+        run: |
+          ./mvnw -B -Pbenchmark -pl seatunnel-benchmarks clean install -DskipTests \
+            -D"license.skipAddThirdParty"=true --no-snapshot-updates
