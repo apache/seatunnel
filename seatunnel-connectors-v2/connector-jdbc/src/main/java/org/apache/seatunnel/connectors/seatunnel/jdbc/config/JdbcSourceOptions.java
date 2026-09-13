@@ -104,7 +104,29 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .withDescription(
                             "Whether to allow sampling-based sharding strategy. "
                                     + "When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. "
+                                    + "Note: large-table dynamic splitting now defaults to index probing instead of full-column client sampling; "
+                                    + "this option is retained for compatibility and only affects legacy sampling fallbacks when explicitly enabled with sample-sharding.threshold. "
                                     + "The default value is true.");
+
+    public static final Option<Integer> SPLIT_ASSIGN_BATCH_SIZE =
+            Options.key("split.assign.batch-size")
+                    .intType()
+                    .defaultValue(16)
+                    .withDescription(
+                            "Maximum number of splits assigned to each reader per handoff. "
+                                    + "Readers request more splits via handleSplitRequest when their local queue runs low. "
+                                    + "This bounds reader-side pending split metadata and checkpoint size without changing split predicates. "
+                                    + "The default value is 16.");
+
+    public static final Option<Integer> SPLIT_MAX_PENDING_SPLITS =
+            Options.key("split.max-pending-splits")
+                    .intType()
+                    .defaultValue(64)
+                    .withDescription(
+                            "Maximum number of already-generated but not-yet-assigned splits retained by the enumerator. "
+                                    + "The enumerator lazily generates the next splits when pending work falls below this watermark. "
+                                    + "This bounds coordinator memory without capping the total number of splits for the job. "
+                                    + "The default value is 64.");
 
     public static final Option<Boolean> USE_SELECT_COUNT =
             Options.key("use_select_count")

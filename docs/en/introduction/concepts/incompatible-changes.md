@@ -60,6 +60,12 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Behavior change: uneven dynamic splitting defaults to index probing (no automatic full-column client sampling)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` source dynamic splitter
+  - **Description**: For uneven key distributions, SeaTunnel no longer automatically runs full-column client sampling (`sampleDataFromColumn`) when the estimated shard count exceeds `split.sample-sharding.threshold`. Uneven planning uses index probing (`queryNextChunkMax`) instead, and splits are generated lazily with bounded enumerator/reader pending buffers (`split.max-pending-splits`, `split.assign.batch-size`). Options `split.allow-sampling`, `split.sample-sharding.threshold`, and `split.inverse-sampling.rate` remain for compatibility but no longer select the old default sampling path.
+  - **Impact**: Uneven-split **boundaries** may differ from jobs that previously relied on client sampling, while coverage of the key range remains complete. Jobs may issue more sequential boundary probes against the source database during planning/refill.
+  - **Migration Guide**: No config rename is required. If readers idle between handoffs, increase `split.assign.batch-size` and/or `split.max-pending-splits`. Dialects that previously depended on sampling-shaped boundaries should validate row counts after upgrade. (#12097)
+
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.
