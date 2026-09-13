@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.databend.sink;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
 import java.io.Serializable;
 
 public class DatabendSinkCommitterInfo implements Serializable {
@@ -25,6 +27,7 @@ public class DatabendSinkCommitterInfo implements Serializable {
     // CDC related fields
     private String rawTableName;
     private String streamName;
+    private SeaTunnelRowType runtimeRowType;
 
     public DatabendSinkCommitterInfo() {
         // Default constructor
@@ -33,6 +36,13 @@ public class DatabendSinkCommitterInfo implements Serializable {
     public DatabendSinkCommitterInfo(String rawTableName, String streamName) {
         this.rawTableName = rawTableName;
         this.streamName = streamName;
+    }
+
+    public DatabendSinkCommitterInfo(
+            String rawTableName, String streamName, SeaTunnelRowType runtimeRowType) {
+        this.rawTableName = rawTableName;
+        this.streamName = streamName;
+        this.runtimeRowType = runtimeRowType;
     }
 
     public String getRawTableName() {
@@ -51,6 +61,14 @@ public class DatabendSinkCommitterInfo implements Serializable {
         this.streamName = streamName;
     }
 
+    public SeaTunnelRowType getRuntimeRowType() {
+        return runtimeRowType;
+    }
+
+    public void setRuntimeRowType(SeaTunnelRowType runtimeRowType) {
+        this.runtimeRowType = runtimeRowType;
+    }
+
     @Override
     public String toString() {
         return "DatabendSinkCommitterInfo{"
@@ -60,6 +78,8 @@ public class DatabendSinkCommitterInfo implements Serializable {
                 + ", streamName='"
                 + streamName
                 + '\''
+                + ", runtimeRowType="
+                + runtimeRowType
                 + '}';
     }
 }
