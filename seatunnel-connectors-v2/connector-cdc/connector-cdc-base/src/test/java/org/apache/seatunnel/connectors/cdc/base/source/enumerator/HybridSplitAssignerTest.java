@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -33,6 +36,9 @@ import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 public class HybridSplitAssignerTest {
     @Test
@@ -51,9 +57,16 @@ public class HybridSplitAssignerTest {
                         false);
         HybridPendingSplitsState checkpointState =
                 new HybridPendingSplitsState(snapshotPhaseState, null);
+        // This test only exercises split-tracking bookkeeping, so a minimal mocked
+        // SourceConfig (non-LATEST stop mode) keeps the Context well-formed. The
+        // stop.mode=latest resolution lives in IncrementalSplitAssigner.createIncrementalSplit
+        // and is not exercised here.
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
         SplitAssigner.Context context =
                 new SplitAssigner.Context<>(
-                        null,
+                        sourceConfig,
                         Collections.emptySet(),
                         checkpointState.getSnapshotPhaseState().getAssignedSplits(),
                         checkpointState.getSnapshotPhaseState().getSplitCompletedOffsets());
