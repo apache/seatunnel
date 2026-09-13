@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -107,13 +108,22 @@ public class SeaTunnelServer
 
     private final SeaTunnelConfig seaTunnelConfig;
 
+    private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
+
     private volatile boolean isRunning = true;
 
     @Getter private EventService eventService;
 
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
+        this(seaTunnelConfig, AutoscalerRuntimeConfig.defaults());
+    }
+
+    public SeaTunnelServer(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
+        this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
         LOGGER.info("SeaTunnel server start...");
     }
 
@@ -132,7 +142,8 @@ public class SeaTunnelServer
                             new DefaultSlotService(
                                     nodeEngine,
                                     taskExecutionService,
-                                    seaTunnelConfig.getEngineConfig().getSlotServiceConfig());
+                                    seaTunnelConfig.getEngineConfig().getSlotServiceConfig(),
+                                    autoscalerRuntimeConfig);
                     service.init();
                     slotService = service;
                 }
@@ -203,7 +214,11 @@ public class SeaTunnelServer
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
                 new CoordinatorService(
-                        nodeEngine, this, engineContext, seaTunnelConfig.getEngineConfig());
+                        nodeEngine,
+                        this,
+                        engineContext,
+                        seaTunnelConfig.getEngineConfig(),
+                        autoscalerRuntimeConfig);
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,

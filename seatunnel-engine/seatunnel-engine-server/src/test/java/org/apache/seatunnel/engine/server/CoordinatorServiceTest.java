@@ -36,6 +36,10 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
+import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
+import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -54,7 +58,9 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
@@ -66,6 +72,7 @@ import org.junitpioneer.jupiter.SetEnvironmentVariable;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.logging.ILogger;
@@ -88,6 +95,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
@@ -522,6 +531,98 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testAutoscalerLifecycleFollowsActiveMasterTransitions() throws Exception {
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+
+        AutoscalerRuntimeConfig runtimeConfig =
+                AutoscalerRuntimeConfig.builder()
+                        .enabled(true)
+                        .evaluationIntervalSeconds(3600)
+                        .build();
+        CoordinatorService coordinatorService =
+                newMockCoordinatorService(server, new EngineConfig(), runtimeConfig);
+        try {
+            setMockAutoscalerResourceManager(coordinatorService);
+
+            AutoscalerView inactiveView = coordinatorService.getAutoscalerView();
+            Assertions.assertTrue(inactiveView.isEnabled());
+            Assertions.assertFalse(inactiveView.isRunning());
+            Assertions.assertEquals(0L, inactiveView.getCurrentMasterEpoch());
+            Assertions.assertEquals(0L, inactiveView.getNextGeneration());
+            Assertions.assertNull(inactiveView.getLatestRecommendation());
+
+            masterFlag.set(true);
+            invokeCheckNewActiveMaster(coordinatorService);
+            AutoscalerView firstActiveView = awaitAutoscalerPublication(coordinatorService);
+            long firstEpoch = firstActiveView.getCurrentMasterEpoch();
+            Assertions.assertTrue(firstEpoch > 0L);
+            Assertions.assertEquals(1L, firstActiveView.getNextGeneration());
+            Assertions.assertEquals(0L, firstActiveView.getLatestRecommendation().getGeneration());
+
+            invokeCheckNewActiveMaster(coordinatorService);
+            AutoscalerView duplicatePromotionView = coordinatorService.getAutoscalerView();
+            Assertions.assertTrue(duplicatePromotionView.isRunning());
+            Assertions.assertEquals(firstEpoch, duplicatePromotionView.getCurrentMasterEpoch());
+            Assertions.assertEquals(1L, duplicatePromotionView.getNextGeneration());
+
+            masterFlag.set(false);
+            invokeCheckNewActiveMaster(coordinatorService);
+            AutoscalerView demotedView = coordinatorService.getAutoscalerView();
+            Assertions.assertFalse(demotedView.isRunning());
+            Assertions.assertEquals(0L, demotedView.getCurrentMasterEpoch());
+            Assertions.assertEquals(0L, demotedView.getNextGeneration());
+            long lastPublishedGeneration = demotedView.getLatestRecommendation().getGeneration();
+
+            invokeEvaluateAutoscalerSafely(coordinatorService);
+            AutoscalerView afterLateEvaluateView = coordinatorService.getAutoscalerView();
+            Assertions.assertFalse(afterLateEvaluateView.isRunning());
+            Assertions.assertEquals(
+                    lastPublishedGeneration,
+                    afterLateEvaluateView.getLatestRecommendation().getGeneration());
+
+            setMockAutoscalerResourceManager(coordinatorService);
+            masterFlag.set(true);
+            invokeCheckNewActiveMaster(coordinatorService);
+            AutoscalerView repromotedView = awaitAutoscalerPublication(coordinatorService);
+            Assertions.assertTrue(repromotedView.getCurrentMasterEpoch() > firstEpoch);
+            Assertions.assertEquals(1L, repromotedView.getNextGeneration());
+            Assertions.assertEquals(0L, repromotedView.getLatestRecommendation().getGeneration());
+            Assertions.assertEquals(1, repromotedView.getHistory().size());
+        } finally {
+            shutdownCoordinatorIfRunning(coordinatorService);
+        }
+    }
+
+    @Test
+    void testDisabledAutoscalerDoesNotStartLoopOnActiveMaster() throws Exception {
+        AtomicBoolean masterFlag = new AtomicBoolean(true);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+
+        CoordinatorService coordinatorService =
+                newMockCoordinatorService(server, new EngineConfig());
+        try {
+            invokeCheckNewActiveMaster(coordinatorService);
+
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            AutoscalerView view = coordinatorService.getAutoscalerView();
+            Assertions.assertFalse(view.isEnabled());
+            Assertions.assertFalse(view.isRunning());
+            Assertions.assertEquals(0L, view.getCurrentMasterEpoch());
+            Assertions.assertEquals(0L, view.getNextGeneration());
+            Assertions.assertNull(view.getLatestRecommendation());
+            Assertions.assertNull(getAutoScaler(coordinatorService));
+            Assertions.assertNull(getAutoscalerScheduler(coordinatorService));
+        } finally {
+            coordinatorService.shutdown();
+        }
+    }
+
+    @Test
     void testPendingJobSchedulerIgnoresJobReservedByPreviousScheduler() throws Exception {
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         CoordinatorService coordinatorService = newMockCoordinatorService(server);
@@ -741,6 +842,13 @@ public class CoordinatorServiceTest {
 
     private CoordinatorService newMockCoordinatorService(
             SeaTunnelServer server, EngineConfig engineConfig) {
+        return newMockCoordinatorService(server, engineConfig, AutoscalerRuntimeConfig.defaults());
+    }
+
+    private CoordinatorService newMockCoordinatorService(
+            SeaTunnelServer server,
+            EngineConfig engineConfig,
+            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
         NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
         ILogger logger = Mockito.mock(ILogger.class);
         HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
@@ -749,11 +857,23 @@ public class CoordinatorServiceTest {
         Mockito.when(nodeEngine.getLogger(Mockito.any(Class.class))).thenReturn(logger);
         Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         Mockito.when(hazelcastInstance.getMap(Mockito.anyString())).thenReturn(map);
+        if (autoscalerRuntimeConfig.isEnabled()) {
+            FlakeIdGenerator epochGenerator = Mockito.mock(FlakeIdGenerator.class);
+            AtomicLong epoch = new AtomicLong();
+            Mockito.when(epochGenerator.newId()).thenAnswer(invocation -> epoch.incrementAndGet());
+            Mockito.when(hazelcastInstance.getFlakeIdGenerator(Mockito.anyString()))
+                    .thenReturn(epochGenerator);
+        }
         SeaTunnelEngineContext engineContext = Mockito.mock(SeaTunnelEngineContext.class);
         Mockito.when(server.getEngineContext()).thenReturn(engineContext);
 
         CoordinatorService coordinatorService =
-                new CoordinatorService(nodeEngine, server, server.getEngineContext(), engineConfig);
+                new CoordinatorService(
+                        nodeEngine,
+                        server,
+                        server.getEngineContext(),
+                        engineConfig,
+                        autoscalerRuntimeConfig);
         stopCoordinatorSchedulers(coordinatorService);
         return coordinatorService;
     }
@@ -783,6 +903,46 @@ public class CoordinatorServiceTest {
         Method method = CoordinatorService.class.getDeclaredMethod("startPendingJobScheduleThread");
         method.setAccessible(true);
         method.invoke(coordinatorService);
+    }
+
+    private void invokeEvaluateAutoscalerSafely(CoordinatorService coordinatorService)
+            throws Exception {
+        Method method = CoordinatorService.class.getDeclaredMethod("evaluateAutoscalerSafely");
+        method.setAccessible(true);
+        method.invoke(coordinatorService);
+    }
+
+    private AutoscalerView awaitAutoscalerPublication(CoordinatorService coordinatorService) {
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            AutoscalerView view = coordinatorService.getAutoscalerView();
+                            Assertions.assertTrue(view.isRunning());
+                            Assertions.assertTrue(view.getCurrentMasterEpoch() > 0L);
+                            Assertions.assertNotNull(view.getLatestRecommendation());
+                        });
+        return coordinatorService.getAutoscalerView();
+    }
+
+    private ResourceManager setMockAutoscalerResourceManager(
+            CoordinatorService coordinatorService) {
+        ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+        ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
+        Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
+        Mockito.when(resourceManager.getAutoscalerWorkerSampleStore())
+                .thenReturn(new LatestWorkerSampleStore(TimeUnit.SECONDS.toMillis(5)));
+        Mockito.when(resourceManager.getResourceShortageStats())
+                .thenReturn(new ResourceShortageStats());
+        ReflectionUtils.setField(coordinatorService, "resourceManager", resourceManager);
+        return resourceManager;
+    }
+
+    private Object getAutoScaler(CoordinatorService coordinatorService) {
+        return ReflectionUtils.getField(coordinatorService, "autoScaler").orElse(null);
+    }
+
+    private Object getAutoscalerScheduler(CoordinatorService coordinatorService) {
+        return ReflectionUtils.getField(coordinatorService, "autoscalerScheduler").orElse(null);
     }
 
     private JobMaster enqueueMockPendingJob(

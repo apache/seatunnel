@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn.YarnResourceManager;
 
@@ -30,18 +31,28 @@ public class ResourceManagerFactory {
 
     private final EngineConfig engineConfig;
 
+    private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
+
     public ResourceManagerFactory(NodeEngine nodeEngine, EngineConfig engineConfig) {
+        this(nodeEngine, engineConfig, AutoscalerRuntimeConfig.defaults());
+    }
+
+    public ResourceManagerFactory(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
+        this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
     }
 
     public ResourceManager getResourceManager(DeployType type) {
         if (DeployType.STANDALONE.equals(type)) {
-            return new StandaloneResourceManager(nodeEngine, engineConfig);
+            return new StandaloneResourceManager(nodeEngine, engineConfig, autoscalerRuntimeConfig);
         } else if (DeployType.KUBERNETES.equals(type)) {
-            return new KubernetesResourceManager(nodeEngine, engineConfig);
+            return new KubernetesResourceManager(nodeEngine, engineConfig, autoscalerRuntimeConfig);
         } else if (DeployType.YARN.equals(type)) {
-            return new YarnResourceManager(nodeEngine, engineConfig);
+            return new YarnResourceManager(nodeEngine, engineConfig, autoscalerRuntimeConfig);
         } else {
             throw new UnsupportedDeployTypeException(type);
         }

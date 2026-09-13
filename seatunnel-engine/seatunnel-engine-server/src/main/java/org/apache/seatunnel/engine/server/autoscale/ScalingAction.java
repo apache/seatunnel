@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.autoscale;
 
-import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+public enum ScalingAction {
+    /** Indicates that the autoscaler recommends adding workers. */
+    SCALE_OUT,
 
-import com.hazelcast.spi.impl.NodeEngine;
+    /** Indicates that scale-in conditions are met and the recommendation awaits stabilization. */
+    SCALE_IN_CANDIDATE,
 
-public class StandaloneResourceManager extends AbstractResourceManager {
+    /** Indicates that scale-in is blocked because required metrics are incomplete or invalid. */
+    SCALE_IN_BLOCKED,
 
-    public StandaloneResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        super(nodeEngine, engineConfig);
-    }
-
-    public StandaloneResourceManager(
-            NodeEngine nodeEngine,
-            EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
-        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
-    }
+    /** Indicates that the current worker count should remain unchanged. */
+    NO_ACTION
 }

@@ -18,6 +18,10 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
+import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
+import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
@@ -75,4 +79,12 @@ public interface ResourceManager {
     ConcurrentMap<Address, WorkerProfile> getRegisterWorker();
 
     RequestSlotOperationStats getRequestSlotOperationStats();
+
+    void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis);
+
+    LatestWorkerSampleStore getAutoscalerWorkerSampleStore();
+
+    ResourceShortageStats getResourceShortageStats();
+
+    AutoscalerRuntimeConfig getAutoscalerRuntimeConfig();
 }
