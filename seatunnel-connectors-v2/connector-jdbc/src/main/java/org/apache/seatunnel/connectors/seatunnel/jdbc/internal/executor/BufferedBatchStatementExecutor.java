@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -28,11 +27,18 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Function;
 
-@RequiredArgsConstructor
 public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     @NonNull private final JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor;
     @NonNull private final Function<SeaTunnelRow, SeaTunnelRow> valueTransform;
     @NonNull private final List<SeaTunnelRow> buffer = new ArrayList<>();
+    private boolean flushFailed;
+
+    public BufferedBatchStatementExecutor(
+            @NonNull JdbcBatchStatementExecutor<SeaTunnelRow> statementExecutor,
+            @NonNull Function<SeaTunnelRow, SeaTunnelRow> valueTransform) {
+        this.statementExecutor = statementExecutor;
+        this.valueTransform = valueTransform;
+    }
 
     @Override
     public void prepareStatements(Connection connection) throws SQLException {
@@ -47,11 +53,17 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     @Override
     public void executeBatch() throws SQLException {
         if (!buffer.isEmpty()) {
-            for (SeaTunnelRow row : buffer) {
-                statementExecutor.addToBatch(row);
+            try {
+                for (SeaTunnelRow row : buffer) {
+                    statementExecutor.addToBatch(row);
+                }
+                statementExecutor.executeBatch();
+                buffer.clear();
+                flushFailed = false;
+            } catch (SQLException e) {
+                flushFailed = true;
+                throw e;
             }
-            statementExecutor.executeBatch();
-            buffer.clear();
         }
     }
 
@@ -64,7 +76,7 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
     @Override
     public void closeStatements() throws SQLException {
         try {
-            if (!buffer.isEmpty()) {
+            if (!buffer.isEmpty() && !flushFailed) {
                 executeBatch();
             }
         } finally {
