@@ -4,6 +4,13 @@
 
 ## dev
 
+### Zeta REST 分页参数校验
+
+- **行为变更：分页接口开始校验 `page` 与 `rows`**
+  - **影响范围**：`seatunnel-engine-server`，REST 接口 `GET /finished-jobs/:state`、`GET /running-jobs` 与 `GET /running-jobs/summary`。后两者由同一个 `RunningJobsServlet` 实例提供服务，因此都会受到该校验。
+  - **变更说明**：这些接口现在会拒绝非整数或不大于 0 的 `page` 与 `rows`，并拒绝起始偏移量会超出 32 位整数范围的分页请求。此前 `rows=0` 会被接受并返回空页，负数 `rows` 会引发内部错误，而足够大的 `page` 与 `rows` 组合可能溢出为一个较小的正偏移量，从而静默返回错误的页。
+  - **影响**：依赖 `rows=0` 返回空页的请求现在会收到 `400`，错误信息中会指明具体参数。传入合法正整数的调用方不受影响。响应结构、`{"data": [...], "total": n}` 包装格式，以及起始位置恰好等于 `total` 时仍返回空页的行为，均保持不变。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**
