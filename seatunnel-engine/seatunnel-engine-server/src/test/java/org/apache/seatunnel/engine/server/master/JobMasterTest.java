@@ -23,6 +23,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
@@ -69,6 +70,8 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -350,10 +353,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         IMap<Long, JobInfo> runningJobInfoIMap = mock(IMap.class);
         SlotProfile slotProfile = mock(SlotProfile.class);
         JobImmutableInformation jobInformation = mock(JobImmutableInformation.class);
+        EngineConfig engineConfig = mock(EngineConfig.class);
 
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         when(hazelcastInstance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME))
                 .thenReturn(flakeIdGenerator);
+        when(engineConfig.getMetricsFetchTimeoutMs())
+                .thenReturn(Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS);
         when(nodeEngine.getClusterService()).thenReturn(clusterService);
         when(clusterService.getMember(workerAddress)).thenReturn(workerMember);
         when(slotProfile.getWorker()).thenReturn(workerAddress);
@@ -382,7 +388,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         runningJobStateTimestampsIMap,
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
-                        null,
+                        engineConfig,
                         null) {
                     @Override
                     protected RawJobMetrics fetchTaskGroupMetrics(
@@ -402,6 +408,51 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testFinalMetricsSkipsDepartedWorker() throws Exception {
+        long jobId = 10003L;
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        Address workerAddress = new Address("127.0.0.2", 5801);
+        NodeEngine nodeEngine = mock(NodeEngine.class);
+        HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
+        FlakeIdGenerator flakeIdGenerator = mock(FlakeIdGenerator.class);
+        ClusterService clusterService = mock(ClusterService.class);
+        when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(hazelcastInstance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME))
+                .thenReturn(flakeIdGenerator);
+        when(nodeEngine.getClusterService()).thenReturn(clusterService);
+        when(clusterService.getMember(workerAddress)).thenReturn(null);
+
+        JobMaster jobMaster =
+                new JobMaster(
+                        jobId,
+                        mock(Data.class),
+                        nodeEngine,
+                        jobMasterTestExecutor,
+                        mock(ResourceManager.class),
+                        mock(JobHistoryService.class),
+                        mock(IMap.class),
+                        mock(IMap.class),
+                        mock(IMap.class),
+                        mock(IMap.class),
+                        null,
+                        null);
+
+        Method finalMetricsMethod =
+                JobMaster.class.getDeclaredMethod("getFinalJobMetrics", Map.class);
+        finalMetricsMethod.setAccessible(true);
+        Map<TaskGroupLocation, Address> workers =
+                Collections.singletonMap(taskGroupLocation, workerAddress);
+
+        List<RawJobMetrics> metrics;
+        try {
+            metrics = (List<RawJobMetrics>) finalMetricsMethod.invoke(jobMaster, workers);
+        } catch (InvocationTargetException e) {
+            throw new AssertionError(e.getCause());
+        }
+        Assertions.assertTrue(metrics.isEmpty());
+    }
+
+    @Test
     void testRealtimeMetricsStopsAfterInterrupt() throws Exception {
         long jobId = 10002L;
         TaskGroupLocation firstTaskGroup = new TaskGroupLocation(jobId, 1, 1L);
@@ -410,7 +461,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Address secondWorker = new Address("127.0.0.3", 5801);
         AtomicInteger fetchCount = new AtomicInteger();
         NodeEngine nodeEngine = mock(NodeEngine.class);
+        HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
+        FlakeIdGenerator flakeIdGenerator = mock(FlakeIdGenerator.class);
         ClusterService clusterService = mock(ClusterService.class);
+        EngineConfig engineConfig = mock(EngineConfig.class);
+        when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(hazelcastInstance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME))
+                .thenReturn(flakeIdGenerator);
         when(nodeEngine.getClusterService()).thenReturn(clusterService);
         when(clusterService.getMember(firstWorker)).thenReturn(mock(MemberImpl.class));
         when(clusterService.getMember(secondWorker)).thenReturn(mock(MemberImpl.class));
@@ -427,7 +484,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         mock(IMap.class),
                         mock(IMap.class),
                         mock(IMap.class),
-                        null,
+                        engineConfig,
                         null) {
                     @Override
                     protected RawJobMetrics fetchTaskGroupMetrics(

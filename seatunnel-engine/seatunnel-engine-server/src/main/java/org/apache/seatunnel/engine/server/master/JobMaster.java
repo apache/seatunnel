@@ -1158,9 +1158,9 @@ public class JobMaster {
     }
 
     /**
-     * Collect metrics for terminal pipeline history without accepting a partial result. A terminal
-     * snapshot is stored only after every worker responds successfully; callers can then retry the
-     * operation without losing the task-group context needed for a later collection.
+     * Collect metrics for terminal pipeline history. A failed request still aborts collection so
+     * callers can retry it, while a worker that has left the cluster is omitted because retrying
+     * cannot recover metrics from a departed member.
      */
     private List<RawJobMetrics> getFinalJobMetrics(
             Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
@@ -1184,10 +1184,11 @@ public class JobMaster {
             List<TaskGroupLocation> taskGroupLocations = entry.getValue();
             try {
                 if (nodeEngine.getClusterService().getMember(address) == null) {
-                    if (failOnIncompleteResult) {
-                        throw new FinalMetricsCollectionException(
-                                String.format("%s is no longer an active worker.", address));
-                    }
+                    LOGGER.warning(
+                            String.format(
+                                    "%s is no longer an active worker; omitting its metrics "
+                                            + "from the terminal snapshot.",
+                                    address));
                     continue;
                 }
                 RawJobMetrics rawJobMetrics = fetchTaskGroupMetrics(address, taskGroupLocations);
