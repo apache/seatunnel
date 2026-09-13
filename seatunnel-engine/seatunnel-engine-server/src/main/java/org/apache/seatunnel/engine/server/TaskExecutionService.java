@@ -1282,24 +1282,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             boolean startLatchReleased = false;
             boolean initAttempted = false;
             try {
-                // Resolve the execution context inside the try. TaskGroupLocation is reused
-                // verbatim across restore generations, so a taskDone() belonging to an earlier
-                // generation can remove this location's entry while the current generation is
-                // still deploying. Dereferencing a missing context used to throw here - before
-                // the try - so startedLatch was never counted down and submitBlockingTask()
-                // waited on it forever while holding the SubPlan monitor. See #11679.
-                TaskGroupLocation taskGroupLocation =
-                        taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
-                TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
-                if (taskGroupContext == null) {
-                    throw new IllegalStateException(
-                            String.format(
-                                    "Execution context for %s is no longer registered; the task"
-                                            + " group was cleaned up while it was being"
-                                            + " deployed",
-                                    taskGroupLocation));
-                }
-                ClassLoader taskClassLoader = taskGroupContext.getClassLoaders().get(t.getTaskID());
+                // The tracker pins the context for this deployment at construction, so take the
+                // class loader from it rather than re-reading the shared, location-keyed map.
+                // TaskGroupLocation is reused verbatim across restore generations, so a lookup
+                // here could hand this worker another generation's context, or none at all once
+                // an earlier generation's taskDone() has removed the entry. That lookup used to
+                // sit before the try, so it threw before startedLatch was counted down and
+                // submitBlockingTask() waited on it forever while holding the SubPlan monitor.
+                // See #11679.
+                ClassLoader taskClassLoader =
+                        taskGroupExecutionTracker.context.getClassLoaders().get(t.getTaskID());
                 if (taskClassLoader == null) {
                     // A null context class loader would silently fall back to the thread's
                     // inherited loader and surface much later as a confusing
@@ -1309,7 +1301,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     "No class loader registered for task %s of %s; the task"
                                             + " group was cleaned up while it was being"
                                             + " deployed",
-                                    t.getTaskID(), taskGroupLocation));
+                                    t.getTaskID(),
+                                    taskGroupExecutionTracker.taskGroup.getTaskGroupLocation()));
                 }
                 Thread.currentThread().setContextClassLoader(taskClassLoader);
 
