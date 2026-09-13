@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorage;
 import org.apache.seatunnel.engine.imap.storage.api.IMapStorageFactory;
+import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames;
 
 import com.hazelcast.core.HazelcastInstance;
@@ -35,6 +36,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 @Slf4j
 public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycleSupport {
@@ -77,24 +79,61 @@ public class FileMapStore implements MapStore<Object, Object>, MapLoaderLifecycl
         mapStorage.destroy(false);
     }
 
+    /**
+     * Failure propagation below assumes Hazelcast write-through ({@code write-delay-seconds=0}, the
+     * shipped default): MapStore runs synchronously inside put/remove and exceptions reach the
+     * caller. Write-behind would only log MapStore failures and silently reintroduce swallowed
+     * durability errors.
+     */
     @Override
     public void store(Object key, Object value) {
-        mapStorage.store(key, value);
+        // Propagate durability failures to Hazelcast write-through instead of discarding the
+        // boolean. Especially after WAL fail-close, a silent success would leave in-memory IMap
+        // state advancing while on-disk persistence has permanently stopped.
+        if (!mapStorage.store(key, value)) {
+            throw persistenceFailure("store", key);
+        }
     }
 
     @Override
     public void storeAll(Map<Object, Object> map) {
-        mapStorage.storeAll(map);
+        Set<Object> failures = mapStorage.storeAll(map);
+        if (!failures.isEmpty()) {
+            throw persistenceFailure("storeAll", failures);
+        }
+    }
+
+    private IMapStorageException persistenceFailure(String operation, Object detail) {
+        if (mapStorage.isAppendPermanentlyBlocked()) {
+            return new IMapStorageException(
+                    "IMap "
+                            + operation
+                            + " failed: WAL APPEND is permanently fail-closed after a previous "
+                            + "write failure (detail="
+                            + detail
+                            + "). In-memory IMap updates must not be treated as durable; restart "
+                            + "this engine node to restore checkpoint persistence.");
+        }
+        return new IMapStorageException(
+                "IMap " + operation + " failed to persist durably (detail=" + detail + ").");
     }
 
     @Override
     public void delete(Object key) {
-        mapStorage.delete(key);
+        // Same write-through path as store(): delete also publishes WAL APPEND and is gated by
+        // fail-close. Discarding the boolean would let retention pruning remove in-memory entries
+        // while never recording the tombstone, so the key resurrects on WAL replay after restart.
+        if (!mapStorage.delete(key)) {
+            throw persistenceFailure("delete", key);
+        }
     }
 
     @Override
     public void deleteAll(Collection<Object> keys) {
-        mapStorage.deleteAll(keys);
+        Set<Object> failures = mapStorage.deleteAll(keys);
+        if (!failures.isEmpty()) {
+            throw persistenceFailure("deleteAll", failures);
+        }
     }
 
     @SneakyThrows

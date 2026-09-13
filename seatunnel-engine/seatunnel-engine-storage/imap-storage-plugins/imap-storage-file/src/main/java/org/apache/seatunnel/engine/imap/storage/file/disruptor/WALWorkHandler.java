@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageExcepti
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALWriter;
 import org.apache.seatunnel.engine.imap.storage.file.config.FileConfiguration;
+import org.apache.seatunnel.engine.imap.storage.file.future.RequestFuture;
 import org.apache.seatunnel.engine.imap.storage.file.future.RequestFutureCache;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
@@ -35,11 +36,40 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 
-/** NOTICE: Single thread to write data to orc file. */
+/**
+ * Single-threaded Disruptor consumer that appends WAL frames.
+ *
+ * <p>After any APPEND write failure the handler fail-closes further APPEND attempts for the
+ * remaining lifetime of this handler instance (recoverable only by process restart — there is no
+ * in-process reset path). Continuing to write on the same open stream could place a complete frame
+ * after a partially written one, and {@code DefaultReader} cannot resync past a mid-file torn frame
+ * (it stops when a length prefix claims more bytes than remain). Leaving any partial frame as a
+ * trailing incomplete record keeps prior complete records recoverable; see {@code
+ * DefaultReaderTornTrailingRecordTest} and {@code DefaultReaderTornMidFileRecordTest}. Blind {@code
+ * fs.create} reopen is intentionally avoided because it would truncate the fixed {@code wal.txt}
+ * path. Callers must treat a fail-closed write as a hard persistence failure (see {@link
+ * #isAppendBlockedAfterWriteFailure()}).
+ */
 @Slf4j
 public class WALWorkHandler implements WorkHandler<FileWALEvent> {
 
     private WALWriter writer;
+
+    /**
+     * Sticky for this handler's lifetime: once set, further APPEND events fail without touching the
+     * stream so a possible torn trailer cannot become a mid-file tear. Never reset in-process;
+     * requires engine-node restart to clear.
+     */
+    private boolean appendBlockedAfterWriteFailure;
+
+    /**
+     * Whether APPEND is permanently fail-closed after a prior write failure.
+     *
+     * @return true once any write failure has tripped fail-close; stays true until process restart
+     */
+    public boolean isAppendBlockedAfterWriteFailure() {
+        return appendBlockedAfterWriteFailure;
+    }
 
     public WALWorkHandler(
             FileSystem fs,
@@ -64,32 +94,47 @@ public class WALWorkHandler implements WorkHandler<FileWALEvent> {
             throws Exception {
         if (type == WALEventType.APPEND) {
             boolean writeSuccess = true;
-            // write to current writer
+            // Fail-closed after a prior write failure: do not append more bytes on a stream that
+            // may already end in a torn frame (DefaultReader cannot resync mid-file).
+            if (appendBlockedAfterWriteFailure) {
+                log.warn(
+                        "WAL APPEND blocked after a previous write failure, requestId is {}",
+                        requestId);
+                executeResponse(requestId, false);
+                return;
+            }
+            // Catch all failures so RequestFuture.done() is always published. Narrowing this to
+            // IOException previously allowed RuntimeException to kill the single WAL worker and
+            // leave callers blocked until their wait timeout.
             try {
                 writer.write(iMapFileData);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 writeSuccess = false;
+                appendBlockedAfterWriteFailure = true;
                 log.error("write orc file error, walEventBean is {} ", iMapFileData, e);
             }
-            // return the result to the client
+            // Never let response publishing kill the sole disruptor consumer.
             executeResponse(requestId, writeSuccess);
             return;
         }
 
         if (type == WALEventType.CLOSED) {
-            // close writer and archive
+            // close writer and archive. Intentionally unguarded: CLOSED is published once during
+            // WALDisruptor/storage shutdown, so a failure here does not wedge steady-state APPEND
+            // persistence the way an escaping write exception would.
             writer.close();
         }
     }
 
     private void executeResponse(long requestId, boolean success) {
-        if (null == RequestFutureCache.get(requestId)) {
-            log.warn("requestId is {} not found in RequestFutureCache", requestId);
-            return;
-        }
         try {
-            RequestFutureCache.get(requestId).done(success);
-        } catch (RuntimeException e) {
+            RequestFuture future = RequestFutureCache.get(requestId);
+            if (future == null) {
+                log.warn("requestId is {} not found in RequestFutureCache", requestId);
+                return;
+            }
+            future.done(success);
+        } catch (Exception e) {
             log.error("response error, requestId is {} ", requestId, e);
         }
     }
