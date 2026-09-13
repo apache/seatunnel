@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.format.json.debezium;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonParser;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonToken;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
@@ -68,6 +72,9 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
 
     private final TablePath tablePath;
 
+    /** Cached {@link TablePath#toString()} to avoid rebuilding the table id on every row. */
+    private final String tableId;
+
     public DebeziumJsonDeserializationSchema(CatalogTable catalogTable, boolean ignoreParseErrors) {
         this(catalogTable, ignoreParseErrors, false);
     }
@@ -81,6 +88,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         this.debeziumRowConverter = new DebeziumRowConverter(rowType);
         this.debeziumEnabledSchema = debeziumEnabledSchema;
         this.tablePath = Optional.of(catalogTable).map(CatalogTable::getTablePath).orElse(null);
+        this.tableId = tablePath != null ? tablePath.toString() : null;
     }
 
     @Override
@@ -102,7 +110,8 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
 
         try {
-            JsonNode payload = getPayload(jsonDeserializer.deserializeToJsonNode(message));
+            // Materialize only CDC fields; skip large unused objects such as source/schema.
+            JsonNode payload = readDebeziumPayload(message);
             parsePayload(out, tablePath, payload);
         } catch (Exception e) {
             // a big try catch to protect the processing.
@@ -116,22 +125,24 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         parsePayload(out, tablePath, payload);
     }
 
+    @Override
+    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
+        return this.rowType;
+    }
+
     private void parsePayload(Collector<SeaTunnelRow> out, TablePath tablePath, JsonNode payload)
             throws IOException {
         String op = payload.get(OP_KEY).asText();
         JsonNode tsNode = payload.get(DATA_TS);
+        String resolvedTableId = resolveTableId(tablePath);
+        Long eventTime = tsNode != null ? tsNode.asLong() : null;
 
         switch (op) {
             case OP_CREATE:
             case OP_READ:
                 SeaTunnelRow insert = debeziumRowConverter.parse(payload.get(DATA_AFTER));
                 insert.setRowKind(RowKind.INSERT);
-                if (tablePath != null) {
-                    insert.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(insert, tsNode.asLong());
-                }
+                applyRowMeta(insert, resolvedTableId, eventTime);
                 out.collect(insert);
                 break;
             case OP_UPDATE:
@@ -141,22 +152,11 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                             String.format(REPLICA_IDENTITY_EXCEPTION, "UPDATE"));
                 }
                 before.setRowKind(RowKind.UPDATE_BEFORE);
-                if (tablePath != null) {
-                    before.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(before, tsNode.asLong());
-                }
+                applyRowMeta(before, resolvedTableId, eventTime);
 
                 SeaTunnelRow after = debeziumRowConverter.parse(payload.get(DATA_AFTER));
                 after.setRowKind(RowKind.UPDATE_AFTER);
-
-                if (tablePath != null) {
-                    after.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(after, tsNode.asLong());
-                }
+                applyRowMeta(after, resolvedTableId, eventTime);
                 out.collect(before);
                 out.collect(after);
                 break;
@@ -167,12 +167,7 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
                             String.format(REPLICA_IDENTITY_EXCEPTION, "DELETE"));
                 }
                 delete.setRowKind(RowKind.DELETE);
-                if (tablePath != null) {
-                    delete.setTableId(tablePath.toString());
-                }
-                if (tsNode != null) {
-                    MetadataUtil.setEventTime(delete, tsNode.asLong());
-                }
+                applyRowMeta(delete, resolvedTableId, eventTime);
                 out.collect(delete);
                 break;
             default:
@@ -180,15 +175,86 @@ public class DebeziumJsonDeserializationSchema implements DeserializationSchema<
         }
     }
 
-    @Override
-    public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
-        return this.rowType;
+    /**
+     * Resolves the table id string for the emitted row. Call sites normally pass {@link
+     * #tablePath}; the identity check reuses the cached {@link #tableId}, while the fallback covers
+     * the public {@link #deserializeMessage(byte[], Collector, TablePath)} contract if a different
+     * path is supplied.
+     */
+    private String resolveTableId(TablePath tablePath) {
+        if (tablePath == null) {
+            return null;
+        }
+        if (tablePath == this.tablePath) {
+            return tableId;
+        }
+        return tablePath.toString();
     }
 
-    private JsonNode getPayload(JsonNode jsonNode) {
-        if (debeziumEnabledSchema) {
-            return jsonNode.get(DATA_PAYLOAD);
+    /** Applies table id and optional event-time metadata to a newly parsed row. */
+    private static void applyRowMeta(SeaTunnelRow row, String tableId, Long eventTime) {
+        if (tableId != null) {
+            row.setTableId(tableId);
         }
-        return jsonNode;
+        if (eventTime != null) {
+            MetadataUtil.setEventTime(row, eventTime);
+        }
+    }
+
+    /**
+     * Parses a Debezium JSON envelope while skipping unused objects such as {@code source}, {@code
+     * transaction}, and the optional top-level {@code schema}. Only {@code op}, {@code ts_ms},
+     * {@code before}, and {@code after} (under {@code payload} when schema is included) are
+     * materialized into JsonNodes.
+     */
+    private JsonNode readDebeziumPayload(byte[] message) throws IOException {
+        ObjectMapper objectMapper = jsonDeserializer.getObjectMapper();
+        try (JsonParser parser = objectMapper.getFactory().createParser(message)) {
+            if (parser.nextToken() != JsonToken.START_OBJECT) {
+                throw new IOException("Expected START_OBJECT for Debezium JSON message");
+            }
+            if (debeziumEnabledSchema) {
+                JsonNode payload = null;
+                while (parser.nextToken() != JsonToken.END_OBJECT) {
+                    String fieldName = parser.currentName();
+                    parser.nextToken();
+                    if (DATA_PAYLOAD.equals(fieldName)) {
+                        payload = readPayloadFields(objectMapper, parser);
+                    } else {
+                        parser.skipChildren();
+                    }
+                }
+                if (payload == null) {
+                    throw new IOException("Missing payload field in schema-included Debezium JSON");
+                }
+                return payload;
+            }
+            return readPayloadFields(objectMapper, parser);
+        }
+    }
+
+    /**
+     * Reads the current object value from {@code parser}, keeping only CDC payload fields and
+     * skipping everything else (notably {@code source} and {@code transaction}).
+     */
+    private static JsonNode readPayloadFields(ObjectMapper objectMapper, JsonParser parser)
+            throws IOException {
+        if (parser.currentToken() != JsonToken.START_OBJECT) {
+            throw new IOException("Expected START_OBJECT for Debezium payload");
+        }
+        ObjectNode payload = objectMapper.createObjectNode();
+        while (parser.nextToken() != JsonToken.END_OBJECT) {
+            String fieldName = parser.currentName();
+            parser.nextToken();
+            if (DATA_BEFORE.equals(fieldName)
+                    || DATA_AFTER.equals(fieldName)
+                    || OP_KEY.equals(fieldName)
+                    || DATA_TS.equals(fieldName)) {
+                payload.set(fieldName, objectMapper.readTree(parser));
+            } else {
+                parser.skipChildren();
+            }
+        }
+        return payload;
     }
 }
