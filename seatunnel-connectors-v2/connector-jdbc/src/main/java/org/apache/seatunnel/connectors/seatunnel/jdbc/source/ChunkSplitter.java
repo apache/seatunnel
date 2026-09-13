@@ -42,6 +42,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -118,9 +119,6 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
             JdbcSourceSplit split = createSingleSplit(table);
             splits = Collections.singletonList(split);
         } else {
-            if (splitKeyOptional.get().getTotalFields() != 1) {
-                throw new UnsupportedOperationException("Currently, only support one split key");
-            }
             splits = createSplits(table, splitKeyOptional.get());
         }
 
@@ -184,6 +182,29 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     CommonErrorCodeDeprecated.CLASS_NOT_FOUND,
                     "JDBC-Class not found. - " + e.getMessage(),
                     e);
+        }
+    }
+
+    /**
+     * Returns whether the dialect supports composite-primary-key chunk splitting on the live
+     * database connection.
+     *
+     * <p>Reuses the connection already managed by {@link #connectionProvider} (opened lazily via
+     * {@link #getOrEstablishConnection()} and closed once in {@link #close()}), so this check
+     * neither opens a second connection nor leaks one. Any failure to acquire the connection or
+     * read its metadata is treated as "not supported" so the splitter falls back to the
+     * single-column path instead of failing job startup.
+     */
+    protected boolean supportCompositeKeySplit() {
+        try {
+            Connection connection = getOrEstablishConnection();
+            return jdbcDialect.supportCompositeKeySplit(connection.getMetaData());
+        } catch (SQLException | JdbcConnectorException e) {
+            log.warn(
+                    "Failed to read database metadata to decide composite key split support, "
+                            + "falling back to single-column split for table splitting",
+                    e);
+            return false;
         }
     }
 
@@ -394,7 +415,37 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
         PrimaryKey pk = schema.getPrimaryKey();
         if (pk != null) {
-            for (String pkField : pk.getColumnNames()) {
+            List<String> pkColumnNames = pk.getColumnNames();
+            // Composite primary key: use all key columns (tuple-ordered split). Only the dynamic
+            // splitter supports multi-column boundaries, and only for dialects whose composite-PK
+            // path is validated by an official E2E (see
+            // JdbcDialect.supportCompositeKeySplit(DatabaseMetaData), default false); unvalidated
+            // dialects - and dialects whose live database version does not support the composite
+            // boundary SQL, e.g. Oracle < 12c - fall back to the single-column behavior below.
+            // All key columns must also be splittable (Comparable) types - a composite PK
+            // containing e.g. BINARY/VARBINARY would otherwise fail compareArrays with a
+            // ClassCastException, so such keys also fall back to the single-column path.
+            if (pkColumnNames.size() > 1
+                    && config.isUseDynamicSplitter()
+                    && supportCompositeKeySplit()) {
+                List<Column> pkColumns = new ArrayList<>();
+                for (String pkField : pkColumnNames) {
+                    Column column = columnMap.get(pkField);
+                    if (column != null && isSupportSplitColumn(column)) {
+                        pkColumns.add(column);
+                    }
+                }
+                if (pkColumns.size() == pkColumnNames.size()) {
+                    String[] fieldNames =
+                            pkColumns.stream().map(Column::getName).toArray(String[]::new);
+                    SeaTunnelDataType[] fieldTypes =
+                            pkColumns.stream()
+                                    .map(Column::getDataType)
+                                    .toArray(SeaTunnelDataType[]::new);
+                    return Optional.of(new SeaTunnelRowType(fieldNames, fieldTypes));
+                }
+            }
+            for (String pkField : pkColumnNames) {
                 Column column = columnMap.get(pkField);
                 if (isSupportSplitColumn(column)) {
                     return Optional.of(
