@@ -326,6 +326,24 @@ Zero samples in lock mode normally means that the run did not observe lock conte
 profiler changes execution cost, use diagnostics only to locate the cause; confirm an improvement or
 regression with the unprofiled PR comparison.
 
+### Fork-level variation
+
+The normalized JSON preserves JMH `primaryMetric.rawData` as the optional `fork_samples`
+field, including fork and iteration order. The existing flattened `samples`, Score, Error
+and overall CV are unchanged. Older schema-version-1 reports without this field still render.
+
+Expand **JMH fork diagnostics** to inspect each fork's sample count, mean iteration score
+and within-fork CV. The fork-mean CV is the sample standard deviation of the unweighted
+fork means divided by their mean. This helps distinguish variation within a fork from
+shifts between forks; it is descriptive evidence, not a regression gate or a root-cause claim.
+CV is `n/a` when fewer than two observations are available or the mean is zero. Missing or
+non-finite observations do not count as stable measurements.
+
+For ABBA comparisons, diagnostics stay separate for each baseline/candidate run and retain
+the source run ID. One-fork runs can show within-fork variation, but cannot establish
+between-fork variation. Consult the original JMH JSON and profiling evidence to investigate
+the observations; changing the report does not demonstrate a production speedup.
+
 ## Research References
 
 1. Andy Georges, Dries Buytaert, and Lieven Eeckhout,

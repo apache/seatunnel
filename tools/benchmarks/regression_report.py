@@ -20,6 +20,7 @@
 
 import argparse
 import json
+import math
 import pathlib
 import statistics
 
@@ -267,6 +268,64 @@ def jmh_report_lines(metrics):
     return lines
 
 
+def sample_mean_and_cv(samples):
+    """Describe available iterations without inferring stability from one sample."""
+    try:
+        values = [float(value) for value in samples]
+    except (TypeError, ValueError):
+        return None, None
+    if not values or not all(math.isfinite(value) for value in values):
+        return None, None
+    mean = statistics.mean(values)
+    cv = (
+        statistics.stdev(values) / abs(mean) * 100.0
+        if len(values) > 1 and mean != 0.0
+        else None
+    )
+    return mean, cv
+
+def jmh_fork_report_lines(metrics, context=""):
+    metrics = [
+        metric
+        for metric in metrics
+        if metric.get("kind") == "jmh" and metric.get("fork_samples")
+    ]
+    if not metrics:
+        return []
+    lines = [
+        "<details>",
+        "<summary>JMH fork diagnostics{}</summary>".format(context),
+        "",
+        "Values in each list follow the original JMH fork order. Means describe iteration "
+        "scores; within-fork CV describes variation between iterations in that fork. "
+        "Fork-mean CV describes variation between the unweighted fork means.",
+        "",
+        "CV is n/a for fewer than two observations or a zero mean. Missing or non-finite "
+        "observations are not treated as evidence of stability. These diagnostics do not "
+        "change Score, Error, overall CV, or establish a performance defect or its cause.",
+        "",
+        "| Benchmark | Parameters | Samples per fork | Fork means | Within-fork CV | Fork-mean CV | Unit |",
+        "| --- | --- | --- | --- | --- | ---: | --- |",
+    ]
+    for metric in metrics:
+        forks = metric["fork_samples"]
+        summaries = [sample_mean_and_cv(samples) for samples in forks]
+        means = [mean for mean, _ in summaries]
+        between_cv = sample_mean_and_cv(means)[1]
+        lines.append(
+            "| `{}` | `{}` | {} | {} | {} | {} | {} |".format(
+                short_benchmark_name(metric),
+                compact_params(metric.get("params", {})),
+                ", ".join(str(len(samples)) for samples in forks),
+                "; ".join(format_number(mean) for mean in means),
+                "; ".join(format_percent(cv, signed=False) for _, cv in summaries),
+                format_percent(between_cv, signed=False),
+                metric["unit"],
+            )
+        )
+    return lines + ["", "</details>"]
+
+
 def pipeline_report_lines(report, metrics):
     groups = pipeline_groups(metrics)
     if not groups:
@@ -338,7 +397,11 @@ def report_lines(report):
     ]
     jmh = [metric for metric in report["metrics"] if metric["kind"] == "jmh"]
     pipeline = [metric for metric in report["metrics"] if metric["kind"] == "pipeline"]
-    for section in (jmh_report_lines(jmh), pipeline_report_lines(report, pipeline)):
+    for section in (
+        jmh_report_lines(jmh),
+        jmh_fork_report_lines(jmh),
+        pipeline_report_lines(report, pipeline),
+    ):
         if section:
             lines.extend([""] + section)
     return lines
@@ -589,6 +652,13 @@ def comparison_lines(baselines, candidates):
     ):
         if section:
             lines.extend([""] + section)
+    for label, reports in (("Baseline", baselines), ("Candidate", candidates)):
+        for index, report in enumerate(reports, start=1):
+            run_id = report["source"].get("run_id", "unknown")
+            context = ": {} run {} ({})".format(label, index, run_id)
+            section = jmh_fork_report_lines(report["metrics"], context)
+            if section:
+                lines.extend([""] + section)
     return lines
 
 

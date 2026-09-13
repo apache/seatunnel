@@ -306,6 +306,21 @@ wall-clock 和 lock 模式提供火焰图，GC 模式提供分配与回收摘要
 lock 模式显示 0 个样本通常表示本次运行未观察到锁竞争。Profiler 会改变程序执行成本，
 因此诊断结果只用于定位原因，性能提升或回退仍应由不带 Profiler 的 PR 对比确认。
 
+### Fork 级波动
+
+规范化 JSON 将 JMH 的 `primaryMetric.rawData` 保存为可选的 `fork_samples` 字段，
+保留 fork 和迭代的原始顺序。原有的扁平 `samples`、Score、Error 和整体 CV 不变；
+不含此字段的旧版 schema-version-1 报告仍可正常渲染。
+
+展开 **JMH fork diagnostics**，可以查看各 fork 的样本数、迭代得分均值和 fork 内 CV。
+fork 均值 CV 是各 fork 均值（不加权）的样本标准差除以这些均值的平均值。
+这些诊断有助于区分 fork 内波动和 fork 间偏移，但不构成回归门禁或根因结论。
+不足两个观测值或均值为零时，CV 显示为 `n/a`；缺失或非有限观测值不能当作稳定证据。
+
+ABBA 比较分别展示每次 baseline/candidate 运行的诊断，并保留源 run ID。
+单 fork 运行可分析内部波动，但无法据此判断 fork 间波动。请结合原始 JMH JSON
+和剖析证据继续调查；报告展示变化并不代表生产代码提速。
+
 ## 参考论文
 
 1. Andy Georges、Dries Buytaert、Lieven Eeckhout，

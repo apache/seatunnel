@@ -108,6 +108,7 @@ def jmh_metrics(results):
                 "params": result.get("params", {}),
                 "forks": result["forks"],
                 "samples": samples,
+                "fork_samples": primary.get("rawData", []),
             }
         )
     return metrics

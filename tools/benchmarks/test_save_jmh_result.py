@@ -53,6 +53,7 @@ class SaveJmhResultTest(unittest.TestCase):
             metric["name"],
         )
         self.assertEqual([90.0, 110.0, 100.0], metric["samples"])
+        self.assertEqual([[90.0, 110.0], [100.0]], metric["fork_samples"])
         self.assertEqual(10.0, metric["sample_standard_deviation"])
         self.assertEqual(0.05, metric["relative_score_error"])
         self.assertEqual("higher", metric["direction"])

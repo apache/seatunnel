@@ -149,6 +149,67 @@ class RegressionReportTest(unittest.TestCase):
         self.assertIn("Queue.publish", markdown)
         self.assertTrue(markdown.endswith("\n"))
 
+    def test_fork_diagnostics_distinguish_within_and_between_fork_variation(self):
+        shifted = self.jmh_metric(150.0, "ops/s")
+        shifted["fork_samples"] = [[100.0, 100.0, 100.0], [200.0, 200.0, 200.0]]
+        mixed = self.jmh_metric(150.0, "ops/s")
+        mixed["fork_samples"] = [[100.0, 200.0, 100.0], [200.0, 100.0, 200.0]]
+        # Both datasets have the same overall distribution; the fork boundaries differ.
+        self.assertEqual(
+            regression_report.jmh_report_lines([shifted]),
+            regression_report.jmh_report_lines([mixed]),
+        )
+        shifted_text = "\n".join(regression_report.jmh_fork_report_lines([shifted]))
+        mixed_text = "\n".join(regression_report.jmh_fork_report_lines([mixed]))
+        self.assertIn(
+            "| 3, 3 | 100.000; 200.000 | 0.00%; 0.00% | 47.14% |", shifted_text
+        )
+        self.assertIn(
+            "| 3, 3 | 133.333; 166.667 | 43.30%; 34.64% | 15.71% |", mixed_text
+        )
+
+    def test_fork_diagnostics_do_not_invent_zero_variance_for_missing_observations(
+        self,
+    ):
+        for samples in ([], [0.0], [0.0, 0.0], [10.0], [float("nan"), 1.0]):
+            with self.subTest(samples=samples):
+                self.assertIsNone(regression_report.sample_mean_and_cv(samples)[1])
+        metric = self.jmh_metric(10.0, "ops/s")
+        metric["fork_samples"] = [[10.0], []]
+        text = "\n".join(regression_report.jmh_fork_report_lines([metric]))
+        self.assertIn("| 1, 0 | 10.000; n/a | n/a; n/a | n/a |", text)
+
+    def test_fork_mean_cv_gives_each_fork_equal_weight(self):
+        metric = self.jmh_metric(20.0, "ops/s")
+        metric["fork_samples"] = [[10.0, 10.0, 10.0], [30.0]]
+        text = "\n".join(regression_report.jmh_fork_report_lines([metric]))
+        self.assertIn("| 3, 1 | 10.000; 30.000 | 0.00%; n/a | 70.71% |", text)
+
+    def test_legacy_reports_without_fork_samples_keep_their_output(self):
+        metric = self.jmh_metric(10.0, "ops/s")
+        self.assertEqual([], regression_report.jmh_fork_report_lines([metric]))
+        self.assertNotIn(
+            "JMH fork diagnostics",
+            "\n".join(regression_report.report_lines(self.report("dev", metric))),
+        )
+
+    def test_comparison_keeps_forks_separate_for_each_source_run(self):
+        baseline = self.jmh_metric(10.0, "ops/s")
+        baseline["fork_samples"] = [[9.0, 11.0]]
+        candidate = self.jmh_metric(20.0, "ops/s")
+        candidate["fork_samples"] = [[18.0, 22.0]]
+        text = "\n".join(
+            regression_report.comparison_lines(
+                [self.report("dev", baseline), self.report("dev", baseline)],
+                [self.report("pr", candidate), self.report("pr", candidate)],
+            )
+        )
+        self.assertEqual(4, text.count("<summary>JMH fork diagnostics:"))
+        self.assertIn("Baseline run 2 (42)", text)
+        self.assertIn("Candidate run 2 (42)", text)
+        self.assertEqual(2, text.count("| 2 | 10.000 | 14.14% | n/a |"))
+        self.assertEqual(2, text.count("| 2 | 20.000 | 14.14% | n/a |"))
+
     @staticmethod
     def jmh_metric(value, unit, direction="higher"):
         return {
