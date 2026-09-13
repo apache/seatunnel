@@ -47,28 +47,7 @@ public class ParameterSplitter implements IParameterSplitter {
                     currentToken.append(c);
                     continue;
                 }
-                char prev = (i > 0) ? value.charAt(i - 1) : 0;
-                char beforePrev = (i > 1) ? value.charAt(i - 2) : 0;
-                char next = (i + 1 < value.length()) ? value.charAt(i + 1) : 0;
-                char afterNext = (i + 2 < value.length()) ? value.charAt(i + 2) : 0;
-
-                boolean isStartWrapper =
-                        !insideQuotes
-                                && (i == 0
-                                        || START_DELIMITERS.contains(prev)
-                                        || (prev == ' ' && START_DELIMITERS.contains(beforePrev)));
-
-                boolean isEndWrapper =
-                        insideQuotes
-                                && (i == value.length() - 1
-                                        || END_DELIMITERS.contains(next)
-                                        || (next == ' ' && END_DELIMITERS.contains(afterNext)));
-
-                if (isStartWrapper) {
-                    insideQuotes = true;
-                } else if (isEndWrapper) {
-                    insideQuotes = false;
-                }
+                insideQuotes = updateQuoteState(value, i, insideQuotes);
                 currentToken.append(c);
                 continue;
             }
@@ -78,10 +57,14 @@ public class ParameterSplitter implements IParameterSplitter {
                     braceDepth++;
                 } else if (c == '}' && braceDepth > 0) {
                     braceDepth--;
+                } else if (c == '}' && braceDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
                 } else if (c == '[') {
                     bracketDepth++;
                 } else if (c == ']' && bracketDepth > 0) {
                     bracketDepth--;
+                } else if (c == ']' && bracketDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
                 }
             }
 
@@ -97,7 +80,49 @@ public class ParameterSplitter implements IParameterSplitter {
             result.add(currentToken.toString().trim());
         }
 
+        if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
+            throw new IllegalArgumentException(
+                    "Invalid variable value '"
+                            + value
+                            + "': unmatched braces/brackets or unclosed quotes");
+        }
+
         return result;
+    }
+
+    private boolean updateQuoteState(String value, int quoteIndex, boolean insideQuotes) {
+
+        boolean isStartWrapper = isStartWrapper(insideQuotes, value, quoteIndex);
+        boolean isEndWrapper = isEndWrapper(insideQuotes, value, quoteIndex);
+
+        if (isStartWrapper) {
+            insideQuotes = true;
+        } else if (isEndWrapper) {
+            insideQuotes = false;
+        } else {
+            insideQuotes = !insideQuotes;
+        }
+        return insideQuotes;
+    }
+
+    private boolean isStartWrapper(boolean insideQuotes, String value, int quoteIndex) {
+        char prev = (quoteIndex > 0) ? value.charAt(quoteIndex - 1) : 0;
+        char beforePrev = (quoteIndex > 1) ? value.charAt(quoteIndex - 2) : 0;
+
+        return !insideQuotes
+                && (quoteIndex == 0
+                        || START_DELIMITERS.contains(prev)
+                        || (prev == ' ' && START_DELIMITERS.contains(beforePrev)));
+    }
+
+    private boolean isEndWrapper(boolean insideQuotes, String value, int quoteIndex) {
+        char next = (quoteIndex + 1 < value.length()) ? value.charAt(quoteIndex + 1) : 0;
+        char afterNext = (quoteIndex + 2 < value.length()) ? value.charAt(quoteIndex + 2) : 0;
+
+        return insideQuotes
+                && (quoteIndex == value.length() - 1
+                        || END_DELIMITERS.contains(next)
+                        || (next == ' ' && END_DELIMITERS.contains(afterNext)));
     }
 
     private boolean isEscapedQuote(String value, int quoteIndex) {
