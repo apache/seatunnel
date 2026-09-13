@@ -104,6 +104,10 @@ libfb303-xxx.jar
 
 当 `data_save_mode = CUSTOM_PROCESSING` 时，配置在 Sink 写入前删除目标数据的 `delete` SQL。该模式下必须配置此选项。
 
+对于 Iceberg `timestamptz` 列，比较以及 `IN`/`NOT IN` 条件支持带偏移量的时间戳字面量，例如 `event_time >= '2026-09-12 10:00:00.123456+05:30'`。偏移量会转换为对应的 UTC 时间点，精度为微秒。不带偏移量的字面量保持现有的 UTC 解释方式。不带时区的 Iceberg `timestamp` 列仍要求使用不带偏移量的字面量。
+
+现有的文件级删除限制仍然适用：如果数据文件中只有部分行匹配条件，Iceberg 会拒绝删除。
+
 ### krb5_path [string]
 
 `krb5.conf` 文件的路径，用于 Kerberos 认证。
