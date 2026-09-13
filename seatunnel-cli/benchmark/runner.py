@@ -67,7 +67,29 @@ CLARIFICATION_REPLY = (
 )
 
 
-def load_tasks(tiers: list[int], task_ids: list[str] | None = None) -> list[dict]:
+def load_tasks(tiers: list[int], task_ids: list[str] | None = None,
+               suite: str = "baseline") -> list[dict]:
+    if suite not in ("baseline", "paraphrase"):
+        raise ValueError(f"Unknown task suite: {suite}")
+    if suite == "paraphrase":
+        from benchmark.paraphrases import load_paraphrases
+
+        if (not tiers or len(tiers) != len(set(tiers))
+                or any(t not in TIER_FILES for t in tiers)):
+            raise ValueError("Select distinct tiers from 1, 2 and 3")
+        tasks = [task for task in load_paraphrases(load_tasks(list(TIER_FILES)))
+                 if task["tier"] in tiers]
+        if task_ids is not None:
+            if not task_ids or len(task_ids) != len(set(task_ids)):
+                raise ValueError("Select one or more distinct paraphrase task IDs")
+            unknown = set(task_ids) - {task["id"] for task in tasks}
+            if unknown:
+                raise ValueError("Unknown paraphrase tasks in selected tiers: "
+                                 + ", ".join(sorted(unknown)))
+            tasks = [task for task in tasks if task["id"] in task_ids]
+        if not tasks:
+            raise ValueError("No paraphrase tasks selected")
+        return tasks
     tasks = []
     for tier in tiers:
         path = TASKS_DIR / TIER_FILES[tier]
@@ -319,7 +341,12 @@ def collect_cli_fingerprint() -> dict:
 
 
 def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
-                  max_repairs: int, trials: int, out_dir: Path) -> dict:
+                  max_repairs: int, trials: int, out_dir: Path,
+                  suite: str = "baseline") -> dict:
+    if suite not in ("baseline", "paraphrase"):
+        raise ValueError("Unknown benchmark suite")
+    if any(("parent_id" in task) != (suite == "paraphrase") for task in tasks):
+        raise ValueError("Task provenance does not match the selected suite")
     out_dir.mkdir(parents=True, exist_ok=True)
     configs_dir = out_dir / "configs"
     configs_dir.mkdir(exist_ok=True)
@@ -333,6 +360,7 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
     }
 
     all_results = {
+        "suite": suite,
         "levels": levels,
         "max_repairs": max_repairs,
         "trials": trials,
@@ -369,6 +397,9 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
                     "task_sha256": task_fingerprints[task["id"]],
                     "trials": [],
                 }
+                if "parent_id" in task:
+                    task_entry.update(parent_id=task["parent_id"],
+                                      parent_sha256=task["parent_sha256"])
                 for trial in range(trials):
                     label = task["id"] + (f" trial {trial + 1}/{trials}" if trials > 1 else "")
                     print(f"  [{label}] ...", end="", flush=True)
@@ -541,6 +572,10 @@ def main() -> None:
                              "(DeepSeek, Azure, local vLLM, ...)")
     parser.add_argument("--tiers", type=int, nargs="+", default=[1, 2, 3],
                         choices=[1, 2, 3])
+    parser.add_argument("--suite", choices=["baseline", "paraphrase"],
+                        default="baseline",
+                        help="Task suite: baseline (100 tasks, default) or "
+                             "paraphrase (12 alternative-wording tasks only)")
     parser.add_argument("--tasks", nargs="*", default=None,
                         help="Optional task id filter")
     parser.add_argument("--level", default="l3", choices=["l1", "l2", "l3"],
@@ -555,13 +590,18 @@ def main() -> None:
     parser.add_argument("--out", default="benchmark/results")
     args = parser.parse_args()
 
+    try:
+        tasks = load_tasks(args.tiers, args.tasks, args.suite)
+    except (ValueError, OSError) as error:
+        parser.error(str(error))
     models = build_models_from_args(args)
-    tasks = load_tasks(args.tiers, args.tasks)
     if not tasks:
         print("No tasks selected.", file=sys.stderr)
         sys.exit(1)
 
     levels = resolve_levels(args.level, tasks)
+    if args.suite == "paraphrase":
+        print("Task suite: paraphrase (public alternative wording)")
     print(f"Running {len(tasks)} tasks × {len(models)} models × "
           f"{args.trials} trial(s), gates: {' → '.join(levels)}, "
           f"max repairs: {args.max_repairs}")
@@ -578,7 +618,7 @@ def main() -> None:
             os.environ.setdefault(key, value)
 
     results = run_benchmark(models, tasks, levels, args.max_repairs,
-                            args.trials, Path(args.out))
+                            args.trials, Path(args.out), suite=args.suite)
 
     from benchmark.report import print_summary, write_reports
     print_summary(results)

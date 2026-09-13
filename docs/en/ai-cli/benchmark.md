@@ -8,6 +8,43 @@ The AI CLI's accuracy is measured — not assumed — by a dedicated benchmark: 
 
 ## Comparing CLI Revisions
 
+### Optional alternative-wording checks
+
+The default 100-task benchmark is unchanged. To run the separate public
+paraphrase suite of 12 tasks:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.runner --provider openai --model gpt-4o \
+    --suite paraphrase --out benchmark/paraphrase-baseline
+```
+
+The suite covers routing, CDC prerequisites and connector options/mode selection,
+including one Chinese routing prompt. It runs only variants, without adding the
+original tasks to the denominator. `--tiers` filters inherited tiers; `--tasks`
+uses distinct IDs such as `t2_cdc_pg_kafka_p1`. Invalid or duplicate variant
+selections fail before provider setup. The usual generation, repair and gate
+pipeline applies: this command calls a model, even with `--level l1`.
+
+Each variant inherits all assertions and execution fixtures from a fingerprinted
+baseline task. Changed parents require review and explicit repinning, not silent
+expectation updates. Saved results retain parent provenance and fingerprint the
+complete expanded variant. Run the same suite in a separate candidate directory
+and use the comparison command below; do not compare parent IDs against variant
+IDs or combine their rates as independent evidence.
+New results record the run-level `suite`; cross-suite comparisons are rejected
+before task pairing. Older unmarked baseline results remain compatible, but
+unmarked paraphrase results need a fresh run. This initial corpus intentionally
+has one reviewed alternative wording per parent; additional wordings are a
+separate corpus expansion.
+
+This public suite is a regression tool, **not an unseen holdout**. Offline tests
+validate its harness contracts, not generation accuracy or full semantic
+equivalence of output data. Existing default prompts, scoring and report formats
+are unchanged. See the benchmark README for the corpus contract.
+
+### Saved-result comparison
+
 Save baseline and candidate benchmark runs in separate directories, then compare
 their `results.json` files without making additional model calls:
 
