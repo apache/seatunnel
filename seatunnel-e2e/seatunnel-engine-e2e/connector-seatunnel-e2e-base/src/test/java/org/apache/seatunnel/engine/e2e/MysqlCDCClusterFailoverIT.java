@@ -1213,6 +1213,15 @@ public class MysqlCDCClusterFailoverIT {
     /**
      * Waits until the given job reaches the requested status.
      *
+     * <p>Ignores exceptions while polling, not just failed assertions: right after an all-node-down
+     * restart the new master's coordinator service is not immediately available, so {@code
+     * getJobStatus()} can throw {@code SeaTunnelEngineRetryableException("Can not get coordinator
+     * service from an active master node")} for a few seconds while the cluster reforms.
+     * Awaitility's {@code untilAsserted} only retries on a failed assertion by default; without
+     * {@code ignoreExceptions()} that transient exception aborts the wait immediately instead of
+     * retrying within the budget below, exactly like the analogous transient exception {@link
+     * #startNodeWithRetry} already guards against during the same restart window.
+     *
      * @param clientJobProxy job proxy used for status polling
      * @param expectedStatus expected job status
      */
@@ -1220,6 +1229,7 @@ public class MysqlCDCClusterFailoverIT {
         Awaitility.await()
                 .atMost(3, TimeUnit.MINUTES)
                 .pollInterval(2, TimeUnit.SECONDS)
+                .ignoreExceptions()
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
