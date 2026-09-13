@@ -121,7 +121,13 @@ public class MySqlIncrementalSourceStartupConfigTest {
                                 SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
                                 "mysql-bin.000123",
                                 SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
-                                456789L));
+                                456789L,
+                                // Mixed mode requires exactly_once=true (see
+                                // MySqlIncrementalSource#createStartupConfig); this test targets
+                                // specific-offset parsing, so it must still satisfy that
+                                // precondition to reach the code under test.
+                                SourceOptions.EXACTLY_ONCE.key(),
+                                true));
 
         Offset startupOffset = startupConfig.getStartupOffset(new TestOffsetFactory());
 
