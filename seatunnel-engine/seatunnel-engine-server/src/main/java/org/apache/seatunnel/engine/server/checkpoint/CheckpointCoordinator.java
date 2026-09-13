@@ -1398,7 +1398,10 @@ public class CheckpointCoordinator {
                 .map(
                         taskLocation ->
                                 new CheckpointFinishedOperation(
-                                        taskLocation, checkpoint.getCheckpointId(), true))
+                                        taskLocation,
+                                        checkpoint.getCheckpointId(),
+                                        true,
+                                        checkpoint.getCheckpointType()))
                 .map(checkpointManager::sendOperationToMemberNode)
                 .toArray(InvocationFuture[]::new);
     }

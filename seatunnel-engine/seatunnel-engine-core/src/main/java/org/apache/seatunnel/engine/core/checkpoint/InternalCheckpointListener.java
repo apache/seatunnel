@@ -33,6 +33,23 @@ public interface InternalCheckpointListener extends CheckpointListener {
     default void notifyCheckpointComplete(long checkpointId) throws Exception {}
 
     /**
+     * Notifies the listener that the checkpoint with its type completed and was committed.
+     *
+     * <p>The typed callback preserves checkpoint-type context for runtime protocols that must also
+     * be restored correctly after failover, while keeping the original callback as the default path
+     * for existing listeners.
+     *
+     * @param checkpointId The ID of the checkpoint that has been completed.
+     * @param checkpointType The type of the checkpoint that has been completed.
+     * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
+     *     the task. Note that this will NOT lead to the checkpoint being revoked.
+     */
+    default void notifyCheckpointComplete(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
+        notifyCheckpointComplete(checkpointId);
+    }
+
+    /**
      * This method is called as a notification once a distributed checkpoint has been aborted.
      *
      * @param checkpointId The ID of the checkpoint that has been aborted.
@@ -41,6 +58,22 @@ public interface InternalCheckpointListener extends CheckpointListener {
      */
     @Override
     default void notifyCheckpointAborted(long checkpointId) throws Exception {}
+
+    /**
+     * Notifies the listener that a distributed checkpoint with its type has been aborted.
+     *
+     * <p>The typed callback lets runtime protocols clear checkpoint-type-specific transient state
+     * even when the abort notification is delivered after recovery.
+     *
+     * @param checkpointId The ID of the checkpoint that has been aborted.
+     * @param checkpointType The type of the checkpoint that has been aborted.
+     * @throws Exception This method can propagate exceptions, which leads to a failure/recovery for
+     *     the task or job.
+     */
+    default void notifyCheckpointAborted(long checkpointId, CheckpointType checkpointType)
+            throws Exception {
+        notifyCheckpointAborted(checkpointId);
+    }
 
     /**
      * The notification that the checkpoint has ended means that the notifyCheckpointComplete method
