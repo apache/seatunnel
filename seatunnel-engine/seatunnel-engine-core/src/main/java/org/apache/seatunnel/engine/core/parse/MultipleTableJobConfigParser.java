@@ -700,10 +700,13 @@ public class MultipleTableJobConfigParser {
         String operatorUid = config.hasPath("uid") ? config.getString("uid") : namedConfig.name;
         String actionName = namedConfig.name;
         String outputId = getLookupOutputId(config);
-        DynamicLookupDescriptor.JoinType joinType = parseJoinType(config.getString("join.type"));
+        DynamicLookupDescriptor.JoinType joinType =
+                parseJoinType(getDynamicLookupString(config, "join.type"));
         List<DynamicLookupProjectionField> projectionFields =
                 parseProjectionFields(
-                        config.getStringList("join.fields"), factInput._1(), dimensionInput._1());
+                        getDynamicLookupStringList(config, "join.fields"),
+                        factInput._1(),
+                        dimensionInput._1());
         CatalogTable producedCatalogTable =
                 buildDynamicLookupCatalogTable(
                         outputId, factInput._1(), dimensionInput._1(), joinType, projectionFields);
@@ -998,7 +1001,8 @@ public class MultipleTableJobConfigParser {
             throw new JobDefineCheckException(
                     "Dynamic lookup M0 requires dimension.primary-key-update=FAIL");
         }
-        if (!"FAIL".equalsIgnoreCase(lookupConfig.getString("schema-change.behavior"))) {
+        if (!"FAIL"
+                .equalsIgnoreCase(getDynamicLookupString(lookupConfig, "schema-change.behavior"))) {
             throw new JobDefineCheckException(
                     "Dynamic lookup M0 requires schema-change.behavior=FAIL");
         }
@@ -1013,18 +1017,18 @@ public class MultipleTableJobConfigParser {
                 "state.ttl",
                 "resource.max-logical-state-bytes-per-subtask",
                 "resource.max-resident-state-bytes-per-subtask");
-        if (lookupConfig.getInt("state.max-concurrent-snapshots") != 1) {
+        if (getDynamicLookupInt(lookupConfig, "state.max-concurrent-snapshots") != 1) {
             throw new JobDefineCheckException(
                     "Dynamic lookup M0 requires state.max-concurrent-snapshots=1");
         }
-        if (lookupConfig.getInt("resource.max-concurrent-snapshots") != 1) {
+        if (getDynamicLookupInt(lookupConfig, "resource.max-concurrent-snapshots") != 1) {
             throw new JobDefineCheckException(
                     "Dynamic lookup M0 requires resource.max-concurrent-snapshots=1");
         }
-        if (!"IN_MEMORY".equalsIgnoreCase(lookupConfig.getString("state.backend"))) {
+        if (!"IN_MEMORY".equalsIgnoreCase(getDynamicLookupString(lookupConfig, "state.backend"))) {
             throw new JobDefineCheckException("Dynamic lookup M0 requires state.backend=IN_MEMORY");
         }
-        if (!"NONE".equalsIgnoreCase(lookupConfig.getString("state.ttl"))) {
+        if (!"NONE".equalsIgnoreCase(getDynamicLookupString(lookupConfig, "state.ttl"))) {
             throw new JobDefineCheckException("Dynamic lookup M0 requires state.ttl=NONE");
         }
         long logicalStateBytes =
@@ -1048,12 +1052,75 @@ public class MultipleTableJobConfigParser {
         }
     }
 
-    private static void requireDynamicLookupPaths(Config config, String... paths) {
-        for (String path : paths) {
-            if (!config.hasPath(path)) {
-                throw new JobDefineCheckException("Dynamic lookup M0 requires '" + path + "'");
+    /**
+     * Navigates from {@code config} to the {@link Config} object that directly contains the last
+     * segment of {@code dottedPath}, treating every "." in the string as an ordinary HOCON object
+     * boundary (e.g. {@code "state.backend"} means "the object at key state, field backend").
+     *
+     * <p>This project's shaded HOCON library repurposes {@code .} as an ordinary character within a
+     * single path-expression segment and instead uses {@code "->"} (see {@code
+     * ConfigParseOptions#PATH_TOKEN_SEPARATOR}) as the real segment separator for {@link
+     * Config#getString}/{@link Config#hasPath}/{@link Config#getValue} and the other
+     * path-expression-based accessors. Calling those methods directly with a plain dotted string
+     * therefore looks up one literal key containing a dot rather than navigating nested objects,
+     * which is why the naive dotted calls this method replaces silently returned/threw as if the
+     * key were entirely absent. Splitting the caller-supplied literal on "." ourselves and walking
+     * {@link Config#getConfig} one segment at a time sidesteps the separator entirely; every
+     * segment here is a fixed key this validator's own HOCON schema declares, none of which
+     * contains a literal dot, so splitting on "." is unambiguous for these paths specifically.
+     */
+    private static Config navigateDynamicLookupParent(Config config, String dottedPath) {
+        String[] segments = dottedPath.split("\\.");
+        Config current = config;
+        for (int i = 0; i < segments.length - 1; i++) {
+            if (!current.hasPath(segments[i])) {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup M0 requires '" + dottedPath + "'");
+            }
+            current = current.getConfig(segments[i]);
+        }
+        return current;
+    }
+
+    private static String dynamicLookupLeafKey(String dottedPath) {
+        int lastDot = dottedPath.lastIndexOf('.');
+        return lastDot < 0 ? dottedPath : dottedPath.substring(lastDot + 1);
+    }
+
+    private static boolean hasDynamicLookupPath(Config config, String dottedPath) {
+        String[] segments = dottedPath.split("\\.");
+        Config current = config;
+        for (int i = 0; i < segments.length - 1; i++) {
+            if (!current.hasPath(segments[i])) {
+                return false;
+            }
+            current = current.getConfig(segments[i]);
+        }
+        return current.hasPath(segments[segments.length - 1]);
+    }
+
+    private static void requireDynamicLookupPaths(Config config, String... dottedPaths) {
+        for (String dottedPath : dottedPaths) {
+            if (!hasDynamicLookupPath(config, dottedPath)) {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup M0 requires '" + dottedPath + "'");
             }
         }
+    }
+
+    private static String getDynamicLookupString(Config config, String dottedPath) {
+        return navigateDynamicLookupParent(config, dottedPath)
+                .getString(dynamicLookupLeafKey(dottedPath));
+    }
+
+    private static List<String> getDynamicLookupStringList(Config config, String dottedPath) {
+        return navigateDynamicLookupParent(config, dottedPath)
+                .getStringList(dynamicLookupLeafKey(dottedPath));
+    }
+
+    private static int getDynamicLookupInt(Config config, String dottedPath) {
+        return navigateDynamicLookupParent(config, dottedPath)
+                .getInt(dynamicLookupLeafKey(dottedPath));
     }
 
     private static long getDynamicLookupBytes(Config config, String path) {
@@ -1061,8 +1128,10 @@ public class MultipleTableJobConfigParser {
         return parseDynamicLookupBytes(value, path);
     }
 
-    private static String getDynamicLookupScalar(Config config, String path) {
-        return String.valueOf(config.getValue(path).unwrapped()).trim();
+    private static String getDynamicLookupScalar(Config config, String dottedPath) {
+        Config parent = navigateDynamicLookupParent(config, dottedPath);
+        String leafKey = dynamicLookupLeafKey(dottedPath);
+        return String.valueOf(parent.getValue(leafKey).unwrapped()).trim();
     }
 
     private static long parseDynamicLookupBytes(String value, String path) {

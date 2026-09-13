@@ -643,6 +643,68 @@ public class MultipleTableJobConfigParserTest {
                 exception.getMessage().contains("resource.max-logical-state-bytes-per-subtask"));
     }
 
+    /**
+     * Regression test for a bug where every dotted validator path ({@code schema-change.behavior},
+     * {@code state.backend}, {@code join.type}, ...) was resolved as one literal key instead of a
+     * nested HOCON path, because this project's shaded {@code Config} library uses {@code "->"},
+     * not {@code "."}, as the path-expression separator for {@code getString}/{@code hasPath}. That
+     * bug made every dotted {@code requireDynamicLookupPaths} check report the path as entirely
+     * absent, regardless of what value was actually configured at that nested key.
+     *
+     * <p>A test asserting only that some {@link JobDefineCheckException} is thrown for a wrong
+     * value cannot distinguish "the path was never found" from "the path was found but the value is
+     * wrong" -- both produce *a* exception. This test targets that gap directly: {@code
+     * state.backend} is present at its correctly nested path with a real, well-formed but
+     * unsupported value ({@code "DISK"}), parsed through the real shaded HOCON parser (not a
+     * hand-built {@code Config}). If the dotted-path bug ever regresses, this fails with "Dynamic
+     * lookup M0 requires 'state.backend'" (path treated as absent) instead of the value-specific
+     * message asserted below, making the two failure modes unambiguous to a human or a reviewer.
+     */
+    @Test
+    public void testDynamicLookupRejectsUnsupportedStateBackendValue() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        JobDefineCheckException exception =
+                Assertions.assertThrows(
+                        JobDefineCheckException.class,
+                        () ->
+                                dynamicLookupParser(
+                                                dynamicLookupConfig(
+                                                        list("fact_id"),
+                                                        list("dimension_id"),
+                                                        list("FACT_SOURCE_GATE_V1"),
+                                                        list("ORDERED_BOOTSTRAP_V1"),
+                                                        "LEFT",
+                                                        list(
+                                                                "fact.fact_id",
+                                                                "dimension.dimension_name"),
+                                                        "512mb",
+                                                        "512mb",
+                                                        "DISK"),
+                                                catalogTable(
+                                                        "fact_table",
+                                                        column(
+                                                                "fact_id",
+                                                                BasicType.INT_TYPE,
+                                                                false)),
+                                                Collections.singleton("FACT_SOURCE_GATE_V1"),
+                                                catalogTable(
+                                                        "dimension_table",
+                                                        column(
+                                                                "dimension_id",
+                                                                BasicType.INT_TYPE,
+                                                                false),
+                                                        column(
+                                                                "dimension_name",
+                                                                BasicType.STRING_TYPE,
+                                                                false)),
+                                                Collections.singleton("ORDERED_BOOTSTRAP_V1"))
+                                        .parse(null));
+        Assertions.assertTrue(
+                exception.getMessage().contains("state.backend=IN_MEMORY"),
+                "expected the value-specific rejection message, but got: "
+                        + exception.getMessage());
+    }
+
     private CatalogTable mockCatalogTable(String tableName) {
         return CatalogTable.of(
                 TableIdentifier.of(
@@ -704,6 +766,38 @@ public class MultipleTableJobConfigParserTest {
             String joinFields,
             String maxLogicalBytes,
             String maxResidentBytes) {
+        return dynamicLookupConfig(
+                factKeys,
+                dimensionKeys,
+                factRequiredCapabilities,
+                dimensionRequiredCapabilities,
+                joinType,
+                joinFields,
+                maxLogicalBytes,
+                maxResidentBytes,
+                "IN_MEMORY");
+    }
+
+    /**
+     * Builds the same {@code dynamic_lookup} fixture as the 8-argument overload, with the {@code
+     * state.backend} value parameterized so a test can assert on a value that is present at the
+     * correct nested path but semantically invalid for M0's fenced feature scope. A test that
+     * cannot distinguish "the path was never found" from "the path was found but had the wrong
+     * value" would not have caught the shaded-HOCON dotted-path regression this class of test
+     * guards against; see {@link
+     * org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser}'s private
+     * navigateDynamicLookupParent/hasDynamicLookupPath helpers for the underlying fix.
+     */
+    private static Config dynamicLookupConfig(
+            String factKeys,
+            String dimensionKeys,
+            String factRequiredCapabilities,
+            String dimensionRequiredCapabilities,
+            String joinType,
+            String joinFields,
+            String maxLogicalBytes,
+            String maxResidentBytes,
+            String stateBackend) {
         return ConfigFactory.parseString(
                 "env {\n"
                         + "  job.mode = \"STREAMING\"\n"
@@ -755,7 +849,9 @@ public class MultipleTableJobConfigParserTest {
                         + "      behavior = \"FAIL\"\n"
                         + "    }\n"
                         + "    state {\n"
-                        + "      backend = \"IN_MEMORY\"\n"
+                        + "      backend = \""
+                        + stateBackend
+                        + "\"\n"
                         + "      ttl = \"NONE\"\n"
                         + "      max-concurrent-snapshots = 1\n"
                         + "    }\n"
