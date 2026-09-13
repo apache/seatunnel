@@ -167,6 +167,11 @@ public class PaimonSink
     }
 
     @Override
+    public Optional<Serializer<PaimonSinkState>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
+    }
+
+    @Override
     public Optional<Serializer<PaimonAggregatedCommitInfo>> getAggregatedCommitInfoSerializer() {
         return Optional.of(new DefaultSerializer<>());
     }
