@@ -145,7 +145,9 @@ services:
       retries: 30
 
   minio:
-    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+    # Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls;
+    # quay.io is MinIO's own registry and mirrors the same tags publicly.
+    image: quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z
     container_name: st-bench-minio
     environment:
       MINIO_ROOT_USER: minioadmin

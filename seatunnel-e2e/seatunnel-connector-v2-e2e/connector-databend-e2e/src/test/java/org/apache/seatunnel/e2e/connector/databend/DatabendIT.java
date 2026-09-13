@@ -235,7 +235,9 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         this.minioContainer =
-                new GenericContainer<>("minio/minio:latest")
+                // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated
+                // pulls; quay.io is MinIO's own registry and mirrors the same tags publicly.
+                new GenericContainer<>("quay.io/minio/minio:latest")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("minio")
                         .withEnv("MINIO_ROOT_USER", "minioadmin")

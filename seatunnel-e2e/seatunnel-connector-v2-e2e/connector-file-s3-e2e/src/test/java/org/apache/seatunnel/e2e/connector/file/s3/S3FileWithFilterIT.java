@@ -54,7 +54,11 @@ import java.util.concurrent.TimeUnit;
 public class S3FileWithFilterIT extends SeaTunnelContainer {
     private GenericContainer<?> s3Container;
 
-    private static final String MINIO_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"); quay.io
+    // is
+    // MinIO's own registry and mirrors the same tags publicly.
+    private static final String MINIO_IMAGE = "quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z";
 
     private static final int S3_PORT = 9000;
 
