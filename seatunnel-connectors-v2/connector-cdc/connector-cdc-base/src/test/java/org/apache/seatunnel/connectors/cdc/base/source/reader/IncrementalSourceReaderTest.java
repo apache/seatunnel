@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcReaderProgressTracker;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -64,6 +65,37 @@ class IncrementalSourceReaderTest {
             new TableId("alpha_online", null, "account_histories");
     private static final TableId REMOVED_TABLE =
             new TableId("alpha_online", null, "account_interests");
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void initializedStateRestoresCheckpointAndRecordsProgress() {
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        CdcReaderProgressTracker progressTracker = Mockito.mock(CdcReaderProgressTracker.class);
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                new IncrementalSourceReader<>(
+                        Mockito.mock(DataSourceDialect.class),
+                        new ArrayBlockingQueue<>(2),
+                        () -> Mockito.mock(IncrementalSourceSplitReader.class),
+                        Mockito.mock(RecordEmitter.class),
+                        new SourceReaderOptions(ReadonlyConfig.fromMap(Collections.emptyMap())),
+                        Mockito.mock(SourceReader.Context.class),
+                        Mockito.mock(SourceConfig.class),
+                        schema,
+                        progressTracker);
+        IncrementalSplit split = restoredIncrementalSplit();
+
+        try {
+            SourceSplitStateBase state = reader.initializedState(split);
+
+            Mockito.verify(schema).restoreCheckpointProducedType(split.getCheckpointTables());
+            Mockito.verify(schema)
+                    .restoreCheckpointHistoryTableChanges(split.getHistoryTableChanges());
+            Mockito.verify(progressTracker).recordSplitState(state);
+        } finally {
+            reader.close();
+        }
+    }
 
     @Test
     void testAddSplitsEnqueuesPrunedRestoredIncrementalSplit() {
@@ -165,6 +197,7 @@ class IncrementalSourceReaderTest {
             DataSourceDialect<SourceConfig> dialect,
             SourceConfig sourceConfig,
             SourceReader.Context context) {
+        Mockito.when(dialect.getName()).thenReturn("TestCDC");
         @SuppressWarnings("unchecked")
         IncrementalSourceSplitReader<SourceConfig> splitReader =
                 Mockito.mock(IncrementalSourceSplitReader.class);

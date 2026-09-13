@@ -402,6 +402,7 @@ const sidebars = {
                 "developer/how-to-create-your-connector",
                 "developer/connector-runtime-boundaries",
                 "developer/source-connector-development",
+                "developer/cdc-progress",
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",
                 "developer/contribute-transform-v2-guide",

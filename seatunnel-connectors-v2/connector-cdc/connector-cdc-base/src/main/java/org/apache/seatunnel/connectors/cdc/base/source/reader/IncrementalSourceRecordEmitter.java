@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcReaderProgressTracker;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
@@ -77,6 +78,7 @@ public class IncrementalSourceRecordEmitter<T>
     protected final EventListener eventListener;
     protected final MessageDelayedEventLimiter delayedEventLimiter =
             new MessageDelayedEventLimiter(Duration.ofSeconds(1), 0.5d);
+    private CdcReaderProgressTracker cdcProgressTracker;
 
     public IncrementalSourceRecordEmitter(
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
@@ -91,6 +93,10 @@ public class IncrementalSourceRecordEmitter<T>
         this.eventListener = context.getEventListener();
     }
 
+    public void setCdcProgressTracker(CdcReaderProgressTracker cdcProgressTracker) {
+        this.cdcProgressTracker = cdcProgressTracker;
+    }
+
     @Override
     public void emitRecord(
             SourceRecords sourceRecords, Collector<T> collector, SourceSplitStateBase splitState)
@@ -101,6 +107,10 @@ public class IncrementalSourceRecordEmitter<T>
             reportMetrics(next);
             processElement(next, collector, splitState);
             markEnterPureIncrementPhase(next, splitState);
+            if (cdcProgressTracker != null) {
+                cdcProgressTracker.recordEmission(
+                        splitState, getMessageTimestamp(next), System.currentTimeMillis());
+            }
         }
     }
 
