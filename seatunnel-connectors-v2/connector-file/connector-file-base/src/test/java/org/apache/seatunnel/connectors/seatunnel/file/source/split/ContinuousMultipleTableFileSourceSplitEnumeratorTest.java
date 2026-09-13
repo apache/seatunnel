@@ -1248,6 +1248,43 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testRestoresLegacyBinaryStateAndAcceptsLegacyFinishedEvent() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("legacy_source"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("legacy_target"));
+        Files.write(srcDir.resolve("application.bin"), "content".getBytes());
+        FileSourceState checkpoint;
+        try (ContinuousMultipleTableFileSourceSplitEnumerator first =
+                createEnumerator(srcDir, dstDir).enumerator) {
+            first.scanOnceForTest();
+            first.handleSplitRequest(0);
+            checkpoint = first.snapshotState(1L);
+        }
+        FileSourceState legacyState =
+                FileSourceSerializationCompatibilityTest.restoreLegacyState(
+                        tempDir,
+                        checkpoint.getAssignedSplit(),
+                        checkpoint.getDiscoveryStartTimeMillis(),
+                        checkpoint.getPendingOpsByCheckpoint(),
+                        checkpoint.getRetentionLastRunMillisByPath());
+        EnumeratorWithContext restored = createEnumerator(srcDir, dstDir, "earliest", legacyState);
+        try {
+            Assertions.assertEquals(1, restored.enumerator.currentUnassignedSplitSize());
+            FileSourceSplit split = assignAndCaptureSingleSplit(restored);
+            Assertions.assertEquals(checkpoint.getAssignedSplit(), Collections.singleton(split));
+            FileSplitFinishedEvent legacyEvent =
+                    FileSourceSerializationCompatibilityTest.restoreLegacyEvent(
+                            tempDir, split.splitId(), null);
+            restored.enumerator.handleSourceEvent(0, legacyEvent);
+
+            Assertions.assertTrue(
+                    restored.enumerator.snapshotState(2L).getAssignedSplit().isEmpty());
+            Assertions.assertEquals(0, restored.enumerator.currentUnassignedSplitSize());
+        } finally {
+            restored.enumerator.close();
+        }
+    }
+
+    @Test
     void testRestoreReEnqueuesInFlightSplitsAsPending() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src5_restore_pending"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst5_restore_pending"));

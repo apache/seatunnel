@@ -21,11 +21,14 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
 
 import java.io.DataInput;
+import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.net.URI;
+import java.nio.channels.Channels;
+import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 
 /** Resolves the stable identity used to follow a local file across path changes. */
@@ -48,8 +51,11 @@ public final class LocalFileIdentity {
 
     /** Reads the bounded content sample used by local tail split checkpoints. */
     public static String contentAnchor(String filePath, long offset) throws IOException {
-        try (RandomAccessFile input = new RandomAccessFile(toNioPath(filePath).toFile(), "r")) {
-            return contentAnchor(input, input::seek, offset);
+        try (FileChannel channel = FileChannel.open(toNioPath(filePath), StandardOpenOption.READ)) {
+            return contentAnchor(
+                    new DataInputStream(Channels.newInputStream(channel)),
+                    channel::position,
+                    offset);
         }
     }
 

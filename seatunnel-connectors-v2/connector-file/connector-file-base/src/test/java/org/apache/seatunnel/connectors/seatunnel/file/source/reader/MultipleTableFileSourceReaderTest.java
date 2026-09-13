@@ -43,15 +43,19 @@ import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.nio.file.AccessDeniedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermission;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 class MultipleTableFileSourceReaderTest {
 
@@ -198,6 +202,87 @@ class MultipleTableFileSourceReaderTest {
         Mockito.verify(fixture.readStrategy, Mockito.never())
                 .read(Mockito.any(FileSourceSplit.class), Mockito.any());
         Assertions.assertEquals(0L, captureFinishedEvent(fixture.context).getProcessedBytes());
+    }
+
+    @Test
+    void testDeletionAfterIdentityCheckDoesNotFailReader() throws Exception {
+        assumeStableFileIdentity();
+        Path file = tempDir.resolve("application.log");
+        Files.write(file, "old\n".getBytes());
+        ReaderFixture fixture = createReader();
+        FileSourceSplit split =
+                new FileSourceSplit(
+                        fixture.tableId,
+                        file.toString(),
+                        0L,
+                        4L,
+                        LocalFileIdentity.read(file.toString()),
+                        LocalFileIdentity.contentAnchor(file.toString(), 4L));
+        fixture.reader.addSplits(Collections.singletonList(split));
+
+        try (MockedStatic<LocalFileIdentity> identity =
+                Mockito.mockStatic(LocalFileIdentity.class, Mockito.CALLS_REAL_METHODS)) {
+            identity.when(() -> LocalFileIdentity.read(file.toString()))
+                    .thenAnswer(
+                            invocation -> {
+                                String currentIdentity = (String) invocation.callRealMethod();
+                                Files.delete(file);
+                                return currentIdentity;
+                            });
+
+            fixture.reader.pollNext(fixture.collector);
+        }
+
+        Mockito.verify(fixture.readStrategy, Mockito.never()).read(Mockito.any(), Mockito.any());
+        FileSplitFinishedEvent event = captureFinishedEvent(fixture.context);
+        Assertions.assertEquals(0L, event.getProcessedBytes());
+        Assertions.assertNull(event.getContentFingerprint());
+    }
+
+    @Test
+    void testAccessDeniedAfterIdentityCheckFailsWithoutAcknowledgement() throws Exception {
+        assumeStableFileIdentity();
+        Assumptions.assumeTrue(
+                tempDir.getFileSystem().supportedFileAttributeViews().contains("posix"));
+        Path file = tempDir.resolve("application.log");
+        Files.write(file, "old\n".getBytes());
+        Set<PosixFilePermission> permissions = Files.getPosixFilePermissions(file);
+        ReaderFixture fixture = createReader();
+        FileSourceSplit split =
+                new FileSourceSplit(
+                        fixture.tableId,
+                        file.toString(),
+                        0L,
+                        4L,
+                        LocalFileIdentity.read(file.toString()),
+                        LocalFileIdentity.contentAnchor(file.toString(), 4L));
+        fixture.reader.addSplits(Collections.singletonList(split));
+
+        try (MockedStatic<LocalFileIdentity> identity =
+                Mockito.mockStatic(LocalFileIdentity.class, Mockito.CALLS_REAL_METHODS)) {
+            Files.setPosixFilePermissions(file, Collections.emptySet());
+            Assumptions.assumeFalse(Files.isReadable(file), "Requires an unprivileged file owner");
+            Files.setPosixFilePermissions(file, permissions);
+            identity.when(() -> LocalFileIdentity.read(file.toString()))
+                    .thenAnswer(
+                            invocation -> {
+                                String currentIdentity = (String) invocation.callRealMethod();
+                                Files.setPosixFilePermissions(file, Collections.emptySet());
+                                return currentIdentity;
+                            });
+
+            FileConnectorException failure =
+                    Assertions.assertThrows(
+                            FileConnectorException.class,
+                            () -> fixture.reader.pollNext(fixture.collector));
+            Assertions.assertInstanceOf(AccessDeniedException.class, failure.getCause());
+            Mockito.verify(fixture.readStrategy, Mockito.never())
+                    .read(Mockito.any(), Mockito.any());
+            Mockito.verify(fixture.context, Mockito.never())
+                    .sendSourceEventToEnumerator(Mockito.any());
+        } finally {
+            Files.setPosixFilePermissions(file, permissions);
+        }
     }
 
     @Test
