@@ -15,6 +15,32 @@
 # limitations under the License.
 #
 
+# JDK 9+ module system compatibility. Two independent consumers need these flags:
+#   1. Hazelcast, which the Zeta engine is built on. Its own serialization and networking
+#      internals reflectively touch these JDK APIs; nothing in this codebase calls them
+#      directly, so there is no first-party call site in our source to point to for these.
+#   2. This project's own reflective code: the Kerberos configuration reload helpers
+#      (KuduUtil, PaimonSecurityContext) and the connector classloader injection helpers
+#      (AbstractPluginDiscovery, ConfigValidationUtils, the Flink starter plugin loaders),
+#      which are named per-flag below.
+# Without these flags, the reflective access fails silently instead of raising a startup
+# error, so the loss is easy to miss until the affected path is actually exercised.
+# Required by Hazelcast internals (see note 1 above).
+--add-opens=java.base/java.lang=ALL-UNNAMED
+# Required by URLClassLoader#addURL reflection: AbstractPluginDiscovery,
+# ConfigValidationUtils, and the Flink starter plugin loaders inject connector jars this way.
+--add-opens=java.base/java.net=ALL-UNNAMED
+# Required by Hazelcast internals (see note 1 above).
+--add-opens=java.base/java.nio=ALL-UNNAMED
+# Required by Hazelcast internals (see note 1 above).
+--add-opens=java.base/java.util=ALL-UNNAMED
+# Required by Hazelcast internals (see note 1 above).
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+# Required by the Kerberos configuration reload helpers KuduUtil and PaimonSecurityContext,
+# which reflectively call io.debezium/sun.security.krb5.Config#refresh() equivalents to pick
+# up a custom krb5.conf without a JVM restart.
+--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+
 # JVM Heap
 # -Xms2g
 # -Xmx2g

@@ -201,7 +201,7 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
 | jvm_memory_pool_allocated_bytes_total      | Counter | **pool**，包括："Code Cache" "PS Eden Space" "PS Old Gen" "PS Survivor Space" "Compressed Class Space" "Metaspace" | 在给定 JVM 内存池中分配的总字节数。仅在垃圾收集后更新，而不是持续更新。 |
 | jvm_gc_collection_seconds_count            | Summary | **gc**，包括："PS Scavenge" "PS MarkSweep"                                                                        | 在给定 JVM 垃圾收集器中花费的时间（以秒为单位）             |
 | jvm_gc_collection_seconds_sum              | Summary | **gc**，包括："PS Scavenge" "PS MarkSweep"                                                                        | 在给定 JVM 垃圾收集器中花费的时间（以秒为单位）             
-| jvm_info                                   | Gauge   | **runtime**，例如：“Java(TM) SE Runtime Environment”。**供应商**，例如：“Oracle Corporation”。**版本**，例如：“1.8.0_212-b10”    | VM 版本信息                                |
+| jvm_info                                   | Gauge   | **runtime**，例如：“Java(TM) SE Runtime Environment”。**供应商**，例如：“Oracle Corporation”。**版本**，例如：“11.0.22+7”       | VM 版本信息                                |
 | process_cpu_seconds_total                  | Counter | -                                                                                                             | 用户和系统 CPU 时间总计，以秒为单位                   |
 | process_start_time_seconds                 | Gauge   | -                                                                                                             | 进程自 Unix 纪元以来的启动时间，以秒为单位               |
 | process_open_fds                           | Gauge   | -                                                                                                             | 打开的文件描述符数量                             |

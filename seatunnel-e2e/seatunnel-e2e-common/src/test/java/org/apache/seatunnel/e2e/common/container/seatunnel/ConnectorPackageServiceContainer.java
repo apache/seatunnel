@@ -53,7 +53,9 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 @NoArgsConstructor
 @Slf4j
 public class ConnectorPackageServiceContainer extends AbstractTestContainer {
-    private static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
+    // Keep a full JDK image, matching the JDK baseline this container ran on before, so JVM
+    // diagnostic tools stay available to the cluster tests running inside it.
+    private static final String JDK_DOCKER_IMAGE = "eclipse-temurin:11-jdk";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String SERVER_SHELL = "seatunnel-cluster.sh";
     private GenericContainer<?> server1;

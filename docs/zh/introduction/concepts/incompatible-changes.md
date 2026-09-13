@@ -4,6 +4,22 @@
 
 ## dev
 
+### 运行环境要求
+
+- **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
+  - **影响范围**：所有模块——整个发行包、Zeta 引擎、全部连接器，以及发布的 Docker 镜像
+  - **变更说明**：构建目标改为 Java 11（`maven.compiler.source` 与 `maven.compiler.target` 均为 `11`），因此发布的每个 jar 的 class 文件版本都是 55。GitHub CI 基于该 Java 11 基线在 JDK 17 上编译和测试，发布的 Docker 镜像也从 `seatunnelhub/openjdk:8u342` 改为 `eclipse-temurin:11-jdk`——仍保留完整 JDK 而非 JRE，以便 `jps`/`jstack`/`jmap` 继续可用于诊断运行中的节点。
+  - **影响**：
+    - Java 8 JVM 无法再加载 SeaTunnel 的类，启动时会抛出 `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`。客户端、Zeta master 与 worker 节点，以及任何会加载连接器 jar 的进程都受此影响。
+    - **Flink**：JobManager 和 TaskManager 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Flink 集群都必须运行 Java 11 及以上，而不只是提交作业的客户端。Flink 从 1.13 起支持 Java 11，官方 Flink 镜像提供 `-java11` 标签。
+    - **Spark**：Driver 和 Executor 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Spark 集群都必须运行 Java 11 及以上。Spark 从 3.0 起才正式支持 Java 11（SPARK-24417）。Spark 2.4 在 Java 11 上仍可启动，但会打印非法反射访问告警，并且会把较老的 commons-lang3 放进 classpath，部分连接器会因此初始化失败，因此强烈建议使用 Spark 3.x。
+    - 已按 Java 8 编译的第三方连接器仍可正常使用。Java 11 JVM 可以直接加载更低版本的 class 文件，所以只有 JVM 版本有要求，对您自己 jar 的字节码级别没有要求。
+  - **迁移指南**：
+    1. 将所有运行 SeaTunnel 代码的节点的 JVM 升级到 Java 11 或 Java 17：客户端、Zeta master 与 worker，以及作业提交到的 Flink 或 Spark 集群。
+    2. 如果提交到 Flink，请将集群切换到运行 Java 11 及以上的镜像或部署。
+    3. 如果提交到 Spark 2.4，请升级到运行在 Java 11 及以上的 Spark 3.x。Spark 2.x 没有任何版本支持 Java 11。
+    4. 如果您修改过 `${SEATUNNEL_HOME}/config/jvm_options`（以及 client、master、worker 对应的变体），请检查自己添加的参数中是否包含 Java 11 已移除的选项，例如 `-XX:+UseConcMarkSweepGC` 或 `-XX:MaxPermSize`，JVM 遇到无法识别的参数会直接拒绝启动。发行包默认提供的参数已经兼容 Java 11。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**

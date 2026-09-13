@@ -37,11 +37,17 @@ import java.io.IOException;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class PythonIT extends SeaTunnelContainer {
 
+    private static final String PYTHON_EXECUTABLE_ALLOWLIST =
+            "/usr/bin/python3,/usr/local/bin/python3,/opt/bitnami/python/bin/python3,"
+                    + "/usr/bin/python,/usr/local/bin/python";
+
     @Override
     protected String[] buildStartCommand() {
         return new String[] {
             "env",
-            "JAVA_TOOL_OPTIONS=-Dseatunnel.source.python.enabled=true -Dseatunnel.source.python.allowed-executables=/usr/bin/python3",
+            "JAVA_TOOL_OPTIONS=-Dseatunnel.source.python.enabled=true"
+                    + " -Dseatunnel.source.python.allowed-executables="
+                    + PYTHON_EXECUTABLE_ALLOWLIST,
             super.buildStartCommand()[0]
         };
     }
@@ -50,6 +56,8 @@ public class PythonIT extends SeaTunnelContainer {
     @BeforeAll
     public void startUp() throws Exception {
         super.startUp();
+        Container.ExecResult execResult = installPythonIfNecessary();
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
         copyFileToContainer("/python/emit_rows.py", "/tmp/emit_rows.py");
     }
 
@@ -66,5 +74,30 @@ public class PythonIT extends SeaTunnelContainer {
     public void testPythonSourceToAssert() throws IOException, InterruptedException {
         Container.ExecResult result = executeJob("/python_to_assert.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    /** Installs python3 in the shared runtime container when the base image does not include it. */
+    private Container.ExecResult installPythonIfNecessary()
+            throws IOException, InterruptedException {
+        return server.execInContainer(
+                "bash",
+                "-c",
+                "if command -v python3 >/dev/null 2>&1; then"
+                        + "   python3 --version;"
+                        + " elif command -v apt-get >/dev/null 2>&1; then"
+                        + "   export DEBIAN_FRONTEND=noninteractive;"
+                        + "   apt-get update;"
+                        + "   apt-get install -y --no-install-recommends python3;"
+                        + " elif command -v dnf >/dev/null 2>&1; then"
+                        + "   dnf install -y python3;"
+                        + " elif command -v yum >/dev/null 2>&1; then"
+                        + "   yum install -y python3;"
+                        + " elif command -v apk >/dev/null 2>&1; then"
+                        + "   apk add --no-cache python3;"
+                        + " else"
+                        + "   echo 'Unsupported package manager for installing python3' >&2;"
+                        + "   exit 1;"
+                        + " fi;"
+                        + " python3 --version;");
     }
 }

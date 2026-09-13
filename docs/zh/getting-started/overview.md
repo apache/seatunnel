@@ -60,7 +60,7 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 
 ## 开始之前需要准备什么
 
-- Java 8 或 Java 11，并正确设置 `JAVA_HOME`
+- Java 11 或 Java 17，并正确设置 `JAVA_HOME`
 - 从 [下载页面](https://seatunnel.apache.org/download) 获取 SeaTunnel 二进制包
 - 在 `${SEATUNNEL_HOME}/connectors/` 下安装所需插件
 - 如果所选连接器依赖第三方驱动，还需要准备对应 jar 包

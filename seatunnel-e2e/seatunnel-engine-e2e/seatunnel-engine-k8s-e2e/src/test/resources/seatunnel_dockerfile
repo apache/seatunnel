@@ -15,7 +15,9 @@
 # limitations under the License.
 #
 
-FROM openjdk:8u162-jdk
+# The build now targets Java 11 bytecode, so the pod JVM must be at least Java 11.
+# A full JDK is kept because the engine e2e helpers inspect the running server with jps/jstack.
+FROM eclipse-temurin:11-jdk
 ENV SEATUNNEL_HOME="/opt/seatunnel"
 COPY /jars/seatunnel-shade-hadoop3-uber.jar ${SEATUNNEL_HOME}/lib/seatunnel-shade-hadoop3-uber.jar
 COPY /jars/seatunnel-transforms-v2.jar ${SEATUNNEL_HOME}/lib/seatunnel-transforms-v2.jar
