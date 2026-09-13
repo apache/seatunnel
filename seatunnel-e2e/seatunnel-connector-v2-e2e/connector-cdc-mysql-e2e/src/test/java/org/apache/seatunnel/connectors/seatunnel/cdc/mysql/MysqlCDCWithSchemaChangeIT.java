@@ -107,8 +107,8 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             Arrays.asList("double_weight", "id", "name", "weight");
 
     /**
-     * Source side of the projection comparison. Values are cast to a fixed scale so FLOAT and
-     * DOUBLE representations compare equal before and after the operand type changes.
+     * Source side of the projection comparison. Values are cast to a fixed scale so FLOAT, DOUBLE
+     * and DECIMAL representations compare equal before and after the operand type changes.
      */
     private static final String SQL_PROJECTION_SOURCE_QUERY =
             "select id, name, cast(weight as decimal(12,3)), cast(weight * 2 as decimal(12,3))"
@@ -321,8 +321,9 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     /**
      * A projecting SQL transform absorbs changes to columns it does not project, forwards a modify
      * of a referenced column with the source type, re-derives the expression column type when its
-     * operand type changes, and turns a drop plus re-add of a referenced column into a drop plus
-     * re-add of the sink column.
+     * operand type changes (FLOAT to DECIMAL turns {@code weight * 2} from DOUBLE into DECIMAL),
+     * and turns a drop plus re-add of a referenced column into a drop plus re-add of the sink
+     * column.
      */
     @Order(6)
     @TestTemplate
@@ -356,11 +357,12 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
         assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "name", "longtext");
 
-        // a type change of the expression operand re-derives the expression column type
+        // a type change of the expression operand re-derives the expression column type: weight * 2
+        // is DOUBLE for a FLOAT operand and becomes DECIMAL(12,3) once weight is DECIMAL(12,3)
         shopDatabase.setTemplateName("modify_weight_type").createAndInitialize();
         assertSqlProjectionConverges(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS);
-        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "weight", "double");
-        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "double_weight", "double");
+        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "weight", "decimal(12,3)");
+        assertSinkColumnType(SINK_TABLE_SQL_PROJECTION, "double_weight", "decimal(12,3)");
 
         // a drop plus re-add of a referenced column in one statement re-creates the sink column
         shopDatabase.setTemplateName("drop_readd_projected").createAndInitialize();

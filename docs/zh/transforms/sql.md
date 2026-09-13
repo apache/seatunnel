@@ -169,7 +169,7 @@ transform {
 }
 ```
 
-对于上面的查询，上游的 `ADD COLUMN description` 会被吸收，上游的 `MODIFY COLUMN name` 会以 `name` 列的 modify 到达 sink，上游的 `MODIFY COLUMN weight` 会以 `weight` 和 `double_weight` 两列的 modify 到达 sink。
+对于上面的查询，上游的 `ADD COLUMN description` 会被吸收，上游的 `MODIFY COLUMN name` 会以 `name` 列的 modify 到达 sink，上游的 `MODIFY COLUMN weight DECIMAL(12,3)` 会以 `weight` 列的 modify 到达 sink，并且由于 `weight * 2` 的推导类型从 DOUBLE 变为 DECIMAL(12,3)，还会以 `double_weight` 列的 modify 到达 sink。把 FLOAT 列 `weight` 改为 DOUBLE 的 `MODIFY COLUMN weight DOUBLE` 只会以 `weight` 列的 modify 到达 sink，因为 `weight * 2` 本来就被推导为 DOUBLE。
 
 ### 规则
 

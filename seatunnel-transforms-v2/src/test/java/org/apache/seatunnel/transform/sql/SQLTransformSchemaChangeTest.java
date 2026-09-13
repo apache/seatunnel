@@ -105,8 +105,11 @@ public class SQLTransformSchemaChangeTest {
         AlterTableAddColumnEvent addAfter =
                 (AlterTableAddColumnEvent)
                         after.mapSchemaChangeEvent(
-                                AlterTableAddColumnEvent.addAfter(
-                                        TID, column("age", BasicType.INT_TYPE, "int"), "id"));
+                                single(
+                                        AlterTableAddColumnEvent.addAfter(
+                                                TID,
+                                                column("age", BasicType.INT_TYPE, "int"),
+                                                "id")));
         Assertions.assertEquals("id", addAfter.getAfterColumn());
         Assertions.assertArrayEquals(
                 new String[] {"id", "age", "name", "weight"},
@@ -116,8 +119,9 @@ public class SQLTransformSchemaChangeTest {
         AlterTableAddColumnEvent addFirst =
                 (AlterTableAddColumnEvent)
                         first.mapSchemaChangeEvent(
-                                AlterTableAddColumnEvent.addFirst(
-                                        TID, column("age", BasicType.INT_TYPE, "int")));
+                                single(
+                                        AlterTableAddColumnEvent.addFirst(
+                                                TID, column("age", BasicType.INT_TYPE, "int"))));
         Assertions.assertTrue(addFirst.isFirst());
     }
 
@@ -299,14 +303,50 @@ public class SQLTransformSchemaChangeTest {
     }
 
     @Test
+    public void testRenameAnchoredOnColumnAddedBySameCompositeReplays() {
+        SQLTransform transform = transform("select * from products", baseTable());
+        TableSchema before = transform.getProducedCatalogTable().getTableSchema();
+
+        SchemaChangeEvent out =
+                transform.mapSchemaChangeEvent(
+                        composite(
+                                AlterTableAddColumnEvent.addFirst(
+                                        TID, column("age", BasicType.INT_TYPE, "int")),
+                                AlterTableChangeColumnEvent.changeAfter(
+                                        TID,
+                                        "name",
+                                        column("full_name", BasicType.STRING_TYPE, "varchar(255)"),
+                                        "age")));
+
+        List<AlterTableColumnEvent> events = ((AlterTableColumnsEvent) out).getEvents();
+        Assertions.assertEquals(2, events.size());
+        AlterTableAddColumnEvent add = (AlterTableAddColumnEvent) events.get(0);
+        Assertions.assertEquals("age", add.getColumn().getName());
+        Assertions.assertTrue(add.isFirst());
+        AlterTableChangeColumnEvent change = (AlterTableChangeColumnEvent) events.get(1);
+        Assertions.assertEquals("name", change.getOldColumn());
+        Assertions.assertEquals("full_name", change.getColumn().getName());
+        Assertions.assertArrayEquals(
+                new String[] {"age", "full_name", "id", "weight"},
+                transform.getProducedCatalogTable().getTableSchema().getFieldNames());
+        assertReplays(before, out, transform.getProducedCatalogTable().getTableSchema());
+
+        List<SeaTunnelRow> rows =
+                transform.flatMap(new SeaTunnelRow(new Object[] {20, "a", 1L, 1.0d}));
+        Assertions.assertEquals(4, rows.get(0).getArity());
+        Assertions.assertEquals("a", rows.get(0).getField(1));
+    }
+
+    @Test
     public void testModifyDirectReferenceCarriesDialectAndSourceType() {
         SQLTransform transform = transform("select id, name as n from products", baseTable());
         TableSchema before = transform.getProducedCatalogTable().getTableSchema();
 
         SchemaChangeEvent out =
                 transform.mapSchemaChangeEvent(
-                        AlterTableModifyColumnEvent.modify(
-                                TID, column("name", BasicType.STRING_TYPE, "longtext")));
+                        single(
+                                AlterTableModifyColumnEvent.modify(
+                                        TID, column("name", BasicType.STRING_TYPE, "longtext"))));
 
         Assertions.assertTrue(out instanceof AlterTableModifyColumnEvent);
         AlterTableModifyColumnEvent modify = (AlterTableModifyColumnEvent) out;
@@ -321,35 +361,41 @@ public class SQLTransformSchemaChangeTest {
         TableSchema schema =
                 TableSchema.builder()
                         .column(column("id", BasicType.LONG_TYPE, "bigint"))
-                        .column(column("weight", BasicType.FLOAT_TYPE, "float"))
+                        .column(column("quantity", BasicType.INT_TYPE, "int"))
                         .primaryKey(PrimaryKey.of("pk", Collections.singletonList("id")))
                         .build();
         SQLTransform transform =
                 transform(
-                        "select id, weight, weight * 2 as double_weight from products",
+                        "select id, quantity, quantity * 2 as double_quantity from products",
                         table(schema));
         TableSchema before = transform.getProducedCatalogTable().getTableSchema();
+        // INT * INT is derived as INT; once the operand is BIGINT the expression becomes BIGINT,
+        // so the derived column genuinely changes type with the operand.
         Assertions.assertEquals(
-                BasicType.FLOAT_TYPE, before.getColumn("double_weight").getDataType());
+                BasicType.INT_TYPE, before.getColumn("double_quantity").getDataType());
 
         SchemaChangeEvent out =
                 transform.mapSchemaChangeEvent(
-                        AlterTableModifyColumnEvent.modify(
-                                TID, column("weight", BasicType.DOUBLE_TYPE, "double")));
+                        single(
+                                AlterTableModifyColumnEvent.modify(
+                                        TID, column("quantity", BasicType.LONG_TYPE, "bigint"))));
 
         Assertions.assertTrue(out instanceof AlterTableColumnsEvent);
         List<AlterTableColumnEvent> events = ((AlterTableColumnsEvent) out).getEvents();
         Assertions.assertEquals(2, events.size());
-        AlterTableModifyColumnEvent weight = (AlterTableModifyColumnEvent) events.get(0);
-        Assertions.assertEquals("weight", weight.getColumn().getName());
-        Assertions.assertEquals("double", weight.getColumn().getSourceType());
-        Assertions.assertEquals("MySQL", weight.getSourceDialectName());
+        AlterTableModifyColumnEvent quantity = (AlterTableModifyColumnEvent) events.get(0);
+        Assertions.assertEquals("quantity", quantity.getColumn().getName());
+        Assertions.assertEquals("bigint", quantity.getColumn().getSourceType());
+        Assertions.assertEquals("MySQL", quantity.getSourceDialectName());
         AlterTableModifyColumnEvent derived = (AlterTableModifyColumnEvent) events.get(1);
-        Assertions.assertEquals("double_weight", derived.getColumn().getName());
-        Assertions.assertEquals(BasicType.DOUBLE_TYPE, derived.getColumn().getDataType());
+        Assertions.assertEquals("double_quantity", derived.getColumn().getName());
+        Assertions.assertEquals(BasicType.LONG_TYPE, derived.getColumn().getDataType());
         Assertions.assertNull(derived.getColumn().getSourceType());
         Assertions.assertNull(derived.getSourceDialectName());
         assertReplays(before, out, transform.getProducedCatalogTable().getTableSchema());
+
+        List<SeaTunnelRow> rows = transform.flatMap(new SeaTunnelRow(new Object[] {1L, 21L}));
+        Assertions.assertEquals(42L, ((Number) rows.get(0).getField(2)).longValue());
     }
 
     @Test
@@ -358,8 +404,9 @@ public class SQLTransformSchemaChangeTest {
                 transform("select id, cast(weight as double) as w from products", baseTable());
         Assertions.assertNull(
                 transform.mapSchemaChangeEvent(
-                        AlterTableModifyColumnEvent.modify(
-                                TID, column("weight", BasicType.FLOAT_TYPE, "float"))));
+                        single(
+                                AlterTableModifyColumnEvent.modify(
+                                        TID, column("weight", BasicType.FLOAT_TYPE, "float")))));
         Assertions.assertEquals(
                 BasicType.DOUBLE_TYPE,
                 transform.getProducedCatalogTable().getTableSchema().getColumn("w").getDataType());
@@ -373,8 +420,9 @@ public class SQLTransformSchemaChangeTest {
 
         SchemaChangeEvent out =
                 transform.mapSchemaChangeEvent(
-                        AlterTableModifyColumnEvent.modify(
-                                TID, column("name", BasicType.STRING_TYPE, "longtext")));
+                        single(
+                                AlterTableModifyColumnEvent.modify(
+                                        TID, column("name", BasicType.STRING_TYPE, "longtext"))));
 
         Assertions.assertTrue(out instanceof AlterTableColumnsEvent);
         List<AlterTableColumnEvent> events = ((AlterTableColumnsEvent) out).getEvents();
@@ -739,6 +787,14 @@ public class SQLTransformSchemaChangeTest {
 
     private static AlterTableAddColumnEvent addAge() {
         return AlterTableAddColumnEvent.add(TID, column("age", BasicType.INT_TYPE, "int"));
+    }
+
+    /** Gives a single column event the job id, statement and dialect a CDC source sets. */
+    private static <T extends AlterTableColumnEvent> T single(T event) {
+        event.setJobId("job-1");
+        event.setStatement("alter table products change");
+        event.setSourceDialectName("MySQL");
+        return event;
     }
 
     private static AlterTableColumnsEvent composite(AlterTableColumnEvent... events) {

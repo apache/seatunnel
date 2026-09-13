@@ -188,6 +188,85 @@ public class SQLSchemaChangeTranslatorTest {
     }
 
     @Test
+    public void testRenameAnchoredOnColumnAddedBySameEventReplays() {
+        TableSchema pre = schema(col("a", BasicType.INT_TYPE), col("b", BasicType.STRING_TYPE));
+        List<AlterTableColumnEvent> hints =
+                Arrays.asList(
+                        AlterTableAddColumnEvent.addFirst(TID, col("c", BasicType.INT_TYPE)),
+                        AlterTableChangeColumnEvent.changeAfter(
+                                TID, "a", col("x", BasicType.INT_TYPE), "c"));
+
+        List<AlterTableColumnEvent> out = translateStar(pre, hints);
+
+        Assertions.assertEquals(2, out.size());
+        AlterTableAddColumnEvent add = (AlterTableAddColumnEvent) out.get(0);
+        Assertions.assertEquals("c", add.getColumn().getName());
+        Assertions.assertTrue(add.isFirst());
+        AlterTableChangeColumnEvent change = (AlterTableChangeColumnEvent) out.get(1);
+        Assertions.assertEquals("a", change.getOldColumn());
+        Assertions.assertEquals("x", change.getColumn().getName());
+    }
+
+    @Test
+    public void testMoveAnchoredOnColumnAddedBySameEventReplays() {
+        TableSchema pre = schema(col("a", BasicType.INT_TYPE), col("b", BasicType.STRING_TYPE));
+        List<AlterTableColumnEvent> hints =
+                Arrays.asList(
+                        AlterTableAddColumnEvent.addFirst(TID, col("c", BasicType.INT_TYPE)),
+                        AlterTableModifyColumnEvent.modifyAfter(
+                                TID, col("b", BasicType.STRING_TYPE), "c"));
+
+        List<AlterTableColumnEvent> out = translateStar(pre, hints);
+
+        Assertions.assertEquals(2, out.size());
+        Assertions.assertTrue(out.get(0) instanceof AlterTableAddColumnEvent);
+        AlterTableModifyColumnEvent move = (AlterTableModifyColumnEvent) out.get(1);
+        Assertions.assertEquals("b", move.getColumn().getName());
+        Assertions.assertEquals("c", move.getAfterColumn());
+    }
+
+    @Test
+    public void testRenameFreesItsOldNameForAnAddAtALowerIndex() {
+        TableSchema pre = schema(col("a", BasicType.INT_TYPE));
+        List<AlterTableColumnEvent> hints =
+                Arrays.asList(
+                        AlterTableChangeColumnEvent.change(TID, "a", col("b", BasicType.INT_TYPE)),
+                        AlterTableAddColumnEvent.addFirst(TID, col("a", BasicType.LONG_TYPE)));
+
+        List<AlterTableColumnEvent> out = translateStar(pre, hints);
+
+        Assertions.assertEquals(2, out.size());
+        AlterTableChangeColumnEvent change = (AlterTableChangeColumnEvent) out.get(0);
+        Assertions.assertEquals("a", change.getOldColumn());
+        Assertions.assertEquals("b", change.getColumn().getName());
+        Assertions.assertFalse(change.isFirst());
+        Assertions.assertNull(change.getAfterColumn());
+        AlterTableAddColumnEvent add = (AlterTableAddColumnEvent) out.get(1);
+        Assertions.assertEquals("a", add.getColumn().getName());
+        Assertions.assertTrue(add.isFirst());
+    }
+
+    @Test
+    public void testBlockingRenameIsResolvedInPlaceFirst() {
+        TableSchema pre = schema(col("a", BasicType.INT_TYPE), col("b", BasicType.STRING_TYPE));
+        List<AlterTableColumnEvent> hints =
+                Arrays.asList(
+                        AlterTableChangeColumnEvent.change(
+                                TID, "b", col("c", BasicType.STRING_TYPE)),
+                        AlterTableChangeColumnEvent.change(TID, "a", col("b", BasicType.INT_TYPE)));
+
+        List<AlterTableColumnEvent> out = translateStar(pre, hints);
+
+        Assertions.assertEquals(2, out.size());
+        AlterTableChangeColumnEvent first = (AlterTableChangeColumnEvent) out.get(0);
+        Assertions.assertEquals("b", first.getOldColumn());
+        Assertions.assertEquals("c", first.getColumn().getName());
+        AlterTableChangeColumnEvent second = (AlterTableChangeColumnEvent) out.get(1);
+        Assertions.assertEquals("a", second.getOldColumn());
+        Assertions.assertEquals("b", second.getColumn().getName());
+    }
+
+    @Test
     public void testReferenceSlotWithReplacedIdentityIsDroppedAndReadded() {
         TableSchema preInput =
                 schema(col("a", BasicType.INT_TYPE), col("b", BasicType.STRING_TYPE));

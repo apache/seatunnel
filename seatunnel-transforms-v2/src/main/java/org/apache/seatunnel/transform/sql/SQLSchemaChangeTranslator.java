@@ -33,16 +33,16 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.TreeMap;
-import java.util.stream.Collectors;
 
 /**
  * Translates upstream column-level DDL into events that describe the change of the SQL transform's
@@ -54,6 +54,13 @@ import java.util.stream.Collectors;
  * schema after the event, and every output column keeps its data lineage. Attribution therefore
  * works on input column identities (see {@link SQLLineageSchema}) and on output slots (see {@link
  * SQLOutputSlot}), never on names alone.
+ *
+ * <p>Events are emitted in an order that is valid step by step for a replaying sink: drops first,
+ * then the final layout from left to right while the physical column order of the sink is simulated
+ * (see {@link ReplayLayout}). A composite upstream event may add a column and anchor a rename or a
+ * move on it, or rename a column and reuse its old name for an add at a lower index; both orders of
+ * dependency are honoured because anchors and name freedom are decided against the simulated state
+ * instead of against a fixed event-kind order.
  *
  * <p>All methods are static and stateless. Validation problems that a user can act on are reported
  * as {@link IllegalArgumentException}; violations of internal invariants as {@link
@@ -160,7 +167,17 @@ final class SQLSchemaChangeTranslator {
 
     /**
      * Computes the net effect of the change on every output slot and returns the events that
-     * reproduce it, ordered so that replaying them never collides on a column name.
+     * reproduce it, in an order that replays onto the pre-event produced schema step by step.
+     *
+     * <p>Every final output column is paired with the pre-event column it continues: star columns
+     * by input identity, other columns by slot key as long as the physical input columns behind
+     * them did not change. Pre-event columns without a partner are dropped first. The final layout
+     * is then walked from left to right on a simulated replay of the sink: a new column is added, a
+     * continued column is renamed when its name changed, moved when it is out of place and modified
+     * when its definition changed. The AFTER anchor of every positioned event is the final column
+     * to its left, which the walk has already placed under its final name, and a name that an add
+     * or a rename needs is freed just before by renaming its current holder in place. Renames that
+     * block each other form a cycle no event order can replay and are rejected.
      *
      * @param tableId produced table identifier used on the emitted events
      * @param preSlots output slots before the event
@@ -182,103 +199,25 @@ final class SQLSchemaChangeTranslator {
             SQLLineageSchema finalLineage) {
         List<BoundSlot> pre = bind(preSlots, preOutput, preLineage);
         List<BoundSlot> fin = bind(finalSlots, finalOutput, finalLineage);
+        BoundSlot[] partners = pair(pre, fin);
 
-        Map<Integer, BoundSlot> preStar = new LinkedHashMap<>();
-        Map<Integer, BoundSlot> finalStar = new LinkedHashMap<>();
-        Map<String, BoundSlot> preOther = new LinkedHashMap<>();
-        Map<String, BoundSlot> finalOther = new LinkedHashMap<>();
-        for (BoundSlot bound : pre) {
-            if (bound.isStar()) {
-                preStar.put(bound.identity(), bound);
-            } else {
-                preOther.put(bound.slot.pairingKey(), bound);
+        boolean[] continued = new boolean[pre.size()];
+        for (BoundSlot partner : partners) {
+            if (partner != null) {
+                continued[partner.index] = true;
             }
         }
-        for (BoundSlot bound : fin) {
-            if (bound.isStar()) {
-                finalStar.put(bound.identity(), bound);
-            } else {
-                finalOther.put(bound.slot.pairingKey(), bound);
+        List<AlterTableColumnEvent> out = new ArrayList<>();
+        // Drops depend on nothing and free their names for everything that follows.
+        for (BoundSlot preBound : pre) {
+            if (!continued[preBound.index]) {
+                out.add(new AlterTableDropColumnEvent(tableId, preBound.column.getName()));
             }
         }
-
-        List<AlterTableDropColumnEvent> drops = new ArrayList<>();
-        List<AlterTableChangeColumnEvent> changes = new ArrayList<>();
-        // Adds and modifies are keyed by final output index so AFTER anchors always exist.
-        TreeMap<Integer, AlterTableColumnEvent> adds = new TreeMap<>();
-        TreeMap<Integer, AlterTableColumnEvent> modifies = new TreeMap<>();
-
-        for (BoundSlot preBound : preStar.values()) {
-            if (!finalStar.containsKey(preBound.identity())) {
-                drops.add(new AlterTableDropColumnEvent(tableId, preBound.column.getName()));
-            }
+        ReplayLayout layout = new ReplayLayout(tableId, pre, fin, partners, finalLineage);
+        for (int index = 0; index < fin.size(); index++) {
+            layout.place(index, out);
         }
-        for (BoundSlot finalBound : finalStar.values()) {
-            BoundSlot preBound = preStar.get(finalBound.identity());
-            if (preBound == null) {
-                Position position =
-                        addPosition(
-                                finalBound,
-                                fin,
-                                finalLineage.creatingHint(finalBound.identity()),
-                                finalLineage);
-                adds.put(
-                        finalBound.index,
-                        new AlterTableAddColumnEvent(
-                                tableId, finalBound.column, position.first, position.afterColumn));
-                continue;
-            }
-            Position moved = movedPosition(preBound, finalBound, pre, fin, finalLineage);
-            if (!preBound.column.getName().equals(finalBound.column.getName())) {
-                changes.add(
-                        new AlterTableChangeColumnEvent(
-                                tableId,
-                                preBound.column.getName(),
-                                finalBound.column,
-                                moved.first,
-                                moved.afterColumn));
-            } else if (!preBound.column.equals(finalBound.column) || moved.isSet()) {
-                modifies.put(
-                        finalBound.index,
-                        modifyOrComment(tableId, preBound.column, finalBound.column, moved));
-            }
-        }
-
-        for (Map.Entry<String, BoundSlot> entry : preOther.entrySet()) {
-            BoundSlot preBound = entry.getValue();
-            BoundSlot finalBound = finalOther.get(entry.getKey());
-            if (finalBound == null) {
-                throw new IllegalStateException(
-                        String.format(
-                                "output column [%s] disappeared from the query output",
-                                preBound.column.getName()));
-            }
-            if (!preBound.signature.equals(finalBound.signature)) {
-                // The output column now carries data of a different physical input column.
-                drops.add(new AlterTableDropColumnEvent(tableId, preBound.column.getName()));
-                Position position = addPosition(finalBound, fin, null, finalLineage);
-                adds.put(
-                        finalBound.index,
-                        new AlterTableAddColumnEvent(
-                                tableId, finalBound.column, position.first, position.afterColumn));
-            } else if (!preBound.column.equals(finalBound.column)) {
-                modifies.put(
-                        finalBound.index,
-                        modifyOrComment(
-                                tableId, preBound.column, finalBound.column, Position.none()));
-            }
-        }
-        for (String key : finalOther.keySet()) {
-            if (!preOther.containsKey(key)) {
-                throw new IllegalStateException(
-                        String.format("output column [%s] appeared without a pre-event slot", key));
-            }
-        }
-
-        List<AlterTableColumnEvent> out = new ArrayList<>(drops);
-        out.addAll(orderChanges(changes, preOutput, drops));
-        out.addAll(adds.values());
-        out.addAll(modifies.values());
         return out;
     }
 
@@ -396,13 +335,57 @@ final class SQLSchemaChangeTranslator {
         return column.getSourceType() != null && !column.getSourceType().isEmpty();
     }
 
+    /**
+     * Pairs every final output column with the pre-event column it continues, or null when the
+     * column is new to the output. Star columns pair by input identity. Other columns pair by slot
+     * key and count as new when the physical input columns behind them changed, because the output
+     * column then carries different data and has to be dropped and re-added.
+     */
+    private static BoundSlot[] pair(List<BoundSlot> pre, List<BoundSlot> fin) {
+        Map<Integer, BoundSlot> preStar = new HashMap<>();
+        Map<String, BoundSlot> preOther = new HashMap<>();
+        for (BoundSlot preBound : pre) {
+            if (preBound.isStar()) {
+                preStar.put(preBound.identity(), preBound);
+            } else {
+                preOther.put(preBound.slot.pairingKey(), preBound);
+            }
+        }
+        BoundSlot[] partners = new BoundSlot[fin.size()];
+        Set<String> continuedKeys = new HashSet<>();
+        for (BoundSlot finalBound : fin) {
+            if (finalBound.isStar()) {
+                partners[finalBound.index] = preStar.get(finalBound.identity());
+                continue;
+            }
+            String key = finalBound.slot.pairingKey();
+            BoundSlot preBound = preOther.get(key);
+            if (preBound == null) {
+                throw new IllegalStateException(
+                        String.format("output column [%s] appeared without a pre-event slot", key));
+            }
+            continuedKeys.add(key);
+            partners[finalBound.index] =
+                    preBound.signature.equals(finalBound.signature) ? preBound : null;
+        }
+        for (BoundSlot preBound : pre) {
+            if (!preBound.isStar() && !continuedKeys.contains(preBound.slot.pairingKey())) {
+                throw new IllegalStateException(
+                        String.format(
+                                "output column [%s] disappeared from the query output",
+                                preBound.column.getName()));
+            }
+        }
+        return partners;
+    }
+
     private static AlterTableColumnEvent modifyOrComment(
-            TableIdentifier tableId, Column before, Column after, Position moved) {
-        if (!moved.isSet() && isCommentOnly(before, after)) {
+            TableIdentifier tableId, Column before, Column after) {
+        if (isCommentOnly(before, after)) {
             return AlterColumnCommentEvent.of(
                     tableId, after.getName(), before.getComment(), after.getComment());
         }
-        return new AlterTableModifyColumnEvent(tableId, after, moved.first, moved.afterColumn);
+        return new AlterTableModifyColumnEvent(tableId, after, false, null);
     }
 
     private static boolean isCommentOnly(Column before, Column after) {
@@ -411,43 +394,6 @@ final class SQLSchemaChangeTranslator {
         } catch (UnsupportedOperationException e) {
             return false;
         }
-    }
-
-    private static List<AlterTableColumnEvent> orderChanges(
-            List<AlterTableChangeColumnEvent> changes,
-            TableSchema preOutput,
-            List<AlterTableDropColumnEvent> drops) {
-        Set<String> occupied = new HashSet<>(Arrays.asList(preOutput.getFieldNames()));
-        for (AlterTableDropColumnEvent drop : drops) {
-            occupied.remove(drop.getColumn());
-        }
-        List<AlterTableChangeColumnEvent> remaining = new ArrayList<>(changes);
-        List<AlterTableColumnEvent> ordered = new ArrayList<>();
-        while (!remaining.isEmpty()) {
-            AlterTableChangeColumnEvent next = null;
-            for (AlterTableChangeColumnEvent candidate : remaining) {
-                if (!occupied.contains(candidate.getColumn().getName())) {
-                    next = candidate;
-                    break;
-                }
-            }
-            if (next == null) {
-                throw new IllegalArgumentException(
-                        "column renames form a cycle: "
-                                + remaining.stream()
-                                        .map(
-                                                change ->
-                                                        change.getOldColumn()
-                                                                + " -> "
-                                                                + change.getColumn().getName())
-                                        .collect(Collectors.toList()));
-            }
-            remaining.remove(next);
-            ordered.add(next);
-            occupied.remove(next.getOldColumn());
-            occupied.add(next.getColumn().getName());
-        }
-        return ordered;
     }
 
     private static List<BoundSlot> bind(
@@ -479,77 +425,279 @@ final class SQLSchemaChangeTranslator {
         return bound;
     }
 
-    private static Position addPosition(
-            BoundSlot added,
-            List<BoundSlot> fin,
-            AlterTableAddColumnEvent creatingHint,
-            SQLLineageSchema finalLineage) {
-        int index = added.index;
-        if (index == 0) {
-            return Position.first();
-        }
-        String predecessor = fin.get(index - 1).column.getName();
-        if (index == fin.size() - 1) {
-            if (creatingHint != null
-                    && creatingHint.getAfterColumn() != null
-                    && creatingHint.getAfterColumn().equals(predecessor)) {
-                return Position.after(predecessor);
-            }
-            return Position.none();
-        }
-        boolean appendedUpstream =
-                creatingHint != null
-                        && !creatingHint.isFirst()
-                        && creatingHint.getAfterColumn() == null;
-        if (appendedUpstream && onlyAppendedStarSlotsFollow(fin, index, finalLineage)) {
-            // The upstream appended this column and every column after it in the output was
-            // appended by the same event, so a plain append reproduces the layout exactly.
-            return Position.none();
-        }
-        return Position.after(predecessor);
-    }
+    /**
+     * Physical column order of a sink that replays the emitted events, tracked by final output
+     * index.
+     *
+     * <p>Continued columns start in their pre-event order under their pre-event names. Every
+     * emitted event is applied to this order exactly as {@link AlterTableSchemaEventHandler}
+     * applies it, so the AFTER anchor of an event and the freedom of the name it needs are decided
+     * against the state the sink is in when it receives that event. Walking the final layout from
+     * left to right keeps every placed column in its final relative order, which makes the column
+     * to the left the anchor of any positioned event.
+     */
+    private static final class ReplayLayout {
 
-    private static boolean onlyAppendedStarSlotsFollow(
-            List<BoundSlot> fin, int index, SQLLineageSchema finalLineage) {
-        for (int i = index + 1; i < fin.size(); i++) {
-            BoundSlot following = fin.get(i);
-            if (!following.isStar()) {
-                return false;
-            }
-            AlterTableAddColumnEvent hint = finalLineage.creatingHint(following.identity());
-            if (hint == null || hint.isFirst() || hint.getAfterColumn() != null) {
-                return false;
-            }
-        }
-        return true;
-    }
+        private final TableIdentifier tableId;
 
-    private static Position movedPosition(
-            BoundSlot preBound,
-            BoundSlot finalBound,
-            List<BoundSlot> pre,
-            List<BoundSlot> fin,
-            SQLLineageSchema finalLineage) {
-        if (!finalLineage.isRepositioned(finalBound.identity())) {
-            return Position.none();
-        }
-        if (starPredecessorIdentity(pre, preBound.index)
-                == starPredecessorIdentity(fin, finalBound.index)) {
-            return Position.none();
-        }
-        if (finalBound.index == 0) {
-            return Position.first();
-        }
-        return Position.after(fin.get(finalBound.index - 1).column.getName());
-    }
+        /** Final output slots in produced order. */
+        private final List<BoundSlot> fin;
 
-    private static int starPredecessorIdentity(List<BoundSlot> bound, int index) {
-        for (int i = index - 1; i >= 0; i--) {
-            if (bound.get(i).isStar()) {
-                return bound.get(i).identity();
+        /** Pre-event slot continued by each final slot, null for a column new to the output. */
+        private final BoundSlot[] partners;
+
+        /** Lineage after all hints, for the hints that created new columns. */
+        private final SQLLineageSchema finalLineage;
+
+        /** Final indices of the columns currently present, in physical order. */
+        private final List<Integer> physical = new ArrayList<>();
+
+        /** Current name of every final column; null while the column is not present yet. */
+        private final String[] currentName;
+
+        /** Final columns already walked; they sit in their final relative order. */
+        private final boolean[] placed;
+
+        /** Continued columns already renamed by a CHANGE that carried the final definition. */
+        private final boolean[] renamed;
+
+        /**
+         * Continued columns the upstream explicitly repositioned. While such a column is still
+         * waiting it does not pin the columns physically after it, because it is moved on its own
+         * turn if it is out of place.
+         */
+        private final boolean[] repositioned;
+
+        private ReplayLayout(
+                TableIdentifier tableId,
+                List<BoundSlot> pre,
+                List<BoundSlot> fin,
+                BoundSlot[] partners,
+                SQLLineageSchema finalLineage) {
+            this.tableId = tableId;
+            this.fin = fin;
+            this.partners = partners;
+            this.finalLineage = finalLineage;
+            this.currentName = new String[fin.size()];
+            this.placed = new boolean[fin.size()];
+            this.renamed = new boolean[fin.size()];
+            this.repositioned = new boolean[fin.size()];
+            int[] finalIndexOfPre = new int[pre.size()];
+            Arrays.fill(finalIndexOfPre, -1);
+            for (int index = 0; index < partners.length; index++) {
+                BoundSlot partner = partners[index];
+                if (partner == null) {
+                    continue;
+                }
+                finalIndexOfPre[partner.index] = index;
+                currentName[index] = partner.column.getName();
+                BoundSlot target = fin.get(index);
+                repositioned[index] =
+                        target.isStar() && finalLineage.isRepositioned(target.identity());
+            }
+            for (BoundSlot preBound : pre) {
+                if (finalIndexOfPre[preBound.index] >= 0) {
+                    physical.add(finalIndexOfPre[preBound.index]);
+                }
             }
         }
-        return -1;
+
+        /**
+         * Emits the events that give the column at {@code index} its final name, position and
+         * definition, and records their effect on the simulated order.
+         *
+         * @param index final output index to place
+         * @param out event list to append to
+         */
+        private void place(int index, List<AlterTableColumnEvent> out) {
+            BoundSlot target = fin.get(index);
+            BoundSlot partner = partners[index];
+            String finalName = target.column.getName();
+            if (partner == null) {
+                freeName(index, finalName, new ArrayDeque<>(), out);
+                Position position = addPosition(index);
+                out.add(
+                        new AlterTableAddColumnEvent(
+                                tableId, target.column, position.first, position.afterColumn));
+                insert(index, position);
+                placed[index] = true;
+                return;
+            }
+            boolean rename = !finalName.equals(currentName[index]);
+            if (rename) {
+                Deque<Integer> chain = new ArrayDeque<>();
+                chain.addLast(index);
+                freeName(index, finalName, chain, out);
+            }
+            Position position;
+            if (inPlace(index)) {
+                position = Position.none();
+            } else if (index == 0) {
+                position = Position.first();
+            } else {
+                position = Position.after(fin.get(index - 1).column.getName());
+            }
+            if (rename) {
+                out.add(
+                        new AlterTableChangeColumnEvent(
+                                tableId,
+                                currentName[index],
+                                target.column,
+                                position.first,
+                                position.afterColumn));
+                currentName[index] = finalName;
+                renamed[index] = true;
+            } else if (position.isSet()) {
+                out.add(
+                        new AlterTableModifyColumnEvent(
+                                tableId, target.column, position.first, position.afterColumn));
+            } else if (!renamed[index] && !partner.column.equals(target.column)) {
+                // A CHANGE emitted earlier for this column already carried its final definition.
+                out.add(modifyOrComment(tableId, partner.column, target.column));
+            }
+            if (position.isSet()) {
+                physical.remove(Integer.valueOf(index));
+                insert(index, position);
+            }
+            placed[index] = true;
+        }
+
+        /**
+         * Frees {@code name} for the column at {@code requester} by renaming, in place, the waiting
+         * column that still holds it, after freeing that column's own final name the same way.
+         *
+         * @param requester final index of the column that needs the name
+         * @param name the name needed
+         * @param chain columns whose renames are pending on this path, for cycle detection
+         * @param out event list to append to
+         * @throws IllegalArgumentException when the renames form a cycle
+         */
+        private void freeName(
+                int requester, String name, Deque<Integer> chain, List<AlterTableColumnEvent> out) {
+            int holder = holderOf(name, requester);
+            if (holder < 0) {
+                return;
+            }
+            if (chain.contains(holder)) {
+                chain.addLast(holder);
+                throw new IllegalArgumentException(
+                        "column renames form a cycle: " + describeRenames(chain));
+            }
+            chain.addLast(holder);
+            Column column = fin.get(holder).column;
+            freeName(holder, column.getName(), chain, out);
+            chain.removeLast();
+            out.add(
+                    new AlterTableChangeColumnEvent(
+                            tableId, currentName[holder], column, false, null));
+            currentName[holder] = column.getName();
+            renamed[holder] = true;
+        }
+
+        /**
+         * Final index of the waiting column other than {@code requester} that currently carries
+         * {@code name}, or -1. Placed columns carry their final names, which are unique, so only a
+         * waiting column can hold a name another column needs.
+         */
+        private int holderOf(String name, int requester) {
+            for (int index : physical) {
+                if (index != requester && !placed[index] && name.equals(currentName[index])) {
+                    return index;
+                }
+            }
+            return -1;
+        }
+
+        private String describeRenames(Deque<Integer> chain) {
+            List<String> steps = new ArrayList<>();
+            for (int index : chain) {
+                steps.add(currentName[index] + " -> " + fin.get(index).column.getName());
+            }
+            return steps.toString();
+        }
+
+        /**
+         * Whether the column already sits where the final layout needs it: after every placed
+         * column and before every waiting column that will not move on its own turn.
+         */
+        private boolean inPlace(int index) {
+            int position = physical.indexOf(index);
+            for (int k = 0; k < physical.size(); k++) {
+                int other = physical.get(k);
+                if (other == index) {
+                    continue;
+                }
+                if (k < position) {
+                    if (!placed[other] && !repositioned[other]) {
+                        return false;
+                    }
+                } else if (placed[other]) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /**
+         * Position of a new column. Mirrors the upstream hint where that reproduces the layout:
+         * FIRST at index 0, a plain append when the upstream appended the column and nothing that
+         * would end up after it is still waiting, AFTER the final column to its left otherwise.
+         */
+        private Position addPosition(int index) {
+            if (index == 0) {
+                return Position.first();
+            }
+            BoundSlot target = fin.get(index);
+            String predecessor = fin.get(index - 1).column.getName();
+            AlterTableAddColumnEvent hint =
+                    target.isStar() ? finalLineage.creatingHint(target.identity()) : null;
+            boolean waiting = false;
+            for (int present : physical) {
+                if (!placed[present]) {
+                    waiting = true;
+                    break;
+                }
+            }
+            if (index == fin.size() - 1) {
+                if (hint != null && predecessor.equals(hint.getAfterColumn())) {
+                    return Position.after(predecessor);
+                }
+                return waiting ? Position.after(predecessor) : Position.none();
+            }
+            boolean appendedUpstream =
+                    hint != null && !hint.isFirst() && hint.getAfterColumn() == null;
+            if (!waiting && appendedUpstream && onlyAppendedStarSlotsFollow(index)) {
+                // The upstream appended this column and every column after it in the output was
+                // appended by the same event, so a plain append reproduces the layout exactly.
+                return Position.none();
+            }
+            return Position.after(predecessor);
+        }
+
+        private boolean onlyAppendedStarSlotsFollow(int index) {
+            for (int i = index + 1; i < fin.size(); i++) {
+                BoundSlot following = fin.get(i);
+                if (!following.isStar()) {
+                    return false;
+                }
+                AlterTableAddColumnEvent hint = finalLineage.creatingHint(following.identity());
+                if (hint == null || hint.isFirst() || hint.getAfterColumn() != null) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /** Inserts a column the way the shared handler does for the given position flags. */
+        private void insert(int index, Position position) {
+            if (position.first) {
+                physical.add(0, index);
+            } else if (position.afterColumn != null) {
+                physical.add(physical.indexOf(index - 1) + 1, index);
+            } else {
+                physical.add(index);
+            }
+        }
     }
 
     /** One output slot bound to the identities of the input columns it depends on. */

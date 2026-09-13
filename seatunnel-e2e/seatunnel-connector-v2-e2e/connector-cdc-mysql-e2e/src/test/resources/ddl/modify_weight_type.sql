@@ -18,13 +18,15 @@
 -- ----------------------------------------------------------------------------------------------------------------
 -- DATABASE:  shop
 -- Changes the type of a column that a SQL transform both projects directly and uses in an expression.
+-- FLOAT to DECIMAL(12,3) also changes the derived type of `weight * 2` from DOUBLE to DECIMAL(12,3); a change
+-- to DOUBLE would not, because the expression is already derived as DOUBLE for a FLOAT operand.
 -- Runs after modify_columns, when products has the columns id, name, description, weight, add_column.
 -- ----------------------------------------------------------------------------------------------------------------
 CREATE DATABASE IF NOT EXISTS `shop`;
 
 use shop;
 
-alter table products modify weight double;
+alter table products modify weight decimal(12,3);
 
 insert into products
 values (182,"scooter","Small 2-wheel scooter",3.14,1),

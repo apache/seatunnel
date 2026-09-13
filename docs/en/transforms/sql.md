@@ -169,7 +169,7 @@ transform {
 }
 ```
 
-With this query an upstream `ADD COLUMN description` is absorbed, an upstream `MODIFY COLUMN name` reaches the sink as a modify of `name`, and an upstream `MODIFY COLUMN weight` reaches the sink as a modify of `weight` and of `double_weight`.
+With this query an upstream `ADD COLUMN description` is absorbed, an upstream `MODIFY COLUMN name` reaches the sink as a modify of `name`, and an upstream `MODIFY COLUMN weight DECIMAL(12,3)` reaches the sink as a modify of `weight` and, because the derived type of `weight * 2` changes from DOUBLE to DECIMAL(12,3), as a modify of `double_weight`. A `MODIFY COLUMN weight DOUBLE` on a FLOAT column reaches the sink as a modify of `weight` only, because `weight * 2` is already derived as DOUBLE.
 
 ### Rules
 
