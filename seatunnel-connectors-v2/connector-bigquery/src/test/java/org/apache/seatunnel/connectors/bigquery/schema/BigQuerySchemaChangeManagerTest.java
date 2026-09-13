@@ -160,6 +160,42 @@ class BigQuerySchemaChangeManagerTest {
     }
 
     @Test
+    void testRejectColumnNameContainingBacktick() throws Exception {
+        // The identifier is validated while building the DDL action, before the manager ever
+        // reads the remote table, so no BigQuery interaction is expected here.
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE,
+                        column("evil`; DROP TABLE ds.t; --", BasicType.STRING_TYPE, true));
+
+        BigQueryConnectorException exception =
+                assertThrows(
+                        BigQueryConnectorException.class, () -> manager.applySchemaChange(event));
+
+        assertTrue(exception.getMessage().contains("Invalid BigQuery identifier"));
+        verify(bigQuery, never()).getTable(any(TableId.class));
+        verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testQuoteColumnNameContainingSpecialCharacters() throws Exception {
+        mockTargetSchema(Field.of("weird col; name", StandardSQLTypeName.STRING));
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("weird col; name", BasicType.STRING_TYPE, true));
+
+        manager.applySchemaChange(event);
+
+        ArgumentCaptor<QueryJobConfiguration> queryCaptor =
+                ArgumentCaptor.forClass(QueryJobConfiguration.class);
+        verify(bigQuery).query(queryCaptor.capture());
+        assertEquals(
+                "ALTER TABLE `test-project.test_dataset.test_table` "
+                        + "ADD COLUMN IF NOT EXISTS `weird col; name` STRING",
+                queryCaptor.getValue().getQuery());
+    }
+
+    @Test
     void testApplyMultipleAddColumnsAsOneStatement() throws Exception {
         mockTargetSchema(
                 Field.of("score", StandardSQLTypeName.INT64),

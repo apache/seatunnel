@@ -95,9 +95,11 @@ Schema 演进默认关闭。需要在 BigQuery sink 中设置 `schema_evolution_
 
 源端 array 列必须是非空列，并会创建为 BigQuery `REPEATED` 字段。nullable array 会被拒绝，因为 BigQuery array 不能为 `NULL`；静默映射会丢失 `NULL` 与空数组之间的区别。不支持 `DROP COLUMN`、`RENAME COLUMN` 和 `MODIFY COLUMN`。BigQuery 会把新字段追加到目标 Schema 末尾，因此源事件中的 `FIRST` 和 `AFTER` 位置提示不会改变 BigQuery 的物理字段顺序。数据行按字段名编码，sink 会在接收使用新字段的数据前刷新 writer Schema。
 
-遇到不支持的 Schema 变更时，任务会失败而不会静默跳过，因为在源端和目标端 Schema 不一致的情况下继续运行可能导致后续数据错位或损坏。从同一个 checkpoint 恢复可能会再次回放该事件并重复失败。重新启动前，请先协调源表与 BigQuery 表的 Schema，然后从不会再次回放该事件的 source 位置启动。如果数据链路可能产生不支持的 DDL，请关闭 `schema-changes.enabled`，并在 SeaTunnel 外部管理这些 Schema 变更。
+遇到不支持的 Schema 变更时，任务会失败而不会静默跳过，因为在源端和目标端 Schema 不一致的情况下继续运行可能导致后续数据错位或损坏。从同一个 checkpoint 恢复会再次回放该事件并重复失败。优先在 BigQuery 上手动执行与兼容性校验相符的等价 DDL，然后从同一个 checkpoint 恢复，这样回放的事件就会成为一次幂等的空操作。仅在别无选择时才从更晚的 source 位置重新启动，因为跳过会丢失从上一个 checkpoint 到新起始位置之间的所有源端记录；如果数据链路本身可能产生不支持的 DDL，请考虑关闭 `schema-changes.enabled`，并在 SeaTunnel 外部管理这些 Schema 变更。
 
 Schema 更新使用 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`。如果目标表已经存在同名字段，其类型和模式必须兼容，否则任务会失败。除 Storage Write API 写入所需权限外，凭据还必须能够执行 DDL job 并读取更新后的表元数据。
+
+当 sink 并行度大于 1 时，多个 subtask 可能收到同一个 Schema 变更事件并并发提交相同的 `ALTER TABLE` 语句。sink 已经对此做了容错处理：竞争失败的 subtask 会重新读取表结构并将该列视为已存在；如果 BigQuery 因单表元数据更新配额返回 `rateLimitExceeded`，sink 会按有界指数退避策略自动重试。并行度非常高时，建议将启用 `schema_evolution_enabled` 的任务保持在适中的并行度，以便 Schema 变更更快收敛。
 
 ### 写入模式
 
