@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.e2e.connector.rabbitmq;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -33,6 +37,8 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
+import org.apache.seatunnel.format.protobuf.ProtobufDeserializationSchema;
+import org.apache.seatunnel.format.protobuf.ProtobufSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -58,9 +64,12 @@ import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -76,6 +85,17 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
     private static final Boolean DURABLE = true;
     private static final Boolean EXCLUSIVE = false;
     private static final Boolean AUTO_DELETE = false;
+    private static final String PROTOBUF_MESSAGE_NAME = "RabbitmqProtobufMessage";
+    private static final String PROTOBUF_SCHEMA =
+            "syntax = \"proto3\";\n"
+                    + "\n"
+                    + "package org.apache.seatunnel.e2e.connector.rabbitmq;\n"
+                    + "\n"
+                    + "message RabbitmqProtobufMessage {\n"
+                    + "  int32 id = 1;\n"
+                    + "  string name = 2;\n"
+                    + "  bool active = 3;\n"
+                    + "}";
 
     private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
             generateTestDataSet();
@@ -343,6 +363,129 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         // Validate that the SeaTunnel engine finished the job successfully without any exceptions.
         Assertions.assertEquals(
                 0, execResult.getExitCode(), "The SeaTunnel job should finish with exit code 0.");
+    }
+
+    @TestTemplate
+    public void testRabbitMQProtobufFormatE2E(TestContainer container) throws Exception {
+        final String sourceQueueName = "protobuf_source";
+        final String sinkQueueName = "protobuf_sink";
+
+        SeaTunnelRowType rowType = buildProtobufRowType();
+        List<SeaTunnelRow> expectedRows = buildProtobufRows();
+        ProtobufSerializationSchema serializationSchema =
+                new ProtobufSerializationSchema(rowType, PROTOBUF_MESSAGE_NAME, PROTOBUF_SCHEMA);
+        ProtobufDeserializationSchema deserializationSchema =
+                new ProtobufDeserializationSchema(buildProtobufCatalogTable(rowType));
+
+        RabbitmqClient sourceClient = null;
+        RabbitmqClient sinkRabbitmqClient = null;
+        try {
+            sourceClient = this.getRabbitmqClient(sourceQueueName);
+            sourceClient
+                    .getChannel()
+                    .queueDeclare(sourceQueueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+            sourceClient.getChannel().queuePurge(sourceQueueName);
+            for (SeaTunnelRow row : expectedRows) {
+                sourceClient.write(serializationSchema.serialize(row));
+            }
+
+            sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
+            sinkRabbitmqClient
+                    .getChannel()
+                    .queueDeclare(sinkQueueName, DURABLE, EXCLUSIVE, AUTO_DELETE, null);
+            sinkRabbitmqClient.getChannel().queuePurge(sinkQueueName);
+
+            BlockingQueue<DeliveryMessage> queue = new LinkedBlockingQueue<>();
+            DefaultConsumer consumer = sinkRabbitmqClient.getQueueingConsumer(queue, sinkQueueName);
+            sinkRabbitmqClient.getChannel().basicConsume(sinkQueueName, true, consumer);
+
+            Container.ExecResult execResult =
+                    container.executeJob("/rabbitmq-protobuf-to-rabbitmq.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+            List<String> actualRows = new ArrayList<>();
+            for (int i = 0; i < expectedRows.size(); i++) {
+                DeliveryMessage msg = queue.poll(15, TimeUnit.SECONDS);
+                Assertions.assertNotNull(
+                        msg, "Expected Protobuf message was not written to RabbitMQ.");
+                SeaTunnelRow row = deserializationSchema.deserialize(msg.getDelivery().getBody());
+                actualRows.add(rowToComparableString(row));
+            }
+            Assertions.assertNull(queue.poll(5, TimeUnit.SECONDS), "Unexpected extra message.");
+
+            HashSet<String> expectedRowValues = new HashSet<>();
+            for (SeaTunnelRow row : expectedRows) {
+                expectedRowValues.add(rowToComparableString(row));
+            }
+            Assertions.assertEquals(expectedRows.size(), actualRows.size());
+            Assertions.assertEquals(expectedRowValues, new HashSet<>(actualRows));
+        } finally {
+            if (sinkRabbitmqClient != null) {
+                sinkRabbitmqClient.close();
+            }
+            if (sourceClient != null) {
+                sourceClient.close();
+            }
+        }
+    }
+
+    private SeaTunnelRowType buildProtobufRowType() {
+        return new SeaTunnelRowType(
+                new String[] {"id", "name", "active"},
+                new SeaTunnelDataType[] {
+                    BasicType.INT_TYPE, BasicType.STRING_TYPE, BasicType.BOOLEAN_TYPE
+                });
+    }
+
+    private List<SeaTunnelRow> buildProtobufRows() {
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        rows.add(new SeaTunnelRow(new Object[] {1, "rabbitmq_protobuf_1", true}));
+        rows.add(new SeaTunnelRow(new Object[] {2, "rabbitmq_protobuf_2", false}));
+        rows.add(new SeaTunnelRow(new Object[] {3, "rabbitmq_protobuf_3", true}));
+        return rows;
+    }
+
+    private String rowToComparableString(SeaTunnelRow row) {
+        return row.getField(0) + ":" + row.getField(1) + ":" + row.getField(2);
+    }
+
+    private CatalogTable buildProtobufCatalogTable(SeaTunnelRowType rowType) {
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .columns(
+                                Arrays.asList(
+                                        PhysicalColumn.of(
+                                                rowType.getFieldName(0),
+                                                rowType.getFieldType(0),
+                                                0L,
+                                                true,
+                                                null,
+                                                null),
+                                        PhysicalColumn.of(
+                                                rowType.getFieldName(1),
+                                                rowType.getFieldType(1),
+                                                0L,
+                                                true,
+                                                null,
+                                                null),
+                                        PhysicalColumn.of(
+                                                rowType.getFieldName(2),
+                                                rowType.getFieldType(2),
+                                                0L,
+                                                true,
+                                                null,
+                                                null)))
+                        .build();
+
+        Map<String, String> options = new HashMap<>();
+        options.put("protobuf_message_name", PROTOBUF_MESSAGE_NAME);
+        options.put("protobuf_schema", PROTOBUF_SCHEMA);
+        return CatalogTable.of(
+                TableIdentifier.of("", "", "", "rabbitmq_protobuf"),
+                tableSchema,
+                options,
+                Collections.emptyList(),
+                "RabbitMQ Protobuf E2E table.");
     }
 
     /**

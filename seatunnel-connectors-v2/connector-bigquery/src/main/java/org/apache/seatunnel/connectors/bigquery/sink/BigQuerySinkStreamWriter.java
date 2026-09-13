@@ -18,10 +18,12 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfo;
+import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter;
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
@@ -34,11 +36,8 @@ public class BigQuerySinkStreamWriter extends AbstractBigQuerySinkWriter {
     public static final String STREAMING = "streaming";
 
     public BigQuerySinkStreamWriter(
-            ReadonlyConfig readOnlyConfig,
-            BigQueryWriter streamWriter,
-            BigQuerySerializer serializer,
-            BigQueryWriteClient client) {
-        super(readOnlyConfig, streamWriter, serializer, client);
+            ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer, TableSchema tableSchema) {
+        super(readOnlyConfig, serializer, tableSchema);
     }
 
     public BigQuerySinkStreamWriter(
@@ -48,6 +47,14 @@ public class BigQuerySinkStreamWriter extends AbstractBigQuerySinkWriter {
             TableSchema tableSchema,
             BigQueryWriteClient client) {
         super(readOnlyConfig, streamWriter, serializer, tableSchema, client);
+    }
+
+    @Override
+    public void setMultiTableResourceManager(
+            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
+        log.info("Injecting shared client and initializing Streaming stream writer...");
+        this.client = manager.getSharedResource().get();
+        this.streamWriter = BigQueryStreamWriter.of(client, config);
     }
 
     @Override

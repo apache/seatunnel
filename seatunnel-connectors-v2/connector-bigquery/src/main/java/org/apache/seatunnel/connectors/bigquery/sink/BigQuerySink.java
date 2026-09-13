@@ -19,25 +19,27 @@ package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.CommonError;
-import org.apache.seatunnel.connectors.bigquery.client.BigQueryClientFactory;
+import org.apache.seatunnel.connectors.bigquery.catalog.BigQueryCatalog;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfo;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfoSerializer;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitter;
-import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryBatchWriter;
-import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter;
-import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
-
-import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
 
 import java.util.Collections;
 import java.util.Comparator;
@@ -47,6 +49,8 @@ import java.util.Optional;
 public class BigQuerySink
         implements SeaTunnelSink<
                         SeaTunnelRow, BigQuerySinkState, BigQueryCommitInfo, BigQueryCommitInfo>,
+                SupportSaveMode,
+                SupportMultiTableSink,
                 SupportSchemaEvolutionSink {
 
     private final ReadonlyConfig config;
@@ -70,55 +74,34 @@ public class BigQuerySink
 
     @Override
     public AbstractBigQuerySinkWriter createWriter(SinkWriter.Context context) {
-        BigQueryWriteClient client = BigQueryClientFactory.getWriteClient(config);
         if (isBatch) {
             return new BigQuerySinkBatchWriter(
-                    config,
-                    BigQueryBatchWriter.of(client, config),
-                    new BigQuerySerializer(catalogTable, config),
-                    catalogTable.getTableSchema(),
-                    client);
+                    config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
         } else {
             return new BigQuerySinkStreamWriter(
-                    config,
-                    BigQueryStreamWriter.of(client, config),
-                    new BigQuerySerializer(catalogTable, config),
-                    catalogTable.getTableSchema(),
-                    client);
+                    config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
         }
     }
 
     @Override
     public SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState> restoreWriter(
             SinkWriter.Context context, List<BigQuerySinkState> states) {
-        BigQueryWriteClient client = BigQueryClientFactory.getWriteClient(config);
-        BigQueryWriter writer;
         if (isBatch) {
             if (states != null && !states.isEmpty()) {
                 BigQuerySinkState latestState = getLatestState(states);
-                writer =
-                        BigQueryBatchWriter.restore(
-                                client,
-                                config,
-                                latestState.getStreamName(),
-                                latestState.getNextOffset());
+                return new BigQuerySinkBatchWriter(
+                        config,
+                        new BigQuerySerializer(catalogTable, config),
+                        catalogTable.getTableSchema(),
+                        latestState.getStreamName(),
+                        latestState.getNextOffset());
             } else {
-                writer = BigQueryBatchWriter.of(client, config);
+                return new BigQuerySinkBatchWriter(
+                        config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
             }
-
-            return new BigQuerySinkBatchWriter(
-                    config,
-                    writer,
-                    new BigQuerySerializer(catalogTable, config),
-                    catalogTable.getTableSchema(),
-                    client);
         } else {
             return new BigQuerySinkStreamWriter(
-                    config,
-                    BigQueryStreamWriter.of(client, config),
-                    new BigQuerySerializer(catalogTable, config),
-                    catalogTable.getTableSchema(),
-                    client);
+                    config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
         }
     }
 
@@ -153,6 +136,27 @@ public class BigQuerySink
             return Collections.emptyList();
         }
         return Collections.singletonList(SchemaChangeType.ADD_COLUMN);
+    }
+
+    @Override
+    public Optional<SaveModeHandler> getSaveModeHandler() {
+        if (catalogTable == null) {
+            return Optional.empty();
+        }
+        Catalog catalog = new BigQueryCatalog(catalogTable.getCatalogName(), config);
+        SchemaSaveMode schemaSaveMode = config.get(BigQuerySinkOptions.SCHEMA_SAVE_MODE);
+        DataSaveMode dataSaveMode = config.get(BigQuerySinkOptions.DATA_SAVE_MODE);
+        TablePath tablePath = catalogTable.getTableId().toTablePath();
+        String configuredTableId = config.get(BigQuerySinkOptions.TABLE_ID);
+        // Note: config option TABLE_ID is already placeholder-resolved per target table
+        // by TablePlaceholderProcessor during FactoryUtil.createAndPrepareSink()
+        if (configuredTableId != null && !configuredTableId.contains("${table_name}")) {
+            tablePath = TablePath.of(tablePath.getDatabaseName(), configuredTableId);
+        }
+        String customSql = config.get(BigQuerySinkOptions.CUSTOM_SQL);
+        return Optional.of(
+                new BigQuerySaveModeHandler(
+                        schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql));
     }
 
     static BigQuerySinkState getLatestState(List<BigQuerySinkState> states) {

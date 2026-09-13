@@ -64,9 +64,13 @@ It provides a sink only; there is no Lance source connector.
 
 The directory or dataset path where Lance data is stored. In local directory mode, make sure the SeaTunnel runtime can create and write to this path.
 
+If specified, this value must not be empty or contain only whitespace. Omitting it keeps the default `/test.lance`.
+
 ### namespace_type
 
 The Lance namespace type. Currently the connector supports `dir`.
+
+If specified, this value must not be empty or contain only whitespace. Omitting it keeps the default `dir`.
 
 ### namespace_id
 

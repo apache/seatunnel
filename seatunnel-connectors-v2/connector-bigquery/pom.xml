@@ -115,6 +115,10 @@
                                     <pattern>org.apache.arrow</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.org.apache.arrow</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>io.netty</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.io.netty</shadedPattern>
+                                </relocation>
                             </relocations>
                             <filters>
                                 <filter>

@@ -336,6 +336,16 @@ please refer to appendix for other data sources
 
 The number of retries for transaction commit failures
 
+In exactly-once XA mode, this retry budget is consumed within a single aggregated-commit or
+restore invocation. During restore, SeaTunnel replays the still-prepared suffix starting from the
+first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are
+treated as already resolved only after the still-prepared suffix commits successfully. If none of
+the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already
+resolved and does not replay it. SeaTunnel waits one second between synchronous retry rounds so
+transient resource-manager outages can consume the retry budget over time instead of burning every
+attempt immediately. If a gap appears after the first recovered checkpoint XID,
+recovery still fails closed instead of inferring a successful commit.
+
 ### transaction_timeout_sec [int]
 
 The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect
@@ -836,6 +846,51 @@ sink {
 }
 ```
 
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    table = "sink_${table_name}"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+The `${table_name}` placeholder in `table` is filled from the upstream record's table metadata so each source table
+(`full_types`, `full_types_2`) is written to its own sink table (`sink_full_types`, `sink_full_types_2`). Pair this with
+`generate_sink_sql = true` and a pre-existing `primary_keys` list so SeaTunnel can emit the right INSERT/UPSERT for each
+upstream table.
+
 #### Amazon Aurora DSQL
 
 ```hocon
@@ -883,6 +938,10 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
+(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
+`is_exactly_once` at its default of `false`.
 
 ## Troubleshooting
 

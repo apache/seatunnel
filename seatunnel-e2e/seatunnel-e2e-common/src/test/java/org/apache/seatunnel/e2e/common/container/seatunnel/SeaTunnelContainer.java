@@ -142,6 +142,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
                 CONTAINER_HADOOP_JAR_PATH.toString());
+        applyJavaToolOptions(server);
         // execute extra commands
         executeExtraCommands(server);
 
@@ -160,6 +161,27 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             command.add("-DJvmOption=" + serverJvmOption);
         }
         return command.toArray(new String[0]);
+    }
+
+    /**
+     * Returns extra JVM options injected before SeaTunnel server startup.
+     *
+     * @return JVM option string or {@code null} when no extra options are required
+     */
+    protected String getJavaToolOptions() {
+        return null;
+    }
+
+    /**
+     * Applies test-scoped JVM options through the standard launcher environment hook.
+     *
+     * @param container SeaTunnel runtime container being prepared before startup
+     */
+    protected void applyJavaToolOptions(GenericContainer<?> container) {
+        String javaToolOptions = getJavaToolOptions();
+        if (javaToolOptions != null && !javaToolOptions.trim().isEmpty()) {
+            container.withEnv("JAVA_TOOL_OPTIONS", javaToolOptions);
+        }
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -527,6 +549,26 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         couchbaseE2eActive = false;
     }
 
+    /** Enables Reactor thread exemptions while the Azure Queue Storage E2E test is active. */
+    public static void enableAzureQueueReactorThreadExemption() {
+        azureQueueE2eActive = true;
+    }
+
+    /** Disables Reactor thread exemptions after the Azure Queue Storage E2E test completes. */
+    public static void disableAzureQueueReactorThreadExemption() {
+        azureQueueE2eActive = false;
+    }
+
+    /** Enables GCS OpenCensus thread exemptions while the GCS file E2E test is active. */
+    public static void enableGcsOpenCensusThreadExemption() {
+        gcsE2eActive = true;
+    }
+
+    /** Disables GCS OpenCensus thread exemptions after the GCS file E2E test completes. */
+    public static void disableGcsOpenCensusThreadExemption() {
+        gcsE2eActive = false;
+    }
+
     /**
      * {@code true} while the Couchbase E2E test ({@code CouchbaseIT}) is active.
      *
@@ -537,6 +579,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
      * connectors running in the same JVM.
      */
     static volatile boolean couchbaseE2eActive = false;
+
+    /** {@code true} while the Azure Queue Storage E2E test is active. */
+    static volatile boolean azureQueueE2eActive = false;
+
+    /** {@code true} while the GCS file E2E test is active. */
+    static volatile boolean gcsE2eActive = false;
 
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
@@ -567,6 +615,17 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         // "parallel-<N>" thread observed outside that window is treated as an unknown thread and
         // reported as a potential leak.
         if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
+            return true;
+        }
+        // Azure Queue's shaded Reactor Netty threads are unique to this connector. The
+        // boundedElastic evictor name is shared by all Reactor users, so exempt it only while the
+        // Azure Queue E2E test is active.
+        if (isAzureQueueReactorThreadExempt(threadName)) {
+            return true;
+        }
+        // The shaded GCS client's OpenCensus exporters are JVM-global daemon threads. Their names
+        // are shared by other OpenCensus users, so exempt them only for the GCS E2E lifecycle.
+        if (isGcsOpenCensusThreadExempt(threadName)) {
             return true;
         }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
@@ -605,6 +664,17 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // Paimon
                 || threadName.startsWith("AsyncOutputStream")
                 || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
+    }
+
+    static boolean isAzureQueueReactorThreadExempt(String threadName) {
+        return threadName.startsWith("org.apache.seatunnel.shade.azure.queue.reactor-http-nio-")
+                || (threadName.startsWith("boundedElastic-evictor-") && azureQueueE2eActive);
+    }
+
+    static boolean isGcsOpenCensusThreadExempt(String threadName) {
+        return gcsE2eActive
+                && (threadName.startsWith("ExportComponent.ServiceExporterThread-")
+                        || threadName.startsWith("OpenCensus.Disruptor-"));
     }
 
     @Override

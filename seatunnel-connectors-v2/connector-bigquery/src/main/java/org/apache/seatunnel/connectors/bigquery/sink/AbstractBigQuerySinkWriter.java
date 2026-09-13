@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -25,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.bigquery.client.BigQueryClientFactory;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
@@ -44,10 +46,15 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Base sink writer shared by batch and streaming BigQuery writers. It owns the shared BigQuery
+ * Storage Write API client lifecycle for multi-table sink replicas and coordinates BigQuery
+ * schema evolution (see {@link #applySchemaChange}) on top of it.
+ */
 @Slf4j
 public abstract class AbstractBigQuerySinkWriter
         implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState>,
-                SupportMultiTableSinkWriter<Void>,
+                SupportMultiTableSinkWriter<BigQueryWriteClient>,
                 SupportSchemaEvolutionSinkWriter {
     private static final long SCHEMA_PROPAGATION_RETRY_TIMEOUT_MILLIS =
             TimeUnit.MINUTES.toMillis(5);
@@ -56,7 +63,9 @@ public abstract class AbstractBigQuerySinkWriter
 
     protected final ReadonlyConfig config;
     protected BigQuerySerializer serializer;
-    protected final BigQueryWriteClient client;
+    // Mutable: assigned eagerly by the constructor, or lazily by setMultiTableResourceManager()
+    // once the shared client is injected by the multi-table sink runtime.
+    protected BigQueryWriteClient client;
     protected BigQueryWriter streamWriter;
     protected TableSchema tableSchema;
 
@@ -68,9 +77,13 @@ public abstract class AbstractBigQuerySinkWriter
     protected AbstractBigQuerySinkWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
-            BigQuerySerializer serializer,
-            BigQueryWriteClient client) {
-        this(readOnlyConfig, streamWriter, serializer, null, client);
+            BigQuerySerializer serializer) {
+        this(readOnlyConfig, streamWriter, serializer, null, null);
+    }
+
+    protected AbstractBigQuerySinkWriter(
+            ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer, TableSchema tableSchema) {
+        this(readOnlyConfig, null, serializer, tableSchema, null);
     }
 
     protected AbstractBigQuerySinkWriter(
@@ -87,8 +100,14 @@ public abstract class AbstractBigQuerySinkWriter
         this.client = client;
     }
 
+    @Override
+    public MultiTableResourceManager<BigQueryWriteClient> initMultiTableResourceManager(
+            int tableSize, int queueSize) {
+        return new BigQueryMultiTableResourceManager(BigQueryClientFactory.getWriteClient(config));
+    }
+
     protected void flush() {
-        if (buffer.length() == 0) return;
+        if (streamWriter == null || buffer.length() == 0) return;
 
         JSONArray dataToSend = buffer;
         buffer = new JSONArray();
@@ -263,15 +282,15 @@ public abstract class AbstractBigQuerySinkWriter
             }
         } finally {
             try {
-                streamWriter.close();
+                if (streamWriter != null) {
+                    streamWriter.close();
+                }
             } catch (Exception e) {
                 log.warn("Failed to close streamWriter", e);
             }
-            try {
-                client.close();
-            } catch (Exception e) {
-                log.warn("Failed to close BigQueryWriteClient", e);
-            }
+            // The shared BigQueryWriteClient is owned by BigQueryMultiTableResourceManager and is
+            // closed once for the whole multi-table sink writer group; closing it per-writer here
+            // would break sibling replica writers still using it.
         }
     }
 }

@@ -19,6 +19,12 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
+  - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.
+  - **Impact**: Jobs that previously relied on restore inferring success from a missing XA branch may now fail during recovery when the XA recovery scan still contains later checkpoint XIDs but shows a gap after them. Operators may also observe that `max_commit_attempts` is exhausted within one restore/commit invocation rather than across repeated task restarts.
+  - **Migration Guide**: Before upgrading, inspect the resource manager for dangling prepared XA transactions (for example `XA RECOVER` on MySQL or `pg_prepared_xacts` on PostgreSQL). If recovery fails closed because a later checkpoint XID still exists but a following one is missing, investigate whether the missing XID was rolled back, expired, or cleaned up externally before retrying the job. XA recovery cannot distinguish a SeaTunnel-committed XID from one rolled back or removed by an external cleanup actor. Therefore, a missing prefix or all-absent batch is inferred to be resolved; do not externally clean up SeaTunnel-owned prepared branches while their jobs may be restored, and coordinate any cleanup with job recovery.
+
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc`, `seatunnel-connectors-v2/connector-iceberg`, `seatunnel-connectors-v2/connector-cdc-base`, `seatunnel-connectors-v2/connector-cdc-tidb`, `seatunnel-connectors-v2/connector-starrocks`, `seatunnel-connectors-v2/connector-hudi`, `seatunnel-connectors-v2/connector-snowflake` (via JDBC dialect)
   - **Description**: Previously, JDBC sources mapped both timezone-naive (e.g., MySQL `DATETIME`) and timezone-aware (e.g., MySQL `TIMESTAMP`) timestamp columns to SeaTunnel's internal `TIMESTAMP` type. Now, timezone-aware columns like MySQL `TIMESTAMP`, PostgreSQL `timestamptz`, Oracle `TIMESTAMP WITH LOCAL TIME ZONE`, SQL Server `datetimeoffset`, Snowflake `TIMESTAMP_LTZ/TZ`, and others are explicitly mapped to `TIMESTAMP_TZ`. This ensures that timezone semantics are accurately preserved when writing to formats like Iceberg, where `TIMESTAMP` is saved as `timestamp` (without timezone) and `TIMESTAMP_TZ` is saved as `timestamptz` (with timezone).
@@ -59,6 +65,12 @@ You need to check this document before you upgrade to related version.
     }
   }
   ```
+
+- **Breaking Change: An unknown log level is rejected by the runtime log level endpoint**
+  - **Affected component**: SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **Description**: The endpoint answered `200` with `{"status":"SUCCESS"}` for every request, including a level name it could not resolve (`DEBUGG`, `verbose`, a lowercase name of a level that does not exist, an empty value). Nothing was applied in that case, and the unresolved level was handed to log4j2 as `null`, which removes the explicit level of the logger instead of leaving it alone — so the logger silently fell back to its parent, or to `ERROR` for the root logger. An unknown level, a blank level and a missing `level` parameter are now rejected with `400` and a message listing the valid levels; a level name is still accepted in any letter case.
+  - **Impact**: Scripts and automation that only check the HTTP status now see `400` where they used to see `200`, for requests that never took effect in the first place. Requests with a resolvable level are unchanged.
+  - **Migration Guide**: Send a level log4j2 knows (`OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`, `ALL`, or a level registered by the configuration). The response body of a rejected request names the levels the node accepts.
 
 - **Breaking Change: `Condition.of(option, null)` no longer allowed**
   - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
@@ -105,6 +117,12 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
+  - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
+  - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
+  - **Impact**: Upgrading existing pipelines targeting a non-existent table will now automatically create the table in BigQuery with the source schema instead of failing fast at the BigQuery API layer.
+  - **Migration Guide**: To preserve the legacy fail-fast behavior, explicitly configure `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` in your BigQuery sink configuration.
+
 - **Breaking Change: ORC file sink preserves case of nested struct field names**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (used by all File/HDFS/S3/OSS ORC sinks that share `OrcWriteStrategy`)
   - **Description**: Previously, `OrcWriteStrategy.buildFieldWithRowType(...)` forced every nested `ROW` (struct) field name to lowercase when building the ORC schema, so a nested field declared as `MD5` was persisted as `md5` in the file footer. Downstream consumers that read the column by its declared original-case name received null/missing values. The `.toLowerCase()` call has been removed from the recursive nested-field branch, so nested struct field names are now written verbatim in the file schema.
@@ -119,6 +137,11 @@ You need to check this document before you upgrade to related version.
   - **Description**: The enumerator now partitions a table (or the configured `start_rowkey` / `end_rowkey` range) into tablet-sized splits via `sampleRowKeys`. `scan_row_limit` is still applied with `query.limit(...)` once per split in the reader. Before this change the source always produced exactly one split, so `scan_row_limit` acted as a table-wide row cap. After this change a table with multiple tablets yields multiple splits even when `parallelism = 1` (the single reader is assigned every split), and the job-level upper bound is about `scan_row_limit × split count`. See [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int).
   - **Impact**: Existing jobs that set `scan_row_limit` to bound total output (sampling, testing, cost control, or downstream capacity) can read far more rows after upgrade with no config change.
   - **Migration Guide**: If you need a table-wide cap, narrow the scan with `start_rowkey` / `end_rowkey`, or lower `scan_row_limit` so that `scan_row_limit × expected split count` stays within the previous budget. To keep the previous single-split behavior, the connector still falls back to one split when sampling fails, returns no keys, or the intersection is empty — that is not a supported way to pin the old cap. (#11876)
+- **CDC Connector: restored state for tables removed from the capture set is no longer reused**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/connector-cdc-base` and CDC connectors built on it.
+  - **Description**: When a CDC job restores from a checkpoint or savepoint, SeaTunnel now filters per-table incremental state against the currently captured table set before assigning the restored split. State for tables that have been removed from the job's capture configuration is not reused. If table discovery is unavailable or returns no tables, SeaTunnel keeps the restored state unchanged to avoid discarding checkpoint metadata during a transient source-database problem.
+  - **Impact**: A job that removes captured tables and then restores from an older checkpoint no longer attempts to resume incremental state for those removed tables. This avoids restore failures caused by stale table metadata. The behavior applies only during checkpoint/savepoint restore; newly started jobs are unchanged.
+  - **Migration Guide**: No configuration change is required. Before restoring an existing CDC job after changing its capture table set, verify that the removed tables are intentionally no longer part of the job.
 
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
@@ -151,9 +174,9 @@ You need to check this document before you upgrade to related version.
   - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
   - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block, which is **supported only by the Zeta engine**.
   - **Impact**:
-    - **Spark and Flink lose periodic timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic flush on those engines. On Spark and Flink the buffer is now flushed only when it reaches `batch_size` and when the writer is closed (it is not flushed on checkpoint). A low-throughput streaming job can therefore hold buffered points in memory until it stops; tune `batch_size` accordingly.
+    - **Spark and Flink lose sub-checkpoint timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic timer flush on those engines. On Spark and Flink the buffer is flushed when it reaches `batch_size`, on checkpoint (the sink flushes in `prepareCommit()`), and when the writer is closed. Buffered points are therefore bounded by the checkpoint interval rather than held until the job stops; for lower latency between checkpoints, tune `batch_size` accordingly.
     - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
-  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, buffered points are flushed on each checkpoint; tune `batch_size` for lower latency between checkpoints. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
 
 - **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
@@ -162,6 +185,11 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
 ### Transform Changes
+
+- **Behavior change: AMAZON embedding honors retry options**
+  - **Affected component**: `Embedding` transform with `model_provider = AMAZON`.
+  - **Description**: Configured SeaTunnel retry and backoff options now reach the Bedrock runtime. Previously, the transform ignored these settings and used one SeaTunnel attempt.
+  - **Impact and migration**: Configured `model_retry_max_attempts` values greater than 1 now enable SeaTunnel retries, which may incur additional model charges; use 1 to retain a single SeaTunnel attempt. The default remains 1. The SDK's own retry and timeout behavior is unchanged; `model_request_timeout_ms` is not currently applied to Bedrock calls.
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
@@ -213,6 +241,54 @@ You need to check this document before you upgrade to related version.
   - Dividing by a zero `DECIMAL` now fails with a `TransformException` naming the operation, where the underlying cause was previously `java.lang.ArithmeticException("/ by zero")`. The failing expression was already reported either way, since the SQL engine wraps anything thrown while evaluating an expression; only the cause type changed. This matches how `MOD` by zero has always been reported.
 
   **Migration Guide**: Results that were previously inflated by the old rounding mode, or truncated by the `double` conversion, will change. Multiplication results may now carry *fewer* decimal places than before: the old conversion sometimes emitted a value wider than the declared column scale, and that value is now rounded down to it, so a job reading `38.4375` from a `DECIMAL(38,2)` column will read `38.44` after upgrading. Any code that inspects the *cause* of a division failure and matches on `ArithmeticException` should be updated to expect `TransformException`. If a downstream system was reconciled against the old values, re-baseline it after upgrading. Any workaround that compensated for the old behavior (for example subtracting a correction term after a division) should be removed.
+- **[BREAKING]** SQL Transform `ABS`, and `ROUND` / `CEIL` / `CEILING` / `FLOOR` with a negative digit count, now
+  fail with a `TransformException` when the result does not fit the argument's own data type, instead of silently
+  wrapping around to a wrong — usually negative — value:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ABS(-2147483648)` | `INT` | `-2147483648` | `TransformException` |
+  | `ABS(-9223372036854775808)` | `BIGINT` | `-9223372036854775808` | `TransformException` |
+  | `ROUND(2147483647, -1)` | `INT` | `-2147483646` | `TransformException` |
+  | `ROUND(9223372036854775807, -1)` | `BIGINT` | `-9223372036854775806` | `TransformException` |
+  | `CEIL(32767, -1)` | `SMALLINT` | `-32766` | `TransformException` |
+  | `FLOOR(-2147483648, -1)` | `INT` | `2147483646` | `TransformException` |
+
+  `ABS` has always been documented this way — "ABS(-2147483648) should be 2147483648, but this value is not allowed
+  for this data type. It leads to an exception" — the implementation simply never did it. `TRUNC` / `TRUNCATE` round
+  toward zero and so can never grow a value out of its own range; they are unaffected, as are `FLOAT`, `DOUBLE` and
+  `DECIMAL` arguments.
+
+  **Migration Guide**: A job that previously emitted these wrapped values now fails on the row that overflows. Cast
+  the argument to a wider type to keep the job running — `ABS(CAST(int_col AS BIGINT))` or
+  `ROUND(CAST(int_col AS BIGINT), -1)` — or filter the offending rows out upstream. If a downstream system was
+  reconciled against the old wrapped values, re-baseline it after upgrading.
+
+- **[BREAKING]** SQL Transform now dispatches `TINYINT` and `SMALLINT` arguments correctly in the numeric
+  functions that previously omitted them. `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` had no
+  `TINYINT` branch, so a `TINYINT` argument fell through the type switch and was returned unrounded, with no
+  exception and no log line. `ABS` and `SIGN` had no `TINYINT` or `SMALLINT` branch and rejected those columns
+  outright:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`, silently not rounded | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`, silently not rounded | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`, silently not rounded | `TransformException`, `130` exceeds `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`, "Unsupported arg type" | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `-1` |
+
+  The same type switch also gained a `default` branch, so any numeric type it does not handle now fails with a
+  `TransformException` instead of being returned unrounded. `SIGN` on a `DECIMAL` argument now uses
+  `BigDecimal.signum()` rather than a `double` conversion, so a value smaller than `Double.MIN_VALUE` reports its
+  true sign instead of `0`.
+
+  **Migration Guide**: A job with a `TINYINT` column that silently skipped rounding now receives the rounded value;
+  if a downstream system was reconciled against the old unrounded output, re-baseline it after upgrading. If a
+  rounded `TINYINT` no longer fits its own type, cast the argument to a wider type — `ROUND(CAST(tiny_col AS INT), -1)`
+  — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
+  (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
 
 ### Engine Behavior Changes
 
