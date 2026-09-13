@@ -27,7 +27,9 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -180,5 +183,52 @@ public class MetadataMultiCatalogSchemaChangeTest {
                 Boolean.TRUE,
                 postOut.getField(3),
                 "is_featured must survive the wrapper after live ALTER");
+    }
+
+    /**
+     * A table that no metadata rule matches goes through {@code IdentityMapTransform}. Its produced
+     * table and the event's changeAfter must follow the change, including a rename that the engine
+     * hands over before it dispatches the event, as happens at chain positions greater than zero.
+     */
+    @Test
+    void unmatchedTableIdentityPathRefreshesProducedTableAndChangeAfter() {
+        CatalogTable matched = buildBaseTable();
+        TableIdentifier otherId =
+                TableIdentifier.of("catalog", TablePath.of("ricky_test", "other_table"));
+        CatalogTable other = CatalogTable.of(otherId, matched);
+
+        Map<String, String> metaMapping = new LinkedHashMap<>();
+        metaMapping.put("EventTime", "c_event_time");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("metadata_fields", metaMapping);
+        cfg.put("table_match_regex", "ricky_test\\.static_inventory");
+        MetadataMultiCatalogTransform wrapper =
+                new MetadataMultiCatalogTransform(
+                        Arrays.asList(matched, other), ReadonlyConfig.fromMap(cfg));
+
+        PhysicalColumn fullName =
+                PhysicalColumn.of(
+                        "full_name", BasicType.STRING_TYPE, (Long) null, true, null, null);
+        TableSchema afterRename =
+                TableSchema.builder()
+                        .column(matched.getTableSchema().getColumns().get(0))
+                        .column(fullName)
+                        .build();
+        CatalogTable handedOver =
+                CatalogTable.of(otherId, afterRename, new HashMap<>(), new ArrayList<>(), "test");
+        AlterTableColumnsEvent rename =
+                new AlterTableColumnsEvent(otherId)
+                        .addEvent(AlterTableChangeColumnEvent.change(otherId, "name", fullName));
+        rename.setChangeAfter(handedOver);
+
+        // The engine hands the upstream produced table over before it dispatches the event.
+        wrapper.setInputCatalogTables(Arrays.asList(matched, handedOver));
+        SchemaChangeEvent out = wrapper.mapSchemaChangeEvent(rename);
+
+        Assertions.assertNotNull(out);
+        CatalogTable produced = wrapper.getProducedCatalogTables().get(1);
+        Assertions.assertArrayEquals(
+                new String[] {"id", "full_name"}, produced.getTableSchema().getFieldNames());
+        Assertions.assertSame(produced, out.getChangeAfter());
     }
 }

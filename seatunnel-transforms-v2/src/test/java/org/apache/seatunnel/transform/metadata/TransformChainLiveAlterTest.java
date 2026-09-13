@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -333,6 +334,17 @@ public class TransformChainLiveAlterTest {
         ev = metadata.mapSchemaChangeEvent(ev);
         ev = rowKindExtractor.mapSchemaChangeEvent(ev);
         ev = sqlTransform.mapSchemaChangeEvent(ev);
+        // The SQL transform re-expresses the appended source columns relative to its own output:
+        // they land after the last star column and before the computed columns.
+        Assertions.assertTrue(ev instanceof AlterTableColumnsEvent, "SQL emits a composite");
+        List<AlterTableColumnEvent> sqlEvents = ((AlterTableColumnsEvent) ev).getEvents();
+        Assertions.assertEquals(2, sqlEvents.size());
+        AlterTableAddColumnEvent discountAdd = (AlterTableAddColumnEvent) sqlEvents.get(0);
+        Assertions.assertEquals("discount_pct", discountAdd.getColumn().getName());
+        Assertions.assertEquals("c_operation_type", discountAdd.getAfterColumn());
+        AlterTableAddColumnEvent featuredAdd = (AlterTableAddColumnEvent) sqlEvents.get(1);
+        Assertions.assertEquals("is_featured", featuredAdd.getColumn().getName());
+        Assertions.assertEquals("discount_pct", featuredAdd.getAfterColumn());
         ev = filterField.mapSchemaChangeEvent(ev);
         Assertions.assertNotNull(ev);
 
