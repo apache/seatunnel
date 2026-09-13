@@ -47,8 +47,9 @@ Read data from Snowflake through JDBC. SeaTunnel uses the official Snowflake JDB
 | DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)       |
 | DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, 18)     |
 | REAL<br/>FLOAT4                                                             | FLOAT               |
-| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE              |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |
+| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT<br/>                       | DOUBLE              |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>OBJECT              | STRING              |
+| VARIANT                                                                    | JSON                |
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |

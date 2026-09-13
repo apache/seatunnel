@@ -110,12 +110,16 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                     return field;
                 }
             case STRING:
+            case JSON:
                 return field.toString();
             case MAP:
                 return convertMap((Map<?, ?>) field, (MapType<?, ?>) dataType);
             case ARRAY:
                 // if string array, we need to covert every item in array from String to UTF8String
-                if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)) {
+                if (((ArrayType<?, ?>) dataType).getElementType().equals(BasicType.STRING_TYPE)
+                        || ((ArrayType<?, ?>) dataType)
+                                .getElementType()
+                                .equals(BasicType.JSON_TYPE)) {
                     Object[] fields = (Object[]) field;
                     Object[] objects =
                             Arrays.stream(fields)
@@ -227,6 +231,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
                 }
                 return LocalTime.ofNanoOfDay((Long) field);
             case STRING:
+            case JSON:
                 return field.toString();
             case MAP:
                 return reconvertMap((AbstractMap<?, ?>) field, (MapType<?, ?>) dataType);

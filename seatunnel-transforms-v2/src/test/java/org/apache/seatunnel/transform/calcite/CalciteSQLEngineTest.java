@@ -103,6 +103,52 @@ class CalciteSQLEngineTest {
         engine.close();
     }
 
+    /**
+     * Verifies that a Calcite projection accepts JSON input and preserves its logical type.
+     *
+     * <p>This protects native JSON sources from failing or degrading during an unchanged field
+     * projection.
+     */
+    @Test
+    void testJsonProjection() {
+        String json = "{\"id\":1,\"nested\":[true,2]}";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType[] {BasicType.JSON_TYPE});
+        CalciteSQLEngine engine =
+                createAndInit("SELECT payload FROM json_table", "json_table", rowType);
+
+        List<SeaTunnelRow> result = exec(engine, new Object[] {json});
+
+        Assertions.assertEquals(BasicType.JSON_TYPE, engine.getOutputRowType().getFieldType(0));
+        Assertions.assertEquals(json, result.get(0).getField(0));
+        engine.close();
+    }
+
+    /**
+     * Verifies the documented migration from JSON to a regular VARCHAR field.
+     *
+     * <p>The cast removes JSON semantics while preserving the original physical String value.
+     */
+    @Test
+    void testJsonCastToVarchar() {
+        String json = "{\"id\":1,\"nested\":[true,2]}";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType[] {BasicType.JSON_TYPE});
+        CalciteSQLEngine engine =
+                createAndInit(
+                        "SELECT CAST(payload AS VARCHAR) AS payload FROM json_table",
+                        "json_table",
+                        rowType);
+
+        List<SeaTunnelRow> result = exec(engine, new Object[] {json});
+
+        Assertions.assertEquals(BasicType.STRING_TYPE, engine.getOutputRowType().getFieldType(0));
+        Assertions.assertEquals(json, result.get(0).getField(0));
+        engine.close();
+    }
+
     @Test
     void testSelectWithFunctions() {
         CalciteSQLEngine engine =

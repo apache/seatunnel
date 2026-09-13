@@ -17,12 +17,16 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.snowflake;
 
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import java.util.Arrays;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class SnowflakeDialect implements JdbcDialect {
     @Override
@@ -38,6 +42,69 @@ public class SnowflakeDialect implements JdbcDialect {
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
         return new SnowflakeTypeMapper();
+    }
+
+    /**
+     * Wraps JSON parameters with PARSE_JSON so JSON text is stored as a structured VARIANT value.
+     */
+    @Override
+    public String getInsertIntoStatement(
+            String database, String tableName, TableSchema tableSchema) {
+        String[] fieldNames = tableSchema.getFieldNames();
+        String columns =
+                Arrays.stream(fieldNames)
+                        .map(this::quoteIdentifier)
+                        .collect(Collectors.joining(", "));
+        String placeholders =
+                Arrays.stream(fieldNames)
+                        .map(fieldName -> parameterExpression(tableSchema, fieldName))
+                        .collect(Collectors.joining(", "));
+        return String.format(
+                "INSERT INTO %s (%s) VALUES (%s)",
+                tableIdentifier(database, tableName), columns, placeholders);
+    }
+
+    /** Wraps JSON parameters with PARSE_JSON in both update values and conditions. */
+    @Override
+    public String getUpdateStatement(
+            String database,
+            String tableName,
+            TableSchema tableSchema,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+        String setClause =
+                Arrays.stream(tableSchema.getFieldNames())
+                        .filter(
+                                fieldName ->
+                                        isPrimaryKeyUpdated
+                                                || !Arrays.asList(conditionFields)
+                                                        .contains(fieldName))
+                        .map(
+                                fieldName ->
+                                        String.format(
+                                                "%s = %s",
+                                                quoteIdentifier(fieldName),
+                                                parameterExpression(tableSchema, fieldName)))
+                        .collect(Collectors.joining(", "));
+        String conditionClause =
+                Arrays.stream(conditionFields)
+                        .map(
+                                fieldName ->
+                                        String.format(
+                                                "%s = %s",
+                                                quoteIdentifier(fieldName),
+                                                parameterExpression(tableSchema, fieldName)))
+                        .collect(Collectors.joining(" AND "));
+        return String.format(
+                "UPDATE %s SET %s WHERE %s",
+                tableIdentifier(database, tableName), setClause, conditionClause);
+    }
+
+    /** Returns the Snowflake bind expression for a field. */
+    private String parameterExpression(TableSchema tableSchema, String fieldName) {
+        return tableSchema.getColumn(fieldName).getDataType().getSqlType() == SqlType.JSON
+                ? "PARSE_JSON(:" + fieldName + ")"
+                : ":" + fieldName;
     }
 
     @Override

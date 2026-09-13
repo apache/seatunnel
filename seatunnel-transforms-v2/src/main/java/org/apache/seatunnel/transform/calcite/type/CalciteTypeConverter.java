@@ -75,6 +75,7 @@ public final class CalciteTypeConverter {
                 return factory.createSqlType(
                         SqlTypeName.DECIMAL, decimalType.getPrecision(), decimalType.getScale());
             case STRING:
+            case JSON:
                 return factory.createSqlType(SqlTypeName.VARCHAR);
             case BYTES:
                 return factory.createSqlType(SqlTypeName.VARBINARY);
