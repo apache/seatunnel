@@ -386,6 +386,26 @@ Before deleting any state directory:
 
 ---
 
+## Pending jobs during master failover
+
+With `schedule-strategy: WAIT`, jobs waiting for resources retain their relative queue order
+after an active-master switch. The engine records an enqueue sequence in the replicated job
+metadata before acknowledging submission. This sequence reflects entry into the pending queue,
+which can differ from submission time when concurrent jobs take different amounts of time to
+initialize.
+
+The new master restores already-running jobs first, then rebuilds the waiting queue in sequence
+order before accepting new submissions into that queue. Restored waiting jobs build their execution
+plans when they reach the queue head; querying their status does not initialize the whole backlog.
+Canceling a waiting job removes it without changing the relative order of the remaining jobs.
+FIFO governs resource admission, not job completion time.
+
+Metadata from older versions has no enqueue sequence. Such waiting jobs follow waiting jobs with recorded
+sequences, ordered by initialization timestamp and then job ID, and receive a sequence for subsequent
+failovers. Their original queue order cannot be recovered. The guarantee requires masters that
+support enqueue sequences; it does not apply while an older master participates in a rolling upgrade.
+Recovery also depends on the job metadata surviving through the configured state backup/storage.
+
 ## See Also
 
 - [Checkpoint Storage Configuration](checkpoint-storage.md)
