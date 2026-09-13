@@ -292,7 +292,8 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     private boolean shouldSampleGrowthDurability() {
-        // FileMapStore.loadAll replays the full WAL into heap. Under initialStoredJobCount=1000 that
+        // FileMapStore.loadAll replays the full WAL into heap. Under initialStoredJobCount=1000
+        // that
         // OOM's the diagnostic / JMH fork when stacked on resident pressure, so mid-trial sampling
         // is limited to the empty-pressure fixture's first iteration. Later iterations rely on
         // resident checks only; trial tear-down always samples the last batch. A WAL append that
