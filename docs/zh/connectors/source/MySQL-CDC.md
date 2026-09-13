@@ -191,6 +191,8 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | database-pattern                          | String   | 否    | .*      | 要捕获的数据库名称的正则表达式, 例如: `database_prefix.*`.                                                                                                                                                                                                    |
 | table-names                               | List     | 条件必填 | -       | 要监控的表名，每个表名都需要包含库名，例如：`database_name.table_name`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                             |
 | table-pattern                             | String   | 条件必填 | -       | 要捕获的表名正则表达式，匹配到的表名需要包含库名，例如：`database.*\\.table_.*`。`table-names` 和 `table-pattern` 二选一配置。                                                                                                                                                                                         |
+| scan.newly-added-table.enabled            | Boolean  | 否    | true    | 从 checkpoint 或 savepoint 恢复后，是否扫描被 `database-pattern` 或 `table-pattern` 新匹配到的表。`true` 会将新匹配的表加入快照阶段；`false` 保留 checkpoint 中的表集合，不会为新匹配的表做快照。这是新增选项，升级时如不希望恢复阶段发现新表，请显式设为 `false`。                                                                                                                                              |
+| scan.binlog.newly-added-table.enabled     | Boolean  | 否    | false   | 在 binlog 读取阶段，是否注册并读取运行期新建的表。该选项从 `CREATE TABLE` binlog 位置开始读取，不会为这些表补历史数据。新表必须匹配已配置的捕获规则，并且只能使用普通、未加引号的 MySQL 标识符（`[A-Za-z_][A-Za-z0-9_$]*`）。下游 Sink 也必须能够路由或创建对应目标表。                                                                                                                   |
 | table-names-config                        | List     | 否    | -       | 按表单独配置。例如：`[{"table": "db1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。当表没有主键、需要自定义主键，或需要指定快照拆分列时使用。`snapshotSplitColumn` 应该是主键或唯一键；如果指定了非唯一列，SeaTunnel 会忽略该配置并自动选择合适的拆分列。                                                                                                                                                                                         |
 | startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
@@ -223,6 +225,46 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
 | common-options                            |          | 否    | -       | Source插件通用参数, 详见 [Source Common Options](../common-options/source-common-options.md)                                                                                                                                                                        |
+
+### 运行期新增表
+
+`scan.newly-added-table.enabled` 只在任务从 checkpoint 或 savepoint 恢复时生效。恢复时 SeaTunnel 会比较当前捕获到的表和 checkpoint 中记录的表。默认 `true` 时，新匹配到的表会加入快照阶段，先读取历史数据，然后再继续进入 binlog 阶段；设置为 `false` 时，只保留 checkpoint 中记录的表。该选项是新增能力，已有通配符任务升级时应显式配置以避免恢复语义变化。
+
+`scan.binlog.newly-added-table.enabled` 在任务已经读取 binlog 时生效。它会根据 `CREATE TABLE` schema record 注册新表结构，然后读取该表之后的 DML 记录。它不会补齐 `CREATE TABLE` binlog 位置之前已经存在的数据。运行期注册的表及其 writer state 会被写入 checkpoint，并在恢复时直接重建，不会重新做快照。
+
+当前 JDBC 的 at-least-once writer（`exactly_once = false`）实现了运行期新表能力；当 JDBC Sink 需要创建目标表时，请设置 `generate_sink_sql = true`。其他 Sink 可能拒绝运行期新表，创建或应用 schema 失败时会遵循多表失败策略。Sink 账号应仅授予目标 schema 所需的最小权限，并尽量收窄捕获规则。
+
+下面的配置会在任务运行后捕获 `source` 中新建的表，并在 `sink` 中创建对应的目标表：
+
+```
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    url = "jdbc:mysql://localhost:3306/source"
+    username = "cdc_reader"
+    password = "******"
+    table-pattern = "source\\..*"
+    schema-changes.enabled = true
+    scan.binlog.newly-added-table.enabled = true
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://localhost:3306/sink"
+    username = "sink_writer"
+    password = "******"
+    database = "sink"
+    table = "${database_name}_${table_name}"
+    generate_sink_sql = true
+    exactly_once = false
+  }
+}
+```
 
 ### int_type_narrowing
 

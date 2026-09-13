@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -44,9 +45,11 @@ import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlCatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.apache.kafka.connect.data.Struct;
@@ -228,8 +231,11 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
+        validateBinlogNewlyAddedTableConfig(config);
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
+        configFactory.scanBinlogNewlyAddedTableEnabled(
+                config.get(MySqlIncrementalSourceOptions.SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED));
         configFactory.fromReadonlyConfig(readonlyConfig);
         // Carry int_type_narrowing through the debezium properties map rather than a factory field.
         // Adding a field/method to the Serializable MySqlSourceConfigFactory drifts its
@@ -267,15 +273,48 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         }
 
         String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        MySqlSourceConfig sourceConfig = ((MySqlSourceConfigFactory) configFactory).create(0);
         return (DebeziumDeserializationSchema<T>)
                 SeaTunnelRowDebeziumDeserializeSchema.builder()
                         .setTables(catalogTables)
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .setSchemaChangeResolver(
-                                new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
+                                new MySqlSchemaChangeResolver(
+                                        createSourceConfigFactory(config),
+                                        config.get(
+                                                MySqlIncrementalSourceOptions
+                                                        .SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED)))
                         .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
+                        .setScanBinlogNewlyAddedTableEnabled(
+                                config.get(
+                                        MySqlIncrementalSourceOptions
+                                                .SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED))
+                        .setTableChangeCatalogTableConverter(
+                                tableChange ->
+                                        sourceConfig
+                                                        .getTableFilters()
+                                                        .dataCollectionFilter()
+                                                        .isIncluded(tableChange.getTable().id())
+                                                ? MySqlCatalogTableUtils.toRuntimeCatalogTable(
+                                                        tableChange.getTable(),
+                                                        sourceConfig.getDbzConnectorConfig())
+                                                : null)
                         .build();
+    }
+
+    private void validateBinlogNewlyAddedTableConfig(ReadonlyConfig config) {
+        boolean scanBinlogNewlyAddedTableEnabled =
+                config.get(MySqlIncrementalSourceOptions.SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED);
+        if (scanBinlogNewlyAddedTableEnabled
+                && config.getOptional(MySqlIncrementalSourceOptions.TABLE_NAMES).isPresent()) {
+            throw new OptionValidationException(
+                    "%s can only be used with %s/%s, not fixed %s.",
+                    MySqlIncrementalSourceOptions.SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED.key(),
+                    MySqlIncrementalSourceOptions.DATABASE_PATTERN.key(),
+                    MySqlIncrementalSourceOptions.TABLE_PATTERN.key(),
+                    MySqlIncrementalSourceOptions.TABLE_NAMES.key());
+        }
     }
 
     @Override
@@ -287,6 +326,15 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
         return new BinlogOffsetFactory(
                 (MySqlSourceConfigFactory) configFactory, (MySqlDialect) dataSourceDialect);
+    }
+
+    /**
+     * Uses the MySQL CDC compatibility switch to decide whether restore should append newly
+     * discovered tables into the snapshot phase.
+     */
+    @Override
+    protected boolean isScanNewlyAddedTableEnabledOnRestore() {
+        return readonlyConfig.get(MySqlIncrementalSourceOptions.SCAN_NEWLY_ADDED_TABLE_ENABLED);
     }
 
     private Map<TableId, Struct> tableChanges() {
@@ -319,6 +367,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
     @Override
     public List<SchemaChangeType> supports() {
         return Arrays.asList(
+                SchemaChangeType.CREATE_TABLE,
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,

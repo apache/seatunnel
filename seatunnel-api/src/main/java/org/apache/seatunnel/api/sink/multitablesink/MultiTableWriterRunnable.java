@@ -387,6 +387,12 @@ public class MultiTableWriterRunnable implements Runnable {
         tableIdWriterMap.remove(tableId);
     }
 
+    /** Registers a sink writer for a table discovered after the runnable has already started. */
+    public synchronized void registerWriter(
+            String tableId, SinkWriter<SeaTunnelRow, ?, ?> sinkWriter) {
+        tableIdWriterMap.put(tableId, sinkWriter);
+    }
+
     /** Creates one ordered queue element that writes a data row. */
     static QueueElement rowRequest(SeaTunnelRow row) {
         return new RowWriteRequest(row, false);

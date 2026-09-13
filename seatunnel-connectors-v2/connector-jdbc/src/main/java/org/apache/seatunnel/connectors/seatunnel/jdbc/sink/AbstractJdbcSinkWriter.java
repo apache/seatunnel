@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -35,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -61,6 +64,10 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        if (event instanceof CreateTableEvent) {
+            applyCreateTableEvent((CreateTableEvent) event);
+            return;
+        }
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         reOpenOutputFormat(event);
     }
@@ -72,6 +79,35 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     @Override
     public Optional<String> getPhysicalSinkTableIdentifier() {
         return sinkTablePath == null ? Optional.empty() : Optional.of(sinkTablePath.getFullName());
+    }
+
+    /**
+     * Creates the physical table for a runtime-discovered CDC table and refreshes the output format
+     * so subsequent rows can be written immediately.
+     */
+    protected void applyCreateTableEvent(CreateTableEvent event) throws IOException {
+        if (event.getChangeAfter() == null) {
+            throw new IOException("CreateTableEvent changeAfter cannot be null");
+        }
+        this.tableSchema = event.getChangeAfter().getTableSchema();
+        if (this.databaseTableSchema == null) {
+            this.databaseTableSchema = this.tableSchema;
+        }
+        if (isOpen) {
+            prepareCommit();
+        }
+        createPhysicalTableIfAbsent(event);
+        this.outputFormat =
+                new JdbcOutputFormatBuilder(
+                                dialect,
+                                connectionProvider,
+                                jdbcSinkConfig,
+                                tableSchema,
+                                databaseTableSchema)
+                        .build();
+        if (isOpen) {
+            this.outputFormat.open();
+        }
     }
 
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
@@ -95,5 +131,32 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                                 databaseTableSchema)
                         .build();
         this.outputFormat.open();
+    }
+
+    /**
+     * Uses the JDBC catalog abstraction so dialect-specific create-table SQL generation stays in
+     * one place.
+     */
+    protected void createPhysicalTableIfAbsent(CreateTableEvent event) throws IOException {
+        Optional<Catalog> catalogOptional = findCatalog();
+        if (!catalogOptional.isPresent()) {
+            throw new IOException(
+                    String.format(
+                            "JDBC sink dialect %s does not provide a catalog for runtime create-table",
+                            dialect.dialectName()));
+        }
+        try (Catalog catalog = catalogOptional.get()) {
+            catalog.open();
+            catalog.createTable(
+                    sinkTablePath, event.getChangeAfter(), true, jdbcSinkConfig.isCreateIndex());
+        } catch (Exception e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
+        }
+    }
+
+    /** Finds the JDBC catalog used by runtime table-creation handling. */
+    protected Optional<Catalog> findCatalog() {
+        return JdbcCatalogUtils.findCatalog(jdbcSinkConfig.getJdbcConnectionConfig(), dialect);
     }
 }

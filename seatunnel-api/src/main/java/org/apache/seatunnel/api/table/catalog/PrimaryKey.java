@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.api.table.catalog;
 
-import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -25,7 +24,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Data
-@AllArgsConstructor
 public class PrimaryKey implements Serializable {
     private static final long serialVersionUID = 1L;
 
@@ -36,10 +34,17 @@ public class PrimaryKey implements Serializable {
 
     private Boolean enableAutoId;
 
-    public PrimaryKey(String primaryKey, List<String> columnNames) {
+    /**
+     * Copies the columns so serializers can rebuild the collection during event deserialization.
+     */
+    public PrimaryKey(String primaryKey, List<String> columnNames, Boolean enableAutoId) {
         this.primaryKey = primaryKey;
-        this.columnNames = columnNames;
-        this.enableAutoId = null;
+        this.columnNames = columnNames == null ? null : new ArrayList<>(columnNames);
+        this.enableAutoId = enableAutoId;
+    }
+
+    public PrimaryKey(String primaryKey, List<String> columnNames) {
+        this(primaryKey, columnNames, null);
     }
 
     public static boolean isPrimaryKeyField(PrimaryKey primaryKey, String fieldName) {
