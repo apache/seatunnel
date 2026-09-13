@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.doris.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 
 import org.junit.jupiter.api.Assertions;
@@ -55,6 +56,16 @@ public class DorisSinkFactoryTest {
                 () ->
                         ConfigValidator.of(ReadonlyConfig.fromMap(config))
                                 .validate(new DorisSinkFactory().optionRule()));
+    }
+
+    @Test
+    public void testSinkDatetimeTimezoneIsRegisteredInOptionRule() {
+        OptionRule rule = new DorisSinkFactory().optionRule();
+
+        Assertions.assertTrue(
+                rule.getOptionalOptions().stream()
+                        .anyMatch(option -> option.key().equals("sink.datetime-timezone")),
+                "sink.datetime-timezone must be registered as an optional option");
     }
 
     private static Map<String, Object> baseConfig() {

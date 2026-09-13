@@ -38,6 +38,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.function.Function;
@@ -55,12 +56,26 @@ public class RowToJsonConverters implements Serializable {
 
     private final boolean serializeTimestampTzAsLocal;
 
+    /**
+     * Zone used when {@link #serializeTimestampTzAsLocal} is true to drop the offset and emit a
+     * wall-clock {@code LocalDateTime}. Defaults to {@link ZoneId#systemDefault()} for backward
+     * compatibility; callers that know the target session zone (for example the Doris sink session
+     * timezone) should pass it explicitly so the JVM default is not silently relied on.
+     */
+    private final ZoneId timestampTzZoneId;
+
     public RowToJsonConverters() {
-        this.serializeTimestampTzAsLocal = false;
+        this(false, ZoneId.systemDefault());
     }
 
     public RowToJsonConverters(boolean serializeTimestampTzAsLocal) {
+        this(serializeTimestampTzAsLocal, ZoneId.systemDefault());
+    }
+
+    public RowToJsonConverters(boolean serializeTimestampTzAsLocal, ZoneId timestampTzZoneId) {
         this.serializeTimestampTzAsLocal = serializeTimestampTzAsLocal;
+        this.timestampTzZoneId =
+                timestampTzZoneId == null ? ZoneId.systemDefault() : timestampTzZoneId;
     }
 
     public RowToJsonConverter createConverter(SeaTunnelDataType<?> type) {
@@ -200,10 +215,19 @@ public class RowToJsonConverters implements Serializable {
                     return new RowToJsonConverter() {
                         @Override
                         public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                            // Preserve the instant and convert to the target zone (the
+                            // Doris session zone when supplied, otherwise the JVM default
+                            // for backward compatibility). A plain toLocalDateTime() would
+                            // emit the wall-clock of the value's own offset (e.g. UTC),
+                            // which shifts TIMESTAMP_TZ columns by the timezone delta once
+                            // a sink such as Doris parses the wall-clock in its session
+                            // timezone (issue #10795).
                             return mapper.getNodeFactory()
                                     .textNode(
                                             ISO_LOCAL_DATE_TIME.format(
-                                                    ((OffsetDateTime) value).toLocalDateTime()));
+                                                    ((OffsetDateTime) value)
+                                                            .atZoneSameInstant(timestampTzZoneId)
+                                                            .toLocalDateTime()));
                         }
                     };
                 }
