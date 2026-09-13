@@ -122,6 +122,11 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                         MountableFile.forClasspathResource("jdbc_mysql_json_params.conf"),
                         "/tmp/jdbc_mysql_json_params.conf");
 
+                container.copyFileToContainer(
+                        MountableFile.forClasspathResource(
+                                "jdbc_mysql_json_params_with_default_value.conf"),
+                        "/tmp/jdbc_mysql_json_params_with_default_value.conf");
+
                 Assertions.assertEquals(
                         0,
                         result.getExitCode(),
@@ -195,6 +200,25 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                 result.getExitCode(),
                 "plain json or nested json or nested array value from -i variables assertion failed:\n"
                         + result.getStderr());
+    }
+
+    @TestTemplate
+    public void testJsonDefaultValue(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> variables = new ArrayList<>();
+        variables.add("-c /tmp/jdbc_mysql_json_params_with_default_value.conf");
+        variables.add("-i mysql_host=" + MYSQL_HOST);
+        variables.add("-i mysql_port=3306");
+        variables.add("-i mysql_db=" + MYSQL_DATABASE);
+        variables.add("-i mysql_password=" + MYSQL_PASSWORD);
+
+        Container.ExecResult result =
+                container.executeBaseCommand(variables.toArray(new String[0]));
+
+        Assertions.assertEquals(
+                0,
+                result.getExitCode(),
+                " json or array from default values assertion failed:\n" + result.getStderr());
     }
 
     private void initMysqlData() throws Exception {
