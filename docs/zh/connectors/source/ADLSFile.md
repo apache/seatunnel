@@ -1,6 +1,4 @@
----
-sidebar_position: 1
----
+import ChangeLog from '../changelog/connector-file-adls.md';
 
 # ADLSFile
 
@@ -95,3 +93,5 @@ sink {
 ## 变更日志
 
 ADLS Gen2 文件 Source 初始文档。
+
+<ChangeLog />

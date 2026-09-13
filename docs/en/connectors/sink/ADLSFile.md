@@ -1,6 +1,4 @@
----
-sidebar_position: 1
----
+import ChangeLog from '../changelog/connector-file-adls.md';
 
 # ADLSFile
 
@@ -140,3 +138,4 @@ sink {
 ## Changelog
 
 Initial ADLS Gen2 file sink documentation.
+<ChangeLog />
