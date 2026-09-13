@@ -72,6 +72,7 @@ import com.hazelcast.internal.json.JsonValue;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.internal.util.JsonUtil;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.InternalCompletableFuture;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
 
@@ -82,6 +83,7 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -91,6 +93,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
@@ -1398,31 +1401,91 @@ public abstract class BaseService {
         voidPassiveCompletableFuture.join();
     }
 
+    /**
+     * Collects one health-metrics entry per cluster member for the system-monitoring-information
+     * REST API.
+     *
+     * <p>Requests are dispatched to every member before any of them is awaited, and all responses
+     * are awaited against a single shared deadline, so the total latency of this call is bounded by
+     * {@code seatunnel.engine.health-metrics-timeout-seconds} instead of growing with the member
+     * count. A member that misses the deadline (or whose request/response fails) is still reported
+     * with its address and an {@code error} marker, so consumers can tell which member is missing
+     * and why instead of receiving an anonymous empty object.
+     */
     protected JsonArray getSystemMonitoringInformationJsonValues() {
         Cluster cluster = nodeEngine.getHazelcastInstance().getCluster();
 
         Set<Member> members = cluster.getMembers();
-        JsonArray jsonValues =
-                members.stream()
-                        .map(
-                                member -> {
-                                    Address address = member.getAddress();
-                                    String input = null;
-                                    try {
-                                        input =
-                                                (String)
-                                                        NodeEngineUtil.sendOperationToMemberNode(
-                                                                        nodeEngine,
-                                                                        new GetClusterHealthMetricsOperation(),
-                                                                        address)
-                                                                .get();
-                                    } catch (InterruptedException | ExecutionException e) {
+        Map<Address, InternalCompletableFuture<Object>> futures = new LinkedHashMap<>();
+        for (Member member : members) {
+            Address address = member.getAddress();
+            try {
+                futures.put(
+                        address,
+                        NodeEngineUtil.sendOperationToMemberNode(
+                                nodeEngine, new GetClusterHealthMetricsOperation(), address));
+            } catch (Exception e) {
+                log.error("Failed to send cluster health metrics request to {}", address, e);
+                futures.put(address, null);
+            }
+        }
+        return collectHealthMetrics(futures);
+    }
 
-                                        log.error("Failed to get cluster health metrics", e);
-                                    }
-                                    return parseSystemMonitoringMetrics(input, address);
-                                })
-                        .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    int getHealthMetricsTimeoutSeconds() {
+        return getSeaTunnelServer(false)
+                .getSeaTunnelConfig()
+                .getEngineConfig()
+                .getHealthMetricsTimeoutSeconds();
+    }
+
+    private JsonObject unfinishedMember(Address address, String reason) {
+        JsonObject memberInfo = new JsonObject();
+        if (address != null) {
+            memberInfo.add("host", address.getHost());
+            memberInfo.add("port", address.getPort());
+        }
+        memberInfo.add("error", reason);
+        return memberInfo;
+    }
+
+    JsonArray collectHealthMetrics(Map<Address, InternalCompletableFuture<Object>> futures) {
+        int timeoutSeconds = getHealthMetricsTimeoutSeconds();
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(timeoutSeconds);
+        JsonArray jsonValues = new JsonArray();
+        for (Map.Entry<Address, InternalCompletableFuture<Object>> entry : futures.entrySet()) {
+            Address address = entry.getKey();
+            InternalCompletableFuture<Object> future = entry.getValue();
+            if (future == null) {
+                jsonValues.add(unfinishedMember(address, "dispatch-failure"));
+                continue;
+            }
+            // clamp to a positive remaining time so already-completed futures are still collected
+            // once the shared deadline has passed
+            long remainingNanos = Math.max(1L, deadlineNanos - System.nanoTime());
+            try {
+                String input = (String) future.get(remainingNanos, TimeUnit.NANOSECONDS);
+                jsonValues.add(parseSystemMonitoringMetrics(input, address));
+            } catch (TimeoutException e) {
+                log.warn(
+                        "Timeout after {}s waiting for health metrics from {}",
+                        timeoutSeconds,
+                        address);
+                // cancel() only releases the local future; it cannot stop the remote operation
+                future.cancel(false);
+                jsonValues.add(unfinishedMember(address, "timeout"));
+            } catch (InterruptedException e) {
+                future.cancel(false);
+                Thread.currentThread().interrupt();
+                log.warn(
+                        "Interrupted while waiting for health metrics from {}, stop waiting for the remaining members",
+                        address);
+                break;
+            } catch (ExecutionException e) {
+                log.error("Failed to get cluster health metrics from {}", address, e);
+                jsonValues.add(unfinishedMember(address, "execution-failure"));
+            }
+        }
         return jsonValues;
     }
 
