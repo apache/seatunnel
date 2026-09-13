@@ -59,7 +59,10 @@ public final class MultiTableFailureHelper {
         if (fallback == null) {
             return primary;
         }
-        return ReadonlyConfig.fromConfig(primary.toConfig().withFallback(fallback.toConfig()));
+        Map<String, Object> merged = new HashMap<>();
+        merged.putAll(fallback.getSourceMap());
+        merged.putAll(primary.getSourceMap());
+        return ReadonlyConfig.fromMap(merged);
     }
 
     public static ReadonlyConfig withMultiTableFailurePolicy(
