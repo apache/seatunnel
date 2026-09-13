@@ -37,6 +37,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.PipelineCheckpointScheduler;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.SharedCheckpointScheduler;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -93,6 +95,14 @@ public class CheckpointManager {
 
     private final Serializer serializer = new ProtoStuffSerializer();
 
+    /**
+     * The member-wide scheduler that this job's coordinators lease their timers from.
+     *
+     * <p>Normally the one owned by {@link SeaTunnelEngineContext}. A private instance is used only
+     * when no context is available, which happens for managers built directly in tests.
+     */
+    private final SharedCheckpointScheduler checkpointScheduler;
+
     public CheckpointManager(
             long jobId,
             boolean isRestoreJob,
@@ -113,6 +123,9 @@ public class CheckpointManager {
         this.checkpointStorage = checkpointStorage;
         this.checkpointConfig = checkpointConfig;
         this.checkpointMonitorService = checkpointMonitorService;
+        SharedCheckpointScheduler sharedScheduler = engineContext.getCheckpointScheduler();
+        this.checkpointScheduler =
+                sharedScheduler != null ? sharedScheduler : new SharedCheckpointScheduler();
         CounterStateStore<String> checkpointCounterStore =
                 engineContext.getStateStores().checkpointCounterStore();
 
@@ -166,6 +179,20 @@ public class CheckpointManager {
                         .collect(
                                 Collectors.toMap(
                                         CheckpointCoordinator::getPipelineId, Function.identity()));
+    }
+
+    /**
+     * Leases a checkpoint timer for one pipeline of this job.
+     *
+     * <p>Called by {@link CheckpointCoordinator} during construction. The lease borrows this
+     * member's shared timer threads, so the thread cost does not grow with the number of active
+     * pipelines, while cancellation stays scoped to the leasing pipeline.
+     *
+     * @param pipelineId the pipeline the coordinator drives
+     * @return a timer lease owned by that coordinator
+     */
+    PipelineCheckpointScheduler leaseCheckpointScheduler(int pipelineId) {
+        return checkpointScheduler.lease(jobId, pipelineId);
     }
 
     private PipelineState getLatestCheckpointStateByType(

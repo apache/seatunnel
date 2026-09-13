@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.SharedCheckpointScheduler;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
@@ -70,6 +72,28 @@ import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE
 
 public class CheckpointCoordinatorTest
         extends AbstractSeaTunnelServerTest<CheckpointCoordinatorTest> {
+
+    /** Stands in for the member-wide scheduler that {@code SeaTunnelEngineContext} owns. */
+    private static final SharedCheckpointScheduler TEST_CHECKPOINT_SCHEDULER =
+            new SharedCheckpointScheduler();
+
+    @AfterAll
+    static void closeTestCheckpointScheduler() {
+        TEST_CHECKPOINT_SCHEDULER.close();
+    }
+
+    /**
+     * A mocked manager that still hands out real timer leases, so coordinators built on it can
+     * schedule and cancel checkpoints as they do in production.
+     */
+    private static CheckpointManager mockCheckpointManager() {
+        CheckpointManager manager = Mockito.mock(CheckpointManager.class);
+        Mockito.when(manager.leaseCheckpointScheduler(Mockito.anyInt()))
+                .thenAnswer(
+                        invocation ->
+                                TEST_CHECKPOINT_SCHEDULER.lease(1L, invocation.getArgument(0)));
+        return manager;
+    }
 
     @Test
     void testACKNotExistPendingCheckpoint() {
@@ -417,7 +441,7 @@ public class CheckpointCoordinatorTest
             String readyToCloseKey = "checkpoint_state_1_1_ready_to_close";
             realIMap.remove(readyToCloseKey);
 
-            CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+            CheckpointManager mockManager = mockCheckpointManager();
             CheckpointStorage mockStorage = Mockito.mock(CheckpointStorage.class);
             CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
 
@@ -545,7 +569,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -608,7 +632,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -658,7 +682,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -760,7 +784,7 @@ public class CheckpointCoordinatorTest
 
             CheckpointCoordinator coordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -844,7 +868,7 @@ public class CheckpointCoordinatorTest
             // Restore from persisted IMap state and verify merged set is fully recoverable.
             CheckpointCoordinator restoredCoordinator =
                     new CheckpointCoordinator(
-                            Mockito.mock(CheckpointManager.class),
+                            mockCheckpointManager(),
                             Mockito.mock(CheckpointStorage.class),
                             checkpointConfig,
                             1L,
@@ -898,7 +922,7 @@ public class CheckpointCoordinatorTest
                         .startingSubtasks(Collections.singleton(taskLocation))
                         .build();
 
-        CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+        CheckpointManager mockManager = mockCheckpointManager();
         CheckpointStorage mockStorage = Mockito.mock(CheckpointStorage.class);
         CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
         @SuppressWarnings("unchecked")
