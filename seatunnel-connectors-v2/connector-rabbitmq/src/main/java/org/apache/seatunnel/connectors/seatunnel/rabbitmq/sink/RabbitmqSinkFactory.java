@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 
 import com.google.auto.service.AutoService;
@@ -44,6 +45,12 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.VIRTUAL_HOST,
                         RabbitmqSinkOptions.QUEUE_NAME)
                 .bundled(RabbitmqSinkOptions.USERNAME, RabbitmqSinkOptions.PASSWORD)
+                .optional(RabbitmqSinkOptions.FORMAT)
+                .conditional(
+                        RabbitmqSinkOptions.FORMAT,
+                        RabbitmqMessageFormat.PROTOBUF,
+                        RabbitmqSinkOptions.PROTOBUF_SCHEMA,
+                        RabbitmqSinkOptions.PROTOBUF_MESSAGE_NAME)
                 .optional(
                         RabbitmqSinkOptions.URL,
                         RabbitmqSinkOptions.ROUTING_KEY,
