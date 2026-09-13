@@ -109,4 +109,5 @@ The "Master" section displays system monitoring information for master nodes. Us
 - [Runtime Execution Graph](./runtime-execution-graph.md)
 - [Live Metrics Chart](./live-metrics-chart.md)
 - [Job Lifecycle API](./rest-api-job-lifecycle.md)
+- [Task Failure History Design](./task-failure-history.md)
 - [Security](./security.md)
