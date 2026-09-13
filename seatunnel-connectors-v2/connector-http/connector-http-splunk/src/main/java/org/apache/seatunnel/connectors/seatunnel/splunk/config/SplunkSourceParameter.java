@@ -46,12 +46,7 @@ public class SplunkSourceParameter extends HttpParameter {
         // Defensive default: this connector's response parser (SplunkSourceReader) only handles
         // JSON. Don't override if the user explicitly set something else in `params`.
         this.params.putIfAbsent("output_mode", "json");
-
-        if (pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM) != null) {
-            this.setKeepParamsAsForm(pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM));
-        } else {
-            this.setKeepParamsAsForm(true);
-        }
+        this.setKeepParamsAsForm(pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM));
 
         this.setEnableMultilines(true);
     }

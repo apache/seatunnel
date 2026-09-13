@@ -90,4 +90,40 @@ public class SplunkSourceFactoryTest {
                 "search index=_internal | head 10", parameter.getParams().get("search"));
         Assertions.assertTrue(parameter.isKeepParamsAsForm());
     }
+
+    @Test
+    public void testHttpClientPayloadCapture() throws Exception {
+        try (okhttp3.mockwebserver.MockWebServer server =
+                new okhttp3.mockwebserver.MockWebServer()) {
+            server.enqueue(
+                    new okhttp3.mockwebserver.MockResponse()
+                            .setBody("{\"preview\": false, \"result\": {\"test\": \"data\"}}")
+                            .setResponseCode(200));
+            server.start();
+
+            String baseUrl = server.url("/services/search/v2/jobs/export").toString();
+
+            HashMap<String, Object> configMap = new HashMap<>();
+            configMap.put("url", baseUrl);
+            HashMap<String, Object> params = new HashMap<>();
+            params.put("search", "search index=_internal | head 10");
+            configMap.put("params", params);
+
+            ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+            SplunkSourceParameter parameter = new SplunkSourceParameter();
+            parameter.buildWithConfig(config, "Splunk test-auth-token");
+
+            okhttp3.mockwebserver.RecordedRequest recordedRequest = server.takeRequest();
+
+            Assertions.assertEquals("POST", recordedRequest.getMethod());
+            Assertions.assertEquals(
+                    "application/x-www-form-urlencoded", recordedRequest.getHeader("Content-Type"));
+            Assertions.assertEquals(
+                    "Splunk test-auth-token", recordedRequest.getHeader("Authorization"));
+
+            String requestBody = recordedRequest.getBody().readUtf8();
+            Assertions.assertTrue(requestBody.contains("search="));
+            Assertions.assertTrue(requestBody.contains("output_mode=json"));
+        }
+    }
 }
