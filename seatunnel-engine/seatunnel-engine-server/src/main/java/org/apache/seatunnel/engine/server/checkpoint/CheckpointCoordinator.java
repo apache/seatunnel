@@ -1599,13 +1599,15 @@ public class CheckpointCoordinator {
         }
         try {
             notification.run();
-        } catch (Throwable t) {
+        } catch (Exception e) {
+            // Catch Exception (not Throwable) so Errors such as OutOfMemoryError still propagate,
+            // matching WALWorkHandler.onEvent()'s deliberate Exception-only boundary.
             LOG.error(
                     "Checkpoint monitor {} failed for job {}, pipeline {}; continuing coordinator bookkeeping",
                     action,
                     jobId,
                     pipelineId,
-                    t);
+                    e);
         }
     }
 

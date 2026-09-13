@@ -240,12 +240,14 @@ public class CheckpointManager {
         }
         try {
             notification.run();
-        } catch (Throwable t) {
+        } catch (Exception e) {
+            // Catch Exception (not Throwable) so Errors such as OutOfMemoryError still propagate,
+            // matching WALWorkHandler.onEvent()'s deliberate Exception-only boundary.
             log.error(
                     "Checkpoint monitor {} failed for job {}; continuing checkpoint-manager bookkeeping",
                     action,
                     jobId,
-                    t);
+                    e);
         }
     }
 
