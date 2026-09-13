@@ -10,6 +10,21 @@
 - [Spark 引擎快速开始](../getting-started/locally/quick-start-spark.md)
 - [作业配置指南](../getting-started/job-configuration-guide.md)
 
+SeaTunnel 提供独立的 Spark 3 启动器。现有 Spark 3.3 部署可以继续使用原有运行时，
+Spark 3.5 部署则可以使用 Spark 3.5.8 启动器：
+
+- `seatunnel-spark-3-starter.jar` 用于 Spark 3.3.x
+- `seatunnel-spark-3.5-starter.jar` 用于 Spark 3.5.x
+
+现有 Spark 3.4 部署应继续使用原来的 `seatunnel-spark-3-starter.jar` 和
+`start-seatunnel-spark-3-connector-v2` 启动脚本。本次变更不新增独立的 Spark 3.4
+启动器，也不扩展其兼容性验证范围。
+
+Spark 3.5 启动器复用了基于 Spark 3.3 编译的转换层。行编码器和批量写入测试在
+Spark 3.5.8 上验证了部分路径，但不能证明所有 Catalyst 或 DataSource V2 路径均兼容。
+其他二进制兼容性问题可能仅在目标运行时执行相关路径时暴露。升级前请验证所用连接器
+和部署模式；Spark 3.5 的专项微批流处理测试仍待补充。
+
 ## 什么时候选择 Spark
 
 以下场景通常更适合使用 Spark：
@@ -48,6 +63,8 @@ Spark on YARN 客户端模式：
 ```shell
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
+
+使用 Spark 3.5 时，请使用 `start-seatunnel-spark-3.5-connector-v2.sh`，其他参数保持不变。
 
 ## 最小示例作业
 

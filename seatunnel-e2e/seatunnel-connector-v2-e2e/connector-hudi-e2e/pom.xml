@@ -28,6 +28,8 @@
     <properties>
         <testcontainer.version>1.19.1</testcontainer.version>
         <minio.version>8.5.6</minio.version>
+        <spark35.hadoop-aws.version>3.3.4</spark35.hadoop-aws.version>
+        <spark35.aws-java-sdk-bundle.version>1.12.262</spark35.aws-java-sdk-bundle.version>
     </properties>
 
     <dependencyManagement>
@@ -106,4 +108,41 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>stage-spark35-s3-dependencies</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.hadoop</groupId>
+                                    <artifactId>hadoop-aws</artifactId>
+                                    <version>${spark35.hadoop-aws.version}</version>
+                                    <destFileName>spark35-hadoop-aws.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.amazonaws</groupId>
+                                    <artifactId>aws-java-sdk-bundle</artifactId>
+                                    <version>${spark35.aws-java-sdk-bundle.version}</version>
+                                    <destFileName>spark35-aws-java-sdk-bundle.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
