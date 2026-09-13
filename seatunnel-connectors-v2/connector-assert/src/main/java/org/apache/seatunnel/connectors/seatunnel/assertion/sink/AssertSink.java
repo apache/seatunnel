@@ -59,9 +59,7 @@ public class AssertSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     public AssertSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
-        if (!pluginConfig.getOptional(RULES).isPresent()) {
-            Throwables.throwIfUnchecked(new ConfigException.Missing(RULES.key()));
-        }
+
         assertFieldRules = new ConcurrentHashMap<>();
         assertRowRules = new ConcurrentHashMap<>();
         assertCatalogTableRule = new ConcurrentHashMap<>();
