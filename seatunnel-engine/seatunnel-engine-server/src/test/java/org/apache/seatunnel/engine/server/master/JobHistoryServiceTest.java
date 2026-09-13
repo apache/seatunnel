@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -33,6 +34,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 import java.util.List;
@@ -146,6 +148,45 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                         .getJobHistoryService()
                                                         .getJobDetailStateAsString(JOB_3)
                                                         .contains("FINISHED")));
+    }
+
+    @Test
+    void testHistoryReaderUsesFallbackWithoutRecreatingMissingDistributedState() {
+        String stateKey = "missing-history-state-" + System.nanoTime();
+        IMap<Object, Object> runningJobStateIMap = instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        runningJobStateIMap.remove(stateKey);
+
+        JobStatus fallbackState =
+                server.getCoordinatorService()
+                        .getJobHistoryService()
+                        .getRunningStateOrFallback(stateKey, JobStatus.RUNNING, JobStatus.class);
+
+        Assertions.assertEquals(JobStatus.RUNNING, fallbackState);
+        Assertions.assertFalse(runningJobStateIMap.containsKey(stateKey));
+        runningJobStateIMap.remove(stateKey);
+    }
+
+    @Test
+    void testHistoryReaderPreservesDistributedStateAndRejectsInvalidType() {
+        String stateKey = "existing-history-state-" + System.nanoTime();
+        IMap<Object, Object> runningJobStateIMap = instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        JobHistoryService historyService = server.getCoordinatorService().getJobHistoryService();
+        try {
+            runningJobStateIMap.put(stateKey, JobStatus.CANCELED);
+            Assertions.assertEquals(
+                    JobStatus.CANCELED,
+                    historyService.getRunningStateOrFallback(
+                            stateKey, JobStatus.RUNNING, JobStatus.class));
+
+            runningJobStateIMap.put(stateKey, "invalid-state");
+            Assertions.assertThrows(
+                    IllegalStateException.class,
+                    () ->
+                            historyService.getRunningStateOrFallback(
+                                    stateKey, JobStatus.RUNNING, JobStatus.class));
+        } finally {
+            runningJobStateIMap.remove(stateKey);
+        }
     }
 
     private void startJob(Long jobid, String path) {

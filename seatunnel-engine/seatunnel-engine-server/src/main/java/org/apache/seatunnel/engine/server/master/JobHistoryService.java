@@ -283,8 +283,10 @@ public class JobHistoryService {
                                     PipelineLocation pipelineLocation =
                                             pipeline.getPipelineLocation();
                                     PipelineStatus pipelineState =
-                                            (PipelineStatus)
-                                                    runningJobStateIMap.get(pipelineLocation);
+                                            getRunningStateOrFallback(
+                                                    pipelineLocation,
+                                                    pipeline.getPipelineState(),
+                                                    PipelineStatus.class);
                                     Map<TaskGroupLocation, ExecutionState> taskStateMap =
                                             new HashMap<>();
                                     pipeline.getCoordinatorVertexList()
@@ -294,9 +296,11 @@ public class JobHistoryService {
                                                                 coordinator.getTaskGroupLocation();
                                                         taskStateMap.put(
                                                                 taskGroupLocation,
-                                                                (ExecutionState)
-                                                                        runningJobStateIMap.get(
-                                                                                taskGroupLocation));
+                                                                getRunningStateOrFallback(
+                                                                        taskGroupLocation,
+                                                                        coordinator
+                                                                                .getExecutionState(),
+                                                                        ExecutionState.class));
                                                     });
                                     pipeline.getPhysicalVertexList()
                                             .forEach(
@@ -305,9 +309,10 @@ public class JobHistoryService {
                                                                 task.getTaskGroupLocation();
                                                         taskStateMap.put(
                                                                 taskGroupLocation,
-                                                                (ExecutionState)
-                                                                        runningJobStateIMap.get(
-                                                                                taskGroupLocation));
+                                                                getRunningStateOrFallback(
+                                                                        taskGroupLocation,
+                                                                        task.getExecutionState(),
+                                                                        ExecutionState.class));
                                                     });
 
                                     PipelineStateData pipelineStateData =
@@ -319,9 +324,7 @@ public class JobHistoryService {
             }
         }
         JobStatus jobStatus =
-                Optional.ofNullable(runningJobStateIMap.get(jobId))
-                        .map(status -> ((JobStatus) status))
-                        .orElse(jobMaster.getJobStatus());
+                getRunningStateOrFallback(jobId, jobMaster.getJobStatus(), JobStatus.class);
         String jobName = jobMaster.getJobImmutableInformation().getJobName();
         long submitTime = jobMaster.getJobImmutableInformation().getCreateTime();
         Long startTime = jobMaster.getStateTimestamp(JobStatus.SCHEDULED);
@@ -338,6 +341,30 @@ public class JobHistoryService {
                 finishTime,
                 pipelineStateMapperMap,
                 null);
+    }
+
+    /**
+     * Reads one shared runtime state and falls back to the owning runtime object's local state.
+     *
+     * <p>History queries are intentionally read-only. They must not recreate entries after terminal
+     * cleanup or overwrite a concurrent state transition.
+     */
+    <T> T getRunningStateOrFallback(Object stateKey, T fallbackState, Class<T> stateType) {
+        Object distributedState = runningJobStateIMap.get(stateKey);
+        if (stateType.isInstance(distributedState)) {
+            return stateType.cast(distributedState);
+        }
+        if (distributedState != null) {
+            throw new IllegalStateException(
+                    String.format(
+                            "State entry %s has unexpected type %s, expected %s",
+                            stateKey, distributedState.getClass().getName(), stateType.getName()));
+        }
+        logger.warning(
+                String.format(
+                        "State entry %s is missing from the distributed map, using local state %s for this history response",
+                        stateKey, fallbackState));
+        return fallbackState;
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
