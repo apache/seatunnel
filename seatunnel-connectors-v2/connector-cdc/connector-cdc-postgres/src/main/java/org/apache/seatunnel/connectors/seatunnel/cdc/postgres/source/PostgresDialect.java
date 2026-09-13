@@ -132,9 +132,13 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                     postgresConnection.readReplicaIdentityInfo(tableId);
             if (requireReplicaIdentityFull
                     && !ServerInfo.ReplicaIdentity.FULL.equals(replicaIdentity)) {
+                // Name both remediations: this also fires on enumerator restore, where the job
+                // config is already baked into the persisted DAG and can only be changed by
+                // cancelling and resubmitting, so the message must be actionable on its own.
                 throw new SeaTunnelException(
                         String.format(
-                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL;",
+                                "Table %s does not have a full replica identity, please execute: ALTER TABLE %s REPLICA IDENTITY FULL; "
+                                        + "or set require-replica-identity-full = false to accept UPDATE/DELETE events without the previous row state.",
                                 tableId, tableId));
             }
         }
