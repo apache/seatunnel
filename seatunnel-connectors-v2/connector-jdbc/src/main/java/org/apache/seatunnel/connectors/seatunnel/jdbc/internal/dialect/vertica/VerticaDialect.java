@@ -111,20 +111,27 @@ public class VerticaDialect implements JdbcDialect {
                         .map(fieldName -> "SOURCE." + quoteIdentifier(fieldName))
                         .collect(Collectors.joining(", "));
 
+        // When there are no non-unique-key fields to update (e.g. all fields are unique keys),
+        // the "WHEN MATCHED THEN UPDATE SET" clause must be omitted, otherwise the database reports
+        // a syntax error because "UPDATE SET" would have an empty body.
+        String matchedClause =
+                StringUtils.isNotBlank(updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s", updateSetClause)
+                        : "";
+
         String upsertSQL =
                 String.format(
                         " MERGE INTO %s.%s TARGET"
                                 + " USING (%s) SOURCE"
                                 + " ON (%s) "
-                                + " WHEN MATCHED THEN"
-                                + " UPDATE SET %s"
+                                + "%s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
                         quoteDatabaseIdentifier(database),
                         quoteIdentifier(tableName),
                         usingClause,
                         onConditions,
-                        updateSetClause,
+                        matchedClause,
                         insertFields,
                         insertValues);
 
