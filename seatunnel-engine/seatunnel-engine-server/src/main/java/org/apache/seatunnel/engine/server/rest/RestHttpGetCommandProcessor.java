@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
 import org.apache.seatunnel.engine.server.rest.service.OptionRulesService;
 import org.apache.seatunnel.engine.server.rest.service.OverviewService;
+import org.apache.seatunnel.engine.server.rest.service.RunningJobSlotUsageService;
 import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
 import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
 import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
@@ -71,6 +72,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTI
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SLOT_USAGE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SUMMARY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
@@ -93,6 +95,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private RunningThreadService runningThreadService;
     private LogService logService;
     private TraceTaskMappingService traceTaskMappingService;
+    private RunningJobSlotUsageService runningJobSlotUsageService;
     private OptionRulesService optionRulesService;
     private WorkerResourceService workerResourceService;
 
@@ -107,6 +110,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
         this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
+        this.runningJobSlotUsageService = new RunningJobSlotUsageService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
         this.workerResourceService = new WorkerResourceService(nodeEngine);
     }
@@ -126,6 +130,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
         this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
+        this.runningJobSlotUsageService = new RunningJobSlotUsageService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
         this.workerResourceService = new WorkerResourceService(nodeEngine);
     }
@@ -140,6 +145,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         try {
             if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS_SUMMARY)) {
                 handleRunningJobsSummaryInfo(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS_SLOT_USAGE)) {
+                handleRunningJobsSlotUsage(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_FINISHED_JOBS)) {
@@ -248,6 +255,16 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void handleRunningJobsSummaryInfo(HttpGetCommand command) {
         this.prepareResponse(command, jobInfoService.getRunningJobsSummaryJson());
+    }
+
+    private void handleRunningJobsSlotUsage(HttpGetCommand command) {
+        // The service returns the JSON as a String so the worker-side forwarding operation can
+        // relay it unchanged. Hazelcast's prepareResponse(HttpCommand, Object) serves a String as
+        // text/plain, so parse it into a JsonArray here to keep the legacy endpoint on
+        // application/json like the other running-jobs endpoints.
+        this.prepareResponse(
+                command,
+                Json.parse(runningJobSlotUsageService.getRunningJobSlotUsageJson()).asArray());
     }
 
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
