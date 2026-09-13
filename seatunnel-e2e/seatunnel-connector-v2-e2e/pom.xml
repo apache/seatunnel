@@ -51,6 +51,7 @@
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
+        <module>connector-tiktok-ads-e2e</module>
         <module>connector-rabbitmq-e2e</module>
         <module>connector-kafka-e2e</module>
         <module>connector-doris-e2e</module>

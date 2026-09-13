@@ -30,6 +30,8 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class GraphQLSourceFactory extends HttpSourceFactory {
     @Override
@@ -46,7 +48,7 @@ public class GraphQLSourceFactory extends HttpSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(GraphQLSourceOptions.QUERY)
+                .required(GraphQLSourceOptions.QUERY, notBlank(GraphQLSourceOptions.QUERY))
                 .optional(GraphQLSourceOptions.VARIABLES)
                 .optional(GraphQLSourceOptions.ENABLE_SUBSCRIPTION)
                 .optional(GraphQLSourceOptions.TIMEOUT)

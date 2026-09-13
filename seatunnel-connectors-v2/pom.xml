@@ -75,6 +75,8 @@
         <module>connector-google-pubsub</module>
         <module>connector-azure-event-hubs</module>
         <module>connector-google-ads</module>
+        <module>connector-facebook-ads</module>
+        <module>connector-tiktok-ads</module>
         <module>connector-azure-queue-storage</module>
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>
