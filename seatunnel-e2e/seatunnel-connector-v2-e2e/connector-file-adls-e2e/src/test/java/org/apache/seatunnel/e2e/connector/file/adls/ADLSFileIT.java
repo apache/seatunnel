@@ -108,33 +108,19 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testPreserveSourceFilename(TestContainer container) throws Exception {
+    public void testFileRoundTrip(TestContainer container) throws Exception {
         String runId = container.identifier().name().toLowerCase(Locale.ROOT).replace('_', '-');
-        List<String> writeVariables = Arrays.asList("RUN_ID=" + runId);
+        List<String> variables = Arrays.asList("RUN_ID=" + runId);
 
         Container.ExecResult writeResult =
-                container.executeJob("/adls/adls_preserve_source_filename.conf", writeVariables);
+                container.executeJob("/adls/adls_file_to_file.conf", variables);
         Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
 
         Path output = new Path(testRoot + "/output/" + runId);
-        Assertions.assertTrue(fileSystem.isFile(new Path(output, "orders.csv")));
-        Assertions.assertTrue(fileSystem.isFile(new Path(output, "customers.csv")));
+        Assertions.assertTrue(fileSystem.exists(output));
 
-        assertPreservedFile(container, runId, "orders.csv", 1, 2);
-        assertPreservedFile(container, runId, "customers.csv", 3, 4);
-    }
-
-    private void assertPreservedFile(
-            TestContainer container, String runId, String fileName, int minId, int maxId)
-            throws IOException, InterruptedException {
-        List<String> variables =
-                Arrays.asList(
-                        "RUN_ID=" + runId,
-                        "FILE_NAME=" + fileName,
-                        "MIN_ID=" + minId,
-                        "MAX_ID=" + maxId);
         Container.ExecResult readResult =
-                container.executeJob("/adls/adls_preserved_file_to_assert.conf", variables);
+                container.executeJob("/adls/adls_file_to_assert.conf", variables);
         Assertions.assertEquals(0, readResult.getExitCode(), readResult.getStderr());
     }
 
@@ -188,7 +174,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
             }
         }
         String base = "/".equals(normalized) ? "" : normalized;
-        return base + "/preserve-source-filename-e2e";
+        return base + "/file-round-trip-e2e";
     }
 
     private static String requiredEnvironment(String name) {

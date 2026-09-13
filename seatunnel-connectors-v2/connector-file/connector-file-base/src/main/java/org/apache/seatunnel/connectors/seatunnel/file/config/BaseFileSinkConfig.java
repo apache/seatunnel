@@ -41,7 +41,6 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     protected String path;
     protected String fileNameExpression;
     protected boolean customFilename;
-    protected boolean preserveSourceFilename;
     protected boolean singleFileMode;
     protected boolean createEmptyFileWhenNoData;
     protected FileFormat fileFormat;
@@ -63,8 +62,6 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         }
         this.fileNameExpression = pluginConfig.get(FileBaseSinkOptions.FILE_NAME_EXPRESSION);
         this.customFilename = pluginConfig.get(FileBaseSinkOptions.CUSTOM_FILENAME);
-        this.preserveSourceFilename =
-                pluginConfig.get(FileBaseSinkOptions.PRESERVE_SOURCE_FILENAME);
         this.singleFileMode = pluginConfig.get(FileBaseSinkOptions.SINGLE_FILE_MODE);
         this.createEmptyFileWhenNoData =
                 pluginConfig.get(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA);

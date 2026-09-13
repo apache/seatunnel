@@ -48,7 +48,6 @@ Flink 时，集群需要提供兼容的 Hadoop runtime。本连接器使用 Hado
 | custom_filename | boolean | 否 | `false` | 是否使用自定义文件名。 |
 | file_name_expression | string | 否 | `${transactionId}` | 自定义文件名表达式。 |
 | filename_extension | string | 否 | - | 覆盖默认文件扩展名。 |
-| preserve_source_filename | boolean | 否 | `false` | 保留上游文件 Source 的原始基本文件名。要求批处理、关闭 checkpoint、Sink 并行度为 `1`，支持一个或多个输入文件。 |
 | have_partition | boolean | 否 | `false` | 是否写入分区目录。 |
 | partition_by | array | 否 | - | 用于生成分区目录的字段。 |
 | sink_columns | array | 否 | 全部字段 | 要写入的字段。 |
@@ -58,16 +57,6 @@ Flink 时，集群需要提供兼容的 Hadoop runtime。本连接器使用 Hado
 | schema_save_mode | enum | 否 | `CREATE_SCHEMA_WHEN_NOT_EXIST` | 目标 Schema 处理模式。 |
 | data_save_mode | enum | 否 | `APPEND_DATA` | `APPEND_DATA`、`DROP_DATA` 或 `ERROR_WHEN_DATA_EXISTS`。 |
 | common-options | object | 否 | - | 参见 [Sink Common Options](../common-options/sink-common-options.md)。 |
-
-### 保留源文件名
-
-设置 `preserve_source_filename = true` 后，每个输入文件会使用原始基本文件名写入目标目录。
-单文件任务可以指定一个文件，多文件任务可以指定目录并配合 `file_filter_pattern`。Sink 并行度
-必须为 `1`。例如 `orders.csv` 和 `customers.csv` 会分别写成同名文件。
-
-该选项不能与 `custom_filename`、`single_file_mode`、`filename_extension` 或
-`create_empty_file_when_no_data` 同时使用。不同源路径存在相同基本文件名时，任务会失败，避免
-数据被意外合并。
 
 ## 示例
 
@@ -96,7 +85,6 @@ sink {
     auth_type = "SHARED_KEY"
     account_key = ${?ADLS_ACCOUNT_KEY}
     file_format_type = "csv"
-    preserve_source_filename = true
   }
 }
 ```

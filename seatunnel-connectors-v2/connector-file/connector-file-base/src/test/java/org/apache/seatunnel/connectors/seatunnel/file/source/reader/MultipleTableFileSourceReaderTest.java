@@ -54,7 +54,7 @@ class MultipleTableFileSourceReaderTest {
         String tableId = tableId("json_table");
         FileSourceSplit split = new FileSourceSplit(tableId, source);
         Collector<SeaTunnelRow> output = collector();
-        Mockito.doThrow(failure).when(readStrategy).read(Mockito.eq(split), Mockito.any());
+        Mockito.doThrow(failure).when(readStrategy).read(split, output);
         reader.addSplits(Collections.singletonList(split));
 
         FileConnectorException exception =
@@ -78,7 +78,7 @@ class MultipleTableFileSourceReaderTest {
                 createReader("markdown_table", FileFormat.MARKDOWN, true, readStrategy);
         FileSourceSplit split = new FileSourceSplit(tableId("markdown_table"), source);
         Collector<SeaTunnelRow> output = collector();
-        Mockito.doThrow(failure).when(readStrategy).read(Mockito.eq(split), Mockito.any());
+        Mockito.doThrow(failure).when(readStrategy).read(split, output);
         reader.addSplits(Collections.singletonList(split));
 
         FileConnectorException exception =

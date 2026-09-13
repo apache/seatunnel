@@ -93,8 +93,7 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                                     + "]");
                 }
                 try {
-                    readStrategy.read(
-                            split, SourceFileNameCollector.wrap(output, split.getFilePath()));
+                    readStrategy.read(split, output);
                 } catch (Exception e) {
                     boolean markdownKnowledgeSyncMetadataEnabled =
                             markdownKnowledgeSyncMetadataTableIds.contains(split.getTableId());
