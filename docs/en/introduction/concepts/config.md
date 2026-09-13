@@ -208,7 +208,9 @@ In a config file, we can define variables and replace them at runtime. However, 
 
 ### Usage of Variables:
 - `${varName}`: If the variable is not provided, an exception will be thrown.
-- `${varName:default}`: If the variable is not provided, the default value will be used. If you set a default value, it should be enclosed in double quotes.
+- `${varName:default}`: If the variable is not provided, the default value will be used. Top node as source/transform/sink and plugin node shall not be configured with default value in json format directly. If you set a plain default value, it should be enclosed in double quotes. When the default value is a map or list with map inside, the default variable value in JSON format needs to be wrapped in triple quotes, as follows:
+  
+  `properties = """${mysql_props:{"useSSL":"false","connectionTimeZone":"Asia/Shanghai","serverTimezone":"UTC","allowPublicKeyRetrieval":"true"}}"""` 
 - `${varName:}`: If the variable is not provided, an empty string will be used.
 
 If you do not set the variable value through `-i`, you can also pass the value by setting the system environment variables. Variable substitution supports obtaining variable values through environment variables.
