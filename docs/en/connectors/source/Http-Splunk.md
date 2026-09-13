@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-http-splunk.md';
+
 # Http-Splunk Source Connector
 
 ## Description
