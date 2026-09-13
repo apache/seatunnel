@@ -59,8 +59,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
     private static final String CONTAINER_ENV = "SEATUNNEL_ADLS_CONTAINER";
     private static final String ACCOUNT_KEY_ENV = "SEATUNNEL_ADLS_ACCOUNT_KEY";
     private static final String TEST_PREFIX_ENV = "SEATUNNEL_ADLS_TEST_PREFIX";
-    private static final String SECRET_CONFIG_PATH =
-            "/tmp/seatunnel/config/adls-e2e-secrets.conf";
+    private static final String SECRET_CONFIG_PATH = "/tmp/seatunnel/config/adls-e2e-secrets.conf";
     private static final String ADLS_PLUGIN_DIRECTORY =
             "/tmp/seatunnel/plugins/connector-file-adls";
 
@@ -90,12 +89,8 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
 
         Path root = new Path(testRoot);
         fileSystem.delete(root, true);
-        writeCsv(
-                new Path(root, "input/orders.csv"),
-                "id,name\n1,order-a\n2,order-b\n");
-        writeCsv(
-                new Path(root, "input/customers.csv"),
-                "id,name\n3,customer-a\n4,customer-b\n");
+        writeCsv(new Path(root, "input/orders.csv"), "id,name\n1,order-a\n2,order-b\n");
+        writeCsv(new Path(root, "input/customers.csv"), "id,name\n3,customer-a\n4,customer-b\n");
     }
 
     @AfterAll
@@ -114,8 +109,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testPreserveSourceFilename(TestContainer container) throws Exception {
-        String runId =
-                container.identifier().name().toLowerCase(Locale.ROOT).replace('_', '-');
+        String runId = container.identifier().name().toLowerCase(Locale.ROOT).replace('_', '-');
         List<String> writeVariables = Arrays.asList("RUN_ID=" + runId);
 
         Container.ExecResult writeResult =

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.adls.sink;
 
-import com.google.auto.service.AutoService;
-import java.util.Arrays;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
@@ -32,6 +30,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.adls.config.ADLSFileSinkOp
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+
+import com.google.auto.service.AutoService;
+
+import java.util.Arrays;
 
 @AutoService(Factory.class)
 public class ADLSFileSinkFactory implements TableSinkFactory {
