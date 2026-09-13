@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -66,6 +67,7 @@ public class DatabendSinkWriter
     private final Connection connection;
     private final Context context;
     private final CatalogTable catalogTable;
+    private SeaTunnelRowType runtimeRowType;
     private String insertSql;
     private final int batchSize;
     private final int executeTimeoutSec;
@@ -108,6 +110,7 @@ public class DatabendSinkWriter
         this.batchSize = batchSize;
         this.executeTimeoutSec = executeTimeoutSec;
         this.tableSchema = catalogTable.getTableSchema();
+        this.runtimeRowType = catalogTable.getSeaTunnelRowType();
         this.sinkTablePath = TablePath.of(database, table);
 
         // CDC mode check
@@ -246,7 +249,7 @@ public class DatabendSinkWriter
         sql.append(String.format("USING (SELECT "));
 
         // Add all columns from raw_data
-        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        String[] fieldNames = runtimeRowType.getFieldNames();
         for (int i = 0; i < fieldNames.length; i++) {
             if (i > 0) sql.append(", ");
             sql.append(String.format("raw_data:%s as %s", fieldNames[i], fieldNames[i]));
@@ -281,9 +284,12 @@ public class DatabendSinkWriter
 
             // update the table schema
             this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
+            this.runtimeRowType = tableSchema.toPhysicalRowDataType();
 
             // update the catalog table
-            schemaChangeManager.applySchemaChange(sinkTablePath, event);
+            if (!(event instanceof RestoreTableSchemaEvent)) {
+                schemaChangeManager.applySchemaChange(sinkTablePath, event);
+            }
 
             // close the old prepared statement
             if (preparedStatement != null) {
@@ -463,7 +469,7 @@ public class DatabendSinkWriter
      * the raw table.
      */
     private String getConflictKeyValue(SeaTunnelRow row) {
-        String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        String[] fieldNames = runtimeRowType.getFieldNames();
         int index = Arrays.asList(fieldNames).indexOf(conflictKey);
 
         if (index >= 0 && index < row.getFields().length) {
@@ -484,7 +490,7 @@ public class DatabendSinkWriter
     private String convertRowToJson(SeaTunnelRow row) {
         try {
             ObjectNode jsonNode = objectMapper.createObjectNode();
-            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+            String[] fieldNames = runtimeRowType.getFieldNames();
             Object[] fields = row.getFields();
 
             for (int i = 0; i < fieldNames.length; i++) {
@@ -618,8 +624,8 @@ public class DatabendSinkWriter
         SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType<?>[fields.length];
 
         // use the column names from the catalog table if available
-        if (catalogTable != null && catalogTable.getSeaTunnelRowType() != null) {
-            String[] sourceFieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+        if (runtimeRowType != null) {
+            String[] sourceFieldNames = runtimeRowType.getFieldNames();
             if (sourceFieldNames.length == fields.length) {
                 fieldNames = sourceFieldNames;
             } else {
@@ -763,7 +769,7 @@ public class DatabendSinkWriter
         log.info("Commit prepared successfully");
         // In the new approach, rawTableName and streamName are initialized in DatabendSink
         // We pass null values as they're not needed in the committer info
-        return Optional.of(new DatabendSinkCommitterInfo(null, null));
+        return Optional.of(new DatabendSinkCommitterInfo(null, null, runtimeRowType));
     }
 
     @Override

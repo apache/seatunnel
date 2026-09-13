@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -91,6 +92,40 @@ public class SQLTransformTest {
                         getCatalogTable());
         TableSchema tableSchema = sqlTransform.transformTableSchema();
         Assertions.assertEquals(4, tableSchema.getColumns().size());
+    }
+
+    @Test
+    void testRestoreSchemaEventRebuildsProducedSchema() {
+        CatalogTable initialTable = getCatalogTable();
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap("query", "select * from dual")),
+                        initialTable);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        initialTable.getTableId(),
+                        TableSchema.builder()
+                                .columns(initialTable.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "email",
+                                                BasicType.STRING_TYPE,
+                                                128L,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        initialTable.getOptions(),
+                        initialTable.getPartitionKeys(),
+                        initialTable.getComment());
+
+        RestoreTableSchemaEvent event = new RestoreTableSchemaEvent(restoredTable);
+        sqlTransform.mapSchemaChangeEvent(event);
+
+        Assertions.assertEquals(5, event.getChangeAfter().getTableSchema().getColumns().size());
+        Assertions.assertEquals(
+                "email", event.getChangeAfter().getTableSchema().getFieldNames()[4]);
     }
 
     @Test
