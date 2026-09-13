@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### COMPATIBLE_DEBEZIUM_JSON NULL Handling
+
+- **Behavior change: explicit NULL values are preserved**
+  - **Affected component**: `COMPATIBLE_DEBEZIUM_JSON` in Debezium-based CDC sources
+  - **Description**: A nullable field whose schema has a non-null default is now serialized as
+    JSON `null` when the source record contains an explicit `NULL`. Previously, it was serialized
+    as the schema default because Kafka Connect's `Struct#get` applies defaults.
+  - **Impact**: Existing jobs using this format may produce different JSON for nullable columns
+    with schema defaults. Set `key.converter.replace.null.with.default=true` or
+    `value.converter.replace.null.with.default=true` to retain the previous replacement behavior.
+  - **Compatibility boundary**: This change does not guarantee cross-version Java-serialization compatibility for the internal JSON converter/deserialization-schema objects. They are not checkpoint/savepoint state types, and the CDC split/offset state format is unchanged. Re-submit the job with the new version when upgrading across this change.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**

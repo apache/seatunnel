@@ -4,6 +4,16 @@
 
 ## dev
 
+### COMPATIBLE_DEBEZIUM_JSON NULL 处理
+
+- **行为变更：保留显式 NULL 值**
+  - **影响范围**：基于 Debezium 的 CDC Source 使用的 `COMPATIBLE_DEBEZIUM_JSON` 格式
+  - **变更说明**：当源记录中的可空字段为显式 `NULL`，即使该字段 schema 存在非空默认值，现在也会序列化为 JSON `null`。
+    之前 Kafka Connect 的 `Struct#get` 会应用默认值，因此会序列化为 schema 默认值。
+  - **影响**：使用该格式的现有作业，在可空字段存在 schema 默认值时，输出 JSON 可能发生变化。如需保留旧的默认值替换行为，
+    可将 `key.converter.replace.null.with.default=true` 或 `value.converter.replace.null.with.default=true` 设置为 `true`。
+  - **兼容性边界**：本变更不保证内部 JSON converter/deserialization schema Java 序列化对象的跨版本兼容性；这些类不是 checkpoint/savepoint 的状态类型，checkpoint/savepoint 中的 CDC split/offset 状态格式不变。跨版本升级请使用新版本重新提交任务。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**
