@@ -22,7 +22,9 @@ import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
 
 import java.util.List;
 import java.util.Objects;
@@ -124,7 +126,8 @@ public class MongodbSourceConfigProvider {
 
         public Builder stopOptions(StopConfig stopOptions) {
             this.stopOptions = Objects.requireNonNull(stopOptions);
-            if (stopOptions.getStopMode() != StopMode.NEVER) {
+            if (stopOptions.getStopMode() != StopMode.NEVER
+                    && stopOptions.getStopMode() != StopMode.TIMESTAMP) {
                 throw new MongodbConnectorException(
                         ILLEGAL_ARGUMENT,
                         String.format("The %s mode is not supported.", stopOptions.getStopMode()));
@@ -146,6 +149,29 @@ public class MongodbSourceConfigProvider {
 
         public Builder validate() {
             checkNotNull(hosts, "hosts must be provided");
+            if (startupOptions != null
+                    && stopOptions != null
+                    && startupOptions.getStartupMode() == StartupMode.TIMESTAMP
+                    && stopOptions.getStopMode() == StopMode.TIMESTAMP) {
+                // Compare the derived offsets because MongoDB change-stream timestamps have second
+                // precision and two different millisecond values can resolve to the same position.
+                ChangeStreamOffsetFactory offsetFactory = new ChangeStreamOffsetFactory();
+                Offset startupOffset = startupOptions.getStartupOffset(offsetFactory);
+                Offset stopOffset = stopOptions.getStopOffset(offsetFactory);
+                if (stopOffset.compareTo(startupOffset) <= 0) {
+                    throw new MongodbConnectorException(
+                            ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Invalid timestamp range: stop.timestamp (%d) resolves to "
+                                            + "MongoDB position %s, which must be after "
+                                            + "startup.timestamp (%d) at position %s. MongoDB "
+                                            + "change-stream timestamps have second precision.",
+                                    stopOptions.getTimestamp(),
+                                    stopOffset,
+                                    startupOptions.getTimestamp(),
+                                    startupOffset));
+                }
+            }
             return this;
         }
 

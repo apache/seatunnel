@@ -102,7 +102,10 @@ cassandra:
 salesforce:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-salesforce/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/java/org/apache/seatunnel/e2e/connector/http/SalesforceSinkIT.java
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/fake_to_salesforce.conf
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
 deeplake:
   - all:
@@ -159,6 +162,16 @@ email:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-email/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(email)/**'
+facebook-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-facebook-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(facebook-ads)/**'
+tiktok-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-tiktok-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(tiktok-ads)/**'
 file:
   - all:
       - changed-files:
@@ -169,6 +182,11 @@ fluss:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
+google-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-ads)/**'
 google-firestore:
   - all:
       - changed-files:

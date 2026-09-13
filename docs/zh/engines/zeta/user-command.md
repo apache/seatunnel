@@ -97,6 +97,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 | 连接器 | Source | Sink |
 |--------|--------|------|
 | Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
+| Kafka  | 支持（[主题元数据 + 运行时输出 schema](../../connectors/source/Kafka.md#连通性-dry-run)，不含消费或消费组权限） | 不支持 |
 | FakeSource | 支持（仅 schema 推断，无外部系统） | - |
 
 作业中的每个插件都会在校验汇总中报告以下两种状态之一：

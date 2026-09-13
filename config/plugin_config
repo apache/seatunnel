@@ -22,6 +22,7 @@
 --connectors-v2--
 connector-amazondocumentdb
 connector-amazondynamodb
+connector-aerospike
 connector-azurecosmosdb
 connector-assert
 connector-cassandra
@@ -42,6 +43,7 @@ connector-doris
 connector-elasticsearch
 connector-email
 connector-file-ftp
+connector-file-cos
 connector-file-hadoop
 connector-file-local
 connector-file-oss
@@ -58,6 +60,9 @@ connector-google-firestore
 connector-google-pubsub
 connector-azure-queue-storage
 connector-google-bigtable
+connector-google-ads
+connector-facebook-ads
+connector-tiktok-ads
 connector-graphql
 connector-hive
 connector-http-base
@@ -68,16 +73,22 @@ connector-http-jira
 connector-http-klaviyo
 connector-http-stripe
 connector-http-lemlist
+connector-http-linear
 connector-http-myhours
 connector-http-notion
 connector-http-onesignal
+connector-http-persistiq
+connector-http-shopify
 connector-http-wechat
 connector-http-airtable
+connector-http-zendesk
 connector-http-posthog
+connector-http-zendesk
 connector-hudi
 connector-iceberg
 connector-influxdb
 connector-iotdb
+connector-iotdb-v2
 connector-jdbc
 connector-kafka
 connector-kudu
@@ -95,6 +106,7 @@ connector-s3-redshift
 connector-sentry
 connector-slack
 connector-socket
+connector-edge-socket
 connector-starrocks
 connector-tablestore
 connector-selectdb-cloud
