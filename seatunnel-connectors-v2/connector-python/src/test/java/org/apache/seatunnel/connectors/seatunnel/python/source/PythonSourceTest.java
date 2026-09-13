@@ -457,20 +457,16 @@ class PythonSourceTest {
 
     @Test
     void testConcurrentCloseStopsBufferedBatchEmission() throws Exception {
-        String pythonExecutable = requirePythonExecutable();
-        Path scriptPath = copyResource("python/emit_rows.py");
-        Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
-        Map<String, Object> scriptConfig = new HashMap<>();
-        scriptConfig.put("count", 3);
-        config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
-
-        PythonSourceReader reader = createReader(new PythonSource(ReadonlyConfig.fromMap(config)));
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(baseConfig("python", "/tmp/fake.py"))));
+        enqueueStdoutLines(reader, "1,python_1", "2,python_2", "3,python_3");
         BlockingCollector collector = new BlockingCollector();
         AtomicReference<Throwable> pollFailure = new AtomicReference<>();
         AtomicReference<Throwable> closeFailure = new AtomicReference<>();
         CountDownLatch closeStarted = new CountDownLatch(1);
 
-        reader.open();
         Thread pollThread =
                 new Thread(
                         () -> {
@@ -482,10 +478,7 @@ class PythonSourceTest {
                         },
                         "python-source-buffered-poll-test");
         pollThread.start();
-        // 15s matches the interpreter-startup budget used elsewhere in this file: the wait covers
-        // python cold start plus first-row delivery, and 5s has been observed losing that race on
-        // loaded windows-latest runners (fork run 32041891318).
-        Assertions.assertTrue(collector.collectEntered.await(15, TimeUnit.SECONDS));
+        Assertions.assertTrue(collector.collectEntered.await(5, TimeUnit.SECONDS));
 
         Thread closeThread =
                 new Thread(
@@ -843,6 +836,20 @@ class PythonSourceTest {
             // Keep offering synthetic rows until the bounded queue reports no remaining capacity.
         }
         Assertions.assertEquals(0, stdoutQueue.remainingCapacity(), "stdout queue did not fill");
+    }
+
+    /**
+     * Seeds rows directly into the reader queue so concurrent-close coverage is independent of
+     * Python interpreter startup time on CI runners.
+     */
+    @SuppressWarnings("unchecked")
+    private void enqueueStdoutLines(PythonSourceReader reader, String... lines) throws Exception {
+        Field stdoutLinesField = PythonSourceReader.class.getDeclaredField("stdoutLines");
+        stdoutLinesField.setAccessible(true);
+        BlockingQueue<String> stdoutQueue = (BlockingQueue<String>) stdoutLinesField.get(reader);
+        for (String line : lines) {
+            Assertions.assertTrue(stdoutQueue.offer(line), "stdout queue unexpectedly filled");
+        }
     }
 
     /** Waits until the producer is deterministically backpressured by the bounded stdout queue. */

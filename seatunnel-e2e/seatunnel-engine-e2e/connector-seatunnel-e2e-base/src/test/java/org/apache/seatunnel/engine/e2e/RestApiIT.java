@@ -67,6 +67,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PA
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
+import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.lessThan;
@@ -244,6 +245,107 @@ public class RestApiIT {
                                             verifyLogLink(logListV1);
                                             verifyLogLink(logListV2);
                                         }));
+    }
+
+    @Test
+    public void testLoggers() {
+        String loggersUrl =
+                HOST
+                        + node1Config.getEngineConfig().getHttpConfig().getPort()
+                        + node1Config.getEngineConfig().getHttpConfig().getContextPath()
+                        + RestConstant.REST_URL_LOGGERS;
+        // a logger of this test only, so that changing its level cannot hide job logs
+        String logger = "org.apache.seatunnel.engine.e2e.RestApiIT.loggers";
+
+        // the list reports every configured logger, the root logger included
+        given().get(loggersUrl)
+                .then()
+                .statusCode(200)
+                .body("node", notNullValue())
+                .body("loggers.name", hasItem("root"));
+
+        given().get(loggersUrl + "/root")
+                .then()
+                .statusCode(200)
+                .body("name", equalTo("root"))
+                .body("level", notNullValue())
+                .body("origin", equalTo("file"));
+
+        // an unknown level is rejected instead of being reported as applied
+        given().post(loggersUrl + "/" + logger + "?level=DEBUGG")
+                .then()
+                .statusCode(400)
+                .body("message", containsString("valid levels are"));
+
+        // a request without a level does not silently do nothing either
+        given().post(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(400)
+                .body("message", containsString("level is required"));
+
+        given().post(loggersUrl + "?level=DEBUG")
+                .then()
+                .statusCode(400)
+                .body("message", containsString("logger name"));
+
+        given().get(loggersUrl + "?scope=galaxy")
+                .then()
+                .statusCode(400)
+                .body("message", containsString("valid scopes are"));
+
+        // the level is applied and reported as a runtime override, not as the file level
+        given().body("{\"level\":\"debug\"}")
+                .post(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("SUCCESS"))
+                .body("name", equalTo(logger))
+                .body("level", equalTo("DEBUG"))
+                .body("origin", equalTo("runtime-override"));
+
+        given().get(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("level", equalTo("DEBUG"))
+                .body("origin", equalTo("runtime-override"));
+
+        // and the override can be reverted, which the legacy log-level endpoint cannot do
+        given().delete(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("SUCCESS"))
+                .body("previousLevel", equalTo("DEBUG"))
+                .body("origin", equalTo("file"));
+
+        given().delete(loggersUrl + "/" + logger)
+                .then()
+                .statusCode(200)
+                .body("status", equalTo("NO_OVERRIDE"));
+
+        // the cluster scope answers for every member
+        given().get(loggersUrl + "?scope=cluster")
+                .then()
+                .statusCode(200)
+                .body("scope", equalTo("cluster"))
+                .body("status", equalTo("SUCCESS"))
+                .body("nodes", hasSize(ports.size()));
+
+        given().post(loggersUrl + "/" + logger + "?scope=cluster&level=TRACE")
+                .then()
+                .statusCode(200)
+                .body("scope", equalTo("cluster"))
+                .body("status", equalTo("SUCCESS"))
+                .body("level", equalTo("TRACE"))
+                .body("nodes", hasSize(ports.size()))
+                .body("nodes[0].level", equalTo("TRACE"))
+                .body("nodes[0].origin", equalTo("runtime-override"));
+
+        given().delete(loggersUrl + "/" + logger + "?scope=cluster")
+                .then()
+                .statusCode(200)
+                .body("scope", equalTo("cluster"))
+                .body("status", equalTo("SUCCESS"))
+                .body("nodes[0].origin", equalTo("file"));
     }
 
     private CheckpointMonitorService resolveCheckpointMonitorService(
@@ -682,6 +784,40 @@ public class RestApiIT {
                                                 .body("jobStatus", equalTo("FINISHED"));
                                     });
                         });
+    }
+
+    @Test
+    public void testGetJobDiagnosticsOfRunningJob() {
+        // the diagnostics of a running job must be identical no matter which member serves the
+        // request: the master builds them locally, other members fetch them from the master
+        ports.forEach(
+                (key, value) ->
+                        given().get(
+                                        HOST
+                                                + value
+                                                + node1Config
+                                                        .getEngineConfig()
+                                                        .getHttpConfig()
+                                                        .getContextPath()
+                                                + RestConstant.REST_URL_JOB_INFO
+                                                + "/"
+                                                + clientJobProxy.getJobId())
+                                .then()
+                                .statusCode(200)
+                                .body("jobStatus", equalTo("RUNNING"))
+                                .body(
+                                        "diagnostics.jobId",
+                                        equalTo(Long.toString(clientJobProxy.getJobId())))
+                                .body("diagnostics.generatedAt", notNullValue())
+                                .body("diagnostics.stateTimestamps.RUNNING", notNullValue())
+                                .body("diagnostics.pipelines", hasSize(1))
+                                .body("diagnostics.pipelines[0].pipelineId", equalTo(1))
+                                .body("diagnostics.pipelines[0].pipelineStatus", equalTo("RUNNING"))
+                                .body("diagnostics.pipelines[0].restoreCount", equalTo(0))
+                                .body(
+                                        "diagnostics.pipelines[0].stateTimestamps.RUNNING",
+                                        notNullValue())
+                                .body("diagnostics.totalPipelineRestoreCount", equalTo(0)));
     }
 
     @Test

@@ -37,6 +37,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
 
+    /**
+     * Upper bound on the number of rows emitted per {@link #pollNext(Collector)} call. Rows are
+     * emitted while holding the checkpoint lock, so emitting an entire split in a single call keeps
+     * the lock held for the whole split. For large splits that starves checkpoint/savepoint barrier
+     * injection, which needs the same lock, and makes stop-with-savepoint hang in DOING_SAVEPOINT
+     * until the checkpoint times out.
+     */
+    private static final int MAX_ROWS_PER_POLL = 4096;
+
     private final SourceReader.Context context;
     private final Deque<FakeSourceSplit> splits = new ConcurrentLinkedDeque<>();
 
@@ -46,6 +55,9 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     private volatile boolean noMoreSplit;
     private final long minSplitReadInterval;
     private volatile long latestTimestamp = 0;
+    // True while the head split has been partially emitted; continuation batches of the same
+    // split bypass the split read interval and the idle sleep.
+    private boolean splitInProgress = false;
 
     public FakeSourceReader(
             Context context,
@@ -81,23 +93,69 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     @SuppressWarnings("MagicNumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws InterruptedException {
         long currentTimestamp = Instant.now().toEpochMilli();
-        if (currentTimestamp <= latestTimestamp + minSplitReadInterval) {
+        if (!splitInProgress && currentTimestamp <= latestTimestamp + minSplitReadInterval) {
             return;
         }
         latestTimestamp = currentTimestamp;
         synchronized (output.getCheckpointLock()) {
+            splitInProgress = false;
             FakeSourceSplit split = splits.poll();
             if (null != split) {
                 FakeDataGenerator fakeDataGenerator = fakeDataGeneratorMap.get(split.getTableId());
-                // Randomly generated data are sent directly to the downstream operator
-                long rowCount =
-                        fakeDataGenerator.generateFakedRows(split.getRowNum(), output::collect);
-                log.info(
-                        "{} rows of data have been generated in split({}) for table {}. Generation time: {}",
-                        rowCount,
-                        split.splitId(),
-                        split.getTableId(),
-                        latestTimestamp);
+                if (fakeDataGenerator.hasCustomRowData()) {
+                    int customRowStartIndex = decodeCustomRowStartIndex(split.getRowNum());
+                    int customRowCount = fakeDataGenerator.getCustomRowCount();
+                    int batchRowNum =
+                            Math.min(
+                                    Math.max(customRowCount - customRowStartIndex, 0),
+                                    MAX_ROWS_PER_POLL);
+                    long rowCount =
+                            fakeDataGenerator.generateCustomRows(
+                                    customRowStartIndex, batchRowNum, output::collect);
+                    int nextCustomRowStartIndex = customRowStartIndex + batchRowNum;
+                    if (nextCustomRowStartIndex < customRowCount) {
+                        // Store custom-row progress in the requeued split so a checkpoint or
+                        // savepoint taken between batches snapshots the not-yet-emitted rows.
+                        splits.addFirst(
+                                new FakeSourceSplit(
+                                        split.getTableId(),
+                                        split.getSplitId(),
+                                        encodeCustomRowStartIndex(nextCustomRowStartIndex)));
+                        splitInProgress = true;
+                    } else {
+                        log.info(
+                                "{} rows of custom data have been generated in the last batch of split({}) for table {}. Generation time: {}",
+                                rowCount,
+                                split.splitId(),
+                                split.getTableId(),
+                                latestTimestamp);
+                    }
+                } else {
+                    // Randomly generated data are sent directly to the downstream operator.
+                    // Emit at most MAX_ROWS_PER_POLL rows per call and requeue the remainder of
+                    // the split so the checkpoint lock is released between batches, allowing
+                    // checkpoint/savepoint barriers to be injected while a large split is being
+                    // generated.
+                    int batchRowNum = Math.min(split.getRowNum(), MAX_ROWS_PER_POLL);
+                    long rowCount =
+                            fakeDataGenerator.generateFakedRows(batchRowNum, output::collect);
+                    int remainingRowNum = split.getRowNum() - batchRowNum;
+                    if (remainingRowNum > 0) {
+                        // The requeued split carries the remaining row count, so a checkpoint or
+                        // savepoint taken between batches snapshots the not-yet-emitted rows.
+                        splits.addFirst(
+                                new FakeSourceSplit(
+                                        split.getTableId(), split.getSplitId(), remainingRowNum));
+                        splitInProgress = true;
+                    } else {
+                        log.info(
+                                "{} rows of data have been generated in the last batch of split({}) for table {}. Generation time: {}",
+                                rowCount,
+                                split.splitId(),
+                                split.getTableId(),
+                                latestTimestamp);
+                    }
+                }
             } else {
                 if (!noMoreSplit) {
                     log.info("wait split!");
@@ -111,7 +169,17 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
             log.info("Closed the bounded fake source");
             context.signalNoMoreElement();
         }
-        Thread.sleep(1000L);
+        if (!splitInProgress) {
+            Thread.sleep(1000L);
+        }
+    }
+
+    private static int encodeCustomRowStartIndex(int startIndex) {
+        return -startIndex - 1;
+    }
+
+    private static int decodeCustomRowStartIndex(int rowNum) {
+        return rowNum < 0 ? -rowNum - 1 : 0;
     }
 
     @Override

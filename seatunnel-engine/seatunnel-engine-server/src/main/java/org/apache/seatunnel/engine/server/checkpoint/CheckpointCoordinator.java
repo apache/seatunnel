@@ -865,6 +865,41 @@ public class CheckpointCoordinator {
         return savepointPendingCheckpoint.getCompletableFuture();
     }
 
+    public PassiveCompletableFuture<CheckpointCoordinatorState> startSavepointAndWaitComplete() {
+        CompletableFuture<CheckpointCoordinatorState> result = new CompletableFuture<>();
+        PassiveCompletableFuture<CompletedCheckpoint> savepointFuture;
+        try {
+            savepointFuture = startSavepoint();
+        } catch (Throwable e) {
+            result.completeExceptionally(e);
+            return new PassiveCompletableFuture<>(result);
+        }
+
+        savepointFuture.whenCompleteAsync(
+                (completedCheckpoint, error) -> {
+                    if (error != null) {
+                        result.completeExceptionally(error);
+                        return;
+                    }
+                    if (completedCheckpoint == null) {
+                        result.completeExceptionally(
+                                new CheckpointException(CheckpointCloseReason.PIPELINE_END));
+                        return;
+                    }
+                    waitCheckpointCoordinatorComplete()
+                            .whenComplete(
+                                    (state, stateError) -> {
+                                        if (stateError != null) {
+                                            result.completeExceptionally(stateError);
+                                        } else {
+                                            result.complete(state);
+                                        }
+                                    });
+                },
+                executorService);
+        return new PassiveCompletableFuture<>(result);
+    }
+
     private PassiveCompletableFuture<CompletedCheckpoint> completableFutureWithError(
             CheckpointCloseReason closeReason) {
         CompletableFuture<CompletedCheckpoint> future = new CompletableFuture<>();
@@ -1530,11 +1565,15 @@ public class CheckpointCoordinator {
                     checkpoint.getCheckpointId());
             scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
         } else {
-            throw new IllegalStateException(
-                    String.format(
-                            "schema-change-after checkpoint is already completed, "
-                                    + "job id: %s, pipeline id: %s, checkpoint id: %s.",
-                            jobId, pipelineId, checkpoint.getCheckpointId()));
+            // A restored pipeline may re-notify the schema-change-after checkpoint that completed
+            // before the failure. The schema change has already been finalized, so there is
+            // nothing left to schedule and the duplicate notification must not fail the pipeline.
+            LOG.info(
+                    "ignore already completed schema-change-after checkpoint, job id: {}, "
+                            + "pipeline id: {}, checkpoint id: {}.",
+                    jobId,
+                    pipelineId,
+                    checkpoint.getCheckpointId());
         }
     }
 

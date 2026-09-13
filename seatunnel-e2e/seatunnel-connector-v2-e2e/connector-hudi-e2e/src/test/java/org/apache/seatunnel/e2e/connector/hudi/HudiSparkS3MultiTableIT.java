@@ -41,6 +41,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MinIOContainer;
+import org.testcontainers.utility.DockerImageName;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
@@ -68,7 +69,12 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
                 }
             };
 
-    private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"); quay.io
+    // is
+    // MinIO's own registry and mirrors the same tags publicly.
+    private static final String MINIO_DOCKER_IMAGE =
+            "quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z";
     private static final String HOST = "minio";
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_USER_NAME = "minio";
@@ -88,7 +94,12 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
     @Override
     public void startUp() throws Exception {
         container =
-                new MinIOContainer(MINIO_DOCKER_IMAGE)
+                // MinIOContainer validates its image name is a recognized substitute for
+                // "minio/minio"; the quay.io mirror needs an explicit compatibility declaration
+                // or Testcontainers rejects it with IllegalStateException at startup.
+                new MinIOContainer(
+                                DockerImageName.parse(MINIO_DOCKER_IMAGE)
+                                        .asCompatibleSubstituteFor("minio/minio"))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withUserName(MINIO_USER_NAME)

@@ -23,10 +23,14 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
+import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
 
 public class EventTest {
 
@@ -90,6 +94,39 @@ public class EventTest {
         TableSchema changeAfter = new AlterTableSchemaEventHandler().reset(schema).apply(event);
 
         Assertions.assertEquals("new comment", changeAfter.getColumn("description").getComment());
+    }
+
+    @Test
+    public void testDeprecatedDispatcherAcceptsCommentEvents() {
+        TableIdentifier tableIdentifier = TableIdentifier.of("", TablePath.DEFAULT);
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"description"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.STRING_TYPE
+                        });
+        DataTypeChangeEventDispatcher dispatcher = new DataTypeChangeEventDispatcher();
+
+        Assertions.assertSame(
+                rowType,
+                dispatcher
+                        .reset(rowType)
+                        .apply(
+                                AlterTableCommentEvent.of(
+                                        tableIdentifier, "old table", "new table")));
+        Assertions.assertSame(
+                rowType,
+                dispatcher
+                        .reset(rowType)
+                        .apply(
+                                new AlterTableColumnsEvent(
+                                        tableIdentifier,
+                                        Collections.singletonList(
+                                                AlterColumnCommentEvent.of(
+                                                        tableIdentifier,
+                                                        "description",
+                                                        "old column",
+                                                        "new column")))));
     }
 
     private EventType getEventType(AlterTableColumnEvent event) {

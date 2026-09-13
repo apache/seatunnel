@@ -44,6 +44,13 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
         return poolManager.getConnection(queueIndex);
     }
 
+    /**
+     * Note that this is not a pure predicate. {@code getConnection} validates the cached connection
+     * and replaces it when it is no longer usable, so calling this can repair the cached connection
+     * as a side effect and then report it valid. That is intended: for a connection held per queue
+     * index there is nothing a caller could usefully do with "invalid" other than ask for a new
+     * one.
+     */
     @Override
     public boolean isConnectionValid() throws SQLException {
         return poolManager.containsConnection(queueIndex)

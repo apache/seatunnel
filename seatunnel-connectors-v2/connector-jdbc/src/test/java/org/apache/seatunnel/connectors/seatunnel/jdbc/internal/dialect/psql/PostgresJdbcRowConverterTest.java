@@ -35,6 +35,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
@@ -158,6 +159,24 @@ public class PostgresJdbcRowConverterTest {
         Assertions.assertNotNull(row);
         Assertions.assertEquals(1, row.getField(0));
         Assertions.assertNull(row.getField(1), "timestamp_tz_col should be null");
+    }
+
+    @Test
+    public void testTimeReadAndWritePreserveMicroseconds() throws SQLException {
+        LocalTime expected = LocalTime.parse("12:34:56.123456");
+        ResultSet rs = mock(ResultSet.class);
+        TableSchema tableSchema =
+                createTableSchema("time_col", LocalTimeType.LOCAL_TIME_TYPE, "time(6)");
+        setupMockResultSet(rs, "INT4", "TIME", 1, expected);
+        when(rs.getObject(2, LocalTime.class)).thenReturn(expected);
+
+        SeaTunnelRow result = converter.toInternal(rs, tableSchema);
+        Assertions.assertEquals(expected, result.getField(1));
+
+        PreparedStatement statement = mock(PreparedStatement.class);
+        converter.toExternal(
+                tableSchema, null, new SeaTunnelRow(new Object[] {1, expected}), statement);
+        verify(statement).setObject(2, expected);
     }
 
     @Test

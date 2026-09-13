@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.e2e.k8s;
 
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
+
 import org.apache.maven.model.Model;
 import org.apache.maven.model.io.xpp3.MavenXpp3Reader;
 
@@ -183,11 +185,21 @@ public class KubernetesIT {
                 Paths.get(targetPath + "/custom_config/hazelcast-client.yaml"),
                 Paths.get(targetPath + "/config/hazelcast-client.yaml"),
                 StandardCopyOption.REPLACE_EXISTING);
+        // Copy the Hadoop3 Uber JAR from the local Maven repository to the Docker build context,
+        // and rename it to an unversioned name (seatunnel-shade-hadoop3-uber.jar).
+        //
+        // Why unversioned: the Dockerfile COPY directive cannot dynamically resolve the host's
+        // Maven local repository path (~/.m2/repository). The jar must be pre-copied into the
+        // build context with a stable filename so the Dockerfile does not need to change when
+        // the seatunnel-shade artifact version is bumped. When a new seatunnel-shade version
+        // is released, only the Maven coordinate in pom.xml needs updating — the Dockerfile,
+        // the container path, and this test code remain unchanged.
+        //
+        // Other E2E tests (non-k8s) use testcontainers which resolve Maven coordinates directly,
+        // so they use the versioned jar name.
         Files.copy(
-                Paths.get(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(targetPath + "/jars/seatunnel-hadoop3-3.1.4-uber.jar"),
+                Paths.get(MavenJarUtil.getHadoop3UberJarPath()),
+                Paths.get(targetPath + "/jars/seatunnel-shade-hadoop3-uber.jar"),
                 StandardCopyOption.REPLACE_EXISTING);
         Files.copy(
                 Paths.get(

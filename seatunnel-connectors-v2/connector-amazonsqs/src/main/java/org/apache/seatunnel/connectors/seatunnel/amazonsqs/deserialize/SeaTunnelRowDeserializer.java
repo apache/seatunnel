@@ -19,7 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import java.util.Collections;
+import java.util.List;
+
 public interface SeaTunnelRowDeserializer {
 
     SeaTunnelRow deserializeRow(String row);
+
+    default List<SeaTunnelRow> deserializeRows(String row) {
+        SeaTunnelRow seaTunnelRow = deserializeRow(row);
+        return seaTunnelRow == null
+                ? Collections.emptyList()
+                : Collections.singletonList(seaTunnelRow);
+    }
 }

@@ -56,6 +56,7 @@ import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 
 import org.apache.pulsar.shade.org.apache.commons.lang3.StringUtils;
 
@@ -199,7 +200,7 @@ public class PulsarSource
                     new PulsarConsumerMetadata(
                             tablePath,
                             catalogTable,
-                            createDeserialization(tableConfig.getFormat(), catalogTable),
+                            createDeserialization(tableConfig, catalogTable),
                             createDiscoverer(tableConfig),
                             createStartCursor(tableConfig),
                             createStopCursor(tableConfig),
@@ -262,7 +263,8 @@ public class PulsarSource
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserialization(
-            String format, CatalogTable catalogTable) {
+            PulsarTableConfig tableConfig, CatalogTable catalogTable) {
+        String format = tableConfig.getFormat();
         switch (format.toUpperCase()) {
             case "JSON":
                 return new JsonDeserializationSchema(
@@ -274,6 +276,15 @@ public class PulsarSource
                                 .build());
             case "AVRO":
                 return new AvroDeserializationSchema(catalogTable);
+            case "TEXT":
+                return TextDeserializationSchema.builder()
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                        .delimiter(
+                                tableConfig
+                                        .getSchemaConfig()
+                                        .get(PulsarSourceOptions.FIELD_DELIMITER))
+                        .setCatalogTable(catalogTable)
+                        .build();
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);

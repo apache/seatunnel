@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.source;
 
-import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -27,9 +26,23 @@ import java.util.Map;
 
 @Getter
 @Setter
-@AllArgsConstructor
 public class AmazonDynamoDBSourceState implements Serializable {
     private static final long serialVersionUID = -8614736648787520123L;
     private boolean shouldEnumerate;
     private Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits;
+    private int assignCount;
+
+    public AmazonDynamoDBSourceState(
+            boolean shouldEnumerate, Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits) {
+        this(shouldEnumerate, pendingSplits, 0);
+    }
+
+    public AmazonDynamoDBSourceState(
+            boolean shouldEnumerate,
+            Map<Integer, List<AmazonDynamoDBSourceSplit>> pendingSplits,
+            int assignCount) {
+        this.shouldEnumerate = shouldEnumerate;
+        this.pendingSplits = pendingSplits;
+        this.assignCount = assignCount;
+    }
 }

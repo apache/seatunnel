@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
@@ -45,12 +46,44 @@ import java.util.concurrent.TimeUnit;
 public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
     public static final String BATCH = "batch";
 
+    private final String restoredStreamName;
+    private final long restoredNextOffset;
+
+    public BigQuerySinkBatchWriter(ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer) {
+        this(readOnlyConfig, serializer, null, 0L);
+    }
+
+    public BigQuerySinkBatchWriter(
+            ReadonlyConfig readOnlyConfig,
+            BigQuerySerializer serializer,
+            String restoredStreamName,
+            long restoredNextOffset) {
+        super(readOnlyConfig, serializer);
+        this.restoredStreamName = restoredStreamName;
+        this.restoredNextOffset = restoredNextOffset;
+    }
+
     public BigQuerySinkBatchWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
-            BigQuerySerializer serializer,
-            BigQueryWriteClient client) {
-        super(readOnlyConfig, streamWriter, serializer, client);
+            BigQuerySerializer serializer) {
+        super(readOnlyConfig, streamWriter, serializer);
+        this.restoredStreamName = null;
+        this.restoredNextOffset = 0L;
+    }
+
+    @Override
+    public void setMultiTableResourceManager(
+            MultiTableResourceManager<BigQueryWriteClient> manager, int queueIndex) {
+        log.info("Injecting shared client and initializing Batch stream writer...");
+        this.client = manager.getSharedResource().get();
+        if (restoredStreamName != null) {
+            this.streamWriter =
+                    BigQueryBatchWriter.restore(
+                            client, config, restoredStreamName, restoredNextOffset);
+        } else {
+            this.streamWriter = BigQueryBatchWriter.of(client, config);
+        }
     }
 
     @Override
@@ -164,7 +197,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         // Batch mode uses BigQuery buffered streams and stores streamName + nextOffset
         // in checkpoint state. Flushing during close could append rows outside the
         // latest checkpoint state and make the external stream offset move ahead of
-        // the restored nextOffset.
+        // the restored nextOffset, breaking 2PC state recovery contract.
         return false;
     }
 }
