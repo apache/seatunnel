@@ -46,7 +46,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.condition.OS.LINUX;
 import static org.junit.jupiter.api.condition.OS.MAC;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
@@ -94,8 +93,9 @@ class WALWorkHandlerSurvivabilityTest {
 
         FSDataOutputStream out = mock(FSDataOutputStream.class);
         when(out.getWrappedStream()).thenReturn(mock(OutputStream.class));
-        // Append path succeeds; only the sync path fails.
-        doAnswer(invocation -> null).when(out).write(any(byte[].class), anyInt(), anyInt());
+        // HdfsWriter.write(byte[]) calls the one-arg write(byte[]) overload; stub that directly.
+        // (A three-arg stub is inert on a plain mock and does not exercise the append path.)
+        doAnswer(invocation -> null).when(out).write(any(byte[].class));
         doThrow(new IOException("hsync failed")).when(out).hsync();
 
         HdfsWriter hdfsWriter = new HdfsWriter();
