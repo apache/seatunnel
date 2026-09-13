@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.utils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -33,11 +34,19 @@ import org.apache.seatunnel.api.table.catalog.exception.DatabaseAlreadyExistExce
 import org.apache.seatunnel.api.table.catalog.exception.DatabaseNotExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistException;
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -803,6 +812,96 @@ public class JdbcCatalogUtilsTest {
             Assertions.assertTrue(
                     actualTablePathSet.isEmpty(),
                     "Expected empty result for pattern: " + databasePattern + "." + tablePattern);
+        }
+    }
+
+    @Test
+    public void testExtractCatalogConfigIncludesExplicitDatabase() {
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:sqlserver://host:1433")
+                        .username("sa")
+                        .password("pass")
+                        .build();
+
+        ReadonlyConfig catalogConfig =
+                JdbcCatalogUtils.extractCatalogConfig(jdbcConnectionConfig, "schema_change_test");
+
+        Assertions.assertEquals(
+                "jdbc:sqlserver://host:1433", catalogConfig.get(JdbcCommonOptions.URL));
+        Assertions.assertEquals("sa", catalogConfig.get(JdbcCommonOptions.USERNAME));
+        Assertions.assertEquals("pass", catalogConfig.get(JdbcCommonOptions.PASSWORD));
+        Assertions.assertEquals("schema_change_test", catalogConfig.get(JdbcSinkOptions.DATABASE));
+    }
+
+    @Test
+    public void testFindCatalogFallsBackWhenUrlOmitsDatabase() {
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:mysql://host:3306")
+                        .username("root")
+                        .password("pass")
+                        .build();
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load(
+                        jdbcConnectionConfig.getUrl(),
+                        jdbcConnectionConfig.getDialect(),
+                        jdbcConnectionConfig.getCompatibleMode());
+
+        OptionValidationException validationException =
+                new OptionValidationException(
+                        "Option validation failed (1 error):\n"
+                                + "  [1] option: url\n"
+                                + "      type: value\n"
+                                + "      constraint: 'url' JDBC URL must contain a database name");
+
+        try (MockedStatic<FactoryUtil> mockedFactoryUtil = Mockito.mockStatic(FactoryUtil.class)) {
+            mockedFactoryUtil
+                    .when(
+                            () ->
+                                    FactoryUtil.createOptionalCatalog(
+                                            eq(jdbcDialect.dialectName()),
+                                            any(ReadonlyConfig.class),
+                                            any(ClassLoader.class),
+                                            eq(jdbcDialect.dialectName())))
+                    .thenThrow(validationException);
+
+            Assertions.assertFalse(
+                    JdbcCatalogUtils.findCatalog(jdbcConnectionConfig, jdbcDialect).isPresent());
+        }
+    }
+
+    @Test
+    public void testFindCatalogPropagatesOtherValidationFailures() {
+        JdbcConnectionConfig jdbcConnectionConfig =
+                JdbcConnectionConfig.builder()
+                        .url("jdbc:mysql://host:3306")
+                        .username("root")
+                        .password("pass")
+                        .build();
+        JdbcDialect jdbcDialect =
+                JdbcDialectLoader.load(
+                        jdbcConnectionConfig.getUrl(),
+                        jdbcConnectionConfig.getDialect(),
+                        jdbcConnectionConfig.getCompatibleMode());
+
+        OptionValidationException validationException =
+                new OptionValidationException("query timeout option is invalid");
+
+        try (MockedStatic<FactoryUtil> mockedFactoryUtil = Mockito.mockStatic(FactoryUtil.class)) {
+            mockedFactoryUtil
+                    .when(
+                            () ->
+                                    FactoryUtil.createOptionalCatalog(
+                                            eq(jdbcDialect.dialectName()),
+                                            any(ReadonlyConfig.class),
+                                            any(ClassLoader.class),
+                                            eq(jdbcDialect.dialectName())))
+                    .thenThrow(validationException);
+
+            Assertions.assertThrows(
+                    OptionValidationException.class,
+                    () -> JdbcCatalogUtils.findCatalog(jdbcConnectionConfig, jdbcDialect));
         }
     }
 
