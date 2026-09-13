@@ -31,11 +31,13 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SinkWriter.Context;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportTableOperationSinkWriter;
 import org.apache.seatunnel.api.sink.event.WriterCloseEvent;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -315,6 +317,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 }
                 SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
                 processSchemaChangeEvent(event);
+            } else if (record.getData() instanceof TableOperationEvent) {
+                if (prepareClose) {
+                    return;
+                }
+                processTableOperationEvent((TableOperationEvent) record.getData());
             } else if (record.getData() instanceof Signal) {
                 if (prepareClose) {
                     return;
@@ -891,6 +898,21 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             // todo remove deprecated method
             writer.applySchemaChange(event);
         }
+    }
+
+    private void processTableOperationEvent(TableOperationEvent event) throws IOException {
+        if (writer instanceof SupportTableOperationSinkWriter) {
+            ((SupportTableOperationSinkWriter) writer).applyTableOperation(event);
+            return;
+        }
+        throw new UnsupportedOperationException(
+                "Received table operation "
+                        + event.getEventType()
+                        + " for table "
+                        + event.tablePath()
+                        + " but this sink does not implement SupportTableOperationSinkWriter. "
+                        + "Use JDBC (or another sink that declares table-operations support), "
+                        + "or set table-operations.enabled=false on the CDC source.");
     }
 
     private Counter getStainTraceEntriesTruncatedTotal() {

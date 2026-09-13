@@ -15,25 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.event;
+package org.apache.seatunnel.api.sink;
 
-/** Enumerates the event categories that can flow through SeaTunnel's engine event pipeline. */
-public enum EventType {
-    SCHEMA_CHANGE_ADD_COLUMN,
-    SCHEMA_CHANGE_DROP_COLUMN,
-    SCHEMA_CHANGE_MODIFY_COLUMN,
-    SCHEMA_CHANGE_CHANGE_COLUMN,
-    SCHEMA_CHANGE_UPDATE_COLUMNS,
-    SCHEMA_CHANGE_RENAME_TABLE,
-    SCHEMA_CHANGE_ALTER_TABLE_COMMENT,
-    SCHEMA_CHANGE_ALTER_COLUMN_COMMENT,
-    LIFECYCLE_ENUMERATOR_OPEN,
-    LIFECYCLE_ENUMERATOR_CLOSE,
-    LIFECYCLE_READER_OPEN,
-    LIFECYCLE_READER_CLOSE,
-    LIFECYCLE_WRITER_CLOSE,
-    READER_MESSAGE_DELAYED,
-    JOB_STATUS,
-    STAIN_TRACE,
-    TABLE_OPERATION_TRUNCATE
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
+
+import java.io.IOException;
+
+/**
+ * Writer-side contract for applying {@link TableOperationEvent}s after in-flight rows are flushed.
+ */
+public interface SupportTableOperationSinkWriter {
+
+    /**
+     * Apply a table operation to the third-party receiver. Implementations must flush buffered rows
+     * for the target table before executing a destructive operation such as truncate.
+     *
+     * @param event table operation from upstream
+     * @throws IOException if the operation cannot be applied
+     */
+    void applyTableOperation(TableOperationEvent event) throws IOException;
 }

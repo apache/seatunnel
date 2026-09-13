@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.utils.DdlStatements;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
 import org.apache.kafka.connect.data.Struct;
@@ -59,6 +61,16 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
     @Setter protected transient DdlParser ddlParser;
     @Setter protected transient Tables tables;
     @Setter protected String sourceDialectName;
+    @Setter protected boolean tableOperationsEnabled;
+    /**
+     * User-facing {@code schema-changes.enabled} (plus the legacy Debezium property). Independent
+     * of {@link #tableOperationsEnabled}: opening schema-history so {@code TRUNCATE} is visible
+     * must not start applying {@code ALTER TABLE} downstream.
+     *
+     * <p>Defaults to {@code true} so connectors that still gate the resolver at construction
+     * (Oracle / SQL Server) keep their existing ALTER behavior.
+     */
+    @Setter protected boolean schemaChangesEnabled = true;
 
     public AbstractSchemaChangeResolver(JdbcSourceConfig jdbcSourceConfig) {
         this.jdbcSourceConfig = jdbcSourceConfig;
@@ -67,16 +79,30 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
     @Override
     public boolean support(SourceRecord record) {
         String ddl = SourceRecordUtils.getDdl(record);
+        if (StringUtils.isBlank(ddl)) {
+            return false;
+        }
+        if (DdlStatements.isTruncateTable(ddl)) {
+            return tableOperationsEnabled;
+        }
+        if (!schemaChangesEnabled) {
+            return false;
+        }
         Struct value = (Struct) record.value();
         List<Struct> tableChanges = value.getArray(HistoryRecord.Fields.TABLE_CHANGES);
         if (tableChanges == null || tableChanges.isEmpty()) {
             log.warn("Ignoring statement for non-captured table {}", ddl);
             return false;
         }
-        return StringUtils.isNotBlank(ddl)
-                && SUPPORT_DDL.stream()
-                        .map(String::toUpperCase)
-                        .anyMatch(prefix -> ddl.toUpperCase().contains(prefix));
+        return SUPPORT_DDL.stream()
+                .map(String::toUpperCase)
+                .anyMatch(prefix -> ddl.toUpperCase().contains(prefix));
+    }
+
+    @Override
+    public TableOperationEvent resolveTableOperation(
+            SourceRecord record, List<CatalogTable> catalogTables) {
+        return null;
     }
 
     @Override

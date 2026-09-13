@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -198,6 +199,12 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             if (event != null) {
                 collector.collect(new Record<>(event));
             }
+        } else if (record.getData() instanceof TableOperationEvent) {
+            if (prepareClose) {
+                return;
+            }
+            // Table operations do not change column shape, so transforms pass them through.
+            collector.collect(record);
         } else if (record.getData() instanceof Signal) {
             if (prepareClose) {
                 return;

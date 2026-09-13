@@ -220,6 +220,9 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
 | schema-changes.include                     | List     | 否    | -       | 仅向下游发送列出的 schema change 事件类型（需 `schema-changes.enabled = true`）。为空表示全部允许。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                              |
 | schema-changes.exclude                     | List     | 否    | -       | 此处列出的 schema change 事件类型不会发送到下游。在 `schema-changes.include` 之后应用；冲突时 exclude 优先。详见 [Schema change 事件过滤](#schema-change-事件过滤)。                                                                                                       |
+| table-operations.enabled                   | Boolean  | 否    | false   | 向下游发送表操作事件（如 `TRUNCATE TABLE`）。与 `schema-changes.enabled` 相互独立，默认关闭。当前仅 Zeta + JDBC sink 会执行这些事件。详见 [表操作事件](#表操作事件)。                                                                                                              |
+| table-operations.include                   | List     | 否    | -       | 仅向下游发送列出的表操作事件类型（需 `table-operations.enabled = true`）。为空表示全部允许。合法值：`truncate.table`。                                                                                                                                                          |
+| table-operations.exclude                   | List     | 否    | -       | 此处列出的表操作事件类型不会发送到下游。在 `table-operations.include` 之后应用；冲突时 exclude 优先。合法值：`truncate.table`。                                                                                                                                               |
 | debezium                                  | Config   | 否    | -       | 传递 [Debezium的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) 给Debezium嵌入式引擎, 该引擎用于捕获 MySQL 服务的数据变更.                                                  |
 | int_type_narrowing                        | Boolean  | 否    | true    | Int类型收窄，如果为 true，则 tinyint(1) 类型将被收窄为 boolean 类型（如果没有精度损失）。目前仅支持 MySQL。                                                                                                                                                                      |
 | common-options                            |          | 否    | -       | Source插件通用参数, 详见 [Source Common Options](../common-options/source-common-options.md)                                                                                                                                                                        |
@@ -380,6 +383,36 @@ source {
 
 **排除 `drop.column` 时的数据处理方式。** 对于被保留的 **NOT NULL** 列，写入 `NULL` 会被 sink 拒绝，因此对一个源端已不再供数的
 NOT NULL 列排除 `drop.column` 会在 sink 端失败。
+
+### 表操作事件
+
+`TRUNCATE TABLE` **不是** schema change：表对象和列结构保持不变，只清空数据。请使用独立开关启用，默认 `false`：
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    table-operations.enabled = true
+    # 可选: table-operations.include = ["truncate.table"]
+    # 可选: table-operations.exclude = []
+  }
+}
+```
+
+**不要**把 `truncate.table` 放进 `schema-changes.include`。`schema-changes.include` 为空表示放行全部 schema change，
+已开启 schema evolution 的作业升级后会突然对 sink 清表。
+
+当 `table-operations.enabled = true` 时：
+
+- 即使 `schema-changes.enabled = false`，也会打开 Debezium 的 schema-history 捕获，以便从 binlog 看到这条 DDL。
+  结构类 `ALTER TABLE` 仍只在 `schema-changes.enabled = true` 时下行。
+- 当前仅 **Zeta** 引擎和 **JDBC** sink 会执行该事件。Sink 先刷出缓冲行，再执行 `TRUNCATE TABLE`。
+  JDBC sink 必须保持 `exactly_once = false`（默认值）。`is_exactly_once = true`（XA）会 fail-fast：
+  `TRUNCATE` 是 DDL，不能加入已 prepare 的 XA 事务。Flink / Spark
+  会直接失败。非 JDBC sink 同样 fail-fast，不会静默丢弃破坏性操作。
+- 恢复语义是 at-least-once：重放的 `TRUNCATE` 幂等。恢复后的 `INSERT` 仍写入同一张表，schema 不变。
+
+本版本不处理 `DROP TABLE`。
 
 ### 表名支持正则以读取多个表
 
@@ -639,6 +672,9 @@ source options 示例那样，通过 `table-names-config.primaryKeys` 指定自�
 支持，但能力有限。需要启用 `schema-changes.enabled = true`，并遵循当前页面以及
 [Schema Evolution 文档](../../introduction/configuration/schema-evolution.md)中已经定义好的契约。
 目前文档中明确支持 `add column`、`drop column`、`rename column` 和 `modify column`。
+
+`TRUNCATE TABLE` 属于独立的表操作事件。启用 `table-operations.enabled = true`（默认 `false`），不要把它配进
+`schema-changes.*`。当前仅 Zeta + JDBC sink 会执行，且 JDBC sink 必须使用 `exactly_once = false`，详见 [表操作事件](#表操作事件)。
 
 ### 运行多个 CDC 任务时如何避免 `server-id` 冲突？
 

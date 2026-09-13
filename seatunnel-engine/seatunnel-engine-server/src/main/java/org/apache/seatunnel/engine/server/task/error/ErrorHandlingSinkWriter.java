@@ -20,7 +20,9 @@ package org.apache.seatunnel.engine.server.task.error;
 import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportTableOperationSinkWriter;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
@@ -33,7 +35,8 @@ import java.util.Optional;
 
 /** SinkWriter wrapper that adds row-level error handling. */
 @Slf4j
-public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, CommT, StateT> {
+public class ErrorHandlingSinkWriter<T, CommT, StateT>
+        implements SinkWriter<T, CommT, StateT>, SupportTableOperationSinkWriter {
 
     public enum WriteOutcome {
         WRITTEN,
@@ -147,6 +150,22 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         delegate.applySchemaChange(event);
+    }
+
+    @Override
+    public void applyTableOperation(TableOperationEvent event) throws IOException {
+        if (delegate instanceof SupportTableOperationSinkWriter) {
+            ((SupportTableOperationSinkWriter) delegate).applyTableOperation(event);
+            return;
+        }
+        throw new UnsupportedOperationException(
+                "Received table operation "
+                        + event.getEventType()
+                        + " for table "
+                        + event.tablePath()
+                        + " but this sink does not implement SupportTableOperationSinkWriter. "
+                        + "Use JDBC (or another sink that declares table-operations support), "
+                        + "or set table-operations.enabled=false on the CDC source.");
     }
 
     @Override

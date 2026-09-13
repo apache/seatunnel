@@ -20,8 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportTableOperationSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -46,7 +48,8 @@ import java.util.Optional;
 public abstract class AbstractJdbcSinkWriter<ResourceT>
         implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
                 SupportMultiTableSinkWriter<ResourceT>,
-                SupportSchemaEvolutionSinkWriter {
+                SupportSchemaEvolutionSinkWriter,
+                SupportTableOperationSinkWriter {
 
     protected JdbcDialect dialect;
     protected TablePath sinkTablePath;
@@ -63,6 +66,26 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         reOpenOutputFormat(event);
+    }
+
+    /**
+     * Flushes buffered rows, then executes a table operation such as {@code TRUNCATE TABLE}. The
+     * table schema is unchanged, so the JDBC writer is not rebuilt.
+     *
+     * <p>Exactly-once (XA) writers override this and fail fast: TRUNCATE is DDL and cannot join a
+     * prepared XA transaction.
+     */
+    @Override
+    public void applyTableOperation(TableOperationEvent event) throws IOException {
+        this.prepareCommit();
+        JdbcConnectionProvider tableOperationConnectionProvider =
+                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+        try (Connection connection = tableOperationConnectionProvider.getOrEstablishConnection()) {
+            dialect.applyTableOperation(connection, sinkTablePath, event);
+        } catch (Throwable e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.APPLY_TABLE_OPERATION_FAILED, e);
+        }
     }
 
     /**

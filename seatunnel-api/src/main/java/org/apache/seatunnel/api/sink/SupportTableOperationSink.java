@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.event;
+package org.apache.seatunnel.api.sink;
 
-/** Enumerates the event categories that can flow through SeaTunnel's engine event pipeline. */
-public enum EventType {
-    SCHEMA_CHANGE_ADD_COLUMN,
-    SCHEMA_CHANGE_DROP_COLUMN,
-    SCHEMA_CHANGE_MODIFY_COLUMN,
-    SCHEMA_CHANGE_CHANGE_COLUMN,
-    SCHEMA_CHANGE_UPDATE_COLUMNS,
-    SCHEMA_CHANGE_RENAME_TABLE,
-    SCHEMA_CHANGE_ALTER_TABLE_COMMENT,
-    SCHEMA_CHANGE_ALTER_COLUMN_COMMENT,
-    LIFECYCLE_ENUMERATOR_OPEN,
-    LIFECYCLE_ENUMERATOR_CLOSE,
-    LIFECYCLE_READER_OPEN,
-    LIFECYCLE_READER_CLOSE,
-    LIFECYCLE_WRITER_CLOSE,
-    READER_MESSAGE_DELAYED,
-    JOB_STATUS,
-    STAIN_TRACE,
-    TABLE_OPERATION_TRUNCATE
+import org.apache.seatunnel.api.table.operation.TableOperationType;
+
+import java.util.List;
+
+/** Sink connectors that can apply table-operation events such as {@code TRUNCATE TABLE}. */
+public interface SupportTableOperationSink {
+
+    /**
+     * Table operations this sink can apply.
+     *
+     * @return supported operation types
+     */
+    List<TableOperationType> supportedTableOperations();
 }
