@@ -86,7 +86,6 @@ github:
             strict_required_status_checks_policy: false
             required_status_checks:
               - context: Build
-                integration_id: 15368
         - type: merge_queue
           parameters:
             # Allow enough time for runner scheduling before the 30-minute job starts.
