@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-pulsar.md';
 
 > Apache Pulsar source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Source connector for Apache Pulsar.
@@ -385,6 +391,20 @@ source {
   }
 }
 ```
+
+## FAQ
+
+### How does Pulsar source handle partitioned topics and dynamic partition discovery?
+
+When subscribing to partitioned topics or topic patterns (`topic-pattern`), SeaTunnel automatically discovers partitions and dynamically assigns topic splits across reader subtasks. You can tune `topic-discovery.interval` to control how frequently new partitions are detected.
+
+### Which cursor reset strategies and subscription modes are supported?
+
+The source supports `EARLIEST` and `LATEST` startup modes through `cursor.startup.mode`. Consumers join the subscription with configurable subscription types (e.g. `Failover` or `Exclusive`), and SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
+
+### How do I configure authentication for secure Pulsar clusters?
+
+Configure `auth.plugin-class` (e.g. `org.apache.pulsar.client.impl.auth.AuthenticationToken`) and provide required credentials or token values via `auth.params`. TLS connections are enabled by providing `pulsar+ssl://` service URLs.
 
 ## Changelog
 
