@@ -18,11 +18,13 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -45,10 +47,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
@@ -95,7 +97,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 context);
         this.dataSourceDialect = dataSourceDialect;
         this.sourceConfig = sourceConfig;
-        this.finishedUnackedSplits = new HashMap<>();
+        // Ack events are handled on the engine's event-delivery thread while splits finish on the
+        // reader thread, so the map must tolerate concurrent access.
+        this.finishedUnackedSplits = new ConcurrentHashMap<>();
         this.subtaskId = context.getIndexOfSubtask();
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
     }
@@ -218,12 +222,29 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     new CompletedSnapshotSplitsReportEvent();
             reportEvent.setCompletedSnapshotSplitWatermarks(completedSnapshotSplitWatermarks);
             context.sendSourceEventToEnumerator(reportEvent);
-            // TODO need enumerator return ack
-            finishedUnackedSplits.clear();
+            // The splits stay in finishedUnackedSplits until the enumerator returns a
+            // CompletedSnapshotSplitsAckEvent via handleSourceEvent. Clearing them eagerly
+            // here would let a snapshot phase advance without the enumerator ever knowing
+            // which splits the reader finished.
             log.debug(
                     "The subtask {} reports offsets of finished snapshot splits {}.",
                     subtaskId,
                     completedSnapshotSplitWatermarks);
+        }
+    }
+
+    @Override
+    public void handleSourceEvent(SourceEvent sourceEvent) {
+        if (sourceEvent instanceof CompletedSnapshotSplitsAckEvent) {
+            CompletedSnapshotSplitsAckEvent ackEvent =
+                    (CompletedSnapshotSplitsAckEvent) sourceEvent;
+            ackEvent.getCompletedSplits().forEach(finishedUnackedSplits::remove);
+            log.debug(
+                    "The subtask {} receives acknowledgements for finished snapshot splits {}.",
+                    subtaskId,
+                    ackEvent.getCompletedSplits());
+        } else {
+            super.handleSourceEvent(sourceEvent);
         }
     }
 
