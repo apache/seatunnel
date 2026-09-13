@@ -113,7 +113,6 @@ import static java.lang.Thread.currentThread;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.stream.Collectors.partitioningBy;
-import static java.util.stream.Collectors.toList;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.JOB_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.PIPELINE_ID;
 import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_GROUP_ID;
@@ -172,6 +171,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Executor service for running task workers. */
     private final ExecutorService executorService =
             newCachedThreadPool(new BlockingTaskThreadFactory());
+
+    /**
+     * Optional override for blocking-task submission. Package-visible so tests can inject an
+     * executor that throws {@link java.util.concurrent.RejectedExecutionException} after partial
+     * submission without replacing the service-wide worker pool.
+     */
+    volatile ExecutorService blockingTaskExecutorOverride;
 
     /** Supplier for creating and running new BusWork threads. */
     private final RunBusWorkSupplier runBusWorkSupplier =
@@ -383,25 +389,28 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     private void submitBlockingTask(
             TaskGroupExecutionTracker taskGroupExecutionTracker, List<Task> tasks) {
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(executorService);
+        ExecutorService blockingExecutor =
+                blockingTaskExecutorOverride != null
+                        ? blockingTaskExecutorOverride
+                        : executorService;
+        MDCExecutorService mdcExecutorService = MDCTracer.tracing(blockingExecutor);
 
         CountDownLatch startedLatch = new CountDownLatch(tasks.size());
-        taskGroupExecutionTracker.blockingFutures =
-                tasks.stream()
-                        .map(
-                                t ->
-                                        new BlockingWorker(
-                                                new TaskTracker(t, taskGroupExecutionTracker),
-                                                startedLatch))
-                        .map(
-                                r ->
-                                        new NamedTaskWrapper(
-                                                r,
-                                                "BlockingWorker-"
-                                                        + taskGroupExecutionTracker.taskGroup
-                                                                .getTaskGroupLocation()))
-                        .map(mdcExecutorService::submit)
-                        .collect(toList());
+        // Record each Future as it is submitted so a mid-batch RejectedExecutionException still
+        // leaves already-accepted workers reachable for cancellation during post-publish rollback.
+        List<Future<?>> futures = new ArrayList<>();
+        taskGroupExecutionTracker.blockingFutures = futures;
+        for (Task task : tasks) {
+            BlockingWorker worker =
+                    new BlockingWorker(
+                            new TaskTracker(task, taskGroupExecutionTracker), startedLatch);
+            NamedTaskWrapper namedWorker =
+                    new NamedTaskWrapper(
+                            worker,
+                            "BlockingWorker-"
+                                    + taskGroupExecutionTracker.taskGroup.getTaskGroupLocation());
+            futures.add(mdcExecutorService.submit(namedWorker));
+        }
 
         // Do not return from this method until all workers have started. Otherwise,
         // on cancellation there is a race where the executor might not have started
@@ -596,13 +605,29 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployLocalTask(taskGroup, classLoaders, jars, () -> {}, failure -> {});
     }
 
-    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+    /**
+     * Deploys a task group locally with hooks for context-publication ownership transfer.
+     *
+     * <p>Package-private so tests can inject post-publication failures at the callback/submission
+     * boundary without broadening production APIs.
+     *
+     * @param taskGroup the task group to deploy
+     * @param classLoaders map of task IDs to class loaders
+     * @param jars map of task IDs to connector jars
+     * @param onContextPublished called after the execution context (and cancellation future) are
+     *     published; used by {@link #deployTask(TaskGroupImmutableInformation)} to transfer
+     *     classloader ownership
+     * @param onFailureBeforeContextPublished cleanup when failure happens before publication
+     * @return a future that completes with the task execution state
+     */
+    PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars,
             Runnable onContextPublished,
             Consumer<Throwable> onFailureBeforeContextPublished) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskGroupLocation taskGroupLocation = taskGroup.getTaskGroupLocation();
         resultFuture.whenCompleteAsync(
                 withTryCatch(
                         logger,
@@ -611,33 +636,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 logger.severe(
                                         String.format(
                                                 "Task %s complete with error %s",
-                                                taskGroup.getTaskGroupLocation(),
-                                                ExceptionUtils.getMessage(s)));
+                                                taskGroupLocation, ExceptionUtils.getMessage(s)));
                             }
                             if (r == null) {
                                 r =
                                         new TaskExecutionState(
-                                                taskGroup.getTaskGroupLocation(),
-                                                ExecutionState.FAILED,
-                                                s);
+                                                taskGroupLocation, ExecutionState.FAILED, s);
                             }
                             logger.info(
                                     String.format(
                                             "Task %s complete with state %s",
                                             r.getTaskGroupLocation(), r.getExecutionState()));
-                            notifyTaskStatusToMaster(taskGroup.getTaskGroupLocation(), r);
+                            notifyTaskStatusToMaster(taskGroupLocation, r);
                         }),
                 MDCTracer.tracing(executorService));
         boolean contextPublished = false;
+        // Hoisted so a post-publish failure can cancel work already submitted/enqueued before the
+        // bookkeeping maps are rolled back.
+        TaskGroupExecutionTracker executionTracker = null;
         try {
             taskGroup.init();
-            logger.info(
-                    String.format(
-                            "deploying TaskGroup %s init success",
-                            taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying TaskGroup %s init success", taskGroupLocation));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
-            TaskGroupExecutionTracker executionTracker =
+            executionTracker =
                     new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
                     new ConcurrentHashMap<>();
@@ -670,26 +692,72 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
+            // Publish execution and cancellation state together so a later failure can roll both
+            // back atomically; otherwise a stale executionContexts entry permanently blocks
+            // redeploy via the master-failover skip branch in deployTask.
             executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+                    taskGroupLocation, new TaskGroupContext(taskGroup, classLoaders, jars));
+            cancellationFutures.put(taskGroupLocation, cancellationFuture);
             contextPublished = true;
             onContextPublished.run();
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
-            logger.info(
-                    String.format(
-                            "deploying TaskGroup %s success", taskGroup.getTaskGroupLocation()));
+            logger.info(String.format("deploying TaskGroup %s success", taskGroupLocation));
         } catch (Throwable t) {
             logger.severe(ExceptionUtils.getMessage(t));
-            if (!contextPublished) {
+            if (contextPublished) {
+                rollbackPublishedDeployment(taskGroupLocation, executionTracker, t);
+            } else {
                 onFailureBeforeContextPublished.accept(t);
             }
             resultFuture.completeExceptionally(t);
         }
         return new PassiveCompletableFuture<>(resultFuture);
+    }
+
+    /**
+     * Best-effort cleanup after a failure that happened after context publication.
+     *
+     * <p>Stops anything already submitted or still sitting in the cooperative queue, releases
+     * classloader references owned by the published context, and removes the active bookkeeping
+     * entries so a later redeploy of the same {@link TaskGroupLocation} can proceed safely.
+     */
+    private void rollbackPublishedDeployment(
+            TaskGroupLocation taskGroupLocation,
+            TaskGroupExecutionTracker executionTracker,
+            Throwable deploymentFailure) {
+        if (executionTracker != null) {
+            executionTracker.abortAfterFailedPublish(deploymentFailure);
+            threadShareTaskQueue.removeIf(
+                    tracker -> tracker.taskGroupExecutionTracker == executionTracker);
+        }
+        TaskGroupContext context = executionContexts.remove(taskGroupLocation);
+        cancellationFutures.remove(taskGroupLocation);
+        if (context != null) {
+            releaseClassLoadersFromPublishedContext(taskGroupLocation, context, deploymentFailure);
+        }
+    }
+
+    private void releaseClassLoadersFromPublishedContext(
+            TaskGroupLocation taskGroupLocation,
+            TaskGroupContext context,
+            Throwable deploymentFailure) {
+        try {
+            context.setClassLoaders(null);
+            Map<Long, Collection<URL>> jarsByTask = context.getJars();
+            if (jarsByTask == null) {
+                return;
+            }
+            for (Collection<URL> jars : jarsByTask.values()) {
+                classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
+            }
+        } catch (Throwable cleanupFailure) {
+            deploymentFailure.addSuppressed(cleanupFailure);
+            logger.severe(
+                    "Release classloader after post-publish deployment rollback failed",
+                    cleanupFailure);
+        }
     }
 
     /**
@@ -1129,14 +1197,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
-            ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
+            TaskGroupLocation taskGroupLocation =
+                    taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
+            final Task t = tracker.task;
+            // Context may already have been rolled back after a post-publish deploy failure.
+            TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+            if (taskGroupContext == null || taskGroupExecutionTracker.isCancel.get()) {
+                startedLatch.countDown();
+                taskGroupExecutionTracker.taskDone(t);
+                return;
+            }
+            ClassLoader classLoader = taskGroupContext.getClassLoaders().get(t.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
-            final Task t = tracker.task;
             ProgressState result = null;
             try {
                 startedLatch.countDown();
@@ -1249,7 +1322,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                 : taskQueue.takeFirst();
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
-                if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
+                TaskGroupLocation taskGroupLocation =
+                        taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
+                // Mirror BlockingWorker: context may already have been rolled back after a
+                // post-publish deploy failure, or cancellation may already be in flight.
+                TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+                if (taskGroupContext == null
+                        || taskGroupExecutionTracker.isCancel.get()
+                        || taskGroupExecutionTracker.executionCompletedExceptionally()) {
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         // If it's exclusive need to end the work
@@ -1269,10 +1349,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 try {
                     // run task
                     myThread.setContextClassLoader(
-                            executionContexts
-                                    .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                                    .getClassLoaders()
-                                    .get(taskTracker.task.getTaskID()));
+                            taskGroupContext.getClassLoaders().get(taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -1406,6 +1483,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionException.compareAndSet(null, t);
         }
 
+        /**
+         * Marks the group cancelled and best-effort stops anything already submitted when
+         * deployment fails after context publication.
+         *
+         * @param failure the deployment failure that triggered rollback
+         */
+        void abortAfterFailedPublish(Throwable failure) {
+            isCancel.set(true);
+            exception(failure);
+            cancelAllTask(taskGroup.getTaskGroupLocation());
+        }
+
         private void cancelAllTask(TaskGroupLocation taskGroupLocation) {
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
@@ -1506,8 +1595,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
             TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
-            for (Collection<URL> jars : context.getJars().values()) {
+            if (context == null) {
+                // Already cleaned up by post-publish deployment rollback.
+                return;
+            }
+            context.setClassLoaders(null);
+            Map<Long, Collection<URL>> jarsByTask = context.getJars();
+            if (jarsByTask == null) {
+                return;
+            }
+            for (Collection<URL> jars : jarsByTask.values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
         }

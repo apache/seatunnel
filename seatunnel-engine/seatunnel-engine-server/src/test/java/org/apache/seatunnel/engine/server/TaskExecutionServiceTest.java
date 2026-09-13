@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -38,6 +39,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.execution.TaskTracker;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
@@ -53,18 +55,27 @@ import lombok.NonNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
@@ -505,6 +516,291 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     /**
+     * Verifies the {@code onContextPublished} half of the post-publication boundary in
+     * apache/seatunnel#12164 (paired with {@link
+     * #testDeployLocalTaskRollsBackAfterPartialBlockingSubmitRejection} which covers task
+     * submission): a failure after context publication rolls back {@code executionContexts} and
+     * {@code cancellationFutures}, so a later {@link TaskExecutionService#deployTask(Data)} for the
+     * same {@link TaskGroupLocation} actually redeploys instead of hitting the master-failover skip
+     * branch forever.
+     */
+    @Test
+    public void testDeployLocalTaskRollsBackAfterPostPublishFailureAndAllowsRedeploy()
+            throws Exception {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        Mockito.doNothing()
+                .when(taskExecutionService)
+                .notifyTaskStatusToMaster(Mockito.any(), Mockito.any());
+
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        TestTask firstAttemptTask = new TestTask(new AtomicBoolean(false), 300, true);
+        TaskGroupDefaultImpl firstAttemptGroup =
+                new TaskGroupDefaultImpl(
+                        location, "post-publish-failure", Lists.newArrayList(firstAttemptTask));
+
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        classLoaders.put(
+                firstAttemptTask.getTaskID(), Thread.currentThread().getContextClassLoader());
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+
+        RejectedExecutionException publishFailure =
+                new RejectedExecutionException("simulated executor rejection after publish");
+        PassiveCompletableFuture<TaskExecutionState> failedFuture =
+                taskExecutionService.deployLocalTask(
+                        firstAttemptGroup,
+                        classLoaders,
+                        jars,
+                        () -> {
+                            throw publishFailure;
+                        },
+                        failure -> {});
+
+        await().atMost(5, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertTrue(failedFuture.isCompletedExceptionally()));
+        Assertions.assertThrows(
+                TaskGroupContextNotFoundException.class,
+                () -> taskExecutionService.getActiveExecutionContext(location));
+        Assertions.assertFalse(
+                cancellationFutures(taskExecutionService).containsKey(location),
+                "cancellation future must not leak after post-publish failure");
+
+        AtomicBoolean stop = new AtomicBoolean(false);
+        ExecutionMarkerTask.reset();
+        Task redeployTask = new ExecutionMarkerTask(stop);
+
+        TaskGroupImmutableInformation redeployInfo =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.DEFAULT,
+                        location,
+                        "post-publish-failure-redeploy",
+                        Collections.singletonList(
+                                nodeEngine.getSerializationService().toData(redeployTask)),
+                        Collections.singletonList(emptySet()),
+                        Collections.singletonList(emptySet()));
+        Data redeployData = nodeEngine.getSerializationService().toData(redeployInfo);
+
+        TaskDeployState redeployState = taskExecutionService.deployTask(redeployData);
+        assertEquals(TaskDeployState.success(), redeployState);
+        Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));
+
+        await().atMost(10, TimeUnit.SECONDS).until(ExecutionMarkerTask::wasExecuted);
+        Assertions.assertTrue(
+                ExecutionMarkerTask.wasExecuted(),
+                "second deployTask must actually execute after post-publish rollback");
+
+        stop.set(true);
+        taskExecutionService.cancelTaskGroup(location);
+    }
+
+    /**
+     * Regression for the task-submission half of the post-publication boundary in
+     * apache/seatunnel#12164 (paired with {@link
+     * #testDeployLocalTaskRollsBackAfterPostPublishFailureAndAllowsRedeploy} which covers {@code
+     * onContextPublished}): {@code submitBlockingTask} throws {@link RejectedExecutionException}
+     * after at least one blocking worker was already accepted and after a thread-share task was
+     * already enqueued.
+     *
+     * <p>Asserts the failed attempt is fully rolled back (no active context, no cancellation
+     * future, no residual cooperative-queue work, no leaked classloader reference) and a later
+     * {@link TaskExecutionService#deployTask(Data)} for the same {@link TaskGroupLocation} actually
+     * executes rather than only returning success via the master-failover skip branch.
+     */
+    @Test
+    public void testDeployLocalTaskRollsBackAfterPartialBlockingSubmitRejection() throws Exception {
+        TaskExecutionService realService = server.getTaskExecutionService();
+        TaskExecutionService taskExecutionService = Mockito.spy(realService);
+        Mockito.doNothing()
+                .when(taskExecutionService)
+                .notifyTaskStatusToMaster(Mockito.any(), Mockito.any());
+
+        ThreadShareMode previousMode =
+                realService
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getTaskExecutionThreadShareMode();
+        realService
+                .getSeaTunnelConfig()
+                .getEngineConfig()
+                .setTaskExecutionThreadShareMode(ThreadShareMode.PART);
+
+        AtomicInteger acceptedBlockingSubmits = new AtomicInteger();
+        ExecutorService rejectingExecutor =
+                new ThreadPoolExecutor(
+                        2, 2, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>()) {
+                    @Override
+                    public Future<?> submit(Runnable task) {
+                        if (acceptedBlockingSubmits.getAndIncrement() >= 1) {
+                            throw new RejectedExecutionException(
+                                    "reject after partial blocking submit");
+                        }
+                        return super.submit(task);
+                    }
+                };
+        // Mockito.spy() may not share instance fields with the real object; set the override on
+        // both so submitBlockingTask always sees the rejecting executor.
+        setBlockingTaskExecutorOverride(realService, rejectingExecutor);
+        setBlockingTaskExecutorOverride(taskExecutionService, rejectingExecutor);
+
+        DefaultClassLoaderService classLoaderService =
+                (DefaultClassLoaderService) server.getClassLoaderService();
+        File testJar = File.createTempFile("post-publish-partial-submit", ".jar");
+        testJar.deleteOnExit();
+        URL testJarUrl = testJar.toURI().toURL();
+        Set<URL> testJars = Collections.singleton(testJarUrl);
+
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        PartialSubmitProbeTask.reset();
+        PartialSubmitProbeTask shareTask = new PartialSubmitProbeTask(1L, true);
+        PartialSubmitProbeTask firstBlockingTask = new PartialSubmitProbeTask(2L, false);
+        PartialSubmitProbeTask secondBlockingTask = new PartialSubmitProbeTask(3L, false);
+
+        TaskGroupImmutableInformation info =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.DEFAULT,
+                        location,
+                        "partial-blocking-submit-rejection",
+                        Arrays.asList(
+                                nodeEngine.getSerializationService().toData(shareTask),
+                                nodeEngine.getSerializationService().toData(firstBlockingTask),
+                                nodeEngine.getSerializationService().toData(secondBlockingTask)),
+                        Arrays.asList(testJars, testJars, testJars),
+                        Arrays.asList(emptySet(), emptySet(), emptySet()));
+
+        try {
+            TaskDeployState deployState = taskExecutionService.deployTask(info);
+            assertEquals(TaskDeployState.success(), deployState);
+            Assertions.assertTrue(
+                    acceptedBlockingSubmits.get() >= 2,
+                    "test must reach a RejectedExecutionException after a successful blocking submit");
+
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertThrows(
+                                            TaskGroupContextNotFoundException.class,
+                                            () ->
+                                                    taskExecutionService.getActiveExecutionContext(
+                                                            location)));
+            Assertions.assertFalse(
+                    cancellationFutures(realService).containsKey(location),
+                    "cancellation future must not leak after partial-submit rollback");
+            Assertions.assertFalse(
+                    threadShareQueueContainsLocation(realService, location),
+                    "cooperative queue must not retain trackers from the failed attempt");
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                int calls = PartialSubmitProbeTask.callCount();
+                                try {
+                                    Thread.sleep(200);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                }
+                                Assertions.assertEquals(
+                                        calls,
+                                        PartialSubmitProbeTask.callCount(),
+                                        "orphaned tasks from the failed attempt must stop running");
+                            });
+            Assertions.assertTrue(
+                    classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
+            Assertions.assertEquals(
+                    0,
+                    classLoaderService.queryClassLoaderReferenceCount(testJobId, testJars),
+                    "classloader references must be released by post-publish rollback");
+
+            // Clear the rejecting executor and restore the original thread-share mode before
+            // redeploy so the second attempt uses the normal worker pool.
+            setBlockingTaskExecutorOverride(realService, null);
+            setBlockingTaskExecutorOverride(taskExecutionService, null);
+            realService
+                    .getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(previousMode);
+
+            AtomicBoolean stop = new AtomicBoolean(false);
+            ExecutionMarkerTask.reset();
+            Task redeployTask = new ExecutionMarkerTask(stop);
+            TaskGroupImmutableInformation redeployInfo =
+                    new TaskGroupImmutableInformation(
+                            testJobId,
+                            1,
+                            TaskGroupType.DEFAULT,
+                            location,
+                            "partial-submit-redeploy",
+                            Collections.singletonList(
+                                    nodeEngine.getSerializationService().toData(redeployTask)),
+                            Collections.singletonList(emptySet()),
+                            Collections.singletonList(emptySet()));
+            Data redeployData = nodeEngine.getSerializationService().toData(redeployInfo);
+
+            // Use deployTask (not deployLocalTask) so this assertion exercises the same
+            // executionContexts.containsKey skip branch that permanently blocked redeploy before
+            // the rollback fix.
+            TaskDeployState redeployState = taskExecutionService.deployTask(redeployData);
+            assertEquals(TaskDeployState.success(), redeployState);
+            Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));
+            await().atMost(10, TimeUnit.SECONDS).until(ExecutionMarkerTask::wasExecuted);
+            Assertions.assertTrue(
+                    ExecutionMarkerTask.wasExecuted(),
+                    "second deployTask must actually execute after partial-submit rollback");
+            stop.set(true);
+            taskExecutionService.cancelTaskGroup(location);
+        } finally {
+            setBlockingTaskExecutorOverride(realService, null);
+            setBlockingTaskExecutorOverride(taskExecutionService, null);
+            rejectingExecutor.shutdownNow();
+            realService
+                    .getSeaTunnelConfig()
+                    .getEngineConfig()
+                    .setTaskExecutionThreadShareMode(previousMode);
+            testJar.delete();
+        }
+    }
+
+    private static void setBlockingTaskExecutorOverride(
+            TaskExecutionService taskExecutionService, ExecutorService override) throws Exception {
+        Field field = TaskExecutionService.class.getDeclaredField("blockingTaskExecutorOverride");
+        field.setAccessible(true);
+        field.set(taskExecutionService, override);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ConcurrentMap<TaskGroupLocation, ?> cancellationFutures(
+            TaskExecutionService taskExecutionService) throws Exception {
+        Field field = TaskExecutionService.class.getDeclaredField("cancellationFutures");
+        field.setAccessible(true);
+        return (ConcurrentMap<TaskGroupLocation, ?>) field.get(taskExecutionService);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static boolean threadShareQueueContainsLocation(
+            TaskExecutionService taskExecutionService, TaskGroupLocation location)
+            throws Exception {
+        Field queueField = TaskExecutionService.class.getDeclaredField("threadShareTaskQueue");
+        queueField.setAccessible(true);
+        java.util.concurrent.BlockingDeque<TaskTracker> queue =
+                (java.util.concurrent.BlockingDeque<TaskTracker>)
+                        queueField.get(taskExecutionService);
+        Field taskGroupField =
+                TaskExecutionService.TaskGroupExecutionTracker.class.getDeclaredField("taskGroup");
+        taskGroupField.setAccessible(true);
+        for (TaskTracker tracker : queue) {
+            TaskGroup taskGroup = (TaskGroup) taskGroupField.get(tracker.taskGroupExecutionTracker);
+            if (location.equals(taskGroup.getTaskGroupLocation())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Verifies that {@link TaskExecutionService#deployTask(Data)} is idempotent when the
      * TaskGroupLocation is already present in {@code executionContexts} (task actively running).
      *
@@ -656,6 +952,112 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         @Override
         public Long getTaskID() {
             return 1L;
+        }
+    }
+
+    /**
+     * Marks that {@link #call()} ran so tests can prove a redeploy actually started execution.
+     *
+     * <p>Uses a static execution flag because Hazelcast serialization creates a new task instance;
+     * the flag must remain visible to the test thread after deserialize.
+     */
+    private static class ExecutionMarkerTask implements Task, java.io.Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        private static final AtomicBoolean EXECUTED = new AtomicBoolean(false);
+
+        private final AtomicBoolean stop;
+
+        private ExecutionMarkerTask(AtomicBoolean stop) {
+            this.stop = stop;
+        }
+
+        private static void reset() {
+            EXECUTED.set(false);
+        }
+
+        private static boolean wasExecuted() {
+            return EXECUTED.get();
+        }
+
+        @Override
+        public ProgressState call() {
+            EXECUTED.set(true);
+            if (stop.get()) {
+                return ProgressState.DONE;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return ProgressState.DONE;
+            }
+            return ProgressState.MADE_PROGRESS;
+        }
+
+        @Override
+        public Long getTaskID() {
+            return 2L;
+        }
+
+        @Override
+        public boolean isThreadsShare() {
+            return true;
+        }
+    }
+
+    /**
+     * Probe task used to exercise mixed thread-share / blocking submission under PART mode. Static
+     * call counter survives Hazelcast deserialize so the test can detect orphaned execution.
+     */
+    private static class PartialSubmitProbeTask implements Task, java.io.Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        private static final AtomicInteger CALL_COUNT = new AtomicInteger();
+        private static final AtomicBoolean STOP = new AtomicBoolean();
+
+        private final long taskId;
+        private final boolean threadsShare;
+
+        private PartialSubmitProbeTask(long taskId, boolean threadsShare) {
+            this.taskId = taskId;
+            this.threadsShare = threadsShare;
+        }
+
+        private static void reset() {
+            CALL_COUNT.set(0);
+            STOP.set(false);
+        }
+
+        private static int callCount() {
+            return CALL_COUNT.get();
+        }
+
+        @Override
+        public ProgressState call() {
+            CALL_COUNT.incrementAndGet();
+            if (STOP.get()) {
+                return ProgressState.DONE;
+            }
+            try {
+                Thread.sleep(50);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return ProgressState.DONE;
+            }
+            return ProgressState.MADE_PROGRESS;
+        }
+
+        @Override
+        public Long getTaskID() {
+            return taskId;
+        }
+
+        @Override
+        public boolean isThreadsShare() {
+            return threadsShare;
         }
     }
 }
