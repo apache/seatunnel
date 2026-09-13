@@ -38,6 +38,7 @@ import com.mysql.cj.MysqlType;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -58,6 +59,8 @@ public class MysqlCreateTableSqlBuilder {
     private PrimaryKey primaryKey;
 
     private List<ConstraintKey> constraintKeys;
+
+    private Map<String, String> tableOptions;
 
     private String fieldIde;
 
@@ -90,6 +93,7 @@ public class MysqlCreateTableSqlBuilder {
                 .collate(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_COLLATE))
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
+                .tableOptions(catalogTable.getOptions())
                 .addColumn(tableSchema.getColumns())
                 .fieldIde(catalogTable.getOptions().get("fieldIde"));
     }
@@ -112,6 +116,11 @@ public class MysqlCreateTableSqlBuilder {
 
     public MysqlCreateTableSqlBuilder constraintKeys(List<ConstraintKey> constraintKeys) {
         this.constraintKeys = constraintKeys;
+        return this;
+    }
+
+    public MysqlCreateTableSqlBuilder tableOptions(Map<String, String> tableOptions) {
+        this.tableOptions = tableOptions;
         return this;
     }
 
@@ -231,36 +240,20 @@ public class MysqlCreateTableSqlBuilder {
     private String buildConstraintKeySql(
             ConstraintKey constraintKey, Map<String, String> columnTypeMap) {
         ConstraintKey.ConstraintType constraintType = constraintKey.getConstraintType();
-        String indexColumns =
-                constraintKey.getColumnNames().stream()
-                        .map(
-                                constraintKeyColumn -> {
-                                    String columnName = constraintKeyColumn.getColumnName();
-                                    boolean withLength = false;
-                                    if (columnTypeMap.containsKey(columnName)) {
-                                        String columnType = columnTypeMap.get(columnName);
-                                        if (columnType.endsWith("BLOB")
-                                                || columnType.endsWith("TEXT")) {
-                                            withLength = true;
-                                        }
-                                    }
-                                    if (constraintKeyColumn.getSortType() == null) {
-                                        return String.format(
-                                                "`%s`%s",
-                                                CatalogUtils.getFieldIde(columnName, fieldIde),
-                                                withLength ? "(255)" : "");
-                                    }
-                                    return String.format(
-                                            "`%s`%s %s",
-                                            CatalogUtils.getFieldIde(columnName, fieldIde),
-                                            withLength ? "(255)" : "",
-                                            constraintKeyColumn.getSortType().name());
-                                })
-                        .collect(Collectors.joining(", "));
+        List<String> indexColumnSqls = new ArrayList<>();
+        for (int i = 0; i < constraintKey.getColumnNames().size(); i++) {
+            indexColumnSqls.add(
+                    buildConstraintKeyColumnSql(
+                            constraintKey,
+                            constraintKey.getColumnNames().get(i),
+                            i + 1,
+                            columnTypeMap));
+        }
+        String indexColumns = String.join(", ", indexColumnSqls);
         String keyName = null;
         switch (constraintType) {
             case INDEX_KEY:
-                keyName = "KEY";
+                keyName = buildMysqlIndexKeyName(constraintKey);
                 break;
             case UNIQUE_KEY:
                 keyName = "UNIQUE KEY";
@@ -280,5 +273,78 @@ public class MysqlCreateTableSqlBuilder {
         }
         return String.format(
                 "%s `%s` (%s)", keyName, constraintKey.getConstraintName(), indexColumns);
+    }
+
+    private String buildConstraintKeyColumnSql(
+            ConstraintKey constraintKey,
+            ConstraintKey.ConstraintKeyColumn constraintKeyColumn,
+            int ordinalPosition,
+            Map<String, String> columnTypeMap) {
+        String columnName = constraintKeyColumn.getColumnName();
+        String indexLength = getMysqlIndexColumnLength(constraintKey, ordinalPosition);
+        String mysqlIndexType = getMysqlIndexType(constraintKey);
+        boolean fullTextIndex = "FULLTEXT".equals(mysqlIndexType);
+        if (StringUtils.isBlank(indexLength)
+                && !fullTextIndex
+                && columnTypeMap.containsKey(columnName)) {
+            String columnType = columnTypeMap.get(columnName);
+            String normalizedColumnType = columnType.toUpperCase(Locale.ROOT);
+            if (normalizedColumnType.endsWith("BLOB") || normalizedColumnType.endsWith("TEXT")) {
+                indexLength = "255";
+            }
+        }
+        String lengthClause = StringUtils.isBlank(indexLength) ? "" : "(" + indexLength + ")";
+        if (constraintKeyColumn.getSortType() == null) {
+            return String.format(
+                    "`%s`%s", CatalogUtils.getFieldIde(columnName, fieldIde), lengthClause);
+        }
+        if (!supportExplicitIndexOrder(mysqlIndexType)) {
+            return String.format(
+                    "`%s`%s", CatalogUtils.getFieldIde(columnName, fieldIde), lengthClause);
+        }
+        return String.format(
+                "`%s`%s %s",
+                CatalogUtils.getFieldIde(columnName, fieldIde),
+                lengthClause,
+                constraintKeyColumn.getSortType().name());
+    }
+
+    private String buildMysqlIndexKeyName(ConstraintKey constraintKey) {
+        String indexType = getMysqlIndexType(constraintKey);
+        if ("FULLTEXT".equals(indexType)) {
+            return "FULLTEXT KEY";
+        }
+        if ("SPATIAL".equals(indexType)) {
+            return "SPATIAL KEY";
+        }
+        return "KEY";
+    }
+
+    private boolean supportExplicitIndexOrder(String mysqlIndexType) {
+        return !"FULLTEXT".equals(mysqlIndexType)
+                && !"SPATIAL".equals(mysqlIndexType)
+                && !"HASH".equals(mysqlIndexType);
+    }
+
+    private String getMysqlIndexType(ConstraintKey constraintKey) {
+        if (tableOptions == null) {
+            return null;
+        }
+        String value =
+                tableOptions.get(
+                        MySqlCatalog.indexTypeOptionKey(constraintKey.getConstraintName()));
+        return StringUtils.isBlank(value) ? null : value.trim().toUpperCase(Locale.ROOT);
+    }
+
+    private String getMysqlIndexColumnLength(ConstraintKey constraintKey, int ordinalPosition) {
+        if (tableOptions == null) {
+            return null;
+        }
+        String value =
+                tableOptions.get(
+                        MySqlCatalog.indexColumnSubPartOptionKey(
+                                constraintKey.getConstraintName(), ordinalPosition));
+        String indexLength = StringUtils.trimToNull(value);
+        return StringUtils.isNumeric(indexLength) ? indexLength : null;
     }
 }
