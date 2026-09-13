@@ -145,6 +145,23 @@ public class NumericFunctionTest {
         Assertions.assertEquals(1, NumericFunction.mod(Arrays.asList(5, 2)));
         Assertions.assertEquals(1L, NumericFunction.mod(Arrays.asList(5L, 2L)));
 
+        // A TINYINT or SMALLINT divisor has to carry its own type into the result, which is what
+        // ZetaSQLType declares for MOD (added with #12215).
+        Object byteResult = NumericFunction.mod(Arrays.asList(5, (byte) 2));
+        Assertions.assertEquals(Byte.class, byteResult.getClass());
+        Assertions.assertEquals((byte) 1, byteResult);
+
+        Object shortResult = NumericFunction.mod(Arrays.asList(5, (short) 2));
+        Assertions.assertEquals(Short.class, shortResult.getClass());
+        Assertions.assertEquals((short) 1, shortResult);
+
+        // The remainder is always smaller in magnitude than the divisor, so even the widest
+        // possible divisor of each type cannot overflow the result. These are the inputs that
+        // would fail first if that reasoning were wrong.
+        Assertions.assertEquals((byte) 44, NumericFunction.mod(Arrays.asList(300, Byte.MIN_VALUE)));
+        Assertions.assertEquals(
+                (short) 1696, NumericFunction.mod(Arrays.asList(100000, Short.MIN_VALUE)));
+
         Float floatResult = (Float) NumericFunction.mod(Arrays.asList(5.5f, 2.0f));
         Assertions.assertEquals(1.5f, floatResult);
 
