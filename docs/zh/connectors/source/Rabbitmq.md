@@ -42,6 +42,9 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | queue_name                 | string  | 否  | -     | 要消费消息的队列                                                                    |
 | schema                     | config  | 否  | -     | 上游数据的模式。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | tables_configs             | array   | 否  | -     | 用于同时从多个队列读取消息。数组中的每个对象必须包含 queue_name 和 schema。                            |
+| format                     | string  | 否  | json  | 消息体格式，支持 json 和 protobuf                                                       |
+| protobuf_schema            | string  | 否  | -     | 当 format 为 protobuf 时生效，用于解析消息体的 Protobuf Schema                              |
+| protobuf_message_name      | string  | 否  | -     | 当 format 为 protobuf 时生效，指定要解析的 Protobuf Message 名称                            |
 | url                        | string  | 否  | -     | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机                                   |
 | routing_key                | string  | 否  | -     | RabbitMQ 共享配置中的可选路由键                                                         |
 | exchange                   | string  | 否  | -     | RabbitMQ 共享配置中的可选 exchange                                                     |
@@ -107,6 +110,18 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 ### tables_configs [array]
 
 用于同时从多个队列读取消息。数组中的每个对象必须包含 `queue_name` 和 `schema`。
+
+### format [string]
+
+消息体格式，支持 `json` 和 `protobuf`，默认值为 `json`。
+
+### protobuf_schema [string]
+
+当 `format` 为 `protobuf` 时生效，定义用于反序列化 RabbitMQ 消息体的 Protobuf Schema。
+
+### protobuf_message_name [string]
+
+当 `format` 为 `protobuf` 时生效，指定要反序列化的 Protobuf Message 名称。
 
 ### network_recovery_interval [int]
 
@@ -178,6 +193,7 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 - 使用 `tables_configs` 进行多表模式。
 - 使用根级别的 `queue_name` 和 `schema` 进行单队列模式。
 - 多表模式下，每个队列自己的 `schema` 应放在对应的 `tables_configs` 条目里。
+- 当 `format` 为 `protobuf` 时，需要在队列配置所在层级同时配置 `protobuf_schema` 和 `protobuf_message_name`。
 - 如果配置了 `username`，也必须配置 `password`，反过来也一样。
 - `host` 和 `port` 总是必填。`virtual_host` 是可选项，除非您的 RabbitMQ 环境要求使用非默认虚拟主机。
 
@@ -275,6 +291,33 @@ sink {
 }
 ```
 
+### Protobuf 读取示例
+
+```hocon
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        queue_name = "protobuf_queue"
+        format = protobuf
+        protobuf_message_name = Person
+        protobuf_schema = """
+            syntax = "proto3";
+            message Person {
+              int64 id = 1;
+              string name = 2;
+            }
+        """
+        schema = {
+            fields {
+                id = bigint
+                name = string
+            }
+        }
+    }
+}
+```
+
 ## 常见问题
 
 ### 为什么实现精确一次必须将并行度设置为 1？
@@ -283,7 +326,7 @@ RabbitMQ 会在同一个队列的多个活跃消费者之间以轮询方式分�
 
 ### RabbitMQ Source 支持哪些消息格式？
 
-RabbitMQ Source 结合 SeaTunnel 反序列化 Schema（如 JSON、Text 等），根据配置的 `schema` 将消息体反序列化为 SeaTunnel 行数据。
+RabbitMQ Source 默认支持 JSON。当 `format` 设置为 `protobuf` 时支持 Protobuf。连接器会按照配置的 `schema` 将每条 RabbitMQ 消息体反序列化为一行 SeaTunnel 数据。
 
 ### 任务发生故障时未确认的消息如何处理？
 

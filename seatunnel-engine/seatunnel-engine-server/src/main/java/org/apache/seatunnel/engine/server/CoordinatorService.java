@@ -889,6 +889,9 @@ public class CoordinatorService {
             return;
         }
         if (!isCleanupDelayElapsed(record)) {
+            // The executor can run slightly before the wall-clock cleanup deadline.
+            // Preserve the record by scheduling the remaining delay instead of dropping it.
+            schedulePendingJobCleanup(jobId, record);
             return;
         }
 

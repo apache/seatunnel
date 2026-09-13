@@ -21,13 +21,17 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -44,6 +48,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 
@@ -96,6 +101,16 @@ public class FileSchemaEvolutionTest {
         return new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE);
     }
 
+    private static FileSinkConfig schemaEvolutionEnabledConfigWithSubsetColumns() {
+        Config config =
+                ConfigFactory.parseString(
+                        "path = \"/tmp/test\"\n"
+                                + "file_format_type = \"parquet\"\n"
+                                + "sink_columns = [\"id\", \"name\"]\n"
+                                + "schema_evolution_enabled = true");
+        return new FileSinkConfig(ReadonlyConfig.fromConfig(config), BASE_ROW_TYPE);
+    }
+
     // ── Helper to build a NoOpWriteStrategy with a given FileSinkConfig ──────────
 
     private static NoOpWriteStrategy buildStrategy(FileSinkConfig config) {
@@ -110,6 +125,40 @@ public class FileSchemaEvolutionTest {
                         TABLE_ID.getTableName(),
                         BASE_ROW_TYPE));
         return strategy;
+    }
+
+    @Test
+    void testRestorePreservesExplicitSinkColumnSelection() throws IOException {
+        NoOpWriteStrategy strategy = buildStrategy(schemaEvolutionEnabledConfigWithSubsetColumns());
+        CatalogTable initialTable =
+                CatalogTableUtil.getCatalogTable(
+                        TABLE_ID.getCatalogName(),
+                        TABLE_ID.getDatabaseName(),
+                        TABLE_ID.getSchemaName(),
+                        TABLE_ID.getTableName(),
+                        BASE_ROW_TYPE);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        TABLE_ID,
+                        TableSchema.builder()
+                                .columns(initialTable.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "email",
+                                                BasicType.STRING_TYPE,
+                                                128L,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        strategy.applySchemaChange(new RestoreTableSchemaEvent(restoredTable));
+
+        Assertions.assertEquals(
+                Arrays.asList("id", "name", "email"), strategy.getSinkColumnNames());
     }
 
     // ── ADD_COLUMN ────────────────────────────────────────────────────────────────

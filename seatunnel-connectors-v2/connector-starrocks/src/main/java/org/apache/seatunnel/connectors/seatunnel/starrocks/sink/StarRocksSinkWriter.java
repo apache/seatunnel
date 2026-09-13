@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -87,6 +88,17 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         this.tableSchema = tableSchemaChangeEventDispatcher.reset(tableSchema).apply(event);
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
+
+        if (event instanceof RestoreTableSchemaEvent) {
+            try {
+                this.manager.close();
+            } catch (IOException e) {
+                throw CommonError.closeFailed(StarRocksBaseOptions.CONNECTOR_IDENTITY, e);
+            }
+            this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
+            return;
+        }
+
         this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
 
         try {

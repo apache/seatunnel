@@ -61,6 +61,8 @@ connector-google-pubsub
 connector-azure-queue-storage
 connector-google-bigtable
 connector-google-ads
+connector-facebook-ads
+connector-tiktok-ads
 connector-graphql
 connector-hive
 connector-http-base
@@ -71,6 +73,7 @@ connector-http-jira
 connector-http-klaviyo
 connector-http-stripe
 connector-http-lemlist
+connector-http-linear
 connector-http-myhours
 connector-http-notion
 connector-http-onesignal

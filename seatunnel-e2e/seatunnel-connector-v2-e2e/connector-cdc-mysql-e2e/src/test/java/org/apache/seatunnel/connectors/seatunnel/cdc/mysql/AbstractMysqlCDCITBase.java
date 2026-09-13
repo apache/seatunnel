@@ -801,7 +801,8 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         given().pollDelay(20, TimeUnit.SECONDS)
                 .pollInterval(2000, TimeUnit.MILLISECONDS)
                 .await()
-                .atMost(60000, TimeUnit.MILLISECONDS)
+                // Zeta can still be initializing the CDC stream when wildcard DML is applied.
+                .atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             Assertions.assertAll(

@@ -42,6 +42,9 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | queue_name                 | string  | no       | -             |
 | schema                     | config  | no       | -             |
 | tables_configs             | array   | no       | -             |
+| format                     | string  | no       | json          |
+| protobuf_schema            | string  | no       | -             |
+| protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
@@ -107,6 +110,18 @@ the schema fields of upstream data. For more details, please refer to [Schema Fe
 ### tables_configs [array]
 
 Used to read from multiple queues simultaneously. Each object in the array must contain `queue_name` and `schema`.
+
+### format [string]
+
+The message payload format. Supported values are `json` and `protobuf`. The default value is `json`.
+
+### protobuf_schema [string]
+
+Effective when `format` is `protobuf`. Defines the Protobuf schema used to deserialize the RabbitMQ message payload.
+
+### protobuf_message_name [string]
+
+Effective when `format` is `protobuf`. Specifies the Protobuf message name to deserialize.
 
 ### network_recovery_interval [int]
 
@@ -180,6 +195,7 @@ If you are upgrading from a previous version that only supported single-table re
 - Use `tables_configs` for multi-table mode.
 - Use root-level `queue_name` and `schema` for single-queue mode.
 - In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
+- When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name` at the same level as the queue configuration.
 - If you configure `username`, you must also configure `password`, and vice versa.
 - `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
@@ -278,6 +294,33 @@ sink {
 }
 ```
 
+### Protobuf Read Example
+
+```hocon
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        queue_name = "protobuf_queue"
+        format = protobuf
+        protobuf_message_name = Person
+        protobuf_schema = """
+            syntax = "proto3";
+            message Person {
+              int64 id = 1;
+              string name = 2;
+            }
+        """
+        schema = {
+            fields {
+                id = bigint
+                name = string
+            }
+        }
+    }
+}
+```
+
 ## FAQ
 
 ### Why must parallelism be set to 1 to achieve exactly-once?
@@ -286,7 +329,7 @@ RabbitMQ dispatches messages among multiple active consumers on the same queue i
 
 ### What message formats are supported by RabbitMQ source?
 
-RabbitMQ source uses SeaTunnel deserialization schemas (such as JSON, Text, etc.) to deserialize message payloads into SeaTunnel rows according to the configured `schema`.
+RabbitMQ source supports JSON by default and Protobuf when `format` is set to `protobuf`. The connector deserializes each RabbitMQ message payload into one SeaTunnel row according to the configured `schema`.
 
 ### How does the source handle unacknowledged messages when a failure occurs?
 

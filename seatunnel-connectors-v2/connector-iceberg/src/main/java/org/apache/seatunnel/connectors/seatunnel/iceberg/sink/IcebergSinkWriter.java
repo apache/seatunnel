@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
@@ -119,12 +120,17 @@ public class IcebergSinkWriter
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         // Waiting cdc connector support schema change event
-        if (config.isTableSchemaEvolutionEnabled()) {
+        if (config.isTableSchemaEvolutionEnabled() || event instanceof RestoreTableSchemaEvent) {
             log.info("changed rowType before: {}", fieldsInfo(rowType));
             this.rowType = dataTypeChangeEventHandler.reset(rowType).apply(event);
+            if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
+                this.tableSchema = event.getChangeAfter().getTableSchema();
+            }
             log.info("changed rowType after: {}", fieldsInfo(rowType));
             tryCreateRecordWriter();
-            writer.applySchemaChange(this.rowType, event);
+            if (!(event instanceof RestoreTableSchemaEvent)) {
+                writer.applySchemaChange(this.rowType, event);
+            }
         }
     }
 
