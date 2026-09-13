@@ -5,6 +5,16 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Job Event HTTP Reporting
+
+- **Behavior change: HTTP redirects are not followed**
+  - **Affected component**: Zeta job event HTTP reporting (`JobEventHttpReportHandler`).
+  - **Description**: Redirect responses are treated as unsuccessful deliveries instead of forwarding
+    the request to another endpoint. This prevents configured headers from being forwarded and
+    prevents redirects from changing the event POST into a GET.
+  - **Migration Guide**: Configure the final event-report URL directly, using an endpoint that
+    accepts the POST and returns a successful 2xx response. Configuration keys are unchanged.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**

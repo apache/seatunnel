@@ -137,6 +137,17 @@
                             <exclude>org.apache.seatunnel:seatunnel-shade-hadoop3-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <relocations>
+                        <!-- lib/ precedes the starter jar and Hadoop bundles an older Okio. -->
+                        <relocation>
+                            <pattern>okhttp3</pattern>
+                            <shadedPattern>${seatunnel.shade.package}.engine.okhttp3</shadedPattern>
+                        </relocation>
+                        <relocation>
+                            <pattern>okio</pattern>
+                            <shadedPattern>${seatunnel.shade.package}.engine.okio</shadedPattern>
+                        </relocation>
+                    </relocations>
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                     </transformers>
