@@ -19,6 +19,25 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Behavior change: query-only JDBC sources merge the underlying table's comments and options**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` (source)
+  - **Description**: When a source table is defined by `query` only (no `table_path`) and JDBC
+    metadata reports every result column as originating from the same physical table, SeaTunnel
+    now resolves that table and, by default, merges its column comments, table comment and table
+    options into the query-derived schema. Previously the schema was derived from
+    `ResultSetMetaData` only and carried none of this metadata. The primary key, constraint keys
+    and partition keys are deliberately not merged by default because they change runtime
+    behavior; set the new source option `query_table_metadata_merge = ALL` to merge them as
+    well (the same result as configuring `table_path` together with `query` — sinks with
+    `generate_sink_sql` may then switch from insert to upsert and split planning may use the
+    merged primary key), or `NONE` to restore the previous behavior entirely. (#11971)
+  - **Impact**: Row shape, column order, primary keys, sink insert/upsert semantics, split
+    planning and checkpoint/savepoint compatibility are unchanged by default. The only default
+    difference is that sinks with automatic table creation (MySQL, Doris, StarRocks, ...) create
+    the target table with the source table's comments and table options on the first run after
+    the upgrade; already-created sink tables are not modified. Multi-table queries and queries
+    whose column origins cannot be verified (for example expression columns) are unaffected —
+    the merge is skipped for them.
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.

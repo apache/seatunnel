@@ -68,6 +68,9 @@ public class JdbcSourceTableConfig implements Serializable {
     @JsonProperty("use_regex")
     private Boolean useRegex;
 
+    @JsonProperty("query_table_metadata_merge")
+    private QueryTableMetadataMergeMode queryTableMetadataMerge;
+
     @Tolerate
     public JdbcSourceTableConfig() {}
 
@@ -102,6 +105,10 @@ public class JdbcSourceTableConfig implements Serializable {
                     tableConfig.setSkipAnalyze(connectorConfig.get(JdbcSourceOptions.SKIP_ANALYZE));
                     if (tableConfig.getUseRegex() == null) {
                         tableConfig.setUseRegex(connectorConfig.get(JdbcSourceOptions.USE_REGEX));
+                    }
+                    if (tableConfig.getQueryTableMetadataMerge() == null) {
+                        tableConfig.setQueryTableMetadataMerge(
+                                connectorConfig.get(JdbcSourceOptions.QUERY_TABLE_METADATA_MERGE));
                     }
                 });
 

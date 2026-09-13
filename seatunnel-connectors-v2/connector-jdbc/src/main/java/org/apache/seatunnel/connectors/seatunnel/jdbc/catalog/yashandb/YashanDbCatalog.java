@@ -44,6 +44,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -190,44 +191,60 @@ public class YashanDbCatalog extends AbstractJdbcCatalog {
 
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
-        // YashanDB JDBC driver does not implement PreparedStatement.getMetaData().
-        // Use Statement.executeQuery() + ResultSet.getMetaData() as a workaround.
-        try (Connection defaultConnection = getConnection(defaultUrl);
-                Statement stmt = defaultConnection.createStatement();
-                ResultSet rs = stmt.executeQuery(sqlQuery)) {
-            ResultSetMetaData resultSetMetaData = rs.getMetaData();
-            CatalogTable catalogTable =
-                    CatalogUtils.getCatalogTable(
-                            resultSetMetaData, new YashanDbTypeMapper(), sqlQuery);
+        return resolveQueryTable(sqlQuery).getTable();
+    }
 
-            PrimaryKey primaryKey =
-                    extractPrimaryKey(defaultConnection, resultSetMetaData, sqlQuery);
-            if (primaryKey == null) {
-                return catalogTable;
+    /**
+     * The YashanDB JDBC driver does not implement {@code PreparedStatement.getMetaData()}, so
+     * execute the query once via {@code Statement} with the returned row count capped and reuse the
+     * single {@link ResultSetMetaData} for both the query-derived table and the single-table
+     * verification. The connection returned by {@code getConnection(defaultUrl)} is cached and
+     * shared, so it must not be closed here.
+     */
+    @Override
+    public QueryTableResolution resolveQueryTable(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        try (Statement stmt = defaultConnection.createStatement()) {
+            stmt.setMaxRows(1);
+            try (ResultSet rs = stmt.executeQuery(sqlQuery)) {
+                ResultSetMetaData resultSetMetaData = rs.getMetaData();
+                Optional<TablePath> singlePhysicalTablePath =
+                        CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData);
+                CatalogTable catalogTable =
+                        CatalogUtils.getCatalogTable(
+                                resultSetMetaData, new YashanDbTypeMapper(), sqlQuery);
+
+                PrimaryKey primaryKey =
+                        extractPrimaryKey(defaultConnection, resultSetMetaData, sqlQuery);
+                if (primaryKey == null) {
+                    return new QueryTableResolution(catalogTable, singlePhysicalTablePath);
+                }
+
+                Set<String> queryColumns =
+                        catalogTable.getTableSchema().getColumns().stream()
+                                .map(Column::getName)
+                                .collect(Collectors.toSet());
+                if (!queryColumns.containsAll(primaryKey.getColumnNames())) {
+                    return new QueryTableResolution(catalogTable, singlePhysicalTablePath);
+                }
+
+                TableSchema newSchema =
+                        TableSchema.builder()
+                                .columns(catalogTable.getTableSchema().getColumns())
+                                .primaryKey(primaryKey)
+                                .constraintKey(catalogTable.getTableSchema().getConstraintKeys())
+                                .build();
+
+                return new QueryTableResolution(
+                        CatalogTable.of(
+                                catalogTable.getTableId(),
+                                newSchema,
+                                catalogTable.getOptions(),
+                                catalogTable.getPartitionKeys(),
+                                catalogTable.getComment(),
+                                catalogTable.getCatalogName()),
+                        singlePhysicalTablePath);
             }
-
-            Set<String> queryColumns =
-                    catalogTable.getTableSchema().getColumns().stream()
-                            .map(Column::getName)
-                            .collect(Collectors.toSet());
-            if (!queryColumns.containsAll(primaryKey.getColumnNames())) {
-                return catalogTable;
-            }
-
-            TableSchema newSchema =
-                    TableSchema.builder()
-                            .columns(catalogTable.getTableSchema().getColumns())
-                            .primaryKey(primaryKey)
-                            .constraintKey(catalogTable.getTableSchema().getConstraintKeys())
-                            .build();
-
-            return CatalogTable.of(
-                    catalogTable.getTableId(),
-                    newSchema,
-                    catalogTable.getOptions(),
-                    catalogTable.getPartitionKeys(),
-                    catalogTable.getComment(),
-                    catalogTable.getCatalogName());
         }
     }
 

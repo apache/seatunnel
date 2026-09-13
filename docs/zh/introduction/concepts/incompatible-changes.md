@@ -13,6 +13,10 @@
 
 ### JDBC Connector
 
+- **行为变更：仅配置 `query` 的 JDBC Source 会合并底表的注释和表选项**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`（Source）
+  - **变更说明**：当源表仅通过 `query` 定义（未配置 `table_path`），且 JDBC 元数据报告所有结果列均来自同一张物理表时，SeaTunnel 现在会解析该底表，并默认把它的字段注释、表注释和表选项合并进查询推导出的 schema。此前 schema 仅来自 `ResultSetMetaData`，不携带上述元数据。主键、约束键和分区键默认有意不合并，因为它们会改变运行时行为；配置新的 Source 选项 `query_table_metadata_merge = ALL` 可以同时合并这些键（效果等同于同时配置 `table_path` 与 `query`——配置了 `generate_sink_sql` 的 Sink 可能从 insert 切换为 upsert，切分规划也可能使用合并出的主键），配置 `NONE` 则完全恢复旧行为。(#11971)
+  - **影响**：默认情况下，行结构、字段顺序、主键、Sink 的 insert/upsert 语义、切分规划及 checkpoint/savepoint 兼容性均不变。默认唯一的差异是：带自动建表能力的 Sink（MySQL、Doris、StarRocks 等）在升级后的首次运行会带上源表的注释和表选项创建目标表；已存在的 Sink 表不会被修改。多表查询以及列来源无法确认的查询（例如包含表达式列）不受影响——它们会跳过合并。
 - **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
   - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel 会把整个批次视为已经完成并跳过回放；只有在第一个 recovered checkpoint XID 之后又出现缺失 XID 时，restore 才会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。
