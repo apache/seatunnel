@@ -39,15 +39,32 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class PhysicalPlan {
+
+    /**
+     * Job states reached before the job has actually started running. A job in one of these states
+     * can be cancelled directly rather than going through {@code CANCELING}.
+     *
+     * <p>{@link JobStatus#SCHEDULED} is deliberately excluded: by that point pipelines have already
+     * been dispatched to workers, and only the {@code CANCELING} path (see the {@code CANCELING}
+     * case in {@link #stateProcess()}) actually calls {@link SubPlan#cancelPipeline()} on them.
+     * Treating {@code SCHEDULED} as "not yet started" would complete the job as {@code CANCELED}
+     * without ever cancelling those already-dispatched pipelines, orphaning their resources.
+     */
+    private static final Set<JobStatus> NOT_YET_STARTED_STATES =
+            Collections.unmodifiableSet(
+                    EnumSet.of(JobStatus.INITIALIZING, JobStatus.CREATED, JobStatus.PENDING));
 
     private final List<SubPlan> pipelineList;
 
@@ -204,7 +221,10 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
+        // A null runningJobStateIMap.get(jobId) here would already have thrown NPE two lines
+        // above at jobStatus.isEndState(), which reads the same map entry - so contains(null)
+        // is unreachable, not silently treated as "not yet started".
+        if (NOT_YET_STARTED_STATES.contains((JobStatus) runningJobStateIMap.get(jobId))) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
@@ -251,7 +271,7 @@ public class PhysicalPlan {
             return;
         }
 
-        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
+        if (NOT_YET_STARTED_STATES.contains(jobStatus)) {
             // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
             // the 'CANCELLED' state because it has not yet started running
             updateJobState(JobStatus.CANCELED);
