@@ -18,6 +18,6 @@
 seatunnel:
   engine:
     event-report-http:
-      url: http://host.testcontainers.internal:1024/event/report
+      url: http://host.testcontainers.internal:${MOCK_SERVER_PORT}/event/report
       headers:
         Content-Type: application/json

@@ -176,8 +176,15 @@ public class PostgresDialect implements JdbcDataSourceDialect {
             }
         }
 
+        List<CatalogTable> relationSchemaBaseline = new ArrayList<>(tableMap.values());
+        if (sourceSplitBase.isIncrementalSplit()
+                && sourceSplitBase.asIncrementalSplit().getCheckpointTables() != null
+                && !sourceSplitBase.asIncrementalSplit().getCheckpointTables().isEmpty()) {
+            relationSchemaBaseline = sourceSplitBase.asIncrementalSplit().getCheckpointTables();
+        }
+
         return new PostgresSourceFetchTaskContext(
-                taskSourceConfig, this, jdbcConnection, tableChangeList);
+                taskSourceConfig, this, jdbcConnection, tableChangeList, relationSchemaBaseline);
     }
 
     @Override

@@ -400,6 +400,28 @@ FtpFile {
 
 ```
 
+### Writing via SFTP
+
+The `FtpFile` sink supports `sftp://` URIs alongside `ftp://`. Authentication and host-key trust are configured the same way as for the source — SSH key or password plus a `known_hosts` file (the connector does not auto-trust unknown hosts).
+
+```hocon
+sink {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "parquet"
+    ftp_properties = {
+      "fs.sftp.user."      = "seatunnel"
+      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"       = "sftp.example.example.com"
+      "fs.sftp.port"       = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
 
 ## Changelog
 

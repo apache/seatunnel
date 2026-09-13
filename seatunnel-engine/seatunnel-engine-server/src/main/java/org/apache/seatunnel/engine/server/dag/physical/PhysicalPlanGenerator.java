@@ -597,7 +597,10 @@ public class PhysicalPlanGenerator {
                                                                                 .getJobId(),
                                                                         taskLocation,
                                                                         finalParallelismIndex,
-                                                                        f);
+                                                                        f,
+                                                                        jobImmutableInformation
+                                                                                .getJobConfig()
+                                                                                .getEnvOptions());
                                                             }
                                                         })
                                                 .peek(this::fillCheckpointPlan)

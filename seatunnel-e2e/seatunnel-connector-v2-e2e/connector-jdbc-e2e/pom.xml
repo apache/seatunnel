@@ -38,6 +38,15 @@
         <module>connector-jdbc-e2e-ddl</module>
     </modules>
 
+    <properties>
+        <hive.jdbc.version>3.1.3</hive.jdbc.version>
+        <jdbc.e2e.dm.version>8.1.1.193</jdbc.e2e.dm.version>
+        <jdbc.e2e.iris.version>3.10.3</jdbc.e2e.iris.version>
+        <jdbc.e2e.postgresql.version>42.3.3</jdbc.e2e.postgresql.version>
+        <jdbc.e2e.saphana.version>2.21.11</jdbc.e2e.saphana.version>
+        <jdbc.e2e.sqlserver.version>9.4.1.jre8</jdbc.e2e.sqlserver.version>
+    </properties>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -46,6 +55,37 @@
                 <version>${project.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.hive</groupId>
+                <artifactId>hive-jdbc</artifactId>
+                <version>${hive.jdbc.version}</version>
+                <classifier>standalone</classifier>
+            </dependency>
+            <dependency>
+                <groupId>com.dameng</groupId>
+                <artifactId>DmJdbcDriver18</artifactId>
+                <version>${jdbc.e2e.dm.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.intersystems</groupId>
+                <artifactId>intersystems-jdbc</artifactId>
+                <version>${jdbc.e2e.iris.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.postgresql</groupId>
+                <artifactId>postgresql</artifactId>
+                <version>${jdbc.e2e.postgresql.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sap.cloud.db.jdbc</groupId>
+                <artifactId>ngdbc</artifactId>
+                <version>${jdbc.e2e.saphana.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.microsoft.sqlserver</groupId>
+                <artifactId>mssql-jdbc</artifactId>
+                <version>${jdbc.e2e.sqlserver.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -72,6 +112,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
+
     </dependencies>
 
 </project>

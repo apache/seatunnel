@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -180,11 +181,6 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -251,8 +247,6 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
                         .withExposedPorts(JDBC_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKET_PORT)));
         return container;
     }
 
@@ -265,7 +259,12 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
-                            new URL[] {new URL(driverUrl())},
+                            new URL[] {
+                                DependencyJar.ofClassName(jdbcCase.getDriverClass())
+                                        .path()
+                                        .toUri()
+                                        .toURL()
+                            },
                             AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
             Driver driver =
@@ -282,7 +281,8 @@ public class JdbcDmUpsetIT extends AbstractJdbcIT {
 
             Connection dmCon =
                     driver.connect(
-                            String.format(DM_URL, DOCKET_PORT).replace(HOST, dbServer.getHost()),
+                            String.format(DM_URL, jdbcCase.getLocalPort())
+                                    .replace(HOST, dbServer.getHost()),
                             props);
             dmCon.setAutoCommit(false);
 

@@ -412,6 +412,99 @@ sink {
 }
 ```
 
+### 配置 Debezium 心跳
+
+对于低流量表，binlog 只有在发生行变更时才会推进。使用 Debezium 心跳让 binlog 位置持续向前滚动，便于下游 checkpoint 记录到新鲜偏移，并让复制延迟可观测。心跳表必须提前在 MySQL 服务端创建。
+
+```hocon
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO mysql_cdc.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### 定时刷新，无需等待 `batch_size`
+
+当 source 写入量非常低时，JDBC sink 可能在 checkpoint 触发前一直处于空闲状态。在 sink 中开启定时刷新，即使没有达到 `batch_size`，缓冲的数据也会被写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5680-5690
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.timer_flush_src"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user_sink"
+    password = "mysqlpw"
+    generate_sink_sql = true
+    database = mysql_cdc
+    table = timer_flush_sink
+    primary_keys = ["id"]
+    batch_size = 100000000
+    batch_interval_ms = 0
+  }
+}
+```
+
+`sink.flush.interval` 配置在 `env` 块中，无论 `batch_size` 是否达到，都会作用于 sink 流水线。
+
+### 读取没有主键的表
+
+根据源表能够提供的保证来选择合适的路径：
+
+- **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一配置主键作为稳定的行标识。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    table-names-config = [
+      {
+        table = "mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
+  }
+}
+```
+
+上述示例演示的是"逻辑主键"场景：源表本身没有物理主键，但通过 `table-names-config.primaryKeys` 显式声明了一列作为稳定行标识，并启用 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一逻辑主键。只有当被声明的列在源数据中确实保持唯一时，UPDATE/DELETE 才能被正确路由；如果源数据中存在重复值，行为将不再可靠。
+
 ### 从指定 Binlog 位置启动
 
 当需要从明确的 binlog 文件和位置开始读取时，可以使用 `startup.mode = "specific"`。
@@ -427,6 +520,52 @@ source {
     startup.mode = "specific"
     startup.specific-offset.file = "mysql-bin.000001"
     startup.specific-offset.pos = 154
+  }
+}
+```
+
+### 有界读取：在指定 Binlog 位置停止
+
+使用 `stop.mode = "specific"` 可以将作业变为有界读取：作业读取启动偏移量（或启动时间戳）
+与配置的停止偏移量之间的 binlog，然后自行终止（`FINISHED`），而不是一直运行下去。
+
+> **注意**：有界读取的终止行为目前仅在 **Zeta** 引擎上支持。
+> Flink 和 Spark 引擎暂不支持有界增量分片的终止。
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
+`stop.mode = "specific"` 也可以与 `startup.mode = "timestamp"` 组合使用，同时按时间和
+binlog 位置限定读取范围：
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "timestamp"
+    startup.timestamp = 1716076800000
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
   }
 }
 ```

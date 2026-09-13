@@ -58,12 +58,156 @@ public class ConfigBuilderTest {
 
         Map<String, Object> desensitized =
                 ConfigBuilder.configDesensitization(
-                        config, ConfigShadeUtils.getSensitiveOptions(null));
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
         List<?> sources = (List<?>) desensitized.get("source");
         Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
 
         Assertions.assertEquals("******", desensitizedSource.get("url"));
         Assertions.assertEquals(
                 "https://catalog.example.com/tables", desensitizedSource.get("metadata_url"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksKafkaJaasConfig() {
+        Map<String, Object> jaasConfig = new LinkedHashMap<>();
+        jaasConfig.put(
+                "config",
+                "org.apache.kafka.common.security.scram.ScramLoginModule required "
+                        + "username=\"alice\" password=\"secret\";");
+
+        Map<String, Object> saslConfig = new LinkedHashMap<>();
+        saslConfig.put("jaas", jaasConfig);
+
+        Map<String, Object> kafkaConfig = new LinkedHashMap<>();
+        kafkaConfig.put("bootstrap.servers", "localhost:9092");
+        kafkaConfig.put("sasl", saslConfig);
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("kafka.config", kafkaConfig);
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+        Map<?, ?> desensitizedKafkaConfig = (Map<?, ?>) desensitizedSource.get("kafka.config");
+        Map<?, ?> desensitizedSaslConfig = (Map<?, ?>) desensitizedKafkaConfig.get("sasl");
+        Map<?, ?> desensitizedJaasConfig = (Map<?, ?>) desensitizedSaslConfig.get("jaas");
+
+        Assertions.assertEquals("******", desensitizedJaasConfig.get("config"));
+        Assertions.assertEquals("localhost:9092", desensitizedKafkaConfig.get("bootstrap.servers"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksSnmpCommunity() {
+        Map<String, Object> sink = new LinkedHashMap<>();
+        sink.put("host", "127.0.0.1");
+        sink.put("community", "private-community");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("sink", Arrays.asList(sink));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sinks = (List<?>) desensitized.get("sink");
+        Map<?, ?> desensitizedSink = (Map<?, ?>) sinks.get(0);
+
+        Assertions.assertEquals("******", desensitizedSink.get("community"));
+        Assertions.assertEquals("127.0.0.1", desensitizedSink.get("host"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksSalesforceSecretsWithoutAddingEncryptionKeys() {
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("client_secret", "private-secret");
+        connector.put("security_token", "private-token");
+        connector.put("object_name", "Account");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(connector));
+        config.put("sink", Arrays.asList(connector));
+        Map<String, Object> masked =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        for (String role : Arrays.asList("source", "sink")) {
+            Map<?, ?> entry = (Map<?, ?>) ((List<?>) masked.get(role)).get(0);
+            Assertions.assertEquals("******", entry.get("client_secret"));
+            Assertions.assertEquals("******", entry.get("security_token"));
+            Assertions.assertEquals("Account", entry.get("object_name"));
+        }
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("client_secret"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("security_token"));
+    }
+
+    @Test
+    public void testConfigDesensitizationMasksS3CredentialOptions() {
+        Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
+        accessKeyConfig.put("key", "access-key");
+
+        Map<String, Object> s3aConfig = new LinkedHashMap<>();
+        s3aConfig.put("endpoint", "http://localhost:9000");
+        s3aConfig.put("path.style.access", "true");
+        s3aConfig.put("aws.credentials.provider", "SimpleAWSCredentialsProvider");
+        s3aConfig.put("access", accessKeyConfig);
+
+        Map<String, Object> fsConfig = new LinkedHashMap<>();
+        fsConfig.put("s3a", s3aConfig);
+
+        Map<String, Object> checkpointConfig = new LinkedHashMap<>();
+        checkpointConfig.put("fs", fsConfig);
+        checkpointConfig.put("fs.s3a.access-key", "access-key");
+        checkpointConfig.put("fs.s3a.secret.key", "secret-key");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("checkpoint", checkpointConfig);
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getSensitiveOptions(null));
+        Map<?, ?> desensitizedCheckpoint = (Map<?, ?>) desensitized.get("checkpoint");
+        Map<?, ?> desensitizedFsConfig = (Map<?, ?>) desensitizedCheckpoint.get("fs");
+        Map<?, ?> desensitizedS3aConfig = (Map<?, ?>) desensitizedFsConfig.get("s3a");
+        Map<?, ?> desensitizedAccessConfig = (Map<?, ?>) desensitizedS3aConfig.get("access");
+
+        Assertions.assertEquals("******", desensitizedAccessConfig.get("key"));
+        Assertions.assertEquals("******", desensitizedCheckpoint.get("fs.s3a.access-key"));
+        Assertions.assertEquals("******", desensitizedCheckpoint.get("fs.s3a.secret.key"));
+        Assertions.assertEquals("http://localhost:9000", desensitizedS3aConfig.get("endpoint"));
+        Assertions.assertEquals("true", desensitizedS3aConfig.get("path.style.access"));
+        Assertions.assertEquals(
+                "SimpleAWSCredentialsProvider",
+                desensitizedS3aConfig.get("aws.credentials.provider"));
+    }
+
+    @Test
+    public void testConfigDesensitizationKeepsSchemaFieldsReadable() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("access_token", "string");
+        fields.put("user-password", "string");
+
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("fields", fields);
+
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("schema", schema);
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+        Map<?, ?> desensitizedSchema = (Map<?, ?>) desensitizedSource.get("schema");
+        Map<?, ?> desensitizedFields = (Map<?, ?>) desensitizedSchema.get("fields");
+
+        Assertions.assertEquals("string", desensitizedFields.get("access_token"));
+        Assertions.assertEquals("string", desensitizedFields.get("user-password"));
     }
 }

@@ -33,7 +33,7 @@ Amazon DynamoDB 写入连接器用于将 SeaTunnel 数据行写入 DynamoDB 表�
 | table               | string | 是   | -      | 要写入的 DynamoDB 表名。      |
 | batch_size          | int    | 否   | 25     | 一次批量写入请求缓存的记录数。 |
 | multi_table_sink_replica | int | 否   | -      | 每张表对应的 Sink Writer 副本数。 |
-| max_retries         | int    | 否   | 10     | 未处理 item 的最大重试次数。  |
+| max_retries         | int    | 否   | 10     | 未处理 item 的最大重试次数，必须大于等于 `0`。 |
 | retry_base_delay_ms | long   | 否   | 100    | 初始重试等待时间，单位毫秒。  |
 | retry_max_delay_ms  | long   | 否   | 5000   | 最大重试等待时间，单位毫秒。  |
 | common-options      | object | 否   | -      | Sink 插件通用参数。           |
@@ -76,6 +76,7 @@ DynamoDB batch write 每次最多支持 25 条写请求，所以默认值为 `25
 ### max_retries [int]
 
 当 DynamoDB 在批量写入结果中返回未处理 item 时，最多重试的次数。
+设置为 `0` 表示不重试，该值不能为负数。
 
 ### retry_base_delay_ms [long]
 

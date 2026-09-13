@@ -410,4 +410,23 @@ public class PhysicalColumn extends Column {
                 bitLen,
                 longColumnLength);
     }
+
+    @Override
+    public Column copyWithComment(String newComment) {
+        return new PhysicalColumn(
+                name,
+                dataType,
+                columnLength,
+                scale,
+                nullable,
+                defaultValue,
+                newComment,
+                sourceType,
+                sinkType,
+                options,
+                isUnsigned,
+                isZeroFill,
+                bitLen,
+                longColumnLength);
+    }
 }
