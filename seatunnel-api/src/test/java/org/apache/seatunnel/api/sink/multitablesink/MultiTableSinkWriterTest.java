@@ -34,10 +34,12 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 
@@ -715,6 +717,98 @@ public class MultiTableSinkWriterTest {
 
         Assertions.assertEquals(1, firstSink.getCreateWriterCount());
         Assertions.assertEquals(1, secondSink.getCreateWriterCount());
+        writer.close();
+    }
+
+    @Test
+    public void testSharedDestinationWithDivergentSchemasFailsFast() {
+        SchemaAwareTestSink firstSink =
+                new SchemaAwareTestSink(
+                        TablePath.of("dest.db.shared"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("name")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .build())
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("amount")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build())
+                                .build());
+        SchemaAwareTestSink secondSink =
+                new SchemaAwareTestSink(
+                        TablePath.of("dest.db.shared"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("name")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .build())
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("amount")
+                                                .dataType(BasicType.DOUBLE_TYPE)
+                                                .build())
+                                .build());
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("src.db.t1"), firstSink);
+        sinks.put(TablePath.of("src.db.t2"), secondSink);
+
+        IllegalStateException error =
+                Assertions.assertThrows(
+                        IllegalStateException.class, () -> createMultiTableSink(sinks));
+
+        Assertions.assertTrue(error.getMessage().contains("src.db.t1"));
+        Assertions.assertTrue(error.getMessage().contains("src.db.t2"));
+        Assertions.assertTrue(error.getMessage().contains("dest.db.shared"));
+    }
+
+    @Test
+    public void testSharedDestinationWithCompatibleSchemasSharesOneWriter() throws IOException {
+        SchemaAwareTestSink firstSink =
+                new SchemaAwareTestSink(
+                        TablePath.of("dest.db.shared"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("name")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .build())
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("amount")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build())
+                                .build());
+        SchemaAwareTestSink secondSink =
+                new SchemaAwareTestSink(
+                        TablePath.of("dest.db.shared"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("name")
+                                                .dataType(BasicType.STRING_TYPE)
+                                                .build())
+                                .column(
+                                        PhysicalColumn.builder()
+                                                .name("amount")
+                                                .dataType(BasicType.INT_TYPE)
+                                                .build())
+                                .build());
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("src.db.t1"), firstSink);
+        sinks.put(TablePath.of("src.db.t2"), secondSink);
+        MultiTableSink multiTableSink = createMultiTableSink(sinks);
+
+        SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                multiTableSink.createWriter(new TestSinkWriterContext());
+
+        /* Exactly one writer exists for the shared destination, whichever
+         * alias's sink created it (HashMap iteration order decides). */
+        Assertions.assertEquals(
+                1, firstSink.getCreateWriterCount() + secondSink.getCreateWriterCount());
         writer.close();
     }
 
@@ -1487,6 +1581,58 @@ public class MultiTableSinkWriterTest {
     static class AlternateStateCapturingRestoreSink extends StateCapturingRestoreSink {
         AlternateStateCapturingRestoreSink(TablePath destinationTablePath) {
             super(destinationTablePath);
+        }
+    }
+
+    /** Like {@link StateCapturingRestoreSink}, but with a configurable write schema. */
+    static class SchemaAwareTestSink
+            implements SeaTunnelSink<SeaTunnelRow, Object, TestSinkState, Object> {
+
+        private final TablePath destinationTablePath;
+        private final TableSchema schema;
+        private final AtomicInteger createWriterCount = new AtomicInteger();
+
+        SchemaAwareTestSink(TablePath destinationTablePath, TableSchema schema) {
+            this.destinationTablePath = destinationTablePath;
+            this.schema = schema;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "test";
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                SinkWriter.Context context) {
+            createWriterCount.incrementAndGet();
+            return new TestSinkWriter();
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
+                SinkWriter.Context context, List<Object> states) {
+            return new TestSinkWriter();
+        }
+
+        @Override
+        public Optional<CatalogTable> getWriteCatalogTable() {
+            return Optional.of(
+                    CatalogTable.of(
+                            TableIdentifier.of("test", destinationTablePath),
+                            schema,
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "test"));
+        }
+
+        @Override
+        public Optional<String> getPhysicalDestinationIdentifier() {
+            return Optional.of(destinationTablePath.toString());
+        }
+
+        int getCreateWriterCount() {
+            return createWriterCount.get();
         }
     }
 

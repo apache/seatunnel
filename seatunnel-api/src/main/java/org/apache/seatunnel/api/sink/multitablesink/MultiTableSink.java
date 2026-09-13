@@ -33,6 +33,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -104,6 +105,59 @@ public class MultiTableSink
         this.initialFailedTables =
                 new ArrayList<>(
                         MultiTableFailureHelper.getInitialFailedTables(context.getOptions()));
+        validateSharedDestinationSchemas();
+    }
+
+    /**
+     * Fails fast when sinks that opted into writer sharing would route tables with different write
+     * schemas onto one physical destination.
+     *
+     * <p>Sharing only happens for sinks that return the same {@link
+     * SeaTunnelSink#getPhysicalDestinationIdentifier()} (sinks that do not opt in stay isolated by
+     * sink-instance identity), so this walk rejects <em>intentional</em> sharing whose schemas
+     * disagree, instead of silently routing rows through a writer that was built for a different
+     * layout. Tables configured as initially failed are skipped: they never reach a writer.
+     *
+     * <p>When either sink of a shared pair does not expose a {@link CatalogTable}, the pair cannot
+     * be validated here and is trusted; connectors without a catalog table take responsibility for
+     * compatible settings themselves (see {@link
+     * SeaTunnelSink#getPhysicalDestinationIdentifier()}).
+     *
+     * @throws IllegalStateException when two tables that share a physical destination declare
+     *     different write schemas
+     */
+    private void validateSharedDestinationSchemas() {
+        Map<DestinationKey, TablePath> sharedDestinations = new HashMap<>();
+        for (TablePath tablePath : sinks.keySet()) {
+            if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
+                continue;
+            }
+            DestinationKey destinationKey = getDestinationKey(tablePath, 0);
+            TablePath firstTablePath = sharedDestinations.putIfAbsent(destinationKey, tablePath);
+            if (firstTablePath == null) {
+                continue;
+            }
+            Optional<CatalogTable> firstCatalogTable =
+                    sinks.get(firstTablePath).getWriteCatalogTable();
+            Optional<CatalogTable> catalogTable = sinks.get(tablePath).getWriteCatalogTable();
+            if (!firstCatalogTable.isPresent() || !catalogTable.isPresent()) {
+                continue;
+            }
+            TableSchema firstSchema = firstCatalogTable.get().getTableSchema();
+            TableSchema schema = catalogTable.get().getTableSchema();
+            if (!Objects.equals(firstSchema, schema)) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Source tables '%s' and '%s' both resolve to physical destination '%s' "
+                                        + "of connector '%s', but their write schemas differ. A shared "
+                                        + "writer cannot serve tables with different schemas; give each "
+                                        + "table its own destination or align the schemas.",
+                                firstTablePath,
+                                tablePath,
+                                sinks.get(tablePath).getPhysicalDestinationIdentifier().orElse(""),
+                                sinks.get(tablePath).getClass().getName()));
+            }
+        }
     }
 
     public List<MultiTableFailedTable> getInitialFailedTables() {
