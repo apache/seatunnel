@@ -31,6 +31,8 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class OpenMldbSourceFactory implements TableSourceFactory {
     @Override
@@ -42,7 +44,7 @@ public class OpenMldbSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(OpenMldbSourceOptions.CLUSTER_MODE)
-                .required(OpenMldbSourceOptions.SQL)
+                .required(OpenMldbSourceOptions.SQL, notBlank(OpenMldbSourceOptions.SQL))
                 .required(OpenMldbSourceOptions.DATABASE)
                 .optional(OpenMldbSourceOptions.SESSION_TIMEOUT)
                 .optional(OpenMldbSourceOptions.REQUEST_TIMEOUT)

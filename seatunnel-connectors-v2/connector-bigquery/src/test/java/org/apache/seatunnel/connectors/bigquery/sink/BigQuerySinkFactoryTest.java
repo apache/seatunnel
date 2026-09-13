@@ -22,11 +22,14 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class BigQuerySinkFactoryTest {
 
@@ -34,12 +37,7 @@ class BigQuerySinkFactoryTest {
     void testStreamingModeDoesNotRequireSequenceNumberColumn() {
         Config config =
                 ConfigFactory.parseString(
-                        BigQuerySinkOptions.PROJECT_ID.key()
-                                + " = \"test-project\"\n"
-                                + BigQuerySinkOptions.DATASET_ID.key()
-                                + " = \"test_dataset\"\n"
-                                + BigQuerySinkOptions.TABLE_ID.key()
-                                + " = \"test_table\"\n"
+                        requiredOptions()
                                 + BigQuerySinkOptions.WRITE_MODE.key()
                                 + " = \"streaming\"\n"
                                 + BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_JSON.key()
@@ -57,12 +55,7 @@ class BigQuerySinkFactoryTest {
     void testUniverseDomainConfigurationParsing() {
         Config config =
                 ConfigFactory.parseString(
-                        BigQuerySinkOptions.PROJECT_ID.key()
-                                + " = \"test-project\"\n"
-                                + BigQuerySinkOptions.DATASET_ID.key()
-                                + " = \"test_dataset\"\n"
-                                + BigQuerySinkOptions.TABLE_ID.key()
-                                + " = \"test_table\"\n"
+                        requiredOptions()
                                 + BigQuerySinkOptions.UNIVERSE_DOMAIN.key()
                                 + " = \"s3nsapis.fr\"\n");
 
@@ -73,5 +66,79 @@ class BigQuerySinkFactoryTest {
 
         org.junit.jupiter.api.Assertions.assertEquals(
                 "s3nsapis.fr", readonlyConfig.get(BigQuerySinkOptions.UNIVERSE_DOMAIN));
+    }
+
+    @Test
+    void testInvalidWriteModeRejectedByOptionRule() {
+        Config config =
+                ConfigFactory.parseString(
+                        requiredOptions()
+                                + BigQuerySinkOptions.WRITE_MODE.key()
+                                + " = \"invalid\"\n");
+
+        BigQuerySinkFactory factory = new BigQuerySinkFactory();
+
+        assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromConfig(config))
+                                .validate(factory.optionRule()));
+    }
+
+    @Test
+    void testInvalidWriteModeRejectedBySinkConstructor() {
+        Config config =
+                ConfigFactory.parseString(
+                        requiredOptions()
+                                + BigQuerySinkOptions.WRITE_MODE.key()
+                                + " = \"invalid\"\n");
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+
+        assertThrows(SeaTunnelRuntimeException.class, () -> new BigQuerySink(readonlyConfig, null));
+    }
+
+    @Test
+    void testNonPositiveBatchSizeRejectedByOptionRule() {
+        Config config =
+                ConfigFactory.parseString(
+                        requiredOptions() + BigQuerySinkOptions.BATCH_SIZE.key() + " = 0\n");
+
+        BigQuerySinkFactory factory = new BigQuerySinkFactory();
+
+        assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromConfig(config))
+                                .validate(factory.optionRule()));
+    }
+
+    @Test
+    void testBlankRequiredOptionRejectedByOptionRule() {
+        Config config =
+                ConfigFactory.parseString(
+                        BigQuerySinkOptions.PROJECT_ID.key()
+                                + " = \" \"\n"
+                                + BigQuerySinkOptions.DATASET_ID.key()
+                                + " = \"test_dataset\"\n"
+                                + BigQuerySinkOptions.TABLE_ID.key()
+                                + " = \"test_table\"\n");
+
+        BigQuerySinkFactory factory = new BigQuerySinkFactory();
+
+        assertThrows(
+                OptionValidationException.class,
+                () ->
+                        ConfigValidator.of(ReadonlyConfig.fromConfig(config))
+                                .validate(factory.optionRule()));
+    }
+
+    private static String requiredOptions() {
+        return BigQuerySinkOptions.PROJECT_ID.key()
+                + " = \"test-project\"\n"
+                + BigQuerySinkOptions.DATASET_ID.key()
+                + " = \"test_dataset\"\n"
+                + BigQuerySinkOptions.TABLE_ID.key()
+                + " = \"test_table\"\n";
     }
 }

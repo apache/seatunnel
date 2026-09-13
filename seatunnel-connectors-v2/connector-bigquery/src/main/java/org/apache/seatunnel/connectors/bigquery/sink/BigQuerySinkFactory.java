@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -33,6 +35,21 @@ import com.google.auto.service.AutoService;
 
 @AutoService(Factory.class)
 public class BigQuerySinkFactory implements TableSinkFactory {
+
+    private static final ConditionExtension<String> WRITE_MODE_VALIDATOR =
+            new ConditionExtension<String>() {
+                @Override
+                public String description() {
+                    return "must be either 'batch' or 'streaming'";
+                }
+
+                @Override
+                public boolean evaluate(ReadonlyConfig config, String value) {
+                    return BigQuerySinkBatchWriter.BATCH.equals(value)
+                            || BigQuerySinkStreamWriter.STREAMING.equals(value);
+                }
+            };
+
     @Override
     public String factoryIdentifier() {
         return BigQuerySinkOptions.IDENTIFIER;
@@ -43,14 +60,23 @@ public class BigQuerySinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         BigQuerySinkOptions.PROJECT_ID,
+                        Conditions.notBlank(BigQuerySinkOptions.PROJECT_ID))
+                .required(
                         BigQuerySinkOptions.DATASET_ID,
-                        BigQuerySinkOptions.TABLE_ID)
+                        Conditions.notBlank(BigQuerySinkOptions.DATASET_ID))
+                .required(
+                        BigQuerySinkOptions.TABLE_ID,
+                        Conditions.notBlank(BigQuerySinkOptions.TABLE_ID))
+                .optional(
+                        BigQuerySinkOptions.WRITE_MODE,
+                        Conditions.extension(BigQuerySinkOptions.WRITE_MODE, WRITE_MODE_VALIDATOR))
+                .optional(
+                        BigQuerySinkOptions.BATCH_SIZE,
+                        Conditions.greaterThan(BigQuerySinkOptions.BATCH_SIZE, 0))
                 .optional(
                         BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_PATH,
                         BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_JSON,
-                        BigQuerySinkOptions.WRITE_MODE,
                         BigQuerySinkOptions.SEQUENCE_NUMBER_COLUMN,
-                        BigQuerySinkOptions.BATCH_SIZE,
                         BigQuerySinkOptions.EMULATOR_HOST,
                         BigQuerySinkOptions.UNIVERSE_DOMAIN,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
