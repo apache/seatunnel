@@ -1210,6 +1210,26 @@
                 <module>seatunnel-benchmarks</module>
             </modules>
         </profile>
+        <!--
+            JDK 9+ dropped default reflective access to several JDK internals that Hazelcast (the
+            Zeta engine's runtime) and this project's own reflective Kerberos/classloader helpers
+            depend on; see the comments in config/jvm_options for the full per-flag rationale.
+            Test JVMs forked by Surefire/Failsafe need the same flags the launcher scripts inject
+            for a real cluster, or Hazelcast-backed unit and engine e2e tests silently lose that
+            access instead of failing loudly. Activating this by JDK version, rather than only via
+            CI's workflow-level JAVA_TOOL_OPTIONS, keeps `./mvnw test`/`./mvnw verify` on JDK 11/17
+            in parity with CI on a contributor's own machine, and confines the flags to the actual
+            test JVMs instead of every process a CI job happens to run.
+        -->
+        <profile>
+            <id>jdk9-plus-test-opens</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <properties>
+                <surefire.jvm.args>-Dfile.encoding=UTF-8 --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.net=ALL-UNNAMED --add-opens=java.base/java.nio=ALL-UNNAMED --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/sun.nio.ch=ALL-UNNAMED --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED</surefire.jvm.args>
+            </properties>
+        </profile>
     </profiles>
 
 </project>
