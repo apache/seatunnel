@@ -72,6 +72,7 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
@@ -131,7 +132,7 @@ public class MultipleTableJobConfigParser {
 
     private final ReadonlyConfig envOptions;
 
-    private final boolean isStartWithSavePoint;
+    private final RestoreMode restoreMode;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
     private final List<MultiTableFailedTable> failedTables = new ArrayList<>();
     private final List<MultiTableFailedTable> sourceFailedTables = new ArrayList<>();
@@ -141,7 +142,15 @@ public class MultipleTableJobConfigParser {
     @VisibleForTesting
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), false);
+        this(
+                jobDefineFilePath,
+                null,
+                idGenerator,
+                jobConfig,
+                Collections.emptyList(),
+                RestoreMode.NONE,
+                Collections.emptyList(),
+                new MetadataConfig());
     }
 
     @VisibleForTesting
@@ -152,7 +161,7 @@ public class MultipleTableJobConfigParser {
                 idGenerator,
                 jobConfig,
                 Collections.emptyList(),
-                false,
+                RestoreMode.NONE,
                 Collections.emptyList(),
                 new MetadataConfig());
     }
@@ -170,7 +179,7 @@ public class MultipleTableJobConfigParser {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                isStartWithSavePoint,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
                 Collections.emptyList(),
                 new MetadataConfig());
     }
@@ -181,7 +190,7 @@ public class MultipleTableJobConfigParser {
             IdGenerator idGenerator,
             JobConfig jobConfig,
             List<URL> commonPluginJars,
-            boolean isStartWithSavePoint,
+            RestoreMode restoreMode,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
             MetadataConfig metaDataConfig) {
         this(
@@ -189,7 +198,7 @@ public class MultipleTableJobConfigParser {
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                isStartWithSavePoint,
+                restoreMode,
                 pipelineCheckpoints,
                 metaDataConfig);
     }
@@ -199,13 +208,13 @@ public class MultipleTableJobConfigParser {
             IdGenerator idGenerator,
             JobConfig jobConfig,
             List<URL> commonPluginJars,
-            boolean isStartWithSavePoint,
+            RestoreMode restoreMode,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
             MetadataConfig metaDataConfig) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
-        this.isStartWithSavePoint = isStartWithSavePoint;
+        this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
         this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, metaDataConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
@@ -254,7 +263,7 @@ public class MultipleTableJobConfigParser {
                     new LinkedHashMap<>();
 
             log.info("start generating all sources.");
-            if (isStartWithSavePoint
+            if (restoreMode.isRestore()
                     && pipelineCheckpoints != null
                     && !pipelineCheckpoints.isEmpty()) {
                 Preconditions.checkState(
@@ -443,7 +452,9 @@ public class MultipleTableJobConfigParser {
                     ClassLoader classLoader,
                     String factoryId,
                     Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource) {
-        if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
+        if (restoreMode.isRestore()
+                && pipelineCheckpoints != null
+                && !pipelineCheckpoints.isEmpty()) {
             ChangeStreamTableSourceCheckpoint checkpoint =
                     getSourceCheckpoint(configIndex, factoryId);
             return FactoryUtil.restoreAndPrepareSource(
@@ -839,7 +850,7 @@ public class MultipleTableJobConfigParser {
                         connectorJarIdentifiers,
                         actionConfig);
         try {
-            if (!isStartWithSavePoint) {
+            if (!restoreMode.isRestore()) {
                 handleSaveMode(sink);
             } else {
                 handleSchemaSaveModeWithRestore(sink);
