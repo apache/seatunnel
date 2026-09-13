@@ -19,13 +19,14 @@ package org.apache.seatunnel.connectors.seatunnel.iceberg.catalog;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.iceberg.IcebergCatalogLoader;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCommonOptions;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
+import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.data.GenericAppenderFactory;
 import org.apache.iceberg.data.GenericRecord;
@@ -33,18 +34,19 @@ import org.apache.iceberg.data.IcebergGenerics;
 import org.apache.iceberg.data.Record;
 import org.apache.iceberg.encryption.EncryptedFiles;
 import org.apache.iceberg.exceptions.ValidationException;
-import org.apache.iceberg.hadoop.HadoopCatalog;
+import org.apache.iceberg.inmemory.InMemoryCatalog;
 import org.apache.iceberg.io.CloseableIterable;
 import org.apache.iceberg.io.DataWriter;
 import org.apache.iceberg.types.Types;
 
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
 
-import java.nio.file.Path;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeParseException;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -54,19 +56,23 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class IcebergTimestampDeleteTest {
-    @TempDir Path temporaryDirectory;
-
     @Test
     void deleteOffsetTimestampWindowPreservesOtherRecords() throws Exception {
-        String warehouse = temporaryDirectory.resolve("warehouse").toUri().toString();
         Map<String, Object> catalogProperties = new HashMap<>();
         catalogProperties.put("type", "hadoop");
-        catalogProperties.put("warehouse", warehouse);
         Map<String, Object> config = new HashMap<>();
         config.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "test");
         config.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProperties);
-        IcebergCatalog catalog = new IcebergCatalog("test", ReadonlyConfig.fromMap(config));
-        try (HadoopCatalog setup = new HadoopCatalog(new Configuration(), warehouse)) {
+        // Keep real Iceberg commits and Parquet I/O without Hadoop's native filesystem tools.
+        try (InMemoryCatalog setup = new InMemoryCatalog();
+                MockedConstruction<IcebergCatalogLoader> ignored =
+                        Mockito.mockConstruction(
+                                IcebergCatalogLoader.class,
+                                (loader, context) ->
+                                        Mockito.when(loader.loadCatalog()).thenReturn(setup))) {
+            setup.initialize("test", Collections.emptyMap());
+            setup.createNamespace(Namespace.of("test"));
+            IcebergCatalog catalog = new IcebergCatalog("test", ReadonlyConfig.fromMap(config));
             Schema schema =
                     new Schema(
                             Types.NestedField.required(1, "id", Types.IntegerType.get()),
