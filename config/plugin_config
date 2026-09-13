@@ -72,6 +72,7 @@ connector-http-github
 connector-http-jira
 connector-http-klaviyo
 connector-http-stripe
+connector-http-paypal
 connector-http-lemlist
 connector-http-linear
 connector-http-myhours
