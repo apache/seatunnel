@@ -73,7 +73,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1277,17 +1276,50 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
-            ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             ProgressState result = null;
+            boolean startLatchReleased = false;
+            boolean initAttempted = false;
             try {
+                // Resolve the execution context inside the try. TaskGroupLocation is reused
+                // verbatim across restore generations, so a taskDone() belonging to an earlier
+                // generation can remove this location's entry while the current generation is
+                // still deploying. Dereferencing a missing context used to throw here - before
+                // the try - so startedLatch was never counted down and submitBlockingTask()
+                // waited on it forever while holding the SubPlan monitor. See #11679.
+                TaskGroupLocation taskGroupLocation =
+                        taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
+                TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
+                if (taskGroupContext == null) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Execution context for %s is no longer registered; the task"
+                                            + " group was cleaned up while it was being"
+                                            + " deployed",
+                                    taskGroupLocation));
+                }
+                ClassLoader taskClassLoader = taskGroupContext.getClassLoaders().get(t.getTaskID());
+                if (taskClassLoader == null) {
+                    // A null context class loader would silently fall back to the thread's
+                    // inherited loader and surface much later as a confusing
+                    // ClassNotFoundException from inside the task.
+                    throw new IllegalStateException(
+                            String.format(
+                                    "No class loader registered for task %s of %s; the task"
+                                            + " group was cleaned up while it was being"
+                                            + " deployed",
+                                    t.getTaskID(), taskGroupLocation));
+                }
+                Thread.currentThread().setContextClassLoader(taskClassLoader);
+
+                // Signalled before init() so that submitBlockingTask() returns once workers
+                // have started, not once they have finished.
                 startedLatch.countDown();
+                startLatchReleased = true;
+                // Set before init() rather than after: a task that failed part-way through
+                // init() may already hold resources and still needs close().
+                initAttempted = true;
                 t.init();
                 do {
                     result = t.call();
@@ -1308,11 +1340,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 taskGroupExecutionTracker.exception(e);
             } finally {
+                // A worker that failed before signalling must still release the deployer,
+                // otherwise submitBlockingTask() blocks forever. Guarded so each worker counts
+                // down exactly once.
+                if (!startLatchReleased) {
+                    startedLatch.countDown();
+                }
                 taskGroupExecutionTracker.taskDone(t);
-                if (result == null || !result.isDone()) {
+                // Only close a task we actually started initialising. Reaching the failure
+                // path before init() leaves SeaTunnelTask.close() dereferencing state it has
+                // not built yet, and that NPE is not an IOException, so it would escape this
+                // finally block and be lost on a future nobody polls.
+                if (initAttempted && (result == null || !result.isDone())) {
                     try {
                         tracker.task.close();
-                    } catch (IOException e) {
+                    } catch (Throwable e) {
                         logger.severe("Close task error", e);
                     }
                 }
