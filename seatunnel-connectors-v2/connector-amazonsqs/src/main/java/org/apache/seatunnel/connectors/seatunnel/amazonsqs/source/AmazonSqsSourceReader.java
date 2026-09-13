@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize.AmazonSqsDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.deserialize.SeaTunnelRowDeserializer;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
@@ -55,11 +56,25 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             AmazonSqsSourceConfig amazonSqsSourceConfig,
             DeserializationSchema<SeaTunnelRow> deserializationSchema,
             SeaTunnelRowType seaTunnelRowType) {
+        this(
+                context,
+                amazonSqsSourceConfig,
+                deserializationSchema,
+                seaTunnelRowType,
+                MessageFormat.JSON);
+    }
+
+    AmazonSqsSourceReader(
+            SingleSplitReaderContext context,
+            AmazonSqsSourceConfig amazonSqsSourceConfig,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            SeaTunnelRowType seaTunnelRowType,
+            MessageFormat format) {
         this.context = context;
         this.amazonSqsSourceConfig = amazonSqsSourceConfig;
         this.seaTunnelRowDeserializer =
                 new AmazonSqsDeserializer(
-                        deserializationSchema, amazonSqsSourceConfig.isIgnoreParseErrors());
+                        deserializationSchema, amazonSqsSourceConfig.isIgnoreParseErrors(), format);
     }
 
     @Override
@@ -108,8 +123,9 @@ public class AmazonSqsSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
 
         for (Message message : messages) {
             String messageBody = message.body();
-            SeaTunnelRow seaTunnelRow = this.seaTunnelRowDeserializer.deserializeRow(messageBody);
-            if (seaTunnelRow != null) {
+            List<SeaTunnelRow> seaTunnelRows =
+                    this.seaTunnelRowDeserializer.deserializeRows(messageBody);
+            for (SeaTunnelRow seaTunnelRow : seaTunnelRows) {
                 output.collect(seaTunnelRow);
             }
 

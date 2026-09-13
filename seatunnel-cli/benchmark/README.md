@@ -215,6 +215,60 @@ claude-sonnet-4 (bedrock)  (28 tasks)
 
 ## Methodology notes
 
+### Compare saved results across revisions
+
+Keep each run in a separate output directory, then compare its saved JSON:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.compare benchmark/baseline/results.json benchmark/candidate/results.json \
+    --out benchmark/comparison.md
+```
+
+This command uses only the Python standard library. It does not generate configs,
+call a model, start Docker, or rerun validation. Without `--out` it prints Markdown
+to stdout. An existing output file is never overwritten, including either input
+or an existing single-run report. Incompatible runs produce an explanatory report;
+exit code 0 means the report was produced, not that a regression gate passed.
+Unreadable/malformed input, ambiguous duplicate identities, or an output error
+produce exit code 2.
+
+The report shows per-model paired-trial rates for the first delivered config
+(`pass@1`) and success within the configured repair budget. Every matched task and
+trial also shows `pass→fail`, `fail→pass`, `pass→pass`, or `fail→fail`, so an overall
+gain cannot hide a regression. Trial indices identify independent samples, not
+matched random seeds; transitions are observations, not statistical significance.
+
+Compatibility is checked before reporting deltas:
+
+- Requested gates, trial count, and repair budget must match. Both runs need a
+  CLI revision stamp.
+- Model names identify rows; recorded provider settings must match and explicitly
+  include provider and model IDs. Different aliases are reported as missing models.
+- Task IDs must match and carry the same `task_sha256`. New runs record a SHA-256
+  of the complete task dictionary (including prompt, assertions, tier, and execution
+  probes), encoded as UTF-8 JSON with sorted keys, no whitespace separators, and
+  unescaped Unicode. This field is additive; existing summaries are unchanged.
+- Trial IDs must exactly cover the declared count. Missing tasks/models/trials,
+  initialization failures, skipped requested gates, and incomplete or contradictory
+  attempt records are excluded from both sides, with reasons. A real generation or
+  gate failure still counts as a failure; later gates short-circuited by that failure
+  do not make the trial incomplete.
+
+Results recorded before `task_sha256` was added cannot establish that their task
+definitions match. They remain readable by the existing single-run reporter, but
+the comparison excludes them. Collect new baseline and candidate runs with the
+fingerprint-enabled harness; do not backfill hashes from today's task files.
+
+Only the paired, complete subset contributes to both denominators. Inspect all
+exclusions before interpreting a delta as a full-suite change. The report compares
+recorded settings, not every runtime input: keep environment variables (including
+fast-model overrides), model serving state, gate implementations, connector metadata,
+engine version, and source/sink data constant when isolating a CLI change. A matching
+task hash does not prove these inputs match or attribute an improvement to CLI code.
+
+### Existing evaluation methodology
+
 - **Determinism**: L2/L3 verdicts are exit-code/liveness based — no LLM judge.
 - **Isolation**: each task gets a fresh Orchestrator; CLI state goes to a
   temp `SEATUNNEL_CLI_DATA`; every model sees identical prompts and env.

@@ -276,14 +276,18 @@ public abstract class AbstractResourceManager implements ResourceManager {
     @Override
     public boolean slotActiveCheck(SlotProfile profile) {
         boolean active = false;
-        if (registerWorker.containsKey(profile.getWorker())) {
+        WorkerProfile workerProfile = registerWorker.get(profile.getWorker());
+        if (workerProfile != null && workerProfile.getAssignedSlots() != null) {
             active =
-                    Arrays.stream(registerWorker.get(profile.getWorker()).getAssignedSlots())
+                    Arrays.stream(workerProfile.getAssignedSlots())
+                            .filter(Objects::nonNull)
                             .anyMatch(
                                     s ->
                                             s.getSlotID() == profile.getSlotID()
-                                                    && s.getSequence()
-                                                            .equals(profile.getSequence()));
+                                                    && s.getSequence() != null
+                                                    && s.getSequence().equals(profile.getSequence())
+                                                    && s.getOwnerJobID()
+                                                            == profile.getOwnerJobID());
         }
 
         if (!active) {
