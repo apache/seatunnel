@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.JobMaster.FinalMetricsCollectionException;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.map.IMap;
@@ -325,10 +326,15 @@ public class SubPlan {
                         jobMaster.releasePipelineResource(this);
                         return null;
                     },
+                    // An incomplete final metrics snapshot leaves task-group context intact, so a
+                    // bounded retry can recover complete history. A permanently lost worker uses
+                    // the normal retry limit before this cleanup falls through to the warning path.
                     new RetryUtils.RetryMaterial(
                             Constant.OPERATION_RETRY_TIME,
                             true,
-                            exception -> ExceptionUtil.isOperationNeedRetryException(exception),
+                            exception ->
+                                    ExceptionUtil.isOperationNeedRetryException(exception)
+                                            || exception instanceof FinalMetricsCollectionException,
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             log.warn(
