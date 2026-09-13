@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.splunk;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceParameter;
 
 import org.junit.jupiter.api.Assertions;
@@ -93,8 +94,7 @@ public class SplunkSourceFactoryTest {
 
     @Test
     public void testHttpClientPayloadCapture() throws Exception {
-        try (okhttp3.mockwebserver.MockWebServer server =
-                new okhttp3.mockwebserver.MockWebServer()) {
+        try (okhttp3.mockwebserver.MockWebServer server = new okhttp3.mockwebserver.MockWebServer()) {
             server.enqueue(
                     new okhttp3.mockwebserver.MockResponse()
                             .setBody("{\"preview\": false, \"result\": {\"test\": \"data\"}}")
@@ -105,6 +105,7 @@ public class SplunkSourceFactoryTest {
 
             HashMap<String, Object> configMap = new HashMap<>();
             configMap.put("url", baseUrl);
+            configMap.put("method", "POST");
             HashMap<String, Object> params = new HashMap<>();
             params.put("search", "search index=_internal | head 10");
             configMap.put("params", params);
@@ -113,17 +114,27 @@ public class SplunkSourceFactoryTest {
             SplunkSourceParameter parameter = new SplunkSourceParameter();
             parameter.buildWithConfig(config, "Splunk test-auth-token");
 
+            try (HttpClientProvider client = new HttpClientProvider(parameter)) {
+                client.execute(
+                        parameter.getUrl(),
+                        parameter.getMethod().getMethod(),
+                        parameter.getHeaders(),
+                        parameter.getParams(),
+                        parameter.getBody(),
+                        parameter.isKeepParamsAsForm());
+            }
+
             okhttp3.mockwebserver.RecordedRequest recordedRequest = server.takeRequest();
 
             Assertions.assertEquals("POST", recordedRequest.getMethod());
             Assertions.assertEquals(
                     "application/x-www-form-urlencoded", recordedRequest.getHeader("Content-Type"));
-            Assertions.assertEquals(
-                    "Splunk test-auth-token", recordedRequest.getHeader("Authorization"));
+            Assertions.assertEquals("Splunk test-auth-token", recordedRequest.getHeader("Authorization"));
 
             String requestBody = recordedRequest.getBody().readUtf8();
-            Assertions.assertTrue(requestBody.contains("search="));
-            Assertions.assertTrue(requestBody.contains("output_mode=json"));
+            String decodedBody = java.net.URLDecoder.decode(requestBody, "UTF-8");
+            Assertions.assertTrue(decodedBody.contains("search=search index=_internal | head 10"));
+            Assertions.assertTrue(decodedBody.contains("output_mode=json"));
         }
     }
 }
