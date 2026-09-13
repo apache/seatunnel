@@ -42,7 +42,6 @@ sink {
     auth_type = "SHARED_KEY"
     account_key = ${?SEATUNNEL_ADLS_ACCOUNT_KEY}
     file_format_type = "csv"
-    preserve_source_filename = true
     is_enable_transaction = true
     data_save_mode = "APPEND_DATA"
   }

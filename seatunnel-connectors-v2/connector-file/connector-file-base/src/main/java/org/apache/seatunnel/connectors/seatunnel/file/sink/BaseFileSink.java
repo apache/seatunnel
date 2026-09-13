@@ -26,7 +26,6 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
@@ -76,11 +75,6 @@ public abstract class BaseFileSink
                 && !fileSinkConfig.getPartitionFieldList().isEmpty()) {
             throw new IllegalArgumentException(
                     "Generate empty file when no data is not supported when partition is enabled.");
-        }
-        if (fileSinkConfig.isPreserveSourceFilename()
-                && (jobContext.getJobMode() != JobMode.BATCH || jobContext.isEnableCheckpoint())) {
-            throw new IllegalArgumentException(
-                    "preserve_source_filename is supported only in batch mode with checkpoints disabled.");
         }
     }
 

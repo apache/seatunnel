@@ -105,9 +105,7 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                         processedBytes = 0L;
                     } else {
                         readStarted = true;
-                        readStrategy.read(
-                                split,
-                                SourceFileNameCollector.wrap(output, split.getFilePath()));
+                        readStrategy.read(split, output);
                         if (!isCurrentTailSplit(split)) {
                             throw new IOException(
                                     "Local file identity or content changed while reading the tail split");

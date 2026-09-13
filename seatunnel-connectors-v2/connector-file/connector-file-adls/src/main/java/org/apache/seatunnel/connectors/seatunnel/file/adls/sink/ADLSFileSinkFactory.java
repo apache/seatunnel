@@ -122,7 +122,6 @@ public class ADLSFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.DATETIME_FORMAT_LEGACY)
                 .optional(FileBaseSinkOptions.TIME_FORMAT_LEGACY)
                 .optional(FileBaseSinkOptions.SINGLE_FILE_MODE)
-                .optional(FileBaseSinkOptions.PRESERVE_SOURCE_FILENAME)
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)

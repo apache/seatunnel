@@ -62,7 +62,6 @@ the input bytes without interpreting their contents.
 | custom_filename | boolean | no | `false` | Generate a configured filename. |
 | file_name_expression | string | no | `${transactionId}` | Filename expression when custom naming is enabled. |
 | filename_extension | string | no | - | Override the default extension. |
-| preserve_source_filename | boolean | no | `false` | Preserve each upstream file source's basename. Requires batch mode without checkpoints and sink parallelism `1`; supports one or many input files. |
 | have_partition | boolean | no | `false` | Write rows into partition directories. |
 | partition_by | array | no | - | Fields used to build partition directories. |
 | partition_dir_expression | string | no | `${k0}=${v0}/...` | Partition directory expression. |
@@ -75,17 +74,6 @@ the input bytes without interpreting their contents.
 | enable_header_write | boolean | no | `false` | Write headers for text and CSV files. |
 | encoding | string | no | `UTF-8` | Character encoding for text formats. |
 | common-options | object | no | - | See [Sink Common Options](../common-options/sink-common-options.md). |
-
-### Preserve source filenames
-
-Set `preserve_source_filename = true` when the output name must match the input basename. Point a
-file source at one file for a single-file job, or at a directory/filter for multiple files. Set
-the sink `parallelism` to `1`; `orders.csv` and `customers.csv` become `orders.csv` and
-`customers.csv` in the destination directory.
-
-This option cannot be combined with `custom_filename`, `single_file_mode`, `filename_extension`,
-or `create_empty_file_when_no_data`. Two different source paths with the same basename are
-rejected to prevent accidental merging.
 
 ### Authentication examples
 
@@ -130,7 +118,6 @@ sink {
     auth_type = "SHARED_KEY"
     account_key = ${?ADLS_ACCOUNT_KEY}
     file_format_type = "csv"
-    preserve_source_filename = true
   }
 }
 ```
