@@ -145,4 +145,27 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     default Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.empty();
     }
+
+    /**
+     * Returns a stable identifier for the physical destination that this sink instance writes to
+     * when multi-table mode wants to reuse a single writer across aliased upstream tables.
+     *
+     * <p>The default implementation returns {@link Optional#empty()} so the coordinator falls back
+     * to sink-instance-level isolation and avoids merging distinct physical destinations
+     * accidentally.
+     *
+     * <p>An implementation must include every connection coordinate that distinguishes a physical
+     * destination, such as endpoint, warehouse, namespace, table, and branch where applicable.
+     * Sinks that return the same identifier must have equivalent write schema, write settings, and
+     * commit semantics because one of them creates the shared writer and committer. On recovery,
+     * that writer can receive state originating from every aliased source table.
+     *
+     * <p>The multi-table coordinator namespaces this identifier by connector implementation class,
+     * so identifiers from different connector types are never shared.
+     *
+     * @return a physical destination identifier when writer sharing is safe, otherwise empty
+     */
+    default Optional<String> getPhysicalDestinationIdentifier() {
+        return Optional.empty();
+    }
 }

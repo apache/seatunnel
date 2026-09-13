@@ -26,6 +26,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -50,17 +51,17 @@ public class MultiTableSinkAggregatedCommitter
     }
 
     private void initResourceManager() {
-        for (String tableIdentifier : aggCommitters.keySet()) {
-            SinkAggregatedCommitter<?, ?> aggCommitter = aggCommitters.get(tableIdentifier);
+        Map<SinkAggregatedCommitter<?, ?>, List<String>> groupedCommitters = groupByIdentity();
+        for (SinkAggregatedCommitter<?, ?> aggCommitter : groupedCommitters.keySet()) {
             if (!(aggCommitter instanceof SupportMultiTableSinkAggregatedCommitter)) {
                 break;
             }
             resourceManager =
                     ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
-                            .initMultiTableResourceManager(aggCommitters.size(), 1);
+                            .initMultiTableResourceManager(groupedCommitters.size(), 1);
             break;
         }
-        for (SinkAggregatedCommitter<?, ?> aggCommitter : aggCommitters.values()) {
+        for (SinkAggregatedCommitter<?, ?> aggCommitter : groupedCommitters.keySet()) {
             aggCommitter.init();
             if (resourceManager != null) {
                 ((SupportMultiTableSinkAggregatedCommitter<?>) aggCommitter)
@@ -73,29 +74,23 @@ public class MultiTableSinkAggregatedCommitter
     public List<MultiTableAggregatedCommitInfo> commit(
             List<MultiTableAggregatedCommitInfo> aggregatedCommitInfo) throws IOException {
         List<MultiTableAggregatedCommitInfo> errorList = new ArrayList<>();
-        for (String sinkIdentifier : aggCommitters.keySet()) {
-            SinkAggregatedCommitter<?, ?> sinkCommitter = aggCommitters.get(sinkIdentifier);
-            if (sinkCommitter != null) {
-                List commitInfo =
-                        aggregatedCommitInfo.stream()
-                                .map(
-                                        multiTableCommitInfo ->
-                                                multiTableCommitInfo
-                                                        .getCommitInfo()
-                                                        .get(sinkIdentifier))
-                                .filter(Objects::nonNull)
-                                .collect(Collectors.toList());
-                List errCommitList = sinkCommitter.commit(commitInfo);
-                if (errCommitList.size() == 0) {
-                    continue;
-                }
+        for (Map.Entry<SinkAggregatedCommitter<?, ?>, List<String>> entry :
+                groupByIdentity().entrySet()) {
+            List errCommitList =
+                    entry.getKey()
+                            .commit(
+                                    getAggregatedCommitInfos(
+                                            aggregatedCommitInfo, entry.getValue()));
+            if (errCommitList.size() == 0) {
+                continue;
+            }
 
-                for (int i = 0; i < errCommitList.size(); i++) {
-                    if (errorList.size() < i + 1) {
-                        errorList.add(i, new MultiTableAggregatedCommitInfo(new HashMap<>()));
-                    }
-                    errorList.get(i).getCommitInfo().put(sinkIdentifier, errCommitList.get(i));
+            String canonicalIdentifier = entry.getValue().get(0);
+            for (int i = 0; i < errCommitList.size(); i++) {
+                if (errorList.size() < i + 1) {
+                    errorList.add(i, new MultiTableAggregatedCommitInfo(new HashMap<>()));
                 }
+                errorList.get(i).getCommitInfo().put(canonicalIdentifier, errCommitList.get(i));
             }
         }
         return errorList;
@@ -104,25 +99,11 @@ public class MultiTableSinkAggregatedCommitter
     @Override
     public MultiTableAggregatedCommitInfo combine(List<MultiTableCommitInfo> commitInfos) {
         Map<String, Object> commitInfo = new HashMap<>();
-        for (String sinkIdentifier : aggCommitters.keySet()) {
-            SinkAggregatedCommitter<?, ?> sinkCommitter = aggCommitters.get(sinkIdentifier);
-            if (sinkCommitter != null) {
-                List commits =
-                        commitInfos.stream()
-                                .flatMap(
-                                        multiTableCommitInfo ->
-                                                multiTableCommitInfo.getCommitInfo().entrySet()
-                                                        .stream()
-                                                        .filter(
-                                                                m ->
-                                                                        m.getKey()
-                                                                                .getTableIdentifier()
-                                                                                .equals(
-                                                                                        sinkIdentifier))
-                                                        .map(Map.Entry::getValue))
-                                .collect(Collectors.toList());
-                commitInfo.put(sinkIdentifier, sinkCommitter.combine(commits));
-            }
+        for (Map.Entry<SinkAggregatedCommitter<?, ?>, List<String>> entry :
+                groupByIdentity().entrySet()) {
+            commitInfo.put(
+                    entry.getValue().get(0),
+                    entry.getKey().combine(getCommitInfos(commitInfos, entry.getValue())));
         }
         return new MultiTableAggregatedCommitInfo(commitInfo);
     }
@@ -130,25 +111,15 @@ public class MultiTableSinkAggregatedCommitter
     @Override
     public void abort(List<MultiTableAggregatedCommitInfo> aggregatedCommitInfo) throws Exception {
         Throwable firstE = null;
-        for (String sinkIdentifier : aggCommitters.keySet()) {
-            SinkAggregatedCommitter<?, ?> sinkCommitter = aggCommitters.get(sinkIdentifier);
-            if (sinkCommitter != null) {
-                List commitInfo =
-                        aggregatedCommitInfo.stream()
-                                .map(
-                                        multiTableCommitInfo ->
-                                                multiTableCommitInfo
-                                                        .getCommitInfo()
-                                                        .get(sinkIdentifier))
-                                .filter(Objects::nonNull)
-                                .collect(Collectors.toList());
-                try {
-                    sinkCommitter.abort(commitInfo);
-                } catch (Throwable e) {
-                    log.error("abort sink committer error", e);
-                    if (firstE == null) {
-                        firstE = e;
-                    }
+        for (Map.Entry<SinkAggregatedCommitter<?, ?>, List<String>> entry :
+                groupByIdentity().entrySet()) {
+            try {
+                entry.getKey()
+                        .abort(getAggregatedCommitInfos(aggregatedCommitInfo, entry.getValue()));
+            } catch (Throwable e) {
+                log.error("abort sink committer error", e);
+                if (firstE == null) {
+                    firstE = e;
                 }
             }
         }
@@ -160,16 +131,13 @@ public class MultiTableSinkAggregatedCommitter
     @Override
     public void close() throws IOException {
         Throwable firstE = null;
-        for (String sinkIdentifier : aggCommitters.keySet()) {
-            SinkAggregatedCommitter<?, ?> sinkCommitter = aggCommitters.get(sinkIdentifier);
-            if (sinkCommitter != null) {
-                try {
-                    sinkCommitter.close();
-                } catch (Throwable e) {
-                    log.error("close sink committer error", e);
-                    if (firstE == null) {
-                        firstE = e;
-                    }
+        for (SinkAggregatedCommitter<?, ?> sinkCommitter : groupByIdentity().keySet()) {
+            try {
+                sinkCommitter.close();
+            } catch (Throwable e) {
+                log.error("close sink committer error", e);
+                if (firstE == null) {
+                    firstE = e;
                 }
             }
         }
@@ -183,5 +151,63 @@ public class MultiTableSinkAggregatedCommitter
         } catch (Throwable e) {
             log.error("close resourceManager error", e);
         }
+    }
+
+    /**
+     * Groups aliases that intentionally reference the same physical destination committer.
+     *
+     * @return one aggregated committer with every source-table identifier that routes to it
+     */
+    private Map<SinkAggregatedCommitter<?, ?>, List<String>> groupByIdentity() {
+        Map<SinkAggregatedCommitter<?, ?>, List<String>> groupedCommitters =
+                new IdentityHashMap<>();
+        for (Map.Entry<String, SinkAggregatedCommitter<?, ?>> entry : aggCommitters.entrySet()) {
+            if (entry.getValue() != null) {
+                groupedCommitters
+                        .computeIfAbsent(entry.getValue(), ignored -> new ArrayList<>())
+                        .add(entry.getKey());
+            }
+        }
+        return groupedCommitters;
+    }
+
+    /**
+     * Collects canonical and legacy per-alias commit payloads for one physical committer.
+     *
+     * @param commitInfos all multi-table commit records received by the engine
+     * @param sinkIdentifiers source-table identifiers that share this committer
+     * @return commit payloads to combine in one committer call
+     */
+    private List getCommitInfos(
+            List<MultiTableCommitInfo> commitInfos, List<String> sinkIdentifiers) {
+        return commitInfos.stream()
+                .flatMap(
+                        multiTableCommitInfo ->
+                                multiTableCommitInfo.getCommitInfo().entrySet().stream()
+                                        .filter(
+                                                entry ->
+                                                        sinkIdentifiers.contains(
+                                                                entry.getKey()
+                                                                        .getTableIdentifier()))
+                                        .map(Map.Entry::getValue))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Collects canonical and legacy per-alias aggregated commit payloads for one committer.
+     *
+     * @param commitInfos all aggregated commit records received by the engine
+     * @param sinkIdentifiers source-table identifiers that share this committer
+     * @return aggregated commit payloads to deliver in one committer call
+     */
+    private List getAggregatedCommitInfos(
+            List<MultiTableAggregatedCommitInfo> commitInfos, List<String> sinkIdentifiers) {
+        return commitInfos.stream()
+                .flatMap(
+                        multiTableCommitInfo ->
+                                sinkIdentifiers.stream()
+                                        .map(multiTableCommitInfo.getCommitInfo()::get)
+                                        .filter(Objects::nonNull))
+                .collect(Collectors.toList());
     }
 }
