@@ -34,6 +34,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -90,6 +91,7 @@ public class JdbcMariaDBTimestampIT extends TestSuiteBase implements TestResourc
     public void startUp() throws Exception {
         mariadbContainer =
                 new GenericContainer<>(DockerImageName.parse(MARIADB_IMAGE))
+                        .withImagePullPolicy(PullPolicy.alwaysPull())
                         .withEnv("MARIADB_ROOT_PASSWORD", MARIADB_PASSWORD)
                         .withEnv("MARIADB_ROOT_HOST", "%")
                         .withEnv("MARIADB_DATABASE", MARIADB_DATABASE)

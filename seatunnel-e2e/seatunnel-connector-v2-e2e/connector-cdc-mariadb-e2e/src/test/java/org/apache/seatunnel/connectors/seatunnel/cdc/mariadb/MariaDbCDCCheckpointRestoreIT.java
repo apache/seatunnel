@@ -75,7 +75,7 @@ public class MariaDbCDCCheckpointRestoreIT extends TestSuiteBase implements Test
                     + " f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_longtext, f_mediumtext,"
                     + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
                     + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
-                    + " f_json, f_year from %s.%s";
+                    + " f_json, f_year from %s.%s order by id";
     private static final String SINK_SQL_TEMPLATE =
             "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
                     + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
@@ -83,7 +83,7 @@ public class MariaDbCDCCheckpointRestoreIT extends TestSuiteBase implements Test
                     + " f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_longtext, f_mediumtext,"
                     + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
                     + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
-                    + " f_json, f_year from %s.%s";
+                    + " f_json, f_year from %s.%s order by id";
 
     private static final MariaDbContainer MARIADB_CONTAINER =
             createMariaDbContainer(MariaDbVersion.V10_11);
