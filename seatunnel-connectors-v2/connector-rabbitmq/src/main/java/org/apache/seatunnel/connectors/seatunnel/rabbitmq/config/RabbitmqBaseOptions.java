@@ -132,4 +132,23 @@ public class RabbitmqBaseOptions extends ConnectorCommonOptions {
                     .withDescription(
                             "true: The queue will be deleted automatically when the last consumer unsubscribes."
                                     + "false: The queue will not be automatically deleted.");
+
+    public static final Option<RabbitmqMessageFormat> FORMAT =
+            Options.key("format")
+                    .enumType(RabbitmqMessageFormat.class)
+                    .defaultValue(RabbitmqMessageFormat.JSON)
+                    .withDescription("Data format. The default format is json.");
+
+    public static final Option<String> PROTOBUF_SCHEMA =
+            Options.key("protobuf_schema")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Data serialization method protobuf metadata, used to parse protobuf data.");
+
+    public static final Option<String> PROTOBUF_MESSAGE_NAME =
+            Options.key("protobuf_message_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Parsing entity class names from Protobuf data.");
 }
