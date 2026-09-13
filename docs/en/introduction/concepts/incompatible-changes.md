@@ -186,6 +186,11 @@ You need to check this document before you upgrade to related version.
 
 ### Transform Changes
 
+- **Behavior change: AMAZON embedding honors retry options**
+  - **Affected component**: `Embedding` transform with `model_provider = AMAZON`.
+  - **Description**: Configured SeaTunnel retry and backoff options now reach the Bedrock runtime. Previously, the transform ignored these settings and used one SeaTunnel attempt.
+  - **Impact and migration**: Configured `model_retry_max_attempts` values greater than 1 now enable SeaTunnel retries, which may incur additional model charges; use 1 to retain a single SeaTunnel attempt. The default remains 1. The SDK's own retry and timeout behavior is unchanged; `model_request_timeout_ms` is not currently applied to Bedrock calls.
+
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
   - Date: `yyyy-MM-dd`, `yyyy/MM/dd`, `yyyyMMdd`

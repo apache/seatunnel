@@ -976,6 +976,47 @@ public class CheckpointCoordinatorTest
         }
     }
 
+    @Test
+    void testDuplicateSchemaChangeAfterCheckpointCompletionIsIgnored() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doNothing()
+                    .when(spy)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+
+            AtomicBoolean schemaChanging =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "schemaChanging")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "schemaChanging field not found"));
+            schemaChanging.set(true);
+            CompletedCheckpoint checkpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            1L,
+                            System.currentTimeMillis(),
+                            CheckpointType.SCHEMA_CHANGE_AFTER_POINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            spy.completeSchemaChangeAfterCheckpoint(checkpoint);
+            Assertions.assertDoesNotThrow(
+                    () -> spy.completeSchemaChangeAfterCheckpoint(checkpoint));
+            Mockito.verify(spy, Mockito.times(1))
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.eq(CheckpointType.CHECKPOINT_TYPE), Mockito.anyLong());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     /**
      * Regression: when {@code notifyCompleted()} fails (returns {@code false}), {@code
      * completePendingCheckpoint} must return immediately without decrementing {@code
