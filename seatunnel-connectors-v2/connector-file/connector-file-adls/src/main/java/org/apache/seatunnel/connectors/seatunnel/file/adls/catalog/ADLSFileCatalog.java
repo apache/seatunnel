@@ -15,31 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.adls.catalog;
 
-import java.io.Serializable;
+import org.apache.seatunnel.connectors.seatunnel.file.catalog.AbstractFileCatalog;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    COS("CosFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File"),
-    ADLS("ADLSFile"),
-    OBS("ObsFile"),
-    BOS("BosFile"),
-    GCS("GcsFile");
+public class ADLSFileCatalog extends AbstractFileCatalog {
+    // TODO: this catalog name conflict with a factory identifier
+    public static final String CATALOG_NAME = "ADLSFile";
 
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    public ADLSFileCatalog(HadoopFileSystemProxy hadoopFileSystemProxy, String filePath) {
+        super(hadoopFileSystemProxy, filePath, CATALOG_NAME);
     }
 }
