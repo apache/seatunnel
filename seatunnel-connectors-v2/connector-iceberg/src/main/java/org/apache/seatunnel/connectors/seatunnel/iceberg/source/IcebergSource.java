@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.managed.ManagedSourceCapability;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -159,5 +160,15 @@ public class IcebergSource
                 catalogTables,
                 tableSchemaProjections,
                 checkpointState);
+    }
+
+    @Override
+    public ManagedSourceCapability getManagedSourceCapability() {
+        return ManagedSourceCapability.builder()
+                .supportsManagedCoordinator(true)
+                .usesSourceEvents(false)
+                .supportsAsyncEnumerator(true)
+                .stableSplitIdentifiers(true)
+                .build();
     }
 }
