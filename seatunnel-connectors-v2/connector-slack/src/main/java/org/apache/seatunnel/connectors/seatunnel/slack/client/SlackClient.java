@@ -43,8 +43,13 @@ public class SlackClient {
     private final MethodsClient methodsClient;
 
     public SlackClient(ReadonlyConfig pluginConfig) {
+        this(pluginConfig, Slack.getInstance().methods());
+    }
+
+    /** Allows unit tests to inject a mocked Slack API client. */
+    SlackClient(ReadonlyConfig pluginConfig, MethodsClient methodsClient) {
         this.pluginConfig = pluginConfig;
-        this.methodsClient = Slack.getInstance().methods();
+        this.methodsClient = methodsClient;
     }
 
     /** Find conversation ID using the conversations.list method */

@@ -17,12 +17,46 @@
 
 package org.apache.seatunnel.connectors.seatunnel.slack.client;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
+import com.slack.api.methods.MethodsClient;
 import com.slack.api.methods.request.chat.ChatPostMessageRequest;
+import com.slack.api.methods.response.chat.ChatPostMessageResponse;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SlackClientTest {
+
+    @Test
+    void shouldUseOauthTokenWhenPublishingMessage() throws Exception {
+        MethodsClient methodsClient = mock(MethodsClient.class);
+        ChatPostMessageResponse response = mock(ChatPostMessageResponse.class);
+        when(response.isOk()).thenReturn(true);
+        when(methodsClient.chatPostMessage(any(ChatPostMessageRequest.class))).thenReturn(response);
+
+        SlackClient client = new SlackClient(ReadonlyConfig.fromMap(slackConfig()), methodsClient);
+
+        Assertions.assertTrue(client.publishMessage("C123", "test message"));
+
+        ArgumentCaptor<ChatPostMessageRequest> requestCaptor =
+                ArgumentCaptor.forClass(ChatPostMessageRequest.class);
+        verify(methodsClient).chatPostMessage(requestCaptor.capture());
+
+        ChatPostMessageRequest request = requestCaptor.getValue();
+        Assertions.assertEquals("xoxb-token", request.getToken());
+        Assertions.assertEquals("C123", request.getChannel());
+        Assertions.assertEquals("test message", request.getText());
+    }
 
     @Test
     void testCreateMessageRequestUsesOAuthToken() {
@@ -33,5 +67,12 @@ class SlackClientTest {
         Assertions.assertEquals("xoxb-test-token", request.getToken());
         Assertions.assertEquals("resolved-channel-id", request.getChannel());
         Assertions.assertEquals("test-message", request.getText());
+    }
+
+    private Map<String, Object> slackConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("oauth_token", "xoxb-token");
+        config.put("slack_channel", "alerts");
+        return config;
     }
 }
