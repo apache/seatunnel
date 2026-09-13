@@ -401,11 +401,79 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         return fos;
     }
 
-    /** This optional operation is not yet supported. */
+    /**
+     * Appends bytes to an existing file through the FTP APPE command.
+     *
+     * <p>A stream obtained via this call must be closed before using other APIs of this class or
+     * else the invocation will block.
+     */
     @Override
-    public FSDataOutputStream append(Path f, int bufferSize, Progressable progress)
+    public FSDataOutputStream append(Path file, int bufferSize, Progressable progress)
             throws IOException {
-        throw new IOException("Not supported");
+        final FTPClient client = connect();
+        Path workDir = new Path(client.printWorkingDirectory());
+        Path absolute = makeAbsolute(workDir, file);
+        FileStatus status;
+        try {
+            status = getFileStatus(client, absolute);
+        } catch (FileNotFoundException e) {
+            disconnect(client);
+            throw e;
+        }
+        if (status.isDirectory()) {
+            disconnect(client);
+            throw new FileNotFoundException("Path " + file + " is a directory.");
+        }
+
+        Path parent = absolute.getParent();
+        client.allocate(bufferSize);
+        client.changeWorkingDirectory(parent.toUri().getPath());
+        FSDataOutputStream fos =
+                new FSDataOutputStream(client.appendFileStream(file.getName()), statistics) {
+                    @Override
+                    public void close() throws IOException {
+                        IOException closeException = null;
+                        try {
+                            super.close();
+                            if (!client.isConnected()) {
+                                throw new FTPException("Client not connected");
+                            }
+                            boolean cmdCompleted = client.completePendingCommand();
+                            if (!cmdCompleted) {
+                                throw new FTPException(
+                                        "Could not complete transfer, Reply Code - "
+                                                + client.getReplyCode());
+                            }
+                        } catch (IOException | FTPException e) {
+                            closeException =
+                                    e instanceof IOException
+                                            ? (IOException) e
+                                            : new IOException(e.getMessage(), e);
+                        } finally {
+                            try {
+                                disconnect(client);
+                            } catch (IOException e) {
+                                if (closeException == null) {
+                                    closeException = e;
+                                } else {
+                                    closeException.addSuppressed(e);
+                                }
+                            }
+                        }
+                        if (closeException != null) {
+                            throw closeException;
+                        }
+                    }
+                };
+        if (!FTPReply.isPositivePreliminary(client.getReplyCode())) {
+            try {
+                fos.close();
+            } catch (IOException | FTPException e) {
+                LOG.warn("Close rejected FTP append stream failed, ignore cleanup error.", e);
+            }
+            throw new IOException("Unable to append file: " + file + ", Aborting");
+        }
+        return fos;
     }
 
     /**

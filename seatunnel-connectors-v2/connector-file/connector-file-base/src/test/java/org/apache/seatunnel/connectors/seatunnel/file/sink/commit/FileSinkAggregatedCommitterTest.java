@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -40,6 +42,10 @@ class FileSinkAggregatedCommitterTest {
     private static class TestableCommitter extends FileSinkAggregatedCommitter {
         TestableCommitter() {
             super(new HadoopConf("hdfs://dummy"));
+        }
+
+        TestableCommitter(boolean appendData) {
+            super(new HadoopConf("ftp://dummy"), appendData);
         }
 
         void setFileSystemProxy(HadoopFileSystemProxy proxy) {
@@ -97,8 +103,61 @@ class FileSinkAggregatedCommitterTest {
         Mockito.verify(fs).deleteFile(TRANSACTION_DIR);
     }
 
+    @Test
+    void shouldAppendTemporaryFileWhenAppendDataIsEnabled() throws Exception {
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        TestableCommitter committer = newCommitter(fs, true);
+
+        List<FileAggregatedCommitInfo> errors =
+                committer.commit(Collections.singletonList(newCommitInfo(true)));
+
+        Assertions.assertTrue(errors.isEmpty());
+        Mockito.verify(fs).appendFile(TEMP_FILE, TARGET_FILE);
+        Mockito.verify(fs, Mockito.never()).renameFile(TEMP_FILE, TARGET_FILE, true);
+    }
+
+    @Test
+    void shouldNotRollbackExistingTargetWhenAppendDataIsEnabled() throws Exception {
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        TestableCommitter committer = newCommitter(fs, true);
+
+        committer.abort(Collections.singletonList(newCommitInfo(true)));
+
+        Mockito.verify(fs, Mockito.never())
+                .renameFile(Mockito.anyString(), Mockito.anyString(), Mockito.anyBoolean());
+        Mockito.verify(fs).deleteFile(TRANSACTION_DIR);
+    }
+
+    @Test
+    void shouldEnableAppendDataOnlyForFtpAppendDataMode() {
+        FileSinkConfig fileSinkConfig = Mockito.mock(FileSinkConfig.class);
+        Mockito.when(fileSinkConfig.getDataSaveMode()).thenReturn(DataSaveMode.APPEND_DATA);
+        Mockito.when(fileSinkConfig.isDataSaveModeExplicitlyConfigured()).thenReturn(true);
+
+        Assertions.assertTrue(
+                FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
+        Assertions.assertFalse(
+                FileSinkAggregatedCommitter.shouldAppendData(
+                        newHadoopConf("hdfs"), fileSinkConfig));
+
+        Mockito.when(fileSinkConfig.isDataSaveModeExplicitlyConfigured()).thenReturn(false);
+        Assertions.assertFalse(
+                FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
+
+        Mockito.when(fileSinkConfig.isDataSaveModeExplicitlyConfigured()).thenReturn(true);
+        Mockito.when(fileSinkConfig.getDataSaveMode()).thenReturn(DataSaveMode.DROP_DATA);
+        Assertions.assertFalse(
+                FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
+    }
+
     private static TestableCommitter newCommitter(HadoopFileSystemProxy fs) {
         TestableCommitter committer = new TestableCommitter();
+        committer.setFileSystemProxy(fs);
+        return committer;
+    }
+
+    private static TestableCommitter newCommitter(HadoopFileSystemProxy fs, boolean appendData) {
+        TestableCommitter committer = new TestableCommitter(appendData);
         committer.setFileSystemProxy(fs);
         return committer;
     }
@@ -111,5 +170,14 @@ class FileSinkAggregatedCommitterTest {
         LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap = new LinkedHashMap<>();
         transactionMap.put(TRANSACTION_DIR, fileMoves);
         return new FileAggregatedCommitInfo(transactionMap, new LinkedHashMap<>());
+    }
+
+    private static HadoopConf newHadoopConf(String schema) {
+        return new HadoopConf(schema + "://dummy") {
+            @Override
+            public String getSchema() {
+                return schema;
+            }
+        };
     }
 }
