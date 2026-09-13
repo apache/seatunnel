@@ -39,6 +39,11 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Owns OAuth renewal, streaming response limits and cancellation for Transaction Search. These
+ * request-lifecycle requirements are not provided by the shared HTTP source framework; response
+ * decoding remains separate so transaction amounts are validated without rounding.
+ */
 final class PayPalClient implements AutoCloseable {
     private final PayPalConfig config;
     private final CloseableHttpClient client;

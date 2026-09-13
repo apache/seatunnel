@@ -28,6 +28,9 @@ Used to write data to RabbitMQ queues.
 | username                   | string  | no       | -             |
 | password                   | string  | no       | -             |
 | queue_name                 | string  | yes      | -             |
+| format                     | string  | no       | json          |
+| protobuf_schema            | string  | no       | -             |
+| protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
@@ -70,6 +73,18 @@ convenience method for setting the fields in an AMQP URI: host, port, username, 
 ### queue_name [string]
 
 the queue to write the message to. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
+
+### format [string]
+
+The message payload format. Supported values are `json` and `protobuf`. The default value is `json`.
+
+### protobuf_schema [string]
+
+Effective when `format` is `protobuf`. Defines the Protobuf schema used to serialize rows into RabbitMQ message payloads.
+
+### protobuf_message_name [string]
+
+Effective when `format` is `protobuf`. Specifies the Protobuf message name to serialize.
 
 ### routing_key [string]
 
@@ -126,6 +141,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - If you configure `username`, you must also configure `password`, and vice versa.
 - `host`, `port`, `virtual_host`, and `queue_name` are required connector options. `url` can additionally provide the AMQP URI used by the RabbitMQ client.
 - `durable`, `exclusive`, and `auto_delete` are used when the connector declares the target queue.
+- When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name`.
 
 ## Example
 
@@ -202,6 +218,28 @@ sink {
             requested-heartbeat = 10
             connection-timeout = 10
           }
+      }
+}
+```
+
+### Write Protobuf Messages to a Queue
+
+```hocon
+sink {
+      RabbitMQ {
+          host = "rabbitmq-e2e"
+          port = 5672
+          virtual_host = "/"
+          queue_name = "protobuf_queue"
+          format = protobuf
+          protobuf_message_name = Person
+          protobuf_schema = """
+              syntax = "proto3";
+              message Person {
+                int64 id = 1;
+                string name = 2;
+              }
+          """
       }
 }
 ```
