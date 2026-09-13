@@ -43,6 +43,10 @@ public class LogBaseServlet extends BaseServlet {
      * <p>The requested log file is resolved to its canonical path before reading so that relative
      * segments and symbolic links cannot escape the canonical log directory.
      *
+     * <p>At most {@code log-response-max-size-mb} of content is read, so that requesting the log of
+     * a long-running streaming job cannot exhaust the node's heap. Larger files are truncated to
+     * their tail.
+     *
      * @param resp response used to return status and log content
      * @param logPath configured log directory
      * @param logName requested log file name from the request URI
@@ -68,7 +72,9 @@ public class LogBaseServlet extends BaseServlet {
                         canonicalLogDir);
                 return;
             }
-            String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
+            String logContent =
+                    FileUtils.readFileTailToStr(
+                            new File(canonicalFilePath).toPath(), maxLogResponseBytes());
             write(resp, logContent);
         } catch (IOException e) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -77,5 +83,15 @@ public class LogBaseServlet extends BaseServlet {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             log.warn(String.format("Log file content is empty, get log path : %s", logFilePath));
         }
+    }
+
+    private long maxLogResponseBytes() {
+        int maxSizeMb =
+                getSeaTunnelServer(false)
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getHttpConfig()
+                        .getLogResponseMaxSizeMb();
+        return maxSizeMb <= 0 ? -1L : maxSizeMb * 1024L * 1024L;
     }
 }

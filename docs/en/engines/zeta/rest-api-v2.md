@@ -16,7 +16,7 @@ The v2 API and the Web UI are both served by the embedded Jetty server. Jetty st
 
 There are two different "default" sources that are easy to mix up:
 
-- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`
+- Code defaults: `enable-http = false`, `enable-https = false`, `port = 8080`, `context-path = ""`, `enable-dynamic-port = false`, `port-range = 100`, `upload-max-file-size-mb = 10`, `upload-max-request-size-mb = 10`, `log-response-max-size-mb = 64`
 - The packaged `seatunnel.yaml` example: it already sets `enable-http: true` and `port: 8080`
 
 As a result, if you start SeaTunnel with the packaged configuration, the Web UI and REST API usually
@@ -73,6 +73,7 @@ seatunnel:
       port: 8080
       upload-max-file-size-mb: 10
       upload-max-request-size-mb: 10
+      log-response-max-size-mb: 64
 ```
 
 ## Web UI and Port 8080 Troubleshooting
@@ -1447,6 +1448,14 @@ If you want to view the log list first, you can retrieve it via a `GET` request:
 
 Supported formats are `json` and `html`, with `html` as the default.
 
+#### Response Size Limit
+
+Reading a log file returns at most `seatunnel.engine.http.log-response-max-size-mb` of content
+(64 MB by default). A log file larger than that is truncated to its last 64 MB, starting at the
+first complete line, because for a job that has been running for a long time the end of the log is
+the part that explains what happened. Set the option to `0` to restore unlimited reads - be aware
+that a single request for a multi-gigabyte log file then has to fit in the node's heap.
+
 #### Examples
 
 Retrieve logs for `jobId` `733584788375666689` across all nodes: `http://localhost:8080/logs/733584788375666689`
@@ -1469,6 +1478,9 @@ Returns a list of logs from the requested node.
 
 To get a list of logs from the current node: `http://localhost:5801/log`
 To get the content of a log file: `http://localhost:5801/log/job-898380162133917698.log`
+
+Log content is limited by `seatunnel.engine.http.log-response-max-size-mb` in the same way as the
+all-node endpoint above.
 
 </details>
 

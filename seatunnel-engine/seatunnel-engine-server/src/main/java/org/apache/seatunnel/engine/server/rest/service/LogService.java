@@ -48,6 +48,20 @@ public class LogService extends BaseLogService {
         super(nodeEngine);
     }
 
+    /**
+     * Returns the cap in bytes on the content of a single log response, translated from {@code
+     * log-response-max-size-mb}. A value <= 0 means unlimited.
+     */
+    public long maxLogResponseBytes() {
+        int maxSizeMb =
+                getSeaTunnelServer(false)
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getHttpConfig()
+                        .getLogResponseMaxSizeMb();
+        return maxSizeMb <= 0 ? -1L : maxSizeMb * 1024L * 1024L;
+    }
+
     public List<String> allLogName() {
         String logPath = getLogPath();
         List<File> logFileList = FileUtils.listFile(logPath);

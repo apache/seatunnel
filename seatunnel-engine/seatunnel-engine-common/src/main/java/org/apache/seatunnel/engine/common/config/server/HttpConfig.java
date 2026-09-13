@@ -86,6 +86,10 @@ public class HttpConfig implements Serializable {
     private int uploadMaxRequestSizeMb =
             ServerConfigOptions.MasterServerConfigOptions.UPLOAD_MAX_REQUEST_SIZE_MB.defaultValue();
 
+    /** The maximum size in MB of a log file returned by the log endpoints. */
+    private int logResponseMaxSizeMb =
+            ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB.defaultValue();
+
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;

@@ -31,10 +31,14 @@ import java.io.IOException;
 import java.io.PrintStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.channels.SeekableByteChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileVisitOption;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -73,6 +77,63 @@ public class FileUtils {
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("SeaTunnel", "read", path.toString(), e);
         }
+    }
+
+    /**
+     * Reads a file, keeping at most {@code maxBytes} bytes from the end of it.
+     *
+     * <p>Reading a file whole materialises it twice on the heap, once as a byte array and once as a
+     * string. For files that can grow without bound - engine log files being the case this was
+     * written for - that turns a single read into a node-wide memory problem. When the file is
+     * larger than the limit its tail is returned instead, the tail being the part that matters when
+     * diagnosing a failure.
+     *
+     * <p>The tail starts at the first line break after the cut point, so it never begins with half
+     * a line and never splits a multi-byte UTF-8 character. Content is decoded as UTF-8 rather than
+     * with the platform default charset used by {@link #readFileToStr(Path)}, because aligning on
+     * character boundaries is only meaningful against a known encoding.
+     *
+     * @param path file to read
+     * @param maxBytes maximum number of bytes to keep from the end; a value <= 0 means unlimited
+     * @return the whole file, or its tail when the file is larger than {@code maxBytes}
+     */
+    public static String readFileTailToStr(Path path, long maxBytes) {
+        if (maxBytes <= 0) {
+            return readFileToStr(path);
+        }
+        try (SeekableByteChannel channel = Files.newByteChannel(path, StandardOpenOption.READ)) {
+            long size = channel.size();
+            if (size <= maxBytes) {
+                return readFileToStr(path);
+            }
+            // A String cannot hold more than Integer.MAX_VALUE chars anyway, so a limit above that
+            // can never take effect and clamping keeps the cast below safe.
+            int keep = (int) Math.min(maxBytes, Integer.MAX_VALUE - 8);
+            ByteBuffer buffer = ByteBuffer.allocate(keep);
+            channel.position(size - keep);
+            while (buffer.hasRemaining() && channel.read(buffer) > 0) {
+                // Keep reading until the requested tail is filled or the file ends.
+            }
+            return new String(
+                    tailFromLineStart(buffer.array(), buffer.position()), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw CommonError.fileOperationFailed("SeaTunnel", "read", path.toString(), e);
+        }
+    }
+
+    private static byte[] tailFromLineStart(byte[] bytes, int length) {
+        for (int i = 0; i < length; i++) {
+            if (bytes[i] == '\n') {
+                return Arrays.copyOfRange(bytes, i + 1, length);
+            }
+        }
+        // A single line longer than the limit leaves no boundary to align to, so drop just the
+        // leading UTF-8 continuation bytes to avoid starting in the middle of a character.
+        int start = 0;
+        while (start < length && (bytes[start] & 0xC0) == 0x80) {
+            start++;
+        }
+        return Arrays.copyOfRange(bytes, start, length);
     }
 
     public static void writeStringToFile(String filePath, String str) {

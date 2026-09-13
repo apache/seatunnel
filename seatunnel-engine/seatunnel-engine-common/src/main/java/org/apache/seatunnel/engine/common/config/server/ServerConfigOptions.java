@@ -388,6 +388,13 @@ public class ServerConfigOptions {
                         .withDescription(
                                 "The maximum total size in MB of a multipart request sent to the http server. A value <= 0 means unlimited.");
 
+        public static final Option<Integer> LOG_RESPONSE_MAX_SIZE_MB =
+                Options.key("log-response-max-size-mb")
+                        .intType()
+                        .defaultValue(64)
+                        .withDescription(
+                                "The maximum size in MB of a log file returned by the log endpoints. Larger files are truncated to their last log-response-max-size-mb of content. A value <= 0 means unlimited.");
+
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")
                         .type(new TypeReference<HttpConfig>() {})
