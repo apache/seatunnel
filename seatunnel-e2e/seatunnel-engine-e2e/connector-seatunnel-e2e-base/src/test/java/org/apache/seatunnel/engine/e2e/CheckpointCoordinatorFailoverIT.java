@@ -711,14 +711,36 @@ public class CheckpointCoordinatorFailoverIT {
      * tryTriggerPendingCheckpoint} never allocates a new id while {@code pendingCounter > 0} (line
      * ~800) -- can only happen after checkpoint id 1 has fully completed and been acknowledged.
      *
-     * <p><b>What this test proves:</b> a real checkpoint-barrier dispatch failure, on a coordinator
-     * that was previously checkpointing successfully, fails the job (terminal {@code
-     * JobStatus.FAILED}, with an error message traceable to {@code CheckpointCloseReason
-     * #CHECKPOINT_INSIDE_ERROR}) within a bounded window. <b>What it implicitly also proves:</b>
-     * the pre-fix silent-forever-{@code RUNNING} behavior from #10442 no longer occurs -- had it,
-     * the bounded {@code Awaitility} wait below for {@code JobStatus.FAILED} would time out and
-     * fail this test, since the old code left the job {@code RUNNING} with no further checkpoints
-     * and no error, forever.
+     * <p><b>Which failure path actually fires is a genuine, harmless race -- not a defect.</b>
+     * {@code CheckpointManager#sendOperationToMemberNode} (the same {@code
+     * queryTaskGroupAddress}-guarded call this class's javadoc traces above) is not only what
+     * {@code triggerCheckpoint} uses to dispatch a checkpoint's barrier; {@code notifyCompleted}
+     * (line ~466) uses the exact same call to send {@code notifyCheckpointCompleted} / {@code
+     * notifyCheckpointEnd} once a checkpoint's barrier has already been fully acknowledged, and a
+     * failure there is reported via {@code CheckpointCloseReason
+     * #CHECKPOINT_NOTIFY_COMPLETE_FAILED} instead. "Checkpoint id counter reached 2" (waited for
+     * above) only proves checkpoint 1's own {@code notifyCompleted} already succeeded -- {@code
+     * pendingCounter} is decremented (line ~1377) strictly after it returns true -- but it proves
+     * nothing about checkpoint 2's *own* lifecycle: {@code pendingCounter} is incremented (line
+     * ~1003) before checkpoint 2's barrier is even dispatched, so by the time this test's thread
+     * actually performs the removal a few Awaitility-poll-intervals later, checkpoint 2's barrier
+     * dispatch may already have completed normally and moved on to its *own* {@code
+     * notifyCompleted} call -- which then hits the very same removed entry instead. Both paths
+     * detect the identical injected fault (the missing {@code ownedSlotProfilesIMap} entry) via the
+     * identical {@code queryTaskGroupAddress} lookup and both correctly fail the job through {@code
+     * handleCoordinatorError}; only the intermediate label differs. Treating one of the two as the
+     * sole acceptable outcome makes the test flaky on nothing but scheduling timing, so it accepts
+     * either.
+     *
+     * <p><b>What this test proves:</b> a real checkpoint-barrier-or-notify-completion dispatch
+     * failure, on a coordinator that was previously checkpointing successfully, fails the job
+     * (terminal {@code JobStatus.FAILED}, with an error message traceable to either {@code
+     * CheckpointCloseReason#CHECKPOINT_INSIDE_ERROR} or {@code
+     * CheckpointCloseReason#CHECKPOINT_NOTIFY_COMPLETE_FAILED}) within a bounded window. <b>What it
+     * implicitly also proves:</b> the pre-fix silent-forever-{@code RUNNING} behavior from #10442
+     * no longer occurs -- had it, the bounded {@code Awaitility} wait below for {@code
+     * JobStatus.FAILED} would time out and fail this test, since the old code left the job {@code
+     * RUNNING} with no further checkpoints and no error, forever.
      */
     @Test
     public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
@@ -823,14 +845,27 @@ public class CheckpointCoordinatorFailoverIT {
             Assertions.assertEquals(JobStatus.FAILED, jobResult.getStatus());
             Assertions.assertNotNull(
                     jobResult.getError(), "a FAILED job should carry a non-null error message");
+            // Either reason is a correct detection of the same injected fault -- see the
+            // "Which failure path actually fires is a genuine, harmless race" section of the
+            // class javadoc above for why both CheckpointManager#sendOperationToMemberNode call
+            // sites (checkpoint-trigger barrier dispatch and post-completion notify) can observe
+            // the removed ownedSlotProfilesIMap entry depending on scheduling timing.
             Assertions.assertTrue(
                     jobResult
-                            .getError()
-                            .contains(CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR.message()),
+                                    .getError()
+                                    .contains(
+                                            CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR.message())
+                            || jobResult
+                                    .getError()
+                                    .contains(
+                                            CheckpointCloseReason.CHECKPOINT_NOTIFY_COMPLETE_FAILED
+                                                    .message()),
                     () ->
-                            "Expected the job failure to be attributed to the checkpoint"
+                            "Expected the job failure to be attributed to either the checkpoint"
                                     + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
-                                    + " CheckpointCoordinator#handleCoordinatorError), but got: "
+                                    + " CheckpointCoordinator#handleCoordinatorError) or its"
+                                    + " CHECKPOINT_NOTIFY_COMPLETE_FAILED path (see"
+                                    + " CheckpointCoordinator#notifyCompleted), but got: "
                                     + jobResult.getError());
         } finally {
             if (engineClient != null) {
