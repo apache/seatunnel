@@ -16,6 +16,7 @@
 # Fundamental data-path operations.
 SeaTunnelRowBenchmark
 IntermediateQueueBenchmark
+DebeziumJsonFormatBenchmark
 SeaTunnelPipelineBenchmark.sourceSink$
 SeaTunnelPipelineBenchmark.sourceTransformSink$
 

@@ -40,11 +40,15 @@ SELECT pg_reload_conf();
 ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 ```
 
-If you have multi tables,you can use the result of this sql to change the REPLICA policy of all tables to FULL
+If you have multi tables, you can use the result of this sql to change the REPLICA policy of all tables to FULL
 
 ```sql
 select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FULL;' from pg_tables where schemaname = 'YourTableSchema'
 ```
+
+3. When `startup.mode = initial`, the connector reads the table snapshot before starting incremental streaming. The
+   snapshot phase runs in parallel using the same split rules as the streaming phase, and the incremental LSN is resumed
+   after the snapshot completes.
 
 ## Data Type Mapping
 
@@ -72,7 +76,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | username                                  | String   | Yes      | -        | Username of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | password                                  | String   | Yes      | -        | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -        | Database names to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| table-names                               | List     | Yes, if `table-pattern` is not used | -        | Tables to monitor. Use the fully qualified `database.schema.table` format, for example: `opengauss_cdc.inventory.orders`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| table-names                               | List     | Yes, if `table-pattern` is not used | -        | Tables to monitor. Use the fully qualified `database.schema.table` format, for example: `opengauss_cdc.inventory.orders`. Use `database.schema.table` matching to scope capture to a specific schema inside a database.                                                                                                                                                                                                                                                                                                                                                                                              |
 | table-pattern                             | String   | Yes, if `table-names` is not used | -        | Regular expression for tables to monitor. Use the fully qualified table name in the pattern, for example: `opengauss_cdc\\.inventory\\..*`. `table-names` and `table-pattern` are mutually exclusive.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | table-names-config                        | List     | No       | -        | Per-table config list. Example: `[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use `primaryKeys` for tables without a physical primary key. `snapshotSplitColumn` must be a unique key; otherwise SeaTunnel ignores it and selects a split column internally.                                                                                                                                                                                                                                                                                                          |
 | startup.mode                              | Enum     | No       | INITIAL  | Optional startup mode for Opengauss CDC consumer, valid enumerations are `initial`, `snapshot-only`, `committed-offset`, `earliest` and `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `snapshot-only`: Synchronize historical data at startup and finish as a bounded job without entering WAL streaming.<br/> `committed-offset`: Skip snapshot data and start WAL streaming from the configured replication slot's committed LSN. This mode requires an explicit `slot.name` and fails if the slot does not exist or has no usable committed LSN.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.                                                                                                                                                                                                                                                                                                 |
@@ -101,15 +105,14 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 
 > Support multi-table reading
 
-```
-
+```hocon
 env {
   # You can set engine configuration here
   execution.parallelism = 1
   job.mode = "STREAMING"
   checkpoint.interval = 5000
-  read_limit.bytes_per_second=7000000
-  read_limit.rows_per_second=400
+  read_limit.bytes_per_second = 7000000
+  read_limit.rows_per_second = 400
 }
 
 source {
@@ -118,7 +121,7 @@ source {
     username = "gaussdb"
     password = "openGauss@123"
     database-names = ["opengauss_cdc"]
-    table-names = ["opengauss_cdc.inventory.opengauss_cdc_table_1","opengauss_cdc.inventory.opengauss_cdc_table_2"]
+    table-names = ["opengauss_cdc.inventory.opengauss_cdc_table_1", "opengauss_cdc.inventory.opengauss_cdc_table_2"]
     url = "jdbc:postgresql://opengauss_cdc_e2e:5432/opengauss_cdc"
     decoding.plugin.name = "pgoutput"
     slot.name = "seatunnel_opengauss_cdc"
@@ -126,7 +129,6 @@ source {
 }
 
 transform {
-
 }
 
 sink {
@@ -137,7 +139,7 @@ sink {
     username = "dailai"
     password = "openGauss@123"
 
-    compatible_mode="postgresLow"
+    compatible_mode = "postgresLow"
     generate_sink_sql = true
     # You need to configure both database and table
     database = "opengauss_cdc"
@@ -146,12 +148,14 @@ sink {
     primary_keys = ["id"]
   }
 }
-
 ```
 
 ### Support custom primary key for table
 
-```
+When the upstream table has no usable primary key, declare it with `table-names-config` and supply an explicit
+`primaryKeys` list. The connector uses these keys for CDC ordering and for the snapshot split.
+
+```hocon
 source {
   Opengauss-CDC {
     plugin_output = "customers_opengauss_cdc"
