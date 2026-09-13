@@ -48,8 +48,8 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * Base sink writer shared by batch and streaming BigQuery writers. It owns the shared BigQuery
- * Storage Write API client lifecycle for multi-table sink replicas and coordinates BigQuery
- * schema evolution (see {@link #applySchemaChange}) on top of it.
+ * Storage Write API client lifecycle for multi-table sink replicas and coordinates BigQuery schema
+ * evolution (see {@link #applySchemaChange}) on top of it.
  */
 @Slf4j
 public abstract class AbstractBigQuerySinkWriter

@@ -76,10 +76,14 @@ public class BigQuerySink
     public AbstractBigQuerySinkWriter createWriter(SinkWriter.Context context) {
         if (isBatch) {
             return new BigQuerySinkBatchWriter(
-                    config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
+                    config,
+                    new BigQuerySerializer(catalogTable, config),
+                    catalogTable.getTableSchema());
         } else {
             return new BigQuerySinkStreamWriter(
-                    config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
+                    config,
+                    new BigQuerySerializer(catalogTable, config),
+                    catalogTable.getTableSchema());
         }
     }
 
@@ -97,11 +101,15 @@ public class BigQuerySink
                         latestState.getNextOffset());
             } else {
                 return new BigQuerySinkBatchWriter(
-                        config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
+                        config,
+                        new BigQuerySerializer(catalogTable, config),
+                        catalogTable.getTableSchema());
             }
         } else {
             return new BigQuerySinkStreamWriter(
-                    config, new BigQuerySerializer(catalogTable, config), catalogTable.getTableSchema());
+                    config,
+                    new BigQuerySerializer(catalogTable, config),
+                    catalogTable.getTableSchema());
         }
     }
 
