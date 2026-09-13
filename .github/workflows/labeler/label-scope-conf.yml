@@ -167,6 +167,11 @@ facebook-ads:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-facebook-ads/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(facebook-ads)/**'
+tiktok-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-tiktok-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(tiktok-ads)/**'
 file:
   - all:
       - changed-files:

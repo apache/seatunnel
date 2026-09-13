@@ -121,7 +121,7 @@ Task format:
 | Kafka (KRaft) | `apache/kafka:3.7.0` | `localhost:9092` | PLAINTEXT | topics clicks, order_events, dbz.shop.users (seeded), events, wms.inventory, shop.orders.changelog |
 | ClickHouse | `clickhouse/clickhouse-server:23.3.13.6` | `localhost:8123` | default / Test@123 | db `bench`: pre-created sink tables |
 | Elasticsearch | `elasticsearch:8.9.0` | `localhost:9200` | security disabled | — |
-| MinIO (S3) | `minio/minio` | `localhost:9000` | minioadmin / minioadmin | bucket `bench` |
+| MinIO (S3) | `quay.io/minio/minio` | `localhost:9000` | minioadmin / minioadmin | bucket `bench` |
 | Doris *(profile `olap`)* | `apache/doris:doris-all-in-one-2.1.0` | FE 8030 / query 9030 | root / empty | apply `init/doris/01_bench.sql` |
 | StarRocks *(profile `olap`)* | `starrocks/allin1-ubuntu:3.3.4` | FE 8031 / query 9031 | root / empty | apply `init/doris/01_bench.sql` |
 

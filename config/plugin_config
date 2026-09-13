@@ -62,9 +62,11 @@ connector-azure-queue-storage
 connector-google-bigtable
 connector-google-ads
 connector-facebook-ads
+connector-tiktok-ads
 connector-graphql
 connector-hive
 connector-http-base
+connector-mem0
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
