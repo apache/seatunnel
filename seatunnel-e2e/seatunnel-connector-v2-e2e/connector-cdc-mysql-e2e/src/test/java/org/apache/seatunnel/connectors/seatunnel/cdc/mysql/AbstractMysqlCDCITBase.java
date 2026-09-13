@@ -109,6 +109,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     private static final String TIMER_FLUSH_SRC_TABLE_2 = "timer_flush_src_2";
     private static final String TIMER_FLUSH_SINK_TABLE = "timer_flush_sink";
 
+    /** Parallel restore scenario that keeps snapshot splitting active during repeated recovery. */
+    private static final String PARALLEL_SAVEPOINT_RESTORE_CONF =
+            "/mysqlcdc_to_mysql_with_parallel_savepoint_restore.conf";
+
     protected MySqlContainer MYSQL_CONTAINER;
     protected UniqueDatabase inventoryDatabase;
 
@@ -722,6 +726,81 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         log.info(containerLogs);
         Assertions.assertFalse(containerLogs.contains("ERROR"));
         log.info("****************** container logs end ******************");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "Currently SPARK and FLINK do not support savepoint restore")
+    public void testMysqlCdcParallelSnapshotRestoreAcrossMultipleRounds(TestContainer container)
+            throws Exception {
+        Long sourceJobId = JobIdGenerator.newJobId();
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1);
+        insertParallelRestoreProbeRows(MYSQL_DATABASE, SOURCE_TABLE_1, 1, 24);
+
+        try {
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            return container.executeJob(
+                                    PARALLEL_SAVEPOINT_RESTORE_CONF, String.valueOf(sourceJobId));
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                    });
+
+            awaitSourceAndMirrorSinkConsistent(MYSQL_DATABASE, MYSQL_DATABASE2, SOURCE_TABLE_1);
+            awaitJobRunning(container, sourceJobId);
+            Assertions.assertEquals(
+                    0, container.savepointJob(String.valueOf(sourceJobId)).getExitCode());
+
+            applyParallelRestoreProbeMutations(MYSQL_DATABASE, SOURCE_TABLE_1, 101, 1, 2);
+
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.restoreJob(
+                                    PARALLEL_SAVEPOINT_RESTORE_CONF, String.valueOf(sourceJobId));
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            awaitSourceAndMirrorSinkConsistent(MYSQL_DATABASE, MYSQL_DATABASE2, SOURCE_TABLE_1);
+            awaitJobRunning(container, sourceJobId);
+            Assertions.assertEquals(1L, getRowCountById(MYSQL_DATABASE2, SOURCE_TABLE_1, 101));
+            Assertions.assertEquals(0L, getRowCountById(MYSQL_DATABASE2, SOURCE_TABLE_1, 2));
+            Assertions.assertEquals(
+                    0, container.savepointJob(String.valueOf(sourceJobId)).getExitCode());
+
+            applyParallelRestoreProbeMutations(MYSQL_DATABASE, SOURCE_TABLE_1, 201, 3, 4);
+
+            CompletableFuture.supplyAsync(
+                    () -> {
+                        try {
+                            container.restoreJob(
+                                    PARALLEL_SAVEPOINT_RESTORE_CONF, String.valueOf(sourceJobId));
+                        } catch (Exception e) {
+                            log.error("Commit task exception :" + e.getMessage());
+                            throw new RuntimeException(e);
+                        }
+                        return null;
+                    });
+
+            awaitSourceAndMirrorSinkConsistent(MYSQL_DATABASE, MYSQL_DATABASE2, SOURCE_TABLE_1);
+            awaitJobRunning(container, sourceJobId);
+            Assertions.assertEquals(1L, getRowCountById(MYSQL_DATABASE2, SOURCE_TABLE_1, 201));
+            Assertions.assertEquals(0L, getRowCountById(MYSQL_DATABASE2, SOURCE_TABLE_1, 4));
+        } finally {
+            cancelJobIfRunning(container, sourceJobId);
+            clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+            clearTable(MYSQL_DATABASE2, SOURCE_TABLE_1);
+        }
     }
 
     @TestTemplate
@@ -1588,6 +1667,100 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
         executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 10000 where id = 3");
     }
 
+    /** Seeds enough rows to force multiple snapshot splits before repeated restore rounds. */
+    private void insertParallelRestoreProbeRows(
+            String database, String tableName, int startInclusive, int endInclusive) {
+        for (int id = startInclusive; id <= endInclusive; id++) {
+            insertParallelRestoreProbeRow(database, tableName, id);
+        }
+    }
+
+    /** Applies a mixed insert, update, and delete batch that must survive the next restore. */
+    private void applyParallelRestoreProbeMutations(
+            String database, String tableName, int batchStart, int updatedId, int deletedId) {
+        insertParallelRestoreProbeRows(database, tableName, batchStart, batchStart + 4);
+        executeSql(
+                "UPDATE "
+                        + database
+                        + "."
+                        + tableName
+                        + " SET f_bigint = "
+                        + (900000000L + batchStart)
+                        + ", f_varchar = 'restore-round-"
+                        + batchStart
+                        + "' WHERE id = "
+                        + updatedId);
+        executeSql("DELETE FROM " + database + "." + tableName + " WHERE id = " + deletedId);
+    }
+
+    /** Inserts a compact probe row that is stable across repeated savepoint restores. */
+    private void insertParallelRestoreProbeRow(String database, String tableName, int id) {
+        executeSql(
+                "INSERT INTO "
+                        + database
+                        + "."
+                        + tableName
+                        + " (id, f_smallint, f_int, f_bigint, f_varchar, f_date, f_datetime, f_timestamp, f_tinyint, f_json, f_year)"
+                        + " VALUES ("
+                        + id
+                        + ", "
+                        + id
+                        + ", "
+                        + id
+                        + ", "
+                        + (100000L + id)
+                        + ", 'parallel-savepoint-"
+                        + id
+                        + "', '2024-01-01', '2024-01-01 00:00:00', '2024-01-01 00:00:00', 1, '{\"probe\":"
+                        + id
+                        + "}', 2024)");
+    }
+
+    /** Waits until the source table and the generated mirror sink contain the same ordered rows. */
+    private void awaitSourceAndMirrorSinkConsistent(
+            String sourceDatabase, String sinkDatabase, String tableName) {
+        await().atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        query(getOrderedSourceQuerySQL(sourceDatabase, tableName)),
+                                        query(getOrderedSourceQuerySQL(sinkDatabase, tableName))));
+    }
+
+    /** Waits until the restored Zeta job is reported as running again. */
+    private void awaitJobRunning(TestContainer container, long jobId) {
+        await().atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "RUNNING", container.getJobStatus(String.valueOf(jobId))));
+    }
+
+    /** Cancels the current restore round when the job is still running during cleanup. */
+    private void cancelJobIfRunning(TestContainer container, long jobId) {
+        try {
+            if ("RUNNING".equals(container.getJobStatus(String.valueOf(jobId)))) {
+                Assertions.assertEquals(
+                        0, container.cancelJob(String.valueOf(jobId)).getExitCode());
+            }
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        } catch (RuntimeException e) {
+            log.warn("Ignore cleanup failure for job {}", jobId, e);
+        }
+    }
+
+    /** Counts a specific id in the mirror sink to detect dropped or duplicated change replay. */
+    private long getRowCountById(String database, String tableName, int id) {
+        List<List<Object>> result =
+                query("select count(*) from " + database + "." + tableName + " where id = " + id);
+        Object value = result.get(0).get(0);
+        return value instanceof Number
+                ? ((Number) value).longValue()
+                : Long.parseLong(String.valueOf(value));
+    }
+
     @Override
     @AfterAll
     public void tearDown() {
@@ -1617,6 +1790,11 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
 
     private String getSourceQuerySQL(String database, String tableName) {
         return String.format(SOURCE_SQL_TEMPLATE, database, tableName);
+    }
+
+    /** Applies deterministic ordering so repeated restore assertions compare a stable snapshot. */
+    private String getOrderedSourceQuerySQL(String database, String tableName) {
+        return getSourceQuerySQL(database, tableName) + " order by id";
     }
 
     private String getSinkQuerySQL(String database, String tableName) {
