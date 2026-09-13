@@ -25,10 +25,6 @@
     <artifactId>connector-milvus-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Milvus</name>
 
-    <properties>
-        <testcontainer.milvus.version>1.19.8</testcontainer.milvus.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -47,7 +43,8 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>milvus</artifactId>
-            <version>${testcontainer.milvus.version}</version>
+            <version>${testcontainer.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

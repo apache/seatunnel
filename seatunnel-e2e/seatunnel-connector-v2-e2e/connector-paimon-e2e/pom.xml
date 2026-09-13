@@ -27,7 +27,6 @@
 
     <properties>
         <libfb303.version>0.9.0</libfb303.version>
-        <testcontainer.version>1.19.1</testcontainer.version>
         <minio.version>8.5.6</minio.version>
     </properties>
 
@@ -103,6 +102,7 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
             <version>${testcontainer.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>
