@@ -83,7 +83,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @NoArgsConstructor
 @Slf4j
@@ -395,10 +394,12 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             offsetFactory);
         } else if (checkpointState instanceof SnapshotPhaseState) {
             SnapshotPhaseState checkpointSnapshotState = (SnapshotPhaseState) checkpointState;
+            Set<TableId> checkpointCapturedTables =
+                    getCheckpointCapturedTables(checkpointSnapshotState);
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(
                             sourceConfig,
-                            capturedTables,
+                            checkpointCapturedTables,
                             checkpointSnapshotState.getAssignedSplits(),
                             checkpointSnapshotState.getSplitCompletedOffsets());
             splitAssigner =
@@ -424,14 +425,54 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
+/**
+     * Derives the set of captured tables from a {@link SnapshotPhaseState} checkpoint.
+     *
+     * <p>When a snapshot-only job is restarted from a checkpoint, the live table discovery (via
+     * {@code dataSourceDialect.discoverDataCollections()}) may return a different set of tables
+     * than what the original job was processing — for example, if tables matching the source's
+     * {@code table-names} or {@code table-pattern} config were created or dropped during the
+     * snapshot. Using the live-discovered set directly would cause the restored {@link
+     * SnapshotOnlySplitAssigner} to track an inconsistent "remaining tables" set, risking a job
+     * that never completes or one that silently drops a table's tracked progress.
+     *
+     * <p>This method reconstructs the checkpoint's actual captured table set by taking the full
+     * union of four sources from the checkpoint state:
+     *
+     * <ol>
+     *   <li>{@link SnapshotPhaseState#getAlreadyProcessedTables()} — tables whose snapshot is
+     *       complete
+     *   <li>{@link SnapshotPhaseState#getRemainingTables()} — tables not yet split
+     *   <li>Table IDs from {@link SnapshotPhaseState#getRemainingSplits()} — tables with pending
+     *       splits
+     *   <li>Table IDs from {@link SnapshotPhaseState#getAssignedSplits()} — tables with in-flight
+     *       splits
+     * </ol>
+     *
+     * <p>This ensures checkpoint-restore consistency: the restored assigner's notion of "all tables
+     * captured" matches what the checkpoint actually tracked, regardless of schema drift between
+     * job start and restart.
+     *
+     * @param snapshotState the checkpoint snapshot phase state
+     * @return the set of table IDs captured by this checkpoint
+     */
+    private static Set<TableId> getCheckpointCapturedTables(SnapshotPhaseState snapshotState) {
+        Set<TableId> checkpointTables = new HashSet<>(snapshotState.getAlreadyProcessedTables());
+        checkpointTables.addAll(snapshotState.getRemainingTables());
+        snapshotState.getRemainingSplits().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        snapshotState.getAssignedSplits().values().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        return checkpointTables;
+    }
+
     private HybridPendingSplitsState restore(
             Set<TableId> capturedTables, HybridPendingSplitsState checkpointState) {
         SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
         Set<TableId> checkpointCapturedTables =
-                Stream.concat(
-                                checkpointSnapshotState.getAlreadyProcessedTables().stream(),
-                                checkpointSnapshotState.getRemainingTables().stream())
-                        .collect(Collectors.toSet());
+                getCheckpointCapturedTables(checkpointSnapshotState);
         Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
         Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
 
