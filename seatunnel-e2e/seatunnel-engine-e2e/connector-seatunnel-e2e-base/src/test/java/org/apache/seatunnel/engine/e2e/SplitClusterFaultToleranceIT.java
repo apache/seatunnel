@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -1657,5 +1658,279 @@ public class SplitClusterFaultToleranceIT {
         } catch (SeaTunnelEngineException e) {
             return false;
         }
+    }
+
+    /**
+     * Verified-fragile-architecture probe (not a fix regression test): {@link
+     * org.apache.seatunnel.engine.server.dag.physical.ResourceUtils#applyResourceForPipeline}
+     * throws {@code NoEnoughResourceException} synchronously and immediately if it cannot obtain
+     * every slot a pipeline needs in a single pass -- the method has an explicit {@code TODO}
+     * acknowledging there is no wait/backoff at that layer. {@link
+     * org.apache.seatunnel.engine.server.dag.physical.SubPlan#stateProcess()}'s {@code SCHEDULED}
+     * case turns that single exception into one consumed unit of the pipeline's fixed {@code
+     * pipelineMaxRestoreNum} (default 3, from {@code job.retry.times}) restore budget, sleeping
+     * {@code pipelineRestoreIntervalSeconds} (default 3, from {@code job.retry.interval.seconds})
+     * before every restore attempt. A pipeline that races several siblings for a
+     * momentarily-shrunken slot pool can therefore burn its entire retry budget on pure allocation
+     * timing and permanently fail, even though the contention would have resolved moments later.
+     *
+     * <p>This test engineers genuine (not lucky/racy) multi-pipeline contention rather than relying
+     * on placement luck: the job config declares 4 independent, unrelated FakeSource -> LocalFile
+     * chains, so the planner splits them into 4 separate pipelines (SubPlans), each with its own
+     * restore budget. Every simple 1-parallelism pipeline here needs exactly 3 slots (1
+     * source-enumerator coordinator + 1 sink-committer coordinator -- LocalFile's sink always
+     * registers an aggregated file-commit coordinator, independent of is_enable_transaction -- + 1
+     * fused reader/writer task group) -- 4 pipelines x 3 slots = 12 total slot demand. Both workers
+     * are pinned to a fixed pool (dynamic-slot=false) of 8 slots each: 16 total capacity
+     * comfortably admits the initial 12-slot demand (4 spare), but no single 8-slot worker can ever
+     * host all 4 pipelines (4 x 3 = 12 > 8: at most 2 full pipelines, using 6 of 8 slots, fit on
+     * one worker with only 2 spare -- not enough for a 3rd pipeline's 3 slots). So killing either
+     * worker is guaranteed, by construction rather than chance, to strand part of more than one
+     * pipeline at once and force them to restore-race the survivor's remaining fixed capacity.
+     * Every LocalFile sink also sets is_enable_transaction=true, so a canceled attempt's
+     * in-progress writes stay in an uncommitted temp location and never surface in the output
+     * directory this test counts -- without that, a stranded pipeline's aborted attempt could leak
+     * partial rows into the count and the exact-equality assertion below would be unsound
+     * regardless of the restore-budget outcome.
+     *
+     * <p>Whether today's fixed 9-second guaranteed-sleep budget (3 attempts x 3s, before any real
+     * cancel/checkpoint-cancel/resource-release/RPC overhead per attempt) is enough patience for
+     * that contention to resolve -- as the deliberately tiny, fast FakeSource pipelines finish and
+     * free their slots for whoever is still waiting -- is exactly the open question this test
+     * answers empirically: either the job finishes (today's behavior tolerates this contention
+     * level) or some pipeline permanently fails with its restore budget exhausted purely on
+     * allocation timing (the bug this item describes). Either outcome is a valid, honest finding;
+     * this test only documents production behavior and never modifies production code.
+     *
+     * <p>The assertions below accept both outcomes explicitly instead of hard-gating on {@code
+     * FINISHED} alone, so this probe cannot go red simply because the gap it exists to document
+     * actually manifested: a {@code FINISHED} job is verified by its exact row count, while a
+     * {@code FAILED} job is only accepted as the second finding once its recorded error confirms
+     * the failure is this specific {@code NoEnoughResourceException}-driven restore-budget
+     * exhaustion, not an unrelated regression. Any other terminal status, or a {@code FAILED} job
+     * whose error does not confirm that root cause, still fails the test.
+     */
+    @Test
+    public void testManyPipelinesRestoreContentionInWorkerDown() throws Exception {
+        String testCaseName = "testManyPipelinesRestoreContentionInWorkerDown";
+        String testClusterName =
+                "SplitClusterFaultToleranceIT_testManyPipelinesRestoreContentionInWorkerDown";
+        long testRowNumber = 5000;
+        int pipelineNum = 4;
+        // Fixed per-worker slot pool (dynamic-slot disabled below makes this a hard ceiling, not
+        // a hint). 8 < (pipelineNum * 3 slots-per-pipeline = 12), so a single worker can never
+        // host all 4 pipelines -- see the class-level Javadoc above for the full arithmetic.
+        int slotNumPerWorker = 8;
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig seaTunnelConfig = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig masterNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode1Config = getSeaTunnelConfig(testClusterName);
+        SeaTunnelConfig workerNode2Config = getSeaTunnelConfig(testClusterName);
+        for (SeaTunnelConfig workerConfig :
+                new SeaTunnelConfig[] {workerNode1Config, workerNode2Config}) {
+            workerConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
+            workerConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(slotNumPerWorker);
+        }
+        // CoordinatorService binds its schedule strategy once, from the active master's own
+        // EngineConfig (see CoordinatorService#scheduleStrategy / #isWaitStrategy), so only
+        // masterNode1Config -- the only master this test starts -- needs this. The engine
+        // default is REJECT, under which a resource pre-application attempt that cannot obtain
+        // every slot a pipeline needs in one pass fails the job immediately with no retry (see
+        // CoordinatorService#pendingJobSchedule). This job's very first pre-application (12
+        // slots across both fresh workers) can transiently race the two workers still
+        // registering their slot pools with the master's ResourceManager right after cluster
+        // startup, so a partial grant here is possible under CI load. Switching to WAIT makes
+        // that first attempt retry (3s sleep + requeue, unconditionally, no attempt cap) instead
+        // of failing terminally, so the job reliably reaches RUNNING and this test can exercise
+        // its actual target scenario: post-worker-kill restore contention over the fixed 8-slot
+        // survivor pool, using the still-tight 12-of-16 slot budget described in the class-level
+        // Javadoc above. This is unrelated to, and does not fix or mask, the separate confirmed
+        // engine gap in CoordinatorService's job-scheduling epoch handling (silent job loss on
+        // scheduler-epoch changes under REJECT, see pendingJobSchedule's own Javadoc) -- that gap
+        // is tracked and handled independently of this test.
+        masterNode1Config.getEngineConfig().setScheduleStrategy(ScheduleStrategy.WAIT);
+
+        try {
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
+
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode1Config);
+
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerNode2Config);
+
+            // waiting all node added to cluster (1 master + 2 workers)
+            HazelcastInstanceImpl finalNode = masterNode1;
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            3, finalNode.getCluster().getMembers().size()));
+
+            log.warn(
+                    "===================================All node is running==========================");
+            Common.setDeployMode(DeployMode.CLIENT);
+            ImmutablePair<String, String> testResources =
+                    createManyPipelineTestResources(testCaseName, testRowNumber, pipelineNum);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, seaTunnelConfig);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+
+            // Catch the job genuinely mid-flight (all 4 pipelines deployed and running across
+            // both workers) before killing a worker. A tight poll minimizes the race against
+            // these deliberately tiny/fast pipelines finishing on their own before we can react;
+            // JobStatus only reaches RUNNING after every pipeline's own DEPLOYING step succeeds,
+            // so by the time this is observed all 12 slots are already assigned on real workers.
+            Awaitility.await()
+                    .atMost(60000, TimeUnit.MILLISECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.RUNNING, clientJobProxy.getJobStatus()));
+
+            CompletableFuture<JobResult> objectCompletableFuture =
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);
+
+            // Kill one worker while several pipelines are running on it: every pipeline that had
+            // any slot on this worker (coordinator or task group) must release ALL of its slots,
+            // not just the lost one, and restore-race the survivor's fixed 8-slot pool.
+            log.warn(
+                    "=====================================shutdown workerNode1=================================");
+            workerNode1.shutdown();
+
+            Awaitility.await()
+                    .atMost(10000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalNode.getCluster().getMembers().size()));
+
+            // Generous terminal-state budget: pipelineMaxRestoreNum(3) *
+            // pipelineRestoreIntervalSeconds(3) = 9s of guaranteed sleep alone is the theoretical
+            // floor; real cancel/checkpoint-cancel/resource-release/RPC overhead per attempt (plus
+            // this being a shared CI runner) makes the actual wall-clock budget considerably
+            // larger, so this timeout is generous on purpose in both directions.
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(1000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(objectCompletableFuture.isDone()));
+
+            JobResult jobResult = objectCompletableFuture.get();
+            JobStatus finalStatus = jobResult.getStatus();
+            Long fileLineNumberFromDir =
+                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
+            log.warn(
+                    "==================final job status: {}, output line count: {}, error: {}==================",
+                    finalStatus,
+                    fileLineNumberFromDir,
+                    jobResult.getError());
+
+            // Both terminal outcomes documented in the class-level Javadoc above are accepted as
+            // valid findings here -- this probe is not a hard regression gate on a single required
+            // outcome, so it must not go red simply because the gap it exists to document actually
+            // manifested:
+            // 1) FINISHED: today's restore budget tolerated this contention level. Every row from
+            //    every pipeline must be present, since every sink has is_enable_transaction=true,
+            //    which guarantees a stranded/canceled attempt cannot have leaked partial output
+            //    into this same count.
+            // 2) FAILED with a NoEnoughResourceException surfacing in the job's recorded error: the
+            //    documented gap actually manifested and some pipeline burned its entire restore
+            //    budget purely on ResourceUtils#applyResourceForPipeline's synchronous,
+            //    backoff-free allocation racing its siblings. This is only accepted once the error
+            //    confirms that exact root cause, so this probe can never silently swallow an
+            //    unrelated regression (e.g. a NullPointerException elsewhere) as if it were the
+            //    finding it documents.
+            // Any other terminal status, or a FAILED job whose error does not confirm the
+            // NoEnoughResourceException root cause, is not one of the two documented findings and
+            // still fails the test below.
+            if (finalStatus == JobStatus.FINISHED) {
+                log.warn(
+                        "==========Finding: contention resolved within the restore budget, job FINISHED==========");
+                Assertions.assertEquals(testRowNumber * pipelineNum, fileLineNumberFromDir);
+            } else if (finalStatus == JobStatus.FAILED
+                    && jobResult.getError() != null
+                    && jobResult.getError().contains("NoEnoughResourceException")) {
+                log.warn(
+                        "==========Finding: a pipeline permanently failed with its restore budget exhausted purely on allocation timing, as this probe documents==========");
+            } else {
+                Assertions.fail(
+                        "Unexpected terminal outcome, neither documented finding occurred: status="
+                                + finalStatus
+                                + ", error="
+                                + jobResult.getError());
+            }
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+
+            if (masterNode1 != null) {
+                masterNode1.shutdown();
+            }
+
+            if (workerNode1 != null) {
+                workerNode1.shutdown();
+            }
+
+            if (workerNode2 != null) {
+                workerNode2.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Create the test job config file based on {@code
+     * cluster_batch_fake_to_localfile_slot_contention_template.conf}, which declares {@code
+     * pipelineNum} independent (unrelated) FakeSource -> LocalFile chains so the planner splits
+     * them into that many separate pipelines/SubPlans. It deletes the test sink target path before
+     * returning the final job config file path, matching the sibling {@code createTestResources}
+     * helpers in this class.
+     *
+     * @param testCaseName testCaseName, also used as the sink output directory name
+     * @param rowNumber row.num for every FakeSource (parallelism is fixed at 1 in the template)
+     * @param pipelineNum number of independent pipelines the template declares; must match the
+     *     template file's actual source/sink count since this method only substitutes values, it
+     *     does not generate the template's pipeline count
+     */
+    private ImmutablePair<String, String> createManyPipelineTestResources(
+            @NonNull String testCaseName, long rowNumber, int pipelineNum) throws IOException {
+        checkArgument(rowNumber > 0, "rowNumber must greater than 0");
+        checkArgument(pipelineNum > 0, "pipelineNum must greater than 0");
+        Map<String, String> valueMap = new HashMap<>();
+        valueMap.put(DYNAMIC_TEST_CASE_NAME, testCaseName);
+        valueMap.put(DYNAMIC_TEST_ROW_NUM_PER_PARALLELISM, String.valueOf(rowNumber));
+
+        String targetDir = "/tmp/hive/warehouse/" + testCaseName;
+        targetDir = targetDir.replace("/", File.separator);
+
+        // clear target dir before test
+        FileUtils.createNewDir(targetDir);
+
+        String targetConfigFilePath =
+                File.separator
+                        + "tmp"
+                        + File.separator
+                        + "test_conf"
+                        + File.separator
+                        + testCaseName
+                        + ".conf";
+        TestUtils.createTestConfigFileFromTemplate(
+                "cluster_batch_fake_to_localfile_slot_contention_template.conf",
+                valueMap,
+                targetConfigFilePath);
+
+        return new ImmutablePair<>(targetDir, targetConfigFilePath);
     }
 }
