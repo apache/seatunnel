@@ -38,6 +38,12 @@ public class CheckpointConfig implements Serializable {
             ServerConfigOptions.MasterServerConfigOptions.SCHEMA_CHANGE_CHECKPOINT_TIMEOUT
                     .defaultValue();
 
+    private long restoreProgressTimeout =
+            ServerConfigOptions.MasterServerConfigOptions.RESTORE_PROGRESS_TIMEOUT.defaultValue();
+
+    private boolean restoreProgressFailFast =
+            ServerConfigOptions.MasterServerConfigOptions.RESTORE_PROGRESS_FAIL_FAST.defaultValue();
+
     private CheckpointStorageConfig storage =
             ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT_STORAGE.defaultValue();
 
@@ -74,5 +80,12 @@ public class CheckpointConfig implements Serializable {
                 checkpointTimeout >= MINIMAL_CHECKPOINT_TIME,
                 "The minimum checkpoint timeout is 10 ms.");
         this.schemaChangeCheckpointTimeout = checkpointTimeout;
+    }
+
+    public void setRestoreProgressTimeout(long restoreProgressTimeout) {
+        checkArgument(
+                restoreProgressTimeout <= 0 || restoreProgressTimeout >= MINIMAL_CHECKPOINT_TIME,
+                "The minimum restore progress timeout is 10 ms, or a non-positive value to use the derived timeout.");
+        this.restoreProgressTimeout = restoreProgressTimeout;
     }
 }

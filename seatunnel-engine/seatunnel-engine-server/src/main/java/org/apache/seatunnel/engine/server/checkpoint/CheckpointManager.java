@@ -61,6 +61,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
+import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -225,6 +226,14 @@ public class CheckpointManager {
         if (!alreadyStarted && checkpointMonitorService != null) {
             checkpointMonitorService.onPipelineRestored(jobId, pipelineId);
         }
+    }
+
+    /**
+     * Revalidates a restore timeout under the pipeline state machine before cancelling its tasks.
+     */
+    protected boolean handleRestoreProgressTimeout(
+            int pipelineId, BooleanSupplier failCurrentWindow) {
+        return jobMaster.handleRestoreProgressTimeout(pipelineId, failCurrentWindow);
     }
 
     protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
