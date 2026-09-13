@@ -51,3 +51,10 @@ seatunnel_cli = ["golden_examples/*.md", "skills/*.md"]
 
 [tool.setuptools.dynamic]
 version = {attr = "seatunnel_cli.__version__"}
+
+[tool.ruff.lint]
+# Error-level rules only: syntax errors (E9), invalid comparisons and tests (F63, F7) and
+# undefined names (F82). The remaining pyflakes rules and the style rules still report
+# findings across the existing sources, so turning them on belongs in a dedicated clean-up
+# change instead of silently failing every unrelated pull request.
+select = ["E9", "F63", "F7", "F82"]
