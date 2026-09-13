@@ -39,6 +39,7 @@ import org.mockito.MockedConstruction;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -143,6 +144,46 @@ class PrometheusWriterTest {
             writer.close();
 
             // close() must flush the buffered row so it is not lost.
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
+    /**
+     * On Spark and Flink the engine never invokes the flush action, but prepareCommit() runs on
+     * every checkpoint. The buffered records must be delivered at checkpoint time instead of
+     * waiting for batch_size or close(), which bounds the buffered window to one checkpoint
+     * interval on those engines and matches the sibling FlushSignal sinks.
+     */
+    @Test
+    void shouldFlushOnPrepareCommitWhenEngineNeverInvokesFlushAction() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse ok = new HttpResponse(HttpStatus.SC_NO_CONTENT);
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(ok))) {
+
+            PrometheusWriter writer = createWriter(context);
+            writer.write(newPoint());
+
+            // Simulate Spark/Flink: the registered flush action is never invoked by the engine.
+            verify(writer.httpClient, never())
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            Assertions.assertEquals(Optional.empty(), writer.prepareCommit());
+
+            // prepareCommit() must flush the buffered row so it reaches Prometheus at checkpoint.
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            // The buffer must be cleared after the flush, so a later checkpoint with no new rows
+            // does not re-deliver the same row: a second prepareCommit() sends nothing more.
+            Assertions.assertEquals(Optional.empty(), writer.prepareCommit());
             verify(writer.httpClient, times(1))
                     .doPost(anyString(), any(), any(ByteArrayEntity.class));
         }

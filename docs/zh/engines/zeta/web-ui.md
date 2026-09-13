@@ -74,6 +74,7 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 - **节点忙碌度**：Source/Transform/Sink 的忙闲比例（例如 Source Read/Idle，Transform Busy，Sink Busy）。
 - **边的下游等待占比**：当作业在某些位置插入了队列（例如 async boundary 队列、sink 前拆分 IO 队列）时，边会根据下游等待占比与队列填充率进行着色/加粗。
 - **交互**：点击节点或边可在右侧抽屉查看该对象的实时曲线与关键字段。
+- **Pin 实时图**：可从抽屉 pin 一条或多条数值指标，关闭抽屉后 Overview 上仍保留实时折线。图表按量纲拆分（占比 / 耗时 / 条数），同量纲才叠线对比。Pin 生命周期、6 条上限与共享轮询成本见：[实时指标图](live-metrics-chart.md)。
 
 > 该能力需要作业侧开启 `env.engine.observability`（或满足默认开启条件），并按需配置 `async_boundaries`、`split_sink_io` 等。
 > 详细配置与指标说明请参考：[实时可观测性](realtime-observability.md)。
@@ -107,5 +108,6 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 - [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
 - [运行时执行图](./runtime-execution-graph.md)
+- [实时指标图](./live-metrics-chart.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
 - [安全](./security.md)

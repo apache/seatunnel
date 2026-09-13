@@ -21,8 +21,8 @@ name: "Build"
 
 on:
   push:
-    branches:
-    - '**'
+    branches-ignore:
+      - 'gh-readonly-queue/**'
 
 jobs:
   call-build-and-test:

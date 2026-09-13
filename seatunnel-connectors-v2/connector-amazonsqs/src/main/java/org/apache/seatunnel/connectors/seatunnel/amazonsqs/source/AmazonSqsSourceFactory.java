@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
@@ -51,6 +52,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonS
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.DELETE_MESSAGE;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.FIELD_DELIMITER;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.IGNORE_PARSE_ERRORS;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.MESSAGE_GROUP_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.REGION;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.SECRET_ACCESS_KEY;
@@ -66,12 +68,15 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, REGION, SCHEMA)
+                .required(URL, notBlank(URL))
+                .required(REGION, notBlank(REGION))
+                .required(SCHEMA)
                 .optional(
                         ACCESS_KEY_ID,
                         SECRET_ACCESS_KEY,
                         MESSAGE_GROUP_ID,
                         DELETE_MESSAGE,
+                        IGNORE_PARSE_ERRORS,
                         FORMAT,
                         FIELD_DELIMITER,
                         DEBEZIUM_RECORD_INCLUDE_SCHEMA)
@@ -82,14 +87,16 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        MessageFormat format = context.getOptions().get(FORMAT);
         DeserializationSchema<SeaTunnelRow> deserializationSchema =
-                setDeserialization(context.getOptions().toConfig(), catalogTable);
+                setDeserialization(context.getOptions().toConfig(), catalogTable, format);
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new AmazonSqsSource(
                                 new AmazonSqsSourceConfig(context.getOptions()),
                                 catalogTable,
-                                deserializationSchema);
+                                deserializationSchema,
+                                format);
     }
 
     @Override
@@ -98,12 +105,14 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
     }
 
     private DeserializationSchema<SeaTunnelRow> setDeserialization(
-            Config config, CatalogTable catalogTable) {
+            Config config, CatalogTable catalogTable, MessageFormat format) {
         DeserializationSchema<SeaTunnelRow> deserializationSchema;
-        MessageFormat format = ReadonlyConfig.fromConfig(config).get(FORMAT);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
+        boolean ignoreParseErrors = readonlyConfig.get(IGNORE_PARSE_ERRORS);
         switch (format) {
             case JSON:
-                deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
+                deserializationSchema =
+                        new JsonDeserializationSchema(catalogTable, false, ignoreParseErrors);
                 break;
             case TEXT:
                 String delimiter = DEFAULT_FIELD_DELIMITER;
@@ -119,7 +128,7 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
             case CANAL_JSON:
                 deserializationSchema =
                         CanalJsonDeserializationSchema.builder(catalogTable)
-                                .setIgnoreParseErrors(true)
+                                .setIgnoreParseErrors(false)
                                 .build();
                 break;
             case DEBEZIUM_JSON:
@@ -128,7 +137,7 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
                     includeSchema = config.getBoolean(DEBEZIUM_RECORD_INCLUDE_SCHEMA.key());
                 }
                 deserializationSchema =
-                        new DebeziumJsonDeserializationSchema(catalogTable, true, includeSchema);
+                        new DebeziumJsonDeserializationSchema(catalogTable, false, includeSchema);
                 break;
             default:
                 throw new SeaTunnelJsonFormatException(
