@@ -18,65 +18,87 @@
 package org.apache.seatunnel.e2e.connector.rocketmq;
 
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import lombok.SneakyThrows;
-
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.net.SocketException;
-import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.List;
 
-/** rocketmq container */
+/**
+ * RocketMQ container for the connector E2E suite.
+ *
+ * <p>The broker identity (broker name, advertised address and listen port) is fixed through a
+ * broker.conf that is copied into the container before the broker process starts, so the broker
+ * registers with the name server exactly once and under a single identity. The previous approach
+ * started the broker with the image defaults and renamed it afterwards through {@code mqadmin
+ * updateBrokerConfig}. That left the name server with two broker entries for the same process (the
+ * container hostname with the container-internal address plus {@code broker-a} with the host
+ * address). Until the stale entry was purged the default-topic route only referenced the hostname
+ * broker, so {@code producer.send(msg, new MessageQueue(topic, "broker-a", 0))} failed with "The
+ * broker[broker-a] not exist" and the admin client could not see consume offsets of {@code
+ * broker-a}. In CI that window covered most of the test run (apache/seatunnel PRs #12115 and
+ * #12099, job rocketmq-connector-it).
+ *
+ * <p>RocketMQ binds and advertises the same {@code listenPort}, so a single identity requires the
+ * host port to equal the container port. The broker port is therefore published as a fixed binding
+ * on a free host port chosen at construction time, while the name server keeps a dynamic mapping.
+ */
 public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
 
     public static final int NAMESRV_PORT = 9876;
-    public static final int BROKER_PORT = 10911;
     public static final String BROKER_NAME = "broker-a";
     private static final int DEFAULT_BROKER_PERMISSION = 6;
     static final int DEFAULT_TOPIC_QUEUE_NUMS = 4;
+    private static final String BROKER_CONF_PATH = "/home/rocketmq/broker.conf";
+    private static final int FREE_PORT_ATTEMPTS = 20;
+
+    /** Broker listen port inside the container, published 1:1 on the host. */
+    private final int brokerPort;
 
     public RocketMqContainer(DockerImageName image) {
         super(image);
-        withExposedPorts(NAMESRV_PORT, BROKER_PORT, BROKER_PORT - 2);
+        this.brokerPort = findFreeBrokerPort();
+        withExposedPorts(NAMESRV_PORT);
+        // listenPort is both the bind port and the advertised port, so it must be published 1:1.
+        // The VIP channel listens on listenPort - 2 and is published the same way.
+        addFixedExposedPort(brokerPort, brokerPort);
+        addFixedExposedPort(brokerPort - 2, brokerPort - 2);
         this.withEnv("JAVA_OPT_EXT", "-Xms512m -Xmx512m");
     }
 
     @Override
     protected void configure() {
+        // Written before the broker starts so its very first registration already carries the
+        // final name, advertised address and permissions; nothing is renamed at runtime.
+        String brokerConf =
+                "brokerClusterName=DefaultCluster\n"
+                        + "brokerName="
+                        + BROKER_NAME
+                        + "\n"
+                        + "brokerId=0\n"
+                        + "brokerIP1="
+                        + getLinuxLocalIp()
+                        + "\n"
+                        + "listenPort="
+                        + brokerPort
+                        + "\n"
+                        + "autoCreateTopicEnable=true\n"
+                        + "defaultTopicQueueNums="
+                        + DEFAULT_TOPIC_QUEUE_NUMS
+                        + "\n"
+                        + "brokerPermission="
+                        + DEFAULT_BROKER_PERMISSION
+                        + "\n";
+        withCopyToContainer(Transferable.of(brokerConf), BROKER_CONF_PATH);
         String command = "#!/bin/bash\n";
         command += "./mqnamesrv &\n";
-        command += "./mqbroker -n localhost:" + NAMESRV_PORT;
+        command += "./mqbroker -n localhost:" + NAMESRV_PORT + " -c " + BROKER_CONF_PATH;
         withCommand("sh", "-c", command);
-    }
-
-    @Override
-    @SneakyThrows
-    protected void containerIsStarted(InspectContainerResponse containerInfo) {
-        List<String> updateBrokerConfigCommands = new ArrayList<>();
-        updateBrokerConfigCommands.add(updateBrokerConfig("autoCreateTopicEnable", true));
-        updateBrokerConfigCommands.add(
-                updateBrokerConfig("defaultTopicQueueNums", DEFAULT_TOPIC_QUEUE_NUMS));
-        updateBrokerConfigCommands.add(updateBrokerConfig("brokerName", BROKER_NAME));
-        updateBrokerConfigCommands.add(updateBrokerConfig("brokerIP1", getLinuxLocalIp()));
-        updateBrokerConfigCommands.add(
-                updateBrokerConfig("listenPort", getMappedPort(BROKER_PORT)));
-        updateBrokerConfigCommands.add(
-                updateBrokerConfig("brokerPermission", DEFAULT_BROKER_PERMISSION));
-        final String command = String.join(" && ", updateBrokerConfigCommands);
-        ExecResult result = execInContainer("/bin/sh", "-c", command);
-        if (result != null && result.getExitCode() != 0) {
-            throw new IllegalStateException(result.toString());
-        }
-    }
-
-    private String updateBrokerConfig(final String key, final Object val) {
-        final String brokerAddr = "localhost:" + BROKER_PORT;
-        return "./mqadmin updateBrokerConfig -b " + brokerAddr + " -k " + key + " -v " + val;
     }
 
     public String getNameSrvAddr() {
@@ -102,5 +124,38 @@ public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
             ex.printStackTrace();
         }
         return ip;
+    }
+
+    /**
+     * Picks a free host port whose VIP channel port (port - 2) is free as well, so both fixed
+     * bindings can be published.
+     */
+    private static int findFreeBrokerPort() {
+        for (int i = 0; i < FREE_PORT_ATTEMPTS; i++) {
+            int port = findFreePort();
+            if (port > 2 && isPortFree(port - 2)) {
+                return port;
+            }
+        }
+        throw new IllegalStateException(
+                "Could not find a free host port pair for the RocketMQ broker");
+    }
+
+    private static int findFreePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not allocate a free host port", e);
+        }
+    }
+
+    private static boolean isPortFree(int port) {
+        try (ServerSocket socket = new ServerSocket(port)) {
+            socket.setReuseAddress(true);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 }
