@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
@@ -61,6 +62,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -72,6 +74,7 @@ import static org.apache.seatunnel.engine.server.execution.ExecutionState.FAILED
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.FINISHED;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
@@ -557,6 +560,142 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         stop.set(true);
         taskExecutionService.cancelTaskGroup(location);
+    }
+
+    @Test
+    public void testCooperativeTrackerKeepsGenerationSpecificClassLoader() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = new TaskGroupLocation(jobId, pipeLineId, 101L);
+        Task firstTask = taskWithId(1L);
+        Task replacementTask = taskWithId(1L);
+        ClassLoader firstClassLoader = new URLClassLoader(new URL[0]);
+        ClassLoader replacementClassLoader = new URLClassLoader(new URL[0]);
+
+        ConcurrentHashMap<Long, ClassLoader> firstClassLoaders = new ConcurrentHashMap<>();
+        firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
+        TaskGroupContext firstContext =
+                new TaskGroupContext(
+                        new TaskGroupDefaultImpl(location, "first", Lists.newArrayList(firstTask)),
+                        firstClassLoaders,
+                        new ConcurrentHashMap<>());
+        TaskExecutionService.TaskGroupExecutionTracker firstTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(),
+                        firstContext.getTaskGroup(),
+                        firstContext,
+                        new CompletableFuture<>());
+
+        ConcurrentHashMap<Long, ClassLoader> replacementClassLoaders = new ConcurrentHashMap<>();
+        replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
+        TaskGroupContext replacementContext =
+                new TaskGroupContext(
+                        new TaskGroupDefaultImpl(
+                                location, "replacement", Lists.newArrayList(replacementTask)),
+                        replacementClassLoaders,
+                        new ConcurrentHashMap<>());
+        TaskExecutionService.TaskGroupExecutionTracker replacementTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(
+                        new CompletableFuture<>(),
+                        replacementContext.getTaskGroup(),
+                        replacementContext,
+                        new CompletableFuture<>());
+
+        assertSame(firstClassLoader, firstTracker.getTaskClassLoader(firstTask.getTaskID()));
+        assertSame(
+                replacementClassLoader,
+                replacementTracker.getTaskClassLoader(replacementTask.getTaskID()));
+    }
+
+    @Test
+    public void testStaleGenerationCleanupDoesNotRecycleNewerContext() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = new TaskGroupLocation(jobId, pipeLineId, 202L);
+        Task firstTask = taskWithId(1L);
+        Task replacementTask = taskWithId(1L);
+        try (URLClassLoader firstClassLoader = new URLClassLoader(new URL[0]);
+                URLClassLoader replacementClassLoader = new URLClassLoader(new URL[0])) {
+            ConcurrentHashMap<Long, ClassLoader> firstClassLoaders = new ConcurrentHashMap<>();
+            firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
+            TaskGroupContext firstContext =
+                    new TaskGroupContext(
+                            new TaskGroupDefaultImpl(
+                                    location, "first", Lists.newArrayList(firstTask)),
+                            firstClassLoaders,
+                            new ConcurrentHashMap<>());
+            TaskExecutionService.TaskGroupExecutionTracker firstTracker =
+                    taskExecutionService
+                    .new TaskGroupExecutionTracker(
+                            new CompletableFuture<>(),
+                            firstContext.getTaskGroup(),
+                            firstContext,
+                            new CompletableFuture<>());
+
+            ConcurrentHashMap<Long, ClassLoader> replacementClassLoaders =
+                    new ConcurrentHashMap<>();
+            replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
+            TaskGroupContext replacementContext =
+                    new TaskGroupContext(
+                            new TaskGroupDefaultImpl(
+                                    location, "replacement", Lists.newArrayList(replacementTask)),
+                            replacementClassLoaders,
+                            new ConcurrentHashMap<>());
+            TaskExecutionService.TaskGroupExecutionTracker replacementTracker =
+                    taskExecutionService
+                    .new TaskGroupExecutionTracker(
+                            new CompletableFuture<>(),
+                            replacementContext.getTaskGroup(),
+                            replacementContext,
+                            new CompletableFuture<>());
+
+            // Simulate a restore that already replaced the first generation at the same
+            // TaskGroupLocation while the first generation's tasks have not finished yet.
+            ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                    (ConcurrentMap<TaskGroupLocation, TaskGroupContext>)
+                            ReflectionUtils.getField(taskExecutionService, "executionContexts")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "executionContexts field missing"));
+            executionContexts.put(location, replacementContext);
+
+            // The stale first generation finishes late: its cleanup must recycle its own
+            // context only, and must leave the newer generation's context untouched.
+            firstTracker.taskDone(firstTask);
+
+            Assertions.assertNull(
+                    firstContext.getClassLoaders(),
+                    "the stale generation's own loaders should be recycled");
+            assertSame(
+                    replacementContext,
+                    executionContexts.get(location),
+                    "the newer generation's context must stay published");
+            assertSame(
+                    replacementClassLoader,
+                    replacementTracker.getTaskClassLoader(replacementTask.getTaskID()),
+                    "the newer generation's classloaders must not be recycled by the stale generation");
+            executionContexts.remove(location, replacementContext);
+        }
+    }
+
+    private Task taskWithId(long taskId) {
+        return new Task() {
+            @NonNull @Override
+            public ProgressState call() {
+                return ProgressState.DONE;
+            }
+
+            @NonNull @Override
+            public Long getTaskID() {
+                return taskId;
+            }
+
+            @Override
+            public boolean isThreadsShare() {
+                return true;
+            }
+        };
     }
 
     public List<Task> buildFixedTestTask(
