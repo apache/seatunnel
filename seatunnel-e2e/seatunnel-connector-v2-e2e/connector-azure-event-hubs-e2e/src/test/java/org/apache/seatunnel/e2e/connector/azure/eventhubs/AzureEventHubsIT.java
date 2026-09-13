@@ -14,8 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.apache.seatunnel.e2e.connector.azure.queue;
+package org.apache.seatunnel.e2e.connector.azure.eventhubs;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -32,80 +31,93 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.HostPortWaitStrategy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
-import com.azure.storage.queue.QueueClient;
-import com.azure.storage.queue.QueueClientBuilder;
-import com.azure.storage.queue.models.QueueMessageItem;
+import com.azure.messaging.eventhubs.EventData;
+import com.azure.messaging.eventhubs.EventHubClientBuilder;
+import com.azure.messaging.eventhubs.EventHubProducerClient;
+import com.azure.messaging.eventhubs.models.SendOptions;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.Iterator;
+import java.time.Duration;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
+public class AzureEventHubsIT extends TestSuiteBase implements TestResource {
 
+    private static final String EVENT_HUBS_IMAGE =
+            "mcr.microsoft.com/azure-messaging/eventhubs-emulator:2.2.1";
     private static final String AZURITE_IMAGE = "mcr.microsoft.com/azure-storage/azurite:3.35.0";
-    private static final String ACCOUNT_NAME = "devstoreaccount1";
-    private static final String ACCOUNT_KEY =
-            "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==";
-    private static final String QUEUE_NAME = "events";
-    private static final String SOURCE_QUEUE_NAME = "source-events";
-    private static final int QUEUE_PORT = 10001;
-    private static final String NETWORK_ALIAS = "azure-queue";
-    private static final String JOB_CONFIG = "/azurequeue/fake_to_azure_queue.conf";
-    private static final String SOURCE_JOB_CONFIG = "/azurequeue/azure_queue_to_console.conf";
-    private static final String EXPECTED_MESSAGE = "{\"name\":\"alice\",\"age\":30}";
-    private static final String EXPECTED_SOURCE_EVENT_ID = "azure-queue-source-checkpoint-event";
-    private static final String SOURCE_MESSAGE =
-            "{\"event_id\":\"" + EXPECTED_SOURCE_EVENT_ID + "\",\"event_type\":\"created\"}";
+    private static final String EVENT_HUBS_HOST = "eventhubs-emulator";
+    private static final String AZURITE_HOST = "azurite";
+    private static final int AMQP_PORT = 5672;
+    private static final String EVENT_HUB_NAME = "events";
+    private static final String JOB_CONFIG = "/eventhubs/azure_event_hubs_to_console.conf";
+    private static final String PARTITION_0_EVENT = "eventhubs-partition-0";
+    private static final String PARTITION_1_EVENT = "eventhubs-partition-1";
+    private static final String SHARED_ACCESS_KEY = "SAS_KEY_VALUE";
 
     private GenericContainer<?> azurite;
-    private QueueClient queueClient;
-    private QueueClient sourceQueueClient;
+    private GenericContainer<?> emulator;
+    private EventHubProducerClient producer;
 
     @BeforeAll
     @Override
     public void startUp() {
-        DockerImageName image = DockerImageName.parse(AZURITE_IMAGE);
+        DockerImageName azuriteImage = DockerImageName.parse(AZURITE_IMAGE);
         azurite =
-                new GenericContainer<>(image)
-                        .withCommand(
-                                "azurite-queue",
-                                "--queueHost",
-                                "0.0.0.0",
-                                "--queuePort",
-                                String.valueOf(QUEUE_PORT),
-                                "--skipApiVersionCheck",
-                                "--loose")
+                new GenericContainer<>(azuriteImage)
                         .withNetwork(NETWORK)
-                        .withNetworkAliases(NETWORK_ALIAS)
-                        .withExposedPorts(QUEUE_PORT)
+                        .withNetworkAliases(AZURITE_HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
-                                                image.asCanonicalNameString())));
+                                                azuriteImage.asCanonicalNameString())));
         Startables.deepStart(Stream.of(azurite)).join();
 
-        queueClient =
-                new QueueClientBuilder()
-                        .connectionString(hostConnectionString())
-                        .queueName(QUEUE_NAME)
-                        .buildClient();
-        queueClient.createIfNotExists();
-        sourceQueueClient =
-                new QueueClientBuilder()
-                        .connectionString(hostConnectionString())
-                        .queueName(SOURCE_QUEUE_NAME)
-                        .buildClient();
-        sourceQueueClient.createIfNotExists();
+        DockerImageName emulatorImage = DockerImageName.parse(EVENT_HUBS_IMAGE);
+        emulator =
+                new GenericContainer<>(emulatorImage)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(EVENT_HUBS_HOST)
+                        .withExposedPorts(AMQP_PORT)
+                        .withEnv("BLOB_SERVER", AZURITE_HOST)
+                        .withEnv("METADATA_SERVER", AZURITE_HOST)
+                        .withEnv("ACCEPT_EULA", "Y")
+                        .withCopyFileToContainer(
+                                MountableFile.forClasspathResource("eventhubs/Config.json"),
+                                "/Eventhubs_Emulator/ConfigFiles/Config.json")
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(
+                                                emulatorImage.asCanonicalNameString())))
+                        .waitingFor(
+                                new HostPortWaitStrategy()
+                                        .withStartupTimeout(Duration.ofMinutes(3)));
+        Startables.deepStart(Stream.of(emulator)).join();
+
+        producer =
+                new EventHubClientBuilder()
+                        .connectionString(hostConnectionString(), EVENT_HUB_NAME)
+                        .buildProducerClient();
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        producer.getPartitionIds().stream().count(),
+                                        "Event Hubs emulator partitions are not ready"));
         SeaTunnelContainer.enableAzureSdkReactorThreadExemption();
     }
 
@@ -113,6 +125,12 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
     @Override
     public void tearDown() {
         try {
+            if (producer != null) {
+                producer.close();
+            }
+            if (emulator != null) {
+                emulator.close();
+            }
             if (azurite != null) {
                 azurite.close();
             }
@@ -122,44 +140,22 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
-    public void testAzureQueueStorageSink(TestContainer container) throws Exception {
-        Container.ExecResult result = container.executeJob(JOB_CONFIG);
-        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-
-        AtomicReference<QueueMessageItem> receivedMessage = new AtomicReference<>();
-        await().atMost(30, TimeUnit.SECONDS)
-                .pollInterval(1, TimeUnit.SECONDS)
-                .until(
-                        () -> {
-                            Iterator<QueueMessageItem> messages =
-                                    queueClient.receiveMessages(1).iterator();
-                            if (!messages.hasNext()) {
-                                return false;
-                            }
-                            receivedMessage.set(messages.next());
-                            return true;
-                        });
-
-        Assertions.assertEquals(EXPECTED_MESSAGE, receivedMessage.get().getBody().toString());
-        queueClient.deleteMessage(
-                receivedMessage.get().getMessageId(), receivedMessage.get().getPopReceipt());
-    }
-
-    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason =
                     "The source checkpoint assertion uses the Zeta REST job status and server logs")
-    public void testAzureQueueStorageSourceDeletesAfterCheckpoint(TestContainer container)
+    public void testReadsAllPartitionsAndCompletesCheckpoint(TestContainer container)
             throws Exception {
-        sourceQueueClient.clearMessages();
+        sendToPartition("0", PARTITION_0_EVENT);
+        sendToPartition("1", PARTITION_1_EVENT);
+
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         CompletableFuture<Container.ExecResult> jobFuture =
                 CompletableFuture.supplyAsync(
                         () -> {
                             try {
-                                return container.executeJob(SOURCE_JOB_CONFIG, jobId);
+                                return container.executeJob(JOB_CONFIG, jobId);
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
@@ -173,20 +169,18 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
                                 assertJobStillRunning(jobFuture);
                                 Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
                             });
-
-            long checkpointCount = container.getCompletedCheckpointCount(jobId);
-            sourceQueueClient.sendMessage(SOURCE_MESSAGE);
-
             await().atMost(60, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobStillRunning(jobFuture);
+                                String logs = container.getServerLogs();
                                 Assertions.assertTrue(
-                                        container
-                                                .getServerLogs()
-                                                .contains(EXPECTED_SOURCE_EVENT_ID),
-                                        "Azure Queue message was not emitted by the source");
+                                        logs.contains(PARTITION_0_EVENT),
+                                        "Partition 0 event was not emitted by the source");
+                                Assertions.assertTrue(
+                                        logs.contains(PARTITION_1_EVENT),
+                                        "Partition 1 event was not emitted by the source");
                             });
             await().atMost(60, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
@@ -194,12 +188,8 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
                             () -> {
                                 assertJobStillRunning(jobFuture);
                                 Assertions.assertTrue(
-                                        container.getCompletedCheckpointCount(jobId)
-                                                > checkpointCount,
-                                        "No checkpoint completed after the Azure Queue message was emitted");
-                                Assertions.assertNull(
-                                        sourceQueueClient.peekMessage(),
-                                        "Azure Queue message was not deleted after checkpoint completion");
+                                        container.getCompletedCheckpointCount(jobId) > 0,
+                                        "No checkpoint completed after the events were emitted");
                             });
         } finally {
             if (!jobFuture.isDone()) {
@@ -212,6 +202,13 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
     }
 
+    private void sendToPartition(String partitionId, String eventId) {
+        String body = "{\"event_id\":\"" + eventId + "\",\"event_type\":\"created\"}";
+        producer.send(
+                Collections.singletonList(new EventData(body)),
+                new SendOptions().setPartitionId(partitionId));
+    }
+
     private void assertJobStillRunning(CompletableFuture<Container.ExecResult> jobFuture)
             throws Exception {
         if (jobFuture.isDone()) {
@@ -221,16 +218,12 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
     }
 
     private String hostConnectionString() {
-        return "DefaultEndpointsProtocol=http;AccountName="
-                + ACCOUNT_NAME
-                + ";AccountKey="
-                + ACCOUNT_KEY
-                + ";QueueEndpoint=http://"
-                + azurite.getHost()
+        return "Endpoint=sb://"
+                + emulator.getHost()
                 + ":"
-                + azurite.getMappedPort(QUEUE_PORT)
-                + "/"
-                + ACCOUNT_NAME
-                + ";";
+                + emulator.getMappedPort(AMQP_PORT)
+                + ";SharedAccessKeyName=RootManageSharedAccessKey;SharedAccessKey="
+                + SHARED_ACCESS_KEY
+                + ";UseDevelopmentEmulator=true;";
     }
 }
