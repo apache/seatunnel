@@ -73,7 +73,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -193,9 +192,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /**
      * Map of async function futures for each task group. Used to track and cancel async functions
-     * associated with a task group.
+     * associated with a task group. Each entry is tagged with the {@link TaskGroupContext} that was
+     * active when it was registered; see {@link OwnedFuture} for why.
      */
-    private final ConcurrentMap<TaskGroupLocation, Map<String, CompletableFuture<?>>>
+    private final ConcurrentMap<TaskGroupLocation, Map<String, OwnedFuture<CompletableFuture<?>>>>
             taskAsyncFunctionFuture = new ConcurrentHashMap<>();
 
     /**
@@ -206,8 +206,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             new ConcurrentHashMap<>();
 
     /** SeaTunnel configuration for this engine. */
-    private final ConcurrentMap<TaskGroupLocation, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+    private final ConcurrentMap<
+                    TaskGroupLocation, ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>>>
             timerFlushFutures = new ConcurrentHashMap<>();
+
+    /**
+     * Tags a registered async-function or timer-flush future with the {@link TaskGroupContext} that
+     * was active at registration time.
+     *
+     * <p>{@code TaskGroupLocation} is reused verbatim across restore generations (see {@link
+     * TaskGroupExecutionTracker#ownedContext}), so the raw, location-keyed maps above cannot on
+     * their own tell a stale generation's own entries apart from a replacement generation's. This
+     * tag lets stale-generation cleanup ({@link TaskGroupExecutionTracker#finishOwnedResources})
+     * cancel exactly the entries it owns without risking cancelling a still-live newer
+     * generation's. Package-private (not private) so tests can construct fixtures directly.
+     */
+    static final class OwnedFuture<F> {
+        final TaskGroupContext owner;
+        final F future;
+
+        OwnedFuture(TaskGroupContext owner, F future) {
+            this.owner = owner;
+            this.future = future;
+        }
+    }
 
     private final SeaTunnelConfig seaTunnelConfig;
     // Track worker-side metrics reporting cost without changing the report path semantics.
@@ -584,6 +606,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * Deploys a task group locally. This method initializes the task group, creates execution
      * contexts, and submits tasks for execution based on the configured thread share mode.
      *
+     * <p><b>Concurrency contract:</b> unlike {@link #deployTask(TaskGroupImmutableInformation)},
+     * this method does not itself guard against a concurrent redeploy for the same {@link
+     * TaskGroupLocation} - the {@code executionContexts.containsKey(...)} check that makes that
+     * safe lives in {@code deployTask}'s caller-side {@code synchronized} block, not here. Callers
+     * other than {@code deployTask} must perform an equivalent check themselves before calling this
+     * method, or accept that a live entry can be silently overwritten.
+     *
      * @param taskGroup the task group to deploy
      * @param classLoaders map of task IDs to class loaders
      * @param jars map of task IDs to connector jars
@@ -637,8 +666,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
-            TaskGroupExecutionTracker executionTracker =
-                    new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
                     new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
@@ -670,12 +697,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
-            executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
-            contextPublished = true;
+            TaskGroupContext context = new TaskGroupContext(taskGroup, classLoaders, jars);
+            TaskGroupExecutionTracker executionTracker =
+                    new TaskGroupExecutionTracker(
+                            cancellationFuture, taskGroup, context, resultFuture);
+            synchronized (this) {
+                executionContexts.put(taskGroup.getTaskGroupLocation(), context);
+                cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
+                contextPublished = true;
+            }
             onContextPublished.run();
-            cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
             taskGroup.setTasksContext(taskExecutionContextMap);
@@ -784,12 +815,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
         String id = UUID.randomUUID().toString();
         logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
+        // Tag with whichever generation is currently active (or null if none is, i.e. between
+        // deployments) so a later stale-generation cleanup can tell this entry apart from one
+        // registered by a replacement generation for the same location.
+        TaskGroupContext owner = executionContexts.get(taskGroupLocation);
         if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
             taskAsyncFunctionFuture.put(taskGroupLocation, new ConcurrentHashMap<>());
         }
         CompletableFuture<?> future =
                 CompletableFuture.runAsync(task, MDCTracer.tracing(executorService));
-        taskAsyncFunctionFuture.get(taskGroupLocation).put(id, future);
+        taskAsyncFunctionFuture.get(taskGroupLocation).put(id, new OwnedFuture<>(owner, future));
         future.whenComplete(
                 (r, e) -> {
                     taskAsyncFunctionFuture.get(taskGroupLocation).remove(id);
@@ -1011,12 +1046,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             throw new IllegalArgumentException("intervalMs must be positive, got: " + intervalMs);
         }
         TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
-        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+        ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>> groupFutures =
                 timerFlushFutures.computeIfAbsent(groupLocation, k -> new ConcurrentHashMap<>());
 
-        ScheduledFuture<?> existing = groupFutures.remove(taskLocation);
-        if (existing != null && !existing.isDone()) {
-            existing.cancel(false);
+        // Registering for the same TaskLocation always means this exact slot is being replaced
+        // (a TaskLocation is owned by one active flow-lifecycle instance at a time), so cancelling
+        // whatever was there before is correct regardless of which generation owns it.
+        OwnedFuture<ScheduledFuture<?>> existing = groupFutures.remove(taskLocation);
+        if (existing != null && !existing.future.isDone()) {
+            existing.future.cancel(false);
         }
 
         MDCScheduledExecutorService mdcTimerFlushWorker = MDCTracer.tracing(timerFlushWorker);
@@ -1024,7 +1062,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         ScheduledFuture<?> future =
                 mdcTimerFlushWorker.scheduleWithFixedDelay(
                         namedCallback, intervalMs, intervalMs, TimeUnit.MILLISECONDS);
-        groupFutures.put(taskLocation, future);
+        TaskGroupContext owner = executionContexts.get(groupLocation);
+        groupFutures.put(taskLocation, new OwnedFuture<>(owner, future));
         logger.info(
                 String.format(
                         "Registered timer-flush task for %s, intervalMs=%d",
@@ -1042,14 +1081,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     public void closeTimerFlushTask(TaskLocation taskLocation) {
         TaskGroupLocation groupLocation = taskLocation.getTaskGroupLocation();
-        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
+        ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>> groupFutures =
                 timerFlushFutures.get(groupLocation);
         if (groupFutures == null) {
             return;
         }
-        ScheduledFuture<?> future = groupFutures.remove(taskLocation);
-        if (future != null && !future.isDone()) {
-            future.cancel(false);
+        OwnedFuture<ScheduledFuture<?>> owned = groupFutures.remove(taskLocation);
+        if (owned != null && !owned.future.isDone()) {
+            owned.future.cancel(false);
         }
         if (groupFutures.isEmpty()) {
             timerFlushFutures.remove(groupLocation, groupFutures);
@@ -1058,24 +1097,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Cancel and remove all timer-flush tasks in one task group.
-     *
-     * <p>No-op if the group has no registered timers.
-     *
-     * @param taskGroupLocation task group location
+     * Unconditionally cancels every timer-flush task in the bucket; used only by the generation
+     * that currently owns the location, as the terminal cleanup for it - see {@link
+     * TaskGroupExecutionTracker#finishOwnedResources} for the stale-generation counterpart that
+     * cancels only its own entries.
      */
-    private void cancelTimerFlushForTaskGroup(TaskGroupLocation taskGroupLocation) {
-        ConcurrentMap<TaskLocation, ScheduledFuture<?>> groupFutures =
-                timerFlushFutures.remove(taskGroupLocation);
+    private void cancelTimerFlushTasks(
+            TaskGroupLocation taskGroupLocation,
+            ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>> groupFutures) {
         if (groupFutures == null) {
             return;
         }
         groupFutures
                 .values()
                 .forEach(
-                        f -> {
-                            if (!f.isDone()) {
-                                f.cancel(false);
+                        owned -> {
+                            if (!owned.future.isDone()) {
+                                owned.future.cancel(false);
                             }
                         });
         logger.info(
@@ -1117,11 +1155,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * <p>Execution flow:
          *
          * <ol>
-         *   <li>Set up the class loader for the task
+         *   <li>Resolve the task group's execution context and set up the class loader
          *   <li>Signal that the worker has started via CountDownLatch
          *   <li>Initialize the task via {@link Task#init()}
          *   <li>Execute the task repeatedly via {@link Task#call()} until done
          *   <li>Handle interrupts and exceptions, notifying the execution tracker
+         *   <li>Release the start latch anyway if the worker failed before signalling, so the
+         *       deployer waiting in {@code submitBlockingTask()} is never left blocked
          *   <li>Clean up by calling {@link Task#close()} if not completed
          * </ol>
          */
@@ -1129,17 +1169,46 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
-            ClassLoader classLoader =
-                    executionContexts
-                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
-                            .getClassLoaders()
-                            .get(tracker.task.getTaskID());
+            TaskGroupLocation taskGroupLocation =
+                    taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
-            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             ProgressState result = null;
+            boolean startLatchReleased = false;
+            boolean initAttempted = false;
             try {
+                // Each tracker retains its own generation's context, so a queued worker never
+                // resolves a class loader from a replacement generation sharing this location.
+                TaskGroupContext taskGroupContext = taskGroupExecutionTracker.ownedContext;
+                ConcurrentHashMap<Long, ClassLoader> taskClassLoaders =
+                        taskGroupContext.getClassLoaders();
+                if (taskClassLoaders == null) {
+                    throw new IllegalStateException(
+                            String.format(
+                                    "Class loaders for task group %s are no longer available",
+                                    taskGroupLocation));
+                }
+                ClassLoader taskClassLoader = taskClassLoaders.get(t.getTaskID());
+                if (taskClassLoader == null) {
+                    // Installing a null context class loader here would silently fall back
+                    // to the thread's inherited loader and surface much later as a
+                    // confusing ClassNotFoundException from inside the task.
+                    throw new IllegalStateException(
+                            String.format(
+                                    "No class loader registered for task %s of %s; the task"
+                                            + " group was cleaned up while it was being"
+                                            + " deployed",
+                                    t.getTaskID(), taskGroupLocation));
+                }
+                Thread.currentThread().setContextClassLoader(taskClassLoader);
+
+                // Signalled before init() so that submitBlockingTask() returns once workers
+                // have started, not once they have finished.
                 startedLatch.countDown();
+                startLatchReleased = true;
+                // Set before init() rather than after: a task that failed part-way through
+                // init() may already hold resources and still needs close().
+                initAttempted = true;
                 t.init();
                 do {
                     result = t.call();
@@ -1160,11 +1229,21 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 taskGroupExecutionTracker.exception(e);
             } finally {
+                // A worker that failed before signalling must still release the deployer,
+                // otherwise submitBlockingTask() blocks forever. Guarded so each worker counts
+                // down exactly once.
+                if (!startLatchReleased) {
+                    startedLatch.countDown();
+                }
                 taskGroupExecutionTracker.taskDone(t);
-                if (result == null || !result.isDone()) {
+                // Only close a task we actually started initialising. Reaching the failure
+                // path before init() leaves SeaTunnelTask.close() dereferencing state it has
+                // not built yet, and the resulting NPE is not an IOException, so it would
+                // escape this finally block and be lost on a future nobody polls.
+                if (initAttempted && (result == null || !result.isDone())) {
                     try {
                         tracker.task.close();
-                    } catch (IOException e) {
+                    } catch (Throwable e) {
                         logger.severe("Close task error", e);
                     }
                 }
@@ -1374,13 +1453,25 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
+        private final CompletableFuture<Void> ownedCancellationFuture;
+
+        /**
+         * The TaskGroupContext that this tracker owns. Used to guard against stale taskDone calls
+         * from a previous restore generation removing resources installed by a newer generation for
+         * the same TaskGroupLocation.
+         */
+        private final TaskGroupContext ownedContext;
+
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
                 @NonNull TaskGroup taskGroup,
+                @NonNull TaskGroupContext ownedContext,
                 @NonNull CompletableFuture<TaskExecutionState> future) {
             this.future = future;
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
             this.taskGroup = taskGroup;
+            this.ownedContext = ownedContext;
+            this.ownedCancellationFuture = cancellationFuture;
             cancellationFuture.whenComplete(
                     withTryCatch(
                             logger,
@@ -1413,20 +1504,84 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             } catch (CancellationException ignore) {
                 // ignore
             }
-            cancelAsyncFunction(taskGroupLocation);
-            cancelTimerFlushForTaskGroup(taskGroupLocation);
+            cancelOwnedTaskResources(taskGroupLocation);
         }
 
-        private void cancelAsyncFunction(TaskGroupLocation taskGroupLocation) {
+        /**
+         * Unconditionally cancels every async function in the bucket; used only by the generation
+         * that currently owns the location, as the terminal cleanup for it - see {@link
+         * #cancelOwnedAsyncFunctionsInPlace} for the stale-generation counterpart that cancels only
+         * its own entries.
+         */
+        private void cancelAsyncFunctions(
+                Map<String, OwnedFuture<CompletableFuture<?>>> asyncFunctions) {
             try {
-                if (taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
-                    taskAsyncFunctionFuture.remove(taskGroupLocation).values().stream()
+                if (asyncFunctions != null) {
+                    asyncFunctions.values().stream()
+                            .map(owned -> owned.future)
                             .filter(f -> !f.isDone())
                             .filter(f -> !f.isCancelled())
                             .forEach(f -> f.cancel(true));
                 }
             } catch (CancellationException ignore) {
                 logger.warning(ExceptionUtils.getMessage(ignore));
+            }
+        }
+
+        /**
+         * Cancels and removes only this tracker's own async-function entries for {@code
+         * taskGroupLocation}, leaving any entry tagged with a different (necessarily newer, since
+         * ownership is monotonic) {@link TaskGroupContext} untouched. Called instead of {@link
+         * #cancelAsyncFunctions} when this tracker discovers, at its own taskDone, that a
+         * replacement generation has already taken over the location.
+         */
+        private void cancelOwnedAsyncFunctionsInPlace(TaskGroupLocation taskGroupLocation) {
+            Map<String, OwnedFuture<CompletableFuture<?>>> bucket =
+                    taskAsyncFunctionFuture.get(taskGroupLocation);
+            if (bucket == null) {
+                return;
+            }
+            bucket.entrySet()
+                    .removeIf(
+                            entry -> {
+                                OwnedFuture<CompletableFuture<?>> owned = entry.getValue();
+                                if (owned.owner != ownedContext) {
+                                    return false;
+                                }
+                                if (!owned.future.isDone() && !owned.future.isCancelled()) {
+                                    owned.future.cancel(true);
+                                }
+                                return true;
+                            });
+        }
+
+        /**
+         * Cancels and removes only this tracker's own timer-flush entries for {@code
+         * taskGroupLocation}, leaving any entry tagged with a different (necessarily newer) {@link
+         * TaskGroupContext} untouched. Called instead of {@link
+         * TaskExecutionService#cancelTimerFlushTasks} when this tracker discovers, at its own
+         * taskDone, that a replacement generation has already taken over the location.
+         */
+        private void cancelOwnedTimerFlushTasksInPlace(TaskGroupLocation taskGroupLocation) {
+            ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>> bucket =
+                    timerFlushFutures.get(taskGroupLocation);
+            if (bucket == null) {
+                return;
+            }
+            bucket.entrySet()
+                    .removeIf(
+                            entry -> {
+                                OwnedFuture<ScheduledFuture<?>> owned = entry.getValue();
+                                if (owned.owner != ownedContext) {
+                                    return false;
+                                }
+                                if (!owned.future.isDone()) {
+                                    owned.future.cancel(false);
+                                }
+                                return true;
+                            });
+            if (bucket.isEmpty()) {
+                timerFlushFutures.remove(taskGroupLocation, bucket);
             }
         }
 
@@ -1455,20 +1610,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
-                cancellationFutures.remove(taskGroupLocation);
-                try {
-                    cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel async function failed", t);
-                }
-                try {
-                    cancelTimerFlushForTaskGroup(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel timer-flush tasks failed", t);
-                }
+                finishOwnedResources(taskGroupLocation);
                 try {
                     updateMetricsContextInImap();
                 } catch (Throwable t) {
@@ -1504,12 +1646,103 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
-        private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
-            TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
+        private void recycleClassLoader(
+                TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
+            context.setClassLoaders(null);
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
+        }
+
+        /**
+         * Detaches resources owned by this tracker under {@code TaskExecutionService.this}.
+         *
+         * <p>{@link #deployTask(TaskGroupImmutableInformation)} opens a {@code synchronized (this)}
+         * block around both its redeploy guard and its {@link #deployLocalTask} call, so a redeploy
+         * arriving through that entry point cannot interleave with this teardown. {@code
+         * deployLocalTask} does not take the monitor itself beyond the brief context-publish step,
+         * so a caller reaching it directly is not covered by that guarantee; the publish/rollback
+         * race on that path is tracked separately in apache/seatunnel#12164.
+         *
+         * <p>Here the monitor covers only the ownership check and the map/future bookkeeping.
+         * TaskGroupLocation is reused across restore generations, so those must be one critical
+         * section; the detached resources are then released outside the monitor so one slow
+         * teardown cannot block other task groups. If this tracker is no longer the owner (a
+         * replacement generation already took over), its own async-function and timer-flush entries
+         * are still cancelled, scoped strictly to entries it registered - see {@link
+         * #cancelOwnedAsyncFunctionsInPlace} and {@link #cancelOwnedTimerFlushTasksInPlace}.
+         */
+        private void finishOwnedResources(TaskGroupLocation taskGroupLocation) {
+            Map<String, OwnedFuture<CompletableFuture<?>>> asyncFunctions;
+            ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>> timerFlushTasks;
+            boolean contextOwned;
+            synchronized (TaskExecutionService.this) {
+                contextOwned = finishExecutionContext(taskGroupLocation);
+                if (contextOwned) {
+                    cancellationFutures.remove(taskGroupLocation, ownedCancellationFuture);
+                    asyncFunctions = taskAsyncFunctionFuture.remove(taskGroupLocation);
+                    timerFlushTasks = timerFlushFutures.remove(taskGroupLocation);
+                } else {
+                    asyncFunctions = null;
+                    timerFlushTasks = null;
+                }
+            }
+            recycleClassLoader(taskGroupLocation, ownedContext);
+            if (!contextOwned) {
+                logger.warning(
+                        String.format(
+                                "Preserve active generation resources for stale taskDone on %s.",
+                                taskGroupLocation));
+                // A replacement generation now owns executionContexts/cancellationFutures for this
+                // location, but this tracker's own async-function/timer-flush entries may still be
+                // sitting in the shared, location-keyed maps below, possibly mixed in with entries
+                // the newer generation has already registered. Cancel only the entries tagged with
+                // our own ownedContext; anything tagged with a different (newer) context is left
+                // strictly untouched, so a still-live replacement resource can never be cancelled
+                // here.
+                cancelOwnedAsyncFunctionsInPlace(taskGroupLocation);
+                cancelOwnedTimerFlushTasksInPlace(taskGroupLocation);
+                return;
+            }
+            try {
+                cancelAsyncFunctions(asyncFunctions);
+            } catch (Throwable t) {
+                logger.severe("cancel async function failed", t);
+            }
+            try {
+                cancelTimerFlushTasks(taskGroupLocation, timerFlushTasks);
+            } catch (Throwable t) {
+                logger.severe("cancel timer-flush tasks failed", t);
+            }
+        }
+
+        /**
+         * Moves the execution context from the active map to the finished map only when the active
+         * map still points to the exact context object installed by this tracker.
+         */
+        private boolean finishExecutionContext(TaskGroupLocation taskGroupLocation) {
+            if (executionContexts.remove(taskGroupLocation, ownedContext)) {
+                finishedExecutionContexts.put(taskGroupLocation, ownedContext);
+                return true;
+            }
+            // Deliberately not recorded in finishedExecutionContexts: TaskGroupLocation is
+            // reused across restore generations, so filing this generation's context under a
+            // key a newer generation now owns would make later lookups resolve the wrong one.
+            return false;
+        }
+
+        private void cancelOwnedTaskResources(TaskGroupLocation taskGroupLocation) {
+            Map<String, OwnedFuture<CompletableFuture<?>>> asyncFunctions;
+            ConcurrentMap<TaskLocation, OwnedFuture<ScheduledFuture<?>>> timerFlushTasks;
+            synchronized (TaskExecutionService.this) {
+                if (executionContexts.get(taskGroupLocation) != ownedContext) {
+                    return;
+                }
+                asyncFunctions = taskAsyncFunctionFuture.remove(taskGroupLocation);
+                timerFlushTasks = timerFlushFutures.remove(taskGroupLocation);
+            }
+            cancelAsyncFunctions(asyncFunctions);
+            cancelTimerFlushTasks(taskGroupLocation, timerFlushTasks);
         }
 
         boolean executionCompletedExceptionally() {
