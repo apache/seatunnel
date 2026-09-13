@@ -184,6 +184,19 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
         assertEquals(FAKE_ROW_NUM, cnt);
     }
 
+    @TestTemplate
+    public void testMultiTableSource(TestContainer container)
+            throws IOException, InterruptedException {
+        neo4jSession.run("MATCH (n) WHERE n:MultiPerson OR n:MultiCompany DELETE n");
+        neo4jSession.run("CREATE (:MultiPerson {name:'Alice'})");
+        neo4jSession.run("CREATE (:MultiCompany {name:'Acme'})");
+
+        Container.ExecResult execResult =
+                container.executeJob("/neo4j/neo4j_multi_table_source.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
     @AfterAll
     @Override
     public void tearDown() {

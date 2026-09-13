@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.common.source.arrow;
 
+import org.apache.seatunnel.shade.arrow.io.netty.util.CharsetUtil;
 import org.apache.seatunnel.shade.com.google.common.base.Stopwatch;
-import org.apache.seatunnel.shade.io.netty.util.CharsetUtil;
 import org.apache.seatunnel.shade.org.apache.arrow.memory.ArrowBuf;
 import org.apache.seatunnel.shade.org.apache.arrow.memory.BufferAllocator;
 import org.apache.seatunnel.shade.org.apache.arrow.memory.RootAllocator;

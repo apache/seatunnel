@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableNameEvent;
 import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 import lombok.extern.slf4j.Slf4j;
@@ -58,6 +59,9 @@ public class TableSchemaChangeEventDispatcher implements TableSchemaChangeEventH
 
     @Override
     public TableSchema apply(SchemaChangeEvent event) {
+        if (event instanceof RestoreTableSchemaEvent) {
+            return ((RestoreTableSchemaEvent) event).getRestoredTable().getTableSchema();
+        }
         TableSchemaChangeEventHandler handler = handlers.get(event.getClass());
         if (handler == null) {
             log.warn("Not found handler for event: {}", event.getClass());

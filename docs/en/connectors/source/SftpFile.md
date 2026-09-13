@@ -32,6 +32,10 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] markdown
   - [x] pdf
 
+SftpFile is a bounded source. When `discovery_mode = once` (the default) the connector enumerates files once and
+finishes; use `discovery_mode = continuous` together with `sync_mode = update` to keep the job running and stream
+new/changed files into the sink.
+
 ## Description
 
 Read data from sftp file server.
@@ -280,6 +284,19 @@ When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set
 When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
+
+When `markdown_rag_metadata_enabled=true`, each Markdown row also carries four logical Knowledge Sync metadata values in row options, and the source declares the same keys in its metadata schema:
+
+- `SourceUri`: a credential-free logical source path or URI
+- `DocumentId`: `doc_` plus the lowercase SHA-256 of the UTF-8 logical `SourceUri`
+- `DocumentHash`: lowercase SHA-256 of the exact source bytes read before UTF-8 decoding
+- `ChunkHash`: lowercase SHA-256 of the immediate Markdown row's UTF-8 `text` (null is treated as an empty string); this equals physical `content_hash`
+
+Local paths and valid `file:` URIs keep the existing local-path normalization. For hierarchical remote URIs, logical `SourceUri` preserves the scheme, host, explicit port, and path while removing user info, the complete query, and the fragment. Scheme and host are lowercased. Resources whose identity exists only in a query must use a stable, non-sensitive path.
+
+The five physical RAG fields and all existing formulas and routing behavior remain unchanged. Consequently, signed or credential-bearing remote URIs can have different logical and physical `document_id` values. Project logical `SourceUri` and `DocumentId` to non-conflicting aliases such as `ks_source_uri` and `ks_document_id` with the [Metadata transform](../../transforms/metadata.md).
+
+Logical `ChunkHash` describes only the immediate Markdown output row. After a transform changes text or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before a lifecycle sink. This bridge does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 Note: Markdown format only supports reading, not writing.
 
@@ -547,6 +564,101 @@ sink {
   }
 }
 ```
+
+### Recursive scan over text files
+
+Set `recursive_file_scan = true` to enumerate files in subdirectories of `path`. The example below reads text files
+under a nested directory and uses an explicit schema so each row maps to typed SeaTunnel columns.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp"
+    port = 22
+    user = seatunnel
+    password = pass
+    path = "tmp/seatunnel/read/recursive"
+    file_format_type = "text"
+    recursive_file_scan = true
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "sftp"
+    rules {
+      row_rules = [
+        { rule_type = MAX_ROW, rule_value = 20 },
+        { rule_type = MIN_ROW, rule_value = 20 }
+      ]
+    }
+  }
+}
+```
+
+### Public key authentication
+
+When the SFTP server is configured for SSH key authentication, supply the private key path through `keyfile` and omit
+`password`. The connector uses the JSCH library internally, so `keyfile` follows the OpenSSH private-key format and
+must be readable by the engine process.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  SftpFile {
+    host = "sftp.example.com"
+    port = 22
+    user = "seatunnel"
+    keyfile = "/opt/seatunnel/keys/sftp_id_rsa"
+    path = "data/incoming/"
+    file_format_type = "csv"
+    plugin_output = "sftp"
+    schema = {
+      fields {
+        id = bigint
+        name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+`password` and `keyfile` are both loaded into the SSH session when configured. The connector uses the JSCH library,
+whose default authentication order tries `publickey` (via `keyfile`) before `password`. To avoid surprises during
+authentication failures, prefer setting only one of them. The engine process must have permission to read `keyfile`;
+if the key file is passphrase-protected, configure the SSH agent or decrypt it before the job starts.
 ### Multiple Table
 
 ```hocon

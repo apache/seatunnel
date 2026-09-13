@@ -1,0 +1,176 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.easysearch.source;
+
+import org.apache.seatunnel.api.common.metrics.AbstractMetricsContext;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.SourceEvent;
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.easysearch.dto.source.SourceIndexInfo;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+class EasysearchSourceSplitEnumeratorTest {
+
+    @Test
+    void addPendingSplitShouldAssignSplitsRoundRobin() throws Exception {
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        EasysearchSourceSplitEnumerator enumerator =
+                new EasysearchSourceSplitEnumerator(
+                        context, null, null, Collections.singletonList("field"));
+
+        invokeAddPendingSplit(
+                enumerator, Arrays.asList(newSplit("a"), newSplit("c"), newSplit("e")));
+        enumerator.registerReader(0);
+
+        Assertions.assertEquals(2, context.getAssignedSplits(0).size());
+        Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void addSplitsBackShouldReturnSplitsToOriginalReader() {
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        EasysearchSourceSplitEnumerator enumerator =
+                new EasysearchSourceSplitEnumerator(
+                        context, null, null, Collections.singletonList("field"));
+
+        enumerator.addSplitsBack(
+                Arrays.asList(newSplit("a"), newSplit("c"), newSplit("e"), newSplit("g")), 0);
+
+        Assertions.assertEquals(4, context.getAssignedSplits(0).size());
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void snapshotStateShouldKeepAssignCountAcrossRestore() throws Exception {
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        EasysearchSourceSplitEnumerator enumerator =
+                new EasysearchSourceSplitEnumerator(
+                        context, null, null, Collections.singletonList("field"));
+
+        invokeAddPendingSplit(
+                enumerator, Arrays.asList(newSplit("a"), newSplit("b"), newSplit("c")));
+        EasysearchSourceState snapshot = enumerator.snapshotState(1L);
+
+        Assertions.assertEquals(3, snapshot.getAssignCount());
+
+        EasysearchSourceSplitEnumerator restored =
+                new EasysearchSourceSplitEnumerator(
+                        context, snapshot, null, Collections.singletonList("field"));
+        invokeAddPendingSplit(restored, Collections.singletonList(newSplit("d")));
+        EasysearchSourceState restoredSnapshot = restored.snapshotState(2L);
+
+        Assertions.assertEquals(4, restoredSnapshot.getAssignCount());
+    }
+
+    private static EasysearchSourceSplit newSplit(String splitId) {
+        return new EasysearchSourceSplit(
+                splitId,
+                new SourceIndexInfo(
+                        "index-" + splitId,
+                        Collections.emptyList(),
+                        Collections.emptyMap(),
+                        "1m",
+                        10));
+    }
+
+    private static void invokeAddPendingSplit(
+            EasysearchSourceSplitEnumerator enumerator, Collection<EasysearchSourceSplit> splits)
+            throws Exception {
+        Method addPendingSplit =
+                EasysearchSourceSplitEnumerator.class.getDeclaredMethod(
+                        "addPendingSplit", Collection.class);
+        addPendingSplit.setAccessible(true);
+        addPendingSplit.invoke(enumerator, splits);
+    }
+
+    private static class TestingEnumeratorContext
+            implements SourceSplitEnumerator.Context<EasysearchSourceSplit> {
+        private final int parallelism;
+        private final Set<Integer> registeredReaders;
+        private final Map<Integer, List<EasysearchSourceSplit>> assignedSplitsByReader =
+                new HashMap<>();
+        private final MetricsContext metricsContext = new AbstractMetricsContext() {};
+        private final EventListener eventListener =
+                new EventListener() {
+                    @Override
+                    public void onEvent(Event event) {
+                        // no-op
+                    }
+                };
+
+        private TestingEnumeratorContext(int parallelism, Set<Integer> registeredReaders) {
+            this.parallelism = parallelism;
+            this.registeredReaders = registeredReaders;
+        }
+
+        @Override
+        public int currentParallelism() {
+            return parallelism;
+        }
+
+        @Override
+        public Set<Integer> registeredReaders() {
+            return registeredReaders;
+        }
+
+        @Override
+        public void assignSplit(int subtaskId, List<EasysearchSourceSplit> splits) {
+            assignedSplitsByReader
+                    .computeIfAbsent(subtaskId, ignored -> new ArrayList<>())
+                    .addAll(splits);
+        }
+
+        @Override
+        public void signalNoMoreSplits(int subtask) {}
+
+        @Override
+        public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+        @Override
+        public MetricsContext getMetricsContext() {
+            return metricsContext;
+        }
+
+        @Override
+        public EventListener getEventListener() {
+            return eventListener;
+        }
+
+        private List<EasysearchSourceSplit> getAssignedSplits(int subtaskId) {
+            return assignedSplitsByReader.getOrDefault(subtaskId, Collections.emptyList());
+        }
+    }
+}

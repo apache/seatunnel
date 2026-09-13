@@ -45,6 +45,7 @@ import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
+import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
@@ -312,10 +313,35 @@ public class JsonToRowConverters implements Serializable {
             throw CommonError.formatDateTimeError(datetimeStr, fieldName);
         }
 
-        TemporalAccessor parsedTimestamp = dateTimeFormatter.parse(datetimeStr);
+        TemporalAccessor parsedTimestamp =
+                parseDateTimeWithFormatterRefresh(datetimeStr, fieldName, dateTimeFormatter);
         LocalTime localTime = parsedTimestamp.query(TemporalQueries.localTime());
         LocalDate localDate = parsedTimestamp.query(TemporalQueries.localDate());
         return LocalDateTime.of(localDate, localTime);
+    }
+
+    /**
+     * Re-resolves the formatter when the cached per-field formatter no longer matches the current
+     * timestamp text. This happens when one JSON field mixes second-only and fractional-second
+     * values across rows.
+     */
+    private TemporalAccessor parseDateTimeWithFormatterRefresh(
+            String datetimeStr, String fieldName, DateTimeFormatter dateTimeFormatter) {
+        try {
+            return dateTimeFormatter.parse(datetimeStr);
+        } catch (DateTimeParseException parseException) {
+            if (StringUtils.isBlank(fieldName)) {
+                throw parseException;
+            }
+
+            DateTimeFormatter refreshedFormatter =
+                    DateTimeUtils.matchDateTimeFormatter(datetimeStr);
+            if (refreshedFormatter == null) {
+                throw CommonError.formatDateTimeError(datetimeStr, fieldName);
+            }
+            fieldFormatterMap.put(fieldName, refreshedFormatter);
+            return refreshedFormatter.parse(datetimeStr);
+        }
     }
 
     private OffsetDateTime convertToOffsetDateTime(JsonNode jsonNode, String fieldName) {

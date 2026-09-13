@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -112,14 +113,21 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
         this.prepareCommit();
-        JdbcConnectionProvider refreshTableSchemaConnectionProvider =
-                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
-        try (Connection connection =
-                refreshTableSchemaConnectionProvider.getOrEstablishConnection()) {
-            dialect.applySchemaChange(connection, sinkTablePath, event);
-        } catch (Throwable e) {
-            throw new JdbcConnectorException(
-                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
+        if (!(event instanceof RestoreTableSchemaEvent)) {
+            JdbcConnectionProvider refreshTableSchemaConnectionProvider =
+                    dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+            try (Connection connection =
+                    refreshTableSchemaConnectionProvider.getOrEstablishConnection()) {
+                dialect.applySchemaChange(connection, sinkTablePath, event);
+            } catch (Throwable e) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT,
+                        e);
+            }
+        } else {
+            log.info(
+                    "Restore runtime schema for table {} without applying physical DDL",
+                    sinkTablePath);
         }
 
         this.outputFormat =

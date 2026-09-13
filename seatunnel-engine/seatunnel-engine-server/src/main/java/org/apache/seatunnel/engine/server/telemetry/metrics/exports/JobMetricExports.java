@@ -38,7 +38,10 @@ public class JobMetricExports extends AbstractCollector {
         List<MetricFamilySamples> mfs = new ArrayList();
         // Report metrics only when the local node is ACTIVE and the master is available.
         if (isMaster() && isCoordinatorReady()) {
-            CoordinatorService coordinatorService = getCoordinatorService();
+            CoordinatorService coordinatorService = getReadyCoordinatorService();
+            if (coordinatorService == null) {
+                return mfs;
+            }
             JobCounter jobCountMetrics = coordinatorService.getJobCountMetrics();
 
             GaugeMetricFamily metricFamily =
