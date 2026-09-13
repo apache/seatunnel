@@ -66,6 +66,7 @@ connector-tiktok-ads
 connector-graphql
 connector-hive
 connector-http-base
+connector-mem0
 connector-http-feishu
 connector-http-gitlab
 connector-http-github
