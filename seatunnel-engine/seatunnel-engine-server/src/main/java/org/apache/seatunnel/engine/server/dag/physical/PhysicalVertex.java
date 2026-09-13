@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
@@ -346,6 +347,24 @@ public class PhysicalVertex {
     @VisibleForTesting
     public TaskGroup getTaskGroup() {
         return taskGroup;
+    }
+
+    /**
+     * Identifies a source task group that was intentionally closed after an unbounded source reader
+     * became idle. Such a group is terminal during a running-pipeline master restore, but it must
+     * not cause the checkpoint coordinator to restart as if the pipeline were not ready.
+     */
+    @VisibleForTesting
+    boolean isRecoverableFinishedStateForRunningPipelineRestore() {
+        if (!ExecutionState.FINISHED.equals(getExecutionState())) {
+            return false;
+        }
+        return !taskGroup.getTasks().isEmpty()
+                && taskGroup.getTasks().stream().anyMatch(SourceSeaTunnelTask.class::isInstance)
+                && taskGroup.getTasks().stream()
+                        .filter(SourceSeaTunnelTask.class::isInstance)
+                        .map(SourceSeaTunnelTask.class::cast)
+                        .allMatch(SourceSeaTunnelTask::isUnboundedSourceTask);
     }
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
