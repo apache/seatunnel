@@ -825,7 +825,8 @@ public class PhysicalPlanGenerator {
                                             jobImmutableInformation.getJobId(),
                                             taskLocation,
                                             subtaskIndex,
-                                            flow);
+                                            flow,
+                                            jobImmutableInformation.getJobConfig().getEnvOptions());
                                 })
                         .peek(this::fillCheckpointPlan)
                         .collect(Collectors.toList());
