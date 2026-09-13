@@ -18,8 +18,8 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
+import org.apache.seatunnel.engine.server.execution.CooperativeProbeTask;
 import org.apache.seatunnel.engine.server.execution.CooperativeWorkerBudget;
-import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
@@ -37,7 +37,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -48,17 +48,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * Covers the promotion budget of cooperative workers, configured by {@code
- * seatunnel_cooperative_worker_budget.yaml} with a global limit of 2 and a per job limit of 1.
+ * seatunnel_cooperative_worker_budget.yaml} with a node limit of 2 and a per job limit of 1.
  *
  * <p>Every cooperative task here needs much longer than the call timer allows, so without a budget
- * each one of them would promote its own worker thread.
+ * each one of them would promote its own worker thread. The two tests assert the two halves of the
+ * contract: promotions stay within the budget, and denying a promotion never stops queued tasks
+ * from starting.
  */
 public class TaskExecutionServiceCooperativeBudgetTest
         extends AbstractSeaTunnelServerTest<TaskExecutionServiceCooperativeBudgetTest> {
 
+    private static final int MAX_PROMOTED_WORKERS = 2;
     private static final int MAX_PROMOTED_WORKERS_PER_JOB = 1;
     private static final long SLOW_CALL_TIME_MILLIS = 300;
     private static final int SLOW_TASK_COUNT = 8;
+    private static final int BLOCKED_TASK_COUNT = 3;
 
     private static String previousConfigFile;
 
@@ -87,28 +91,24 @@ public class TaskExecutionServiceCooperativeBudgetTest
             throws InterruptedException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         CooperativeWorkerBudget budget = taskExecutionService.getCooperativeWorkerBudget();
-        assertEquals(2, budget.getMaxPromotedWorkers());
+        assertEquals(MAX_PROMOTED_WORKERS, budget.getMaxPromotedWorkers());
         assertEquals(MAX_PROMOTED_WORKERS_PER_JOB, budget.getMaxPromotedWorkersPerJob());
 
         long testJobId = System.currentTimeMillis();
         AtomicBoolean stop = new AtomicBoolean(false);
-        CopyOnWriteArrayList<Long> lagList = new CopyOnWriteArrayList<>();
+        List<CooperativeProbeTask> probes = new ArrayList<>();
         List<Task> tasks = new ArrayList<>();
         for (int i = 0; i < SLOW_TASK_COUNT; i++) {
-            tasks.add(
-                    new FixedCallTestTimeTask(
-                            SLOW_CALL_TIME_MILLIS, "slow-task-" + i, stop, lagList));
+            CooperativeProbeTask task =
+                    CooperativeProbeTask.slowTask(i + 1L, SLOW_CALL_TIME_MILLIS, stop);
+            probes.add(task);
+            tasks.add(task);
         }
 
-        TaskGroupDefaultImpl taskGroup =
-                new TaskGroupDefaultImpl(
-                        new TaskGroupLocation(testJobId, 1, 1), "cooperative-budget", tasks);
-
         PassiveCompletableFuture<TaskExecutionState> future =
-                deployLocalTask(taskExecutionService, taskGroup);
+                deployLocalTask(taskExecutionService, taskGroup(testJobId, tasks));
 
-        // The budget must deny promotions once the job holds its single promoted worker, and the
-        // tasks that were denied must keep running instead of being dropped.
+        // The budget denies promotions once the job holds its single promoted worker.
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
@@ -117,21 +117,29 @@ public class TaskExecutionServiceCooperativeBudgetTest
                                     MAX_PROMOTED_WORKERS_PER_JOB,
                                     budget.getPromotedWorkers(testJobId));
                         });
-
-        // Every task keeps making progress while the budget is exhausted, so the shared queue is
-        // still served: each task must be called more than once.
-        await().atMost(30, TimeUnit.SECONDS)
-                .untilAsserted(() -> assertTrue(lagList.size() >= SLOW_TASK_COUNT));
-
         assertTrue(
                 budget.getPromotedWorkers() <= budget.getMaxPromotedWorkers(),
                 "promoted workers must never exceed the configured budget");
-        // Denied promotions add a worker only while a single worker is left on the shared queue,
-        // so the cooperative thread count stays bounded instead of growing per slow task.
-        assertTrue(
-                taskExecutionService.getSharedCooperativeWorkers() <= 3,
-                "workers serving the shared queue must stay bounded, but were "
-                        + taskExecutionService.getSharedCooperativeWorkers());
+
+        // Denied tasks are not parked behind the promoted one: every single task runs, and each of
+        // them is called again after its first call.
+        for (CooperativeProbeTask probe : probes) {
+            assertTrue(
+                    probe.awaitStarted(60, TimeUnit.SECONDS),
+                    "task " + probe.getTaskID() + " never started");
+        }
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                probes.forEach(
+                                        probe ->
+                                                assertTrue(
+                                                        probe.getCallCount() >= 2,
+                                                        "task "
+                                                                + probe.getTaskID()
+                                                                + " stopped making progress after "
+                                                                + probe.getCallCount()
+                                                                + " calls")));
 
         stop.set(true);
         await().atMost(60, TimeUnit.SECONDS)
@@ -140,6 +148,62 @@ public class TaskExecutionServiceCooperativeBudgetTest
         // The promotion budget is returned once the promoted worker is done with its task.
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertEquals(0, budget.getPromotedWorkers(testJobId)));
+    }
+
+    /**
+     * Regression for the case where every worker is blocked inside a task call while promotions are
+     * denied. The blocked calls only return once a task that is still queued behind them starts, so
+     * the shared queue has to keep being served or the job cannot finish at all.
+     */
+    @Test
+    public void testQueuedTaskStartsWhileDeniedPromotionsBlockEveryWorker()
+            throws InterruptedException {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        CooperativeWorkerBudget budget = taskExecutionService.getCooperativeWorkerBudget();
+
+        long testJobId = System.currentTimeMillis() + 1;
+        AtomicBoolean stop = new AtomicBoolean(false);
+        CountDownLatch gate = new CountDownLatch(1);
+        List<Task> tasks = new ArrayList<>();
+        List<CooperativeProbeTask> blockedTasks = new ArrayList<>();
+        for (int i = 0; i < BLOCKED_TASK_COUNT; i++) {
+            CooperativeProbeTask blocked = CooperativeProbeTask.gatedTask(i + 1L, stop, gate);
+            blockedTasks.add(blocked);
+            tasks.add(blocked);
+        }
+        // Queued last, so it only runs if the shared queue is still served while the blocked calls
+        // hold their workers. Starting it is what releases those calls.
+        CooperativeProbeTask queuedTask =
+                CooperativeProbeTask.gateOpeningTask(
+                        BLOCKED_TASK_COUNT + 1L, SLOW_CALL_TIME_MILLIS, stop, gate);
+        tasks.add(queuedTask);
+
+        PassiveCompletableFuture<TaskExecutionState> future =
+                deployLocalTask(taskExecutionService, taskGroup(testJobId, tasks));
+
+        assertTrue(
+                queuedTask.awaitStarted(90, TimeUnit.SECONDS),
+                "the queued task never started, so denied promotions starved the shared queue");
+        for (CooperativeProbeTask blocked : blockedTasks) {
+            assertTrue(blocked.isStarted(), "task " + blocked.getTaskID() + " never started");
+        }
+        assertTrue(
+                budget.getPromotedWorkers() <= budget.getMaxPromotedWorkers(),
+                "promoted workers must never exceed the configured budget");
+        // One worker per blocked call, plus the workers that keep the queue served.
+        assertTrue(
+                taskExecutionService.getCooperativeWorkers() <= tasks.size() + 2,
+                "cooperative workers must stay bounded by the blocked calls, but were "
+                        + taskExecutionService.getCooperativeWorkers());
+
+        stop.set(true);
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertEquals(FINISHED, future.get().getExecutionState()));
+    }
+
+    private TaskGroupDefaultImpl taskGroup(long jobId, List<Task> tasks) {
+        return new TaskGroupDefaultImpl(
+                new TaskGroupLocation(jobId, 1, 1), "cooperative-budget", tasks);
     }
 
     private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(

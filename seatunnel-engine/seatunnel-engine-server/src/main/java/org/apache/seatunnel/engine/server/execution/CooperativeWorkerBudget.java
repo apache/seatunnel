@@ -66,20 +66,20 @@ public class CooperativeWorkerBudget {
      * Tries to reserve budget for one promoted worker of the given job.
      *
      * @param jobId the job that owns the task the worker would become exclusive to
-     * @return true when the promotion is admitted, false when a limit is already reached
+     * @return the decision, telling which limit denied the promotion when it was not admitted
      */
-    public boolean tryAcquire(long jobId) {
+    public PromotionDecision tryAcquire(long jobId) {
         if (!tryAcquireGlobal()) {
             deniedPromotions.incrementAndGet();
-            return false;
+            return PromotionDecision.NODE_BUDGET_EXHAUSTED;
         }
         if (!tryAcquireJob(jobId)) {
             promotedWorkers.decrementAndGet();
             deniedPromotions.incrementAndGet();
-            return false;
+            return PromotionDecision.JOB_BUDGET_EXHAUSTED;
         }
         totalPromotions.incrementAndGet();
-        return true;
+        return PromotionDecision.ADMITTED;
     }
 
     /**
@@ -93,26 +93,37 @@ public class CooperativeWorkerBudget {
         promotedWorkersPerJob.computeIfPresent(jobId, (id, count) -> count <= 1 ? null : count - 1);
     }
 
+    /** @return the configured limit of promoted workers on this node, {@link #UNLIMITED} if none */
     public int getMaxPromotedWorkers() {
         return maxPromotedWorkers;
     }
 
+    /** @return the configured limit of promoted workers per job, {@link #UNLIMITED} if none */
     public int getMaxPromotedWorkersPerJob() {
         return maxPromotedWorkersPerJob;
     }
 
+    /**
+     * @return the number of promoted workers currently holding budget on this node, across all jobs
+     */
     public int getPromotedWorkers() {
         return promotedWorkers.get();
     }
 
+    /**
+     * @param jobId the job to report
+     * @return the number of promoted workers currently holding budget for that job alone
+     */
     public int getPromotedWorkers(long jobId) {
         return promotedWorkersPerJob.getOrDefault(jobId, 0);
     }
 
+    /** @return how many promotions have been admitted since this node started */
     public long getTotalPromotions() {
         return totalPromotions.get();
     }
 
+    /** @return how many promotions have been denied by a limit since this node started */
     public long getDeniedPromotions() {
         return deniedPromotions.get();
     }

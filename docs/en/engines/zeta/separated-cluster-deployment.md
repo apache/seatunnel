@@ -439,7 +439,9 @@ The maximum number of cooperative workers this worker node may hold exclusively 
 
 The maximum number of promoted cooperative workers a single job may hold on this node, so that one job cannot consume the whole budget. `0`, the default, means unlimited.
 
-When the budget is exhausted, the promotion is not dropped: the slow task keeps running and the promotion is retried with a bounded backoff. A replacement worker is still started when the denied worker is the last one serving the shared queue, so an exhausted budget never stops queued tasks from starting.
+When the budget is exhausted, the promotion is not dropped: the slow task keeps running and the promotion is retried with a bounded backoff.
+
+The budget bounds promotions, not the liveness of the shared queue. If a denied promotion would leave no worker able to take a task from the queue, because every worker is either promoted or blocked inside a task call, one worker is started anyway. A workload whose task calls block indefinitely therefore still gets one worker per blocked call, which is what keeps queued source, sink, and coordinator tasks starting; the budget removes the thread that each slow call used to add permanently.
 
 Example:
 

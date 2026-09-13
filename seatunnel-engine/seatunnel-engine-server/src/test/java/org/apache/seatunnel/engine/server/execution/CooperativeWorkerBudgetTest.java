@@ -26,6 +26,11 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Covers the acquire and release contract of {@link CooperativeWorkerBudget}: a promotion is
+ * admitted only while it fits both the node limit and the limit of its job, a denial says which
+ * limit was hit and reserves nothing, and released budget becomes available again.
+ */
 public class CooperativeWorkerBudgetTest {
 
     private static final long JOB_ID = 1L;
@@ -38,7 +43,7 @@ public class CooperativeWorkerBudgetTest {
                         CooperativeWorkerBudget.UNLIMITED, CooperativeWorkerBudget.UNLIMITED);
 
         for (int i = 0; i < 100; i++) {
-            Assertions.assertTrue(budget.tryAcquire(JOB_ID));
+            Assertions.assertTrue(budget.tryAcquire(JOB_ID).isAdmitted());
         }
 
         Assertions.assertEquals(100, budget.getPromotedWorkers());
@@ -54,7 +59,7 @@ public class CooperativeWorkerBudgetTest {
         Assertions.assertEquals(CooperativeWorkerBudget.UNLIMITED, budget.getMaxPromotedWorkers());
         Assertions.assertEquals(
                 CooperativeWorkerBudget.UNLIMITED, budget.getMaxPromotedWorkersPerJob());
-        Assertions.assertTrue(budget.tryAcquire(JOB_ID));
+        Assertions.assertTrue(budget.tryAcquire(JOB_ID).isAdmitted());
     }
 
     @Test
@@ -62,9 +67,9 @@ public class CooperativeWorkerBudgetTest {
         CooperativeWorkerBudget budget =
                 new CooperativeWorkerBudget(2, CooperativeWorkerBudget.UNLIMITED);
 
-        Assertions.assertTrue(budget.tryAcquire(JOB_ID));
-        Assertions.assertTrue(budget.tryAcquire(OTHER_JOB_ID));
-        Assertions.assertFalse(budget.tryAcquire(JOB_ID));
+        Assertions.assertEquals(PromotionDecision.ADMITTED, budget.tryAcquire(JOB_ID));
+        Assertions.assertEquals(PromotionDecision.ADMITTED, budget.tryAcquire(OTHER_JOB_ID));
+        Assertions.assertEquals(PromotionDecision.NODE_BUDGET_EXHAUSTED, budget.tryAcquire(JOB_ID));
 
         Assertions.assertEquals(2, budget.getPromotedWorkers());
         Assertions.assertEquals(2, budget.getTotalPromotions());
@@ -75,15 +80,15 @@ public class CooperativeWorkerBudgetTest {
     public void testDeniesPromotionWhenJobLimitIsReachedWithoutHoldingGlobalBudget() {
         CooperativeWorkerBudget budget = new CooperativeWorkerBudget(10, 1);
 
-        Assertions.assertTrue(budget.tryAcquire(JOB_ID));
-        Assertions.assertFalse(budget.tryAcquire(JOB_ID));
+        Assertions.assertEquals(PromotionDecision.ADMITTED, budget.tryAcquire(JOB_ID));
+        Assertions.assertEquals(PromotionDecision.JOB_BUDGET_EXHAUSTED, budget.tryAcquire(JOB_ID));
 
         // The denied promotion must not keep the global budget it reserved first.
         Assertions.assertEquals(1, budget.getPromotedWorkers());
         Assertions.assertEquals(1, budget.getPromotedWorkers(JOB_ID));
 
         // A different job is still admitted while one job is at its own limit.
-        Assertions.assertTrue(budget.tryAcquire(OTHER_JOB_ID));
+        Assertions.assertTrue(budget.tryAcquire(OTHER_JOB_ID).isAdmitted());
         Assertions.assertEquals(2, budget.getPromotedWorkers());
     }
 
@@ -91,14 +96,14 @@ public class CooperativeWorkerBudgetTest {
     public void testReleasedBudgetIsReusable() {
         CooperativeWorkerBudget budget = new CooperativeWorkerBudget(1, 1);
 
-        Assertions.assertTrue(budget.tryAcquire(JOB_ID));
-        Assertions.assertFalse(budget.tryAcquire(JOB_ID));
+        Assertions.assertTrue(budget.tryAcquire(JOB_ID).isAdmitted());
+        Assertions.assertFalse(budget.tryAcquire(JOB_ID).isAdmitted());
 
         budget.release(JOB_ID);
 
         Assertions.assertEquals(0, budget.getPromotedWorkers());
         Assertions.assertEquals(0, budget.getPromotedWorkers(JOB_ID));
-        Assertions.assertTrue(budget.tryAcquire(JOB_ID));
+        Assertions.assertTrue(budget.tryAcquire(JOB_ID).isAdmitted());
     }
 
     @Test
@@ -127,7 +132,7 @@ public class CooperativeWorkerBudgetTest {
                             () -> {
                                 try {
                                     start.await();
-                                    if (budget.tryAcquire(JOB_ID)) {
+                                    if (budget.tryAcquire(JOB_ID).isAdmitted()) {
                                         admitted.incrementAndGet();
                                     }
                                 } catch (InterruptedException e) {
