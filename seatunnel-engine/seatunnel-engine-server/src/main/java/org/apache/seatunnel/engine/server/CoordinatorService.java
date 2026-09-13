@@ -53,6 +53,12 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
+import org.apache.seatunnel.engine.server.autoscale.DefaultAutoScaler;
+import org.apache.seatunnel.engine.server.autoscale.DefaultAutoscalerSignalCollector;
+import org.apache.seatunnel.engine.server.autoscale.HierarchicalAutoscalingPolicy;
+import org.apache.seatunnel.engine.server.autoscale.InMemoryAutoscalerStateStore;
+import org.apache.seatunnel.engine.server.autoscale.SystemAutoscalerTimeSource;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
@@ -231,6 +237,14 @@ public class CoordinatorService {
 
     private final ScheduledExecutorService pipelineCleanupScheduler;
 
+    private ScheduledExecutorService autoscalerScheduler;
+
+    private final InMemoryAutoscalerStateStore autoscalerStateStore;
+
+    private volatile DefaultAutoScaler autoScaler;
+
+    private volatile boolean autoscalerRunning;
+
     private final EngineConfig engineConfig;
 
     private ConnectorPackageService connectorPackageService;
@@ -280,6 +294,9 @@ public class CoordinatorService {
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
+        autoscalerStateStore =
+                new InMemoryAutoscalerStateStore(
+                        engineConfig.getAutoscalerConfig().getHistorySize());
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
     }
@@ -1258,6 +1275,7 @@ public class CoordinatorService {
                 pendingJobScheduleEpoch.incrementAndGet();
                 isActive = true;
                 startPendingJobScheduleThread();
+                startAutoscaler();
                 seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
@@ -1296,6 +1314,7 @@ public class CoordinatorService {
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();
         pendingJobQueue.release();
+        stopAutoscaler();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         // Interrupt and discard every JobMaster currently sitting in pendingJobQueue. This is
@@ -1376,6 +1395,103 @@ public class CoordinatorService {
      */
     public ResourceManager getInitializedResourceManager() {
         return resourceManager;
+    }
+
+    public AutoscalerView getAutoscalerView() {
+        DefaultAutoScaler current = autoScaler;
+        long currentMasterEpoch = current == null ? 0L : current.getMasterEpoch();
+        long nextGeneration = current == null ? 0L : current.getNextGeneration();
+        return autoscalerStateStore.view(
+                engineConfig.getAutoscalerConfig().isEnabled(),
+                autoscalerRunning,
+                currentMasterEpoch,
+                nextGeneration,
+                engineConfig.getAutoscalerConfig().getScaleOutStabilizationSeconds(),
+                engineConfig.getAutoscalerConfig().getScaleInStabilizationSeconds());
+    }
+
+    private synchronized void startAutoscaler() {
+        if (!engineConfig.getAutoscalerConfig().isEnabled() || autoscalerRunning) {
+            return;
+        }
+        autoscalerStateStore.clear();
+        long masterEpoch =
+                nodeEngine
+                        .getHazelcastInstance()
+                        .getFlakeIdGenerator(Constant.SEATUNNEL_AUTOSCALER_EPOCH_GENERATOR_NAME)
+                        .newId();
+        DefaultAutoScaler newAutoScaler =
+                new DefaultAutoScaler(
+                        masterEpoch,
+                        engineConfig.getAutoscalerConfig(),
+                        new DefaultAutoscalerSignalCollector(
+                                getResourceManager(),
+                                engineConfig.getAutoscalerConfig(),
+                                this::getPendingJobCount,
+                                this::getOldestPendingDurationMillis,
+                                System::currentTimeMillis),
+                        new HierarchicalAutoscalingPolicy(
+                                DefaultAutoScaler.policyConfig(engineConfig.getAutoscalerConfig())),
+                        DefaultAutoScaler.stabilizationTracker(engineConfig.getAutoscalerConfig()),
+                        autoscalerStateStore,
+                        new SystemAutoscalerTimeSource());
+        newAutoScaler.reset(masterEpoch);
+        autoScaler = newAutoScaler;
+        autoscalerScheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("seatunnel-autoscaler-%d")
+                                .setDaemon(true)
+                                .build());
+        autoscalerRunning = true;
+        autoscalerScheduler.scheduleAtFixedRate(
+                this::evaluateAutoscalerSafely,
+                0,
+                engineConfig.getAutoscalerConfig().getEvaluationIntervalSeconds(),
+                TimeUnit.SECONDS);
+    }
+
+    private void evaluateAutoscalerSafely() {
+        if (!isActive || !autoscalerRunning) {
+            return;
+        }
+        try {
+            DefaultAutoScaler current = autoScaler;
+            if (current != null) {
+                current.evaluateOnce();
+            }
+        } catch (Throwable t) {
+            logger.warning(
+                    String.format("Autoscaler evaluation failed: %s", ExceptionUtils.getMessage(t)),
+                    t);
+        }
+    }
+
+    private synchronized void stopAutoscaler() {
+        autoscalerRunning = false;
+        DefaultAutoScaler current = autoScaler;
+        autoScaler = null;
+        if (current != null) {
+            current.close();
+        }
+        ScheduledExecutorService scheduler = autoscalerScheduler;
+        autoscalerScheduler = null;
+        if (scheduler != null) {
+            scheduler.shutdownNow();
+            awaitSchedulerTermination("autoscaler", scheduler);
+        }
+    }
+
+    private long getOldestPendingDurationMillis() {
+        long oldestEnqueueTimestamp =
+                pendingJobQueue.getJobIdMap().values().stream()
+                        .mapToLong(PendingJobInfo::getEnqueueTimestamp)
+                        .min()
+                        .orElse(0L);
+        if (oldestEnqueueTimestamp <= 0L) {
+            return 0L;
+        }
+        return Math.max(0L, System.currentTimeMillis() - oldestEnqueueTimestamp);
     }
 
     /** call by client to submit job */

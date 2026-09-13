@@ -25,6 +25,23 @@ seatunnel:
     print-job-metrics-info-interval: 60
     slot-service:
       dynamic-slot: true
+    autoscaler:
+      enabled: false
+      evaluation-interval-seconds: 30
+      metrics-freshness-seconds: 120
+      max-future-skew-seconds: 5
+      scale-out-stabilization-seconds: 300
+      scale-in-stabilization-seconds: 600
+      scale-out-cpu-threshold: 0.8
+      scale-out-jvm-memory-threshold: 0.8
+      scale-in-cpu-threshold: 0.3
+      scale-in-jvm-memory-threshold: 0.3
+      fixed-slot-scale-out-threshold: 0.8
+      fixed-slot-scale-in-threshold: 0.3
+      scale-step: 1
+      min-workers: 1
+      max-workers: 2147483647
+      history-size: 20
     checkpoint:
       interval: 10000
       timeout: 60000

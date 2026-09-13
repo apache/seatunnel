@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
@@ -106,6 +107,8 @@ public class EngineConfig {
 
     private HttpConfig httpConfig =
             ServerConfigOptions.MasterServerConfigOptions.HTTP.defaultValue();
+
+    private AutoscalerConfig autoscalerConfig = ServerConfigOptions.AUTOSCALER.defaultValue();
 
     /**
      * Stain trace sampling and persistence knobs used by source, transform, sink, and reporters.

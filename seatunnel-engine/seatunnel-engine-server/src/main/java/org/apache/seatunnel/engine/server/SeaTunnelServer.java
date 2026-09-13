@@ -132,7 +132,8 @@ public class SeaTunnelServer
                             new DefaultSlotService(
                                     nodeEngine,
                                     taskExecutionService,
-                                    seaTunnelConfig.getEngineConfig().getSlotServiceConfig());
+                                    seaTunnelConfig.getEngineConfig().getSlotServiceConfig(),
+                                    seaTunnelConfig.getEngineConfig().getAutoscalerConfig());
                     service.init();
                     slotService = service;
                 }
