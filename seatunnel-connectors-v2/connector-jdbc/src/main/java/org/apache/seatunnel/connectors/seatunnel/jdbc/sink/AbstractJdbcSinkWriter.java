@@ -58,11 +58,13 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     protected JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
+    protected boolean schemaEvolutionApplied;
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
         reOpenOutputFormat(event);
+        this.schemaEvolutionApplied = true;
     }
 
     /**

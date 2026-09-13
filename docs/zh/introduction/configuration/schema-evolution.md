@@ -41,6 +41,12 @@
 ## 启用Schema evolution功能
 在CDC源连接器中模式演进默认是关闭的。你需要在CDC连接器中配置`schema-changes.enabled = true`来启用它。
 
+## Checkpoint 恢复兼容性
+
+对于启用了 CDC 模式演进的 Zeta 作业，checkpoint 会记录演进后的源端 schema。恢复时，Zeta 会在发出记录前，将该 schema 同时应用到 CDC 反序列化器和 source collector。JDBC Sink 仅在处理过模式变更后才会记录演进后的 writer schema；exactly-once JDBC Sink 仍会在每个 checkpoint 记录 XA 恢复状态。
+
+早期 SeaTunnel 版本生成的 checkpoint 不包含该 schema 记录时，会回退到旧的 row-type 状态或作业配置中的 schema。包含 JDBC 演进 writer schema 的 checkpoint 不能回退恢复到更早的 SeaTunnel 版本。Flink 和 Spark 当前不会恢复这份 collector schema 状态。
+
 ## 多库多表路由
 
 只要每张上游表都能稳定映射到一个明确的物理下游表，模式演进就可以和多库多表任务一起工作。SeaTunnel 会在连接器启动前完成 Sink 占位符替换，因此你可以结合 [Sink 参数占位符](./sink-options-placeholders.md) 中的 `${database_name}`、`${schema_name}`、`${table_name}` 做路由。

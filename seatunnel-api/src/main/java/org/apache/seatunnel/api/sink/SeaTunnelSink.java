@@ -97,6 +97,17 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     }
 
     /**
+     * Whether the sink requires its writer state lifecycle when it is used as a routed error sink.
+     *
+     * <p>By default, a writer-state serializer means that the sink requires state lifecycle. A sink
+     * with an optional recovery hint can override this method when the hint is not needed for error
+     * rows.
+     */
+    default boolean requiresWriterState() {
+        return getWriterStateSerializer().isPresent();
+    }
+
+    /**
      * This method will be called to create {@link SinkCommitter}
      *
      * @return Return sink committer instance

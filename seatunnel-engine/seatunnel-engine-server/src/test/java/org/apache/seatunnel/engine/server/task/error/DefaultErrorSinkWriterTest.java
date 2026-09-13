@@ -70,6 +70,22 @@ public class DefaultErrorSinkWriterTest {
     }
 
     @Test
+    public void testValidateSupportedErrorSinkLifecycleAllowsOptionalWriterState() {
+        SeaTunnelSink<SeaTunnelRow, String, String, String> sink =
+                new TestSink(true, false, false) {
+                    @Override
+                    public boolean requiresWriterState() {
+                        return false;
+                    }
+                };
+
+        assertDoesNotThrow(
+                () ->
+                        DefaultErrorSinkWriter.validateSupportedErrorSinkLifecycle(
+                                "optional-state", sink));
+    }
+
+    @Test
     public void testValidateSupportedErrorSinkLifecycleRejectsCommittingSink() {
         RuntimeException ex =
                 assertThrows(
