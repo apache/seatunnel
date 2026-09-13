@@ -43,31 +43,48 @@ if [ -f "${CONF_DIR}/seatunnel-env.sh" ]; then
     . "${CONF_DIR}/seatunnel-env.sh"
 fi
 
-if [ $# == 0 ]
-then
-    args="-h"
-else
-    args=$@
+if [ $# -eq 0 ]; then
+    set -- -h
 fi
 
-set +u
-JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.spark.starter.jar.name=${APP_JAR_NAME}"
+# Preserve the historical whitespace-separated JAVA_OPTS without pathname expansion.
+shell_flags=$-
+set -f
+java_opts=(${JAVA_OPTS:-})
+case "$shell_flags" in
+  *f*) ;;
+  *) set +f ;;
+esac
+java_opts+=("-Dseatunnel.spark.starter.jar.name=${APP_JAR_NAME}")
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
-  JAVA_OPTS="${JAVA_OPTS} -Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties"
-  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.path=${APP_DIR}/logs"
-  JAVA_OPTS="${JAVA_OPTS} -Dseatunnel.logs.file_name=seatunnel-spark-3.5-starter"
+  java_opts+=("-Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties")
+  java_opts+=("-Dseatunnel.logs.path=${APP_DIR}/logs")
+  java_opts+=("-Dseatunnel.logs.file_name=seatunnel-spark-3.5-starter")
 fi
 
 CLASS_PATH=${APP_DIR}/starter/logging/*:${APP_JAR}
 
-CMD=$(java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} ${args}) && EXIT_CODE=$? || EXIT_CODE=$?
-if [ ${EXIT_CODE} -eq 234 ]; then
-    echo "${CMD}"
+ARGS_FILE=$(mktemp "${TMPDIR:-/tmp}/seatunnel-spark-args.XXXXXXXX")
+trap 'rm -f "$ARGS_FILE"' EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+
+EXIT_CODE=0
+java "${java_opts[@]}" "-Dseatunnel.spark.starter.args-file=${ARGS_FILE}" \
+    -cp "${CLASS_PATH}" "${APP_MAIN}" "$@" || EXIT_CODE=$?
+if [ "$EXIT_CODE" -eq 234 ]; then
     exit 0
-elif [ ${EXIT_CODE} -eq 0 ]; then
-    echo "Execute SeaTunnel Spark Job: $(echo "${CMD}" | tail -n 1)"
-    eval $(echo "${CMD}" | tail -n 1)
-else
-    echo "${CMD}"
-    exit ${EXIT_CODE}
+elif [ "$EXIT_CODE" -ne 0 ]; then
+    exit "$EXIT_CODE"
 fi
+
+spark_args=()
+while IFS= read -r -d '' arg; do
+    spark_args+=("$arg")
+done < "$ARGS_FILE"
+if [ "${#spark_args[@]}" -eq 0 ]; then
+    echo "Spark starter produced no arguments." >&2
+    exit 1
+fi
+: "${SPARK_HOME:?SPARK_HOME must point to a Spark installation}"
+"${SPARK_HOME}/bin/spark-submit" "${spark_args[@]}"

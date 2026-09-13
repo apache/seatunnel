@@ -20,6 +20,13 @@ For an existing Spark 3.4 deployment, retain the existing `seatunnel-spark-3-sta
 and `start-seatunnel-spark-3-connector-v2` launcher. This change does not add a separate
 Spark 3.4 starter or extend its compatibility coverage.
 
+The Spark 3.5 starter reuses the translation layer compiled against Spark 3.3.
+Row-encoder and batch-write tests exercise selected paths on Spark 3.5.8, but do not
+prove compatibility of every Catalyst or DataSource V2 path. Other binary
+incompatibilities may surface only when those paths execute on the target runtime.
+Validate your connectors and deployment mode before upgrading; dedicated Spark 3.5
+micro-batch streaming coverage is still pending.
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:
