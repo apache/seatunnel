@@ -77,7 +77,10 @@ public class BigQuerySinkFactory implements TableSinkFactory {
                         BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_PATH,
                         BigQuerySinkOptions.SERVICE_ACCOUNT_KEY_JSON,
                         BigQuerySinkOptions.SEQUENCE_NUMBER_COLUMN,
+                        BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED,
+                        BigQuerySinkOptions.SCHEMA_EVOLUTION_RELAX_NOT_NULL,
                         BigQuerySinkOptions.EMULATOR_HOST,
+                        BigQuerySinkOptions.EMULATOR_GRPC_HOST,
                         BigQuerySinkOptions.UNIVERSE_DOMAIN,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
