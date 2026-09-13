@@ -17,7 +17,6 @@
 package org.apache.seatunnel.connectors.seatunnel.mem0.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -46,8 +45,7 @@ public class Mem0SinkFactory implements TableSinkFactory {
                         Mem0SinkOptions.METADATA_FIELD,
                         Mem0SinkOptions.RETRY,
                         Mem0SinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
-                        Mem0SinkOptions.RETRY_BACKOFF_MAX_MS,
-                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        Mem0SinkOptions.RETRY_BACKOFF_MAX_MS)
                 .build();
     }
 
