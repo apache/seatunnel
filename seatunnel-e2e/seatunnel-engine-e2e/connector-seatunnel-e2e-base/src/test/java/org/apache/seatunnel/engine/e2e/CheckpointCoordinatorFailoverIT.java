@@ -29,15 +29,20 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
+import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.StateStoreCheckpointIDCounter;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
@@ -69,6 +74,9 @@ public class CheckpointCoordinatorFailoverIT {
 
     private static final String CLOSE_HANDSHAKE_TEMPLATE_CONF =
             "batch_fake_to_localfile_close_handshake_failover_template.conf";
+
+    private static final String TRIGGER_DISPATCH_FAILURE_TEMPLATE_CONF =
+            "stream_fake_to_localfile_checkpoint_trigger_dispatch_failure_template.conf";
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -604,6 +612,232 @@ public class CheckpointCoordinatorFailoverIT {
             }
             if (workerNode != null) {
                 workerNode.shutdown();
+            }
+        }
+    }
+
+    /**
+     * Regression test for the checkpoint-trigger-failure bug reported in <a
+     * href="https://github.com/apache/seatunnel/issues/10442">#10442</a> and fixed by <a
+     * href="https://github.com/apache/seatunnel/pull/10448">#10448</a> ("[Fix][Zeta] make the job
+     * failed when triggering checkpoint fails (apache#10442)").
+     *
+     * <p>Before that fix, {@code CheckpointCoordinator#startTriggerPendingCheckpoint} (see {@code
+     * seatunnel-engine-server/.../checkpoint/CheckpointCoordinator.java} around lines 942-971)
+     * wrapped the checkpoint-barrier dispatch call like this:
+     *
+     * <pre>
+     * try {
+     *     CompletableFuture.allOf(completableFutureArray).get();
+     * } catch (InterruptedException e) {
+     *     throw new RuntimeException(e);
+     * } catch (Exception e) {
+     *     LOG.error(ExceptionUtils.getMessage(e));
+     *     return;
+     * }
+     * </pre>
+     *
+     * A {@code pendingCounter} field is incremented unconditionally right before this block ever
+     * runs (line ~1003, {@code pendingCounter.incrementAndGet();}) and is only ever decremented
+     * once a checkpoint fully completes (line ~1377). Before the fix, a dispatch failure here just
+     * logged and returned: {@code pendingCounter} stayed stuck above zero forever, and every later
+     * scheduled trigger attempt ({@code tryTriggerPendingCheckpoint}, line ~800: {@code if
+     * (pendingCounter.get() > 0) { scheduleTriggerPendingCheckpoint(...); return; }}) would just
+     * reschedule itself and bail out without ever calling {@code createPendingCheckpoint} again.
+     * The job kept reporting {@code RUNNING} with no error and no further checkpoints, forever.
+     *
+     * <p>The fix (verified against the current {@code dev} HEAD before writing this test) replaces
+     * both catch blocks with a call to {@code handleCoordinatorError(..., CheckpointCloseReason
+     * .CHECKPOINT_INSIDE_ERROR)}, which marks the coordinator {@code FAILED}, calls {@code
+     * checkpointManager.handleCheckpointError(pipelineId, false)} (cancelling the pipeline via
+     * {@code SubPlan#handleCheckpointError()}), and resets {@code pendingCounter} to 0 as part of
+     * {@code cleanPendingCheckpoint}. Traced end to end for a single-pipeline job with restore
+     * disabled ({@code job.retry.times = 0}): {@code SubPlan#getPipelineEndState()} sees {@code
+     * canceledTaskNum > 0} and, because the checkpoint coordinator's own state is already {@code
+     * FAILED} by the time it calls {@code cancelCheckpoint()}, upgrades the pipeline's end state
+     * from {@code CANCELED} to {@code FAILED}; with restore disabled ({@code
+     * SubPlan#canRestorePipeline()} is false), {@code PhysicalPlan#addPipelineEndCallback} then
+     * fails the whole (single-pipeline) job. So the documented, current behavior this test asserts
+     * is: the job reaches a terminal {@code FAILED} state -- not silent-forever-{@code RUNNING}.
+     *
+     * <h2>Trigger mechanism</h2>
+     *
+     * <p>{@code CheckpointCoordinator#triggerCheckpoint} (line ~1120) is the only code that can
+     * make {@code startTriggerPendingCheckpoint}'s {@code CompletableFuture.allOf(...).get()} throw
+     * *synchronously*, as opposed to a per-task RPC merely failing later (a dead-letter scenario
+     * this same {@code allOf} bug never even notices, since it only waits for {@code
+     * triggerCheckpoint()} to return, not for the per-task futures inside its result to complete).
+     * {@code triggerCheckpoint} maps every starting subtask through {@code
+     * checkpointManager::sendOperationToMemberNode} (CheckpointManager.java:386-400), which calls
+     * {@code jobMaster.queryTaskGroupAddress(...)} (JobMaster.java:977-994) *before* issuing the
+     * RPC. That method does exactly one thing that can throw: {@code
+     * ownedSlotProfilesIMap.get(pipelineLocation)} returning {@code null}, which throws {@code
+     * IllegalArgumentException("can't find task group address from taskGroupLocation: ...")}.
+     *
+     * <p>A repo-wide search confirms {@code ownedSlotProfilesIMap}'s only entry-removal call site
+     * ({@code JobMaster#releasePipelineResource}, line ~949) runs only after a pipeline has
+     * *already* left {@code RUNNING}, by which point {@code cleanPendingCheckpoint} has already
+     * cancelled this coordinator's own scheduler (line ~1203, {@code scheduler.shutdownNow()}), so
+     * nothing in the running system naturally races this lookup against a live, scheduled trigger.
+     * Killing or isolating a worker -- this class's usual technique elsewhere -- does not help
+     * either: a graceful leave fails the *task* directly via {@code
+     * CoordinatorService#failedTaskOnMemberRemoved} without ever touching this map, while an
+     * ungraceful one leaves a *stale but present* entry (the RPC itself fails later, asynchronously
+     * -- exactly the dead-letter case {@code allOf} does not notice, and a different bug/test than
+     * this one).
+     *
+     * <p>So this test reaches for a different, still entirely real, lever instead of cluster
+     * membership: {@code ownedSlotProfilesIMap} is a plain, named Hazelcast {@code IMap} ({@code
+     * Constant#IMAP_OWNED_SLOT_PROFILES}), obtained the exact same way this class's own {@link
+     * #getReadyToCloseCount} already reads {@code Constant#IMAP_RUNNING_JOB_STATE} directly, and
+     * the same way the engine-server module's own {@code EngineStateStoreMetricExportsTest} pokes
+     * this exact map in its unit tests. Removing this job's entry from that live, shared map is not
+     * a mock and not a reflected exception injected into production code: it is the same real,
+     * unmodified, running {@code JobMaster#queryTaskGroupAddress} that throws its own real {@code
+     * IllegalArgumentException} the moment it next executes, exactly as it would if this
+     * bookkeeping ever went missing for any other reason. A check of every other reader of this map
+     * (metrics export, pipeline cleanup, {@code PhysicalVertex#checkTaskGroupIsExecuting} -- itself
+     * only reachable via master-failover restore, never during steady-state RUNNING) confirms all
+     * of them null-check and skip gracefully, so this removal cannot trip any other code path
+     * first.
+     *
+     * <p>This is deterministic, not a narrow-window race like a worker kill: the entry is left
+     * removed permanently (this pipeline is about to fail anyway), so unlike catching a kill at the
+     * exact moment a barrier is dispatched, the very next scheduled trigger attempt that has not
+     * already started -- or the one after that -- is guaranteed to observe the missing entry once
+     * the removal completes, with no timing window to miss. To also demonstrate the fault lands on
+     * a previously healthy coordinator (not one that was simply never able to checkpoint at all),
+     * the test first waits for the checkpoint-id counter to reach 2, which -- since {@code
+     * tryTriggerPendingCheckpoint} never allocates a new id while {@code pendingCounter > 0} (line
+     * ~800) -- can only happen after checkpoint id 1 has fully completed and been acknowledged.
+     *
+     * <p><b>What this test proves:</b> a real checkpoint-barrier dispatch failure, on a coordinator
+     * that was previously checkpointing successfully, fails the job (terminal {@code
+     * JobStatus.FAILED}, with an error message traceable to {@code CheckpointCloseReason
+     * #CHECKPOINT_INSIDE_ERROR}) within a bounded window. <b>What it implicitly also proves:</b>
+     * the pre-fix silent-forever-{@code RUNNING} behavior from #10442 no longer occurs -- had it,
+     * the bounded {@code Awaitility} wait below for {@code JobStatus.FAILED} would time out and
+     * fail this test, since the old code left the job {@code RUNNING} with no further checkpoints
+     * and no error, forever.
+     */
+    @Test
+    public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
+        String testCaseName = "testStreamJobFailsAfterCheckpointTriggerDispatchFailure";
+        String testClusterName = "CheckpointCoordinatorFailoverIT_" + testCaseName;
+        // Single-pipeline job (one FakeSource, one LocalFile sink): PipelineGenerator assigns
+        // pipeline ids starting at 1, so this is the fixed key identifying this job's sole
+        // pipeline in ownedSlotProfilesIMap.
+        int pipelineId = 1;
+
+        HazelcastInstanceImpl node = null;
+        SeaTunnelClient engineClient = null;
+
+        SeaTunnelConfig config = ConfigProvider.locateAndGetSeaTunnelConfig();
+        config.getHazelcastConfig().setClusterName(TestUtils.getClusterName(testClusterName));
+        config.getEngineConfig().getHttpConfig().setEnabled(false);
+
+        try {
+            node = SeaTunnelServerStarter.createHazelcastInstance(config);
+
+            Common.setDeployMode(DeployMode.CLUSTER);
+            ImmutablePair<String, String> testResources =
+                    createTestResources(testCaseName, TRIGGER_DISPATCH_FAILURE_TEMPLATE_CONF);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName(testCaseName);
+
+            ClientConfig clientConfig = ConfigProvider.locateAndGetClientConfig();
+            clientConfig.setClusterName(TestUtils.getClusterName(testClusterName));
+            engineClient = new SeaTunnelClient(clientConfig);
+            ClientJobExecutionEnvironment jobExecutionEnv =
+                    engineClient.createExecutionContext(
+                            testResources.getRight(), jobConfig, config);
+            ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
+            long jobId = clientJobProxy.getJobId();
+
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                Assertions.assertTrue(
+                                        FileUtils.getFileLineNumberFromDir(testResources.getLeft())
+                                                > 0,
+                                        "Waiting for the source to start producing rows");
+                            });
+
+            // Prove checkpointing is healthy before injecting the fault: the id counter can only
+            // reach 2 once checkpoint id 1 has been fully acknowledged -- see the class javadoc
+            // above for why (tryTriggerPendingCheckpoint never allocates a new id while
+            // pendingCounter is still above zero).
+            CounterStateStore<String> checkpointCounterStore = checkpointCounterStore(node);
+            String checkpointIdKey =
+                    StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Long currentId = checkpointCounterStore.get(checkpointIdKey);
+                                Assertions.assertNotNull(
+                                        currentId,
+                                        "waiting for the first checkpoint id to be allocated");
+                                Assertions.assertTrue(
+                                        currentId >= 2,
+                                        "waiting for checkpoint id 1 to be fully acknowledged"
+                                                + " before injecting the fault");
+                            });
+
+            // Real-fault injection: remove this pipeline's entry from the same live, shared,
+            // named Hazelcast IMap (engine_ownedSlotProfilesIMap) that
+            // JobMaster#queryTaskGroupAddress consults on every checkpoint-barrier dispatch. See
+            // the class javadoc above for why this is real (not mocked/reflected),
+            // deterministic, and cannot be short-circuited by any other code path.
+            IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                    node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+            PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
+            Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
+                    ownedSlotProfilesIMap.remove(pipelineLocation);
+            Assertions.assertNotNull(
+                    removedSlotProfiles,
+                    "the running task's slot-profile bookkeeping should exist before injection");
+            log.info(
+                    "Job {} checkpoint id counter reached 2; removed pipeline {}'s slot-profile"
+                            + " bookkeeping ({} task group(s)) so the next checkpoint-barrier"
+                            + " dispatch hits CheckpointCoordinator's real, unmodified"
+                            + " queryTaskGroupAddress failure path.",
+                    jobId,
+                    pipelineId,
+                    removedSlotProfiles.size());
+
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(500, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            JobStatus.FAILED, clientJobProxy.getJobStatus()));
+
+            JobResult jobResult = clientJobProxy.waitForJobCompleteV2();
+            Assertions.assertEquals(JobStatus.FAILED, jobResult.getStatus());
+            Assertions.assertNotNull(
+                    jobResult.getError(), "a FAILED job should carry a non-null error message");
+            Assertions.assertTrue(
+                    jobResult
+                            .getError()
+                            .contains(CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR.message()),
+                    () ->
+                            "Expected the job failure to be attributed to the checkpoint"
+                                    + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
+                                    + " CheckpointCoordinator#handleCoordinatorError), but got: "
+                                    + jobResult.getError());
+        } finally {
+            if (engineClient != null) {
+                engineClient.close();
+            }
+            if (node != null) {
+                node.shutdown();
             }
         }
     }
