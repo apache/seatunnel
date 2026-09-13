@@ -32,11 +32,16 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_INPUT;
@@ -169,6 +174,112 @@ public final class ConfigParserUtil {
         checkInputId(sinks, vertexStatusMap);
         log.debug("Phase 5: Check if there are unused vertex.");
         checkLinked(vertexStatusMap);
+        log.debug("Phase 6: Check for cyclic transform dependencies.");
+        checkTransformCycles(transforms);
+    }
+
+    private static void checkTransformCycles(List<? extends Config> transforms) {
+        if (CollectionUtils.isEmpty(transforms)) {
+            return;
+        }
+
+        // Source inputs are graph roots, so only transform-to-transform edges contribute to the
+        // in-degree. Linked collections keep the reported cycle stable for the configured order.
+        Set<String> transformOutputIds = new LinkedHashSet<>();
+        for (Config transform : transforms) {
+            transformOutputIds.add(getTableId(ReadonlyConfig.fromConfig(transform)));
+        }
+
+        Map<String, Integer> inDegree = new LinkedHashMap<>();
+        Map<String, List<String>> dependentsByInput = new LinkedHashMap<>();
+        Map<String, List<String>> dependenciesByOutput = new LinkedHashMap<>();
+        for (String outputId : transformOutputIds) {
+            inDegree.put(outputId, 0);
+            dependentsByInput.put(outputId, new ArrayList<>());
+            dependenciesByOutput.put(outputId, new ArrayList<>());
+        }
+
+        for (Config transform : transforms) {
+            ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(transform);
+            String outputId = getTableId(readonlyConfig);
+            for (String inputId : getInputIds(readonlyConfig)) {
+                if (!transformOutputIds.contains(inputId)) {
+                    continue;
+                }
+                inDegree.put(outputId, inDegree.get(outputId) + 1);
+                dependentsByInput.get(inputId).add(outputId);
+                dependenciesByOutput.get(outputId).add(inputId);
+            }
+        }
+
+        Queue<String> ready = new LinkedList<>();
+        inDegree.forEach(
+                (outputId, dependencyCount) -> {
+                    if (dependencyCount == 0) {
+                        ready.offer(outputId);
+                    }
+                });
+
+        int resolvedTransforms = 0;
+        while (!ready.isEmpty()) {
+            String resolvedOutputId = ready.poll();
+            resolvedTransforms++;
+            for (String dependentOutputId : dependentsByInput.get(resolvedOutputId)) {
+                int remainingDependencies = inDegree.get(dependentOutputId) - 1;
+                inDegree.put(dependentOutputId, remainingDependencies);
+                if (remainingDependencies == 0) {
+                    ready.offer(dependentOutputId);
+                }
+            }
+        }
+
+        if (resolvedTransforms == transforms.size()) {
+            return;
+        }
+
+        Set<String> unresolvedOutputIds = new LinkedHashSet<>();
+        inDegree.forEach(
+                (outputId, dependencyCount) -> {
+                    if (dependencyCount > 0) {
+                        unresolvedOutputIds.add(outputId);
+                    }
+                });
+        List<String> cycle = findTransformCycle(dependenciesByOutput, unresolvedOutputIds);
+        throw new JobDefineCheckException(
+                String.format(
+                        "Transform dependency cycle detected: %s. Check '%s' and '%s' options.",
+                        String.join(" -> ", cycle), PLUGIN_INPUT.key(), PLUGIN_OUTPUT.key()));
+    }
+
+    private static List<String> findTransformCycle(
+            Map<String, List<String>> dependenciesByOutput, Set<String> unresolvedOutputIds) {
+        // Every node left by Kahn's algorithm depends on another unresolved node. Following one
+        // dependency at a time therefore reaches a repeated node and yields a concrete cycle.
+        for (String startOutputId : unresolvedOutputIds) {
+            Map<String, Integer> pathIndexes = new HashMap<>();
+            List<String> path = new ArrayList<>();
+            String outputId = startOutputId;
+            while (outputId != null) {
+                Integer cycleStartIndex = pathIndexes.get(outputId);
+                if (cycleStartIndex != null) {
+                    List<String> cycle =
+                            new ArrayList<>(path.subList(cycleStartIndex, path.size()));
+                    cycle.add(outputId);
+                    return cycle;
+                }
+                pathIndexes.put(outputId, path.size());
+                path.add(outputId);
+
+                outputId = null;
+                for (String dependencyId : dependenciesByOutput.get(path.get(path.size() - 1))) {
+                    if (unresolvedOutputIds.contains(dependencyId)) {
+                        outputId = dependencyId;
+                        break;
+                    }
+                }
+            }
+        }
+        return new ArrayList<>(unresolvedOutputIds);
     }
 
     private static void fillVirtualVertices(

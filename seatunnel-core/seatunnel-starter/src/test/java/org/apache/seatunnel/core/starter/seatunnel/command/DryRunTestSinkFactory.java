@@ -35,6 +35,8 @@ public class DryRunTestSinkFactory
 
     static final Option<Boolean> FAIL_VALIDATION =
             Options.key("fail_validation").booleanType().defaultValue(false);
+    static final Option<String> EXPECTED_TABLE =
+            Options.key("expected_table").stringType().noDefaultValue();
 
     @Override
     public String factoryIdentifier() {
@@ -43,7 +45,7 @@ public class DryRunTestSinkFactory
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().optional(FAIL_VALIDATION).build();
+        return OptionRule.builder().optional(FAIL_VALIDATION, EXPECTED_TABLE).build();
     }
 
     @Override
@@ -51,5 +53,19 @@ public class DryRunTestSinkFactory
         if (context.getOptions().get(FAIL_VALIDATION)) {
             throw new IllegalStateException("simulated sink validation failure: target missing");
         }
+        context.getOptions()
+                .getOptional(EXPECTED_TABLE)
+                .ifPresent(
+                        expectedTable -> {
+                            String actualTable =
+                                    context.getCatalogTable().getTableId().getTableName();
+                            if (!expectedTable.equals(actualTable)) {
+                                throw new IllegalStateException(
+                                        "expected table "
+                                                + expectedTable
+                                                + " but received "
+                                                + actualTable);
+                            }
+                        });
     }
 }

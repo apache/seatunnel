@@ -92,13 +92,13 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableSet;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Queue;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -467,45 +467,55 @@ public class MultipleTableJobConfigParser {
             return;
         }
         Set<String> usedTransformNames = new HashSet<>();
-        Queue<Config> configList = new LinkedList<>(transformConfigs);
-        int index = 0;
-        while (!configList.isEmpty()) {
+        List<ScheduledTransform> scheduledTransforms =
+                scheduleTransforms(transformConfigs, tableWithActionMap.keySet());
+        for (ScheduledTransform scheduledTransform : scheduledTransforms) {
             parseTransform(
-                    index++, configList, classLoader, tableWithActionMap, usedTransformNames);
+                    scheduledTransform.actionIndex,
+                    scheduledTransform.config,
+                    scheduledTransform.legacyFallback,
+                    classLoader,
+                    tableWithActionMap,
+                    usedTransformNames);
         }
     }
 
     private void parseTransform(
             int index,
-            Queue<Config> transforms,
+            Config config,
+            boolean legacyFallback,
             ClassLoader classLoader,
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap,
             Set<String> usedTransformNames) {
-        Config config = transforms.poll();
         final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         final String factoryId = getFactoryId(readonlyConfig);
-        // get jar urls
-        Set<URL> jarUrls = new HashSet<>();
-        jarUrls.addAll(getTransformPluginJarPaths(config));
         final List<String> inputIds = getInputIds(readonlyConfig);
 
-        List<Tuple2<CatalogTable, Action>> inputs =
-                inputIds.stream()
-                        .map(tableWithActionMap::get)
-                        .filter(Objects::nonNull)
-                        .flatMap(Collection::stream)
-                        .collect(Collectors.toList());
-        if (inputs.isEmpty()) {
-            if (transforms.isEmpty()) {
-                // Tolerates incorrect configuration of simple graph
-                inputs = findLast(tableWithActionMap);
-            } else {
-                // The previous transform has not been created
-                transforms.offer(config);
-                return;
+        List<Tuple2<CatalogTable, Action>> inputs;
+        if (legacyFallback) {
+            // Tolerates incorrect configuration of a legacy simple graph.
+            inputs = findLast(tableWithActionMap);
+        } else {
+            List<String> missingInputIds =
+                    inputIds.stream()
+                            .filter(inputId -> !tableWithActionMap.containsKey(inputId))
+                            .collect(Collectors.toList());
+            if (!missingInputIds.isEmpty()) {
+                throw new JobDefineCheckException(
+                        "Transform '"
+                                + getTransformOutputId(config)
+                                + "' is missing scheduled inputs "
+                                + missingInputIds);
             }
+            inputs =
+                    inputIds.stream()
+                            .map(tableWithActionMap::get)
+                            .flatMap(Collection::stream)
+                            .collect(Collectors.toList());
         }
 
+        // Plugin discovery only happens after all configured dependencies are available.
+        Set<URL> jarUrls = new HashSet<>(getTransformPluginJarPaths(config));
         final String tableId =
                 readonlyConfig.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT).orElse(DEFAULT_ID);
 
@@ -563,6 +573,200 @@ public class MultipleTableJobConfigParser {
         }
 
         tableWithActionMap.put(tableId, actions);
+    }
+
+    static List<ScheduledTransform> scheduleTransforms(
+            List<? extends Config> transformConfigs, Set<String> initialOutputIds) {
+        // Index missing inputs once, then release dependents as each output becomes available.
+        // The circular ready selection mirrors the legacy retry queue's evaluation order.
+        List<ScheduledTransform> transforms = new ArrayList<>(transformConfigs.size());
+        Map<String, List<ScheduledTransform>> waitingByInputId = new LinkedHashMap<>();
+        NavigableSet<Integer> readyTransformIndexes = new TreeSet<>();
+        NavigableSet<Integer> remainingTransformIndexes = new TreeSet<>();
+        int[] remainingIndexTree = createRemainingIndexTree(transformConfigs.size());
+        Set<String> availableOutputIds = new LinkedHashSet<>(initialOutputIds);
+
+        for (int index = 0; index < transformConfigs.size(); index++) {
+            Config config = transformConfigs.get(index);
+            ScheduledTransform transform = new ScheduledTransform(index, config);
+            transforms.add(transform);
+            Set<String> missingInputIds = new LinkedHashSet<>(transform.inputIds);
+            missingInputIds.removeAll(availableOutputIds);
+            transform.unresolvedInputCount = missingInputIds.size();
+            // Explicit empty input lists are fallback-only and are considered after every other
+            // transform resolves.
+            if (!transform.inputIds.isEmpty()) {
+                if (missingInputIds.isEmpty()) {
+                    readyTransformIndexes.add(index);
+                } else {
+                    for (String missingInputId : missingInputIds) {
+                        waitingByInputId
+                                .computeIfAbsent(missingInputId, ignored -> new ArrayList<>())
+                                .add(transform);
+                    }
+                }
+            }
+            remainingTransformIndexes.add(index);
+        }
+
+        List<ScheduledTransform> orderedTransforms = new ArrayList<>(transforms.size());
+        int queueHeadIndex = 0;
+        long actionIndex = -1L;
+        while (!readyTransformIndexes.isEmpty()) {
+            Integer transformIndex = readyTransformIndexes.ceiling(queueHeadIndex);
+            if (transformIndex == null) {
+                transformIndex = readyTransformIndexes.first();
+            }
+            actionIndex =
+                    nextTransformActionIndex(
+                            actionIndex,
+                            countRemainingIndexes(
+                                    remainingIndexTree,
+                                    queueHeadIndex,
+                                    transformIndex,
+                                    transformConfigs.size()));
+            ScheduledTransform transform = transforms.get(transformIndex);
+            transform.actionIndex = (int) actionIndex;
+            transform.scheduled = true;
+            orderedTransforms.add(transform);
+            readyTransformIndexes.remove(transformIndex);
+            remainingTransformIndexes.remove(transformIndex);
+            updateRemainingIndexTree(remainingIndexTree, transformIndex, -1);
+            if (!remainingTransformIndexes.isEmpty()) {
+                Integer nextQueueHead = remainingTransformIndexes.ceiling(transformIndex);
+                queueHeadIndex =
+                        nextQueueHead == null ? remainingTransformIndexes.first() : nextQueueHead;
+            }
+            availableOutputIds.add(transform.outputId);
+            for (ScheduledTransform dependent :
+                    waitingByInputId.getOrDefault(transform.outputId, Collections.emptyList())) {
+                dependent.unresolvedInputCount--;
+                if (dependent.unresolvedInputCount == 0) {
+                    readyTransformIndexes.add(dependent.configIndex);
+                }
+            }
+        }
+
+        List<ScheduledTransform> unresolvedTransforms =
+                transforms.stream()
+                        .filter(transform -> !transform.scheduled)
+                        .collect(Collectors.toList());
+        if (unresolvedTransforms.isEmpty()) {
+            return orderedTransforms;
+        }
+
+        if (unresolvedTransforms.size() == 1) {
+            ScheduledTransform transform = unresolvedTransforms.get(0);
+            boolean anyInputAvailable =
+                    transform.inputIds.stream().anyMatch(availableOutputIds::contains);
+            boolean emptyInputFallback = transform.inputIds.isEmpty();
+            boolean singleTransformLegacyFallback = transforms.size() == 1 && !anyInputAvailable;
+            if (emptyInputFallback || singleTransformLegacyFallback) {
+                transform.legacyFallback = true;
+                actionIndex = nextTransformActionIndex(actionIndex, 1);
+                transform.actionIndex = (int) actionIndex;
+                orderedTransforms.add(transform);
+                return orderedTransforms;
+            }
+        }
+        throw unresolvedTransformDependencies(unresolvedTransforms, availableOutputIds);
+    }
+
+    static long nextTransformActionIndex(long currentActionIndex, int polledTransformCount) {
+        long nextActionIndex = currentActionIndex + polledTransformCount;
+        if (nextActionIndex < 0 || nextActionIndex > Integer.MAX_VALUE) {
+            throw new JobDefineCheckException(
+                    "Transform action index "
+                            + nextActionIndex
+                            + " is outside the supported range [0, "
+                            + Integer.MAX_VALUE
+                            + "]. Reduce the number of transforms or declare them in dependency order.");
+        }
+        return nextActionIndex;
+    }
+
+    private static int[] createRemainingIndexTree(int size) {
+        // A Fenwick tree preserves the retry loop's poll-derived action indexes without replaying
+        // every unsuccessful poll in reverse-ordered graphs.
+        int[] tree = new int[size + 1];
+        for (int index = 1; index <= size; index++) {
+            tree[index] = index & -index;
+        }
+        return tree;
+    }
+
+    private static void updateRemainingIndexTree(int[] tree, int transformIndex, int delta) {
+        for (int index = transformIndex + 1; index < tree.length; index += index & -index) {
+            tree[index] += delta;
+        }
+    }
+
+    private static int countRemainingIndexes(
+            int[] tree, int queueHeadIndex, int transformIndex, int transformCount) {
+        if (queueHeadIndex <= transformIndex) {
+            return countRemainingIndexesThrough(tree, transformIndex)
+                    - countRemainingIndexesThrough(tree, queueHeadIndex - 1);
+        }
+        return countRemainingIndexesThrough(tree, transformCount - 1)
+                - countRemainingIndexesThrough(tree, queueHeadIndex - 1)
+                + countRemainingIndexesThrough(tree, transformIndex);
+    }
+
+    private static int countRemainingIndexesThrough(int[] tree, int transformIndex) {
+        int count = 0;
+        for (int index = transformIndex + 1; index > 0; index -= index & -index) {
+            count += tree[index];
+        }
+        return count;
+    }
+
+    private static JobDefineCheckException unresolvedTransformDependencies(
+            List<ScheduledTransform> transforms, Set<String> availableOutputIds) {
+        String unresolvedTransforms =
+                transforms.stream()
+                        .map(
+                                transform -> {
+                                    return transform.outputId + " <- " + transform.inputIds;
+                                })
+                        .collect(Collectors.joining(", "));
+        return new JobDefineCheckException(
+                "Unable to resolve transform dependencies: ["
+                        + unresolvedTransforms
+                        + "]. Available output IDs: "
+                        + availableOutputIds
+                        + ". Check 'plugin_input' and 'plugin_output' options.");
+    }
+
+    private static String getTransformOutputId(Config transformConfig) {
+        return ReadonlyConfig.fromConfig(transformConfig)
+                .getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT)
+                .orElse(DEFAULT_ID);
+    }
+
+    static final class ScheduledTransform {
+        private final int configIndex;
+        private final Config config;
+        private final String outputId;
+        private final List<String> inputIds;
+        private int unresolvedInputCount;
+        private int actionIndex;
+        private boolean scheduled;
+        private boolean legacyFallback;
+
+        private ScheduledTransform(int configIndex, Config config) {
+            this.configIndex = configIndex;
+            this.config = config;
+            this.outputId = getTransformOutputId(config);
+            this.inputIds = getInputIds(ReadonlyConfig.fromConfig(config));
+        }
+
+        String getOutputId() {
+            return outputId;
+        }
+
+        int getActionIndex() {
+            return actionIndex;
+        }
     }
 
     private static String getOptionalName(Config config) {

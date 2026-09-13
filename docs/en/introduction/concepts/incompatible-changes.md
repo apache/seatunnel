@@ -5,6 +5,22 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Transform Dependency Resolution
+
+- **Behavior change: Reject unresolved inputs in multi-transform jobs**
+  - **Affected components**: Zeta job configuration parsing and `--dry-run connect`.
+  - **Description**: Transforms now wait for all declared `plugin_input` dependencies. A
+    multi-transform configuration with unresolved inputs is rejected instead of silently
+    dropping unavailable inputs or connecting the last unresolved transform to an unintended
+    upstream table. Cyclic or unresolved dependency graphs that previously caused an
+    indefinite retry loop now fail with a configuration error.
+  - **Migration guide**: Correct `plugin_input` references to match the intended source or
+    transform `plugin_output`, and remove dependency cycles. Reordering transforms is not
+    required for an otherwise valid dependency graph. The existing single-transform fallback
+    and terminal explicit-empty-input fallback are retained; this is not a blanket removal of
+    implicit chaining. Valid graphs whose dependencies were previously resolved correctly
+    retain their evaluation order and default transform action names. (#12079)
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
