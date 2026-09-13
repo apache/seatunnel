@@ -1176,6 +1176,124 @@ public class CheckpointCoordinatorTest
             executorService.shutdownNow();
         }
     }
+
+    /**
+     * Regression: even when {@code notifyCompleted()} succeeds on its own terms (returns {@code
+     * true}), {@code completePendingCheckpoint} must not throw if this checkpoint's entry has
+     * already been removed from {@code pendingCheckpoints} by an unrelated, concurrently-running
+     * {@code cleanPendingCheckpoint()} by the time this call reaches its own {@code
+     * pendingCheckpoints.remove(checkpointId)}.
+     *
+     * <p>This targets the other half of the fix landed by apache/seatunnel#10705 for
+     * apache/seatunnel#10655, which the three regression tests above do not exercise. Those three
+     * all force {@code notifyCompleted()} itself to return {@code false}, so {@code
+     * completePendingCheckpoint} takes the new early-return guard (immediately after {@code
+     * notifyCompleted(completedCheckpoint)}) and never reaches the {@code
+     * pendingCheckpoints.remove(checkpointId)} call at all -- meaning the null-check that guards
+     * that call (added in the same fix, right below the guard) is never exercised by them. Here
+     * {@code notifyCompleted()} returns {@code true}, so execution does reach {@code
+     * pendingCheckpoints.remove(checkpointId)}; the pre-fix code (`pendingCheckpoints.remove(
+     * checkpointId).abortCheckpointTimeoutFutureWhenIsCompleted()`, unconditional, no null check)
+     * would NPE here exactly as reported in apache/seatunnel#10655, even though in this variant
+     * {@code notifyCompleted()} itself never failed.
+     *
+     * <p>This interleaving is realistic, not contrived: {@code completePendingCheckpoint} is {@code
+     * synchronized} on {@code this}, but {@code cleanPendingCheckpoint} (invoked from {@code
+     * handleCoordinatorError}, which has call sites with no relation to this checkpoint's own
+     * {@code notifyCompleted} -- e.g. task-status-report handling and task-running failures
+     * elsewhere in this class) synchronizes on the separate {@code lock} field instead, so the two
+     * methods can genuinely run concurrently on different threads in production. The test
+     * reproduces the resulting state deterministically and single-threaded -- no real race or
+     * timing window is needed -- by having the {@code notifyCompleted} mock clear {@code
+     * pendingCheckpoints} itself (mirroring exactly what a concurrent {@code
+     * cleanPendingCheckpoint} does to that map) immediately before returning {@code true}.
+     */
+    @Test
+    void testCompletePendingCheckpointShouldNotThrowWhenPendingCheckpointRemovedConcurrently() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+
+            long checkpointId = 1L;
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            // notifyCompleted succeeds on its own terms (returns true), but simulates an
+            // unrelated concurrent cleanPendingCheckpoint() -- triggered by a totally different
+            // failure elsewhere in the pipeline -- having already cleared pendingCheckpoints by
+            // the time this call is about to remove its own entry.
+            Mockito.doAnswer(
+                            invocation -> {
+                                pendingCheckpoints.clear();
+                                return true;
+                            })
+                    .when(spy)
+                    .notifyCompleted(Mockito.any());
+
+            // Set pendingCounter to 1 so we can verify the normal completion path still
+            // decrements it, proving this call was not short-circuited by the notifyCompleted
+            // guard (which only triggers when notifyCompleted returns false).
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            // Before the fix: pendingCheckpoints.remove(checkpointId) returns null here (the map
+            // was already cleared above) and the unconditional
+            // .abortCheckpointTimeoutFutureWhenIsCompleted() chained call NPEs, exactly as
+            // reported in apache/seatunnel#10655.
+            Assertions.assertDoesNotThrow(
+                    () -> spy.completePendingCheckpoint(completedCheckpoint),
+                    "completePendingCheckpoint must not throw when its pendingCheckpoints entry"
+                            + " was already removed by an unrelated concurrent cleanup, even"
+                            + " though notifyCompleted() itself succeeded");
+
+            // The normal completion path must still run to completion (this call did not fail,
+            // so it must not be short-circuited): pendingCounter is decremented despite the
+            // missing pendingCheckpoints entry.
+            Assertions.assertEquals(
+                    0,
+                    pendingCounter.get(),
+                    "pendingCounter must still be decremented on the normal completion path even"
+                            + " when the pendingCheckpoints entry was already gone");
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
 }
 
 class TestCheckpointManager extends CheckpointManager {
