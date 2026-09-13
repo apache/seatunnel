@@ -78,6 +78,11 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
     private static final String VERTICA_DATETIME = "DATETIME";
     private static final String VERTICA_TIME = "TIME";
     private static final String VERTICA_TIMESTAMP = "TIMESTAMP";
+    /* Vertica short name for a timestamp carrying an explicit UTC offset. */
+    private static final String VERTICA_TIMESTAMPTZ = "TIMESTAMPTZ";
+    /* Vertica SQL-standard name for a timestamp carrying an explicit UTC offset. */
+    private static final String VERTICA_TIMESTAMP_WITH_TIME_ZONE = "TIMESTAMP WITH TIME ZONE";
+
     private static final String VERTICA_YEAR = "YEAR";
 
     // ------------------------------blob-------------------------
@@ -153,6 +158,9 @@ public class VerticaTypeMapper implements JdbcDialectTypeMapper {
             case VERTICA_DATETIME:
             case VERTICA_TIMESTAMP:
                 return LocalTimeType.LOCAL_DATE_TIME_TYPE;
+            case VERTICA_TIMESTAMPTZ:
+            case VERTICA_TIMESTAMP_WITH_TIME_ZONE:
+                return LocalTimeType.OFFSET_DATE_TIME_TYPE;
 
             case VERTICA_TINYBLOB:
             case VERTICA_MEDIUMBLOB:

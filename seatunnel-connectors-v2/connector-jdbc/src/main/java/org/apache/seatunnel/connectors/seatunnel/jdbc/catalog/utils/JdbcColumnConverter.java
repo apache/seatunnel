@@ -36,6 +36,8 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
+import java.util.regex.Pattern;
 
 import static java.sql.Types.BIGINT;
 import static java.sql.Types.BINARY;
@@ -73,6 +75,10 @@ import static java.sql.Types.VARCHAR;
 @Deprecated
 public class JdbcColumnConverter {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcColumnConverter.class);
+
+    // Covers native names returned with proprietary JDBC codes by Vertica and Teradata drivers.
+    private static final Pattern TIMESTAMP_WITH_TIME_ZONE_TYPE_NAME =
+            Pattern.compile("TIMESTAMP(?:\\s*\\(\\s*\\d+\\s*\\))?\\s+WITH\\s+TIME\\s+ZONE");
 
     public static List<Column> convert(DatabaseMetaData metadata, TablePath tablePath)
             throws SQLException {
@@ -162,7 +168,9 @@ public class JdbcColumnConverter {
         long bitLength = 0;
         SeaTunnelDataType seaTunnelType;
 
-        switch (jdbcType) {
+        int effectiveJdbcType =
+                isTimestampWithTimeZone(nativeType) ? TIMESTAMP_WITH_TIMEZONE : jdbcType;
+        switch (effectiveJdbcType) {
             case BOOLEAN:
                 seaTunnelType = BasicType.BOOLEAN_TYPE;
                 break;
@@ -222,8 +230,10 @@ public class JdbcColumnConverter {
                 seaTunnelType = LocalTimeType.LOCAL_TIME_TYPE;
                 break;
             case TIMESTAMP:
-            case TIMESTAMP_WITH_TIMEZONE:
                 seaTunnelType = LocalTimeType.LOCAL_DATE_TIME_TYPE;
+                break;
+            case TIMESTAMP_WITH_TIMEZONE:
+                seaTunnelType = LocalTimeType.OFFSET_DATE_TIME_TYPE;
                 break;
             case BINARY:
             case VARBINARY:
@@ -233,7 +243,8 @@ public class JdbcColumnConverter {
                 bitLength = precision * 8;
                 break;
             default:
-                throw new UnsupportedOperationException("Unsupported JDBC type: " + jdbcType);
+                throw new UnsupportedOperationException(
+                        "Unsupported JDBC type: " + effectiveJdbcType);
         }
 
         return PhysicalColumn.of(
@@ -249,5 +260,14 @@ public class JdbcColumnConverter {
                 bitLength,
                 Collections.emptyMap(),
                 longColumnLength);
+    }
+
+    private static boolean isTimestampWithTimeZone(String nativeType) {
+        if (nativeType == null) {
+            return false;
+        }
+        String normalized = nativeType.trim().toUpperCase(Locale.ROOT);
+        return "TIMESTAMPTZ".equals(normalized)
+                || TIMESTAMP_WITH_TIME_ZONE_TYPE_NAME.matcher(normalized).matches();
     }
 }
