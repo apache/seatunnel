@@ -44,4 +44,50 @@ public class SplunkSourceFactoryTest {
         Assertions.assertNotNull(parameter.getHeaders());
         Assertions.assertEquals(apiKey, parameter.getHeaders().get("Authorization"));
     }
+
+    @Test
+    public void testHeadersAndFormSemanticsInitialization() {
+        ReadonlyConfig config = ReadonlyConfig.fromMap(new HashMap<>());
+        String apiKey = "Splunk test-splunk-api-key";
+
+        SplunkSourceParameter parameter = new SplunkSourceParameter();
+        parameter.buildWithConfig(config, apiKey);
+
+        Assertions.assertNotNull(parameter.getHeaders());
+        Assertions.assertEquals(apiKey, parameter.getHeaders().get("Authorization"));
+        Assertions.assertEquals(
+                "application/x-www-form-urlencoded", parameter.getHeaders().get("Content-Type"));
+        Assertions.assertTrue(parameter.isKeepParamsAsForm());
+    }
+
+    @Test
+    public void testV2EndpointConfiguration() {
+        HashMap<String, Object> configMap = new HashMap<>();
+        configMap.put("url", "https://your-splunk-instance:8089/services/search/v2/jobs/export");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        SplunkSourceParameter parameter = new SplunkSourceParameter();
+        parameter.buildWithConfig(config, "Splunk test-key");
+
+        Assertions.assertEquals(
+                "https://your-splunk-instance:8089/services/search/v2/jobs/export",
+                parameter.getUrl());
+    }
+
+    @Test
+    public void testParamsDefaultOutputModeAndFormEncoding() {
+        HashMap<String, Object> configMap = new HashMap<>();
+        HashMap<String, Object> params = new HashMap<>();
+        params.put("search", "search index=_internal | head 10");
+        configMap.put("params", params);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        SplunkSourceParameter parameter = new SplunkSourceParameter();
+        parameter.buildWithConfig(config, "Splunk test-key");
+
+        Assertions.assertEquals("json", parameter.getParams().get("output_mode"));
+        Assertions.assertEquals(
+                "search index=_internal | head 10", parameter.getParams().get("search"));
+        Assertions.assertTrue(parameter.isKeepParamsAsForm());
+    }
 }

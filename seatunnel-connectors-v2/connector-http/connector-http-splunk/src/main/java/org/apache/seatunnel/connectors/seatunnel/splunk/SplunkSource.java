@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSource;
-import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceParameter;
 
@@ -46,7 +45,7 @@ public class SplunkSource extends HttpSource {
     @Override
     public AbstractSingleSplitReader<SeaTunnelRow> createReader(
             SingleSplitReaderContext readerContext) throws Exception {
-        return new HttpSourceReader(
+        return new SplunkSourceReader(
                 this.splunkSourceParameter,
                 readerContext,
                 this.deserializationSchema,

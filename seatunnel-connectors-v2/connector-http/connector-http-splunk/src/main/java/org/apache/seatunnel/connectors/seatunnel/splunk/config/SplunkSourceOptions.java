@@ -24,4 +24,10 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 public class SplunkSourceOptions extends HttpCommonOptions {
     public static final Option<String> API_KEY =
             Options.key("api_key").stringType().noDefaultValue().withDescription("Splunk API Key");
+
+    public static final Option<Boolean> KEEP_PARAMS_AS_FORM =
+            Options.key("keep_params_as_form")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Keep params as form urlencoded");
 }

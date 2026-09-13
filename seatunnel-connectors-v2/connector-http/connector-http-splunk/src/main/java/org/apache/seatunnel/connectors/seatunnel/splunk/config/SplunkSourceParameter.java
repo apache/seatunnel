@@ -34,5 +34,25 @@ public class SplunkSourceParameter extends HttpParameter {
             this.headers = new HashMap<>();
         }
         this.headers.put("Authorization", apiKey);
+
+        // HttpClientProvider.addBody(HttpPost, String) always wraps a non-empty `body` string in
+        // application/json, which breaks Splunk's export endpoint (it requires search/output_mode
+        // as URL-encoded form fields). Users must supply them via the `params` block, not `body`.
+        this.headers.put("Content-Type", "application/x-www-form-urlencoded");
+
+        if (this.params == null) {
+            this.params = new HashMap<>();
+        }
+        // Defensive default: this connector's response parser (SplunkSourceReader) only handles
+        // JSON. Don't override if the user explicitly set something else in `params`.
+        this.params.putIfAbsent("output_mode", "json");
+
+        if (pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM) != null) {
+            this.setKeepParamsAsForm(pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM));
+        } else {
+            this.setKeepParamsAsForm(true);
+        }
+
+        this.setEnableMultilines(true);
     }
 }
