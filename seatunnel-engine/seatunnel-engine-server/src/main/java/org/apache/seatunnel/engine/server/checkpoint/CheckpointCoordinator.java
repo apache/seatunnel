@@ -62,6 +62,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -251,7 +252,7 @@ public class CheckpointCoordinator {
                 plan);
         if (pipelineState != null) {
             this.latestCompletedCheckpoint =
-                    serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+                    CompletedCheckpointCodec.decode(pipelineState.getStates(), serializer);
             this.latestCompletedCheckpoint.setRestored(true);
             LOG.info(
                     "Restore checkpoint, job id: {}, pipeline id: {}, checkpoint id: {}, data: {} ",
@@ -1118,7 +1119,9 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
-        return plan.getStartingSubtasks().stream()
+        Set<TaskLocation> checkpointRoots = new LinkedHashSet<>(plan.getStartingSubtasks());
+        checkpointRoots.addAll(plan.getCoordinatorCheckpointRoots());
+        return checkpointRoots.stream()
                 .filter(
                         taskLocation ->
                                 !SeaTunnelTaskState.CLOSED.equals(
@@ -1327,7 +1330,7 @@ public class CheckpointCoordinator {
         completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
             if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
-                byte[] states = serializer.serialize(completedCheckpoint);
+                byte[] states = CompletedCheckpointCodec.encode(completedCheckpoint, serializer);
                 checkpointStorage.storeCheckPoint(
                         PipelineState.builder()
                                 .checkpointId(checkpointId)

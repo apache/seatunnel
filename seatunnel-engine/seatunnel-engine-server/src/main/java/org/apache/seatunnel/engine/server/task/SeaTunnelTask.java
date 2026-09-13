@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
+import org.apache.seatunnel.engine.server.dag.physical.config.DynamicLookupConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -52,6 +54,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
 import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
+import org.apache.seatunnel.engine.server.task.flow.DynamicLookupFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
@@ -308,6 +311,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
         this.taskBelongGroup = group;
     }
 
+    public TaskGroup getTaskGroup() {
+        return taskBelongGroup;
+    }
+
     /**
      * Recursively converts a {@link Flow} DAG into a chain of {@link FlowLifeCycle} objects.
      *
@@ -365,6 +372,13 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 ((SinkConfig) f.getConfig()).isContainCommitter(),
                                 completableFuture,
                                 this.getMetricsContext());
+            } else if (f.getAction() instanceof DynamicLookupAction) {
+                lifeCycle =
+                        new DynamicLookupFlowLifeCycle(
+                                (DynamicLookupAction) f.getAction(),
+                                this,
+                                (DynamicLookupConfig) f.getConfig(),
+                                completableFuture);
             } else if (f.getAction() instanceof TransformChainAction) {
                 lifeCycle =
                         new TransformFlowLifeCycle<SeaTunnelRow>(
