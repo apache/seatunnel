@@ -221,6 +221,9 @@ public class NumericFunction {
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Mod by zero");
         }
         BigDecimal[] res = leftBD.divideAndRemainder(rightBD);
+        // The result keeps the type of the divisor, which is what ZetaSQLType declares for MOD.
+        // No range check is needed for the narrow types: divideAndRemainder guarantees that
+        // |remainder| < |divisor|, so the remainder always fits the divisor's type.
         if (rightValue instanceof Byte) {
             return res[1].byteValue();
         }
