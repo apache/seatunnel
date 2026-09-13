@@ -19,29 +19,73 @@ package org.apache.seatunnel.core.starter.command;
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ParameterSplitter implements IParameterSplitter {
 
+    private static final Set<Character> START_DELIMITERS =
+            new HashSet<>(Arrays.asList('=', ':', '{', '[', ','));
+    private static final Set<Character> END_DELIMITERS =
+            new HashSet<>(Arrays.asList(',', '}', ']', ':'));
+
     @Override
     public List<String> split(String value) {
-
         List<String> result = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
-        boolean insideBrackets = false;
         boolean insideQuotes = false;
+        int braceDepth = 0;
+        int bracketDepth = 0;
 
-        for (char c : value.toCharArray()) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
 
-            if (c == '[') {
-                insideBrackets = true;
-            } else if (c == ']') {
-                insideBrackets = false;
-            } else if (c == '"') {
-                insideQuotes = !insideQuotes;
+            if (c == '"') {
+                if (isEscapedQuote(value, i)) {
+                    currentToken.append(c);
+                    continue;
+                }
+                char prev = (i > 0) ? value.charAt(i - 1) : 0;
+                char beforePrev = (i > 1) ? value.charAt(i - 2) : 0;
+                char next = (i + 1 < value.length()) ? value.charAt(i + 1) : 0;
+                char afterNext = (i + 2 < value.length()) ? value.charAt(i + 2) : 0;
+
+                boolean isStartWrapper =
+                        !insideQuotes
+                                && (i == 0
+                                        || START_DELIMITERS.contains(prev)
+                                        || (prev == ' ' && START_DELIMITERS.contains(beforePrev)));
+
+                boolean isEndWrapper =
+                        insideQuotes
+                                && (i == value.length() - 1
+                                        || END_DELIMITERS.contains(next)
+                                        || (next == ' ' && END_DELIMITERS.contains(afterNext)));
+
+                if (isStartWrapper) {
+                    insideQuotes = true;
+                } else if (isEndWrapper) {
+                    insideQuotes = false;
+                }
+                currentToken.append(c);
+                continue;
             }
 
-            if (c == ',' && !insideQuotes && !insideBrackets) {
+            if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}' && braceDepth > 0) {
+                    braceDepth--;
+                } else if (c == '[') {
+                    bracketDepth++;
+                } else if (c == ']' && bracketDepth > 0) {
+                    bracketDepth--;
+                }
+            }
+
+            if (c == ',' && !insideQuotes && braceDepth == 0 && bracketDepth == 0) {
                 result.add(currentToken.toString().trim());
                 currentToken = new StringBuilder();
             } else {
@@ -54,5 +98,15 @@ public class ParameterSplitter implements IParameterSplitter {
         }
 
         return result;
+    }
+
+    private boolean isEscapedQuote(String value, int quoteIndex) {
+        int backslashCount = 0;
+        int i = quoteIndex - 1;
+        while (i >= 0 && value.charAt(i) == '\\') {
+            backslashCount++;
+            i--;
+        }
+        return backslashCount % 2 == 1;
     }
 }
