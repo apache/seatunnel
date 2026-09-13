@@ -53,24 +53,24 @@ import static java.util.Collections.emptySet;
 /**
  * Regression test for <a href="https://github.com/apache/seatunnel/issues/11679">#11679</a>.
  *
- * <p>{@code TaskGroupLocation} is {jobId, pipelineId, taskGroupId} and is reused verbatim across
- * pipeline restore generations. {@code TaskGroupExecutionTracker.taskDone()} removes the entry for
- * that location from {@code executionContexts}, so a late {@code taskDone()} belonging to the
- * previous generation can delete the context that the current generation's {@code
- * deployLocalTask()} has just installed.
+ * <p>{@code BlockingWorker.run()} used to resolve its class loader <em>before</em> its {@code try}
+ * block while {@code startedLatch.countDown()} sat <em>inside</em> it. Anything thrown by that
+ * resolution therefore escaped before the latch was ever counted down, and was swallowed by the
+ * submitting {@code Future}. {@code submitBlockingTask()} then waited on {@code
+ * startedLatch.await()} forever - while holding the {@code SubPlan} monitor, which in turn blocked
+ * checkpoint-error handling from ever moving the pipeline to a terminal state.
  *
- * <p>When that happens, {@code BlockingWorker.run()} resolves its class loader through {@code
- * executionContexts.get(location)} <em>before</em> its {@code try} block, and {@code
- * startedLatch.countDown()} sits <em>inside</em> it. A missing context therefore throws before the
- * latch is ever counted down, the exception is swallowed by the submitting {@code Future}, and
- * {@code submitBlockingTask()} waits on {@code startedLatch.await()} forever - while holding the
- * {@code SubPlan} monitor, which in turn blocks checkpoint-error handling from ever moving the
- * pipeline to a terminal state.
+ * <p>The original trigger was a late {@code taskDone()} from an earlier restore generation removing
+ * the {@code executionContexts} entry that the current generation had just installed, {@code
+ * TaskGroupLocation} being reused verbatim across generations. Since <a
+ * href="https://github.com/apache/seatunnel/pull/12238">#12238</a> that particular path is no
+ * longer reachable, and the worker now takes its class loader from the context its own tracker
+ * pinned at construction rather than from the shared map. What this test pins down is the contract
+ * that makes the hang impossible regardless of the cause:
  *
- * <p>This test asserts the narrow contract that prevents the hang: <b>deploying a task group must
- * return, even if the execution context for that location disappears while the deployment is in
- * flight.</b> Whether it returns successfully or throws is not asserted - only that it does not
- * block indefinitely.
+ * <p><b>Deploying a task group must return, even if the execution context for that location
+ * disappears while the deployment is in flight.</b> Whether it returns successfully or throws is
+ * not asserted - only that it does not block indefinitely.
  *
  * <p>The race window is small, so the test repeats the deployment and races a remover thread
  * against it. It can therefore fail to <em>detect</em> a regression on an unlucky run, but it
