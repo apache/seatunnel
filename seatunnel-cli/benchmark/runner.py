@@ -43,6 +43,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import sys
@@ -322,6 +323,14 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
     out_dir.mkdir(parents=True, exist_ok=True)
     configs_dir = out_dir / "configs"
     configs_dir.mkdir(exist_ok=True)
+    # Freeze the complete task contract (prompt, assertions and execution
+    # probes) so revision reports never infer compatibility from IDs alone.
+    task_fingerprints = {
+        task["id"]: hashlib.sha256(json.dumps(
+            task, sort_keys=True, ensure_ascii=False, separators=(",", ":")
+        ).encode("utf-8")).hexdigest()
+        for task in tasks
+    }
 
     all_results = {
         "levels": levels,
@@ -357,6 +366,7 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
                     "task_id": task["id"],
                     "tier": task["tier"],
                     "category": task.get("category", ""),
+                    "task_sha256": task_fingerprints[task["id"]],
                     "trials": [],
                 }
                 for trial in range(trials):

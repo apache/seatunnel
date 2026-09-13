@@ -61,6 +61,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.FORMAT;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.KAFKA_CONFIG;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.KAFKA_HEADERS_FIELDS;
+import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.KAFKA_MESSAGE_VALUE_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.PARTITION;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.PARTITION_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.SEMANTICS;
@@ -182,6 +183,19 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
             ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         MessageFormat messageFormat = pluginConfig.get(FORMAT);
         String topic = pluginConfig.get(TOPIC);
+
+        if (pluginConfig.get(KAFKA_MESSAGE_VALUE_FIELDS) != null) {
+            if (MessageFormat.NATIVE.equals(messageFormat)
+                    || MessageFormat.COMPATIBLE_DEBEZIUM_JSON.equals(messageFormat)
+                    || MessageFormat.COMPATIBLE_KAFKA_CONNECT_JSON.equals(messageFormat)) {
+                throw new KafkaConnectorException(
+                        CommonErrorCode.OPERATION_NOT_SUPPORTED,
+                        String.format(
+                                "kafka_message_value_fields is not supported for %s format",
+                                messageFormat));
+            }
+        }
+
         if (MessageFormat.NATIVE.equals(messageFormat)) {
             // Validate that kafka_headers_fields is not configured for NATIVE format
             if (pluginConfig.get(KAFKA_HEADERS_FIELDS) != null) {
@@ -207,6 +221,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
         // Validate that partition_key_fields and kafka_headers_fields don't overlap
         List<String> partitionKeyFields = getPartitionKeyFields(pluginConfig, seaTunnelRowType);
         List<String> headerFields = getHeaderFields(pluginConfig, seaTunnelRowType);
+        List<String> messageValueFields = getMessageValueFields(pluginConfig, seaTunnelRowType);
         if (!partitionKeyFields.isEmpty() && !headerFields.isEmpty()) {
             for (String headerField : headerFields) {
                 if (partitionKeyFields.contains(headerField)) {
@@ -218,12 +233,25 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 }
             }
         }
+        // Validate that kafka_message_value_fields and kafka_headers_fields don't overlap
+        if (!messageValueFields.isEmpty() && !headerFields.isEmpty()) {
+            for (String headerField : headerFields) {
+                if (messageValueFields.contains(headerField)) {
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Field '%s' cannot be in both kafka_message_value_fields and kafka_headers_fields",
+                                    headerField));
+                }
+            }
+        }
 
         if (pluginConfig.get(PARTITION_KEY_FIELDS) != null) {
             return DefaultSeaTunnelRowSerializer.create(
                     topic,
                     partitionKeyFields,
                     headerFields,
+                    messageValueFields,
                     seaTunnelRowType,
                     messageFormat,
                     delimiter,
@@ -234,6 +262,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                     topic,
                     pluginConfig.get(PARTITION),
                     headerFields,
+                    messageValueFields,
                     seaTunnelRowType,
                     messageFormat,
                     delimiter,
@@ -244,6 +273,7 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 topic,
                 Collections.<String>emptyList(),
                 headerFields,
+                messageValueFields,
                 seaTunnelRowType,
                 messageFormat,
                 delimiter,
@@ -304,6 +334,25 @@ public class KafkaSinkWriter implements SinkWriter<SeaTunnelRow, KafkaCommitInfo
                 }
             }
             return headerFields;
+        }
+        return Collections.emptyList();
+    }
+
+    private List<String> getMessageValueFields(
+            ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
+        if (pluginConfig.get(KAFKA_MESSAGE_VALUE_FIELDS) != null) {
+            List<String> messageValueFields = pluginConfig.get(KAFKA_MESSAGE_VALUE_FIELDS);
+            List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
+            for (String messageValueField : messageValueFields) {
+                if (!rowTypeFieldNames.contains(messageValueField)) {
+                    throw new KafkaConnectorException(
+                            CommonErrorCode.ILLEGAL_ARGUMENT,
+                            String.format(
+                                    "Message value field not found: %s, rowType: %s",
+                                    messageValueField, rowTypeFieldNames));
+                }
+            }
+            return messageValueFields;
         }
         return Collections.emptyList();
     }

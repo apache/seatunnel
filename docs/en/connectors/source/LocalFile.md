@@ -738,9 +738,14 @@ LocalFile {
       path = "/apps/hive/demo/teacher"
       file_format_type = "json"
     }
+  ]
 }
 
 ```
+
+Each entry under `tables_configs` is treated as an independent logical table: it has its own `path`,
+`file_format_type`, and inline `schema`. This is the recommended layout when each input folder uses a different
+format or a different schema.
 
 ### Read PDF File
 
@@ -766,6 +771,47 @@ sink {
 ```
 
 For best results, use PDF files that contain an outline (bookmarks/table of contents). This enables the parser to extract headings with hierarchy information.
+
+### Read JSON with structured schema
+
+When reading JSON, csv, text, excel or xml, declare an explicit schema so each row maps to a typed SeaTunnel row. The
+schema below is the same one used by the connector test suite and exercises every primitive SeaTunnel data type.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/seatunnel/read/json"
+    file_format_type = "json"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_bytes = bytes
+        c_date = date
+        c_decimal = "decimal(38, 18)"
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
 
 ### Transfer Binary File
 

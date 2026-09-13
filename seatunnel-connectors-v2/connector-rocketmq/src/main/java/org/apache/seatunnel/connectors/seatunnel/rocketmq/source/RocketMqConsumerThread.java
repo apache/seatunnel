@@ -79,6 +79,14 @@ public class RocketMqConsumerThread implements Runnable {
         return tasks;
     }
 
+    /**
+     * Stops the RocketMQ client before interrupting its task executor so an in-flight poll can
+     * release the client pull threads.
+     */
+    public void close() {
+        consumer.shutdown();
+    }
+
     public void assign(RocketMqSourceSplit sourceSplit) throws MQClientException {
         boolean messageQueueChanged =
                 assignedMessageQueue == null
