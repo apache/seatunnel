@@ -37,8 +37,10 @@ import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
+import org.apache.seatunnel.engine.server.execution.CooperativeWorkerBudget;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
+import org.apache.seatunnel.engine.server.execution.PromotionDecision;
 import org.apache.seatunnel.engine.server.execution.Task;
 import org.apache.seatunnel.engine.server.execution.TaskCallTimer;
 import org.apache.seatunnel.engine.server.execution.TaskDeployState;
@@ -229,6 +231,24 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Service for reporting events. */
     private final EventService eventService;
 
+    /** Admission policy bounding the cooperative workers promoted to a single slow task. */
+    private final CooperativeWorkerBudget cooperativeWorkerBudget;
+
+    /** Number of cooperative workers alive on this node, promoted ones included. */
+    private final AtomicInteger cooperativeWorkers = new AtomicInteger();
+
+    /**
+     * Number of cooperative workers currently waiting for the shared task queue. A worker that runs
+     * a task call is not counted, because it cannot poll the queue until that call returns.
+     */
+    private final AtomicInteger queuePollingWorkers = new AtomicInteger();
+
+    /** Number of cooperative workers already started that have not reached the queue yet. */
+    private final AtomicInteger pendingQueueWorkers = new AtomicInteger();
+
+    /** Serializes the decision to start a worker because nothing else can serve the queue. */
+    private final Object queueServingLock = new Object();
+
     /**
      * Creates a new TaskExecutionService.
      *
@@ -266,6 +286,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         this.eventService = eventService;
 
+        this.cooperativeWorkerBudget =
+                new CooperativeWorkerBudget(
+                        seaTunnelConfig.getEngineConfig().getMaxPromotedCooperativeWorkers(),
+                        seaTunnelConfig.getEngineConfig().getMaxPromotedCooperativeWorkersPerJob());
+
         int timerPoolSize = seaTunnelConfig.getEngineConfig().getTimerFlushPoolSize();
         timerFlushWorker =
                 new ScheduledThreadPoolExecutor(timerPoolSize, new TimerFlushThreadFactory());
@@ -280,6 +305,36 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     public NodeEngineImpl getNodeEngine() {
         return nodeEngine;
+    }
+
+    /**
+     * Gets the budget that bounds how many cooperative workers this node may hold exclusively for
+     * slow task calls.
+     *
+     * @return the cooperative worker budget of this node
+     */
+    public CooperativeWorkerBudget getCooperativeWorkerBudget() {
+        return cooperativeWorkerBudget;
+    }
+
+    /**
+     * Gets the number of cooperative workers alive on this node, including the workers that were
+     * promoted to a single slow task.
+     *
+     * @return the number of cooperative workers
+     */
+    public int getCooperativeWorkers() {
+        return cooperativeWorkers.get();
+    }
+
+    /**
+     * Gets the number of cooperative workers that can currently take a task from the shared queue,
+     * that is, the workers that are waiting for it rather than running a task call.
+     *
+     * @return the number of workers waiting for the shared task queue
+     */
+    public int getQueuePollingWorkers() {
+        return queuePollingWorkers.get();
     }
 
     /** Starts the task execution service by creating initial cooperative task worker threads. */
@@ -988,7 +1043,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             "completedTaskCount",
                             completedTaskCount,
                             "taskCount",
-                            taskCount));
+                            taskCount,
+                            "cooperativeWorkers",
+                            cooperativeWorkers.get(),
+                            "queuePollingWorkers",
+                            queuePollingWorkers.get(),
+                            "promotedCooperativeWorkers",
+                            cooperativeWorkerBudget.getPromotedWorkers(),
+                            "totalCooperativePromotions",
+                            cooperativeWorkerBudget.getTotalPromotions(),
+                            "deniedCooperativePromotions",
+                            cooperativeWorkerBudget.getDeniedPromotions()));
         }
     }
 
@@ -1211,6 +1276,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private Future<?> thisTaskFuture;
         private BlockingQueue<Future<?>> futureBlockingQueue;
 
+        /** Job this worker was promoted for, or null while it still serves the shared queue. */
+        private volatile Long promotedJobId;
+
+        /** True while this worker is counted as started but has not reached the queue yet. */
+        private final AtomicBoolean pendingQueueWorker = new AtomicBoolean(true);
+
         public CooperativeTaskWorker(
                 LinkedBlockingDeque<TaskTracker> taskQueue,
                 RunBusWorkSupplier runBusWorkSupplier,
@@ -1219,6 +1290,80 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             this.taskQueue = taskQueue;
             this.timer = new TaskCallTimer(50, keep, runBusWorkSupplier, this);
             this.futureBlockingQueue = futureBlockingQueue;
+        }
+
+        /**
+         * Runs the worker and returns everything it holds when its thread ends: the promotion
+         * budget if it was promoted, its slot among the workers that may still reach the queue if
+         * it never started polling, and its place in the cooperative worker count.
+         *
+         * @see #runBusWork()
+         */
+        @SneakyThrows
+        @Override
+        public void run() {
+            try {
+                runBusWork();
+            } finally {
+                releaseWorkerResources();
+            }
+        }
+
+        /**
+         * Marks this worker as exclusive to one slow task. Called from the task call timer once the
+         * promotion has been admitted by the cooperative worker budget.
+         *
+         * @param taskTracker the slow task this worker keeps running
+         * @param jobId the job the budget was acquired for
+         */
+        void promote(TaskTracker taskTracker, long jobId) {
+            keep.set(true);
+            promotedJobId = jobId;
+            exclusiveTaskTracker.set(taskTracker);
+        }
+
+        private void releaseWorkerResources() {
+            Long jobId = promotedJobId;
+            if (jobId != null) {
+                promotedJobId = null;
+                cooperativeWorkerBudget.release(jobId);
+            }
+            releasePendingQueueWorker();
+            cooperativeWorkers.decrementAndGet();
+        }
+
+        /**
+         * Stops counting this worker as one that has been started but has not reached the shared
+         * queue yet. Idempotent, because a worker leaves that state once, either by polling the
+         * queue for the first time or by ending before it ever did.
+         */
+        private void releasePendingQueueWorker() {
+            if (pendingQueueWorker.compareAndSet(true, false)) {
+                pendingQueueWorkers.decrementAndGet();
+            }
+        }
+
+        /**
+         * Returns the next task to run: the exclusive task when this worker has been promoted, or
+         * the next task from the shared queue. While it waits for the shared queue this worker
+         * counts as a worker that serves the queue.
+         *
+         * @return the task tracker to run next
+         */
+        private TaskTracker nextTaskTracker() throws InterruptedException {
+            TaskTracker exclusiveTracker = exclusiveTaskTracker.get();
+            if (null != exclusiveTracker) {
+                return exclusiveTracker;
+            }
+            queuePollingWorkers.incrementAndGet();
+            // Counted as a polling worker first, so the two counters never read zero together
+            // while this worker is on its way to the queue.
+            releasePendingQueueWorker();
+            try {
+                return taskQueue.takeFirst();
+            } finally {
+                queuePollingWorkers.decrementAndGet();
+            }
         }
 
         /**
@@ -1235,18 +1380,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          *   <li>Stop the timer and check the result
          *   <li>If task is done, mark it complete; otherwise, re-queue for next iteration
          * </ol>
+         *
+         * <p>While this worker waits for the queue it counts itself in {@code queuePollingWorkers},
+         * and it stops counting itself there for as long as it runs a task call. That count, and
+         * not the number of workers that exist, is what tells whether the shared queue is still
+         * being served: a worker that is blocked inside a slow call cannot poll it.
          */
         @SneakyThrows
-        @Override
-        public void run() {
+        private void runBusWork() {
             thisTaskFuture = futureBlockingQueue.take();
             futureBlockingQueue = null;
             myThread = currentThread();
             while (keep.get() && isRunning) {
-                TaskTracker taskTracker =
-                        null != exclusiveTaskTracker.get()
-                                ? exclusiveTaskTracker.get()
-                                : taskQueue.takeFirst();
+                TaskTracker taskTracker = nextTaskTracker();
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
                 if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
@@ -1349,11 +1495,97 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 BlockingQueue<Future<?>> futureBlockingQueue = new LinkedBlockingQueue<>();
                 CooperativeTaskWorker cooperativeTaskWorker =
                         new CooperativeTaskWorker(taskQueue, this, futureBlockingQueue);
-                Future<?> submit = executorService.submit(cooperativeTaskWorker);
+                cooperativeWorkers.incrementAndGet();
+                pendingQueueWorkers.incrementAndGet();
+                Future<?> submit;
+                try {
+                    submit = executorService.submit(cooperativeTaskWorker);
+                } catch (RuntimeException e) {
+                    // The worker never runs, so it can never return what it holds itself.
+                    pendingQueueWorkers.decrementAndGet();
+                    cooperativeWorkers.decrementAndGet();
+                    throw e;
+                }
                 futureBlockingQueue.add(submit);
                 return true;
             }
             return false;
+        }
+
+        /**
+         * Decides whether a worker running a slow task call may be promoted to an exclusive worker.
+         *
+         * <p>A promotion costs one worker thread: the current worker stays with the slow task and a
+         * replacement is started for the shared queue. The promotion is therefore admitted by
+         * {@link CooperativeWorkerBudget} first. When the budget denies it, the worker keeps the
+         * slow task on the shared queue side and the caller retries later.
+         *
+         * <p>The budget bounds promotions, never the liveness of the shared queue: a denied
+         * promotion still starts a worker when no other worker can currently take a task from the
+         * queue, see {@link #ensureQueueIsServed()}.
+         *
+         * @param worker the worker that is executing the slow task call
+         * @param taskTracker the slow task
+         * @return true when the worker was promoted, false when the budget denied it
+         */
+        public boolean tryPromoteCooperativeWorker(
+                CooperativeTaskWorker worker, TaskTracker taskTracker) {
+            long jobId =
+                    taskTracker
+                            .taskGroupExecutionTracker
+                            .taskGroup
+                            .getTaskGroupLocation()
+                            .getJobId();
+            PromotionDecision decision = cooperativeWorkerBudget.tryAcquire(jobId);
+            if (!decision.isAdmitted()) {
+                logger.warning(
+                        String.format(
+                                "Promotion of a cooperative worker for job %d was denied with reason %s, "
+                                        + "promoted workers: %d of %d, promoted workers of this job: %d of %d, "
+                                        + "denied promotions: %d. The task keeps running and the promotion is retried.",
+                                jobId,
+                                decision,
+                                cooperativeWorkerBudget.getPromotedWorkers(),
+                                cooperativeWorkerBudget.getMaxPromotedWorkers(),
+                                cooperativeWorkerBudget.getPromotedWorkers(jobId),
+                                cooperativeWorkerBudget.getMaxPromotedWorkersPerJob(),
+                                cooperativeWorkerBudget.getDeniedPromotions()));
+                ensureQueueIsServed();
+                return false;
+            }
+            worker.promote(taskTracker, jobId);
+            runNewBusWork(false);
+            return true;
+        }
+
+        /**
+         * Starts a worker when no worker can currently take a task from the shared queue, that is,
+         * when every worker is either promoted or blocked inside a task call. Without this, denied
+         * promotions could leave the queue unserved and queued source, sink, or coordinator tasks
+         * would never start.
+         *
+         * <p>The decision is taken under a lock, so concurrent denials agree on one worker instead
+         * of each starting its own.
+         *
+         * @return true when a worker was started
+         */
+        private boolean ensureQueueIsServed() {
+            if (canServeQueue()) {
+                return false;
+            }
+            synchronized (queueServingLock) {
+                if (canServeQueue()) {
+                    return false;
+                }
+                logger.info(
+                        "No cooperative worker can take a task from the shared queue, starting one "
+                                + "so that queued tasks keep starting while promotions are denied.");
+                return runNewBusWork(false);
+            }
+        }
+
+        private boolean canServeQueue() {
+            return queuePollingWorkers.get() + pendingQueueWorkers.get() > 0;
         }
     }
 
