@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -407,13 +408,24 @@ public class DorisIT extends AbstractDorisIT {
     }
 
     private void assertHasData(String db, String table) {
-        try (Statement statement = conn.createStatement()) {
-            String sql = String.format("select * from %s.%s limit 1", db, table);
-            ResultSet source = statement.executeQuery(sql);
-            Assertions.assertTrue(source.next());
-        } catch (Exception e) {
-            throw new RuntimeException("test doris server image error", e);
-        }
+        // The sink jobs run with sink.enable-2pc = true, so the rows only become visible once
+        // Doris has published the committed transaction. That publish step can lag the job's
+        // exit on loaded CI runners (seen on the Spark legs as an empty sink table right after
+        // executeJob returned), so wait for visibility instead of reading once.
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (Statement statement = conn.createStatement()) {
+                                String sql =
+                                        String.format("select * from %s.%s limit 1", db, table);
+                                ResultSet source = statement.executeQuery(sql);
+                                Assertions.assertTrue(source.next());
+                            } catch (SQLException e) {
+                                throw new RuntimeException("test doris server image error", e);
+                            }
+                        });
     }
 
     private void clearUniqueTable() {
