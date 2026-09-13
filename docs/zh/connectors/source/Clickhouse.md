@@ -56,9 +56,15 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | host              | String | 是      | -                      | `ClickHouse` 集群地址, 格式是`host:port` , 允许多个`hosts`配置. 例如 `"host1:8123,host2:8123"` . |
 | username          | String | 是      | -                      | `ClickHouse` user 用户账号.                                                           |
 | password          | String | 是      | -                      | `ClickHouse` user 用户密码.                                                           |
-| table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表.                                                                 |
+| table_path        | String | 否       | -                      | 单个数据表的完整路径，例如 `default.table`。当未设置 `table_list` 时，在外层 source 中配置 `table_path` 和/或 `sql`（至少需要其一）；若已设置 `table_list`，则 `table_list` 优先，外层展开的 `table_path`/`sql` 会被忽略。                                                                                |
+| table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表。每个表条目可以独立覆盖 `sql`、`filter_query`、`split_size`、`batch_size`、`partition_list`。                                              |
+| sql               | String | 否       | -                      | 通过 ClickHouse 服务查询数据的 SQL 语句。需要表名占位符时使用字面量 `table`，不要使用表别名。                                                                            |
+| filter_query      | String | 否       | -                      | ClickHouse 数据过滤条件。格式为 `field = value`，例如 `filter_query = "id > 2 and type = 1"`。SeaTunnel 会将其作为额外的 ClickHouse 侧过滤条件叠加在 `sql` 之上。                          |
+| partition_list    | Array  | 否       | -                      | 指定分区列表过滤数据。如果是分区表，该字段可以配置为过滤指定分区的数据。例如 `partition_list = ["20250615", "20250616"]`。                                                                |
+| split.size        | int    | 否       | `Integer.MAX_VALUE`    | 配置在外层 source 时，每个 SeaTunnel split 包含的 ClickHouse part 数量。最小值为 `1`，值越小，拆分越多，并行读取粒度越细。                                                                |
+| batch_size        | int    | 否       | `1024`                 | 每次从 ClickHouse 读取的最大行数。对于大表请谨慎调整，避免 OOM 异常。                                                                                                |
 | clickhouse.config | Map    | 否       | -                      | 除了上述必须由 `clickhouse-jdbc` 指定的必填参数外，用户还可以指定多个可选参数，这些参数涵盖了 `clickhouse-jdbc` 提供的所有[参数](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration). |
-| server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用ZoneId.systemDefault（）设置服务时区.                                                                                                                                                                                |
+| server_time_zone  | String | 否       | ZoneId.systemDefault() | 数据库服务中的会话时区。如果未设置，则使用 ZoneId.systemDefault() 设置服务时区。                                                                                                                                                                                |
 | common-options    |        | 否       | -                      | 源插件常用参数，详见 [源通用选项](../common-options/source-common-options.md).                                                                                                                                                                                          |
 
 多表配置：
@@ -93,6 +99,20 @@ Clickhouse源连接器支持并行读取数据。
 `batch_size`参数可用于控制每次查询读取的数据量，以避免在读取大量数据时出现OOM异常。适当增加这个值将有助于提高读取过程的性能。
 
 当读取单个表的数据时，建议使用`table_path`参数替代`sql`参数。
+
+## 常见问题
+
+### 为什么 `host` 配置项是 `host:port` 而选项名只有 `host`？
+
+ClickHouse Source 接受以逗号分隔的多个 `host:port` 字符串作为同一个 `host` 选项的值（例如 `"host1:8123,host2:8123"`）。端口号是直接拼接到值里，没有单独的端口字段。配置多个地址可以在集群间实现负载均衡。
+
+### 如何在一个作业中读取多个 ClickHouse 表？
+
+使用 `table_list` 选项，每个表提供一个条目。每个条目可以覆盖 `sql`、`filter_query`、`partition_list`、`split_size` 和 `batch_size`。对于单个表，可以把这些选项展开到外层 source，省略 `table_list`。
+
+### 同时配置 `table_path` 和 `sql` 时会发生什么？
+
+连接器会切换到 SQL 模式，真正执行查询的是 `sql`，而 `table_path` 仅用于识别表元数据（数据库/表名）。此模式下并行读取通过在每个分片上分发查询实现。
 
 ## 如何创建Clickhouse数据同步作业
 
