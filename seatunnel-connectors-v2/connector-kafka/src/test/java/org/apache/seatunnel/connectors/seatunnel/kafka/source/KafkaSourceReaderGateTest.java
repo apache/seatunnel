@@ -37,12 +37,16 @@ import org.mockito.Mockito;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.security.MessageDigest;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.SortedMap;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -116,6 +120,50 @@ class KafkaSourceReaderGateTest {
         KafkaSourceSplit restoredSplit =
                 deserializeSplit(gateState.getPreparedSplits().get(0).getSerializedSplit());
         Assertions.assertEquals(30L, restoredSplit.getStartOffset());
+    }
+
+    /**
+     * Verifies the production allowlist in {@code KafkaSourceReader.deserializeSplit}/{@code
+     * KafkaGateObjectInputStream.resolveClass}, invoked reflectively since both are private. The
+     * other tests in this class exercise a plain-{@link ObjectInputStream} test helper for gate
+     * staging semantics, not this allowlist, so this is the one round-trip through the actual
+     * production deserialization path that a future refactor could silently widen.
+     */
+    @Test
+    void productionDeserializeSplitShouldRoundTripKafkaSourceSplit() throws Exception {
+        KafkaSourceSplit split = split(42L);
+        KafkaSourceSplit restored = invokeProductionDeserializeSplit(serializeSplit(split));
+
+        Assertions.assertEquals(split.getTablePath(), restored.getTablePath());
+        Assertions.assertEquals(split.getTopicPartition(), restored.getTopicPartition());
+        Assertions.assertEquals(split.getStartOffset(), restored.getStartOffset());
+        Assertions.assertEquals(split.getEndOffset(), restored.getEndOffset());
+    }
+
+    @Test
+    void productionDeserializeSplitShouldRejectClassOutsideAllowlist() throws Exception {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(output)) {
+            objectOutputStream.writeObject(new HashMap<String, String>());
+        }
+        byte[] disallowedPayload = output.toByteArray();
+
+        InvocationTargetException thrown =
+                Assertions.assertThrows(
+                        InvocationTargetException.class,
+                        () -> invokeProductionDeserializeSplit(disallowedPayload));
+
+        Assertions.assertInstanceOf(IOException.class, thrown.getCause());
+        Assertions.assertTrue(
+                thrown.getCause().getMessage().contains("java.util.HashMap"),
+                "Rejection message should name the rejected class: " + thrown.getCause());
+    }
+
+    private static KafkaSourceSplit invokeProductionDeserializeSplit(byte[] serializedSplit)
+            throws Exception {
+        Method method = KafkaSourceReader.class.getDeclaredMethod("deserializeSplit", byte[].class);
+        method.setAccessible(true);
+        return (KafkaSourceSplit) method.invoke(null, (Object) serializedSplit);
     }
 
     private static KafkaSourceReader newReader(boolean commitOnCheckpoint) {
