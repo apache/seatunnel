@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
 import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
 import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
@@ -78,7 +78,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter private final ResourceShortageStats resourceShortageStats = new ResourceShortageStats();
 
-    @Getter private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
+    @Getter private final AutoscalerConfig autoscalerRuntimeConfig;
 
     // Track master-side slot request cost without changing allocation behavior.
     private final AtomicLong requestSlotOperationSuccessCount = new AtomicLong();
@@ -88,13 +88,13 @@ public abstract class AbstractResourceManager implements ResourceManager {
     private final AtomicLong requestSlotOperationMaxInvocationLatencyMs = new AtomicLong();
 
     public AbstractResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        this(nodeEngine, engineConfig, AutoscalerRuntimeConfig.defaults());
+        this(nodeEngine, engineConfig, AutoscalerConfig.defaults());
     }
 
     public AbstractResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            AutoscalerConfig autoscalerRuntimeConfig) {
         this.registerWorker = new ConcurrentHashMap<>();
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;

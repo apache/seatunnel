@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
 import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
 import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
@@ -85,5 +85,5 @@ public interface ResourceManager {
 
     ResourceShortageStats getResourceShortageStats();
 
-    AutoscalerRuntimeConfig getAutoscalerRuntimeConfig();
+    AutoscalerConfig getAutoscalerRuntimeConfig();
 }

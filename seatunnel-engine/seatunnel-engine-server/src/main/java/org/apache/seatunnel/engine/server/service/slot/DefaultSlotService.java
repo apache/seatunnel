@@ -21,7 +21,7 @@ import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReportAutoscalerMetricsOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
@@ -71,7 +71,7 @@ public class DefaultSlotService implements SlotService {
     private ConcurrentMap<Integer, SlotProfile> unassignedSlots;
     private ScheduledExecutorService scheduledExecutorService;
     private final SlotServiceConfig config;
-    private final AutoscalerRuntimeConfig autoscalerConfig;
+    private final AutoscalerConfig autoscalerConfig;
     private volatile boolean initStatus;
     private final IdGenerator idGenerator;
     private final TaskExecutionService taskExecutionService;
@@ -85,14 +85,14 @@ public class DefaultSlotService implements SlotService {
             NodeEngineImpl nodeEngine,
             TaskExecutionService taskExecutionService,
             SlotServiceConfig config) {
-        this(nodeEngine, taskExecutionService, config, AutoscalerRuntimeConfig.defaults());
+        this(nodeEngine, taskExecutionService, config, AutoscalerConfig.defaults());
     }
 
     public DefaultSlotService(
             NodeEngineImpl nodeEngine,
             TaskExecutionService taskExecutionService,
             SlotServiceConfig config,
-            AutoscalerRuntimeConfig autoscalerConfig) {
+            AutoscalerConfig autoscalerConfig) {
         this.nodeEngine = nodeEngine;
         this.config = config;
         this.autoscalerConfig = autoscalerConfig;

@@ -22,12 +22,12 @@ import java.io.Serializable;
 import static com.hazelcast.internal.util.Preconditions.checkPositive;
 
 /**
- * Internal runtime configuration for the advisory autoscaler.
+ * Internal configuration for the advisory autoscaler.
  *
  * <p>This class intentionally contains no YAML or public option parsing. Public configuration
  * adapters may map their values to this model in a later integration layer.
  */
-public final class AutoscalerRuntimeConfig implements Serializable {
+public final class AutoscalerConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
@@ -102,7 +102,7 @@ public final class AutoscalerRuntimeConfig implements Serializable {
     /** Maximum number of evaluations retained independently of recommendations. */
     private final int evaluationHistorySize;
 
-    private AutoscalerRuntimeConfig(Builder builder) {
+    private AutoscalerConfig(Builder builder) {
         this.enabled = builder.enabled;
         this.evaluationIntervalSeconds = builder.evaluationIntervalSeconds;
         this.maxMetricStalenessSeconds = builder.maxMetricStalenessSeconds;
@@ -129,7 +129,7 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         return new Builder();
     }
 
-    public static AutoscalerRuntimeConfig defaults() {
+    public static AutoscalerConfig defaults() {
         return builder().build();
     }
 
@@ -338,9 +338,9 @@ public final class AutoscalerRuntimeConfig implements Serializable {
             return this;
         }
 
-        public AutoscalerRuntimeConfig build() {
+        public AutoscalerConfig build() {
             validate();
-            return new AutoscalerRuntimeConfig(this);
+            return new AutoscalerConfig(this);
         }
 
         private void validate() {

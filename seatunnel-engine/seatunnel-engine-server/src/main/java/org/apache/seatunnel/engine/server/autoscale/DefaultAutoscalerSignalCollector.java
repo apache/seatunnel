@@ -39,7 +39,7 @@ import java.util.function.LongSupplier;
 public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalCollector {
 
     private final ResourceManager resourceManager;
-    private final AutoscalerRuntimeConfig config;
+    private final AutoscalerConfig config;
     private final SlotServiceConfig slotServiceConfig;
 
     /** Supplies the current number of jobs waiting in the scheduler queue. */
@@ -66,7 +66,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
      */
     public DefaultAutoscalerSignalCollector(
             ResourceManager resourceManager,
-            AutoscalerRuntimeConfig config,
+            AutoscalerConfig config,
             SlotServiceConfig slotServiceConfig,
             IntSupplier pendingJobCountSupplier,
             LongSupplier longestPendingDurationMillisSupplier,

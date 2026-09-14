@@ -53,7 +53,7 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoScaler;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoscalerSignalCollector;
@@ -258,7 +258,7 @@ public class CoordinatorService {
     private final EngineConfig engineConfig;
 
     /** Immutable, server-local autoscaler settings used by the coordinator and resource manager. */
-    private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
+    private final AutoscalerConfig autoscalerRuntimeConfig;
 
     private ConnectorPackageService connectorPackageService;
 
@@ -277,12 +277,7 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig) {
-        this(
-                nodeEngine,
-                seaTunnelServer,
-                engineContext,
-                engineConfig,
-                AutoscalerRuntimeConfig.defaults());
+        this(nodeEngine, seaTunnelServer, engineContext, engineConfig, AutoscalerConfig.defaults());
     }
 
     public CoordinatorService(
@@ -290,7 +285,7 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            AutoscalerConfig autoscalerRuntimeConfig) {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
@@ -1464,8 +1459,7 @@ public class CoordinatorService {
                                 this::getPendingJobCount,
                                 this::getLongestPendingDurationMillis,
                                 System::currentTimeMillis),
-                        new HierarchicalAutoscalingPolicy(
-                                DefaultAutoScaler.policyConfig(autoscalerRuntimeConfig)),
+                        new HierarchicalAutoscalingPolicy(autoscalerRuntimeConfig),
                         DefaultAutoScaler.stateTracker(autoscalerRuntimeConfig),
                         autoscalerStateStore,
                         new SystemAutoscalerTimeSource());

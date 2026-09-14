@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.service.slot;
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.common.config.server.SlotServiceConfig;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReportAutoscalerMetricsOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.WorkerHeartbeatOperation;
 
@@ -62,7 +62,7 @@ class DefaultSlotServiceTest {
 
         SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
         slotServiceConfig.setAllocateStrategy(AllocateStrategy.SYSTEM_LOAD);
-        AutoscalerRuntimeConfig autoscalerConfig = AutoscalerRuntimeConfig.defaults();
+        AutoscalerConfig autoscalerConfig = AutoscalerConfig.defaults();
         CapturingSlotService slotService =
                 new CapturingSlotService(
                         nodeEngine,
@@ -106,8 +106,7 @@ class DefaultSlotServiceTest {
 
         SlotServiceConfig slotServiceConfig = new SlotServiceConfig();
         slotServiceConfig.setAllocateStrategy(AllocateStrategy.SYSTEM_LOAD);
-        AutoscalerRuntimeConfig autoscalerConfig =
-                AutoscalerRuntimeConfig.builder().enabled(true).build();
+        AutoscalerConfig autoscalerConfig = AutoscalerConfig.builder().enabled(true).build();
         CapturingSlotService slotService =
                 new CapturingSlotService(
                         nodeEngine,
@@ -141,7 +140,7 @@ class DefaultSlotServiceTest {
                 NodeEngineImpl nodeEngine,
                 TaskExecutionService taskExecutionService,
                 SlotServiceConfig config,
-                AutoscalerRuntimeConfig autoscalerConfig) {
+                AutoscalerConfig autoscalerConfig) {
             super(nodeEngine, taskExecutionService, config, autoscalerConfig);
             completedFuture = Mockito.mock(InvocationFuture.class);
             Mockito.when(completedFuture.join()).thenReturn(null);

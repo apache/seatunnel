@@ -18,7 +18,7 @@
 package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 
 import com.hazelcast.spi.impl.NodeEngine;
 
@@ -31,7 +31,7 @@ public class StandaloneResourceManager extends AbstractResourceManager {
     public StandaloneResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            AutoscalerConfig autoscalerRuntimeConfig) {
         super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
     }
 }

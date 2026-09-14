@@ -17,7 +17,7 @@ import java.util.concurrent.TimeUnit;
 
 /** Runs policy evaluations, records state transitions, and publishes stable scaling targets. */
 public final class DefaultAutoScaler {
-    private final AutoscalerRuntimeConfig config;
+    private final AutoscalerConfig config;
     private final AutoscalerSignalCollector signalCollector;
     private final AutoscalingPolicy policy;
     private final AutoscalingStateTracker stateTracker;
@@ -30,7 +30,7 @@ public final class DefaultAutoScaler {
 
     public DefaultAutoScaler(
             long masterEpoch,
-            AutoscalerRuntimeConfig config,
+            AutoscalerConfig config,
             AutoscalerSignalCollector signalCollector,
             AutoscalingPolicy policy,
             AutoscalingStateTracker stateTracker,
@@ -45,18 +45,7 @@ public final class DefaultAutoScaler {
         this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
     }
 
-    public static AutoscalerPolicyConfig policyConfig(AutoscalerRuntimeConfig config) {
-        return AutoscalerPolicyConfig.builder()
-                .scaleOutCpuThreshold(config.getScaleOutCpuThreshold())
-                .scaleOutJvmMemoryThreshold(config.getScaleOutJvmMemoryThreshold())
-                .scaleInCpuThreshold(config.getScaleInCpuThreshold())
-                .scaleInJvmMemoryThreshold(config.getScaleInJvmMemoryThreshold())
-                .fixedSlotScaleOutThreshold(config.getFixedSlotScaleOutThreshold())
-                .fixedSlotScaleInThreshold(config.getFixedSlotScaleInThreshold())
-                .build();
-    }
-
-    public static AutoscalingStateTracker stateTracker(AutoscalerRuntimeConfig config) {
+    public static AutoscalingStateTracker stateTracker(AutoscalerConfig config) {
         return new AutoscalingStateTracker(
                 TimeUnit.SECONDS.toMillis(config.getScaleOutStabilizationSeconds()),
                 TimeUnit.SECONDS.toMillis(config.getScaleInStabilizationSeconds()),

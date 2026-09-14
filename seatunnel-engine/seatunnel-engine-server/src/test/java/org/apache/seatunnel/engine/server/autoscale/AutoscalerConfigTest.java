@@ -20,11 +20,11 @@ package org.apache.seatunnel.engine.server.autoscale;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-class AutoscalerRuntimeConfigTest {
+class AutoscalerConfigTest {
 
     @Test
     void defaultsToDisabledAndSafeRuntimeValues() {
-        AutoscalerRuntimeConfig config = AutoscalerRuntimeConfig.defaults();
+        AutoscalerConfig config = AutoscalerConfig.defaults();
 
         Assertions.assertFalse(config.isEnabled());
         Assertions.assertTrue(config.getEvaluationIntervalSeconds() > 0);
@@ -37,31 +37,31 @@ class AutoscalerRuntimeConfigTest {
     void rejectsInvalidWorkerBounds() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> AutoscalerRuntimeConfig.builder().minWorkers(3).maxWorkers(2).build());
+                () -> AutoscalerConfig.builder().minWorkers(3).maxWorkers(2).build());
     }
 
     @Test
     void rejectsNonPositiveStabilizationWindows() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> AutoscalerRuntimeConfig.builder().scaleOutStabilizationSeconds(0).build());
+                () -> AutoscalerConfig.builder().scaleOutStabilizationSeconds(0).build());
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> AutoscalerRuntimeConfig.builder().scaleInStabilizationSeconds(-1).build());
+                () -> AutoscalerConfig.builder().scaleInStabilizationSeconds(-1).build());
     }
 
     @Test
     void rejectsNonPositiveRecommendationRepeatInterval() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> AutoscalerRuntimeConfig.builder().recommendationRepeatSeconds(0).build());
+                () -> AutoscalerConfig.builder().recommendationRepeatSeconds(0).build());
     }
 
     @Test
     void defaultsKeepFiringToZeroAndRejectsNegativeValues() {
-        Assertions.assertEquals(0, AutoscalerRuntimeConfig.defaults().getKeepFiringSeconds());
+        Assertions.assertEquals(0, AutoscalerConfig.defaults().getKeepFiringSeconds());
         Assertions.assertThrows(
                 IllegalArgumentException.class,
-                () -> AutoscalerRuntimeConfig.builder().keepFiringSeconds(-1).build());
+                () -> AutoscalerConfig.builder().keepFiringSeconds(-1).build());
     }
 }

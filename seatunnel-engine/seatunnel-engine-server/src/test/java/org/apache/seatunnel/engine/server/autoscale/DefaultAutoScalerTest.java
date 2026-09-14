@@ -20,8 +20,8 @@ import java.util.Collections;
 class DefaultAutoScalerTest {
     @Test
     void publishesOnlyWhenFiringStartsOrItsRepeatIntervalElapses() {
-        AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder()
+        AutoscalerConfig config =
+                AutoscalerConfig.builder()
                         .scaleOutStabilizationSeconds(1)
                         .recommendationRepeatSeconds(10)
                         .build();
@@ -62,8 +62,8 @@ class DefaultAutoScalerTest {
 
     @Test
     void recoveryDoesNotPublishRecommendations() {
-        AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder()
+        AutoscalerConfig config =
+                AutoscalerConfig.builder()
                         .scaleOutStabilizationSeconds(1)
                         .keepFiringSeconds(10)
                         .recommendationRepeatSeconds(100)
@@ -98,8 +98,8 @@ class DefaultAutoScalerTest {
 
     @Test
     void returnsToNormalBeforeFiringAnOppositeRecommendation() {
-        AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder()
+        AutoscalerConfig config =
+                AutoscalerConfig.builder()
                         .scaleOutStabilizationSeconds(1)
                         .scaleInStabilizationSeconds(1)
                         .build();
@@ -143,7 +143,7 @@ class DefaultAutoScalerTest {
     }
 
     private static DefaultAutoScaler scaler(
-            AutoscalerRuntimeConfig config,
+            AutoscalerConfig config,
             FakeTime time,
             InMemoryAutoscalerStateStore store,
             EvaluationAction[] action) {

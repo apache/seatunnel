@@ -107,7 +107,7 @@ class DefaultAutoscalerSignalCollectorTest {
         DefaultAutoscalerSignalCollector collector =
                 new DefaultAutoscalerSignalCollector(
                         resourceManager,
-                        AutoscalerRuntimeConfig.defaults(),
+                        AutoscalerConfig.defaults(),
                         new SlotServiceConfig(),
                         () -> 2,
                         () -> 300L,
@@ -124,16 +124,14 @@ class DefaultAutoscalerSignalCollectorTest {
     }
 
     private DefaultAutoscalerSignalCollector collector(FakeResourceManager resourceManager) {
-        AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder().maxMetricStalenessSeconds(5).build();
+        AutoscalerConfig config = AutoscalerConfig.builder().maxMetricStalenessSeconds(5).build();
         return new DefaultAutoscalerSignalCollector(
                 resourceManager, config, new SlotServiceConfig(), () -> 0, () -> 0L, () -> 10_500L);
     }
 
     private DefaultAutoscalerSignalCollector collector(
             FakeResourceManager resourceManager, SlotServiceConfig slotServiceConfig) {
-        AutoscalerRuntimeConfig config =
-                AutoscalerRuntimeConfig.builder().maxMetricStalenessSeconds(5).build();
+        AutoscalerConfig config = AutoscalerConfig.builder().maxMetricStalenessSeconds(5).build();
         return new DefaultAutoscalerSignalCollector(
                 resourceManager, config, slotServiceConfig, () -> 0, () -> 0L, () -> 10_500L);
     }
@@ -256,8 +254,8 @@ class DefaultAutoscalerSignalCollectorTest {
         }
 
         @Override
-        public AutoscalerRuntimeConfig getAutoscalerRuntimeConfig() {
-            return AutoscalerRuntimeConfig.defaults();
+        public AutoscalerConfig getAutoscalerRuntimeConfig() {
+            return AutoscalerConfig.defaults();
         }
     }
 }

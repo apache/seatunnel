@@ -36,7 +36,7 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
 import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
 import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
@@ -536,11 +536,8 @@ public class CoordinatorServiceTest {
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
 
-        AutoscalerRuntimeConfig runtimeConfig =
-                AutoscalerRuntimeConfig.builder()
-                        .enabled(true)
-                        .evaluationIntervalSeconds(3600)
-                        .build();
+        AutoscalerConfig runtimeConfig =
+                AutoscalerConfig.builder().enabled(true).evaluationIntervalSeconds(3600).build();
         CoordinatorService coordinatorService =
                 newMockCoordinatorService(server, new EngineConfig(), runtimeConfig);
         try {
@@ -841,13 +838,13 @@ public class CoordinatorServiceTest {
 
     private CoordinatorService newMockCoordinatorService(
             SeaTunnelServer server, EngineConfig engineConfig) {
-        return newMockCoordinatorService(server, engineConfig, AutoscalerRuntimeConfig.defaults());
+        return newMockCoordinatorService(server, engineConfig, AutoscalerConfig.defaults());
     }
 
     private CoordinatorService newMockCoordinatorService(
             SeaTunnelServer server,
             EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            AutoscalerConfig autoscalerRuntimeConfig) {
         NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
         ILogger logger = Mockito.mock(ILogger.class);
         HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);

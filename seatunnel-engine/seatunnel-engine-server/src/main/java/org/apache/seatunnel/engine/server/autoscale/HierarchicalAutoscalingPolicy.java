@@ -29,9 +29,9 @@ import java.util.Objects;
  */
 public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
 
-    private final AutoscalerPolicyConfig config;
+    private final AutoscalerConfig config;
 
-    public HierarchicalAutoscalingPolicy(AutoscalerPolicyConfig config) {
+    public HierarchicalAutoscalingPolicy(AutoscalerConfig config) {
         this.config = Objects.requireNonNull(config, "config");
     }
 

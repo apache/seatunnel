@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
@@ -37,7 +37,7 @@ public class KubernetesResourceManager extends AbstractResourceManager
     public KubernetesResourceManager(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            AutoscalerConfig autoscalerRuntimeConfig) {
         super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
     }
 

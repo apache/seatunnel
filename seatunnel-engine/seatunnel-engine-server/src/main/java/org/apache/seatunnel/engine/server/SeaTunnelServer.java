@@ -26,7 +26,7 @@ import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -108,19 +108,19 @@ public class SeaTunnelServer
 
     private final SeaTunnelConfig seaTunnelConfig;
 
-    private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
+    private final AutoscalerConfig autoscalerRuntimeConfig;
 
     private volatile boolean isRunning = true;
 
     @Getter private EventService eventService;
 
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, AutoscalerRuntimeConfig.defaults());
+        this(seaTunnelConfig, AutoscalerConfig.defaults());
     }
 
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig,
-            @NonNull AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            @NonNull AutoscalerConfig autoscalerRuntimeConfig) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;

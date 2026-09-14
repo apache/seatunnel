@@ -19,7 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerRuntimeConfig;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.kubernetes.KubernetesResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn.YarnResourceManager;
 
@@ -31,16 +31,16 @@ public class ResourceManagerFactory {
 
     private final EngineConfig engineConfig;
 
-    private final AutoscalerRuntimeConfig autoscalerRuntimeConfig;
+    private final AutoscalerConfig autoscalerRuntimeConfig;
 
     public ResourceManagerFactory(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        this(nodeEngine, engineConfig, AutoscalerRuntimeConfig.defaults());
+        this(nodeEngine, engineConfig, AutoscalerConfig.defaults());
     }
 
     public ResourceManagerFactory(
             NodeEngine nodeEngine,
             EngineConfig engineConfig,
-            AutoscalerRuntimeConfig autoscalerRuntimeConfig) {
+            AutoscalerConfig autoscalerRuntimeConfig) {
         this.nodeEngine = nodeEngine;
         this.engineConfig = engineConfig;
         this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;

@@ -24,7 +24,7 @@ class HierarchicalAutoscalingPolicyTest {
 
     private final HierarchicalAutoscalingPolicy policy =
             new HierarchicalAutoscalingPolicy(
-                    AutoscalerPolicyConfig.builder()
+                    AutoscalerConfig.builder()
                             .scaleOutCpuThreshold(0.8d)
                             .scaleOutJvmMemoryThreshold(0.8d)
                             .scaleInCpuThreshold(0.3d)
