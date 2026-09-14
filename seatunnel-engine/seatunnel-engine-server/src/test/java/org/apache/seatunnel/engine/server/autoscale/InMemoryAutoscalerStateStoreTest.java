@@ -28,8 +28,7 @@ class InMemoryAutoscalerStateStoreTest {
         store.recordEvaluation(first);
         store.recordEvaluation(second);
         ScalingRecommendation recommendation = recommendation(1L, 0L);
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(recommendation));
+        store.saveRecommendation(recommendation);
 
         AutoscalerView view = store.view(true, true);
         Assertions.assertEquals(second, view.getLatestEvaluationRecord());
@@ -41,17 +40,15 @@ class InMemoryAutoscalerStateStoreTest {
     }
 
     @Test
-    void fencesDuplicateRecommendationsButNeverCoalescesEvaluationRecords() {
+    void storesRecommendationsWithoutCoalescingEvaluationRecords() {
         InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(2, 3);
         ScalingRecommendation recommendation = recommendation(1L, 0L);
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(recommendation));
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.DUPLICATE, store.publish(recommendation));
+        store.saveRecommendation(recommendation);
+        store.saveRecommendation(recommendation);
         store.recordEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 1L));
         store.recordEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 2L));
         Assertions.assertEquals(2, store.view(true, true).getEvaluationHistory().size());
-        Assertions.assertEquals(1, store.view(true, true).getRecommendationHistory().size());
+        Assertions.assertEquals(2, store.view(true, true).getRecommendationHistory().size());
     }
 
     private static AutoscalingEvaluationRecord record(

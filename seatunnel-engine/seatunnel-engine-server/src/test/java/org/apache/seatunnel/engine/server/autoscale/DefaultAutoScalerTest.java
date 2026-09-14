@@ -163,6 +163,7 @@ class DefaultAutoScalerTest {
                 snapshot -> new AutoscaleEvaluation(action[0], Collections.singletonList("test")),
                 DefaultAutoScaler.stateTracker(config),
                 store,
+                new DefaultRecommendationPublisher(store),
                 time);
     }
 

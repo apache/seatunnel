@@ -22,6 +22,7 @@ public final class DefaultAutoScaler {
     private final AutoscalingPolicy policy;
     private final AutoscalingStateTracker stateTracker;
     private final AutoscalerStateStore stateStore;
+    private final RecommendationPublisher recommendationPublisher;
     private final AutoscalerTimeSource timeSource;
     private long masterEpoch;
     private long generation;
@@ -35,6 +36,7 @@ public final class DefaultAutoScaler {
             AutoscalingPolicy policy,
             AutoscalingStateTracker stateTracker,
             AutoscalerStateStore stateStore,
+            RecommendationPublisher recommendationPublisher,
             AutoscalerTimeSource timeSource) {
         this.masterEpoch = masterEpoch;
         this.config = Objects.requireNonNull(config, "config");
@@ -42,6 +44,8 @@ public final class DefaultAutoScaler {
         this.policy = Objects.requireNonNull(policy, "policy");
         this.stateTracker = Objects.requireNonNull(stateTracker, "stateTracker");
         this.stateStore = Objects.requireNonNull(stateStore, "stateStore");
+        this.recommendationPublisher =
+                Objects.requireNonNull(recommendationPublisher, "recommendationPublisher");
         this.timeSource = Objects.requireNonNull(timeSource, "timeSource");
     }
 
@@ -53,9 +57,9 @@ public final class DefaultAutoScaler {
     }
 
     /** Collects metrics, records the resulting state transition, and publishes stable targets. */
-    public synchronized RecommendationFence.PublicationResult evaluateOnce() {
+    public synchronized void evaluateOnce() {
         if (closed) {
-            return RecommendationFence.PublicationResult.REJECTED;
+            return;
         }
         AutoscalerMetricsSnapshot snapshot = signalCollector.collect();
         stateStore.updateCurrentSnapshot(snapshot);
@@ -67,9 +71,9 @@ public final class DefaultAutoScaler {
         stateStore.recordEvaluation(
                 new AutoscalingEvaluationRecord(evaluation, transition, evaluatedAtMillis));
         if (!shouldPublishRecommendation(transition, monotonicTimeMillis)) {
-            return RecommendationFence.PublicationResult.ACCEPTED;
+            return;
         }
-        return publishRecommendation(
+        publishRecommendation(
                 transition.getCurrentStateAction(), snapshot, evaluation, evaluatedAtMillis);
     }
 
@@ -82,6 +86,7 @@ public final class DefaultAutoScaler {
         generation = 0L;
         lastPublishedTimeMillis = -1L;
         stateTracker.reset();
+        recommendationPublisher.reset();
     }
 
     public synchronized long getMasterEpoch() {
@@ -92,7 +97,7 @@ public final class DefaultAutoScaler {
         return generation;
     }
 
-    private RecommendationFence.PublicationResult publishRecommendation(
+    private RecommendationPublisher.PublicationResult publishRecommendation(
             EvaluationAction action,
             AutoscalerMetricsSnapshot snapshot,
             AutoscaleEvaluation evaluation,
@@ -111,8 +116,9 @@ public final class DefaultAutoScaler {
                                                 config.getEvaluationIntervalSeconds()))
                         .decisionReasons(evaluation.getDecisionReasons())
                         .build();
-        RecommendationFence.PublicationResult result = stateStore.publish(recommendation);
-        if (result == RecommendationFence.PublicationResult.ACCEPTED) {
+        RecommendationPublisher.PublicationResult result =
+                recommendationPublisher.publish(recommendation);
+        if (result == RecommendationPublisher.PublicationResult.ACCEPTED) {
             lastPublishedTimeMillis = timeSource.monotonicTimeMillis();
         }
         return result;

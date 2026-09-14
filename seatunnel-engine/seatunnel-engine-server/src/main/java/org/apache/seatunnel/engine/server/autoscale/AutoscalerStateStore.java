@@ -23,7 +23,7 @@ public interface AutoscalerStateStore {
 
     void recordEvaluation(AutoscalingEvaluationRecord record);
 
-    RecommendationFence.PublicationResult publish(ScalingRecommendation recommendation);
+    void saveRecommendation(ScalingRecommendation recommendation);
 
     void clear();
 

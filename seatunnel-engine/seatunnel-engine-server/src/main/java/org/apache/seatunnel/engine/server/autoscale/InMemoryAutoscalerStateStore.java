@@ -22,7 +22,6 @@ import java.util.Objects;
 public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore {
     private final int recommendationHistorySize;
     private final int evaluationHistorySize;
-    private final RecommendationFence fence = new RecommendationFence();
     private final LinkedList<AutoscalingEvaluationRecord> evaluationHistory = new LinkedList<>();
     private final LinkedList<ScalingRecommendation> recommendationHistory = new LinkedList<>();
     private AutoscalingEvaluationRecord latestEvaluationRecord;
@@ -44,7 +43,6 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
         currentSnapshot = null;
         evaluationHistory.clear();
         recommendationHistory.clear();
-        fence.reset();
     }
 
     @Override
@@ -60,17 +58,10 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
     }
 
     @Override
-    public synchronized RecommendationFence.PublicationResult publish(
-            ScalingRecommendation recommendation) {
-        Objects.requireNonNull(recommendation, "recommendation");
-        RecommendationFence.PublicationResult result =
-                fence.tryPublish(recommendation.getMasterEpoch(), recommendation.getGeneration());
-        if (result == RecommendationFence.PublicationResult.ACCEPTED) {
-            latestRecommendation = recommendation;
-            recommendationHistory.add(recommendation);
-            trim(recommendationHistory, recommendationHistorySize);
-        }
-        return result;
+    public synchronized void saveRecommendation(ScalingRecommendation recommendation) {
+        latestRecommendation = Objects.requireNonNull(recommendation, "recommendation");
+        recommendationHistory.add(recommendation);
+        trim(recommendationHistory, recommendationHistorySize);
     }
 
     @Override

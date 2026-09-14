@@ -57,6 +57,7 @@ import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoScaler;
 import org.apache.seatunnel.engine.server.autoscale.DefaultAutoscalerSignalCollector;
+import org.apache.seatunnel.engine.server.autoscale.DefaultRecommendationPublisher;
 import org.apache.seatunnel.engine.server.autoscale.HierarchicalAutoscalingPolicy;
 import org.apache.seatunnel.engine.server.autoscale.InMemoryAutoscalerStateStore;
 import org.apache.seatunnel.engine.server.autoscale.SystemAutoscalerTimeSource;
@@ -1462,6 +1463,7 @@ public class CoordinatorService {
                         new HierarchicalAutoscalingPolicy(autoscalerRuntimeConfig),
                         DefaultAutoScaler.stateTracker(autoscalerRuntimeConfig),
                         autoscalerStateStore,
+                        new DefaultRecommendationPublisher(autoscalerStateStore),
                         new SystemAutoscalerTimeSource());
         newAutoScaler.reset(masterEpoch);
         autoScaler = newAutoScaler;
