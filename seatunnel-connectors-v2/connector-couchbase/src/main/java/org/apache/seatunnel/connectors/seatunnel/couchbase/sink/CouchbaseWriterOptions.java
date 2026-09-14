@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.couchbase.sink;
 
+import org.apache.seatunnel.connectors.seatunnel.couchbase.config.CouchbaseSinkOptions;
+
 import lombok.Getter;
 
 import java.io.Serializable;
@@ -42,6 +44,7 @@ public class CouchbaseWriterOptions implements Serializable {
     private final String[] primaryKey;
     private final int retryMax;
     private final long retryInterval;
+    private final int readyTimeout;
 
     private CouchbaseWriterOptions(Builder builder) {
         this.connectionString = builder.connectionString;
@@ -55,10 +58,16 @@ public class CouchbaseWriterOptions implements Serializable {
         this.primaryKey = builder.primaryKey;
         this.retryMax = builder.retryMax;
         this.retryInterval = builder.retryInterval;
+        this.readyTimeout = builder.readyTimeout;
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /** Retains the previous readiness budget for options serialized before this field existed. */
+    public int getReadyTimeout() {
+        return readyTimeout == 0 ? CouchbaseSinkOptions.READY_TIMEOUT.defaultValue() : readyTimeout;
     }
 
     /** Fluent builder for {@link CouchbaseWriterOptions}. */
@@ -74,6 +83,7 @@ public class CouchbaseWriterOptions implements Serializable {
         private String[] primaryKey = new String[0];
         private int retryMax = 3;
         private long retryInterval = 1000L;
+        private int readyTimeout = CouchbaseSinkOptions.READY_TIMEOUT.defaultValue();
 
         public Builder withConnectionString(String connectionString) {
             this.connectionString = connectionString;
@@ -127,6 +137,21 @@ public class CouchbaseWriterOptions implements Serializable {
 
         public Builder withRetryInterval(long retryInterval) {
             this.retryInterval = retryInterval;
+            return this;
+        }
+
+        /**
+         * Sets the bucket-readiness budget used during writer initialization.
+         *
+         * @param readyTimeout positive readiness timeout in seconds
+         * @return this builder
+         * @throws IllegalArgumentException if the timeout is zero or negative
+         */
+        public Builder withReadyTimeout(int readyTimeout) {
+            if (readyTimeout <= 0) {
+                throw new IllegalArgumentException("'ready.timeout' must be greater than zero.");
+            }
+            this.readyTimeout = readyTimeout;
             return this;
         }
 
