@@ -20,7 +20,9 @@ package org.apache.seatunnel.connectors.seatunnel.iotdb.source;
 import org.apache.seatunnel.shade.com.google.common.base.Strings;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.exception.IotdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.iotdb.state.IoTDBSourceState;
@@ -121,11 +123,26 @@ public class IoTDBSourceSplitEnumerator
      * <p>split 2: select * from test where (time >= 6 and time < 11) and ( age > 0 and age < 10 )
      */
     private Set<IoTDBSourceSplit> getIotDBSplit() {
+        if (!conf.getOptional(ConnectorCommonOptions.TABLE_CONFIGS).isPresent()) {
+            return getIotDBSplit(conf, null);
+        }
+        Set<IoTDBSourceSplit> splits = new HashSet<>();
+        for (ReadonlyConfig tableConfig : IoTDBSourceFactory.tableConfigs(conf)) {
+            String tableId =
+                    CatalogTableUtil.buildWithConfig(tableConfig).getTablePath().toString();
+            splits.addAll(getIotDBSplit(tableConfig, tableId));
+        }
+        return splits;
+    }
+
+    private Set<IoTDBSourceSplit> getIotDBSplit(ReadonlyConfig conf, String tableId) {
         String sql = conf.get(SQL);
         Set<IoTDBSourceSplit> iotDBSourceSplits = new HashSet<>();
         // no need numPartitions, use one partition
         if (!conf.getOptional(NUM_PARTITIONS).isPresent()) {
-            iotDBSourceSplits.add(new IoTDBSourceSplit(DEFAULT_PARTITIONS, sql));
+            iotDBSourceSplits.add(
+                    new IoTDBSourceSplit(
+                            tableId == null ? DEFAULT_PARTITIONS : tableId + ":0", sql, tableId));
             return iotDBSourceSplits;
         }
         long start = conf.get(LOWER_BOUND);
@@ -134,12 +151,13 @@ public class IoTDBSourceSplitEnumerator
         String sqlBase = sql;
         String sqlAlign = null;
         String sqlCondition = null;
-        String[] sqls = sqlBase.split("(?i)" + SQL_ALIGN);
+        String[] sqls =
+                sqlBase.split(tableId == null ? "(?i)" + SQL_ALIGN : "(?i)\\balign\\s+by\\b");
         if (sqls.length > 1) {
             sqlBase = sqls[0];
             sqlAlign = sqls[1];
         }
-        sqls = sqlBase.split("(?i)" + SQL_WHERE);
+        sqls = sqlBase.split(tableId == null ? "(?i)" + SQL_WHERE : "(?i)\\bwhere\\b");
         if (sqls.length > SQL_WHERE_SPLIT_LENGTH) {
             throw new IotdbConnectorException(
                     CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
@@ -154,9 +172,16 @@ public class IoTDBSourceSplitEnumerator
         if (end - start < numPartitions) {
             numPartitions = (int) (end - start);
         }
+        if (tableId != null) {
+            long range = end - start + 1;
+            numPartitions = (int) Math.min(conf.get(NUM_PARTITIONS), range);
+            size = range / numPartitions;
+            remainder = range % numPartitions;
+        }
         long currentStart = start;
         int i = 0;
         while (i < numPartitions) {
+            long partitionSize = tableId == null ? size : size + (i < remainder ? 1 : 0);
             String query =
                     " where ("
                             + RESERVED_TIME
@@ -165,11 +190,11 @@ public class IoTDBSourceSplitEnumerator
                             + " and "
                             + RESERVED_TIME
                             + " < "
-                            + (currentStart + size)
+                            + (currentStart + partitionSize)
                             + ") ";
             i++;
-            currentStart += size;
-            if (i + 1 <= numPartitions) {
+            currentStart += partitionSize;
+            if (tableId == null && i + 1 <= numPartitions) {
                 currentStart = currentStart - remainder;
             }
             query = sqlBase + query;
@@ -179,7 +204,11 @@ public class IoTDBSourceSplitEnumerator
             if (!Strings.isNullOrEmpty(sqlAlign)) {
                 query = query + " align by " + sqlAlign;
             }
-            iotDBSourceSplits.add(new IoTDBSourceSplit(String.valueOf(query.hashCode()), query));
+            iotDBSourceSplits.add(
+                    new IoTDBSourceSplit(
+                            tableId == null ? String.valueOf(query.hashCode()) : tableId + ":" + i,
+                            query,
+                            tableId));
         }
         return iotDBSourceSplits;
     }

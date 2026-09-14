@@ -44,6 +44,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.ACCESS_KEY_ID;
 import static org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceOptions.DEBEZIUM_RECORD_INCLUDE_SCHEMA;
@@ -67,7 +68,9 @@ public class AmazonSqsSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(URL, REGION, SCHEMA)
+                .required(URL, notBlank(URL))
+                .required(REGION, notBlank(REGION))
+                .required(SCHEMA)
                 .optional(
                         ACCESS_KEY_ID,
                         SECRET_ACCESS_KEY,
