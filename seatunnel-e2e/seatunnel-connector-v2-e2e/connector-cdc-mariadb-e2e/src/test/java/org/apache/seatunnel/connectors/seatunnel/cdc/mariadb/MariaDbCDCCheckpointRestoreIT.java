@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
+import org.awaitility.core.ConditionTimeoutException;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -412,9 +413,12 @@ public class MariaDbCDCCheckpointRestoreIT extends TestSuiteBase implements Test
 
     private void awaitSourceAndSinkConsistent(
             String database, String sourceTable, String sinkTable) {
-        // Dump the full row sets of both tables when the polling window is exhausted so the
-        // actual divergence shape (extra duplicate rows vs. a genuinely missing/lagging row) is
-        // directly visible in the CI log instead of inferred from a single differing index.
+        // Dump the full row sets of both tables when the polling window is exhausted, or when a
+        // SQLException escapes untilAsserted (query() wraps it as a bare RuntimeException, which
+        // Awaitility does not retry and which would otherwise bypass this diagnostic entirely -
+        // plausible here since the test drops/re-adds a primary key on the sink table around the
+        // restore), so the actual divergence shape is directly visible in the CI log instead of
+        // inferred from a single differing index.
         try {
             Awaitility.await()
                     .atMost(2, TimeUnit.MINUTES)
@@ -424,22 +428,45 @@ public class MariaDbCDCCheckpointRestoreIT extends TestSuiteBase implements Test
                                     Assertions.assertIterableEquals(
                                             query(getSourceQuerySQL(database, sourceTable)),
                                             query(getSinkQuerySQL(database, sinkTable))));
-        } catch (org.awaitility.core.ConditionTimeoutException e) {
+        } catch (ConditionTimeoutException e) {
+            dumpTableContentsOnBestEffort(database, sourceTable, sinkTable);
+            throw e;
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                dumpTableContentsOnBestEffort(database, sourceTable, sinkTable);
+            }
+            throw e;
+        }
+    }
+
+    /**
+     * Logs the full row sets of both tables for post-mortem debugging of a source/sink divergence.
+     * Any failure while querying for the dump itself is logged and swallowed so it never masks the
+     * original failure this method was called to explain.
+     *
+     * @param database database holding both tables
+     * @param sourceTable source table to dump
+     * @param sinkTable sink table to dump
+     */
+    private void dumpTableContentsOnBestEffort(
+            String database, String sourceTable, String sinkTable) {
+        try {
             List<List<Object>> sourceRows = query(getSourceQuerySQL(database, sourceTable));
             List<List<Object>> sinkRows = query(getSinkQuerySQL(database, sinkTable));
             log.error(
-                    "Source/sink diverged after polling timeout. source table {}.{} has {} rows: {}",
+                    "Source/sink diverged. source table {}.{} has {} rows: {}",
                     database,
                     sourceTable,
                     sourceRows.size(),
                     sourceRows);
             log.error(
-                    "Source/sink diverged after polling timeout. sink table {}.{} has {} rows: {}",
+                    "Source/sink diverged. sink table {}.{} has {} rows: {}",
                     database,
                     sinkTable,
                     sinkRows.size(),
                     sinkRows);
-            throw e;
+        } catch (RuntimeException dumpFailure) {
+            log.warn("Failed to dump table contents for diagnostics", dumpFailure);
         }
     }
 
