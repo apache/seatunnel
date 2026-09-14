@@ -326,6 +326,13 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=SAVEPOINT&restoreSourc
 ```
 
 ### 6.3 Restart from a specific savepoint path
+
+> **Note**: the `restore.mode` / `savepoint.path` environment options are **planned but not
+> implemented yet**. The current engine selects the newest completed savepoint bundle of the
+> restore source job automatically (see [SAVEPOINT restore](rest-api-v2.md#submit-a-job)); to
+> restore from a specific bundle you must remove or rename the unwanted bundles in
+> `<namespace>/savepoint/<job-id>/`.
+
 ```bash
 curl -X POST http://<master>:8080/submit-job \
   -H "Content-Type: application/json" \

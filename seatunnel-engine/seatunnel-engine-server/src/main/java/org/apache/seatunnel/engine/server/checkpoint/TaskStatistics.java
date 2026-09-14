@@ -40,14 +40,14 @@ public class TaskStatistics implements Serializable {
 
     private SubtaskStatistics latestAckedSubtaskStatistics;
 
-    TaskStatistics(Long jobVertexId, int parallelism) {
+    public TaskStatistics(Long jobVertexId, int parallelism) {
         this.jobVertexId = checkNotNull(jobVertexId, "JobVertexID");
         checkArgument(parallelism > 0, "the parallelism of task <= 0");
         this.subtaskStats = Arrays.asList(new SubtaskStatistics[parallelism]);
         this.subtaskCompleted = new boolean[parallelism];
     }
 
-    boolean reportSubtaskStatistics(SubtaskStatistics subtask) {
+    public boolean reportSubtaskStatistics(SubtaskStatistics subtask) {
         checkNotNull(subtask, "Subtask stats");
         int subtaskIndex = subtask.getSubtaskIndex();
 
@@ -63,6 +63,11 @@ public class TaskStatistics implements Serializable {
         } else {
             return false;
         }
+    }
+
+    /** @return a defensive copy of the per-subtask completion flags. */
+    public boolean[] getSubtaskCompleted() {
+        return subtaskCompleted.clone();
     }
 
     /**

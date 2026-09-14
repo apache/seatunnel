@@ -32,13 +32,15 @@ Checkpoint 在某一时间点捕获所有流水线算子状态的一致性快照
 
 ### 存储路径结构
 
-```
+```text
 <namespace>/                          # 配置的 namespace，默认 /seatunnel/checkpoint/
   <job-id>/
-    <pipeline-id>/
-      <checkpoint-id>/
-        <task-location>/state-data
+    <timestamp>-<random>-<pipeline-id>-<checkpoint-id>.ser
 ```
+
+每个 Checkpoint 在 job-id 目录下按 pipeline 各写入一个 `.ser` 文件。文件封装了 `PipelineState`
+（`jobId / pipelineId / checkpointId / states`），其中 `states` 为序列化的运行时 Checkpoint 状态。
+Savepoint 不写入此目录——它们位于 `savepoint/` 子树（见 [Savepoint 路径结构](#savepoint-路径结构)）。
 
 ### 配置参考
 
@@ -80,7 +82,10 @@ seatunnel:
 | 触发方式 | 周期性 / 自动 | 手动（`seatunnel.sh -r <jobId> --savepoint`）|
 | 用途 | 容错恢复 | 计划性停止、升级、迁移 |
 | 生命周期 | 引擎管理 | 操作人员管理 |
-| 保留策略 | 自动轮转 | 手动删除前永久保留 |
+| 保留策略 | 自动轮转（`max-retained`） | 手动删除前永久保留 |
+| 存储位置 | `<namespace>/<job-id>/` | `<namespace>/savepoint/<job-id>/<savepoint-id>/` |
+| 格式版本 | 无（内部格式，允许演进） | 有（`_metadata.ser` 的 `formatVersion`，当前为 `1`） |
+| 完整性校验 | 尽力而为 | Manifest 记录每个文件的长度 + SHA-256 校验和 |
 
 ### 触发 Savepoint
 
@@ -115,14 +120,20 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 
 ### Savepoint 路径结构
 
-```
+```text
 <namespace>/
   savepoint/
     <job-id>/
-      <savepoint-timestamp>/
-        <pipeline-id>/
-          <task-location>/state-data
+      <savepoint-id>/                       # savepoint-id = 停止触发时间戳 + 唯一后缀（时间戳仅用于排序/诊断）
+        _metadata.ser                       # 提交标记：格式版本、Manifest、SHA-256
+        <pipeline-id>-<checkpoint-id>.ser   # 每个 pipeline 一个文件（engine-wire-v1 载荷）
 ```
+
+Savepoint 是一个**包含所有 pipeline 的 bundle**。载荷先写入 `<namespace>/savepoint/<job-id>/.staging/<attempt-id>/`，只有当 `_metadata.ser`（提交标记）写入后才对外可见——未完成的 Savepoint 永远不会被列出或恢复。`list`/`restore` 只接受元数据与 Manifest 校验通过的 bundle；读取时校验每个文件的长度与校验和，失败会携带 savepoint-id、pipeline-id 与文件名报错。
+
+**旧数据说明**：此格式之前的引擎版本写入的 Savepoint 仍存放在 checkpoint 目录里。它们以"尽力而为"的方式保持可读（无 Manifest、无版本标记），且仅在该 job 没有新 bundle 时才会被读取。把旧文件迁移到新的 `savepoint/` 布局由操作人员处理，规划中的迁移工具将在后续提供。
+
+**管理方式**：目前没有专门的 list/delete API——运维可以检查 `savepoint/<job-id>/` 下的目录（只有包含有效 `_metadata.ser` 的目录才是已提交 bundle），删除 bundle 即删除对应目录。切勿在作业正从该 Savepoint 恢复时删除它。
 
 ### 安全清理
 
