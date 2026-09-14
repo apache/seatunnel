@@ -58,8 +58,10 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -96,7 +98,12 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
         classLoaders.put(taskId, Thread.currentThread().getContextClassLoader());
         return taskExecutionService.deployLocalTask(
-                taskGroup, classLoaders, new ConcurrentHashMap<>());
+                FLAKE_ID_GENERATOR.newId(),
+                taskGroup,
+                classLoaders,
+                new ConcurrentHashMap<>(),
+                () -> {},
+                failure -> {});
     }
 
     @Test
@@ -575,21 +582,20 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
         TaskGroupContext firstContext =
                 new TaskGroupContext(
+                        1L,
                         new TaskGroupDefaultImpl(location, "first", Lists.newArrayList(firstTask)),
                         firstClassLoaders,
                         new ConcurrentHashMap<>());
         TaskExecutionService.TaskGroupExecutionTracker firstTracker =
                 taskExecutionService
                 .new TaskGroupExecutionTracker(
-                        new CompletableFuture<>(),
-                        firstContext.getTaskGroup(),
-                        firstContext,
-                        new CompletableFuture<>());
+                        new CompletableFuture<>(), firstContext, new CompletableFuture<>());
 
         ConcurrentHashMap<Long, ClassLoader> replacementClassLoaders = new ConcurrentHashMap<>();
         replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
         TaskGroupContext replacementContext =
                 new TaskGroupContext(
+                        2L,
                         new TaskGroupDefaultImpl(
                                 location, "replacement", Lists.newArrayList(replacementTask)),
                         replacementClassLoaders,
@@ -597,10 +603,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService.TaskGroupExecutionTracker replacementTracker =
                 taskExecutionService
                 .new TaskGroupExecutionTracker(
-                        new CompletableFuture<>(),
-                        replacementContext.getTaskGroup(),
-                        replacementContext,
-                        new CompletableFuture<>());
+                        new CompletableFuture<>(), replacementContext, new CompletableFuture<>());
 
         assertSame(firstClassLoader, firstTracker.getTaskClassLoader(firstTask.getTaskID()));
         assertSame(
@@ -620,6 +623,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             firstClassLoaders.put(firstTask.getTaskID(), firstClassLoader);
             TaskGroupContext firstContext =
                     new TaskGroupContext(
+                            1L,
                             new TaskGroupDefaultImpl(
                                     location, "first", Lists.newArrayList(firstTask)),
                             firstClassLoaders,
@@ -627,16 +631,14 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             TaskExecutionService.TaskGroupExecutionTracker firstTracker =
                     taskExecutionService
                     .new TaskGroupExecutionTracker(
-                            new CompletableFuture<>(),
-                            firstContext.getTaskGroup(),
-                            firstContext,
-                            new CompletableFuture<>());
+                            new CompletableFuture<>(), firstContext, new CompletableFuture<>());
 
             ConcurrentHashMap<Long, ClassLoader> replacementClassLoaders =
                     new ConcurrentHashMap<>();
             replacementClassLoaders.put(replacementTask.getTaskID(), replacementClassLoader);
             TaskGroupContext replacementContext =
                     new TaskGroupContext(
+                            2L,
                             new TaskGroupDefaultImpl(
                                     location, "replacement", Lists.newArrayList(replacementTask)),
                             replacementClassLoaders,
@@ -645,7 +647,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     taskExecutionService
                     .new TaskGroupExecutionTracker(
                             new CompletableFuture<>(),
-                            replacementContext.getTaskGroup(),
                             replacementContext,
                             new CompletableFuture<>());
 
@@ -679,6 +680,189 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         }
     }
 
+    @Test
+    public void testStaleTaskDoneCleansOnlyOwnedGenerationResources() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task oldTask = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup oldTaskGroup =
+                new TaskGroupDefaultImpl(location, "old-generation", Lists.newArrayList(oldTask));
+        TaskGroup newTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "new-generation",
+                        Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
+        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker oldTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(oldCancellationFuture, oldContext, oldResultFuture);
+
+        CompletableFuture<?> oldAsyncFuture = new CompletableFuture<>();
+        CompletableFuture<?> newAsyncFuture = new CompletableFuture<>();
+        Map<String, CompletableFuture<?>> oldAsyncFutures = new ConcurrentHashMap<>();
+        Map<String, CompletableFuture<?>> newAsyncFutures = new ConcurrentHashMap<>();
+        oldAsyncFutures.put("old-generation-async", oldAsyncFuture);
+        newAsyncFutures.put("new-generation-async", newAsyncFuture);
+        TaskLocation oldTaskLocation = new TaskLocation(location, oldTask.getTaskID(), 0);
+        TaskLocation newTaskLocation =
+                new TaskLocation(
+                        location, newTaskGroup.getTasks().iterator().next().getTaskID(), 0);
+        ScheduledFuture<?> oldTimerFlushFuture = newPendingScheduledFuture();
+        ScheduledFuture<?> newTimerFlushFuture = newPendingScheduledFuture();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> oldTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> newTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        oldTimerFlushFutures.put(oldTaskLocation, oldTimerFlushFuture);
+        newTimerFlushFutures.put(newTaskLocation, newTimerFlushFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
+                getField(taskExecutionService, "finishedExecutionContexts");
+        ConcurrentMap<TaskGroupContext, CompletableFuture<Void>> cancellationFutures =
+                getField(taskExecutionService, "cancellationFutures");
+        ConcurrentMap<TaskGroupContext, Map<String, CompletableFuture<?>>> asyncFutures =
+                getField(taskExecutionService, "taskAsyncFunctionFuture");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        executionContexts.put(location, newContext);
+        cancellationFutures.put(oldContext, oldCancellationFuture);
+        cancellationFutures.put(newContext, newCancellationFuture);
+        asyncFutures.put(oldContext, oldAsyncFutures);
+        asyncFutures.put(newContext, newAsyncFutures);
+        timerFlushFutures.put(oldContext, oldTimerFlushFutures);
+        timerFlushFutures.put(newContext, newTimerFlushFutures);
+
+        try {
+            oldTracker.taskDone(oldTask);
+
+            Assertions.assertSame(newContext, executionContexts.get(location));
+            Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
+            assertEquals(1L, oldContext.getExecutionId());
+            assertEquals(2L, newContext.getExecutionId());
+            Assertions.assertNull(oldContext.getClassLoaders());
+            Assertions.assertNotNull(newContext.getClassLoaders());
+            Assertions.assertTrue(oldAsyncFuture.isCancelled());
+            Mockito.verify(oldTimerFlushFuture).cancel(false);
+            Assertions.assertFalse(newCancellationFuture.isCancelled());
+            Assertions.assertFalse(cancellationFutures.containsKey(oldContext));
+            Assertions.assertSame(newCancellationFuture, cancellationFutures.get(newContext));
+            Assertions.assertFalse(newAsyncFuture.isCancelled());
+            Mockito.verify(newTimerFlushFuture, Mockito.never()).cancel(false);
+            assertEquals(FINISHED, oldResultFuture.get().getExecutionState());
+        } finally {
+            executionContexts.remove(location);
+            cancellationFutures.remove(newContext);
+            asyncFutures.remove(newContext);
+            timerFlushFutures.remove(newContext);
+            newAsyncFuture.cancel(true);
+        }
+    }
+
+    @Test
+    public void testTaskGroupContextEqualityUsesExecutionId() {
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(
+                        newTaskGroupLocation(), "same-fields", Collections.emptyList());
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+        TaskGroupContext first = new TaskGroupContext(1L, taskGroup, classLoaders, jars);
+        TaskGroupContext sameExecution = new TaskGroupContext(1L, taskGroup, classLoaders, jars);
+        // Long.hashCode(1L) and Long.hashCode(1L << 32) are both 1. Different executions must
+        // remain distinct even when their hash codes collide.
+        TaskGroupContext differentExecution =
+                new TaskGroupContext(1L << 32, taskGroup, classLoaders, jars);
+        Map<TaskGroupContext, String> contexts = new ConcurrentHashMap<>();
+        contexts.put(first, "first");
+        contexts.put(sameExecution, "same-execution");
+        contexts.put(differentExecution, "different-execution");
+
+        assertEquals(first, sameExecution);
+        assertEquals(first.hashCode(), sameExecution.hashCode());
+        Assertions.assertNotEquals(first, differentExecution);
+        assertEquals(first.hashCode(), differentExecution.hashCode());
+        assertEquals(2, contexts.size());
+        assertEquals("same-execution", contexts.get(first));
+        assertEquals("different-execution", contexts.get(differentExecution));
+    }
+
+    @Test
+    public void testStaleFailedTaskDoneCleansOnlyOwnedGenerationResources() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task oldTask1 = new TestTask(new AtomicBoolean(true), 0, true);
+        Task oldTask2 = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup oldTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location, "old-generation", Lists.newArrayList(oldTask1, oldTask2));
+        TaskGroup newTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "new-generation",
+                        Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
+        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker oldTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(oldCancellationFuture, oldContext, oldResultFuture);
+
+        CompletableFuture<?> oldAsyncFuture = new CompletableFuture<>();
+        CompletableFuture<?> newAsyncFuture = new CompletableFuture<>();
+        Map<String, CompletableFuture<?>> oldAsyncFutures = new ConcurrentHashMap<>();
+        Map<String, CompletableFuture<?>> newAsyncFutures = new ConcurrentHashMap<>();
+        oldAsyncFutures.put("old-generation-async", oldAsyncFuture);
+        newAsyncFutures.put("new-generation-async", newAsyncFuture);
+        ScheduledFuture<?> oldTimerFlushFuture = newPendingScheduledFuture();
+        ScheduledFuture<?> newTimerFlushFuture = newPendingScheduledFuture();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> oldTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> newTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        oldTimerFlushFutures.put(
+                new TaskLocation(location, oldTask1.getTaskID(), 0), oldTimerFlushFuture);
+        newTimerFlushFutures.put(
+                new TaskLocation(
+                        location, newTaskGroup.getTasks().iterator().next().getTaskID(), 0),
+                newTimerFlushFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, Map<String, CompletableFuture<?>>> asyncFutures =
+                getField(taskExecutionService, "taskAsyncFunctionFuture");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        executionContexts.put(location, newContext);
+        asyncFutures.put(oldContext, oldAsyncFutures);
+        asyncFutures.put(newContext, newAsyncFutures);
+        timerFlushFutures.put(oldContext, oldTimerFlushFutures);
+        timerFlushFutures.put(newContext, newTimerFlushFutures);
+
+        try {
+            oldTracker.exception(new RuntimeException("stale generation task failed"));
+            oldTracker.taskDone(oldTask1);
+
+            Assertions.assertSame(newContext, executionContexts.get(location));
+            Assertions.assertTrue(oldAsyncFuture.isCancelled());
+            Mockito.verify(oldTimerFlushFuture).cancel(false);
+            Assertions.assertFalse(newAsyncFuture.isCancelled());
+            Mockito.verify(newTimerFlushFuture, Mockito.never()).cancel(false);
+            Assertions.assertFalse(oldResultFuture.isDone());
+        } finally {
+            executionContexts.remove(location);
+            oldTracker.taskDone(oldTask2);
+            asyncFutures.remove(newContext);
+            timerFlushFutures.remove(newContext);
+            newAsyncFuture.cancel(true);
+        }
+    }
+
     private Task taskWithId(long taskId) {
         return new Task() {
             @NonNull @Override
@@ -706,6 +890,42 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     new FixedCallTestTimeTask(callTime, callTime + "t" + i, stopMart, lagList));
         }
         return taskQueue;
+    }
+
+    private TaskGroupLocation newTaskGroupLocation() {
+        return new TaskGroupLocation(
+                System.currentTimeMillis(), pipeLineId, FLAKE_ID_GENERATOR.newId());
+    }
+
+    private static TaskGroupContext newTaskGroupContext(long executionId, TaskGroup taskGroup) {
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+        taskGroup
+                .getTasks()
+                .forEach(
+                        task -> {
+                            classLoaders.put(
+                                    task.getTaskID(),
+                                    Thread.currentThread().getContextClassLoader());
+                            jars.put(task.getTaskID(), Collections.emptyList());
+                        });
+        return new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
+    }
+
+    private static ScheduledFuture<?> newPendingScheduledFuture() {
+        ScheduledFuture<?> future = Mockito.mock(ScheduledFuture.class);
+        Mockito.when(future.isDone()).thenReturn(false);
+        return future;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T getField(Object target, String fieldName) {
+        return (T)
+                ReflectionUtils.getField(target, fieldName)
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Field " + fieldName + " not found on " + target));
     }
 
     public List<Task> buildStopTestTask(
@@ -739,17 +959,30 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 201L);
         TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+        TaskGroupContext context = installTestContext(taskExecutionService, groupLocation);
 
-        ScheduledFuture<?> future =
-                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
-        Assertions.assertNotNull(future);
-        Assertions.assertFalse(future.isCancelled());
+        try {
+            ScheduledFuture<?> future =
+                    taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+            Assertions.assertNotNull(future);
+            Assertions.assertFalse(future.isCancelled());
 
-        taskExecutionService.closeTimerFlushTask(taskLocation);
-        Assertions.assertTrue(future.isCancelled());
+            taskExecutionService.closeTimerFlushTask(taskLocation);
+            Assertions.assertTrue(future.isCancelled());
 
-        // closing again is idempotent
-        Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(taskLocation));
+            // Closing the last timer must not detach the deployment-level bucket. The owning
+            // tracker is the only component allowed to remove that bucket during final cleanup.
+            ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                    timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+            Assertions.assertTrue(timerFlushFutures.containsKey(context));
+            Assertions.assertTrue(timerFlushFutures.get(context).isEmpty());
+
+            // closing again is idempotent
+            Assertions.assertDoesNotThrow(
+                    () -> taskExecutionService.closeTimerFlushTask(taskLocation));
+        } finally {
+            removeTestContext(taskExecutionService, groupLocation, context);
+        }
     }
 
     @Test
@@ -757,18 +990,23 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 202L);
         TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+        TaskGroupContext context = installTestContext(taskExecutionService, groupLocation);
 
-        ScheduledFuture<?> first =
-                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
-        ScheduledFuture<?> second =
-                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 2_000L);
+        try {
+            ScheduledFuture<?> first =
+                    taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+            ScheduledFuture<?> second =
+                    taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 2_000L);
 
-        Assertions.assertNotSame(first, second);
-        Assertions.assertTrue(
-                first.isCancelled(), "previous future must be cancelled on re-register");
-        Assertions.assertFalse(second.isCancelled(), "new future must remain active");
+            Assertions.assertNotSame(first, second);
+            Assertions.assertTrue(
+                    first.isCancelled(), "previous future must be cancelled on re-register");
+            Assertions.assertFalse(second.isCancelled(), "new future must remain active");
 
-        taskExecutionService.closeTimerFlushTask(taskLocation);
+            taskExecutionService.closeTimerFlushTask(taskLocation);
+        } finally {
+            removeTestContext(taskExecutionService, groupLocation, context);
+        }
     }
 
     @Test
@@ -778,6 +1016,37 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskLocation unknown = new TaskLocation(groupLocation, 1L, 99);
 
         Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(unknown));
+    }
+
+    private static TaskGroupContext installTestContext(
+            TaskExecutionService taskExecutionService, TaskGroupLocation location) {
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(location, "timer-test", Collections.emptyList());
+        TaskGroupContext context =
+                new TaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        taskGroup,
+                        new ConcurrentHashMap<>(),
+                        new ConcurrentHashMap<>());
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        timerFlushFutures.put(context, new ConcurrentHashMap<>());
+        executionContexts.put(location, context);
+        return context;
+    }
+
+    private static void removeTestContext(
+            TaskExecutionService taskExecutionService,
+            TaskGroupLocation location,
+            TaskGroupContext context) {
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        executionContexts.remove(location, context);
+        timerFlushFutures.remove(context);
     }
 
     private static class ContextInitializationFailureTask implements Task {

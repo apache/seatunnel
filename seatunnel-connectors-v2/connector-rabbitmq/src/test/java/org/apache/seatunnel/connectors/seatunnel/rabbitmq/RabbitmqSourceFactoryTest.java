@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSourceFactory;
 
@@ -137,6 +138,30 @@ public class RabbitmqSourceFactoryTest {
     }
 
     @Test
+    public void testValidSingleTableProtobufConfig() {
+        Map<String, Object> config = createValidSingleTableConfig();
+        config.put(RabbitmqSourceOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
+        config.put(RabbitmqSourceOptions.PROTOBUF_SCHEMA.key(), "syntax = \"proto3\";");
+        config.put(RabbitmqSourceOptions.PROTOBUF_MESSAGE_NAME.key(), "TestMessage");
+
+        Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    @Test
+    public void testSingleTableProtobufRequiresSchemaAndMessageName() {
+        Map<String, Object> config = createValidSingleTableConfig();
+        config.put(RabbitmqSourceOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
+
+        OptionValidationException optionValidationException =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.PROTOBUF_SCHEMA.key()));
+    }
+
+    @Test
     public void testSingleTableMissingSchema() {
         Map<String, Object> config = new HashMap<>();
         config.put(RabbitmqSourceOptions.HOST.key(), "localhost");
@@ -189,10 +214,58 @@ public class RabbitmqSourceFactoryTest {
         return config;
     }
 
+    private Map<String, Object> createValidSingleTableConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(RabbitmqSourceOptions.HOST.key(), "localhost");
+        config.put(RabbitmqSourceOptions.PORT.key(), 5672);
+        config.put(RabbitmqSourceOptions.QUEUE_NAME.key(), "test_queue");
+
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("id", "int");
+
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", fields);
+
+        config.put(RabbitmqSourceOptions.SCHEMA.key(), schema);
+        return config;
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getFirstTableConfig(Map<String, Object> config) {
+        return ((List<Map<String, Object>>) config.get(RabbitmqSourceOptions.TABLE_CONFIGS.key()))
+                .get(0);
+    }
+
     @Test
     public void testValidMultiTableConfig() {
         Map<String, Object> config = createValidMultiTableConfig();
         Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    @Test
+    public void testValidMultiTableProtobufConfig() {
+        Map<String, Object> config = createValidMultiTableConfig();
+        Map<String, Object> table = getFirstTableConfig(config);
+        table.put(RabbitmqSourceOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
+        table.put(RabbitmqSourceOptions.PROTOBUF_SCHEMA.key(), "syntax = \"proto3\";");
+        table.put(RabbitmqSourceOptions.PROTOBUF_MESSAGE_NAME.key(), "TestMessage");
+
+        Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    @Test
+    public void testMultiTableProtobufRequiresSchemaAndMessageName() {
+        Map<String, Object> config = createValidMultiTableConfig();
+        Map<String, Object> table = getFirstTableConfig(config);
+        table.put(RabbitmqSourceOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
+
+        OptionValidationException optionValidationException =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.PROTOBUF_SCHEMA.key()));
     }
 
     @Test
@@ -336,5 +409,17 @@ public class RabbitmqSourceFactoryTest {
                                 option -> option.key().equals(RabbitmqSourceOptions.SCHEMA.key()));
 
         Assertions.assertTrue(hasSchema, "SCHEMA should be registered as an optional option");
+    }
+
+    @Test
+    public void testFormatIsRegisteredAsOptionalOption() {
+        RabbitmqSourceFactory factory = new RabbitmqSourceFactory();
+
+        boolean hasFormat =
+                factory.optionRule().getOptionalOptions().stream()
+                        .anyMatch(
+                                option -> option.key().equals(RabbitmqSourceOptions.FORMAT.key()));
+
+        Assertions.assertTrue(hasFormat, "FORMAT should be registered as an optional option");
     }
 }
