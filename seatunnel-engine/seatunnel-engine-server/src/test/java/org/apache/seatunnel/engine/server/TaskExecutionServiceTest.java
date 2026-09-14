@@ -573,6 +573,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertFalse(
                 hasCancellationFutureForLocation(taskExecutionService, location),
                 "cancellation future must not leak after post-publish failure");
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
+                getField(taskExecutionService, "finishedExecutionContexts");
+        Assertions.assertTrue(
+                finishedExecutionContexts.containsKey(location),
+                "rolled-back deployment must be recorded in finishedExecutionContexts");
 
         AtomicBoolean stop = new AtomicBoolean(false);
         ExecutionMarkerTask.reset();
@@ -1083,7 +1088,8 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     private static ScheduledFuture<?> newPendingScheduledFuture() {
         ScheduledFuture<?> future = Mockito.mock(ScheduledFuture.class);
-        Mockito.when(future.isDone()).thenReturn(false);
+        // Prefer doReturn(...) so stubbing does not invoke the mocked method.
+        Mockito.doReturn(false).when(future).isDone();
         return future;
     }
 

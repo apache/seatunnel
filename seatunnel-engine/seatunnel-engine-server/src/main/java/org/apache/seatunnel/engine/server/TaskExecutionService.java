@@ -754,6 +754,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * <p>Stops anything already submitted or still sitting in the cooperative queue, releases
      * classloader references owned by the published context, and removes the active bookkeeping
      * entries so a later redeploy of the same {@link TaskGroupLocation} can proceed safely.
+     *
+     * <p>Async-function and timer-flush futures are cancelled by {@link
+     * TaskGroupExecutionTracker#abortAfterFailedPublish(Throwable)} via {@code cancelAllTask()};
+     * this method does not cancel them a second time.
      */
     private void rollbackPublishedDeployment(
             TaskGroupLocation taskGroupLocation,
@@ -767,13 +771,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
         if (context != null) {
             // Generation-safe: do not clear a newer active deployment at the same location.
+            // Mirror finishExecution: record the rolled-back attempt for diagnostics lookups that
+            // consult finishedExecutionContexts after the active mapping is cleared.
             executionContexts.compute(
                     taskGroupLocation,
-                    (ignored, activeContext) ->
-                            context.equals(activeContext) ? null : activeContext);
+                    (ignored, activeContext) -> {
+                        if (!context.equals(activeContext)) {
+                            return activeContext;
+                        }
+                        finishedExecutionContexts.put(taskGroupLocation, context);
+                        return null;
+                    });
             cancellationFutures.remove(context);
-            cancelAsyncFunctionFutures(context);
-            cancelTimerFlushFutures(context);
             releaseClassLoadersFromPublishedContext(taskGroupLocation, context, deploymentFailure);
         }
     }
