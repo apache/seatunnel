@@ -120,6 +120,7 @@
         <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
         <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
         <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
+        <forbiddenapis.version>3.10</forbiddenapis.version>
         <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
         <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
         <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
@@ -127,6 +128,7 @@
         <commons-io.version>2.11.0</commons-io.version>
         <commons-collections4.version>4.4</commons-collections4.version>
         <commons-csv.version>1.10.0</commons-csv.version>
+        <commons-secure-xml.version>1.0.0</commons-secure-xml.version>
         <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
         <protostuff.version>1.8.0</protostuff.version>
         <spark.scope>provided</spark.scope>
@@ -396,6 +398,11 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-csv</artifactId>
                 <version>${commons-csv.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-secure-xml</artifactId>
+                <version>${commons-secure-xml.version}</version>
             </dependency>
 
             <dependency>
@@ -1036,6 +1043,83 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+            <!--
+                Forbid direct creation of JAXP factories.
+
+                Every XML parser, transformer, XPath engine or schema validator MUST be obtained from Apache Commons Secure XML,
+                which return factories hardened against XXE and entity expansion attacks regardless of which JAXP implementation is on the classpath.
+            -->
+            <plugin>
+                <groupId>de.thetaphi</groupId>
+                <artifactId>forbiddenapis</artifactId>
+                <version>${forbiddenapis.version}</version>
+                <configuration>
+                    <!-- dom4j is not on every module's classpath. -->
+                    <ignoreSignaturesOfMissingClasses>true</ignoreSignaturesOfMissingClasses>
+                    <!-- Some modules reference classes that are only present at runtime (provided/optional scopes). -->
+                    <failOnMissingClasses>false</failOnMissingClasses>
+                    <signatures>@defaultMessage Use the Secure*Factory classes of Apache Commons Secure XML (org.apache.commons.xml.secure) to obtain XXE-hardened JAXP factories.
+
+                        # Only the Java 8 factory methods are listed: SeaTunnel targets Java 8, so the
+                        # Java 9+ newDefaultInstance() and Java 13+ newNSInstance() overloads cannot be
+                        # referenced by its bytecode.
+
+                        # DOM
+                        javax.xml.parsers.DocumentBuilderFactory#newInstance()
+                        javax.xml.parsers.DocumentBuilderFactory#newInstance(java.lang.String,java.lang.ClassLoader)
+
+                        # SAX
+                        javax.xml.parsers.SAXParserFactory#newInstance()
+                        javax.xml.parsers.SAXParserFactory#newInstance(java.lang.String,java.lang.ClassLoader)
+                        org.xml.sax.helpers.XMLReaderFactory#createXMLReader()
+                        org.xml.sax.helpers.XMLReaderFactory#createXMLReader(java.lang.String)
+
+                        # StAX
+                        javax.xml.stream.XMLInputFactory#newInstance()
+                        javax.xml.stream.XMLInputFactory#newInstance(java.lang.String,java.lang.ClassLoader)
+                        javax.xml.stream.XMLInputFactory#newFactory()
+                        javax.xml.stream.XMLInputFactory#newFactory(java.lang.String,java.lang.ClassLoader)
+
+                        # TrAX
+                        javax.xml.transform.TransformerFactory#newInstance()
+                        javax.xml.transform.TransformerFactory#newInstance(java.lang.String,java.lang.ClassLoader)
+
+                        # XPath
+                        javax.xml.xpath.XPathFactory#newInstance()
+                        javax.xml.xpath.XPathFactory#newInstance(java.lang.String)
+                        javax.xml.xpath.XPathFactory#newInstance(java.lang.String,java.lang.String,java.lang.ClassLoader)
+
+                        # W3C XML Schema
+                        javax.xml.validation.SchemaFactory#newInstance(java.lang.String)
+                        javax.xml.validation.SchemaFactory#newInstance(java.lang.String,java.lang.String,java.lang.ClassLoader)
+
+                        # dom4j creates an unhardened XMLReader of its own unless one is passed explicitly.
+                        org.dom4j.io.SAXReader#&lt;init&gt;()
+                        org.dom4j.io.SAXReader#&lt;init&gt;(boolean)
+                        org.dom4j.io.SAXReader#&lt;init&gt;(org.dom4j.DocumentFactory)
+                        org.dom4j.io.SAXReader#&lt;init&gt;(org.dom4j.DocumentFactory,boolean)
+                        org.dom4j.io.SAXReader#&lt;init&gt;(java.lang.String)
+                        org.dom4j.io.SAXReader#&lt;init&gt;(java.lang.String,boolean)
+                        org.dom4j.io.SAXReader#createDefault()
+                        org.dom4j.DocumentHelper#parseText(java.lang.String)</signatures>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>forbiddenapis-check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>process-classes</phase>
+                    </execution>
+                    <execution>
+                        <id>forbiddenapis-test-check</id>
+                        <goals>
+                            <goal>testCheck</goal>
+                        </goals>
+                        <phase>process-test-classes</phase>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>com.diffplug.spotless</groupId>
