@@ -18,7 +18,5 @@ SeaTunnelPipelineBenchmark.sourceSink$
 SeaTunnelPipelineBenchmark.sourceTransformSink$
 SeaTunnelPipelineBenchmark.sourceTransformSinkWithObservabilityAndTrace$
 
-# Checkpoint coordination and storage.
+# Checkpoint coordination.
 CheckpointingTimeBenchmark.checkpointSingleInput$
-CheckpointStorageBenchmark.checkpointIdAtomicIncrement$
-CheckpointStorageBenchmark.checkpointOverviewIncrementalUpdate$
