@@ -21,11 +21,19 @@ import java.util.concurrent.TimeUnit;
 
 public final class SystemAutoscalerTimeSource implements AutoscalerTimeSource {
 
+    /**
+     * Returns wall-clock time for timestamps that represent real-world instants and may be compared
+     * by other components.
+     */
     @Override
     public long currentTimeMillis() {
         return System.currentTimeMillis();
     }
 
+    /**
+     * Returns monotonic elapsed-time ticks for local duration checks; it is not a calendar time and
+     * is unaffected by wall-clock adjustments.
+     */
     @Override
     public long monotonicTimeMillis() {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
