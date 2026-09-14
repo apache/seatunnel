@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 通过 InfluxQL 查询从 InfluxDB 1.x 读取数据。连接器支持普通单查询，也支持按一个整数列范围切分查询，
 让多个并行任务分别读取不同范围的数据。
+使用 `tables_configs` 可以在一个 source 中读取多个查询、数据库以及不同的输出 schema。
 
 ## 关键特性
 
@@ -23,6 +24,7 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
+- [x] [多表读取](../../introduction/concepts/connector-v2-features.md)
 
 ## 数据类型映射
 
@@ -43,9 +45,10 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 | 参数名                | 类型     | 必须 | 默认值   | 描述                                                                            |
 |---------------------|--------|----|-------|-------------------------------------------------------------------------------|
 | url                | string | 是  | -     | InfluxDB 连接 URL，例如 `http://influxdb-host:8086`。                                |
-| sql                | string | 是  | -     | 用于读取数据的 InfluxQL 查询。                                                            |
-| schema             | config | 是  | -     | 上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
-| database           | string | 是  | -     | InfluxDB 数据库名称。                                                                  |
+| sql                | string | 否  | -     | 单表模式必填，与 `tables_configs` 互斥。 |
+| schema             | config | 否  | -     | 单表模式必填；多表模式需要在每个条目中配置。 |
+| database           | string | 否  | -     | 单表模式必填；可作为多表条目的默认数据库。 |
+| tables_configs     | list   | 否  | -     | 多表模式的查询及 schema 配置，详见下文。 |
 | username           | string | 否  | -     | InfluxDB 用户名。必须和 `password` 一起配置。                                                |
 | password           | string | 否  | -     | InfluxDB 密码。必须和 `username` 一起配置。                                                |
 | lower_bound        | int    | 否  | -     | 启用并行范围读取时，`split_column` 的下界。                                                   |
@@ -61,6 +64,29 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 ### url [string]
 
 连接到 InfluxDB 的 URL，例如 `http://influxdb-host:8086`。
+
+### tables_configs [list]
+
+用于替代根级别的 `sql` 和 `schema`。每个条目需要配置：
+
+- `sql`：该表的 InfluxQL 查询。
+- `database`：数据库名称；未配置时继承根级别的 `database`。
+- `schema`：输出字段以及非空的 `schema.table`，该标识在所有输出表中必须唯一。
+
+每个条目还可一起配置 `split_column`、`lower_bound`、`upper_bound` 和 `partition_num`。
+多表模式的范围选项必须放在条目内，不能放在根级别。此模式按包含上下界的整数范围切分，
+范围不能整除时也不会重叠，切分数量不超过范围内的整数数量。原有单表范围切分行为保持不变。
+启用切分的条目支持简单的 `SELECT fields FROM measurement`，以及可选的 `WHERE` 条件，
+关键字不区分大小写。范围切分不支持带引号的标识符、字符串字面量、函数、子查询、多条语句，
+以及 `LIMIT`、`ORDER BY`、`tz(...)` 等尾部子句；这些查询请使用不切分的条目，查询会原样发送。
+
+所有条目共享根级别的 `url`、认证信息、`epoch` 和超时选项，条目内的连接选项会被拒绝。
+根级别的 `sql` 或 `schema`、空列表、缺失的表名以及重复输出表标识会在连接前报错。
+输出表标识可以不同于查询中的 measurement 名称，并用于下游路由。
+恢复 checkpoint 时请保持表标识及其查询、schema 定义不变；从单表模式切换到多表模式需要启动新作业。
+
+每个查询必须返回其 schema 声明的字段；允许空查询结果。
+不启用范围切分时，查询（包括 `tz(...)`）会原样发送到 InfluxDB。
 
 ### sql [string]
 
@@ -150,6 +176,42 @@ InfluxDB 客户端的查询超时时间，单位为秒。
 Source 插件通用参数，请参考 [Source 通用选项](../common-options/source-common-options.md) 详见。
 
 ## 任务示例
+
+### 读取多张表
+
+```hocon
+env {
+    parallelism = 2
+    job.mode = "BATCH"
+}
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        tables_configs = [
+            {
+                database = "telemetry"
+                sql = "select value from temperature"
+                schema {
+                    table = "temperatures"
+                    fields { value = DOUBLE }
+                }
+            },
+            {
+                database = "operations"
+                sql = "select active, label from alerts"
+                schema {
+                    table = "alerts"
+                    fields {
+                        active = BOOLEAN
+                        label = STRING
+                    }
+                }
+            }
+        ]
+    }
+}
+sink { Console {} }
+```
 
 ### 使用并行范围读取
 
