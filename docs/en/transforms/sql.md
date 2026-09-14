@@ -198,7 +198,7 @@ Failover. After a restore from a checkpoint or savepoint the source emits a rest
 - Renames that form a cycle in one statement (`a -> b, b -> a`) fail the job.
 - A change that would produce two output columns with the same name (for example `select *, id AS age` when the source adds `age`) fails the job.
 - Type changes are checked at the event for the select list and for ordering comparisons in `WHERE` such as `c > 0`. A type change that only surfaces inside a function call, a UDF or a lateral view argument is not detected at the event and fails at row time, as before.
-- Transforms placed before the SQL transform must describe their own output in the events they forward. If the upstream produced schema does not match the event, the job fails with `TRANSFORM_COMMON-09` instead of writing misaligned rows.
+- Transforms placed before the SQL transform must describe their own output in the events they forward. The upstream produced table decides the column order: a wrapper that keeps its own appended columns last, such as Metadata or RowKindExtractor, is accepted and the added column is placed before them. If the upstream produced schema does not hold the columns the event describes, the job fails with `TRANSFORM_COMMON-09` instead of writing misaligned rows.
 
 ## Changelog
 

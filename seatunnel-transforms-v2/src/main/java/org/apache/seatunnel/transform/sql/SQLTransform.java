@@ -347,10 +347,10 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
                         e);
             }
         }
-        TableSchema finalSchema = lineage.getSchema();
+        TableSchema hintedSchema = lineage.getSchema();
         List<String> missing =
                 referencedColumns().stream()
-                        .filter(name -> !finalSchema.contains(name))
+                        .filter(name -> !hintedSchema.contains(name))
                         .sorted()
                         .collect(Collectors.toList());
         if (!missing.isEmpty()) {
@@ -361,12 +361,22 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
         }
         CatalogTable finalInput;
         if (ctx != null) {
-            if (!finalSchema.equals(ctx.handedInput.getTableSchema())) {
-                throw incompatible(alterEvent, UPSTREAM_MISMATCH, null);
+            TableSchema handedSchema = ctx.handedInput.getTableSchema();
+            if (!hintedSchema.equals(handedSchema)) {
+                // The upstream produced table is what the rows follow. A wrapper that keeps its own
+                // appended columns last places a column the source appended before them, while the
+                // hints applied to this transform's own input append it at the tail. The hints fix
+                // the column set; the order is adopted from the upstream when the columns match,
+                // and anything else is an upstream that does not describe its own output.
+                try {
+                    lineage = lineage.inOrderOf(handedSchema);
+                } catch (IllegalArgumentException e) {
+                    throw incompatible(alterEvent, UPSTREAM_MISMATCH + ": " + e.getMessage(), e);
+                }
             }
             finalInput = ctx.handedInput;
         } else {
-            finalInput = withSchema(preInput, finalSchema);
+            finalInput = withSchema(preInput, hintedSchema);
         }
         SQLOutputCandidate candidate = evaluate(finalInput, alterEvent);
         try {
@@ -617,12 +627,18 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
 
     private TransformException incompatible(AlterTableEvent event, String reason, Throwable cause) {
         String table = inputCatalogTable.getTablePath().toString();
+        String statement = event.getStatement();
+        if (statement == null || statement.isEmpty()) {
+            // Events built inside the pipeline, such as composites rebuilt by wrapper transforms,
+            // carry no source statement; name the event instead of printing null.
+            statement = event.getClass().getSimpleName() + " " + event.getEventType();
+        }
         if (cause == null) {
             return TransformCommonError.sqlSchemaChangeIncompatible(
-                    query, table, event.getStatement(), reason);
+                    query, table, statement, reason);
         }
         return TransformCommonError.sqlSchemaChangeIncompatible(
-                query, table, event.getStatement(), reason, cause);
+                query, table, statement, reason, cause);
     }
 
     /**

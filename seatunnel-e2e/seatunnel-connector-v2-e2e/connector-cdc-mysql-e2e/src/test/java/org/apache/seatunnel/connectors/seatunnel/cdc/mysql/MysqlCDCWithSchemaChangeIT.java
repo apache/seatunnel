@@ -336,9 +336,10 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         assertSourceTableComment(
                 MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
 
-        // case6 rename with name reuse, then drop and re-create, each in one statement
-        assertCaseByDdlName(
-                "rename_reuse_columns", MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
+        // case6 rename with name reuse, then drop and re-create, each in one statement; the sink
+        // applies DROP and ADD as two statements, so a poll can hit the moment in between
+        shopDatabase.setTemplateName("rename_reuse_columns").createAndInitialize();
+        assertTableStructureAndDataTolerant(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE_SQL_STAR);
     }
 
     /**
@@ -422,9 +423,34 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 });
     }
 
-    /** Waits until the projection sink holds exactly the projected columns and data. */
+    /**
+     * Waits until the sink table matches the source table for structure and data while a column is
+     * being dropped and re-created. The sink executes DROP and ADD as two statements, so a query
+     * issued in between fails with an unknown column; such polls are retried until the timeout.
+     */
+    private void assertTableStructureAndDataTolerant(
+            String database, String sourceTable, String sinkTable) {
+        await().ignoreExceptions()
+                .atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertSchemaDescriptionEqualsIgnoringColumnOrder(
+                                        database, sourceTable, sinkTable));
+        await().ignoreExceptions()
+                .atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, null));
+    }
+
+    /**
+     * Waits until the projection sink holds exactly the projected columns and data. Queries that
+     * fail while the sink is between two DDL statements of one composite are retried.
+     */
     private void assertSqlProjectionConverges(long timeoutMs) {
-        await().atMost(timeoutMs, TimeUnit.MILLISECONDS)
+        await().ignoreExceptions()
+                .atMost(timeoutMs, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             List<String> sinkColumns =

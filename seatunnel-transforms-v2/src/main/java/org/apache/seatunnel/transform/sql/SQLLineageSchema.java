@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -176,6 +178,42 @@ final class SQLLineageSchema {
                             next.keySet(), ordered.keySet(), hint));
         }
         return new SQLLineageSchema(nextSchema, ordered, identityCounter, creating, repositioned);
+    }
+
+    /**
+     * Returns this lineage with its columns in the order of {@code layout}, which must hold exactly
+     * the columns of this lineage with the same definitions.
+     *
+     * <p>At a staged hand-off the upstream produced table is what the rows follow. A wrapper that
+     * keeps its own appended columns last, such as Metadata or RowKindExtractor, places a column
+     * the source appended before them, while the hints applied to this transform's own input append
+     * it at the tail. The hints therefore fix the column set and the identities; the order and the
+     * table keys are adopted from the layout. Creating hints and repositioning flags are kept.
+     *
+     * @param layout the authoritative layout
+     * @return lineage with the same identities in the layout's order
+     * @throws IllegalArgumentException when the layout does not hold exactly these columns
+     */
+    SQLLineageSchema inOrderOf(TableSchema layout) {
+        Map<String, Integer> ordered = new LinkedHashMap<>();
+        for (Column column : layout.getColumns()) {
+            Integer identity = identityByName.get(column.getName());
+            if (identity == null || !column.equals(schema.getColumn(column.getName()))) {
+                throw new IllegalArgumentException(
+                        String.format(
+                                "column [%s] of the upstream produced schema is not a column the schema change produces",
+                                column.getName()));
+            }
+            ordered.put(column.getName(), identity);
+        }
+        if (ordered.size() != identityByName.size()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "upstream produced schema %s does not hold exactly the columns %s the schema change produces",
+                            Arrays.asList(layout.getFieldNames()), identityByName.keySet()));
+        }
+        return new SQLLineageSchema(
+                layout, ordered, nextIdentity, creatingHints, repositionedIdentities);
     }
 
     /** Plain schema of this state. */

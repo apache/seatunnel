@@ -20,6 +20,8 @@ package org.apache.seatunnel.transform.sql;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -38,11 +40,14 @@ import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
+import org.apache.seatunnel.transform.metadata.MetadataTransform;
 import org.apache.seatunnel.transform.rename.ConvertCase;
 import org.apache.seatunnel.transform.rename.FieldRenameConfig;
 import org.apache.seatunnel.transform.rename.FieldRenameTransform;
@@ -56,6 +61,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -583,6 +589,69 @@ public class SQLTransformSchemaChangeTest {
     }
 
     @Test
+    public void testStagedHandOffAdoptsLayoutOfColumnAppendingWrapper() {
+        // Metadata keeps its appended column last, so the column the source appends lands before
+        // it in the upstream produced table while the hints append it to this transform's tail.
+        MetadataTransform metadata = metadataTransform(tableWithEventTime());
+        SQLTransform transform =
+                transform("select * from products", metadata.getProducedCatalogTable());
+        TableSchema before = transform.getProducedCatalogTable().getTableSchema();
+        Assertions.assertArrayEquals(
+                new String[] {"id", "name", "weight", "c_event_time"}, before.getFieldNames());
+
+        SchemaChangeEvent upstream = metadata.mapSchemaChangeEvent(composite(addAge()));
+        transform.setInputCatalogTable(metadata.getProducedCatalogTable());
+        SchemaChangeEvent out = transform.mapSchemaChangeEvent(upstream);
+
+        Assertions.assertArrayEquals(
+                new String[] {"id", "name", "weight", "age", "c_event_time"},
+                transform.getProducedCatalogTable().getTableSchema().getFieldNames());
+        List<AlterTableColumnEvent> events = ((AlterTableColumnsEvent) out).getEvents();
+        Assertions.assertEquals(1, events.size());
+        AlterTableAddColumnEvent add = (AlterTableAddColumnEvent) events.get(0);
+        Assertions.assertEquals("age", add.getColumn().getName());
+        Assertions.assertEquals("weight", add.getAfterColumn());
+        assertReplays(before, out, transform.getProducedCatalogTable().getTableSchema());
+        Assertions.assertSame(transform.getProducedCatalogTable(), out.getChangeAfter());
+
+        SeaTunnelRow post = new SeaTunnelRow(new Object[] {1L, "a", 1.0d, 20});
+        MetadataUtil.setEventTime(post, 1700000000000L);
+        List<SeaTunnelRow> rows = transform.flatMap(metadata.map(post));
+        Assertions.assertEquals(5, rows.get(0).getArity());
+        Assertions.assertEquals(20, rows.get(0).getField(3));
+        Assertions.assertEquals(1700000000000L, rows.get(0).getField(4));
+    }
+
+    @Test
+    public void testStagedHandOffRejectsLayoutWithOtherColumns() {
+        SQLTransform transform = transform("select * from products", baseTable());
+        TableSchema before = transform.getProducedCatalogTable().getTableSchema();
+        CatalogTable handed =
+                apply(
+                        baseTable(),
+                        composite(
+                                addAge(),
+                                AlterTableAddColumnEvent.add(
+                                        TID, column("extra", BasicType.INT_TYPE, "int"))));
+        transform.setInputCatalogTable(handed);
+
+        // A composite rebuilt inside the pipeline carries no source statement.
+        AlterTableColumnsEvent unstated =
+                new AlterTableColumnsEvent(TID, new ArrayList<>(Arrays.asList(addAge())));
+
+        TransformException error =
+                Assertions.assertThrows(
+                        TransformException.class, () -> transform.mapSchemaChangeEvent(unstated));
+
+        Assertions.assertTrue(
+                error.getMessage().contains("upstream produced schema"), error.getMessage());
+        Assertions.assertTrue(
+                error.getMessage().contains("AlterTableColumnsEvent"), error.getMessage());
+        Assertions.assertFalse(error.getMessage().contains("'null'"), error.getMessage());
+        Assertions.assertEquals(before, transform.getProducedCatalogTable().getTableSchema());
+    }
+
+    @Test
     public void testStagedHandOffTranslatesLikeChainPositionZero() {
         SQLTransform positionZero = transform("select * from products", baseTable());
         SchemaChangeEvent expected = positionZero.mapSchemaChangeEvent(composite(addAge()));
@@ -806,6 +875,39 @@ public class SQLTransformSchemaChangeTest {
                         .column(column("weight", BasicType.DOUBLE_TYPE, "double"))
                         .primaryKey(PrimaryKey.of("pk", Collections.singletonList("id")))
                         .build());
+    }
+
+    /** The base table with an EventTime metadata column, as CDC sources expose it. */
+    private static CatalogTable tableWithEventTime() {
+        CatalogTable base = baseTable();
+        return CatalogTable.of(
+                base.getTableId(),
+                base.getTableSchema(),
+                base.getOptions(),
+                base.getPartitionKeys(),
+                base.getComment(),
+                base.getTableId().getCatalogName(),
+                MetadataSchema.builder()
+                        .column(
+                                MetadataColumn.of(
+                                        CommonOptions.EVENT_TIME.getName(),
+                                        BasicType.LONG_TYPE,
+                                        (Long) null,
+                                        true,
+                                        null,
+                                        null))
+                        .build());
+    }
+
+    /** A Metadata transform that appends the event time as {@code c_event_time}. */
+    private static MetadataTransform metadataTransform(CatalogTable input) {
+        Map<String, String> mapping = new LinkedHashMap<>();
+        mapping.put("EventTime", "c_event_time");
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("metadata_fields", mapping);
+        MetadataTransform metadata = new MetadataTransform(ReadonlyConfig.fromMap(cfg), input);
+        metadata.initRowContainerGenerator();
+        return metadata;
     }
 
     private static SQLTransform transform(String query, CatalogTable input) {

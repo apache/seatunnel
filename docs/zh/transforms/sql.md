@@ -198,7 +198,7 @@ transform {
 - 同一条语句中形成环的重命名（`a -> b, b -> a`）会使作业失败。
 - 会产生两个同名输出列的变更（例如 `select *, id AS age` 且源表新增了 `age`）会使作业失败。
 - 类型变更会在事件到达时针对 select 列表以及 `WHERE` 中的比较（例如 `c > 0`）进行检查；仅出现在函数调用、UDF 或 lateral view 参数内部的类型变更不会在事件到达时被发现，会像以前一样在处理数据行时失败。
-- 位于 SQL transform 之前的 transform 转发的事件必须能描述其自身输出。如果上游产出的表结构与事件不一致，作业会以 `TRANSFORM_COMMON-09` 失败，而不是写入错位的数据行。
+- 位于 SQL transform 之前的 transform 转发的事件必须能描述其自身输出。列顺序以上游产出的表为准：像 Metadata、RowKindExtractor 这类把自身追加的列放在最后的 transform 是可以接受的，新增列会被放在这些列之前。如果上游产出的表结构不包含事件所描述的列，作业会以 `TRANSFORM_COMMON-09` 失败，而不是写入错位的数据行。
 
 ## 更新日志
 

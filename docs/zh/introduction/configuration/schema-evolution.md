@@ -36,7 +36,7 @@
 |------|-----------|------|
 | 支持，事件会被翻译 | [Sql](../../transforms/sql.md)、FieldRename、TableRename | 它们会把事件改写成描述自身输出的事件。 |
 | 支持，事件透传 | FilterRowKind、Replace、FieldEncrypt、DataValidator | 列集合、顺序和类型都不变，因此上游事件即可描述其输出。限制：当这类 transform 位于同一条链路中另一个 transform 之后时，列重命名会失败。 |
-| 不支持 | Filter、FieldMapper、Copy、Split、JsonPath、Metadata、RowKindExtractor、RegexExtract、Embedding、LLM、DynamicCompile、Python、TextChunk、Calcite、TableFilter、TableMerge、DefineSinkType | 它们会新增、删除或重排列、改变表标识或持有过期的表结构，却原样转发上游事件。在 `schema-changes.enabled = true` 时使用它们会导致 sink 表结构与数据行不一致。 |
+| 不支持 | Filter、FieldMapper、Copy、Split、JsonPath、Metadata、RowKindExtractor、RegexExtract、Embedding、LLM、DynamicCompile、Python、TextChunk、Calcite、TableFilter、TableMerge、DefineSinkType | 它们会新增、删除或重排列、改变表标识或持有过期的表结构，却原样转发上游事件。在 `schema-changes.enabled = true` 时使用它们会导致 sink 表结构与数据行不一致。放在 Metadata 或 RowKindExtractor 之后的 Sql transform 会采用它们产出的列布局并发出正确的事件，见 [Sql transform](../../transforms/sql.md)。 |
 
 注意: 
 * 不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
