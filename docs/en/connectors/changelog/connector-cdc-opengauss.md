@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1f|3.0.0|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[improve] jdbc options (#9541)|https://github.com/apache/seatunnel/commit/d041e5fb32|2.3.12|
 |[Feature][Connectors-v2] Optimize the size of CDC JAR Files (#9546)|https://github.com/apache/seatunnel/commit/1dd19c6823|2.3.12|

@@ -2,6 +2,30 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b5|3.0.0|
+|[Fix][CDC] Reconstruct missing snapshot completion watermark and always wait for a checkpoint (#12162)|https://github.com/apache/seatunnel/commit/bbde25091|3.0.0|
+|[Fix][Connector-V2] Accept primary keys as snapshot split columns (#11979)|https://github.com/apache/seatunnel/commit/47fb033fe|3.0.0|
+|[Feature][Connector-V2][MongoDB-CDC] Support timestamp stop mode (#11815)|https://github.com/apache/seatunnel/commit/cc387508c|3.0.0|
+|[Fix][Connector-V2] Fix Postgres-CDC committed-offset recovery skipping rows after savepoint (#11864)|https://github.com/apache/seatunnel/commit/5af8d789a|3.0.0|
+|[Feature][Connector-V2] Support PostgreSQL CDC ADD COLUMN schema evolution (#11922)|https://github.com/apache/seatunnel/commit/8bea8c681|3.0.0|
+|[Bug][Connector-V2][CDC] Prune removed tables from restored incremental splits (#11271)|https://github.com/apache/seatunnel/commit/af0a647d2|3.0.0|
+|[Fix][Connector-V2] Fix CDC comment schema-change event routing (#11837)|https://github.com/apache/seatunnel/commit/ed8d94151|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965|3.0.0|
+|[Fix][Connector-CDC] Implement MySQL CDC stop.mode = "specific" (bounded read) (#11618)|https://github.com/apache/seatunnel/commit/d7dd5d5f5|3.0.0|
+|Fix schema change routing for shared multi-table sinks (#11015)|https://github.com/apache/seatunnel/commit/6bf786bee|3.0.0|
+|[Feature][Connector-V2][PostgreSQL-CDC] Add committed-offset and snapshot-only startup modes (#11380)|https://github.com/apache/seatunnel/commit/ddcc764d2|3.0.0|
+|[Feature][Connector-V2][MySQL-CDC] Support GTID specific startup offset (#11123)|https://github.com/apache/seatunnel/commit/52bbd0a25|3.0.0|
+|[Feature][CDC/JDBC] Add enable_concurrent_read option to skip split analysis for tables without indexes (#10837)|https://github.com/apache/seatunnel/commit/844d9c363|3.0.0|
+|[Feature][Connector-V2] Foundation for per-connector Debezium version management (staged) (#10799)|https://github.com/apache/seatunnel/commit/d617b3130|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f64|3.0.0|
+|[Feature][Connector-V2] Add Vitess CDC source connector (#11059)|https://github.com/apache/seatunnel/commit/71ab292da|3.0.0|
+|[Feature][Connector-V2][CDC] Add include/exclude filtering for schema change event types  #11044 (#11108)|https://github.com/apache/seatunnel/commit/34940bf66|3.0.0|
+|[Fix][CDC] Avoid replaying completed snapshot splits after restore (#10859)|https://github.com/apache/seatunnel/commit/7dd7b499f|3.0.0|
+|[Feature][Connector-V2][SqlServer CDC] support sqlserver schema evolution (#10890)|https://github.com/apache/seatunnel/commit/32bef0e8a|3.0.0|
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1f|3.0.0|
+|[Feature][CDC] Expose binlog file/pos/row, GTID, and SourceTimestamp … (#10667)|https://github.com/apache/seatunnel/commit/6dee790d7|3.0.0|
 |[Feature][MySQL CDC] MySQL cdc support start by time (#9735)|https://github.com/apache/seatunnel/commit/b6c5d941b0|2.3.12|
 |[Feature][Core] Add plugin directory support for each connector (#9650)|https://github.com/apache/seatunnel/commit/4beb2b9336|2.3.12|
 |[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|

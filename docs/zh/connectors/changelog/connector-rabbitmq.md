@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Add protobuf format support for RabbitMQ (#12244)|https://github.com/apache/seatunnel/commit/600797feb|3.0.0|
+|[Improve][Connector-V2][RabbitMQ] Migrate source config validation to OptionRule (#11795)|https://github.com/apache/seatunnel/commit/4fea62458|3.0.0|
+|[Feature][Connector-V2][RabbitMQ] Support multi-table read for RabbitMQ source (#10425) (#10557)|https://github.com/apache/seatunnel/commit/556dd7955|3.0.0|
 |[Fix][connector-rabbitmq] Set default value for durable, exclusive and auto-delete (#9631)|https://github.com/apache/seatunnel/commit/5f9492e62a|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] rabbit mq options (#8740)|https://github.com/apache/seatunnel/commit/4eec9be012|2.3.10|

@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2][Socket] Fix premature socket close in SocketSourceReader.pollNext() (#10529)|https://github.com/apache/seatunnel/commit/e83661302|3.0.0|
+|[Improve][Connector-V2][Socket] Migrate Socket Sink validation to declarative OptionRule (#11214)|https://github.com/apache/seatunnel/commit/1c4ed90dd|3.0.0|
+|[Fix][Connector-V2] Keep socket reader stream open (#11134)|https://github.com/apache/seatunnel/commit/0896bdcae|3.0.0|
 |[improve] socket options (#9517)|https://github.com/apache/seatunnel/commit/af83a302cf|2.3.12|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|2.3.4|

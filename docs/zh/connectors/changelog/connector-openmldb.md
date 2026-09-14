@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate OpenMLDB SQL (#12181)|https://github.com/apache/seatunnel/commit/30474f863|3.0.0|
 |[improve] openmldb options (#9166)|https://github.com/apache/seatunnel/commit/d324fc59a4|2.3.11|
 |[Improve][Common] Introduce new error define rule (#5793)|https://github.com/apache/seatunnel/commit/9d1b2582b2|2.3.4|
 |[Improve][build] Give the maven module a human readable name (#4114)|https://github.com/apache/seatunnel/commit/d7cd601051|2.3.1|

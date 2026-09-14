@@ -2,6 +2,13 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2][Hive] Support AWS Glue Data Catalog metastore (#11895)|https://github.com/apache/seatunnel/commit/6109b4600|3.0.0|
+|[Feature][Connector-V2] Add BosFile source and sink connector (#11952)|https://github.com/apache/seatunnel/commit/99e53aad8|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Feature][Connector-V2] Support arbitrary S3A credentials provider for S3File (#11436)|https://github.com/apache/seatunnel/commit/d34446997|3.0.0|
+|[Fix][Connector-V2][Zeta] Resolve Hive S3, JDBC, metrics, and documentation CI failures (#11459)|https://github.com/apache/seatunnel/commit/dbead9b01|3.0.0|
+|[Improve] File souce refactor  (#10758)|https://github.com/apache/seatunnel/commit/bf2529256|3.0.0|
+|[Improve][Connectors-v2] File sink refactor (#10587)|https://github.com/apache/seatunnel/commit/efeed28ae|3.0.0|
 |[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Feature][connector-hive] hive sink connector support overwrite mode #7843 (#7891)|https://github.com/apache/seatunnel/commit/6fafe6f4d3|2.3.12|

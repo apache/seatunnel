@@ -19,6 +19,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add Amazon DocumentDB source connector (#12046)|https://github.com/apache/seatunnel/commit/c57dfaa8d|3.0.0|
 | [Feature][Connector-V2] Add Amazon DocumentDB source connector | - | Next |
 
 </details>

@@ -19,6 +19,7 @@ limitations under the License.
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add TikTok Ads reporting source (#12283)|https://github.com/apache/seatunnel/commit/2149f5709|3.0.0|
 | Add bounded BASIC AUCTION_AD synchronous reporting source with typed metrics and fail-closed pagination | | next version |
 
 </details>

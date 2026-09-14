@@ -2,6 +2,11 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Support schema evolution in Redis sink (#11646)|https://github.com/apache/seatunnel/commit/5bdeda5fd|3.0.0|
+|[Improve][Connector-V2] Migrate Redis validation to declarative OptionRule  (#11225)|https://github.com/apache/seatunnel/commit/a7cde22db|3.0.0|
+|[Improve][Connector-V2][Redis] Align OptionRule with docs and dedupe config validation (#11195)|https://github.com/apache/seatunnel/commit/7a591a041|3.0.0|
+|[Connector-Redis] Redis support multi table source feature (#10601)|https://github.com/apache/seatunnel/commit/48e824f93|3.0.0|
+|[Fix][Connector-V2][Redis] Fix RedisWriter custom key placeholder (#10346)|https://github.com/apache/seatunnel/commit/effd48ad7|3.0.0|
 |[Improve][Connector-V2] Use key_field_name option when reading Redis hash data (#9642)|https://github.com/apache/seatunnel/commit/5d214a7305|2.3.12|
 |[Feature][Redis] Add redis key into the result record (#9574)|https://github.com/apache/seatunnel/commit/6e8b7c5da5|2.3.12|
 |[Fix][Connector-Redis] Redis did not write successfully, but the task did not fail (#9055)|https://github.com/apache/seatunnel/commit/07510ed937|2.3.11|

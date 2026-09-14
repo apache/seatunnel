@@ -2,6 +2,19 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b5|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965|3.0.0|
+|[Fix][Connector-V2] Fix Paimon stream enumerator checkpoint race (#11392)|https://github.com/apache/seatunnel/commit/ac65b8f13|3.0.0|
+|[Feature][Connector-V2] Support table_options for Paimon sink SaveMode auto-create (#11418)|https://github.com/apache/seatunnel/commit/38797f551|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f64|3.0.0|
+|[Fix][Connector-V2] Fix Paimon stream source state restore (#11132)|https://github.com/apache/seatunnel/commit/33ffd48a4|3.0.0|
+|[Fix][Connector-V2] Respect Paimon alter table ignore flag (#11009)|https://github.com/apache/seatunnel/commit/314b0587f|3.0.0|
+|[Fix][Connector-V2] Fix Paimon option rule declarations (#11003)|https://github.com/apache/seatunnel/commit/eaecb1703|3.0.0|
+|[Fix][Connector-V2] Fix Paimon branch save mode DDL (#10991)|https://github.com/apache/seatunnel/commit/fcdf96c52|3.0.0|
+|[Fix][Connector-V2] Fix Paimon nested row write (#10888)|https://github.com/apache/seatunnel/commit/3341f3b3c|3.0.0|
+|[Fix][Connector-V2] Fix nested ROW type conversion crash in Paimon connector (#10952)|https://github.com/apache/seatunnel/commit/b94a65ac3|3.0.0|
 |[Feature][Connectors-v2] Clean up temporary files for paimon sink (#9819)|https://github.com/apache/seatunnel/commit/c43d57de31| dev |
 |[Feature][Connector-v2] Support multi paimon source (#9759)|https://github.com/apache/seatunnel/commit/0d52102241|2.3.12|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|

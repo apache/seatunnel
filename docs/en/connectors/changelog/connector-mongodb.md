@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Improve][Connector-V2][MongoDB] Migrate fetch size validation to declarative OptionRule (#11886)|https://github.com/apache/seatunnel/commit/f4840f1c7|3.0.0|
+|[Fix][Connector-V2] Fix MongoDB reader cursor cleanup (#11887)|https://github.com/apache/seatunnel/commit/7d5ee2e88|3.0.0|
+|[Feature][Connector-V2] Add MongoDB timer flush (#11527)|https://github.com/apache/seatunnel/commit/15ebb211e|3.0.0|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[fix][connector-mango] fix split with avgSize zero error (#9255)|https://github.com/apache/seatunnel/commit/564863b933|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

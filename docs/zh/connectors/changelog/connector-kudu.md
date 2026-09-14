@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Fix][Connector-V2] Wait for Kudu client shutdown (#11585)|https://github.com/apache/seatunnel/commit/4c4b81859|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for InfluxDB IoTDB Kudu and TDengine (#11573)|https://github.com/apache/seatunnel/commit/1fe15cbb8|3.0.0|
+|[Improve][Connector-V2] Upgrade kudu-client from 1.11.1 to 1.15.0 (#10974)|https://github.com/apache/seatunnel/commit/477f57f74|3.0.0|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Update apache common to apache common lang3 (#9694)|https://github.com/apache/seatunnel/commit/6e5737c1ec|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Zeta] Fix stop-with-savepoint hang in DOING_SAVEPOINT (#11489)|https://github.com/apache/seatunnel/commit/e676f46dc|3.0.0|
+|[Feature][Core] Add connect dry-run validation1 (#11186)|https://github.com/apache/seatunnel/commit/5b7599ded|3.0.0|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Feature][Connectors-v2] Support auto-increment id for FakeSource (#9505)|https://github.com/apache/seatunnel/commit/3a16b4a4b5|2.3.12|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|

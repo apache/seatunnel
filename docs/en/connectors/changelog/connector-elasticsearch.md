@@ -2,6 +2,17 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b5|3.0.0|
+|[Improve][Connector-V2] Use isEmpty() instead of size() > 0 in ES connectors (#11996)|https://github.com/apache/seatunnel/commit/2e2e9b804|3.0.0|
+|[Fix][Connector-V2] Share Elasticsearch REST clients in multi-table sink (#11567)|https://github.com/apache/seatunnel/commit/310d5643d|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965|3.0.0|
+|[Feature][Connector-V2] Support timer flush for Elasticsearch sink (#11505)|https://github.com/apache/seatunnel/commit/786210dc4|3.0.0|
+|[Improve][connector-elasticsearchv2]Optimize Elasticsearch source che… (#10446)|https://github.com/apache/seatunnel/commit/b1c53562b|3.0.0|
+|[Improve][Connector-V2] Migrate Elasticsearch validation to declarative OptionRule (#11122)|https://github.com/apache/seatunnel/commit/02aa83789|3.0.0|
+|[Improve][connector-elasticsearch] Improved elasticsearch source enumerator splits allocation algorithm for subtasks (#10869)|https://github.com/apache/seatunnel/commit/59a3d1cea|3.0.0|
+|[Improve][connector-elasticsearch-v2] Add slicing support and e2e coverage for Elasticsearch source (#10454)|https://github.com/apache/seatunnel/commit/cfc1ac664|3.0.0|
+|[Fix][Connector-V2] Fix Elasticsearch connector connection pool leak … (#10857)|https://github.com/apache/seatunnel/commit/3d55c3d76|3.0.0|
+|[Fix][Core] Fix JsonUtils.parseObject encoding issue causing UTF-8 pa… (#10809)|https://github.com/apache/seatunnel/commit/a1e6a8cc9|3.0.0|
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|
 |[Feature][elasticsearch-connector] Add API key authentication support (#9610)|https://github.com/apache/seatunnel/commit/a2bfe1a530|2.3.12|
 |[Feature][Connectors-V2][Elasticsearch] Support vector transformation sink (#9330)|https://github.com/apache/seatunnel/commit/a1ce97155f|2.3.12|

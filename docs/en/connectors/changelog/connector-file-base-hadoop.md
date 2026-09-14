@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve] File souce refactor  (#10758)|https://github.com/apache/seatunnel/commit/bf2529256|3.0.0|
+|[Improve][Connectors-v2] File sink refactor (#10587)|https://github.com/apache/seatunnel/commit/efeed28ae|3.0.0|
 |[Fix][Connector-File] Fix parquet support user config schema (#9596)|https://github.com/apache/seatunnel/commit/2bdaeb6a07|2.3.12|
 |[improve] update file connectors config (#9034)|https://github.com/apache/seatunnel/commit/8041d59dc2|2.3.11|
 |Revert &quot; [improve] update localfile connector config&quot; (#9018)|https://github.com/apache/seatunnel/commit/cdc79e13ad|2.3.10|

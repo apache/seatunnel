@@ -2,6 +2,18 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|feat(connector): add Mem0 Platform V3 ADD sink (#12233)|https://github.com/apache/seatunnel/commit/7b88e1870|3.0.0|
+|[Feature] [connector-http-linear] Add Linear HTTP Source Connector and Unit Test (#12270)|https://github.com/apache/seatunnel/commit/56cfbca0f|3.0.0|
+|[Feature][Connector-V2] Add zendesk sink (#12253)|https://github.com/apache/seatunnel/commit/85ce19515|3.0.0|
+|[Fix][Connector-V2] Preserve HTTP source JSON body (#11535)|https://github.com/apache/seatunnel/commit/7df6c9467|3.0.0|
+|[Feature][Connector-V2][Shopify] Add Shopify source connector (#11028)|https://github.com/apache/seatunnel/commit/b05f17c31|3.0.0|
+|[Feature][Connector-V2] Add Stripe PaymentIntents source (#11940)|https://github.com/apache/seatunnel/commit/334373185|3.0.0|
+|[Feature][Connector-V2] Add PostHog source connector (#11998)|https://github.com/apache/seatunnel/commit/e352beba2|3.0.0|
+|[Improve][Connector-V2][Airtable] Add jitter to rate-limit backoff (#11654)|https://github.com/apache/seatunnel/commit/7e24d0f42|3.0.0|
+|[Feature][Connector-V2][Zendesk] Add Zendesk source connector (#11030)|https://github.com/apache/seatunnel/commit/6fc40c206|3.0.0|
+|[Fix][Connector-V2] Fix HTTP cursor pagination no-progress loop (#11098)|https://github.com/apache/seatunnel/commit/9140b9095|3.0.0|
+|[Feature][Connector-V2] Add binary format support for HTTP source connector (#10956)|https://github.com/apache/seatunnel/commit/62d6804fe|3.0.0|
+|[Feature][Connector-V2] Add Airtable source and sink (#10469)|https://github.com/apache/seatunnel/commit/c15032c03|3.0.0|
 |[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e| dev |
 |[Fix][connector-http] fix parsing httpjson, the number of two fields is inconsistent with the import failure (#9103)|https://github.com/apache/seatunnel/commit/c8ade098ee|2.3.12|
 |[Fix][Connector-HTTP] Add default content-type when user not set (#9497)|https://github.com/apache/seatunnel/commit/8da0a78c1d|2.3.12|

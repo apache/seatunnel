@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Improve][Connector-V2][HBase] Migrate timestamp validation to OptionRule (#11803)|https://github.com/apache/seatunnel/commit/0a5708bf6|3.0.0|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] hbase options (#8923)|https://github.com/apache/seatunnel/commit/b6a702b58f|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
