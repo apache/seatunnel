@@ -24,6 +24,7 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
   > IoTDB 通过 SQL 查询支持列投影功能。
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [多表读取](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
@@ -53,13 +54,16 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 ## Source 选项
 
+单表读取使用根级别的 `sql` 和 `schema`；多表读取使用 `tables_configs`。原有单表配置保持兼容。
+
 | 名称                         | 类型      | 是否必填 | 默认值 | 描述                                                                               |
 |----------------------------|---------|------|-----|----------------------------------------------------------------------------------|
 | node_urls                  | string  | 是    | -   | IoTDB 集群地址，格式为 `"host1:port"` 或 `"host1:port,host2:port"`                        |
 | username                   | string  | 是    | -   | IoTDB 用户名                                                                        |
 | password                   | string  | 是    | -   | IoTDB 用户密码                                                                       |
-| sql                        | string  | 是    | -   | 要执行的 SQL 查询语句                                                                    |
-| schema                     | config  | 是    | -   | 数据模式定义。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                           |
+| sql                        | string  | 条件必填 | - | 未配置 `tables_configs` 时，必须与 `schema` 一起配置。 |
+| tables_configs             | array   | 否    | -   | 非空表配置列表。每项包含 `sql` 和 `schema`，且 `schema.table` 必须非空、唯一。 |
+| schema                     | config  | 条件必填 | - | 根级别 `sql` 配置需要此项；使用 `tables_configs` 时放在每项内。参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | fetch_size                 | int     | 否    | -   | 单次获取数据量：查询时每次从 IoTDB 获取的数据量                                                      |
 | lower_bound                | long    | 否    | -   | 时间范围下界（通过时间列进行数据分片时使用）                                                           |
 | upper_bound                | long    | 否    | -   | 时间范围上界（通过时间列进行数据分片时使用）                                                           |
@@ -71,6 +75,47 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 | common-options             |         | 否    | -   | Source 插件通用参数，详见 [Source 通用选项](../common-options/source-common-options.md)            |
 
 `schema.fields` 中的第一个字段必须对应 IoTDB 时间列。需要毫秒时间戳时可以配置为 `bigint`，需要 SeaTunnel timestamp 值时可以配置为 `timestamp`。
+
+### 多表读取
+
+所有表共用 Source 级别的连接及客户端参数，包括 `node_urls`、用户名、密码、`fetch_size` 和 `version`。这些参数只能放在 Source 级别。每个 `tables_configs` 项独立配置 SQL、schema，以及可选的 `lower_bound`、`upper_bound`、`num_partitions`。不能同时配置根级别的 SQL、schema 或时间分片参数。
+
+`schema.table` 用于下游表路由，不会改变 SQL 中的 IoTDB 路径。各表可以有不同字段及类型，字段顺序必须匹配查询结果，首字段为时间列。
+
+如果启用时间分片，必须同时配置三个分片参数，`num_partitions` 必须为正数且 `lower_bound < upper_bound`。每个表按包含两端的时间范围生成不重叠的分片，最多每个时间戳一个分片。不支持 `upper_bound = Long.MAX_VALUE` 或包含的时间戳数量超过 `Long.MAX_VALUE` 的范围。未配置分片参数时，该表的 SQL 原样作为一个分片执行。原有根级别的分片行为不变。
+
+表级时间分片支持带可选 WHERE 和 ALIGN BY 子句的简单 SELECT 投影。此模式拒绝 SELECT 列表中的函数、子查询、带引号的表达式/标识符、SQL 注释、分号、GROUP BY、ORDER BY、LIMIT/OFFSET、SLIMIT/SOFFSET、FILL、INTO，因为添加时间条件无法安全保留这些查询的语义。此类查询请不配置分片参数，以原始 SQL 执行。
+
+```hocon
+source {
+  IoTDB {
+    node_urls = "localhost:6667"
+    username = root
+    password = root
+    tables_configs = [
+      {
+        sql = "SELECT temperature FROM root.weather.device_a"
+        lower_bound = 1
+        upper_bound = 100
+        num_partitions = 4
+        schema {
+          table = weather
+          fields {ts = bigint, temperature = float}
+        }
+      },
+      {
+        sql = "SELECT enabled FROM root.status.device_b"
+        schema {
+          table = status
+          fields {ts = bigint, enabled = boolean}
+        }
+      }
+    ]
+  }
+}
+```
+
+多表读取仍为有界批量读取，不提供 CDC。检查点保留每个待处理分片的表标识。旧单表检查点可继续使用原有配置恢复；将运行中的单表任务改为 `tables_configs` 时，应启动新任务，不应从旧检查点恢复。
 
 当 SQL 使用 `align by device` 时，第二个字段通常对应 IoTDB 设备名。后续字段需要和 SQL 返回的测点顺序保持一致。
 
