@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.splunk.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpRequestMethod;
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 
 import java.util.HashMap;
 
@@ -30,6 +32,11 @@ public class SplunkSourceParameter extends HttpParameter {
      */
     public void buildWithConfig(ReadonlyConfig pluginConfig, String apiKey) {
         super.buildWithConfig(pluginConfig);
+
+        if (!pluginConfig.getOptional(HttpSourceOptions.METHOD).isPresent()) {
+            this.setMethod(HttpRequestMethod.POST);
+        }
+
         if (this.headers == null) {
             this.headers = new HashMap<>();
         }

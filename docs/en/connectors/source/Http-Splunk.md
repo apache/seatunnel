@@ -26,7 +26,7 @@ The `Http-Splunk` connector allows batch reading data from Splunk REST API endpo
 
 ```hocon
 source {
-  Http-Splunk {
+  Splunk {
     url = "https://your-splunk-instance:8089/services/search/v2/jobs/export"
     api_key = "Splunk your_splunk_auth_token"
     method = "POST"
