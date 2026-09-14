@@ -1607,6 +1607,13 @@ public class JobMaster {
      * #redriveSavepointAfterRestore} for why this is necessary. Called at most once, by {@code
      * CoordinatorService#restoreJobFromMasterActiveSwitch}, before this JobMaster is handed off to
      * the pending job queue.
+     *
+     * <p>Limitation: this covers a single master failover during an in-flight savepoint. The flag
+     * lives only on this in-heap JobMaster, so a second failover landing after the restore path has
+     * re-persisted the job as {@code PENDING}/{@code RUNNING} but before the redriven {@link
+     * #savePoint()} has re-persisted {@code DOING_SAVEPOINT} finds neither, and the request is
+     * dropped again. That window is narrow and no worse than the pre-fix behavior; it is left as a
+     * documented limitation (persisting the redrive intent itself would be the follow-up).
      */
     public synchronized void markRedriveSavepointAfterRestore() {
         this.redriveSavepointAfterRestore = true;

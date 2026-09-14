@@ -1231,6 +1231,15 @@ public class CoordinatorService {
      * source of failures for the job, and a skipped redrive leaves the job no worse off than before
      * this method existed.
      *
+     * <p>Limitation: this covers a single master failover during an in-flight savepoint. {@link
+     * #restoreJobFromMasterActiveSwitch} re-persists the restored job as {@code PENDING} before
+     * this runs, and only a successful {@link JobMaster#savePoint()} here re-persists {@code
+     * DOING_SAVEPOINT}; a second failover in between sees {@code PENDING}/{@code RUNNING}, never
+     * re-marks the redrive, and drops the request again. That window is narrow and no worse than
+     * the pre-fix behavior; it is left as a documented limitation (persisting the redrive intent
+     * itself would be the follow-up). This task also holds one shared-executor thread for up to
+     * {@link #REDRIVE_SAVEPOINT_WAIT_MILLIS} per redriven job.
+     *
      * @param jobMaster the restored job to redrive
      * @param mdcExecutorService the MDC-traced executor already tied to this job's log context
      */
