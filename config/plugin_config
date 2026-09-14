@@ -126,6 +126,7 @@ connector-sls
 connector-qdrant
 connector-typesense
 connector-cdc-opengauss
+connector-cdc-gaussdb
 connector-sensorsdata
 connector-hugegraph
 connector-lance
