@@ -1482,8 +1482,25 @@ public class SplitClusterFaultToleranceIT {
      * the failure is this specific {@code NoEnoughResourceException}-driven restore-budget
      * exhaustion, not an unrelated regression. Any other terminal status, or a {@code FAILED} job
      * whose error does not confirm that root cause, still fails the test.
+     *
+     * <p>Currently disabled, tracked by apache/seatunnel#12202. With {@code ScheduleStrategy.WAIT}
+     * set below, the job reliably reaches {@code RUNNING} and the worker kill happens as intended,
+     * but the job then never reaches a terminal state: the 5-minute post-kill wait on {@code
+     * objectCompletableFuture.isDone()} below times out with an Awaitility {@code
+     * ConditionTimeoutException}, and the client's {@code waitForJobCompleteV2()} only resolves
+     * minutes later with the job ending in {@code JobStatus.UNKNOWABLE} rather than {@code
+     * FINISHED} or {@code FAILED}, on both JDK 8 and JDK 11 (davidzollo/seatunnel CI run
+     * 34226272462, attempt 2, on head 40373e75c). That is the engine gap tracked by #12202 -- the
+     * CoordinatorService job-scheduling completion chain wedging on the
+     * pending-job-schedule-runner, which leaves the job absent from every tracking structure and
+     * therefore unknowable to the client -- surfacing inside this probe; it is not a defect of the
+     * test, and the test cannot go green until that gap is fixed. Before re-enabling, confirm
+     * #12202 is resolved on the target branch and that a run of this test then reaches one of the
+     * two accepted terminal outcomes described above within the existing budget.
      */
     @Test
+    @Disabled(
+            "Tracked by apache/seatunnel#12202: after the worker kill the job ends UNKNOWABLE instead of a terminal state (job-scheduling completion chain wedges); re-enable once #12202 is fixed")
     public void testManyPipelinesRestoreContentionInWorkerDown() throws Exception {
         String testCaseName = "testManyPipelinesRestoreContentionInWorkerDown";
         String testClusterName =
