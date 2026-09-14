@@ -64,6 +64,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -120,14 +121,50 @@ public class CheckpointCoordinatorFailoverIT {
      * build's shaded {@code com.hazelcast.spi.properties.ClusterProperty} class), and this module's
      * own test {@code hazelcast.yaml} does not raise it -- unlike this repo's top-level,
      * production-only {@code config/hazelcast.yaml}, which is not on this module's test classpath
-     * and therefore does not apply here. A 60-second native ceiling would leave an uncomfortably
-     * thin margin against that test's recovery wait, so this constant is set far above it instead
-     * of relying on whichever {@code hazelcast.yaml} happens to be on the classpath, now or after a
-     * future change: it guarantees Hazelcast's own heartbeat-based membership failure detection
-     * cannot fire inside the test's bounded recovery wait, so recovery observed inside that window
-     * can only be attributed to the checkpoint-timeout backstop under test.
+     * and therefore does not apply here. Pinning it explicitly keeps the heartbeat-based failure
+     * detector out of that test's recovery window regardless of which {@code hazelcast.yaml}
+     * happens to be on the classpath, now or after a future change.
+     *
+     * <p>This ceiling does NOT delay membership removal of a worker terminated with {@code
+     * HazelcastInstance.getLifecycleService().terminate()} on the same host: termination closes the
+     * worker's TCP endpoint, the master's next connection attempt fails with "Connection refused",
+     * {@code TcpServerConnectionErrorHandler} drops the endpoint and {@code MembershipManager}
+     * suspects and removes the member for reason "No connection" about 0.4 s after the {@code
+     * terminate()} call (fork run 34349062938, both JDK legs), long before either this ceiling or
+     * the job's {@code checkpoint.timeout} could matter. See the test's Javadoc for what that means
+     * for the recovery path it actually exercises.
      */
     private static final String BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS = "180";
+
+    /**
+     * Fixed slots configured on every worker in {@link
+     * #testStreamJobRecoversAfterWorkerUnreachableDuringCheckpointBarrierDispatch}'s cluster via
+     * {@link #getBarrierDispatchTestConfig}.
+     *
+     * <p>The job compiled from {@link #STREAM_BARRIER_DISPATCH_TEMPLATE_CONF} occupies three fixed
+     * slots: two coordinator task groups ({@code SubPlan#getCoordinatorVertexList}: the FakeSource
+     * SplitEnumerator and the transactional LocalFile sink's AggregatedCommitter) plus the single
+     * parallelism=1 SourceTask group ({@code SubPlan#getPhysicalVertexList}), each taking one whole
+     * slot ({@code DefaultSlotService#selectBestMatchSlot}). The surviving worker must be able to
+     * host all three on its own, because the restore path gives it exactly one chance: the FAILED
+     * branch of {@code SubPlan#stateProcess} calls {@code JobMaster#releasePipelineResource}, then
+     * {@code JobMaster#preApplyResources(SubPlan)}, ignores that method's boolean result and
+     * proceeds to {@code SubPlan#restorePipeline}, where {@code
+     * ResourceUtils#applyResourceForPipeline} deploys whatever {@code
+     * PhysicalPlan#getPreApplyResourceFutures()} holds. When the re-application fails, that map
+     * still holds the ORIGINAL submission's slot profiles, so the redeploy targets the terminated
+     * worker (its {@code DeployTaskOperation} is retried {@code
+     * hazelcast.invocation.max.retry.count} times, 100 x 1 s under this module's {@code
+     * hazelcast.yaml}) and hands the survivor slot profiles it has already released ({@code
+     * WrongTargetSlotException: Unknown slot in slot service}), leaving the pipeline wedged in
+     * DEPLOYING. With the previous value of 2 the survivor could only ever offer two of the three
+     * slots, so the recovery assertion was unreachable by construction (fork run 34349062938, JDK 8
+     * and JDK 11, both failing at "expected: RUNNING but was: DEPLOYING"; earlier runs failed the
+     * same premise at other intermediate statuses). The test also checks this premise at runtime
+     * before terminating the worker, so a template change that needs more slots fails fast with a
+     * clear message instead of timing out in DEPLOYING.
+     */
+    private static final int BARRIER_DISPATCH_SLOTS_PER_WORKER = 3;
 
     @Test
     public void testBatchJobCompletesAfterMasterFailover() throws Exception {
@@ -913,52 +950,52 @@ public class CheckpointCoordinatorFailoverIT {
      * #testStreamJobContinuesAfterMasterFailover} above kill a MASTER node (the checkpoint
      * coordinator itself), not a worker; the various {@code ClusterFaultToleranceIT}/{@code
      * SplitClusterFaultToleranceIT} worker-kill tests elsewhere kill a worker at an arbitrary point
-     * during execution via a graceful {@code HazelcastInstance.shutdown()} -- which sends an
-     * explicit cluster-leave notice that {@code CoordinatorService#failedTaskOnMemberRemoved} (a
-     * Hazelcast {@code MembershipAwareService} callback) reacts to almost immediately, failing the
-     * task directly. That fast, generic path would dominate this test too and mask the bug above
-     * entirely, so this test instead calls {@code HazelcastInstance.getLifecycleService()
-     * .terminate()} -- which, per Hazelcast's own {@code Node#shutdown(boolean terminate)}, skips
-     * that graceful-leave notice. With no leave notice, recovery can only come from either (a)
-     * Hazelcast's own heartbeat-based membership failure detector, governed by {@code
-     * hazelcast.max.no.heartbeat.seconds} -- Hazelcast's own compiled-in default is 60 seconds
-     * (verified from this build's shaded {@code com.hazelcast.spi.properties.ClusterProperty}
-     * class); this repo's top-level, production-only {@code config/hazelcast.yaml} raises that to
-     * 180s, but that file is not on this test module's classpath, and this module's own test {@code
-     * hazelcast.yaml} does not override the property, so 60 seconds is what would actually govern
-     * here if left unconfigured -- or (b) the checkpoint-timeout backstop described above. (The
-     * per-task {@code InvocationFuture}s the bug discards do eventually complete exceptionally on
-     * their own, per Hazelcast's separate {@code hazelcast.operation.call.timeout.millis} default
-     * of 60 seconds -- but since nothing in {@code startTriggerPendingCheckpoint} ever attaches a
-     * callback to those discarded array elements, that eventual completion has no observable effect
-     * on the coordinator; it is a true dead letter, not merely delayed handling.) A 60-second
-     * native heartbeat ceiling would leave an uncomfortably thin margin against this test's
-     * recovery wait, so rather than depend on whichever {@code hazelcast.yaml} happens to be on the
-     * classpath, {@link #getBarrierDispatchTestConfig} explicitly overrides {@code
-     * hazelcast.max.no.heartbeat.seconds} to {@link #BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS} on
-     * every node in this test's cluster. That guarantees Hazelcast's own native membership failure
-     * detection cannot fire inside this test's bounded recovery wait, so recovery observed inside
-     * that window can only be attributed to the checkpoint-timeout backstop. This job's {@code
-     * checkpoint.timeout} is deliberately configured (see {@link
-     * #BARRIER_DISPATCH_CHECKPOINT_TIMEOUT_MILLIS} and {@link
-     * #STREAM_BARRIER_DISPATCH_TEMPLATE_CONF}) far below the overridden native ceiling, so
-     * recovering inside this test's bounded wait can only be explained by the checkpoint-timeout
-     * backstop, never by incidental help from Hazelcast's own much slower native failure detection.
+     * during execution, never deliberately inside a barrier dispatch. This test terminates the
+     * worker hosting the barrier's target task with {@code HazelcastInstance.getLifecycleService()
+     * .terminate()} rather than a graceful {@code shutdown()}: per Hazelcast's own {@code
+     * Node#shutdown(boolean terminate)} that skips the explicit cluster-leave notice, so the
+     * coordinator's barrier RPC is genuinely fired at a member that vanished without saying
+     * goodbye. (The per-task {@code InvocationFuture}s the bug discards do eventually complete
+     * exceptionally on their own, per Hazelcast's separate {@code
+     * hazelcast.operation.call.timeout.millis} default of 60 seconds -- but since nothing in {@code
+     * startTriggerPendingCheckpoint} ever attaches a callback to those discarded array elements,
+     * that eventual completion has no observable effect on the coordinator; it is a true dead
+     * letter, not merely delayed handling.)
+     *
+     * <p><b>How recovery actually arrives, per CI evidence (fork run 34349062938, both JDK
+     * legs):</b> skipping the leave notice does not keep the terminated member in the cluster.
+     * Termination closes its TCP endpoint on the same host, the master's next connection attempt
+     * gets "Connection refused", and Hazelcast's {@code MembershipManager} suspects and removes the
+     * member for reason "No connection" about 0.4 s after the {@code terminate()} call -- long
+     * before either the {@link #BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS} heartbeat ceiling or
+     * this job's {@code checkpoint.timeout} ({@link #BARRIER_DISPATCH_CHECKPOINT_TIMEOUT_MILLIS})
+     * could fire. {@code CoordinatorService#failedTaskOnMemberRemoved} then fails the task deployed
+     * on the lost address, the pipeline goes FAILING/FAILED, waits {@code
+     * job.retry.interval.seconds} (default 3 s, {@code SubPlan#prepareRestorePipeline}) and
+     * redeploys onto the survivor -- which is why the survivor must be able to host the whole
+     * pipeline alone, see {@link #BARRIER_DISPATCH_SLOTS_PER_WORKER}. The heartbeat override is
+     * kept only so that heartbeat-based detection can never become the trigger; the
+     * checkpoint-timeout backstop remains the recovery path for a worker that is unreachable
+     * WITHOUT its connection being refused (a genuine network partition), which an in-JVM {@code
+     * terminate()} on localhost cannot simulate.
      *
      * <p>To land the termination inside the intended window with high probability (rather than by
      * blind timing), this test tightly polls the same checkpoint-id counter state store used by
      * {@link #testStreamJobContinuesAfterMasterFailover} above, and terminates the target worker in
      * the same loop iteration that first observes the id advance -- i.e. as soon as a new
-     * checkpoint's barrier dispatch is imminent or just starting. Because the terminated worker
-     * never comes back, even a slightly-late termination is not wasted: the very next checkpoint
-     * cycle (one {@code checkpoint.interval} later) dispatches its barrier to what is by then
-     * definitely a dead-but-not-yet-removed member, hitting the same code path this test targets.
+     * checkpoint's barrier dispatch is imminent or just starting. A termination that lands only
+     * after that barrier was already acknowledged still yields a valid worker-loss recovery run
+     * (the assertions below hold either way); it just does not exercise the dead-letter window,
+     * which is why the poll is as tight as it is.
      *
      * <p><b>What this test proves:</b> the job recovers -- the killed task is redeployed onto the
-     * surviving worker and resumes producing output -- within a bounded time tied to {@code
-     * checkpoint.timeout}, even though the coordinator cannot detect this specific dispatch failure
-     * immediately. <b>What it does NOT prove:</b> that the barrier-dispatch RPC failure is caught
-     * immediately -- per the bug above, it is not, and this test does not assert instant detection.
+     * surviving worker and resumes producing output -- within the bounded wait below, even though
+     * the barrier-dispatch RPC to the lost worker was silently dropped by the bug above: the
+     * discarded {@code InvocationFuture}s and the pending checkpoint they belong to do not wedge
+     * the coordinator, the restore or the redeploy. <b>What it does NOT prove:</b> that the
+     * barrier-dispatch RPC failure is caught immediately (per the bug above it is not, and this
+     * test does not assert instant detection), nor that the checkpoint-timeout backstop alone would
+     * recover a worker that stays silently unreachable, since membership removal fires first here.
      */
     @Test
     public void testStreamJobRecoversAfterWorkerUnreachableDuringCheckpointBarrierDispatch()
@@ -1025,6 +1062,21 @@ public class CheckpointCoordinatorFailoverIT {
             HazelcastInstanceImpl survivorWorker =
                     targetWorker == workerNode1 ? workerNode2 : workerNode1;
 
+            // Premise guard: the survivor must be able to host the WHOLE pipeline by itself once
+            // the target worker is gone (see BARRIER_DISPATCH_SLOTS_PER_WORKER for why the restore
+            // path gives it exactly one chance). Checked before termination so a template change
+            // that needs more slots fails fast here instead of timing out in DEPLOYING below.
+            int slotsNeededByPipeline = slotsNeededByPipeline(getJobMaster(masterNode, jobId));
+            Assertions.assertTrue(
+                    slotsNeededByPipeline <= BARRIER_DISPATCH_SLOTS_PER_WORKER,
+                    () ->
+                            "The pipeline needs "
+                                    + slotsNeededByPipeline
+                                    + " fixed slots but each worker only has "
+                                    + BARRIER_DISPATCH_SLOTS_PER_WORKER
+                                    + ", so the surviving worker could never host the redeploy"
+                                    + " alone");
+
             // Tight white-box poll on the checkpoint-id counter: the moment a NEW checkpoint id
             // appears, barrier dispatch for it is imminent or already underway, so terminate the
             // target worker immediately in this same iteration. See the class javadoc above for
@@ -1059,32 +1111,55 @@ public class CheckpointCoordinatorFailoverIT {
                     targetWorker.getCluster().getLocalMember().getAddress());
             targetWorker.getLifecycleService().terminate();
 
-            // Bounded recovery window: generous over the configured checkpoint timeout for
-            // pipeline cancel/redeploy/restore overhead under CI load, but nowhere near the
-            // BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS explicitly configured in
-            // getBarrierDispatchTestConfig (see the class javadoc above for why that override is
-            // necessary) -- so recovering inside this window can only be attributed to the
-            // checkpoint-timeout backstop, not to Hazelcast noticing the terminated worker itself.
+            // Bounded recovery window. The path CI actually shows (see the Javadoc above) is
+            // membership removal about 0.4 s after terminate(), the pipeline's
+            // job.retry.interval.seconds restore wait (default 3 s) and a sub-second redeploy, so
+            // this bound is generous. It is still expressed as checkpoint.timeout plus a fixed CI
+            // allowance so that it also covers the checkpoint-timeout backstop should membership
+            // removal ever be delayed, and it stays nowhere near
+            // BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS.
             long recoveryBoundSeconds = (BARRIER_DISPATCH_CHECKPOINT_TIMEOUT_MILLIS / 1000) + 60;
             HazelcastInstanceImpl finalSurvivorWorker = survivorWorker;
+            // Every distinct job status seen while waiting, in order, so a timeout reports the
+            // whole trajectory (e.g. RUNNING -> FAILING -> ... -> DEPLOYING) instead of only the
+            // final snapshot. Copy-on-write because Awaitility evaluates the condition on its own
+            // poll thread.
+            List<JobStatus> observedJobStatuses = new CopyOnWriteArrayList<>();
             Awaitility.await()
                     .atMost(recoveryBoundSeconds, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
+                                JobStatus jobStatus = clientJobProxy.getJobStatus();
+                                recordStatusTransition(observedJobStatuses, jobStatus);
                                 Assertions.assertEquals(
-                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                        JobStatus.RUNNING,
+                                        jobStatus,
+                                        () ->
+                                                "Job did not return to RUNNING after the worker was"
+                                                        + " terminated; observed job status"
+                                                        + " transitions: "
+                                                        + observedJobStatuses);
                                 PhysicalVertex vertex =
                                         soleTaskVertex(getJobMaster(finalMasterNode, jobId));
                                 Assertions.assertEquals(
-                                        ExecutionState.RUNNING, vertex.getExecutionState());
+                                        ExecutionState.RUNNING,
+                                        vertex.getExecutionState(),
+                                        () ->
+                                                "Task did not return to RUNNING (currently on "
+                                                        + vertex.getCurrentExecutionAddress()
+                                                        + "); observed job status transitions: "
+                                                        + observedJobStatuses);
                                 Assertions.assertEquals(
                                         finalSurvivorWorker
                                                 .getCluster()
                                                 .getLocalMember()
                                                 .getAddress(),
                                         vertex.getCurrentExecutionAddress(),
-                                        "Task should have been redeployed onto the surviving worker");
+                                        () ->
+                                                "Task should have been redeployed onto the surviving"
+                                                        + " worker; observed job status transitions: "
+                                                        + observedJobStatuses);
                             });
 
             // End-to-end confirmation that recovery is real, not just a status flip: the source
@@ -1193,11 +1268,13 @@ public class CheckpointCoordinatorFailoverIT {
     /**
      * Builds a split-deployment (master/worker role) config for {@link
      * #testStreamJobRecoversAfterWorkerUnreachableDuringCheckpointBarrierDispatch}. A fixed,
-     * non-dynamic slot pool keeps task placement deterministic enough to redeploy onto the
-     * surviving worker after the target worker is terminated. Also raises {@code
-     * hazelcast.max.no.heartbeat.seconds} well above that test's recovery wait -- see {@link
-     * #BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS} for why this must be set explicitly rather than
-     * left to whatever this module's ambient {@code hazelcast.yaml} happens to configure.
+     * non-dynamic slot pool of {@link #BARRIER_DISPATCH_SLOTS_PER_WORKER} slots per worker keeps
+     * task placement deterministic and, crucially, lets the surviving worker host the entire
+     * pipeline alone after the target worker is terminated -- see that constant for why the restore
+     * path cannot tolerate a smaller pool. Also pins {@code hazelcast.max.no.heartbeat.seconds} to
+     * {@link #BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS} so heartbeat-based failure detection can
+     * never be the recovery trigger (see that constant for why it is not the trigger anyway for a
+     * worker terminated on the same host).
      *
      * <p><b>Must also force {@link ScheduleStrategy#WAIT}, not just disable dynamic slot:</b> this
      * module's test {@code seatunnel.yaml} sets {@code dynamic-slot: true}, and {@code
@@ -1240,7 +1317,10 @@ public class CheckpointCoordinatorFailoverIT {
                         BARRIER_DISPATCH_HEARTBEAT_CEILING_SECONDS);
         seaTunnelConfig.getEngineConfig().getHttpConfig().setEnabled(false);
         seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
-        seaTunnelConfig.getEngineConfig().getSlotServiceConfig().setSlotNum(2);
+        seaTunnelConfig
+                .getEngineConfig()
+                .getSlotServiceConfig()
+                .setSlotNum(BARRIER_DISPATCH_SLOTS_PER_WORKER);
         // Must be set explicitly: locateAndGetSeaTunnelConfig() already forced REJECT above
         // (see the class-level detail in this method's Javadoc), and disabling dynamic slot does
         // not undo that. Without this, the job's first scheduling attempt can lose a genuine but
@@ -1263,6 +1343,33 @@ public class CheckpointCoordinatorFailoverIT {
                 vertices.size(),
                 "This test's single-parallelism pipeline should have exactly one task vertex");
         return vertices.get(0);
+    }
+
+    /**
+     * Number of fixed slots the given job's single pipeline occupies: one per coordinator task
+     * group (split enumerator, aggregated committer) plus one per physical task group. Compared
+     * against {@link #BARRIER_DISPATCH_SLOTS_PER_WORKER} before the target worker is terminated, so
+     * the survivor is known to be able to host the whole redeploy alone.
+     */
+    private static int slotsNeededByPipeline(JobMaster jobMaster) {
+        Assertions.assertNotNull(jobMaster, "Job master should exist while the job is running");
+        List<SubPlan> pipelines = jobMaster.getPhysicalPlan().getPipelineList();
+        Assertions.assertEquals(
+                1, pipelines.size(), "This test's job should compile to exactly one pipeline");
+        return pipelines.get(0).getCoordinatorVertexList().size()
+                + pipelines.get(0).getPhysicalVertexList().size();
+    }
+
+    /**
+     * Appends {@code current} to {@code history} only when it differs from the last recorded entry,
+     * so the list reads as a compact sequence of distinct transitions rather than one entry per
+     * poll. Used to enrich the recovery assertion messages in {@link
+     * #testStreamJobRecoversAfterWorkerUnreachableDuringCheckpointBarrierDispatch}.
+     */
+    private static <T> void recordStatusTransition(List<T> history, T current) {
+        if (history.isEmpty() || !history.get(history.size() - 1).equals(current)) {
+            history.add(current);
+        }
     }
 
     /**
