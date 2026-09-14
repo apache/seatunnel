@@ -62,6 +62,11 @@ public final class AutoscalerRuntimeConfig implements Serializable {
     /** Interval between repeated recommendations while one scaling direction remains firing. */
     private final int recommendationRepeatSeconds;
 
+    /**
+     * Time to remain in RECOVERING before returning to NORMAL after a firing condition disappears.
+     */
+    private final int keepFiringSeconds;
+
     /** CPU utilization at or above which the policy considers scaling out. */
     private final double scaleOutCpuThreshold;
 
@@ -94,6 +99,9 @@ public final class AutoscalerRuntimeConfig implements Serializable {
     /** Maximum number of recent recommendations retained in the in-memory state store. */
     private final int historySize;
 
+    /** Maximum number of evaluations retained independently of recommendations. */
+    private final int evaluationHistorySize;
+
     private AutoscalerRuntimeConfig(Builder builder) {
         this.enabled = builder.enabled;
         this.evaluationIntervalSeconds = builder.evaluationIntervalSeconds;
@@ -102,6 +110,7 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         this.scaleOutStabilizationSeconds = builder.scaleOutStabilizationSeconds;
         this.scaleInStabilizationSeconds = builder.scaleInStabilizationSeconds;
         this.recommendationRepeatSeconds = builder.recommendationRepeatSeconds;
+        this.keepFiringSeconds = builder.keepFiringSeconds;
         this.scaleOutCpuThreshold = builder.scaleOutCpuThreshold;
         this.scaleOutJvmMemoryThreshold = builder.scaleOutJvmMemoryThreshold;
         this.scaleInCpuThreshold = builder.scaleInCpuThreshold;
@@ -112,6 +121,7 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         this.minWorkers = builder.minWorkers;
         this.maxWorkers = builder.maxWorkers;
         this.historySize = builder.historySize;
+        this.evaluationHistorySize = builder.evaluationHistorySize;
         validate();
     }
 
@@ -149,6 +159,10 @@ public final class AutoscalerRuntimeConfig implements Serializable {
 
     public int getRecommendationRepeatSeconds() {
         return recommendationRepeatSeconds;
+    }
+
+    public int getKeepFiringSeconds() {
+        return keepFiringSeconds;
     }
 
     public double getScaleOutCpuThreshold() {
@@ -191,6 +205,10 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         return historySize;
     }
 
+    public int getEvaluationHistorySize() {
+        return evaluationHistorySize;
+    }
+
     public void validate() {
         if (scaleInCpuThreshold >= scaleOutCpuThreshold
                 || scaleInJvmMemoryThreshold >= scaleOutJvmMemoryThreshold
@@ -212,6 +230,7 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         private int scaleOutStabilizationSeconds = 300;
         private int scaleInStabilizationSeconds = 600;
         private int recommendationRepeatSeconds = 300;
+        private int keepFiringSeconds = 0;
         private double scaleOutCpuThreshold = 0.8d;
         private double scaleOutJvmMemoryThreshold = 0.8d;
         private double scaleInCpuThreshold = 0.3d;
@@ -222,6 +241,7 @@ public final class AutoscalerRuntimeConfig implements Serializable {
         private int minWorkers = 1;
         private int maxWorkers = Integer.MAX_VALUE;
         private int historySize = 20;
+        private int evaluationHistorySize = 5;
 
         public Builder enabled(boolean value) {
             enabled = value;
@@ -255,6 +275,11 @@ public final class AutoscalerRuntimeConfig implements Serializable {
 
         public Builder recommendationRepeatSeconds(int value) {
             recommendationRepeatSeconds = value;
+            return this;
+        }
+
+        public Builder keepFiringSeconds(int value) {
+            keepFiringSeconds = value;
             return this;
         }
 
@@ -308,6 +333,11 @@ public final class AutoscalerRuntimeConfig implements Serializable {
             return this;
         }
 
+        public Builder evaluationHistorySize(int value) {
+            evaluationHistorySize = value;
+            return this;
+        }
+
         public AutoscalerRuntimeConfig build() {
             validate();
             return new AutoscalerRuntimeConfig(this);
@@ -322,10 +352,14 @@ public final class AutoscalerRuntimeConfig implements Serializable {
             checkPositive(scaleOutStabilizationSeconds, "scaleOutStabilizationSeconds must be > 0");
             checkPositive(scaleInStabilizationSeconds, "scaleInStabilizationSeconds must be > 0");
             checkPositive(recommendationRepeatSeconds, "recommendationRepeatSeconds must be > 0");
+            if (keepFiringSeconds < 0) {
+                throw new IllegalArgumentException("keepFiringSeconds must be >= 0");
+            }
             checkPositive(scaleStep, "scaleStep must be > 0");
             checkPositive(minWorkers, "minWorkers must be > 0");
             checkPositive(maxWorkers, "maxWorkers must be > 0");
             checkPositive(historySize, "historySize must be > 0");
+            checkPositive(evaluationHistorySize, "evaluationHistorySize must be > 0");
             checkThreshold(scaleOutCpuThreshold);
             checkThreshold(scaleOutJvmMemoryThreshold);
             checkThreshold(scaleInCpuThreshold);

@@ -17,16 +17,10 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
-public enum ScalingAction {
-    /** Indicates that the autoscaler recommends adding workers. */
-    SCALE_OUT,
-
-    /** Indicates that scale-in conditions are met and the recommendation awaits stabilization. */
-    SCALE_IN_CANDIDATE,
-
-    /** Indicates that scale-in is blocked because required metrics are incomplete or invalid. */
-    SCALE_IN_BLOCKED,
-
-    /** Indicates that the current worker count should remain unchanged. */
-    NO_ACTION
+/** Lifecycle state of the active autoscaling direction. */
+public enum AutoscalingState {
+    NORMAL,
+    PENDING,
+    FIRING,
+    RECOVERING
 }

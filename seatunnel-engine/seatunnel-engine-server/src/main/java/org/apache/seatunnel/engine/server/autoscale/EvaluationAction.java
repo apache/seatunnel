@@ -17,21 +17,9 @@
 
 package org.apache.seatunnel.engine.server.autoscale;
 
-public interface AutoscalerStateStore {
-
-    void updateCurrentSnapshot(AutoscalerMetricsSnapshot snapshot);
-
-    void recordEvaluation(AutoscalingEvaluationRecord record);
-
-    RecommendationFence.PublicationResult publish(ScalingRecommendation recommendation);
-
-    void clear();
-
-    AutoscalerView view(
-            boolean enabled,
-            boolean running,
-            long currentMasterEpoch,
-            long nextGeneration,
-            int scaleOutStabilizationSeconds,
-            int scaleInStabilizationSeconds);
+/** The policy conclusion for one autoscaler evaluation. */
+public enum EvaluationAction {
+    SCALE_OUT,
+    SCALE_IN,
+    NO_ACTION
 }

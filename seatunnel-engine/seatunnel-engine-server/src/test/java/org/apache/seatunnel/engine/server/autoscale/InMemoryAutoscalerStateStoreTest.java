@@ -1,118 +1,79 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements.
+ * See the NOTICE file distributed with this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.autoscale;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+
 class InMemoryAutoscalerStateStoreTest {
-
     @Test
-    void storesLatestAndBoundedHistoryWithoutDuplicatingIdentity() {
-        InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(2);
-        ScalingRecommendation first = recommendation(1L, 0L, ScalingAction.NO_ACTION);
-        ScalingRecommendation second = recommendation(1L, 1L, ScalingAction.SCALE_OUT);
-        ScalingRecommendation third = recommendation(1L, 2L, ScalingAction.SCALE_IN_CANDIDATE);
-
+    void retainsEvaluationRecordsAndRecommendationsInSeparateBoundedHistories() {
+        InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(2, 1);
+        AutoscalingEvaluationRecord first =
+                record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 1L);
+        AutoscalingEvaluationRecord second =
+                record(EvaluationAction.SCALE_OUT, AutoscalingState.PENDING, 2L);
+        store.recordEvaluation(first);
+        store.recordEvaluation(second);
+        ScalingRecommendation recommendation = recommendation(1L, 0L);
         Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(first));
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.DUPLICATE, store.publish(first));
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(second));
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(third));
+                RecommendationFence.PublicationResult.ACCEPTED, store.publish(recommendation));
 
         AutoscalerView view = store.view(true, true);
-        Assertions.assertEquals(third, view.getLatestRecommendation());
-        Assertions.assertEquals(2, view.getHistory().size());
-        Assertions.assertEquals(second, view.getHistory().get(0));
-        Assertions.assertEquals(third, view.getHistory().get(1));
+        Assertions.assertEquals(second, view.getLatestEvaluationRecord());
+        Assertions.assertEquals(1, view.getEvaluationHistory().size());
+        Assertions.assertEquals(second, view.getEvaluationHistory().get(0));
+        Assertions.assertEquals(recommendation, view.getLatestRecommendation());
+        Assertions.assertEquals(1, view.getRecommendationHistory().size());
+        Assertions.assertFalse(view.getLatestRecommendation().isValidAt(1L));
     }
 
     @Test
-    void rejectsStalePublication() {
-        InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(2);
-
+    void fencesDuplicateRecommendationsButNeverCoalescesEvaluationRecords() {
+        InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(2, 3);
+        ScalingRecommendation recommendation = recommendation(1L, 0L);
         Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED,
-                store.publish(recommendation(2L, 0L, ScalingAction.NO_ACTION)));
+                RecommendationFence.PublicationResult.ACCEPTED, store.publish(recommendation));
         Assertions.assertEquals(
-                RecommendationFence.PublicationResult.REJECTED,
-                store.publish(recommendation(1L, 9L, ScalingAction.SCALE_OUT)));
+                RecommendationFence.PublicationResult.DUPLICATE, store.publish(recommendation));
+        store.recordEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 1L));
+        store.recordEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 2L));
+        Assertions.assertEquals(2, store.view(true, true).getEvaluationHistory().size());
+        Assertions.assertEquals(1, store.view(true, true).getRecommendationHistory().size());
     }
 
-    @Test
-    void coalescesWaitingEvaluationsAndRecordsFiringTransition() {
-        InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(10);
-        ScalingRecommendation waiting =
-                recommendation(
-                        1L,
-                        0L,
-                        ScalingAction.SCALE_OUT,
-                        StabilizationTracker.StabilizationState.WAITING);
-        ScalingRecommendation firing =
-                recommendation(
-                        1L,
-                        2L,
-                        ScalingAction.SCALE_OUT,
-                        StabilizationTracker.StabilizationState.FIRING);
-        AutoscalerMetricsSnapshot latestSnapshot =
-                AutoscalerMetricsSnapshot.builder().currentWorkers(4).build();
-
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(waiting));
-        Assertions.assertEquals(
-                RecommendationFence.PublicationResult.ACCEPTED, store.publish(firing));
-        store.updateCurrentSnapshot(latestSnapshot);
-
-        AutoscalerView view = store.view(true, true);
-        Assertions.assertEquals(firing, view.getLatestRecommendation());
-        Assertions.assertEquals(latestSnapshot, view.getCurrentSnapshot());
-        Assertions.assertEquals(2, view.getHistory().size());
-        Assertions.assertEquals(waiting, view.getHistory().get(0));
-        Assertions.assertEquals(firing, view.getHistory().get(1));
-        Assertions.assertEquals(0L, view.getRecommendationCounts().get(ScalingAction.NO_ACTION));
-        Assertions.assertEquals(1L, view.getRecommendationCounts().get(ScalingAction.SCALE_OUT));
+    private static AutoscalingEvaluationRecord record(
+            EvaluationAction action, AutoscalingState currentState, long evaluatedAtMillis) {
+        EvaluationAction trackedAction = currentState == AutoscalingState.NORMAL ? null : action;
+        return new AutoscalingEvaluationRecord(
+                new AutoscaleEvaluation(action, Collections.emptyList()),
+                new AutoscalingStateTransition(
+                        currentState, trackedAction, currentState, trackedAction),
+                evaluatedAtMillis);
     }
 
-    private ScalingRecommendation recommendation(
-            long masterEpoch, long generation, ScalingAction action) {
-        return recommendation(
-                masterEpoch, generation, action, StabilizationTracker.StabilizationState.NORMAL);
-    }
-
-    private ScalingRecommendation recommendation(
-            long masterEpoch,
-            long generation,
-            ScalingAction action,
-            StabilizationTracker.StabilizationState stabilizationState) {
+    private static ScalingRecommendation recommendation(long epoch, long generation) {
         return ScalingRecommendation.builder()
-                .masterEpoch(masterEpoch)
+                .masterEpoch(epoch)
                 .generation(generation)
-                .action(action)
-                .stabilizationState(stabilizationState)
+                .action(EvaluationAction.SCALE_OUT)
                 .currentWorkers(3)
-                .recommendedWorkers(3)
-                .observedAtMillis(100L + generation)
-                .validUntilMillis(200L + generation)
-                .snapshot(AutoscalerMetricsSnapshot.builder().currentWorkers(3).build())
-                .recommendationOnly(true)
+                .recommendedWorkers(4)
+                .observedAtMillis(0L)
+                .validUntilMillis(0L)
+                .decisionReasons(Collections.emptyList())
                 .build();
     }
 }

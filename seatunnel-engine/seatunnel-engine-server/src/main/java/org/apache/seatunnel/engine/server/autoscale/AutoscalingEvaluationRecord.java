@@ -18,32 +18,34 @@
 package org.apache.seatunnel.engine.server.autoscale;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
 import java.util.Objects;
 
-public final class AutoscaleEvaluation implements Serializable {
-
+/** One policy evaluation together with the autoscaling state transition it caused. */
+public final class AutoscalingEvaluationRecord implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private final EvaluationAction evaluationAction;
-    private final List<String> decisionReasons;
+    private final AutoscaleEvaluation evaluation;
+    private final AutoscalingStateTransition stateTransition;
+    private final long evaluatedAtMillis;
 
-    public AutoscaleEvaluation(EvaluationAction evaluationAction, List<String> decisionReasons) {
-        this.evaluationAction = Objects.requireNonNull(evaluationAction, "evaluationAction");
-        this.decisionReasons = immutableCopy(decisionReasons);
+    public AutoscalingEvaluationRecord(
+            AutoscaleEvaluation evaluation,
+            AutoscalingStateTransition stateTransition,
+            long evaluatedAtMillis) {
+        this.evaluation = Objects.requireNonNull(evaluation, "evaluation");
+        this.stateTransition = Objects.requireNonNull(stateTransition, "stateTransition");
+        this.evaluatedAtMillis = evaluatedAtMillis;
     }
 
-    public EvaluationAction getEvaluationAction() {
-        return evaluationAction;
+    public AutoscaleEvaluation getEvaluation() {
+        return evaluation;
     }
 
-    public List<String> getDecisionReasons() {
-        return decisionReasons;
+    public AutoscalingStateTransition getStateTransition() {
+        return stateTransition;
     }
 
-    private static List<String> immutableCopy(List<String> values) {
-        return Collections.unmodifiableList(new ArrayList<>(values));
+    public long getEvaluatedAtMillis() {
+        return evaluatedAtMillis;
     }
 }

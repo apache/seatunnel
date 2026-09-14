@@ -23,41 +23,36 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
-/**
- * Immutable autoscaler output for one evaluation generation.
- *
- * <p>Phase 1 recommendations are diagnostic only and include the input snapshot plus trigger and
- * decision reasons.
- */
+/** A time-bounded, externally consumable absolute worker scaling target. */
 public final class ScalingRecommendation implements Serializable {
-
     private static final long serialVersionUID = 1L;
 
     private final long masterEpoch;
     private final long generation;
-    private final ScalingAction action;
-    private final StabilizationTracker.StabilizationState stabilizationState;
+    private final EvaluationAction action;
     private final int currentWorkers;
     private final int recommendedWorkers;
     private final long observedAtMillis;
     private final long validUntilMillis;
     private final List<String> decisionReasons;
-    private final AutoscalerMetricsSnapshot snapshot;
-    private final boolean recommendationOnly;
 
     private ScalingRecommendation(Builder builder) {
         this.masterEpoch = builder.masterEpoch;
         this.generation = builder.generation;
         this.action = Objects.requireNonNull(builder.action, "action");
-        this.stabilizationState =
-                Objects.requireNonNull(builder.stabilizationState, "stabilizationState");
         this.currentWorkers = builder.currentWorkers;
         this.recommendedWorkers = builder.recommendedWorkers;
         this.observedAtMillis = builder.observedAtMillis;
         this.validUntilMillis = builder.validUntilMillis;
-        this.decisionReasons = immutableCopy(builder.decisionReasons);
-        this.snapshot = Objects.requireNonNull(builder.snapshot, "snapshot");
-        this.recommendationOnly = builder.recommendationOnly;
+        this.decisionReasons =
+                Collections.unmodifiableList(new ArrayList<>(builder.decisionReasons));
+        if (validUntilMillis < observedAtMillis) {
+            throw new IllegalArgumentException(
+                    "validUntilMillis must not precede observedAtMillis");
+        }
+        if (action == EvaluationAction.NO_ACTION) {
+            throw new IllegalArgumentException("action must be a scaling action");
+        }
     }
 
     public static Builder builder() {
@@ -72,12 +67,8 @@ public final class ScalingRecommendation implements Serializable {
         return generation;
     }
 
-    public ScalingAction getAction() {
+    public EvaluationAction getAction() {
         return action;
-    }
-
-    public StabilizationTracker.StabilizationState getStabilizationState() {
-        return stabilizationState;
     }
 
     public int getCurrentWorkers() {
@@ -100,86 +91,57 @@ public final class ScalingRecommendation implements Serializable {
         return decisionReasons;
     }
 
-    public AutoscalerMetricsSnapshot getSnapshot() {
-        return snapshot;
-    }
-
-    public boolean isRecommendationOnly() {
-        return recommendationOnly;
-    }
-
-    private static List<String> immutableCopy(List<String> values) {
-        return Collections.unmodifiableList(new ArrayList<>(values));
+    public boolean isValidAt(long currentTimeMillis) {
+        return currentTimeMillis <= validUntilMillis;
     }
 
     public static final class Builder {
-
         private long masterEpoch;
         private long generation;
-        private ScalingAction action = ScalingAction.NO_ACTION;
-        private StabilizationTracker.StabilizationState stabilizationState =
-                StabilizationTracker.StabilizationState.NORMAL;
+        private EvaluationAction action;
         private int currentWorkers;
         private int recommendedWorkers;
         private long observedAtMillis;
         private long validUntilMillis;
         private List<String> decisionReasons = Collections.emptyList();
-        private AutoscalerMetricsSnapshot snapshot = AutoscalerMetricsSnapshot.builder().build();
-        private boolean recommendationOnly = true;
 
-        public Builder masterEpoch(long masterEpoch) {
-            this.masterEpoch = masterEpoch;
+        public Builder masterEpoch(long value) {
+            masterEpoch = value;
             return this;
         }
 
-        public Builder generation(long generation) {
-            this.generation = generation;
+        public Builder generation(long value) {
+            generation = value;
             return this;
         }
 
-        public Builder action(ScalingAction action) {
-            this.action = action;
+        public Builder action(EvaluationAction value) {
+            action = value;
             return this;
         }
 
-        public Builder stabilizationState(
-                StabilizationTracker.StabilizationState stabilizationState) {
-            this.stabilizationState = stabilizationState;
+        public Builder currentWorkers(int value) {
+            currentWorkers = value;
             return this;
         }
 
-        public Builder currentWorkers(int currentWorkers) {
-            this.currentWorkers = currentWorkers;
+        public Builder recommendedWorkers(int value) {
+            recommendedWorkers = value;
             return this;
         }
 
-        public Builder recommendedWorkers(int recommendedWorkers) {
-            this.recommendedWorkers = recommendedWorkers;
+        public Builder observedAtMillis(long value) {
+            observedAtMillis = value;
             return this;
         }
 
-        public Builder observedAtMillis(long observedAtMillis) {
-            this.observedAtMillis = observedAtMillis;
+        public Builder validUntilMillis(long value) {
+            validUntilMillis = value;
             return this;
         }
 
-        public Builder validUntilMillis(long validUntilMillis) {
-            this.validUntilMillis = validUntilMillis;
-            return this;
-        }
-
-        public Builder decisionReasons(List<String> decisionReasons) {
-            this.decisionReasons = decisionReasons;
-            return this;
-        }
-
-        public Builder snapshot(AutoscalerMetricsSnapshot snapshot) {
-            this.snapshot = snapshot;
-            return this;
-        }
-
-        public Builder recommendationOnly(boolean recommendationOnly) {
-            this.recommendationOnly = recommendationOnly;
+        public Builder decisionReasons(List<String> value) {
+            decisionReasons = value;
             return this;
         }
 

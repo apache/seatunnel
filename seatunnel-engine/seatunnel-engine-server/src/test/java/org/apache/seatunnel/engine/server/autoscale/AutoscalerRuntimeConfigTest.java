@@ -56,4 +56,12 @@ class AutoscalerRuntimeConfigTest {
                 IllegalArgumentException.class,
                 () -> AutoscalerRuntimeConfig.builder().recommendationRepeatSeconds(0).build());
     }
+
+    @Test
+    void defaultsKeepFiringToZeroAndRejectsNegativeValues() {
+        Assertions.assertEquals(0, AutoscalerRuntimeConfig.defaults().getKeepFiringSeconds());
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> AutoscalerRuntimeConfig.builder().keepFiringSeconds(-1).build());
+    }
 }

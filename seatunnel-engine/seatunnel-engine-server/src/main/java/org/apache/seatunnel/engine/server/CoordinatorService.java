@@ -323,7 +323,9 @@ public class CoordinatorService {
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
         autoscalerStateStore =
-                new InMemoryAutoscalerStateStore(autoscalerRuntimeConfig.getHistorySize());
+                new InMemoryAutoscalerStateStore(
+                        autoscalerRuntimeConfig.getHistorySize(),
+                        autoscalerRuntimeConfig.getEvaluationHistorySize());
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
     }
@@ -1464,7 +1466,7 @@ public class CoordinatorService {
                                 System::currentTimeMillis),
                         new HierarchicalAutoscalingPolicy(
                                 DefaultAutoScaler.policyConfig(autoscalerRuntimeConfig)),
-                        DefaultAutoScaler.stabilizationTracker(autoscalerRuntimeConfig),
+                        DefaultAutoScaler.stateTracker(autoscalerRuntimeConfig),
                         autoscalerStateStore,
                         new SystemAutoscalerTimeSource());
         newAutoScaler.reset(masterEpoch);

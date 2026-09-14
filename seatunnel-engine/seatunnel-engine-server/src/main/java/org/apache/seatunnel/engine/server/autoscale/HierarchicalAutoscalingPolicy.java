@@ -49,7 +49,7 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
             if (snapshot.isRejectShortage()) {
                 reasons.add("scheduler_reject_shortage");
             }
-            return new AutoscaleEvaluation(ScalingAction.SCALE_OUT, reasons);
+            return new AutoscaleEvaluation(EvaluationAction.SCALE_OUT, reasons);
         }
 
         if (snapshot.getCpu().isGreaterThanOrEqualTo(config.getScaleOutCpuThreshold())) {
@@ -60,7 +60,7 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
             reasons.add("jvm_memory_utilization_high");
         }
         if (!reasons.isEmpty()) {
-            return new AutoscaleEvaluation(ScalingAction.SCALE_OUT, reasons);
+            return new AutoscaleEvaluation(EvaluationAction.SCALE_OUT, reasons);
         }
 
         // Slot pressure alone is not sufficient to trigger scale-out.
@@ -73,17 +73,17 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
                         || snapshot.getLongestPendingDurationMillis() > 0L;
         if (slotPressure && schedulingPressure) {
             reasons.add("slot_pressure_with_scheduling_pressure");
-            return new AutoscaleEvaluation(ScalingAction.SCALE_OUT, reasons);
+            return new AutoscaleEvaluation(EvaluationAction.SCALE_OUT, reasons);
         }
 
         if (snapshot.getCurrentWorkers() <= snapshot.getMinWorkers()) {
             reasons.add("min_workers_reached");
-            return new AutoscaleEvaluation(ScalingAction.NO_ACTION, reasons);
+            return new AutoscaleEvaluation(EvaluationAction.NO_ACTION, reasons);
         }
 
         if (!snapshot.isScaleInMetricsValid()) {
             reasons.add("scale_in_metrics_incomplete");
-            return new AutoscaleEvaluation(ScalingAction.SCALE_IN_BLOCKED, reasons);
+            return new AutoscaleEvaluation(EvaluationAction.NO_ACTION, reasons);
         }
 
         boolean lowCpu = snapshot.getCpu().isLessThan(config.getScaleInCpuThreshold());
@@ -93,11 +93,11 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
 
         if (lowCpu && lowJvmMemory && lowSlot) {
             reasons.add("resource_utilization_low");
-            return new AutoscaleEvaluation(ScalingAction.SCALE_IN_CANDIDATE, reasons);
+            return new AutoscaleEvaluation(EvaluationAction.SCALE_IN, reasons);
         }
 
         reasons.add("no_scaling_condition_met");
-        return new AutoscaleEvaluation(ScalingAction.NO_ACTION, reasons);
+        return new AutoscaleEvaluation(EvaluationAction.NO_ACTION, reasons);
     }
 
     private boolean isLowSlot(AutoscalerMetricsSnapshot snapshot) {

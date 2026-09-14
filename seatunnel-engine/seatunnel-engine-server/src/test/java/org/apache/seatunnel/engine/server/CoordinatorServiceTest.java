@@ -551,21 +551,21 @@ public class CoordinatorServiceTest {
             Assertions.assertFalse(inactiveView.isRunning());
             Assertions.assertEquals(0L, inactiveView.getCurrentMasterEpoch());
             Assertions.assertEquals(0L, inactiveView.getNextGeneration());
-            Assertions.assertNull(inactiveView.getLatestRecommendation());
+            Assertions.assertNull(inactiveView.getLatestEvaluationRecord());
 
             masterFlag.set(true);
             invokeCheckNewActiveMaster(coordinatorService);
             AutoscalerView firstActiveView = awaitAutoscalerPublication(coordinatorService);
             long firstEpoch = firstActiveView.getCurrentMasterEpoch();
             Assertions.assertTrue(firstEpoch > 0L);
-            Assertions.assertEquals(1L, firstActiveView.getNextGeneration());
-            Assertions.assertEquals(0L, firstActiveView.getLatestRecommendation().getGeneration());
+            Assertions.assertEquals(0L, firstActiveView.getNextGeneration());
+            Assertions.assertNotNull(firstActiveView.getLatestEvaluationRecord());
 
             invokeCheckNewActiveMaster(coordinatorService);
             AutoscalerView duplicatePromotionView = coordinatorService.getAutoscalerView();
             Assertions.assertTrue(duplicatePromotionView.isRunning());
             Assertions.assertEquals(firstEpoch, duplicatePromotionView.getCurrentMasterEpoch());
-            Assertions.assertEquals(1L, duplicatePromotionView.getNextGeneration());
+            Assertions.assertEquals(0L, duplicatePromotionView.getNextGeneration());
 
             masterFlag.set(false);
             invokeCheckNewActiveMaster(coordinatorService);
@@ -573,23 +573,22 @@ public class CoordinatorServiceTest {
             Assertions.assertFalse(demotedView.isRunning());
             Assertions.assertEquals(0L, demotedView.getCurrentMasterEpoch());
             Assertions.assertEquals(0L, demotedView.getNextGeneration());
-            long lastPublishedGeneration = demotedView.getLatestRecommendation().getGeneration();
+            int evaluationHistorySize = demotedView.getEvaluationHistory().size();
 
             invokeEvaluateAutoscalerSafely(coordinatorService);
             AutoscalerView afterLateEvaluateView = coordinatorService.getAutoscalerView();
             Assertions.assertFalse(afterLateEvaluateView.isRunning());
             Assertions.assertEquals(
-                    lastPublishedGeneration,
-                    afterLateEvaluateView.getLatestRecommendation().getGeneration());
+                    evaluationHistorySize, afterLateEvaluateView.getEvaluationHistory().size());
 
             setMockAutoscalerResourceManager(coordinatorService);
             masterFlag.set(true);
             invokeCheckNewActiveMaster(coordinatorService);
             AutoscalerView repromotedView = awaitAutoscalerPublication(coordinatorService);
             Assertions.assertTrue(repromotedView.getCurrentMasterEpoch() > firstEpoch);
-            Assertions.assertEquals(1L, repromotedView.getNextGeneration());
-            Assertions.assertEquals(0L, repromotedView.getLatestRecommendation().getGeneration());
-            Assertions.assertEquals(1, repromotedView.getHistory().size());
+            Assertions.assertEquals(0L, repromotedView.getNextGeneration());
+            Assertions.assertNotNull(repromotedView.getLatestEvaluationRecord());
+            Assertions.assertEquals(1, repromotedView.getEvaluationHistory().size());
         } finally {
             shutdownCoordinatorIfRunning(coordinatorService);
         }
@@ -614,7 +613,7 @@ public class CoordinatorServiceTest {
             Assertions.assertFalse(view.isRunning());
             Assertions.assertEquals(0L, view.getCurrentMasterEpoch());
             Assertions.assertEquals(0L, view.getNextGeneration());
-            Assertions.assertNull(view.getLatestRecommendation());
+            Assertions.assertNull(view.getLatestEvaluationRecord());
             Assertions.assertNull(getAutoScaler(coordinatorService));
             Assertions.assertNull(getAutoscalerScheduler(coordinatorService));
         } finally {
@@ -919,7 +918,7 @@ public class CoordinatorServiceTest {
                             AutoscalerView view = coordinatorService.getAutoscalerView();
                             Assertions.assertTrue(view.isRunning());
                             Assertions.assertTrue(view.getCurrentMasterEpoch() > 0L);
-                            Assertions.assertNotNull(view.getLatestRecommendation());
+                            Assertions.assertNotNull(view.getLatestEvaluationRecord());
                         });
         return coordinatorService.getAutoscalerView();
     }

@@ -1,65 +1,50 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements.
+ * See the NOTICE file distributed with this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0 (the "License"); you may not
+ * use this file except in compliance with the License. You may obtain a copy of the License at
  *
  *    http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is
+ * distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and limitations under the License.
  */
-
 package org.apache.seatunnel.engine.server.autoscale;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.EnumMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 
-/**
- * Bounded in-memory store for the latest autoscaler recommendation and recent history.
- *
- * <p>The store applies recommendation fencing and maintains scrape-safe cumulative counts by
- * action.
- */
+/** Bounded in-memory histories for evaluation records and published recommendations. */
 public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore {
-
-    private final int historySize;
+    private final int recommendationHistorySize;
+    private final int evaluationHistorySize;
     private final RecommendationFence fence = new RecommendationFence();
-    private final LinkedList<ScalingRecommendation> history = new LinkedList<>();
-    private final EnumMap<ScalingAction, Long> recommendationCounts =
-            new EnumMap<>(ScalingAction.class);
-    private ScalingRecommendation latest;
+    private final LinkedList<AutoscalingEvaluationRecord> evaluationHistory = new LinkedList<>();
+    private final LinkedList<ScalingRecommendation> recommendationHistory = new LinkedList<>();
+    private AutoscalingEvaluationRecord latestEvaluationRecord;
+    private ScalingRecommendation latestRecommendation;
     private AutoscalerMetricsSnapshot currentSnapshot;
 
-    public InMemoryAutoscalerStateStore(int historySize) {
-        if (historySize <= 0) {
-            throw new IllegalArgumentException("historySize must be > 0");
+    public InMemoryAutoscalerStateStore(int recommendationHistorySize, int evaluationHistorySize) {
+        if (recommendationHistorySize <= 0 || evaluationHistorySize <= 0) {
+            throw new IllegalArgumentException("history sizes must be > 0");
         }
-        this.historySize = historySize;
-        for (ScalingAction action : ScalingAction.values()) {
-            recommendationCounts.put(action, 0L);
-        }
+        this.recommendationHistorySize = recommendationHistorySize;
+        this.evaluationHistorySize = evaluationHistorySize;
     }
 
     @Override
     public synchronized void clear() {
-        latest = null;
+        latestEvaluationRecord = null;
+        latestRecommendation = null;
         currentSnapshot = null;
-        history.clear();
+        evaluationHistory.clear();
+        recommendationHistory.clear();
         fence.reset();
-        for (ScalingAction action : ScalingAction.values()) {
-            recommendationCounts.put(action, 0L);
-        }
     }
 
     @Override
@@ -68,23 +53,22 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
     }
 
     @Override
+    public synchronized void recordEvaluation(AutoscalingEvaluationRecord record) {
+        latestEvaluationRecord = Objects.requireNonNull(record, "record");
+        evaluationHistory.add(record);
+        trim(evaluationHistory, evaluationHistorySize);
+    }
+
+    @Override
     public synchronized RecommendationFence.PublicationResult publish(
             ScalingRecommendation recommendation) {
         Objects.requireNonNull(recommendation, "recommendation");
         RecommendationFence.PublicationResult result =
                 fence.tryPublish(recommendation.getMasterEpoch(), recommendation.getGeneration());
-        if (result != RecommendationFence.PublicationResult.ACCEPTED) {
-            return result;
-        }
-        latest = recommendation;
-        history.add(recommendation);
-        if (recommendation.getStabilizationState()
-                != StabilizationTracker.StabilizationState.WAITING) {
-            recommendationCounts.compute(
-                    recommendation.getAction(), (action, count) -> count == null ? 1L : count + 1L);
-        }
-        while (history.size() > historySize) {
-            history.removeFirst();
+        if (result == RecommendationFence.PublicationResult.ACCEPTED) {
+            latestRecommendation = recommendation;
+            recommendationHistory.add(recommendation);
+            trim(recommendationHistory, recommendationHistorySize);
         }
         return result;
     }
@@ -97,9 +81,6 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
             long nextGeneration,
             int scaleOutStabilizationSeconds,
             int scaleInStabilizationSeconds) {
-        List<ScalingRecommendation> historyCopy =
-                Collections.unmodifiableList(new ArrayList<>(history));
-        Map<ScalingAction, Long> countsCopy = new EnumMap<>(recommendationCounts);
         return new AutoscalerView(
                 enabled,
                 running,
@@ -107,13 +88,24 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
                 nextGeneration,
                 scaleOutStabilizationSeconds,
                 scaleInStabilizationSeconds,
-                latest,
+                latestEvaluationRecord,
+                latestRecommendation,
                 currentSnapshot,
-                historyCopy,
-                countsCopy);
+                immutableCopy(evaluationHistory),
+                immutableCopy(recommendationHistory));
     }
 
     public synchronized AutoscalerView view(boolean enabled, boolean running) {
         return view(enabled, running, 0L, 0L, 0, 0);
+    }
+
+    private static <T> List<T> immutableCopy(List<T> source) {
+        return Collections.unmodifiableList(new ArrayList<>(source));
+    }
+
+    private static <T> void trim(LinkedList<T> history, int maxSize) {
+        while (history.size() > maxSize) {
+            history.removeFirst();
+        }
     }
 }
