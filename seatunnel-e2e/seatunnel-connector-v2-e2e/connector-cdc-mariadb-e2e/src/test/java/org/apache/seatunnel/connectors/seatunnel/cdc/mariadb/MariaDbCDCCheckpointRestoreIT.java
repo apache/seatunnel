@@ -412,14 +412,35 @@ public class MariaDbCDCCheckpointRestoreIT extends TestSuiteBase implements Test
 
     private void awaitSourceAndSinkConsistent(
             String database, String sourceTable, String sinkTable) {
-        Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .pollInterval(1, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () ->
-                                Assertions.assertIterableEquals(
-                                        query(getSourceQuerySQL(database, sourceTable)),
-                                        query(getSinkQuerySQL(database, sinkTable))));
+        // Dump the full row sets of both tables when the polling window is exhausted so the
+        // actual divergence shape (extra duplicate rows vs. a genuinely missing/lagging row) is
+        // directly visible in the CI log instead of inferred from a single differing index.
+        try {
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertIterableEquals(
+                                            query(getSourceQuerySQL(database, sourceTable)),
+                                            query(getSinkQuerySQL(database, sinkTable))));
+        } catch (org.awaitility.core.ConditionTimeoutException e) {
+            List<List<Object>> sourceRows = query(getSourceQuerySQL(database, sourceTable));
+            List<List<Object>> sinkRows = query(getSinkQuerySQL(database, sinkTable));
+            log.error(
+                    "Source/sink diverged after polling timeout. source table {}.{} has {} rows: {}",
+                    database,
+                    sourceTable,
+                    sourceRows.size(),
+                    sourceRows);
+            log.error(
+                    "Source/sink diverged after polling timeout. sink table {}.{} has {} rows: {}",
+                    database,
+                    sinkTable,
+                    sinkRows.size(),
+                    sinkRows);
+            throw e;
+        }
     }
 
     private void createAppendOnlySinkTable(String database, String sourceTable, String sinkTable) {
