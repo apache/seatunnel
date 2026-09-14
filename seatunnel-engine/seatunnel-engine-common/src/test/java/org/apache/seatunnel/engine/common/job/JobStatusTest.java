@@ -39,6 +39,15 @@ public class JobStatusTest {
         }
     }
 
+    /**
+     * The ordinal position of every status is part of the internal RPC contract, so reordering or
+     * inserting a constant breaks wire compatibility with older members.
+     *
+     * <p>If this test fails, move the new status to the end of {@link JobStatus} (and update this
+     * list) rather than reordering existing constants. When inserting one is unavoidable, handle
+     * the compatibility impact explicitly — do not just refresh the expected list, or every stored
+     * ordinal and every in-flight status report silently changes meaning.
+     */
     @Test
     void testOrdinalOrderIsStableForInternalRpcCompatibility() {
         assertEquals(
