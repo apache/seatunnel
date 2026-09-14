@@ -24,22 +24,13 @@ import java.util.List;
 
 public final class SnmpSourceOptions {
 
-    public static final String CONNECTOR_IDENTITY = "SNMP";
+    public static final String CONNECTOR_IDENTITY = SnmpOptions.CONNECTOR_IDENTITY;
 
-    public static final Option<String> HOST =
-            Options.key("host")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("SNMP agent host name or IP address");
+    public static final Option<String> HOST = SnmpOptions.HOST;
 
-    public static final Option<Integer> PORT =
-            Options.key("port").intType().defaultValue(161).withDescription("SNMP agent UDP port");
+    public static final Option<Integer> PORT = SnmpOptions.PORT;
 
-    public static final Option<String> COMMUNITY =
-            Options.key("community")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("SNMPv2c community credential");
+    public static final Option<String> COMMUNITY = SnmpOptions.COMMUNITY;
 
     public static final Option<List<String>> OIDS =
             Options.key("oids")
@@ -47,17 +38,9 @@ public final class SnmpSourceOptions {
                     .noDefaultValue()
                     .withDescription("Numeric OIDs to retrieve with SNMP GET");
 
-    public static final Option<Long> TIMEOUT_MILLIS =
-            Options.key("timeout_millis")
-                    .longType()
-                    .defaultValue(5000L)
-                    .withDescription("Timeout in milliseconds for each SNMP request attempt");
+    public static final Option<Long> TIMEOUT_MILLIS = SnmpOptions.TIMEOUT_MILLIS;
 
-    public static final Option<Integer> RETRIES =
-            Options.key("retries")
-                    .intType()
-                    .defaultValue(1)
-                    .withDescription("Number of retries after the initial SNMP request attempt");
+    public static final Option<Integer> RETRIES = SnmpOptions.RETRIES;
 
     public static final Option<Long> POLL_INTERVAL_MILLIS =
             Options.key("poll_interval_millis")
