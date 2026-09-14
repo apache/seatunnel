@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
@@ -1147,6 +1148,70 @@ public class CheckpointCoordinatorTest
             Mockito.verify(spy, Mockito.never())
                     .scheduleTriggerPendingCheckpoint(
                             Mockito.any(CheckpointType.class), Mockito.anyLong());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * Pins the restore path this PR's schema-change drain-guard fix relies on. When a pipeline
+     * restores from a completed schema-change-before checkpoint, {@code allTaskReady()} must route
+     * that exact {@link CompletedCheckpoint} (type included) through {@code notifyCompleted()}, and
+     * only after {@code notifyTaskStart()} has completed -- this is the only mechanism that reopens
+     * a freshly constructed {@code SchemaChangeDrainGuard} after recovery, since a new sink task
+     * never observes the original checkpoint barrier. A future change to {@code allTaskReady()}
+     * that drops the checkpoint type, skips the call, or reorders it ahead of {@code
+     * notifyTaskStart()} would silently reintroduce the recovery gap this PR fixes.
+     *
+     * <p>{@code notifyCompleted()} itself dispatches to remote member nodes, which this
+     * single-process unit test cannot observe end-to-end; it is stubbed here to isolate the one
+     * property under test -- that {@code allTaskReady()} actually calls it with the restored
+     * checkpoint, in the right order.
+     */
+    @Test
+    void testAllTaskReadyRoutesRestoredSchemaChangeCheckpointThroughNotifyCompleted() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+
+            CompletedCheckpoint restoredSchemaChangeCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            7L,
+                            System.currentTimeMillis(),
+                            CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+            restoredSchemaChangeCheckpoint.setRestored(true);
+            ReflectionUtils.setField(
+                    spy, "latestCompletedCheckpoint", restoredSchemaChangeCheckpoint);
+
+            // notifyTaskStart() must return a non-null empty array so allOf(...).join() succeeds.
+            Mockito.doReturn(new com.hazelcast.spi.impl.operationservice.impl.InvocationFuture[0])
+                    .when(spy)
+                    .notifyTaskStart();
+            Mockito.doReturn(true).when(spy).notifyCompleted(Mockito.any());
+
+            // Set all tasks to READY_START so allTaskReady() passes the guard checks.
+            Map<Long, SeaTunnelTaskState> taskStatus = spy.getPipelineTaskStatus();
+            CheckpointPlan plan =
+                    (CheckpointPlan)
+                            ReflectionUtils.getField(spy, "plan")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "plan field not found"));
+            plan.getPipelineSubtasks()
+                    .forEach(t -> taskStatus.put(t.getTaskID(), SeaTunnelTaskState.READY_START));
+
+            ReflectionUtils.invoke(spy, "allTaskReady");
+
+            InOrder inOrder = Mockito.inOrder(spy);
+            inOrder.verify(spy).notifyTaskStart();
+            inOrder.verify(spy).notifyCompleted(Mockito.same(restoredSchemaChangeCheckpoint));
         } finally {
             executorService.shutdownNow();
         }
