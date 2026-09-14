@@ -29,6 +29,9 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | username                   | string  | 否    | -     |
 | password                   | string  | 否    | -     |
 | queue_name                 | string  | 是    | -     |
+| format                     | string  | 否    | json  |
+| protobuf_schema            | string  | 否    | -     |
+| protobuf_message_name      | string  | 否    | -     |
 | url                        | string  | 否    | -     |
 | routing_key                | string  | 否    | -     |
 | exchange                   | string  | 否    | -     |
@@ -71,6 +74,18 @@ virtual host，连接 broker 使用的 vhost
 ### queue_name [string]
 
 数据写入的队列名。如果没有配置 `routing_key`，连接器会通过默认 exchange 将消息直接写入该队列。
+
+### format [string]
+
+消息体格式，支持 `json` 和 `protobuf`，默认值为 `json`。
+
+### protobuf_schema [string]
+
+当 `format` 为 `protobuf` 时生效，定义用于序列化 RabbitMQ 消息体的 Protobuf Schema。
+
+### protobuf_message_name [string]
+
+当 `format` 为 `protobuf` 时生效，指定要序列化的 Protobuf Message 名称。
 
 ### routing_key [string]
 
@@ -126,6 +141,7 @@ Sink插件常用参数，请参考[Sink常用选项](../common-options/sink-comm
 - 如果配置了 `username`，也必须配置 `password`，反过来也一样。
 - `host`、`port`、`virtual_host` 和 `queue_name` 是连接器必填项。`url` 可额外提供 RabbitMQ 客户端使用的 AMQP URI。
 - `durable`、`exclusive` 和 `auto_delete` 用于连接器声明目标队列。
+- 当 `format` 为 `protobuf` 时，需要同时配置 `protobuf_schema` 和 `protobuf_message_name`。
 
 ## 示例
 
@@ -202,6 +218,28 @@ sink {
             requested-heartbeat = 10
             connection-timeout = 10
           }
+      }
+}
+```
+
+### 写入 Protobuf 消息到队列
+
+```hocon
+sink {
+      RabbitMQ {
+          host = "rabbitmq-e2e"
+          port = 5672
+          virtual_host = "/"
+          queue_name = "protobuf_queue"
+          format = protobuf
+          protobuf_message_name = Person
+          protobuf_schema = """
+              syntax = "proto3";
+              message Person {
+                int64 id = 1;
+                string name = 2;
+              }
+          """
       }
 }
 ```
