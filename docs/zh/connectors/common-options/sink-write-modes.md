@@ -100,6 +100,7 @@ File Sink 写的是文件，因此不使用 `generate_sink_sql`、`query` 或数
 | OssFile | 是 | 通过 File Sink save mode 流程处理 OSS 路径和对象。 |
 | ObsFile | 否 | 当前 sink option rule 没有暴露 `schema_save_mode` 或 `data_save_mode`。 |
 | CosFile | 否 | 当前 sink option rule 没有暴露 `schema_save_mode` 或 `data_save_mode`。 |
+| BosFile | 否 | 当前 sink option rule 没有暴露 `schema_save_mode` 或 `data_save_mode`。 |
 
 如果某个文件 connector 页面没有列出 `schema_save_mode` 或 `data_save_mode`，不要默认认为该 connector 可以接收这些参数。
 
@@ -174,7 +175,7 @@ sink {
 
 ### File Sink 不接受 `data_save_mode`
 
-检查具体 connector 参数表。`S3File`、`OssFile`、`HdfsFile`、`FtpFile`、`SftpFile`、`LocalFile` 暴露文件 save mode 参数；`ObsFile` 和 `CosFile` 当前未暴露。
+检查具体 connector 参数表。`S3File`、`OssFile`、`HdfsFile`、`FtpFile`、`SftpFile`、`LocalFile` 暴露文件 save mode 参数；`ObsFile`、`CosFile` 和 `BosFile` 当前未暴露。
 
 ### 我只想建表，不想抽取数据
 

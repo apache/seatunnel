@@ -31,6 +31,8 @@ import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConn
 import org.apache.seatunnel.connectors.seatunnel.influxdb.exception.InfluxdbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.influxdb.state.InfluxDBSourceState;
 
+import org.apache.commons.collections4.CollectionUtils;
+
 import org.influxdb.InfluxDB;
 import org.influxdb.dto.Query;
 import org.influxdb.dto.QueryResult;
@@ -53,12 +55,20 @@ public class InfluxDBSource
 
     private final CatalogTable catalogTable;
     private final SourceConfig sourceConfig;
+    private final List<InfluxDBSourceTable> tables;
 
     private static final String QUERY_LIMIT = " limit 1";
 
     public InfluxDBSource(CatalogTable catalogTable, SourceConfig sourceConfig) {
         this.catalogTable = catalogTable;
         this.sourceConfig = sourceConfig;
+        this.tables = Collections.emptyList();
+    }
+
+    InfluxDBSource(List<InfluxDBSourceTable> tables) {
+        this.tables = Collections.unmodifiableList(new ArrayList<>(tables));
+        this.catalogTable = tables.get(0).getCatalogTable();
+        this.sourceConfig = tables.get(0).getSourceConfig();
     }
 
     @Override
@@ -73,7 +83,13 @@ public class InfluxDBSource
 
     @Override
     public SourceReader createReader(SourceReader.Context readerContext) throws Exception {
-        List<Integer> columnsIndexList = initColumnsIndex(InfluxDBClient.getInfluxDB(sourceConfig));
+        if (!tables.isEmpty()) {
+            return new InfluxdbSourceReader(sourceConfig, readerContext, tables);
+        }
+        List<Integer> columnsIndexList;
+        try (InfluxDB client = InfluxDBClient.getInfluxDB(sourceConfig)) {
+            columnsIndexList = initColumnsIndex(client);
+        }
         return new InfluxdbSourceReader(
                 sourceConfig, readerContext, catalogTable.getSeaTunnelRowType(), columnsIndexList);
     }
@@ -81,7 +97,7 @@ public class InfluxDBSource
     @Override
     public SourceSplitEnumerator createEnumerator(SourceSplitEnumerator.Context enumeratorContext)
             throws Exception {
-        return new InfluxDBSourceSplitEnumerator(enumeratorContext, sourceConfig);
+        return new InfluxDBSourceSplitEnumerator(enumeratorContext, null, sourceConfig, tables);
     }
 
     @Override
@@ -89,11 +105,17 @@ public class InfluxDBSource
             SourceSplitEnumerator.Context<InfluxDBSourceSplit> enumeratorContext,
             InfluxDBSourceState checkpointState)
             throws Exception {
-        return new InfluxDBSourceSplitEnumerator(enumeratorContext, checkpointState, sourceConfig);
+        return new InfluxDBSourceSplitEnumerator(
+                enumeratorContext, checkpointState, sourceConfig, tables);
     }
 
     @Override
     public List<CatalogTable> getProducedCatalogTables() {
+        if (!tables.isEmpty()) {
+            return tables.stream()
+                    .map(InfluxDBSourceTable::getCatalogTable)
+                    .collect(Collectors.toList());
+        }
         return Collections.singletonList(catalogTable);
     }
 
@@ -112,7 +134,20 @@ public class InfluxDBSource
         try {
             QueryResult queryResult = influxdb.query(new Query(query, sourceConfig.getDatabase()));
 
-            List<QueryResult.Series> serieList = queryResult.getResults().get(0).getSeries();
+            List<QueryResult.Result> results = queryResult.getResults();
+            if (CollectionUtils.isEmpty(results)) {
+                log.warn(
+                        "InfluxDB query returned empty results, using default column index mapping.");
+                return buildDefaultColumnsIndex();
+            }
+
+            List<QueryResult.Series> serieList = results.get(0).getSeries();
+            if (CollectionUtils.isEmpty(serieList)) {
+                log.warn(
+                        "InfluxDB query returned no series (empty data), using default column index mapping.");
+                return buildDefaultColumnsIndex();
+            }
+
             List<String> fieldNames = new ArrayList<>(serieList.get(0).getColumns());
 
             return Arrays.stream(catalogTable.getSeaTunnelRowType().getFieldNames())
@@ -124,6 +159,19 @@ public class InfluxDBSource
                     "Get column index of query result exception",
                     e);
         }
+    }
+
+    /**
+     * Builds a default column index list based on the catalog table schema. Used when the query
+     * returns no data, where actual column indices are not needed since no rows will be read.
+     */
+    private List<Integer> buildDefaultColumnsIndex() {
+        int fieldCount = catalogTable.getSeaTunnelRowType().getTotalFields();
+        List<Integer> defaultIndexList = new ArrayList<>(fieldCount);
+        for (int i = 0; i < fieldCount; i++) {
+            defaultIndexList.add(i);
+        }
+        return defaultIndexList;
     }
 
     private static int containTzFunction(String sql) {

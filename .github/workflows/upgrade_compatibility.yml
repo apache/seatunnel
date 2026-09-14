@@ -54,6 +54,9 @@ jobs:
           distribution: temurin
           java-version: "8"
 
+      - name: Test upgrade compatibility tooling
+        run: bash tools/upgrade_compatibility/run_upgrade_compatibility_test.sh
+
       - name: Free disk space
         run: bash tools/github/free_disk_space.sh
 

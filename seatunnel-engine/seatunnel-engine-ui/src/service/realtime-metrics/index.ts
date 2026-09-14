@@ -71,6 +71,46 @@ export interface RealtimeVerticesResponse {
   }>
 }
 
+/** Overview poll interval. Pinning must not add extra REST traffic. */
+export const REALTIME_POLL_INTERVAL_MS = 2000
+/** Default query window (3 minutes). */
+export const REALTIME_WINDOW_MS_DEFAULT = 3 * 60 * 1000
+/** Hard cap for the query window (10 minutes). */
+export const REALTIME_WINDOW_MS_MAX = 10 * 60 * 1000
+
+export const effectiveRealtimeWindowMs = (windowMs = REALTIME_WINDOW_MS_DEFAULT) =>
+  Math.min(windowMs, REALTIME_WINDOW_MS_MAX)
+
+/**
+ * Shared job-level fetch used by Job Detail Overview and follow-up
+ * observability views. Callers own the poll loop; this helper does not start one.
+ */
+export const fetchJobRealtimeMetrics = async (
+  jobId: string,
+  windowMs = REALTIME_WINDOW_MS_DEFAULT
+) => {
+  const effectiveWindowMs = effectiveRealtimeWindowMs(windowMs)
+  const [edges, vertices] = await Promise.all([
+    getRealtimeJobEdges(jobId, effectiveWindowMs),
+    getRealtimeJobVertices(jobId, effectiveWindowMs)
+  ])
+  return { edges, vertices, windowMs: effectiveWindowMs }
+}
+
+export const describeRealtimeFetchError = (error: unknown): string => {
+  const status = (error as { response?: { status?: number } })?.response?.status
+  if (status === 503) {
+    return 'Realtime metrics disabled on master'
+  }
+  if (status === 404) {
+    return 'Realtime metrics job not found'
+  }
+  if (status === 401 || status === 403) {
+    return 'Realtime metrics unauthorized'
+  }
+  return 'Failed to fetch realtime metrics'
+}
+
 export const getRealtimeJobEdges = (jobId: string, windowMs: number) =>
   get<RealtimeEdgesResponse>(`/metrics/realtime/jobs/${jobId}/edges`, { windowMs })
 
@@ -79,5 +119,6 @@ export const getRealtimeJobVertices = (jobId: string, windowMs: number) =>
 
 export const RealtimeMetricsService = {
   getRealtimeJobEdges,
-  getRealtimeJobVertices
+  getRealtimeJobVertices,
+  fetchJobRealtimeMetrics
 }

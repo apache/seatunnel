@@ -53,7 +53,7 @@ downloaded from Maven Central.
 | retry                       | Int    | No       | -       | Maximum retry times when the HTTP request throws an `IOException`. |
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
-| batch_size                  | Int    | No       | 1024    | Maximum number of rows buffered before writing to Prometheus. |
+| batch_size                  | Int    | No       | 1024    | Positive number of rows buffered before writing to Prometheus. |
 | multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
 | common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
@@ -98,11 +98,35 @@ connector-owned background thread and no concurrency between the timer flush and
 checkpoint, or close paths. A flush that fails is propagated to the engine instead of being silently
 dropped.
 
-> On Spark and Flink there is no periodic timer flush at all: `sink.flush.interval` is a Zeta engine
+> On Spark and Flink there is no sub-checkpoint timer flush: `sink.flush.interval` is a Zeta engine
 > primitive, and the Spark/Flink sink writer context does not implement it. On those engines the
-> buffer is flushed only when it reaches `batch_size` and when the writer is closed. It is **not**
-> flushed on checkpoint (`PrometheusWriter` does not override `prepareCommit()`). For a low-throughput
-> streaming job on Spark or Flink, tune `batch_size` accordingly.
+> buffer is flushed when it reaches `batch_size`, on checkpoint (`PrometheusWriter` flushes in
+> `prepareCommit()`), and when the writer is closed. Buffered samples are therefore bounded by the
+> checkpoint interval rather than held until `batch_size` or close. For lower latency between
+> checkpoints on Spark or Flink, tune `batch_size` accordingly.
+
+The checkpoint flush runs on all engines, including Zeta. So on Zeta the buffer is flushed by both
+`sink.flush.interval` and each checkpoint: if the checkpoint interval is shorter than
+`sink.flush.interval`, flushes happen more often (in smaller batches) than the timer alone. This is
+expected; tune `sink.flush.interval` and the checkpoint interval together if request cadence matters.
+
+### Checkpoint Flush and Failure Handling
+
+The checkpoint flush is a single remote-write request, and a failed flush fails the checkpoint rather
+than dropping the batch. Two consequences are worth knowing:
+
+- **Transient failures fail the checkpoint.** A network blip, a receiver restart, or a `5xx` response
+  fails the current checkpoint. On Flink the default `tolerableCheckpointFailureNumber` is `0`, so a
+  single failure restarts the job; on Spark and Flink you may want to raise the engine's tolerable
+  checkpoint failure setting for a low-throughput job. A bounded retry with backoff inside the flush
+  is tracked as a follow-up in [#11911](https://github.com/apache/seatunnel/issues/11911).
+- **Replay safety depends on the receiver.** After a failed checkpoint the job restarts and the source
+  replays from the last successful checkpoint, so the buffered samples are re-sent. This is safe only
+  when the remote-write receiver accepts an exact duplicate (same labels, timestamp, and value). A
+  receiver that rejects a same-timestamp sample with a different value, or an out-of-order sample
+  (Prometheus TSDB, and receivers such as Cortex, Mimir, and Thanos, return `400` for these), can fail
+  the replayed flush and keep failing the checkpoint. Enable the receiver's out-of-order window, or
+  ensure replays are exact duplicates, if this matters for your deployment.
 
 ## Example
 

@@ -25,6 +25,15 @@ import java.util.List;
 /** Configuration options specific to the Couchbase sink connector. */
 public class CouchbaseSinkOptions extends CouchbaseConfig {
 
+    /** Maximum time to wait for bucket readiness during writer initialization, in seconds. */
+    public static final Option<Integer> READY_TIMEOUT =
+            Options.key("ready.timeout")
+                    .intType()
+                    .defaultValue(30)
+                    .withDescription(
+                            "The timeout in seconds for waiting until the target bucket is ready"
+                                    + " during writer initialization. Must be greater than zero.");
+
     /**
      * Maximum number of rows buffered before a batch write is triggered.
      *
@@ -37,19 +46,6 @@ public class CouchbaseSinkOptions extends CouchbaseConfig {
                     .withDescription(
                             "The maximum number of buffered rows per batch write request."
                                     + " Use -1 to disable size-based flushing.");
-
-    /**
-     * Maximum time (ms) between two consecutive batch writes.
-     *
-     * <p>A value of {@code -1} disables interval-based flushing.
-     */
-    public static final Option<Long> BUFFER_FLUSH_INTERVAL =
-            Options.key("buffer-flush.interval")
-                    .longType()
-                    .defaultValue(30000L)
-                    .withDescription(
-                            "The maximum interval between batch write requests, in milliseconds."
-                                    + " Use -1 to disable interval-based flushing.");
 
     /** Number of retry attempts on transient write failures before giving up. */
     public static final Option<Integer> RETRY_MAX =

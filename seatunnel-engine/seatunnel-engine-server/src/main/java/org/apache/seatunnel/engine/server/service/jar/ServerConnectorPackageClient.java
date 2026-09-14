@@ -88,8 +88,9 @@ public class ServerConnectorPackageClient {
         boolean success = false;
         try {
             if (!storageFile.exists()) {
-                FileOutputStream fos = new FileOutputStream(storageFile);
-                fos.write(connectorJarByteData);
+                try (FileOutputStream fos = new FileOutputStream(storageFile)) {
+                    fos.write(connectorJarByteData);
+                }
             } else {
                 LOGGER.warning(
                         String.format(
