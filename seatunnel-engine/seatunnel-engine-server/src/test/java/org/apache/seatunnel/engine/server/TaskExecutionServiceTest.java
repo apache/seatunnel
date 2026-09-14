@@ -984,6 +984,134 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         assertEquals("different-execution", contexts.get(differentExecution));
     }
 
+    /**
+     * Regression for the classloader-release race flagged in apache/seatunnel#12218: rollback and
+     * normal completion must not both call {@code ClassLoaderService#releaseClassLoader} for the
+     * same context, because the service's ref count is shared across task groups in the same job.
+     */
+    @Test
+    public void testTaskGroupContextClassLoaderReleaseClaimIsAtomic() throws Exception {
+        TaskGroupLocation location = newTaskGroupLocation();
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "classloader-claim",
+                        Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
+        File testJar = File.createTempFile("classloader-claim", ".jar");
+        testJar.deleteOnExit();
+        Set<URL> testJars = Collections.singleton(testJar.toURI().toURL());
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+        long taskId = taskGroup.getTasks().iterator().next().getTaskID();
+        DefaultClassLoaderService classLoaderService =
+                (DefaultClassLoaderService) server.getClassLoaderService();
+        ClassLoader classLoader = classLoaderService.getClassLoader(location.getJobId(), testJars);
+        classLoaders.put(taskId, classLoader);
+        jars.put(taskId, testJars);
+        // Sibling task group in the same job holding the same connector jars (shared ref count).
+        classLoaderService.getClassLoader(location.getJobId(), testJars);
+        assertEquals(
+                2,
+                classLoaderService.queryClassLoaderReferenceCount(location.getJobId(), testJars));
+
+        TaskGroupContext context =
+                new TaskGroupContext(FLAKE_ID_GENERATOR.newId(), taskGroup, classLoaders, jars);
+
+        Map<Long, Collection<URL>> claimed = context.claimJarsForClassLoaderRelease();
+        Assertions.assertNotNull(claimed);
+        Assertions.assertNull(context.getClassLoaders());
+        Assertions.assertNull(context.getJars());
+        Assertions.assertNull(
+                context.claimJarsForClassLoaderRelease(),
+                "second claim must no-op so rollback and recycleClassLoader cannot double-release");
+
+        for (Collection<URL> claimedJars : claimed.values()) {
+            classLoaderService.releaseClassLoader(location.getJobId(), claimedJars);
+        }
+        // Only one decrement: sibling task group must still keep the classloader alive.
+        assertEquals(
+                1,
+                classLoaderService.queryClassLoaderReferenceCount(location.getJobId(), testJars));
+        Assertions.assertTrue(
+                classLoaderService.queryClassLoaderById(location.getJobId(), testJars).isPresent());
+
+        classLoaderService.releaseClassLoader(location.getJobId(), testJars);
+        assertEquals(
+                0,
+                classLoaderService.queryClassLoaderReferenceCount(location.getJobId(), testJars));
+    }
+
+    @Test
+    public void testRecycleClassLoaderAfterRollbackClaimDoesNotDoubleRelease() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task task = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(
+                        location, "rollback-then-recycle", Lists.newArrayList(task));
+        File testJar = File.createTempFile("rollback-then-recycle", ".jar");
+        testJar.deleteOnExit();
+        Set<URL> testJars = Collections.singleton(testJar.toURI().toURL());
+        DefaultClassLoaderService classLoaderService =
+                (DefaultClassLoaderService) server.getClassLoaderService();
+        ClassLoader classLoader = classLoaderService.getClassLoader(location.getJobId(), testJars);
+        // Shared job-scoped ref as if another healthy task group still holds the jars.
+        classLoaderService.getClassLoader(location.getJobId(), testJars);
+        assertEquals(
+                2,
+                classLoaderService.queryClassLoaderReferenceCount(location.getJobId(), testJars));
+
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+        classLoaders.put(task.getTaskID(), classLoader);
+        jars.put(task.getTaskID(), testJars);
+        TaskGroupContext context =
+                new TaskGroupContext(FLAKE_ID_GENERATOR.newId(), taskGroup, classLoaders, jars);
+        CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker tracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(cancellationFuture, context, resultFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, CompletableFuture<Void>> cancellationFutures =
+                getField(taskExecutionService, "cancellationFutures");
+        executionContexts.put(location, context);
+        cancellationFutures.put(context, cancellationFuture);
+
+        try {
+            // Simulate post-publish rollback claiming classloader release first.
+            java.lang.reflect.Method releaseOnce =
+                    TaskExecutionService.class.getDeclaredMethod(
+                            "releaseClassLoadersOnce",
+                            TaskGroupLocation.class,
+                            TaskGroupContext.class);
+            releaseOnce.setAccessible(true);
+            releaseOnce.invoke(taskExecutionService, location, context);
+            assertEquals(
+                    1,
+                    classLoaderService.queryClassLoaderReferenceCount(
+                            location.getJobId(), testJars));
+
+            // Normal completion path must observe the claim and must not decrement again.
+            tracker.taskDone(task);
+            assertEquals(
+                    1,
+                    classLoaderService.queryClassLoaderReferenceCount(
+                            location.getJobId(), testJars));
+            Assertions.assertTrue(
+                    classLoaderService
+                            .queryClassLoaderById(location.getJobId(), testJars)
+                            .isPresent());
+            assertEquals(FINISHED, resultFuture.get().getExecutionState());
+        } finally {
+            executionContexts.remove(location);
+            cancellationFutures.remove(context);
+            classLoaderService.releaseClassLoader(location.getJobId(), testJars);
+        }
+    }
+
     @Test
     public void testStaleFailedTaskDoneCleansOnlyOwnedGenerationResources() {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();

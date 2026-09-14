@@ -792,20 +792,30 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             TaskGroupContext context,
             Throwable deploymentFailure) {
         try {
-            context.setClassLoaders(null);
-            Map<Long, Collection<URL>> jarsByTask = context.getJars();
-            if (jarsByTask == null) {
-                return;
-            }
-            context.setJars(null);
-            for (Collection<URL> jars : jarsByTask.values()) {
-                classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
-            }
+            releaseClassLoadersOnce(taskGroupLocation, context);
         } catch (Throwable cleanupFailure) {
             deploymentFailure.addSuppressed(cleanupFailure);
             logger.severe(
                     "Release classloader after post-publish deployment rollback failed",
                     cleanupFailure);
+        }
+    }
+
+    /**
+     * Releases classloader references owned by {@code context} at most once.
+     *
+     * <p>Uses {@link TaskGroupContext#claimJarsForClassLoaderRelease()} so post-publish rollback
+     * and normal completion cannot both decrement the job-scoped {@link ClassLoaderService} ref
+     * count.
+     */
+    private void releaseClassLoadersOnce(
+            TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
+        Map<Long, Collection<URL>> jarsByTask = context.claimJarsForClassLoaderRelease();
+        if (jarsByTask == null) {
+            return;
+        }
+        for (Collection<URL> jars : jarsByTask.values()) {
+            classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
         }
     }
 
@@ -1357,7 +1367,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 taskGroupExecutionTracker.taskDone(t);
                 return;
             }
-            ClassLoader classLoader = taskGroupContext.getClassLoaders().get(t.getTaskID());
+            // Null-safe: concurrent rollback may have already claimed/cleared classLoaders.
+            ClassLoader classLoader = taskGroupContext.getClassLoader(t.getTaskID());
+            if (classLoader == null) {
+                startedLatch.countDown();
+                taskGroupExecutionTracker.taskDone(t);
+                return;
+            }
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             Thread.currentThread().setContextClassLoader(classLoader);
             ProgressState result = null;
@@ -1489,6 +1505,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         continue;
                     }
                 }
+                // Null-safe: concurrent rollback may have already claimed/cleared classLoaders.
+                ClassLoader classLoader =
+                        taskGroupContext.getClassLoader(taskTracker.task.getTaskID());
+                if (classLoader == null) {
+                    taskGroupExecutionTracker.taskDone(taskTracker.task);
+                    if (null != exclusiveTaskTracker.get()) {
+                        break;
+                    } else {
+                        continue;
+                    }
+                }
                 taskGroupExecutionTracker.currRunningTaskFuture.put(
                         taskTracker.task.getTaskID(), thisTaskFuture);
                 // start timer, if it's exclusive, don't need to start
@@ -1497,9 +1524,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 ProgressState call = null;
                 try {
-                    // run task
-                    myThread.setContextClassLoader(
-                            taskGroupContext.getClassLoaders().get(taskTracker.task.getTaskID()));
+                    myThread.setContextClassLoader(classLoader);
                     call = taskTracker.task.call();
                     synchronized (timer) {
                         timer.timerStop();
@@ -1726,16 +1751,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private void recycleClassLoader(
                 TaskGroupLocation taskGroupLocation, TaskGroupContext context) {
-            context.setClassLoaders(null);
-            Map<Long, Collection<URL>> jarsByTask = context.getJars();
-            if (jarsByTask == null) {
-                // Already cleaned up by post-publish deployment rollback.
-                return;
-            }
-            context.setJars(null);
-            for (Collection<URL> jars : jarsByTask.values()) {
-                classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
-            }
+            // Already cleaned up by post-publish deployment rollback, or claimed here first.
+            releaseClassLoadersOnce(taskGroupLocation, context);
         }
 
         /**
