@@ -135,6 +135,26 @@ public class SinkAggregatedCommitterTaskTest {
     }
 
     @Test
+    void testCheckpointBarrierCountersAreCleanedWithoutCommitInfo() throws Exception {
+        Map<Long, Integer> checkpointBarrierCounter = getCheckpointBarrierCounter();
+        checkpointBarrierCounter.put(1L, 1);
+        checkpointBarrierCounter.put(2L, 1);
+        checkpointBarrierCounter.put(3L, 1);
+
+        task.notifyCheckpointComplete(2L);
+
+        Assertions.assertFalse(
+                checkpointBarrierCounter.containsKey(1L),
+                "completed empty checkpoints must not retain barrier counters");
+        Assertions.assertFalse(
+                checkpointBarrierCounter.containsKey(2L),
+                "completed empty checkpoints must not retain barrier counters");
+        Assertions.assertTrue(
+                checkpointBarrierCounter.containsKey(3L),
+                "future checkpoints must retain their barrier counters");
+    }
+
+    @Test
     void testCheckpointCacheCleanupAfterNotifyCheckpointAborted() throws Exception {
         // Simulate receiving commit info for a checkpoint
         task.receivedWriterCommitInfo(5L, "commitInfo5");
