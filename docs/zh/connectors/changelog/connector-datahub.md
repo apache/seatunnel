@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate nonblank DataHub sink options (#12174)|https://github.com/apache/seatunnel/commit/c3f79ffb7|3.0.0|
 |[Feature][Connector-V2] Make some sink parameters optional for DataHub  (#9229)|https://github.com/apache/seatunnel/commit/7418fae10c|2.3.11|
 |[Feature][Connector-V2] Datahub support multi-table sink (#9212)|https://github.com/apache/seatunnel/commit/7027162dec|2.3.11|
 |[improve] datahub sink options (#8744)|https://github.com/apache/seatunnel/commit/88f35bd705|2.3.10|

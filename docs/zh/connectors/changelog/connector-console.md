@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Add declarative Console sink delay validation (#11477)|https://github.com/apache/seatunnel/commit/e07a2f8b3|3.0.0|
+|[Improve][Flink]supports multiple parallelisms and remove flink-specific logic from API (#10107)|https://github.com/apache/seatunnel/commit/89b3e1ce1|3.0.0|
 |[improve] console sink options (#8743)|https://github.com/apache/seatunnel/commit/c439b99f19|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][dist]add UT class name check (#8182)|https://github.com/apache/seatunnel/commit/9cf4192fe4|2.3.9|

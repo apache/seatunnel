@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Support multi-table InfluxDB source (#12247)|https://github.com/apache/seatunnel/commit/9c8052f40|3.0.0|
+|[Fix][Connector-V2][InfluxDB] Fix NPE when query returns empty result (#11966)|https://github.com/apache/seatunnel/commit/1491a8e0a|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for InfluxDB IoTDB Kudu and TDengine (#11573)|https://github.com/apache/seatunnel/commit/1fe15cbb8|3.0.0|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] influxdb options (#8966)|https://github.com/apache/seatunnel/commit/9f498b8133|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|

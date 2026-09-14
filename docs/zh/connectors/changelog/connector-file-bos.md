@@ -2,6 +2,7 @@
 
 | 变更 | Commit | 版本 |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add BosFile source and sink connector (#11952)|https://github.com/apache/seatunnel/commit/99e53aad8|3.0.0|
 | [Improve][Connector-V2] 新增 Hive BOSStorage，对齐 BosFile e2e/文档至 CosFile | https://github.com/apache/seatunnel/pull/11952 | dev |
 | [Feature][Connector-V2] 新增 BosFile Source/Sink 连接器 | https://github.com/apache/seatunnel/pull/11952 | dev |
 

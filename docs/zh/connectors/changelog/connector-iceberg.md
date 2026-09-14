@@ -2,6 +2,14 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b5|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Improve][Connector-V2][Iceberg]Migrate config validation to declarative OptionRule (#11921)|https://github.com/apache/seatunnel/commit/4f0b735de|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Improve][Connector-V2][Iceberg]  Align OptionRule with docs and strengthen factory test (#11675)|https://github.com/apache/seatunnel/commit/6bb02da90|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f64|3.0.0|
+|[Fix][Connectors-v2] Require explicit primary keys for Iceberg upsert mode (#10762)|https://github.com/apache/seatunnel/commit/50e37b5e0|3.0.0|
+|[Fix][Connector-V2][Iceberg] Fix IcebergAggregatedCommitter atomic commit per checkpoint (#10714)|https://github.com/apache/seatunnel/commit/fe182bace|3.0.0|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Improve][Core] Unify the aws-sdk-v2 version to 2.31.30 (#9698)|https://github.com/apache/seatunnel/commit/41c251cc8a|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

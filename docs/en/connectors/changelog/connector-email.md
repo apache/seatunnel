@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Migrate email validation to declarative OptionRule (#11817)|https://github.com/apache/seatunnel/commit/65e32aa5d|3.0.0|
 |[improve] email connector options (#8983)|https://github.com/apache/seatunnel/commit/7821e824dd|2.3.10|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[Improve][Transform] Rename sql transform table name from &#x27;fake&#x27; to &#x27;dual&#x27; (#8298)|https://github.com/apache/seatunnel/commit/e6169684fb|2.3.9|

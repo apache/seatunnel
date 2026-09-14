@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Migrate Cassandra validation to declarative OptionRule (#11964)|https://github.com/apache/seatunnel/commit/cc548bb3f|3.0.0|
+|[Fix][Connector-V2] Fix Cassandra null timestamp conversion (#11068)|https://github.com/apache/seatunnel/commit/9fdfc3814|3.0.0|
+|[Feature][Connector-V2][Cassandra] Add multi-table source support via… (#10896)|https://github.com/apache/seatunnel/commit/5d2ab3f31|3.0.0|
 |[improve] cassandra connector options (#8608)|https://github.com/apache/seatunnel/commit/d9201108cf|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Improve some connectors prepare check error message (#7465)|https://github.com/apache/seatunnel/commit/6930a25edd|2.3.8|

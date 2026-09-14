@@ -2,6 +2,22 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][Connector-V2] Add kafka_message_value_fields to Kafka sink (#11112)|https://github.com/apache/seatunnel/commit/62efde474|3.0.0|
+|[Feature][Connector-V2] Support Kafka source connectivity dry-run (#12167)|https://github.com/apache/seatunnel/commit/2065fb13f|3.0.0|
+|[Feature][Connector-Kafka] Support Confluent-framed Avro payloads (#12088)|https://github.com/apache/seatunnel/commit/0badccfbe|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Fix][Connector-V2] Fix Kafka exactly-once sink losing first record on checkpoint (#11541)|https://github.com/apache/seatunnel/commit/d2ec8ce3c|3.0.0|
+|[Fix][Connector-V2] Prevent Kafka transaction cleanup loop (#11588)|https://github.com/apache/seatunnel/commit/e9dc8c90d|3.0.0|
+|[Feature][Connector-V2][Kafka] Support reading Kafka message headers in source connector (#11521)|https://github.com/apache/seatunnel/commit/8c6c672b3|3.0.0|
+|[Fix][Connector-V2][Kafka] Fixed:   inverted commit_on_checkpoint for… (#10320)|https://github.com/apache/seatunnel/commit/7001ed6a3|3.0.0|
+|[Improve][Connector-V2] Migrate Kafka Source imperative validation to declarative OptionRule (#11157)|https://github.com/apache/seatunnel/commit/30fb93052|3.0.0|
+|[Fix][Connector-V2] Run Kafka cleanup with connector classloader (#11178)|https://github.com/apache/seatunnel/commit/be960cf71|3.0.0|
+|[Fix][Connector-V2] Support Kafka Avro writer schema (#11303)|https://github.com/apache/seatunnel/commit/acfdbd463|3.0.0|
+|[Fix][API] Support dotted opaque table names (#11220)|https://github.com/apache/seatunnel/commit/f47b0bea5|3.0.0|
+|[Fix][Kafka] Reduce default reader_cache_queue_size from 1024 to 2 to prevent OOM (#10954)|https://github.com/apache/seatunnel/commit/6736f57e9|3.0.0|
+|[Fix][Connector-V2] Fix MessageContentPartitioner static state causing cross-job partition routing interference (#10885)|https://github.com/apache/seatunnel/commit/0470de53f|3.0.0|
+|[Fix] [Connectors-v2] Fix Kafka source restore offsets on checkpoint recovery (#10612)|https://github.com/apache/seatunnel/commit/7e0b52dfc|3.0.0|
+|[Feature][Connector-V2][Kafka] Add support for Kafka message header (#10335)|https://github.com/apache/seatunnel/commit/8ef89ffca|3.0.0|
 |[Fix][Connector-V2] Optimize start mode of kafka recovery job (#9736)|https://github.com/apache/seatunnel/commit/bbde7f6339|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|
 |[Fix][Connector-V2] Add Filter for Partitions to Prevent Blocking in KafkaConsumer StreamMode (#9598)|https://github.com/apache/seatunnel/commit/bd24fa77cb|2.3.12|

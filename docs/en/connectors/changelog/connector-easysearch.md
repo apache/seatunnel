@@ -2,6 +2,8 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Use isEmpty() instead of size() > 0 in ES connectors (#11996)|https://github.com/apache/seatunnel/commit/2e2e9b804|3.0.0|
+|[Improve][Connector-V2] Improve source split round-robin assignment for Easysearch, AmazonDynamoDB, TiDB CDC and Typesense (#11607)|https://github.com/apache/seatunnel/commit/9487cc8e1|3.0.0|
 |[improve] EasySearch support schema_save_mode/data_save_mode (#9310)|https://github.com/apache/seatunnel/commit/3ceb57f279|2.3.11|
 |[Feature][Checkpoint] Add check script for source/sink state class serialVersionUID missing (#9118)|https://github.com/apache/seatunnel/commit/4f5adeb1c7|2.3.11|
 |[Improve] easysearch options (#8951)|https://github.com/apache/seatunnel/commit/349f142962|2.3.10|

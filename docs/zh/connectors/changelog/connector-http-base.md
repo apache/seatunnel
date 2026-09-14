@@ -2,6 +2,10 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Preserve HTTP source JSON body (#11535)|https://github.com/apache/seatunnel/commit/7df6c9467|3.0.0|
+|[Fix][Connector-V2] Fix HTTP cursor pagination no-progress loop (#11098)|https://github.com/apache/seatunnel/commit/9140b9095|3.0.0|
+|[Feature][Connector-V2] Add binary format support for HTTP source connector (#10956)|https://github.com/apache/seatunnel/commit/62d6804fe|3.0.0|
+|[Feature][Connector-V2] Add Airtable source and sink (#10469)|https://github.com/apache/seatunnel/commit/c15032c03|3.0.0|
 |[Fix][Connectors-v2] Fix UT for connector-http (#9821)|https://github.com/apache/seatunnel/commit/2653f6798e| dev |
 |[Fix][connector-http] fix parsing httpjson, the number of two fields is inconsistent with the import failure (#9103)|https://github.com/apache/seatunnel/commit/c8ade098ee|2.3.12|
 |[Fix][Connector-HTTP] Add default content-type when user not set (#9497)|https://github.com/apache/seatunnel/commit/8da0a78c1d|2.3.12|

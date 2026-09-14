@@ -24,3 +24,4 @@
 ### Sink
 
 - Add NATS JetStream Sink Connector
+|[Feature][Connector-V2] Add NATS JetStream sink connector (#11460)|https://github.com/apache/seatunnel/commit/a6beccf8b|3.0.0|

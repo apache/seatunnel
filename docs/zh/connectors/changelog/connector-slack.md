@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Add nonblank validation for required Slack options (#12178)|https://github.com/apache/seatunnel/commit/f6ed9579c|3.0.0|
+|[Fix][Connector-V2] Use OAuth token for Slack messages (#12171)|https://github.com/apache/seatunnel/commit/d85d8cc73|3.0.0|
+|[Improve][Connectors-v2] Refactor Slack sink using Factory to create instance (#10514)|https://github.com/apache/seatunnel/commit/19b9d5bcc|3.0.0|
 |[improve] Slack connector options (#8738)|https://github.com/apache/seatunnel/commit/eb706743fe|2.3.10|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|2.3.4|

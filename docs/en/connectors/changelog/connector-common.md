@@ -2,6 +2,9 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Feature][Connector-V2] PR2：Support table_options for StarRocks SaveMode auto-create (#11242)|https://github.com/apache/seatunnel/commit/57c1a39b5|3.0.0|
+|[Improve][Connector-V2] Optimize Arrow Converter SPI registration using AutoService (#11219)|https://github.com/apache/seatunnel/commit/b66553578|3.0.0|
 |[Chore] fix typos filed -&gt; field (#9757)|https://github.com/apache/seatunnel/commit/e3e1c67d29|2.3.12|
 |[Feature][Connector-File-Hadoop]Support multi table sink feature for HdfsFile (#9651)|https://github.com/apache/seatunnel/commit/bb4f743c05|2.3.12|
 |[Fix][Connector-V2] ArrowToSeatunnelRowReader convertSeatunnelRowValue add handle Second TIMESTAMP type (#9393)|https://github.com/apache/seatunnel/commit/0555f8520b|2.3.12|

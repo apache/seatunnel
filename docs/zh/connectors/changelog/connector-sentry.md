@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Improve][Connector-V2] Validate nonblank Sentry DSN (#12148)|https://github.com/apache/seatunnel/commit/b59152ffa|3.0.0|
 |[improve] sentry options (#9261)|https://github.com/apache/seatunnel/commit/4a2f3fa915|2.3.11|
 |[Feature][Restapi] Allow metrics information to be associated to logical plan nodes (#7786)|https://github.com/apache/seatunnel/commit/6b7c53d03c|2.3.9|
 |[Improve] Remove use `SeaTunnelSink::getConsumedType` method and mark it as deprecated (#5755)|https://github.com/apache/seatunnel/commit/8de7408100|2.3.4|

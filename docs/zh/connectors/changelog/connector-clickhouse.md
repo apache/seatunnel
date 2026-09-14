@@ -2,6 +2,12 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Preserve offset timestamps in ClickHouse sink statements (#12285)|https://github.com/apache/seatunnel/commit/0580c092b|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Fix][Connector-V2] Parse ClickhouseFile node_pass with documented snake_case keys (#11525)|https://github.com/apache/seatunnel/commit/943cedb48|3.0.0|
+|[Feature][Connector-V2] Add ClickHouse timer flush (#11519)|https://github.com/apache/seatunnel/commit/e55c843af|3.0.0|
+|[Improve][connector-clickhouse] Improved clickhouse source enumerator splits allocation algorithm for subtasks (#10866)|https://github.com/apache/seatunnel/commit/71ab9e32c|3.0.0|
 |[Improve][Connector-Clickhouse] improve ck batch parallel read by using last batch row sorting value approach, instead of limit offset. (#9801)|https://github.com/apache/seatunnel/commit/5e9990afd5| dev |
 |[Feature][Connector-Clickhouse] Support Clickhouse multi table source read (#9704)|https://github.com/apache/seatunnel/commit/6e323743ea|2.3.12|
 |[Improve][API] Optimize the enumerator API semantics and reduce lock calls at the connector level (#9671)|https://github.com/apache/seatunnel/commit/9212a77140|2.3.12|

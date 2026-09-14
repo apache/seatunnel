@@ -2,6 +2,74 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][CDC][Zeta] Restore runtime schema from checkpoint after failover (#11503)|https://github.com/apache/seatunnel/commit/ec1b1b8b5|3.0.0|
+|[Fix][Connector-V2][JDBC] Apply where_condition to JDBC split metadata queries (#12160)|https://github.com/apache/seatunnel/commit/708a7b064|3.0.0|
+|[Fix][Connector-V2][JDBC][SapHana] Add NCHAR type support in catalog conversion (#12158)|https://github.com/apache/seatunnel/commit/e00e1ad72|3.0.0|
+|[Fix][Connector-V2][JDBC] Use range fallback when approximate row count is unavailable (#12159)|https://github.com/apache/seatunnel/commit/d73db9567|3.0.0|
+|[Fix][Connector-V2][JDBC][DB2] Read default values as strings in catalog (#12157)|https://github.com/apache/seatunnel/commit/42f1f5491|3.0.0|
+|[Fix][Connector-V2] Propagate JDBC XA commit failures (#11569)|https://github.com/apache/seatunnel/commit/7a58d1005|3.0.0|
+|[Improve][Common] Add HashUtils.bucketIndex for hash-to-bucket routing (#11987)|https://github.com/apache/seatunnel/commit/be53a1d3d|3.0.0|
+|[Test][Connector-V2] Cover multi-table JDBC reconnect replay (#11879)|https://github.com/apache/seatunnel/commit/eae7c236f|3.0.0|
+|[Fix][Connector-V2] Support YashanDB VARCHAR2 and NVARCHAR2 type conversion (#11874)|https://github.com/apache/seatunnel/commit/a01f5f03e|3.0.0|
+|[Improve][Connector-V2] Add support for INTERVAL data types in Oracle connector (#11825)|https://github.com/apache/seatunnel/commit/389a49eb2|3.0.0|
+|[Feature][Connector-V2] Add DB2 CDC source connector (#10780)|https://github.com/apache/seatunnel/commit/a9f69848a|3.0.0|
+|[Fix][Connector-V2][Jdbc] Validate a cached connection before reusing it (#11678)|https://github.com/apache/seatunnel/commit/b8d5405f4|3.0.0|
+|[Bug] [Connector-V2] Support Dameng NCHAR type (#11693)|https://github.com/apache/seatunnel/commit/65c06f584|3.0.0|
+|[Fix][Connector-V2][Jdbc] Preserve MySQL and PostgreSQL TIME fractional precision (#11891)|https://github.com/apache/seatunnel/commit/6b7f2b811|3.0.0|
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Feature][Core] Error Data Bypass Capability for Transform & Sink (Dead Letter Queue) (#10306)|https://github.com/apache/seatunnel/commit/3488b1caf|3.0.0|
+|[Feature][Connector-V2][CDC] Support comment-related schema change events (#11025)|https://github.com/apache/seatunnel/commit/ba55ef965|3.0.0|
+|[Fix][Connector-V2] Close JDBC source read transactions after each split (#11770)|https://github.com/apache/seatunnel/commit/b1e21631f|3.0.0|
+|Fix schema change routing for shared multi-table sinks (#11015)|https://github.com/apache/seatunnel/commit/6bf786bee|3.0.0|
+|[Fix][Connector-V2][JDBC] Fix duplicate column error when fetching SQL Server metadata with multiple extended properties (#11374)|https://github.com/apache/seatunnel/commit/e907b63ca|3.0.0|
+|[Feature][Connector-V2] Support JDBC sink table_options for Dameng (#11419)|https://github.com/apache/seatunnel/commit/f274e165e|3.0.0|
+|[Feature][Connector-V2] Support JDBC sink table_options for Oracle (#11416)|https://github.com/apache/seatunnel/commit/723b670c7|3.0.0|
+|[Fix][Connector-V2] Fix JDBC sink reconnect for nested batch exceptions (#10793)|https://github.com/apache/seatunnel/commit/5b0f8a5f6|3.0.0|
+|[Fix][Connector-V2] Close all JDBC catalog connections (#11133)|https://github.com/apache/seatunnel/commit/80c003c45|3.0.0|
+|[Improve][Connector-V2] Improve YashanDB vector type conversion (#11397)|https://github.com/apache/seatunnel/commit/6e23e4fad|3.0.0|
+|[Feature][CDC/JDBC] Add enable_concurrent_read option to skip split analysis for tables without indexes (#10837)|https://github.com/apache/seatunnel/commit/844d9c363|3.0.0|
+|[Feature][Connector-V2] Support JDBC sink table_options for Kingbase (#11420)|https://github.com/apache/seatunnel/commit/1f5681c2e|3.0.0|
+|[Fix][Connector-V2][Zeta] Resolve Hive S3, JDBC, metrics, and documentation CI failures (#11459)|https://github.com/apache/seatunnel/commit/dbead9b01|3.0.0|
+|[Fix][Connector-V2][JDBC] Use Oracle-typed null binding for sparse null rows (#10768)|https://github.com/apache/seatunnel/commit/2bc864c17|3.0.0|
+|[Feature][Core] Add connect dry-run validation1 (#11186)|https://github.com/apache/seatunnel/commit/5b7599ded|3.0.0|
+|[Feature][Connector-V2] Support JDBC sink table_options for PostgreSQL (#11417)|https://github.com/apache/seatunnel/commit/ad7920696|3.0.0|
+|[Fix][Connector-V2] Exclude dropped columns in postgresql connector (#11358)|https://github.com/apache/seatunnel/commit/d6df7f2f2|3.0.0|
+|[Feature][Connector-V2] STIP-23 Phase 2: JDBC connector adoption for engine timer flush (#10801)|https://github.com/apache/seatunnel/commit/c2a3650a7|3.0.0|
+|[Feature][Connector-V2] Extend JDBC sink table_options to TiDB and OceanBase MySQL (#11388)|https://github.com/apache/seatunnel/commit/3ff3fcf53|3.0.0|
+|[Fix][Core] Extend serialVersionUID checker coverage (#11257)|https://github.com/apache/seatunnel/commit/95c4ea206|3.0.0|
+|[Feature][Jdbc] Add YashanDB dialect and catalog support (#11187)|https://github.com/apache/seatunnel/commit/c533f96a6|3.0.0|
+|[Test][E2E] Normalize JDBC validation URLs in CDC ITs (#11207)|https://github.com/apache/seatunnel/commit/c1011f00c|3.0.0|
+|[Improve][docs] Deprecate JDBC table prefix and suffix options (#11176)|https://github.com/apache/seatunnel/commit/7ef38591a|3.0.0|
+|[Fix][Connector-V2] Support PostgreSQL enum in JDBC source (#11232)|https://github.com/apache/seatunnel/commit/8f29bdaea|3.0.0|
+|[Feature][Connector-V2] PR1: Pass sink table-options into auto-created MySQL target tables (#11101)|https://github.com/apache/seatunnel/commit/b60eb4c56|3.0.0|
+|[Fix][Connector-V2] Avoid Xugu pooled connection isValid checks (#11190)|https://github.com/apache/seatunnel/commit/a1324acda|3.0.0|
+|[SEATUNNEL-10685] prevent timestamp_ntz from being saved as timestamp_ltz (#10724)|https://github.com/apache/seatunnel/commit/872077f64|3.0.0|
+|[Fix][API] Fix backward compatibility issue in CatalogFactory optionRule validation (#11165)|https://github.com/apache/seatunnel/commit/e9c446638|3.0.0|
+|[Fix][API] Add missing OptionRule validation for CatalogFactory creation path (#11127)|https://github.com/apache/seatunnel/commit/0e2f4ef8d|3.0.0|
+|[Improve][Connector-V2] Migrate jdbc validation to declarative OptionRule (#11106)|https://github.com/apache/seatunnel/commit/346fdfe3d|3.0.0|
+|[Improve][Connector-V2] Enhance JDBC chunk splitter logging (#10950)|https://github.com/apache/seatunnel/commit/4312d70a4|3.0.0|
+|[Improve][Connector-V2][Jdbc] Support Oracle append values insert mode (#10996)|https://github.com/apache/seatunnel/commit/f9730fa5f|3.0.0|
+|[Feature][Core] Support table-level fault isolation for multi-table synchronization (#10600)|https://github.com/apache/seatunnel/commit/273984741|3.0.0|
+|[Fix][SqliteDialect] Update upsert SQL syntax and add unit tests for … (#10880)|https://github.com/apache/seatunnel/commit/089379cce|3.0.0|
+|[Feature][Connector-V2][SqlServer CDC] support sqlserver schema evolution (#10890)|https://github.com/apache/seatunnel/commit/32bef0e8a|3.0.0|
+|[Fix][Connector-V2][Jdbc][Dameng] Fix Dameng auto-create-table fails when table has column comments (#10934)|https://github.com/apache/seatunnel/commit/893a2abfe|3.0.0|
+|[Fix][Connector-V2][JDBC] Detect Hive partition keys in metadata (#10706)|https://github.com/apache/seatunnel/commit/7c7701dd3|3.0.0|
+|[Fix][Connector-V2][MySQL] Preserve table comments, indexes, ENGINE, CHARSET, and COLLATE in auto-created tables (#10738)|https://github.com/apache/seatunnel/commit/9ef197518|3.0.0|
+|[Fix][Core] Fix enumerator re-registration synchronization (#10830)|https://github.com/apache/seatunnel/commit/7b67bc813|3.0.0|
+|[Improve][Connector-V2][JDBC] Add string split strategy (#10861)|https://github.com/apache/seatunnel/commit/edfc1c344|3.0.0|
+|[Feature][CDC/JDBC] Add option to disable sampling-based sharding (#10604)|https://github.com/apache/seatunnel/commit/e4780bb1f|3.0.0|
+|[Fix][Connector-V2] Rename uniqueKeyFields to pkNames in dialect upsert APIs (#10367)|https://github.com/apache/seatunnel/commit/0b02d06aa|3.0.0|
+|[Bug][Connect-V2][Jdbc][Sqlserver] Fix JDBC sink null binding for SQLServer binary-like columns (e.g. IMAGE) (#10626)|https://github.com/apache/seatunnel/commit/36e2a5af7|3.0.0|
+|[Feat][Connector-v2][JDBC][Oracle] Add Testcontainers-based unit  tests  (#10435)|https://github.com/apache/seatunnel/commit/30986b6aa|3.0.0|
+|[Bugfix][connectors-v2]JdbcSink's subscript out-of-bounds exception repaired in createWriter (#10200)|https://github.com/apache/seatunnel/commit/5762ca245|3.0.0|
+|[Feature][JDBC] Add batch_interval_ms option for JDBC Sink time-based flushing (#10609)|https://github.com/apache/seatunnel/commit/4a8298df8|3.0.0|
+|[Fix][E2E] Fix flaky CI failure in `KingbaseDialectContainerTest` (#10674)|https://github.com/apache/seatunnel/commit/b7a0fc5e4|3.0.0|
+|[Fix][Connector-v2][JDBC] Enhance WHERE condition handling in SQL queries (#10488)|https://github.com/apache/seatunnel/commit/05998e85f|3.0.0|
+|[Fix][Connector-Jdbc]prevent duplicate XA XID in exactly-once writer and rollback prepared tx on begin failure (#10459)|https://github.com/apache/seatunnel/commit/123eedc0b|3.0.0|
+|[Feature]Add Kingbase Catalog Support (#10427)|https://github.com/apache/seatunnel/commit/d6b562bf5|3.0.0|
+|[Fix][Connector-V2] Fix ORA-01461 error when writing to Oracle CLOB columns in batch mode (#10118)|https://github.com/apache/seatunnel/commit/7a9015d03|3.0.0|
+|[Improve][Flink]supports multiple parallelisms and remove flink-specific logic from API (#10107)|https://github.com/apache/seatunnel/commit/89b3e1ce1|3.0.0|
+|[Improve][Connectors-v2] Add support for re-signaling NoMoreSplitsEvent after reader re-registration (#10208)|https://github.com/apache/seatunnel/commit/e4052e95c|3.0.0|
 |[Fix][Connector-xugu] Fix several bugs in the xugu connector (#9820)|https://github.com/apache/seatunnel/commit/75c9adb280| dev |
 |[Feature][Transform-V2] Support `AT TIME ZONE` statement for sql transform (#9784)|https://github.com/apache/seatunnel/commit/ad5278c5bb| dev |
 |[Feature][Transform-V2] Support vector series sql function (#9765)|https://github.com/apache/seatunnel/commit/a40114cf7a|2.3.12|

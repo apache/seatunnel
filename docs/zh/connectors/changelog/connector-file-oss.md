@@ -2,6 +2,13 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Feature][shade]Refactor the seatunnel-shade module. (#9993)|https://github.com/apache/seatunnel/commit/4ba289595|3.0.0|
+|[Feature][Connector-V2] Enable continuous discovery for S3 and OSS file sources (#11789)|https://github.com/apache/seatunnel/commit/ec92180c8|3.0.0|
+|[Improve][Connector-V2] Guard POI Excel reads by file size (#11591)|https://github.com/apache/seatunnel/commit/261644ff4|3.0.0|
+|[Feature][Connector-File-Base] Add optional PDF RAG metadata for file source (#11571)|https://github.com/apache/seatunnel/commit/2b060343d|3.0.0|
+|[Feature][Connector-V2] Add recursive_file_scan option for file connectors (#10505)|https://github.com/apache/seatunnel/commit/2826ea3dc|3.0.0|
+|[Feature][Connector-V2] Add optional Markdown RAG metadata for file source (#10844)|https://github.com/apache/seatunnel/commit/970cadb1a|3.0.0|
+|[Feature][seatunnel-api] Integrate Gravitino as metadata service for non-relational connectors (#10402)|https://github.com/apache/seatunnel/commit/e24b8c140|3.0.0|
 |[Feature][File] Add markdown parser #9714|https://github.com/apache/seatunnel/commit/8b3c07844| dev |
 |[Improve][Connector-V2] Add customizable row delimiter support for text file processing (#9608)|https://github.com/apache/seatunnel/commit/7898e62e01|2.3.12|
 |[Improve][Connector-V2] Support maxcompute sink writer with timestamp field type (#9234)|https://github.com/apache/seatunnel/commit/a513c495e3|2.3.12|

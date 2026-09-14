@@ -2,6 +2,7 @@
 
 | Change | Commit | Version |
 | --- | --- | --- |
+|[Fix][Connector-V2] Remove fixed sleep in AssertSinkWriter close and assert own table only (#11995)|https://github.com/apache/seatunnel/commit/fa001a4e4|3.0.0|
 |[Improve][API] Add metadata schema into catalog table (#9586)|https://github.com/apache/seatunnel/commit/385814e7f1|2.3.12|
 |[Improve] restruct connector common options (#8634)|https://github.com/apache/seatunnel/commit/f3499a6eeb|2.3.10|
 |[improve] add assert options (#8620)|https://github.com/apache/seatunnel/commit/b159cc0c75|2.3.10|
