@@ -21,6 +21,22 @@ You need to check this document before you upgrade to related version.
     3. If you submit to Spark 2.4, upgrade to Spark 3.x running on Java 11 or later. There is no Spark 2.x release that supports Java 11.
     4. If you customized `${SEATUNNEL_HOME}/config/jvm_options` (or the client, master and worker variants), check your additions for flags that Java 11 removed, such as `-XX:+UseConcMarkSweepGC` or `-XX:MaxPermSize`, because the JVM refuses to start on an unrecognized flag. The options shipped by default are already Java 11 compatible.
 
+### Zeta REST Pagination Parameter Validation
+
+- **Behavior change: `page` and `rows` are validated on paginated endpoints**
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`,
+    `GET /running-jobs` and `GET /running-jobs/summary`. The latter two are served by the same
+    `RunningJobsServlet` instance, so both receive the validation.
+  - **Description**: These endpoints now reject a `page` or `rows` value that is not an integer or
+    is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
+    Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
+    internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
+    positive offset and silently return the wrong page.
+  - **Impact**: Requests that relied on `rows=0` returning an empty page now receive `400` with a
+    message naming the offending parameter. Callers passing valid positive values are unaffected.
+    The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
+    starting exactly at `total`, which still returns an empty page, are all unchanged.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
