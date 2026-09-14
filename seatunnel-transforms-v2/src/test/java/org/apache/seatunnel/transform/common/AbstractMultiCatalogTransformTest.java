@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 
 import org.junit.jupiter.api.Assertions;
@@ -43,6 +44,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 class AbstractMultiCatalogTransformTest {
@@ -184,6 +186,24 @@ class AbstractMultiCatalogTransformTest {
         SchemaChangeEvent event = transform.mapSchemaChangeEvent(addColumnEvent(table));
 
         Assertions.assertNull(event);
+    }
+
+    @Test
+    void chainedMapTransformClosesEveryTransformAfterFailure() {
+        AtomicBoolean firstClosed = new AtomicBoolean();
+        AtomicBoolean secondClosed = new AtomicBoolean();
+        ChainedMapTransform transform =
+                new ChainedMapTransform(
+                        Arrays.asList(
+                                new CloseTrackingMapTransform(firstClosed, true),
+                                new CloseTrackingMapTransform(secondClosed, false)));
+
+        RuntimeException closeFailure =
+                Assertions.assertThrows(RuntimeException.class, transform::close);
+
+        Assertions.assertEquals("expected close failure", closeFailure.getMessage());
+        Assertions.assertTrue(firstClosed.get());
+        Assertions.assertTrue(secondClosed.get());
     }
 
     @Test
@@ -348,6 +368,45 @@ class AbstractMultiCatalogTransformTest {
         protected SeaTunnelTransform<SeaTunnelRow> createIdentityTransform(
                 CatalogTable catalogTable) {
             return new IdentityMapTransform(catalogTable);
+        }
+    }
+
+    private static class CloseTrackingMapTransform implements SeaTunnelMapTransform<SeaTunnelRow> {
+
+        private final AtomicBoolean closed;
+        private final boolean failOnClose;
+
+        private CloseTrackingMapTransform(AtomicBoolean closed, boolean failOnClose) {
+            this.closed = closed;
+            this.failOnClose = failOnClose;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "CloseTracking";
+        }
+
+        @Override
+        public SeaTunnelRow map(SeaTunnelRow row) {
+            return row;
+        }
+
+        @Override
+        public CatalogTable getProducedCatalogTable() {
+            return catalogTable();
+        }
+
+        @Override
+        public List<CatalogTable> getProducedCatalogTables() {
+            return Collections.singletonList(getProducedCatalogTable());
+        }
+
+        @Override
+        public void close() {
+            closed.set(true);
+            if (failOnClose) {
+                throw new RuntimeException("expected close failure");
+            }
         }
     }
 

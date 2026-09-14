@@ -64,6 +64,9 @@ public class RabbitmqConfig implements Serializable {
     private Boolean exclusive;
     private Boolean autoDelete;
     private boolean passive;
+    private RabbitmqMessageFormat format;
+    private String protobufSchema;
+    private String protobufMessageName;
     private String routingKey;
     private boolean logFailuresOnly = false;
     private String exchange = "";
@@ -138,6 +141,13 @@ public class RabbitmqConfig implements Serializable {
         this.autoDelete = config.get(RabbitmqBaseOptions.AUTO_DELETE);
         this.ssl = config.get(RabbitmqBaseOptions.SSL);
         this.passive = config.get(RabbitmqBaseOptions.PASSIVE);
+        this.format = config.get(RabbitmqBaseOptions.FORMAT);
+        if (config.getOptional(RabbitmqBaseOptions.PROTOBUF_SCHEMA).isPresent()) {
+            this.protobufSchema = config.get(RabbitmqBaseOptions.PROTOBUF_SCHEMA);
+        }
+        if (config.getOptional(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME).isPresent()) {
+            this.protobufMessageName = config.get(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME);
+        }
         if (config.getOptional(RabbitmqSinkOptions.RABBITMQ_CONFIG).isPresent()) {
             this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
         }
