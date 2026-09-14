@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.ChunkedInputHadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
@@ -45,6 +46,7 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
@@ -128,6 +130,55 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
             Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
         } finally {
             enumerator.close();
+        }
+    }
+
+    @Test
+    void testStrictChecksumFallbackSkipsEqualContentWithDifferentReadChunkSizes() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("chunked-src"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("chunked-dst"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        byte[] content = "identical-content".getBytes(StandardCharsets.UTF_8);
+        Files.write(srcFile, content);
+        Files.write(dstFile, content);
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.UPDATE_STRATEGY.key(), "strict");
+        extraConfig.put(FileBaseSourceOptions.COMPARE_MODE.key(), "checksum");
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            HadoopFileSystemProxy originalFileSystem =
+                    getTableScanContextFileSystem(enumeratorWithContext.enumerator, "sourceFs");
+            originalFileSystem.close();
+            HadoopFileSystemProxy chunkedFileSystem =
+                    new ChunkedInputHadoopFileSystemProxy(
+                            new LocalConf(FS_DEFAULT_NAME_DEFAULT),
+                            srcFile,
+                            content,
+                            3,
+                            dstFile,
+                            content,
+                            5);
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "sourceFs", chunkedFileSystem);
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "targetFs", chunkedFileSystem);
+
+            enumeratorWithContext.enumerator.scanOnceForTest();
+
+            Assertions.assertEquals(
+                    0,
+                    enumeratorWithContext.enumerator.currentUnassignedSplitSize(),
+                    "equal content must be skipped regardless of stream read chunk sizes");
+        } finally {
+            enumeratorWithContext.enumerator.close();
         }
     }
 
