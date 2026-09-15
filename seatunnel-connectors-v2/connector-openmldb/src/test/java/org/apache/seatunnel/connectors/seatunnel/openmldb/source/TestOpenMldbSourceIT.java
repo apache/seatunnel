@@ -68,7 +68,7 @@ import static org.mockito.Mockito.when;
  * compatible Linux amd64 runtime.
  */
 @EnabledIfSystemProperty(named = "openmldb.integration", matches = "true")
-class OpenMldbSourceIT {
+class TestOpenMldbSourceIT {
     private static final String DATABASE = "st_" + UUID.randomUUID().toString().replace("-", "");
     private static final String SECOND_DATABASE = DATABASE + "_second";
     private static final String FIELDS =
@@ -348,7 +348,7 @@ class OpenMldbSourceIT {
                                                                 + "tables_configs=["
                                                                 + entries
                                                                 + "]")),
-                                        OpenMldbSourceIT.class.getClassLoader()))
+                                        TestOpenMldbSourceIT.class.getClassLoader()))
                         .createSource();
     }
 
