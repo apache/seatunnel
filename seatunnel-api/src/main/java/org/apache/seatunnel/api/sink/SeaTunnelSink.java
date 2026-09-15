@@ -82,6 +82,24 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      */
     SinkWriter<IN, CommitInfoT, StateT> createWriter(SinkWriter.Context context) throws IOException;
 
+    /**
+     * This method will be called to restore a {@link SinkWriter} from checkpoint states.
+     *
+     * <p>In multi-table mode, when several upstream tables alias to one physical destination (see
+     * {@link #getPhysicalDestinationIdentifier()}), the writer of that destination can receive the
+     * state of every aliased table in a single call: {@code states} then holds the merged state
+     * list of all aliases, in the same way a parallelism rescale delivers the state of several
+     * subtasks to one restored writer. Implementations must tolerate a state list whose entries
+     * originate from different source tables.
+     *
+     * <p>When no state is available for a destination, the writer is created through {@link
+     * #createWriter(SinkWriter.Context)} instead.
+     *
+     * @param context The sink context
+     * @param states the checkpoint states to restore; may combine state from several aliased tables
+     * @return Return sink writer instance
+     * @throws IOException throws IOException when restoreWriter failed.
+     */
     default SinkWriter<IN, CommitInfoT, StateT> restoreWriter(
             SinkWriter.Context context, List<StateT> states) throws IOException {
         return createWriter(context);
@@ -143,6 +161,31 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
      * @return Optional of catalog table.
      */
     default Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.empty();
+    }
+
+    /**
+     * Returns a stable identifier for the physical destination that this sink instance writes to
+     * when multi-table mode wants to reuse a single writer across aliased upstream tables.
+     *
+     * <p>The default implementation returns {@link Optional#empty()} so the coordinator falls back
+     * to sink-instance-level isolation and avoids merging distinct physical destinations
+     * accidentally.
+     *
+     * <p>An implementation must include every connection coordinate that distinguishes a physical
+     * destination, such as endpoint, warehouse, namespace, table, and branch where applicable.
+     * Sinks that return the same identifier must have equivalent write schema, write settings, and
+     * commit semantics because one of them creates the shared writer and committer. The coordinator
+     * validates at construction that sinks sharing one identifier declare compatible {@link
+     * CatalogTable} schemas. On recovery, that writer receives the merged state of all aliased
+     * tables in a single {@link #restoreWriter(SinkWriter.Context, List)} call.
+     *
+     * <p>The multi-table coordinator namespaces this identifier by connector implementation class,
+     * so identifiers from different connector types are never shared.
+     *
+     * @return a physical destination identifier when writer sharing is safe, otherwise empty
+     */
+    default Optional<String> getPhysicalDestinationIdentifier() {
         return Optional.empty();
     }
 }
