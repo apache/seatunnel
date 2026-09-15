@@ -406,44 +406,43 @@ sink {
 
 ```
 
-### 使用JSON格式导入数据
+### 使用 JSON 格式导入数据
 
-```
+```hocon
 sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "test"
-        table = "e2e_table_sink"
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_json"
-        doris.config = {
-            format="json"
-            read_json_by_line="true"
-        }
+  Doris {
+    fenodes = "e2e_dorisdb:8030"
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_json"
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
     }
+  }
 }
-
 ```
 
-### 使用CSV格式导入数据
+### 使用 CSV 格式导入数据
 
-```
+```hocon
 sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "test"
-        table = "e2e_table_sink"
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_csv"
-        doris.config = {
-          format = "csv"
-          column_separator = ","
-        }
+  Doris {
+    fenodes = "e2e_dorisdb:8030"
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_sink"
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_csv"
+    doris.config = {
+      format = "csv"
+      column_separator = ","
     }
+  }
 }
 ```
 
@@ -451,20 +450,111 @@ sink {
 
 ```hocon
 sink {
-    Doris {
-        fenodes = "e2e_dorisdb:8030"
-        username = root
-        password = ""
-        database = "Test_DB"  # 保留原始大小写
-        table = "Test_Table"  # 保留原始大小写
-        case_sensitive = true # 默认值，保留原始大小写
-        sink.enable-2pc = "true"
-        sink.label-prefix = "test_case_sensitive"
-        doris.config = {
-          format = "json"
-          read_json_by_line = "true"
-        }
+  Doris {
+    fenodes = "e2e_dorisdb:8030"
+    username = root
+    password = ""
+    database = "Test_DB"  # 保留原始大小写
+    table = "Test_Table"  # 保留原始大小写
+    case_sensitive = true # 默认值，保留原始大小写
+    sink.enable-2pc = "true"
+    sink.label-prefix = "test_case_sensitive"
+    doris.config = {
+      format = "json"
+      read_json_by_line = "true"
     }
+  }
+}
+```
+
+### 多表
+
+> 该示例展示如何借助 `${database_name}` / `${schema_name}` / `${table_name}` 占位符，把来自不同上游表的数据按规则写入 Doris 目标表。
+
+#### 示例一：MySQL CDC 多表写入
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    database = "${database_name}_test"
+    table = "${table_name}_test"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
+}
+```
+
+#### 示例二：JDBC 源 + schema 占位符
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Doris {
+    fenodes = "doris_cdc_e2e:8030"
+    username = root
+    password = ""
+    database = "${schema_name}_test"
+    table = "${table_name}_test"
+    sink.label-prefix = "test-cdc"
+    sink.enable-2pc = "true"
+    sink.enable-delete = "true"
+    doris.config {
+      format = "json"
+      read_json_by_line = "true"
+    }
+  }
 }
 ```
 

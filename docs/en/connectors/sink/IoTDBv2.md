@@ -4,23 +4,27 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
 > IoTDBv2 sink connector
 
-## Support Those Engines
+## Description
+
+Used to write data to IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
+
+The connector supports both the IoTDB tree model (`sql_dialect = "tree"`, default) and the table model (`sql_dialect = "table"`). Each input row is written as either one device record (tree model) or one row of an IoTDB table (table model). Writing is idempotent on the `(device, timestamp)` key in the tree model and on the table primary key in the table model, which is what the exactly-once guarantee relies on.
+
+## Supported Engines
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
-
-## Description
-
-Used to write data to IoTDB 2.x. The connector name in job configuration is `IoTDBv2`.
 
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
     > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
-  
+
 ## Supported DataSource Info
 
 | Datasource | Supported Versions |      Url       |
@@ -57,19 +61,21 @@ Used to write data to IoTDB 2.x. The connector name in job configuration is `IoT
 | key_tag_fields              | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as TAG columns                                                                                                                                                                                                                                                                   |
 | key_attribute_fields        | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as ATTRIBUTE columns                                                                                                                                                                                                                                                             |
 | batch_size                  | Integer | No       | 1024                 | The connector flushes buffered records to IoTDB when the number of buffered records reaches `batch_size`. It also flushes before checkpoint commit and when the writer is closed.                                                                                                                             |
-| max_retries                 | Integer | No       | 0                    | The maximum number of retries when flushing records fails.                                                                                                                                                                                                                                                                                                                 |
-| retry_backoff_multiplier_ms | Integer | No       | 0                    | The multiplier used to calculate the retry backoff delay.                                                                                                                                                                                                                                                                                                                  |
-| max_retry_backoff_ms        | Integer | No       | 0                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
+| max_retries                 | Integer | No       | -                    | The maximum number of retries when flushing records fails. When unset, no retry is performed on a failed flush.                                                                                                                                                                                                                                                            |
+| retry_backoff_multiplier_ms | Integer | No       | -                    | The multiplier used to calculate the retry backoff delay, in milliseconds. When unset together with `max_retry_backoff_ms`, no exponential backoff is applied.                                                                                                                                                                                                              |
+| max_retry_backoff_ms        | Integer | No       | -                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
 | default_thrift_buffer_size  | Integer | No       | -                    | Thrift init buffer size in IoTDB client                                                                                                                                                                                                                                                                                                                                    |
 | max_thrift_frame_size       | Integer | No       | -                    | Thrift max frame size in IoTDB client                                                                                                                                                                                                                                                                                                                                      |
 | zone_id                     | String  | No       | -                    | java.time.ZoneId in IoTDB client                                                                                                                                                                                                                                                                                                                                           |
 | enable_rpc_compression      | Boolean | No       | -                    | Enable rpc compression in IoTDB client, only valid in IoTDB-tree                                                                                                                                                                                                                                                                                                           |
 | connection_timeout_in_ms    | Integer | No       | -                    | The maximum time (in ms) to wait when connecting to IoTDB                                                                                                                                                                                                                                                                                                                  |
-| common-options              |         | no       | -                    | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                 |
+| common-options              |         | No       | -                    | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                                                                                                                                 |
 
 For the tree model, `key_device` is used as the IoTDB device path, and `key_measurement_fields` controls which fields become measurements. If `key_measurement_fields` is not set, all fields except `key_device` and `key_timestamp` are written as measurements.
 
 For the table model, `storage_group` is the database, `key_device` is the target table name field, `key_tag_fields` are TAG columns, `key_attribute_fields` are ATTRIBUTE columns, and `key_measurement_fields` are FIELD columns. If `key_measurement_fields` is not set, all fields except the table name, time, TAG, and ATTRIBUTE fields are written as FIELD columns.
+
+The connector buffers rows and flushes them to IoTDB when the buffer size reaches `batch_size`. It also flushes the buffered rows before a checkpoint commit and when the writer closes. There is no separate timer-based flush; configure `batch_size` to balance throughput and latency.
 
 ## Examples
 
@@ -125,6 +131,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "root.test_group"
     key_device = "device_name" # specify the `deviceId` use device_name field
   }
 }
@@ -139,7 +146,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
 |2023-09-01T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
 |2023-09-01T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
-|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
+|2023-09-01T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc3|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
 +------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
@@ -155,6 +162,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "root.test_group"
     key_device = "device_name" # specify the `deviceId` use device_name field
     key_timestamp = "event_ts" # specify the `timestamp` use event_ts field
   }
@@ -170,7 +178,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+--------------+---------+----------+----------+-----------+------+-----------+--------+---------+
 |2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100| 1664035200001|     abc1|      true|         1|          1|     1| 2147483648|     1.0|      1.0| 
 |2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101| 1664035200001|     abc2|     false|         2|          2|     2| 2147483649|     2.0|      2.0|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc2|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102| 1664035200001|     abc3|     false|         3|          3|     3| 2147483649|     3.0|      3.0|
 +------------------------+------------------------+--------------+-----------+--------------+---------+---------+-----------+-----------+------+-----------+--------+---------+
 ```
 
@@ -186,6 +194,7 @@ sink {
     node_urls = ["localhost:6667"]
     username = "root"
     password = "root"
+    storage_group = "root.test_group"
     key_device = "device_name"
     key_timestamp = "event_ts"
     key_measurement_fields = ["temperature", "moisture"]
@@ -206,7 +215,7 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 +------------------------+------------------------+--------------+-----------+
 ```
 
-### Example 2： Write data into IoTDB-table
+### Example 2: Write data into IoTDB-table
 
 ```hocon
 env {
