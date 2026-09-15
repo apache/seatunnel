@@ -26,8 +26,16 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReader
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
+import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceParameter;
 
+import lombok.extern.slf4j.Slf4j;
+
+import java.nio.charset.StandardCharsets;
+
+@Slf4j
 public class SplunkSourceReader extends HttpSourceReader {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -41,16 +49,38 @@ public class SplunkSourceReader extends HttpSourceReader {
         super(httpParameter, readerContext, deserializationSchema, jsonField, contentField);
     }
 
-    /**
-     * The parent class's pollAndCollectData() already splits multi-line responses one line at a
-     * time (when enableMultilines is true) and deserializes each line independently. Splunk's
-     * export stream nests each row under "result" and interleaves "preview" rows that duplicate
-     * later final rows, so we intercept here — before the parent's line splitting/deserialization
-     * runs — to unwrap and de-duplicate.
-     */
     @Override
     protected HttpResponse executeRequest() throws Exception {
         HttpResponse response = super.executeRequest();
+        String content = response.getContent();
+
+        if (content != null) {
+            long maxBytes = ((SplunkSourceParameter) httpParameter).getMaxResponseSizeBytes();
+            long contentSizeBytes = content.getBytes(StandardCharsets.UTF_8).length;
+
+            if (contentSizeBytes > maxBytes) {
+                throw new HttpConnectorException(
+                        HttpConnectorErrorCode.REQUEST_FAILED,
+                        String.format(
+                                "Splunk export response size (%d bytes) exceeds the configured "
+                                        + "max_response_size_bytes limit (%d bytes). Narrow the "
+                                        + "search's time window or result count (e.g. Splunk's "
+                                        + "earliest/latest parameters or a smaller 'head' limit), "
+                                        + "or raise max_response_size_bytes if you have confirmed "
+                                        + "sufficient worker heap for the larger export.",
+                                contentSizeBytes, maxBytes));
+            }
+
+            if (contentSizeBytes > maxBytes / 2) {
+                log.warn(
+                        "Splunk export response size ({} bytes) is more than half of the "
+                                + "configured max_response_size_bytes limit ({} bytes); consider "
+                                + "narrowing the search or reviewing worker heap sizing.",
+                        contentSizeBytes,
+                        maxBytes);
+            }
+        }
+
         String filtered = filterAndUnwrapNdjson(response.getContent());
         return new HttpResponse(response.getCode(), filtered);
     }

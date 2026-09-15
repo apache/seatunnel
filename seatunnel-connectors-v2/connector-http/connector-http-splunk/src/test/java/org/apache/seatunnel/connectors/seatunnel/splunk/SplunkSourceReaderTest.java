@@ -17,7 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.splunk;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceParameter;
+
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -37,5 +42,17 @@ public class SplunkSourceReaderTest {
         assertEquals(2, rows.length);
         assertTrue(rows[0].contains("\"a\":\"1\""));
         assertTrue(rows[1].contains("\"a\":\"2\""));
+    }
+
+    @Test
+    public void testFailsFastWhenResponseExceedsMaxSize() throws Exception {
+        HashMap<String, Object> configMap = new HashMap<>();
+        configMap.put("max_response_size_bytes", 10L); // instant trigger
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        SplunkSourceParameter parameter = new SplunkSourceParameter();
+        parameter.buildWithConfig(config, "test-api-key");
+
+        assertEquals(10L, parameter.getMaxResponseSizeBytes());
     }
 }

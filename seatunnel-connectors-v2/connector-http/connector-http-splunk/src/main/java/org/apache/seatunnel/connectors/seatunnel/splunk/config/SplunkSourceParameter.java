@@ -25,6 +25,13 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpSourceOptions;
 import java.util.HashMap;
 
 public class SplunkSourceParameter extends HttpParameter {
+
+    private long maxResponseSizeBytes;
+
+    public long getMaxResponseSizeBytes() {
+        return maxResponseSizeBytes;
+    }
+
     /**
      * Overrides buildWithConfig to accept an explicit apiKey parameter. Splunk's REST API requires
      * the API key to be passed specifically as an Authorization header, so this method ensures the
@@ -56,5 +63,6 @@ public class SplunkSourceParameter extends HttpParameter {
         this.setKeepParamsAsForm(pluginConfig.get(SplunkSourceOptions.KEEP_PARAMS_AS_FORM));
 
         this.setEnableMultilines(true);
+        this.maxResponseSizeBytes = pluginConfig.get(SplunkSourceOptions.MAX_RESPONSE_SIZE_BYTES);
     }
 }

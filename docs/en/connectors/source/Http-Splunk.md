@@ -11,6 +11,7 @@ The `Http-Splunk` connector allows batch reading data from Splunk REST API endpo
 * HTTP-based ingestion from Splunk REST API (`/services/search/v2/jobs/export`)
 * Token-based authentication via the `Authorization` header
 * Form-urlencoded parameter mapping for search queries and output formats
+* Fail-safe memory guard (`max_response_size_bytes`) to protect worker heap on large exports
 
 ## Options
 
@@ -20,6 +21,7 @@ The `Http-Splunk` connector allows batch reading data from Splunk REST API endpo
 | api_key | String | Yes | - | Splunk authentication token (e.g., `Splunk <token>`) |
 | method | String | No | `POST` | HTTP request method |
 | keep_params_as_form | Boolean | No | `true` | Keep parameters as form urlencoded |
+| max_response_size_bytes | Long | No | `52428800` | Maximum allowed HTTP response size in bytes before failing fast, to avoid unbounded memory use on large exports. |
 | params | Map | Yes | - | Request parameters including `search` and `output_mode` |
 
 ## Example Configuration
@@ -31,6 +33,7 @@ source {
     api_key = "Splunk your_splunk_auth_token"
     method = "POST"
     keep_params_as_form = true
+    max_response_size_bytes = 52428800
     params {
       search = "search index=_internal | head 10"
       output_mode = "json"
@@ -39,5 +42,4 @@ source {
   }
 }
 ```
-
 <ChangeLog />

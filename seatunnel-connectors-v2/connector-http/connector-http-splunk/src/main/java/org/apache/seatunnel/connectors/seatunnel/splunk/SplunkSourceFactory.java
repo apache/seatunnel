@@ -48,6 +48,7 @@ public class SplunkSourceFactory extends HttpSourceFactory {
         return getHttpBuilder()
                 .required(SplunkSourceOptions.API_KEY)
                 .optional(SplunkSourceOptions.KEEP_PARAMS_AS_FORM)
+                .optional(SplunkSourceOptions.MAX_RESPONSE_SIZE_BYTES)
                 .build();
     }
 }
