@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container.flink;
 
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.util.EngineImageJdkUpgrader;
 
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
@@ -41,9 +42,13 @@ public class Flink20Container extends AbstractTestFlinkContainer {
         return TestContainerId.FLINK_1_20;
     }
 
+    /**
+     * The 1.20 tags regressed back to a Java 8 runtime, so this image is derived into a Java 11
+     * flavour. See {@link Flink13Container#getDockerImage()}.
+     */
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/flink:1.20.1-scala_2.12_hadoop27";
+        return EngineImageJdkUpgrader.toJava11("tyrantlucifer/flink:1.20.1-scala_2.12_hadoop27");
     }
 
     @Override

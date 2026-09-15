@@ -129,4 +129,41 @@
         </plugins>
     </build>
 
+    <profiles>
+        <!--
+            PaimonSecurityContext directly imports sun.security.krb5.Config/KrbException to
+            reflectively refresh Kerberos configuration at runtime. That package is encapsulated
+            by the JDK module system starting with JDK 9, so compiling this module under a JDK 9+
+            toolchain needs the same export the runtime already requires. Gating this on JDK
+            version (rather than adding the flag unconditionally) matters because this project
+            also compiles under a plain JDK 8 toolchain in some CI paths (see the daily "Upgrade
+            Compatibility" workflow), and the add-exports flag below is itself a JDK 9+ javac
+            option that a JDK 8 javac invocation would reject outright; on JDK 8 there is no module system to
+            bypass, so sun.security.krb5.Config is already accessible without this flag.
+            JAVA_TOOL_OPTIONS at the workflow level does not reach an in-process javac invocation
+            the way Surefire/Failsafe's argLine does not reach it either, so this module needs its
+            own compiler-level flag rather than relying on either of those. See config/jvm_options
+            for the corresponding runtime-side flag.
+        -->
+        <profile>
+            <id>jdk9-plus-paimon-compile-exports</id>
+            <activation>
+                <jdk>[9,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+
 </project>
