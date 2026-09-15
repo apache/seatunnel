@@ -153,12 +153,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         rocketMqContainer.start();
         log.info("RocketMq container started");
         initProducer();
-        // Unlike the other topics in this file, test_topic_source is written directly via
-        // producer.send(Message, MessageQueue) in generateTestData(), which bypasses the normal
-        // route-resolution path a plain send(Message) would use. Establish and confirm the route
-        // up front so the name server has already published it before any source job (started by
-        // a later @TestTemplate method, sometimes minutes after this write) queries it.
-        waitForTopicRoute("test_topic_source");
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
@@ -361,6 +355,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqLatestToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_latest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -369,6 +365,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqEarliestToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_earliest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -377,6 +375,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqSpecificOffsetsToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_specific_offsets_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -385,6 +385,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqTimestampToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_timestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -443,6 +445,12 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @SneakyThrows
     private void generateTestData(
             ProducerRecordConverter converter, String topic, int start, int end) {
+        // These records are written with producer.send(Message, MessageQueue), which addresses a
+        // queue directly and so bypasses the route resolution a plain send(Message) would do.
+        // Establish and confirm the route first, otherwise the send fails with MQClientException
+        // "No topic route info in name server". Every caller needs this, not just the topic
+        // prepared in startUp().
+        waitForTopicRoute(topic);
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
