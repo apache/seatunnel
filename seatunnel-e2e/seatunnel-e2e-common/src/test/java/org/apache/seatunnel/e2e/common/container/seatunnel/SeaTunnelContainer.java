@@ -442,6 +442,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("seatunnel-coordinator-service")
                 || s.startsWith("seatunnel-metrics-fetch-")
                 || s.startsWith("pending-job-schedule-runner")
+                // Member-wide shared checkpoint scheduler pools, owned by
+                // SeaTunnelEngineContext and torn down at member shutdown rather than at
+                // job completion.
+                || s.startsWith("checkpoint-timer-")
+                || s.startsWith("checkpoint-dispatcher-")
                 || s.startsWith("GC task thread")
                 || s.contains("CompilerThread")
                 || s.startsWith("SeaTunnel-CompletableFuture-Thread-")
