@@ -28,6 +28,7 @@
 [Doris](../../connectors/sink/Doris.md)
 [Paimon](../../connectors/sink/Paimon.md#模式演变)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#模式演变)
+[BigQuery](../../connectors/sink/BigQuery.md#schema-演进)（仅支持 `ADD COLUMN`）
 [Redis](../../connectors/sink/Redis.md#模式演变)
 
 注意: 
