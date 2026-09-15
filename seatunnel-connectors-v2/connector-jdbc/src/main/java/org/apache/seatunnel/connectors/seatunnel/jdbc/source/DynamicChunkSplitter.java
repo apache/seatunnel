@@ -31,6 +31,7 @@ import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSplitGeneratorState;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.ObjectUtils;
 
 import lombok.Data;
@@ -73,9 +74,291 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     }
 
     @Override
+    protected void openWithSplitKey(JdbcSourceTable table, SeaTunnelRowType splitKey)
+            throws Exception {
+        String splitKeyName = splitKey.getFieldNames()[0];
+        SeaTunnelDataType splitKeyType = splitKey.getFieldType(0);
+        if (SqlType.STRING.equals(splitKeyType.getSqlType())
+                && config.getStringSplitStrategy() != null) {
+            initQueueGenerator(
+                    createStringStrategySplits(table, splitKeyName, splitKeyType), table);
+            return;
+        }
+        openDynamicLazyGenerator(table, splitKeyName, splitKeyType);
+    }
+
+    @Override
     protected PreparedStatement createSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
         return createDynamicSplitStatement(split, schema);
+    }
+
+    /**
+     * Opens an even arithmetic or uneven index-probe cursor for numeric (and non-charset string)
+     * keys. DATE / charset-based STRING still pre-materialize into a queue so existing boundary
+     * logic is preserved without holding millions of numeric chunks in memory for the common path.
+     */
+    private void openDynamicLazyGenerator(
+            JdbcSourceTable table, String splitKeyName, SeaTunnelDataType splitKeyType)
+            throws Exception {
+        Pair<Object, Object> minMax = queryMinMax(table, splitKeyName);
+        Object min = minMax.getLeft();
+        Object max = minMax.getRight();
+        if (min == null || max == null || min.equals(max)) {
+            initQueueGenerator(
+                    Collections.singletonList(
+                            new JdbcSourceSplit(
+                                    table.getTablePath(),
+                                    createSplitId(table.getTablePath(), 0),
+                                    table.getQuery(),
+                                    splitKeyName,
+                                    splitKeyType,
+                                    null,
+                                    null)),
+                    table);
+            return;
+        }
+
+        int chunkSize = config.getSplitSize();
+        switch (splitKeyType.getSqlType()) {
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case DECIMAL:
+            case DOUBLE:
+            case FLOAT:
+                openNumericLazyGenerator(table, splitKeyName, splitKeyType, min, max, chunkSize);
+                return;
+            case STRING:
+                if (useCharsetBasedStringSplitter) {
+                    List<ChunkRange> chunks =
+                            charsetBasedColumnSplitChunks(table, splitKeyName, min, max, chunkSize);
+                    initQueueGenerator(toSplits(table, splitKeyName, splitKeyType, chunks), table);
+                } else {
+                    openNumericLazyGenerator(
+                            table, splitKeyName, splitKeyType, min, max, chunkSize);
+                }
+                return;
+            case DATE:
+                List<ChunkRange> dateChunks =
+                        dateColumnSplitChunks(table, splitKeyName, min, max, chunkSize);
+                initQueueGenerator(toSplits(table, splitKeyName, splitKeyType, dateChunks), table);
+                return;
+            default:
+                throw CommonError.unsupportedDataType(
+                        "JDBC", splitKeyType.getSqlType().toString(), splitKeyName);
+        }
+    }
+
+    private void openNumericLazyGenerator(
+            JdbcSourceTable table,
+            String splitKeyName,
+            SeaTunnelDataType splitKeyType,
+            Object min,
+            Object max,
+            int chunkSize)
+            throws Exception {
+        TablePath tablePath = table.getTablePath();
+        double distributionFactorUpper = config.getSplitEvenDistributionFactorUpperBound();
+        double distributionFactorLower = config.getSplitEvenDistributionFactorLowerBound();
+        int sampleShardingThreshold = config.getSplitSampleShardingThreshold();
+
+        long approximateRowCnt = queryApproximateRowCnt(table);
+        if (approximateRowCnt <= 0) {
+            log.info(
+                    "The approximate row count of table {} is {}, use range chunk fallback.",
+                    tablePath,
+                    approximateRowCnt);
+            List<ChunkRange> chunks =
+                    splitEvenlySizedChunksByRange(
+                            tablePath, min, max, chunkSize, sampleShardingThreshold);
+            initQueueGenerator(toSplits(table, splitKeyName, splitKeyType, chunks), table);
+            return;
+        }
+
+        double distributionFactor =
+                calculateDistributionFactor(tablePath, min, max, approximateRowCnt);
+        boolean dataIsEvenlyDistributed =
+                ObjectUtils.doubleCompare(distributionFactor, distributionFactorLower) >= 0
+                        && ObjectUtils.doubleCompare(distributionFactor, distributionFactorUpper)
+                                <= 0;
+
+        if (dataIsEvenlyDistributed) {
+            if (approximateRowCnt <= chunkSize) {
+                initQueueGenerator(
+                        Collections.singletonList(
+                                new JdbcSourceSplit(
+                                        table.getTablePath(),
+                                        createSplitId(table.getTablePath(), 0),
+                                        table.getQuery(),
+                                        splitKeyName,
+                                        splitKeyType,
+                                        null,
+                                        null)),
+                        table);
+                return;
+            }
+            final int dynamicChunkSize = Math.max((int) (distributionFactor * chunkSize), 1);
+            log.info(
+                    "Use lazy evenly-sized chunk optimization for table {}, approximate row count {}, chunk size {}, dynamic chunk size {}",
+                    tablePath,
+                    approximateRowCnt,
+                    chunkSize,
+                    dynamicChunkSize);
+            this.activeTable = table;
+            this.generatorState =
+                    JdbcSplitGeneratorState.builder()
+                            .tablePath(tablePath)
+                            .mode(JdbcSplitGeneratorState.Mode.EVEN)
+                            .splitKeyName(splitKeyName)
+                            .splitKeyType(splitKeyType)
+                            .minValue(min)
+                            .maxValue(max)
+                            .currentBoundary(null)
+                            .chunkSize(chunkSize)
+                            .dynamicChunkSize(dynamicChunkSize)
+                            .nextSplitIndex(0)
+                            .finished(false)
+                            .emitFinalOpenEnded(true)
+                            .remainingQueue(new ArrayList<>())
+                            .build();
+            return;
+        }
+
+        log.info(
+                "Use lazy unevenly-sized index probing for table {}, chunk size {}",
+                tablePath,
+                chunkSize);
+        this.activeTable = table;
+        this.generatorState =
+                JdbcSplitGeneratorState.builder()
+                        .tablePath(tablePath)
+                        .mode(JdbcSplitGeneratorState.Mode.UNEVEN_PROBE)
+                        .splitKeyName(splitKeyName)
+                        .splitKeyType(splitKeyType)
+                        .minValue(min)
+                        .maxValue(max)
+                        .currentBoundary(null)
+                        .chunkSize(chunkSize)
+                        .dynamicChunkSize(0)
+                        .nextSplitIndex(0)
+                        .finished(false)
+                        .emitFinalOpenEnded(true)
+                        .remainingQueue(new ArrayList<>())
+                        .build();
+    }
+
+    private List<JdbcSourceSplit> toSplits(
+            JdbcSourceTable table,
+            String splitKeyName,
+            SeaTunnelDataType splitKeyType,
+            List<ChunkRange> chunks) {
+        List<JdbcSourceSplit> splits = new ArrayList<>(chunks.size());
+        for (int i = 0; i < chunks.size(); i++) {
+            ChunkRange chunk = chunks.get(i);
+            splits.add(
+                    new JdbcSourceSplit(
+                            table.getTablePath(),
+                            createSplitId(table.getTablePath(), i),
+                            table.getQuery(),
+                            splitKeyName,
+                            splitKeyType,
+                            chunk.getChunkStart(),
+                            chunk.getChunkEnd()));
+        }
+        return splits;
+    }
+
+    @Override
+    protected JdbcSourceSplit nextLazySplit() throws Exception {
+        JdbcSplitGeneratorState.Mode mode = generatorState.getMode();
+        if (mode == JdbcSplitGeneratorState.Mode.EVEN) {
+            return nextEvenSplit();
+        }
+        if (mode == JdbcSplitGeneratorState.Mode.UNEVEN_PROBE) {
+            return nextUnevenProbeSplit();
+        }
+        throw new IllegalStateException("Unexpected lazy generator mode: " + mode);
+    }
+
+    private JdbcSourceSplit nextEvenSplit() {
+        Object chunkStart = generatorState.getCurrentBoundary();
+        Object min = generatorState.getMinValue();
+        Object max = generatorState.getMaxValue();
+        int dynamicChunkSize = generatorState.getDynamicChunkSize();
+
+        Object chunkEnd;
+        try {
+            // First split uses [null, min + step); subsequent use [prev, prev + step).
+            if (chunkStart == null) {
+                chunkEnd = ObjectUtils.plus(min, dynamicChunkSize);
+            } else {
+                chunkEnd = ObjectUtils.plus(chunkStart, dynamicChunkSize);
+            }
+        } catch (ArithmeticException e) {
+            return finishWithOpenEndedSplit(chunkStart);
+        }
+
+        if (ObjectUtils.compare(chunkEnd, max) <= 0) {
+            int index = generatorState.getNextSplitIndex();
+            generatorState.setNextSplitIndex(index + 1);
+            generatorState.setCurrentBoundary(chunkEnd);
+            return new JdbcSourceSplit(
+                    activeTable.getTablePath(),
+                    createSplitId(activeTable.getTablePath(), index),
+                    activeTable.getQuery(),
+                    generatorState.getSplitKeyName(),
+                    generatorState.getSplitKeyType(),
+                    chunkStart,
+                    chunkEnd);
+        }
+        return finishWithOpenEndedSplit(chunkStart);
+    }
+
+    private JdbcSourceSplit nextUnevenProbeSplit() throws SQLException {
+        Object chunkStart = generatorState.getCurrentBoundary();
+        Object min = generatorState.getMinValue();
+        Object max = generatorState.getMaxValue();
+        Object probeFrom = chunkStart == null ? min : chunkStart;
+        Object chunkEnd =
+                nextChunkEnd(
+                        probeFrom,
+                        activeTable,
+                        generatorState.getSplitKeyName(),
+                        max,
+                        generatorState.getChunkSize());
+
+        if (chunkEnd != null && objectCompare(chunkEnd, max) <= 0) {
+            int index = generatorState.getNextSplitIndex();
+            generatorState.setNextSplitIndex(index + 1);
+            generatorState.setCurrentBoundary(chunkEnd);
+            maySleep(index, activeTable.getTablePath());
+            return new JdbcSourceSplit(
+                    activeTable.getTablePath(),
+                    createSplitId(activeTable.getTablePath(), index),
+                    activeTable.getQuery(),
+                    generatorState.getSplitKeyName(),
+                    generatorState.getSplitKeyType(),
+                    chunkStart,
+                    chunkEnd);
+        }
+        return finishWithOpenEndedSplit(chunkStart);
+    }
+
+    private JdbcSourceSplit finishWithOpenEndedSplit(Object chunkStart) {
+        int index = generatorState.getNextSplitIndex();
+        generatorState.setNextSplitIndex(index + 1);
+        generatorState.setFinished(true);
+        generatorState.setMode(JdbcSplitGeneratorState.Mode.FINISHED);
+        return new JdbcSourceSplit(
+                activeTable.getTablePath(),
+                createSplitId(activeTable.getTablePath(), index),
+                activeTable.getQuery(),
+                generatorState.getSplitKeyName(),
+                generatorState.getSplitKeyType(),
+                chunkStart,
+                null);
     }
 
     private Collection<JdbcSourceSplit> createDynamicSplits(
@@ -474,39 +757,17 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             boolean sampleShardingAllow,
             long approximateRowCnt)
             throws Exception {
-        int shardCount = (int) (approximateRowCnt / chunkSize);
-        int inverseSamplingRate = config.getSplitInverseSamplingRate();
-        if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
-            // It is necessary to ensure that the number of data rows sampled by the
-            // sampling rate is greater than the number of shards.
-            // Otherwise, if the sampling rate is too low, it may result in an insufficient
-            // number of data rows for the shards, leading to an inadequate number of
-            // shards.
-            // Therefore, inverseSamplingRate should be less than chunkSize
-            if (inverseSamplingRate > chunkSize) {
-                log.warn(
-                        "The inverseSamplingRate is {}, which is greater than chunkSize {}, so we set inverseSamplingRate to chunkSize",
-                        inverseSamplingRate,
-                        chunkSize);
-                inverseSamplingRate = chunkSize;
-            }
+        // Large-table planning defaults to index probing. Full-column client sampling is no longer
+        // the automatic uneven path (see #12097). Options split.allow-sampling /
+        // sample-sharding.threshold / inverse-sampling.rate remain for compatibility but do not
+        // trigger sampleDataFromColumn here.
+        if (sampleShardingAllow
+                && sampleShardingThreshold < (int) (approximateRowCnt / chunkSize)) {
             log.info(
-                    "Use sampling sharding for table {}, the sampling rate is {}",
+                    "Uneven distribution detected for table {} (estimated shards above sample-sharding.threshold {}). "
+                            + "Using index probing instead of full-column client sampling.",
                     tablePath,
-                    inverseSamplingRate);
-            Object[] sample =
-                    jdbcDialect.sampleDataFromColumn(
-                            getOrEstablishConnection(),
-                            applyWhereCondition(table),
-                            splitColumnName,
-                            inverseSamplingRate,
-                            config.getFetchSize());
-            log.info(
-                    "Sample data from table {} end, the sample size is {}",
-                    tablePath,
-                    sample.length);
-            return efficientShardingThroughSampling(
-                    tablePath, sample, approximateRowCnt, shardCount);
+                    sampleShardingThreshold);
         }
         return splitUnevenlySizedChunks(table, splitColumnName, min, max, chunkSize);
     }

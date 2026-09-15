@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSplitGeneratorState;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -42,10 +43,12 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -60,6 +63,11 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
     private final int fetchSize;
     private final boolean autoCommit;
+
+    /** Table currently being split by the lazy generator, if any. */
+    protected transient JdbcSourceTable activeTable;
+    /** Checkpointable cursor for lazy split generation. */
+    protected JdbcSplitGeneratorState generatorState;
 
     public ChunkSplitter(JdbcSourceConfig config) {
         this.config = config;
@@ -99,31 +107,18 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         return sb.toString();
     }
 
+    /**
+     * Compatibility wrapper that opens the table and drains all splits. Prefer lazy {@link
+     * #open(JdbcSourceTable)} / {@link #hasNext()} / {@link #nextSplit()} for large tables.
+     */
     public Collection<JdbcSourceSplit> generateSplits(JdbcSourceTable table) throws Exception {
         log.info("Start splitting table {} into chunks...", table.getTablePath());
         long start = System.currentTimeMillis();
-
-        // When concurrent read is disabled, skip all split analysis and return a single
-        // full-table split. This avoids expensive MIN/MAX scans on tables without proper indexes.
-        if (!config.isEnableConcurrentRead()) {
-            log.info(
-                    "Concurrent read is disabled for table {}, using single split.",
-                    table.getTablePath());
-            return Collections.singletonList(createSingleSplit(table));
+        open(table);
+        List<JdbcSourceSplit> splits = new ArrayList<>();
+        while (hasNext()) {
+            splits.add(nextSplit());
         }
-
-        Collection<JdbcSourceSplit> splits;
-        Optional<SeaTunnelRowType> splitKeyOptional = findSplitKey(table);
-        if (!splitKeyOptional.isPresent()) {
-            JdbcSourceSplit split = createSingleSplit(table);
-            splits = Collections.singletonList(split);
-        } else {
-            if (splitKeyOptional.get().getTotalFields() != 1) {
-                throw new UnsupportedOperationException("Currently, only support one split key");
-            }
-            splits = createSplits(table, splitKeyOptional.get());
-        }
-
         long end = System.currentTimeMillis();
         log.info(
                 "Split table {} into {} chunks, time cost: {}ms. Where condition configured for split metadata queries: {}",
@@ -141,6 +136,123 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                     SPLIT_COUNT_WARN_THRESHOLD);
         }
         return splits;
+    }
+
+    /**
+     * Opens a lazy split generator for the given table. Subsequent {@link #nextSplit()} calls emit
+     * splits without materializing the full split list when the dynamic even/uneven paths are used.
+     */
+    public synchronized void open(JdbcSourceTable table) throws Exception {
+        this.activeTable = table;
+        // When concurrent read is disabled, skip all split analysis and return a single
+        // full-table split. This avoids expensive MIN/MAX scans on tables without proper indexes.
+        if (!config.isEnableConcurrentRead()) {
+            log.info(
+                    "Concurrent read is disabled for table {}, using single split.",
+                    table.getTablePath());
+            initQueueGenerator(Collections.singletonList(createSingleSplit(table)), table);
+            return;
+        }
+
+        Optional<SeaTunnelRowType> splitKeyOptional = findSplitKey(table);
+        if (!splitKeyOptional.isPresent()) {
+            initQueueGenerator(Collections.singletonList(createSingleSplit(table)), table);
+            return;
+        }
+        if (splitKeyOptional.get().getTotalFields() != 1) {
+            throw new UnsupportedOperationException("Currently, only support one split key");
+        }
+        openWithSplitKey(table, splitKeyOptional.get());
+    }
+
+    /**
+     * Default path materializes all splits into a queue (used by {@link FixedChunkSplitter}).
+     * {@link DynamicChunkSplitter} overrides this for even/uneven lazy cursors.
+     */
+    protected void openWithSplitKey(JdbcSourceTable table, SeaTunnelRowType splitKeyType)
+            throws Exception {
+        Collection<JdbcSourceSplit> splits = createSplits(table, splitKeyType);
+        initQueueGenerator(splits, table);
+    }
+
+    protected void initQueueGenerator(Collection<JdbcSourceSplit> splits, JdbcSourceTable table) {
+        List<JdbcSourceSplit> queue = new ArrayList<>(splits);
+        this.activeTable = table;
+        this.generatorState =
+                JdbcSplitGeneratorState.builder()
+                        .tablePath(table.getTablePath())
+                        .mode(JdbcSplitGeneratorState.Mode.QUEUE)
+                        .remainingQueue(queue)
+                        .nextSplitIndex(queue.size())
+                        .finished(queue.isEmpty())
+                        .build();
+    }
+
+    public synchronized boolean hasNext() {
+        if (generatorState == null || generatorState.isFinished()) {
+            return false;
+        }
+        if (generatorState.getMode() == JdbcSplitGeneratorState.Mode.QUEUE) {
+            return generatorState.getRemainingQueue() != null
+                    && !generatorState.getRemainingQueue().isEmpty();
+        }
+        return generatorState.getMode() != JdbcSplitGeneratorState.Mode.FINISHED;
+    }
+
+    public synchronized JdbcSourceSplit nextSplit() throws Exception {
+        if (!hasNext()) {
+            throw new NoSuchElementException("No more jdbc source splits");
+        }
+        if (generatorState.getMode() == JdbcSplitGeneratorState.Mode.QUEUE) {
+            List<JdbcSourceSplit> queue = generatorState.getRemainingQueue();
+            JdbcSourceSplit split = queue.remove(0);
+            if (queue.isEmpty()) {
+                generatorState.setFinished(true);
+                generatorState.setMode(JdbcSplitGeneratorState.Mode.FINISHED);
+            }
+            return split;
+        }
+        return nextLazySplit();
+    }
+
+    /**
+     * Emits the next split for EVEN / UNEVEN_PROBE cursors. Queue mode is handled in {@link
+     * #nextSplit()}.
+     */
+    protected JdbcSourceSplit nextLazySplit() throws Exception {
+        throw new UnsupportedOperationException(
+                getClass().getSimpleName() + " does not support lazy cursor mode");
+    }
+
+    public synchronized JdbcSplitGeneratorState snapshotGeneratorState() {
+        if (generatorState == null) {
+            return null;
+        }
+        List<JdbcSourceSplit> queueCopy = null;
+        if (generatorState.getRemainingQueue() != null) {
+            queueCopy = new ArrayList<>(generatorState.getRemainingQueue());
+        }
+        return JdbcSplitGeneratorState.builder()
+                .tablePath(generatorState.getTablePath())
+                .mode(generatorState.getMode())
+                .splitKeyName(generatorState.getSplitKeyName())
+                .splitKeyType(generatorState.getSplitKeyType())
+                .minValue(generatorState.getMinValue())
+                .maxValue(generatorState.getMaxValue())
+                .currentBoundary(generatorState.getCurrentBoundary())
+                .chunkSize(generatorState.getChunkSize())
+                .dynamicChunkSize(generatorState.getDynamicChunkSize())
+                .nextSplitIndex(generatorState.getNextSplitIndex())
+                .finished(generatorState.isFinished())
+                .emitFinalOpenEnded(generatorState.isEmitFinalOpenEnded())
+                .remainingQueue(queueCopy == null ? new ArrayList<>() : queueCopy)
+                .build();
+    }
+
+    public synchronized void restoreGeneratorState(
+            JdbcSplitGeneratorState state, JdbcSourceTable table) {
+        this.activeTable = table;
+        this.generatorState = state;
     }
 
     protected abstract Collection<JdbcSourceSplit> createSplits(
