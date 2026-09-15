@@ -68,6 +68,16 @@
             <groupId>org.awaitility</groupId>
             <artifactId>awaitility</artifactId>
         </dependency>
+        <!--
+          Explicit opt-in for module-local Mockito tests (HdfsWriterFlushCallCountTest,
+          WALWorkHandlerSurvivabilityTest). Also inherited from the root POM test deps;
+          kept here so the module's test classpath is obvious without reading the parent.
+        -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
 
         <!-- Imap storage dependency package  -->
         <dependency>

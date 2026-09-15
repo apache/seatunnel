@@ -222,8 +222,32 @@ public class CheckpointManager {
                 "reported pipeline running stack: {}",
                 Arrays.toString(Thread.currentThread().getStackTrace()));
         getCheckpointCoordinator(pipelineId).restoreCoordinator(alreadyStarted);
-        if (!alreadyStarted && checkpointMonitorService != null) {
-            checkpointMonitorService.onPipelineRestored(jobId, pipelineId);
+        if (!alreadyStarted) {
+            notifyCheckpointMonitor(
+                    "onPipelineRestored",
+                    () -> checkpointMonitorService.onPipelineRestored(jobId, pipelineId));
+        }
+    }
+
+    /**
+     * Invokes an auxiliary checkpoint-monitor write without letting failures abort manager
+     * bookkeeping. Monitor/overview IMap failures must stay loud in logs but must not take down
+     * job/pipeline lifecycle transitions after durable checkpoint work has already succeeded.
+     */
+    private void notifyCheckpointMonitor(String action, Runnable notification) {
+        if (checkpointMonitorService == null) {
+            return;
+        }
+        try {
+            notification.run();
+        } catch (Exception e) {
+            // Catch Exception (not Throwable) so Errors such as OutOfMemoryError still propagate,
+            // matching WALWorkHandler.onEvent()'s deliberate Exception-only boundary.
+            log.error(
+                    "Checkpoint monitor {} failed for job {}; continuing checkpoint-manager bookkeeping",
+                    action,
+                    jobId,
+                    e);
         }
     }
 
@@ -307,9 +331,8 @@ public class CheckpointManager {
                 checkpointStorage.deleteCheckpoint(jobId + "");
             }
         }
-        if (checkpointMonitorService != null
-                && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)) {
-            checkpointMonitorService.cleanupJob(jobId);
+        if (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED) {
+            notifyCheckpointMonitor("cleanupJob", () -> checkpointMonitorService.cleanupJob(jobId));
         }
     }
 
