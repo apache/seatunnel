@@ -150,6 +150,14 @@ These metrics are exported by the active master only; scraping a worker node's e
 
 ### Report Metrics Operation
 
+Metrics snapshot writes and deletions attempt at most 10 conditional updates per bucket. If contention
+persists, the operation fails with `Failed to update metrics partition ... after 10 concurrent
+modifications`. A failed worker report is logged and counted in
+`report_metrics_operation_total{result="failure"}`; subsequent scheduled reports can retry while
+the task context is retained. Pending pipeline cleanup retains its record when metrics deletion
+fails. This limit bounds conflict retries, not network latency: individual Hazelcast invocations
+still use their configured timeouts. The metrics format and checkpoint/savepoint state are unchanged.
+
 | MetricName                                        | Type    | Labels                                                                                              | DESCRIPTION                                                                                                      |
 |---------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
 | report_metrics_operation_total                    | Counter | **address**, worker instance address,for example: "127.0.0.1:5801". **result**, one of "success" "failure" "interrupted" | The total number of `ReportMetricsOperation` invocations sent by a worker                                       |
