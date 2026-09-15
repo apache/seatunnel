@@ -57,10 +57,12 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
@@ -245,6 +247,43 @@ public class RestApiIT {
                                             verifyLogLink(logListV1);
                                             verifyLogLink(logListV2);
                                         }));
+    }
+
+    @Test
+    public void testDynamicHttpPortIsResolvableByPeers() {
+        int node1HttpPort = node1Config.getEngineConfig().getHttpConfig().getPort();
+        int node2HttpPort = node2Config.getEngineConfig().getHttpConfig().getPort();
+
+        // node2 inherits port 8080 from the test seatunnel.yaml and enables dynamic port, so it
+        // always falls back to another port because node1 binds 8080 first. Unless the chosen port
+        // is written back to HttpConfig, GetNodeHttpPortOperation reports node1's port for node2
+        // and every cluster-wide fan-out silently addresses node1 twice.
+        Assertions.assertNotEquals(
+                node1HttpPort,
+                node2HttpPort,
+                "node2 must expose the dynamically chosen REST port, not the configured one");
+
+        List<Map<String, Object>> logEntries =
+                given().get(
+                                buildHttpBaseUrl(node1HttpPort)
+                                        + RestConstant.REST_URL_LOGS
+                                        + "?format=JSON")
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+
+        Set<String> reportedNodes =
+                logEntries.stream()
+                        .map(entry -> String.valueOf(entry.get("node")))
+                        .collect(Collectors.toSet());
+        Assertions.assertEquals(
+                2,
+                reportedNodes.size(),
+                "GET /logs must enumerate both members, got " + reportedNodes);
+        Assertions.assertTrue(
+                reportedNodes.stream().anyMatch(node -> node.endsWith(":" + node2HttpPort)),
+                "GET /logs must report node2 on its dynamic port, got " + reportedNodes);
     }
 
     @Test
@@ -1351,7 +1390,12 @@ public class RestApiIT {
                         () -> {
                             Map<String, Object> overview =
                                     getCheckpointOverview(
-                                            jobId, buildHttpBaseUrl(httpPorts.get(0)));
+                                            jobId,
+                                            buildHttpBaseUrl(
+                                                    node1Config
+                                                            .getEngineConfig()
+                                                            .getHttpConfig()
+                                                            .getPort()));
                             List<Map<String, Object>> pipelines =
                                     castList(overview.get("pipelines"));
                             if (pipelines.isEmpty()) {

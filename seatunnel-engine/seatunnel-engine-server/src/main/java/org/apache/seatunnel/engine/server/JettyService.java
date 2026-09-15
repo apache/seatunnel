@@ -108,25 +108,27 @@ public class JettyService {
     public JettyService(NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
         this.nodeEngine = nodeEngine;
         this.seaTunnelConfig = seaTunnelConfig;
-        int port = seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableDynamicPort()) {
-            port =
-                    chooseAppropriatePort(
-                            port, seaTunnelConfig.getEngineConfig().getHttpConfig().getPortRange());
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
+        int port = httpConfig.getPort();
+        if (httpConfig.isEnableDynamicPort()) {
+            port = chooseAppropriatePort(port, httpConfig.getPortRange());
+            // Peers resolve this node's REST port through GetNodeHttpPortOperation, which reads
+            // HttpConfig. Without writing the chosen port back, every cluster-wide fan-out keeps
+            // addressing the configured port and never reaches this node.
+            httpConfig.setPort(port);
         }
         log.info("SeaTunnel REST service will start on port {}", port);
         this.server = new Server();
 
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()) {
+        if (httpConfig.isEnabled()) {
             // Enable http
             ServerConnector httpConnector = new ServerConnector(server);
             httpConnector.setPort(port);
             server.addConnector(httpConnector);
         }
 
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+        if (httpConfig.isEnableHttps()) {
             // Enable https
-            log.info("SeaTunnel REST service will start on https port {}", port);
             enableHttps(server, seaTunnelConfig);
         }
     }
