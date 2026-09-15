@@ -20,7 +20,7 @@ limitations under the License.
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>seatunnel-connector-v2-e2e</artifactId>
-        <version>3.0.0</version>
+        <version>3.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>connector-tiktok-ads-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : TikTok Ads</name>
