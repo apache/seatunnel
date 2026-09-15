@@ -30,6 +30,7 @@ import org.apache.seatunnel.format.json.JsonSerializationSchema;
 import org.apache.seatunnel.format.text.TextSerializationSchema;
 
 import java.io.IOException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -52,7 +53,7 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
             SeaTunnelRowType seaTunnelRowType,
             String fieldDelimiter,
             boolean enableDelete) {
-        this(type, seaTunnelRowType, fieldDelimiter, enableDelete, true);
+        this(type, seaTunnelRowType, fieldDelimiter, enableDelete, true, null);
     }
 
     public SeaTunnelRowSerializer(
@@ -61,6 +62,22 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
             String fieldDelimiter,
             boolean enableDelete,
             boolean caseSensitive) {
+        this(type, seaTunnelRowType, fieldDelimiter, enableDelete, caseSensitive, null);
+    }
+
+    /**
+     * @param datetimeTimezone session zone used to convert {@code TIMESTAMP_TZ} values to
+     *     wall-clock strings for Doris DATETIME columns. When {@code null}, the JVM default
+     *     timezone is used (legacy behavior); pass the actual Doris session zone to avoid
+     *     JVM-default coupling.
+     */
+    public SeaTunnelRowSerializer(
+            String type,
+            SeaTunnelRowType seaTunnelRowType,
+            String fieldDelimiter,
+            boolean enableDelete,
+            boolean caseSensitive,
+            ZoneId datetimeTimezone) {
         this.type = type;
         this.fieldDelimiter = fieldDelimiter;
         this.enableDelete = enableDelete;
@@ -88,7 +105,7 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
 
         if (JSON.equals(type)) {
             JsonSerializationSchema jsonSerializationSchema =
-                    new JsonSerializationSchema(this.seaTunnelRowType, true);
+                    new JsonSerializationSchema(this.seaTunnelRowType, true, datetimeTimezone);
             ObjectMapper mapper = jsonSerializationSchema.getMapper();
             mapper.configure(JsonGenerator.Feature.WRITE_BIGDECIMAL_AS_PLAIN, true);
             this.serialize = jsonSerializationSchema;
@@ -100,6 +117,7 @@ public class SeaTunnelRowSerializer implements DorisSerializer {
                             .delimiter(fieldDelimiter)
                             .nullValue(NULL_VALUE)
                             .wallClockTimestampTz(true)
+                            .wallClockTimestampTzZoneId(datetimeTimezone)
                             .build();
         }
     }
