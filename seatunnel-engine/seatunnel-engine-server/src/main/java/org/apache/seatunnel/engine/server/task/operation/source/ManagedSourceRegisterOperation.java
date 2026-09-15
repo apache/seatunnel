@@ -114,7 +114,10 @@ public class ManagedSourceRegisterOperation extends TaskOperation {
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        readerLocation = in.readObject();
+        // Constrain the decoded type to TaskLocation instead of accepting whatever type the
+        // wire payload's factory/class id selects, matching TaskOperation#readInternal's own
+        // treatment of its base taskLocation field.
+        readerLocation = in.readObject(TaskLocation.class);
         readerExecutionId = in.readLong();
         readerAttemptId = in.readString();
         runtimeProtocolVersion = in.readInt();
