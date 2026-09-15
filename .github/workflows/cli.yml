@@ -56,7 +56,10 @@ jobs:
           cache-dependency-path: seatunnel-cli/pyproject.toml
 
       - name: Install ruff
-        run: python -m pip install --upgrade ruff
+        # Pinned, and kept in step with the `dev` extra in seatunnel-cli/pyproject.toml, so
+        # that a new ruff release cannot turn an unrelated pull request red and so that a
+        # contributor running `ruff check` locally sees the same findings as this job.
+        run: python -m pip install 'ruff==0.16.7'
 
       - name: Check for Python errors
         # Rule selection lives in [tool.ruff.lint] so this command reports exactly what a
