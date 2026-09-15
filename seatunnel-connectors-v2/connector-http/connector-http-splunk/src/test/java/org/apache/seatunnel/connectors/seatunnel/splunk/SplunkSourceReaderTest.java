@@ -17,15 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.splunk;
 
-import okhttp3.mockwebserver.MockResponse;
-import okhttp3.mockwebserver.MockWebServer;
-import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceParameter;
 
 import org.junit.jupiter.api.Test;
 
-import java.util.HashMap;
+import okhttp3.mockwebserver.MockWebServer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -63,8 +60,7 @@ public class SplunkSourceReaderTest {
         SplunkSourceParameter parameter = new SplunkSourceParameter();
         parameter.buildWithConfig(config, "Splunk test-key");
 
-        SplunkSourceReader reader = new SplunkSourceReader(
-                parameter, null, null, null, null);
+        SplunkSourceReader reader = new SplunkSourceReader(parameter, null, null, null, null);
 
         org.junit.jupiter.api.Assertions.assertThrows(
                 HttpConnectorException.class, () -> reader.executeRequest());
