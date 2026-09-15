@@ -22,7 +22,9 @@ import tempfile
 def main():
     sys.stdin.readline()
     subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(10)"], cwd=tempfile.gettempdir()
+        [sys.executable, "-c", "import time; time.sleep(10)"],
+        close_fds=False,
+        cwd=tempfile.gettempdir(),
     )
     print("1,python_1", flush=True)
 

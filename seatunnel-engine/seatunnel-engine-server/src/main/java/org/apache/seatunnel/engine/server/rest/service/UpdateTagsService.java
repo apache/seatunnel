@@ -23,10 +23,13 @@ import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Slf4j
 public class UpdateTagsService extends BaseService {
     public UpdateTagsService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
@@ -64,7 +67,15 @@ public class UpdateTagsService extends BaseService {
 
     private JsonObject updateTags(Map<String, Object> tagParams, MemberImpl localMember) {
         Map<String, String> tags = toStringTags(tagParams);
+        // Read before the change, because updateAttribute replaces the whole tag set: without this
+        // copy the tags a job was scheduled against are gone with no record of what they were.
+        Map<String, String> previousTags = new HashMap<>(localMember.getAttributes());
         localMember.updateAttribute(tags);
+        log.info(
+                "Node tags updated: node={}, {} -> {}",
+                localMember.getAddress(),
+                previousTags,
+                tags);
         return new JsonObject().add("status", "success").add("message", "update node tags done.");
     }
 

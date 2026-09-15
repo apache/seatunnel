@@ -57,6 +57,7 @@ import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
+import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
@@ -75,6 +76,7 @@ import com.hazelcast.spi.properties.ClusterProperty;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -623,6 +625,8 @@ public class CoordinatorServiceTest {
         EngineConfig engineConfig = new EngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        ExecutorService schedulerExecutor = Executors.newSingleThreadExecutor();
+        CountDownLatch firstScheduleStarted = new CountDownLatch(1);
         CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
         try {
             JobMaster blockedJobMaster =
@@ -630,19 +634,32 @@ public class CoordinatorServiceTest {
             Mockito.when(blockedJobMaster.preApplyResources())
                     .thenAnswer(
                             invocation -> {
+                                firstScheduleStarted.countDown();
                                 allowFirstScheduleToFinish.await();
                                 return true;
                             });
 
             ReflectionUtils.setField(coordinatorService, "isActive", true);
-            invokePendingJobScheduler(coordinatorService);
+            // This instance must not leave its coordinator pool available to run a competing
+            // scheduler while the controlled scheduler performs the single test pass below.
+            getCoordinatorExecutor(coordinatorService).shutdownNow();
+            Future<?> schedulerFuture =
+                    schedulerExecutor.submit(
+                            () -> {
+                                try {
+                                    invokePendingJobSchedule(
+                                            coordinatorService,
+                                            getPendingJobScheduleEpoch(coordinatorService).get());
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
-            // Wait until the scheduler thread is parked inside preApplyResources().
-            await().atMost(5, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Mockito.verify(blockedJobMaster, Mockito.atLeastOnce())
-                                            .preApplyResources());
+            // Invoke one production scheduling pass directly so this regression does not depend
+            // on a long-lived scheduler thread being dispatched before the assertion window.
+            Assertions.assertTrue(
+                    firstScheduleStarted.await(5, TimeUnit.SECONDS),
+                    "pending-job scheduling should enter resource pre-application");
 
             // Simulate a master step-down. The blocked JobMaster is interrupted; the
             // PendingJobInfo must be dropped from the queue so a later restore cannot
@@ -656,8 +673,11 @@ public class CoordinatorServiceTest {
                                         coordinatorService.getPendingJobQueue().contains(90001L));
                                 Mockito.verify(blockedJobMaster, Mockito.atLeastOnce()).interrupt();
                             });
+            allowFirstScheduleToFinish.countDown();
+            schedulerFuture.get(5, TimeUnit.SECONDS);
         } finally {
             allowFirstScheduleToFinish.countDown();
+            schedulerExecutor.shutdownNow();
             shutdownCoordinatorIfRunning(coordinatorService);
         }
     }
@@ -760,16 +780,36 @@ public class CoordinatorServiceTest {
     private void stopCoordinatorSchedulers(CoordinatorService coordinatorService) {
         ReflectionUtils.getField(coordinatorService, "masterActiveListener")
                 .map(ScheduledExecutorService.class::cast)
-                .ifPresent(ScheduledExecutorService::shutdownNow);
+                .ifPresent(this::shutdownScheduler);
         ReflectionUtils.getField(coordinatorService, "pipelineCleanupScheduler")
                 .map(ScheduledExecutorService.class::cast)
-                .ifPresent(ScheduledExecutorService::shutdownNow);
+                .ifPresent(this::shutdownScheduler);
+    }
+
+    private void shutdownScheduler(ScheduledExecutorService scheduler) {
+        scheduler.shutdownNow();
+        try {
+            if (!scheduler.awaitTermination(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("Scheduler did not stop in time");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while stopping scheduler", e);
+        }
     }
 
     private void invokePendingJobScheduler(CoordinatorService coordinatorService) throws Exception {
         Method method = CoordinatorService.class.getDeclaredMethod("startPendingJobScheduleThread");
         method.setAccessible(true);
         method.invoke(coordinatorService);
+    }
+
+    private void invokePendingJobSchedule(CoordinatorService coordinatorService, long scheduleEpoch)
+            throws Exception {
+        Method method =
+                CoordinatorService.class.getDeclaredMethod("pendingJobSchedule", long.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, scheduleEpoch);
     }
 
     private JobMaster enqueueMockPendingJob(
@@ -803,9 +843,14 @@ public class CoordinatorServiceTest {
                 .when(jobMaster)
                 .run();
 
-        coordinatorService
-                .getPendingJobQueue()
-                .put(new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster));
+        try {
+            coordinatorService
+                    .getPendingJobQueue()
+                    .put(new PendingJobInfo(PendingSourceState.SUBMIT, jobMaster));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Failed to enqueue mock pending job", e);
+        }
         return jobMaster;
     }
 
@@ -1332,6 +1377,60 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
+    void testInterruptedPendingJobInsertionFailsSubmission() throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testInterruptedPendingJobInsertionFailsSubmission");
+        HazelcastInstanceImpl instance =
+                SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            InterruptiblePendingJobQueue pendingJobQueue = new InterruptiblePendingJobQueue();
+            ReflectionUtils.setField(coordinatorService, "pendingJobQueue", pendingJobQueue);
+
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "batch_fake_to_console.conf",
+                            "interrupted_pending_job_insertion",
+                            jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            Data data = instance.getSerializationService().toData(jobImmutableInformation);
+
+            PassiveCompletableFuture<Void> submitFuture =
+                    coordinatorService.submitJob(
+                            jobId, data, jobImmutableInformation.isStartWithSavePoint());
+            Assertions.assertTrue(
+                    pendingJobQueue.putStarted.await(20, TimeUnit.SECONDS),
+                    "submission did not reach pending queue insertion");
+
+            coordinatorService.clearCoordinatorService();
+
+            await().atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(submitFuture.isCompletedExceptionally()));
+            Assertions.assertThrows(CompletionException.class, submitFuture::join);
+            Assertions.assertFalse(pendingJobQueue.contains(jobId));
+            Assertions.assertNotEquals(
+                    JobStatus.PENDING,
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE).get(jobId),
+                    "an interrupted submission must not advance the job to PENDING");
+        } finally {
+            instance.shutdown();
+        }
+    }
+
+    @Test
     void testGetPendingJobInfo() {
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
         CoordinatorService coordinatorService = newMockCoordinatorService(server);
@@ -1789,6 +1888,61 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testInterruptedPendingJobInsertionDuringRestoreFailsRestore() throws Exception {
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(
+                        TestUtils.getClusterName(
+                                "CoordinatorServiceTest_testInterruptedPendingJobInsertionDuringRestore"),
+                        1);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf", "interrupted_restore", jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            JobInfo jobInfo =
+                    new JobInfo(
+                            100L,
+                            instance.getSerializationService().toData(jobImmutableInformation));
+            IMap<Object, Object> runningJobStateIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            runningJobStateIMap.put(jobId, JobStatus.RUNNING);
+            ReflectionUtils.setField(
+                    coordinatorService, "pendingJobQueue", new AlwaysInterruptedPendingJobQueue());
+
+            InvocationTargetException invocationException =
+                    Assertions.assertThrows(
+                            InvocationTargetException.class,
+                            () ->
+                                    invokeRestoreJobFromMasterActiveSwitch(
+                                            coordinatorService, jobId, jobInfo));
+            Assertions.assertInstanceOf(
+                    SeaTunnelEngineException.class, invocationException.getCause());
+            Assertions.assertInstanceOf(
+                    InterruptedException.class, invocationException.getCause().getCause());
+            Assertions.assertFalse(coordinatorService.getPendingJobQueue().contains(jobId));
+            Assertions.assertNotEquals(JobStatus.PENDING, runningJobStateIMap.get(jobId));
+        } finally {
+            Thread.interrupted();
+            instance.shutdown();
+        }
+    }
+
+    @Test
     @Disabled("Disabled because we can't know when the master node switches in the unit tests")
     void testJobRestoreWhenMasterNodeSwitch() {
         HazelcastInstanceImpl instance1 =
@@ -2007,6 +2161,38 @@ public class CoordinatorServiceTest {
         System.out.printf("Average completion time per op: %.6f seconds%n", avgSeconds);
 
         return elapsedNs / 1_000_000_000.0;
+    }
+
+    private static class InterruptiblePendingJobQueue extends PeekBlockingQueue<PendingJobInfo> {
+        private final CountDownLatch putStarted = new CountDownLatch(1);
+        private final CountDownLatch releasePut = new CountDownLatch(1);
+
+        private InterruptiblePendingJobQueue() {
+            super(PendingJobInfo::getJobId);
+        }
+
+        @Override
+        public void put(PendingJobInfo element) throws InterruptedException {
+            putStarted.countDown();
+            try {
+                releasePut.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            super.put(element);
+        }
+    }
+
+    private static class AlwaysInterruptedPendingJobQueue
+            extends PeekBlockingQueue<PendingJobInfo> {
+        private AlwaysInterruptedPendingJobQueue() {
+            super(PendingJobInfo::getJobId);
+        }
+
+        @Override
+        public void put(PendingJobInfo element) throws InterruptedException {
+            throw new InterruptedException("test interruption");
+        }
     }
 
     private static class JobInformation {

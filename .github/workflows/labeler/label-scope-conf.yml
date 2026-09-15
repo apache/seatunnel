@@ -74,6 +74,11 @@ transform-v2:
       - any-glob-to-any-file: seatunnel-transforms-v2/**
 
 # Connectors
+amazondocumentdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazondocumentdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazondocumentdb)/**'
 amazondynamodb:
   - all:
       - changed-files:
@@ -84,6 +89,11 @@ amazonsqs:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazonsqs/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazonsqs)/**'
+azurecosmosdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-azurecosmosdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azurecosmosdb)/**'
 cassandra:
   - all:
       - changed-files:
@@ -92,8 +102,16 @@ cassandra:
 salesforce:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-salesforce/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/java/org/apache/seatunnel/e2e/connector/http/SalesforceSinkIT.java
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/fake_to_salesforce.conf
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
+deeplake:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-deeplake/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(deeplake)/**'
 cdc:
   - all:
       - changed-files:
@@ -144,6 +162,16 @@ email:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-email/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(email)/**'
+facebook-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-facebook-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(facebook-ads)/**'
+tiktok-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-tiktok-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(tiktok-ads)/**'
 file:
   - all:
       - changed-files:
@@ -154,6 +182,18 @@ fluss:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
+google-ads:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-ads/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-ads)/**'
+google-analytics4:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-google-analytics4/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-google-analytics4-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-analytics4)/**'
 google-firestore:
   - all:
       - changed-files:
@@ -164,6 +204,13 @@ google-pubsub:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-pubsub/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-pubsub)/**'
+snmp:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-snmp/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-snmp-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(snmp)/**'
 azure-queue-storage:
   - all:
       - changed-files:
@@ -192,7 +239,9 @@ hive:
 http:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-http/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-http/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-paypal-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(http)/**'
 prometheus:
   - all:
@@ -254,6 +303,13 @@ neo4j:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-neo4j/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(neo4j)/**'
+nebulagraph:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-nebulagraph/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-nebulagraph-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(nebulagraph)/**'
 openmldb:
   - all:
       - changed-files:
@@ -309,6 +365,13 @@ socket:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-socket/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(socket)/**'
+syslog:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-syslog/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-syslog-e2e/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(syslog)/**'
 starrocks:
   - all:
       - changed-files:
@@ -390,3 +453,8 @@ nats-jetstream:
           - all-globs-to-all-files:
               - '!seatunnel-connectors-v2/connector-!(nats-jetstream)/**'
               - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(nats-jetstream)-e2e/**'
+firebase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'

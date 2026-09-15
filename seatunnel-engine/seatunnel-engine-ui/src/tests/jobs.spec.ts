@@ -25,7 +25,8 @@ import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
 import finishedJobs from '@/views/jobs/finished-jobs'
-import { JobsService } from '@/service/job'
+import { getFinishedJobs, JobsService } from '@/service/job'
+import { get } from '@/service/service'
 import type { JobPage, Job } from '@/service/job/types'
 
 const routeState = vi.hoisted(() => ({
@@ -41,6 +42,8 @@ vi.mock('vue-router', () => ({
     push: routeState.push
   })
 }))
+
+vi.mock('@/service/service', () => ({ get: vi.fn(), post: vi.fn() }))
 
 describe('jobs', () => {
   const app = createApp({})
@@ -173,5 +176,14 @@ describe('jobs', () => {
       isStartWithSavePoint: true
     })
     wrapper.unmount()
+  })
+
+  test('Finished Jobs service requests all terminal jobs by default', () => {
+    const getMock = vi.mocked(get)
+    getMock.mockClear()
+
+    getFinishedJobs(1, 10)
+
+    expect(getMock).toHaveBeenCalledWith('/finished-jobs', {page: 1, rows: 10})
   })
 })

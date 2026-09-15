@@ -16,19 +16,46 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+
 import org.apache.http.Header;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.message.BasicHeader;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.sun.net.httpserver.HttpServer;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class HttpClientProviderTest {
+
+    private HttpClientProvider httpClientProvider;
+    private HttpServer server;
+
+    @AfterEach
+    void tearDown() throws Exception {
+        if (httpClientProvider != null) {
+            httpClientProvider.close();
+        }
+        if (server != null) {
+            server.stop(0);
+        }
+    }
 
     @Test
     void testAddDefaultJsonContentTypeWhenNotPresent() throws Exception {
@@ -83,5 +110,95 @@ class HttpClientProviderTest {
         }
         // ensure no manually set content type or encoding
         Assertions.assertNull(post.getEntity().getContentEncoding());
+    }
+
+    @Test
+    void executePreservesNestedJsonBody() throws Exception {
+        AtomicReference<String> receivedBody = new AtomicReference<>();
+        AtomicReference<String> receivedQuery = new AtomicReference<>();
+        List<String> receivedContentTypes = Collections.synchronizedList(new ArrayList<>());
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/request",
+                exchange -> {
+                    receivedBody.set(readRequestBody(exchange.getRequestBody()));
+                    receivedQuery.set(exchange.getRequestURI().getQuery());
+                    receivedContentTypes.clear();
+                    receivedContentTypes.addAll(exchange.getRequestHeaders().get("Content-Type"));
+                    exchange.sendResponseHeaders(200, -1);
+                    exchange.close();
+                });
+        server.start();
+
+        HttpParameter parameter = new HttpParameter();
+        parameter.setConnectTimeoutMs(1_000);
+        parameter.setSocketTimeoutMs(1_000);
+        httpClientProvider = new HttpClientProvider(parameter);
+        String body = "{\"pageNo\":1,\"data\":{\"type\":1}}";
+
+        HttpResponse response =
+                httpClientProvider.execute(
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/request",
+                        "POST",
+                        Collections.singletonMap("Content-Type", "application/json"),
+                        Collections.singletonMap("traceId", "123"),
+                        body,
+                        false);
+
+        Assertions.assertEquals(200, response.getCode());
+        Assertions.assertEquals(body, receivedBody.get());
+        Assertions.assertEquals("traceId=123", receivedQuery.get());
+        // The caller-supplied Content-Type must not be duplicated. Otherwise the request
+        // would carry two Content-Type headers, which RFC 7230 §3.2.2 forbids for
+        // non-list headers and yields implementation-defined behaviour on the receiver.
+        Assertions.assertEquals(
+                Collections.singletonList("application/json"), receivedContentTypes);
+    }
+
+    @Test
+    void executeConvertsBodyToFormWhenContentTypeIsFormUrlencoded() throws Exception {
+        AtomicReference<String> receivedBody = new AtomicReference<>();
+        AtomicReference<String> receivedContentType = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/formBody",
+                exchange -> {
+                    receivedBody.set(readRequestBody(exchange.getRequestBody()));
+                    receivedContentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+                    exchange.sendResponseHeaders(200, -1);
+                    exchange.close();
+                });
+        server.start();
+
+        HttpParameter parameter = new HttpParameter();
+        parameter.setConnectTimeoutMs(1_000);
+        parameter.setSocketTimeoutMs(1_000);
+        httpClientProvider = new HttpClientProvider(parameter);
+        String body = "{id=1}";
+
+        HttpResponse response =
+                httpClientProvider.execute(
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/formBody",
+                        "POST",
+                        Collections.singletonMap(
+                                "Content-Type", "application/x-www-form-urlencoded"),
+                        Collections.emptyMap(),
+                        body,
+                        false);
+
+        Assertions.assertEquals(200, response.getCode());
+        // Body must be form-encoded (legacy behaviour for keepParamsAsForm=false + form CT)
+        Assertions.assertEquals("id=1", receivedBody.get());
+        Assertions.assertEquals("application/x-www-form-urlencoded", receivedContentType.get());
+    }
+
+    private String readRequestBody(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+        byte[] buffer = new byte[256];
+        int bytesRead;
+        while ((bytesRead = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+        }
+        return new String(outputStream.toByteArray(), StandardCharsets.UTF_8);
     }
 }

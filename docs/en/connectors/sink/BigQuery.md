@@ -14,7 +14,8 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md) for batch mode only
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] schema evolution (`ADD COLUMN` only)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
@@ -39,9 +40,16 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | service_account_key_json    | string  | No       | -       | Inline GCP service account JSON key content                                                                 |
 | write_mode                  | string  | No       | batch   | Write mode. Supported values: `batch` and `streaming`                                                       |
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
+| schema_evolution_enabled    | boolean | No       | false   | Whether to apply `ADD COLUMN` schema change events to the target BigQuery table                             |
+| schema_evolution_relax_not_null | boolean | No    | false   | Whether to add non-null source columns as `NULLABLE` BigQuery fields during schema evolution                |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
-| emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
-| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime, but this connector still writes to the single configured BigQuery table. |
+| emulator_host               | string  | No       | -       | BigQuery emulator REST host, such as `localhost:9050`. This option is intended for tests only.               |
+| emulator_grpc_host          | string  | No       | -       | BigQuery emulator Storage Write API host, such as `localhost:9060`. Falls back to `emulator_host`. Tests only. |
+| universe_domain             | string  | No       | -       | The Google Cloud Universe Domain, such as `s3nsapis.fr` for S3NS sovereign cloud.                           |
+| schema_save_mode            | enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. See below.                                                                           |
+| data_save_mode              | enum    | No       | APPEND_DATA | Data save mode. See below.                                                                                 |
+| custom_sql                  | string  | No       | -       | Custom SQL to execute when `data_save_mode` is `CUSTOM_PROCESSING`.                                         |
+| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime.                                  |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
 ### Authentication Options
@@ -54,10 +62,45 @@ For production BigQuery jobs, provide **one** of the following authentication me
 
 ### Table Options
 
-The target BigQuery table must already exist.
-The connector reads the existing table schema during writer initialization and does not create the table automatically.
+The target BigQuery table can be created automatically using SeaTunnel's SaveMode.
+By configuring `schema_save_mode` to `CREATE_SCHEMA_WHEN_NOT_EXIST` (default) or `RECREATE_SCHEMA`, the connector can automatically create the BigQuery dataset and table based on the upstream schema information.
 
-The connector writes to one configured table: `project_id.dataset_id.table_id`. It does not create a different BigQuery table for each upstream table. For multi-table pipelines, configure separate sink entries or route data before the BigQuery sink.
+The connector writes to target tables determined by `project_id.dataset_id.table_id`.
+In multi-table pipelines, you can configure `table_id` to include `${table_name}` (e.g., `table_id = "${table_name}"` or `table_id = "prefix_${table_name}"`) to dynamically route data to different BigQuery tables. Under this multi-table setting, the connector automatically creates separate target tables as needed.
+
+### schema_save_mode [Enum]
+
+Before the synchronization task starts, controls how the target table schema is handled.
+- `RECREATE_SCHEMA` : Drop the target table if it exists, and then recreate it.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` : Create the target table if it does not exist, or skip creation if it exists.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST` : Throw an error if the target table does not exist.
+- `IGNORE` : Ignore schema handling and do not perform any schema-related checks or DDL actions.
+
+### data_save_mode [Enum]
+
+Before the synchronization task starts, controls how existing data on the target side is handled.
+- `DROP_DATA` : Delete existing data in the target table.
+- `APPEND_DATA` : Keep the target table's existing structure and append new data.
+- `CUSTOM_PROCESSING` : Perform user-defined processing. This requires configuring `custom_sql`.
+- `ERROR_WHEN_DATA_EXISTS` : Throw an error if the target table already contains data.
+
+### custom_sql [String]
+
+When `data_save_mode` is set to `CUSTOM_PROCESSING`, the SQL statement specified here will be executed before row writing begins.
+
+### Schema Evolution
+
+Schema evolution is disabled by default. Set `schema_evolution_enabled = true` on the BigQuery sink and `schema-changes.enabled = true` on a supported CDC source to propagate source `ADD COLUMN` events to the configured target table.
+
+Only physical `ADD COLUMN` events are supported. By default, added scalar or struct columns must be nullable. Set `schema_evolution_relax_not_null = true` to add a non-null source scalar or struct column as a `NULLABLE` BigQuery field. This relaxation is useful because historical target rows have no value for a newly added source column.
+
+Source array columns must be non-null and are created as BigQuery `REPEATED` fields. Nullable source arrays are rejected because BigQuery arrays cannot be `NULL`; silently mapping them would lose the distinction between `NULL` and an empty array. `DROP COLUMN`, `RENAME COLUMN`, and `MODIFY COLUMN` are not supported. BigQuery appends new fields to the target schema, so source `FIRST` and `AFTER` position hints do not change the physical BigQuery field order. Rows are encoded by field name, and the sink refreshes its writer schema before accepting rows that use the new column.
+
+An unsupported schema change fails the job instead of being silently skipped, because continuing with different source and target schemas can misroute or corrupt subsequent rows. Restoring from the same checkpoint replays the unsupported event and fails again. Prefer applying the equivalent DDL on BigQuery by hand to match what the compatibility check accepts, then restore from the same checkpoint so the replayed event becomes an idempotent no-op. Only restart from a later source position as a last resort, since skipping ahead drops every source record between the last checkpoint and the new position; if the pipeline can produce unsupported DDL at all, consider disabling `schema-changes.enabled` and managing those schema changes outside SeaTunnel.
+
+Schema updates use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. If the target already contains a field with the same name, its type and mode must be compatible or the job fails. In addition to the permissions required for Storage Write API ingestion, the credentials must be able to run the DDL job and read the resulting table metadata.
+
+With sink parallelism greater than one, each subtask can receive the same schema-change event and submit the same `ALTER TABLE` statement concurrently. The sink already tolerates this: a subtask that loses the race re-reads the table and treats the column as already applied, and a `rateLimitExceeded` response from BigQuery's per-table metadata-update quota is retried with bounded exponential backoff. For very high sink parallelism, prefer keeping `schema_evolution_enabled` jobs at a moderate parallelism so schema changes settle faster.
 
 ### Write Modes
 
@@ -81,7 +124,7 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 
 ### emulator_host
 
-`emulator_host` is only for local or CI tests. When it is configured, SeaTunnel connects to the emulator without Google credentials. Do not use this option for production BigQuery jobs.
+`emulator_host` is only for local or CI tests and configures the emulator REST endpoint. When it is configured, SeaTunnel connects to the emulator without Google credentials. Set `emulator_grpc_host` when the emulator exposes its Storage Write API on a different endpoint, as goccy BigQuery emulator does by default on port `9060`. If omitted, the gRPC endpoint falls back to `emulator_host`. Do not use these options for production BigQuery jobs.
 
 ## Task Example
 
@@ -131,6 +174,7 @@ sink {
     table_id = "test_table"
     batch_size = 2
     emulator_host = "localhost:9050"
+    emulator_grpc_host = "localhost:9060"
   }
 }
 ```
@@ -164,6 +208,7 @@ source {
       password = "mysqlpw"
       table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
       url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+      schema-changes.enabled = true
   }
 }
 
@@ -174,6 +219,7 @@ sink {
     table_id = "orders"
     service_account_key_path = "/path/to/key.json"
     write_mode = "streaming"
+    schema_evolution_enabled = true
     batch_size = 500
   }
 }
@@ -252,8 +298,8 @@ sink {
 
 ### Testing
 
-This connector uses the BigQuery Storage Write API. The current local BigQuery emulator does not fully support the write path used by this connector.
-Use `emulator_host` only for local or CI checks that are compatible with the emulator. Production validation should be done against a real BigQuery environment.
+This connector uses both the BigQuery REST API and Storage Write API. For goccy BigQuery emulator, configure `emulator_host` with its REST port (`9050` by default) and `emulator_grpc_host` with its gRPC port (`9060` by default).
+The emulator is suitable for local and CI coverage, but production validation should still be done against real BigQuery.
 
 ## Changelog
 

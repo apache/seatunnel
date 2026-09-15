@@ -29,9 +29,8 @@ import type {
 } from './types'
 
 export const getRunningJobs = (page: number, rows: number) =>
-  get<JobPage>('/running-jobs/summary', { page: page, rows: rows })
-export const getFinishedJobs = (page: number, rows: number) =>
-  get<JobPage>(`/finished-jobs`, { page: page, rows: rows })
+  get<JobPage>('/running-jobs/summary', {page: page, rows: rows})
+export const getFinishedJobs = (page: number, rows: number) => get<JobPage>('/finished-jobs', {page: page, rows: rows})
 export const getJobInfo = (jobId: string) => get<Job>(`/job-info/${jobId}`)
 export const getRunningJobInfo = (jobId: string) => get<Job>(`/running-job/${jobId}`)
 const optionalParam = (value?: string) => {
