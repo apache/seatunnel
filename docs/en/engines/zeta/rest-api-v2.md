@@ -1969,8 +1969,9 @@ There is no dedicated `pause`, `resume` or `delete` endpoint. Use the existing j
 | Goal                                   | How                                                                                                                                                                                                        |
 |-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Pause a running job (stop now, resume later) | Call [`/stop-job`](#stop-a-job) with `isStopWithSavePoint: true`. The job stops and a savepoint of its current state is persisted.                                                                       |
-| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `isStartWithSavePoint: true`, the **same** `jobId` that was stopped, and the same job config. The job restores from its latest savepoint for that `jobId`. |
+| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `restoreMode=SAVEPOINT`, `restoreSourceJobId=<stopped-job-id>`, and the same job config. The job restores from its latest savepoint for that source job. The legacy `isStartWithSavePoint: true` with the same `jobId` remains supported. |
 | Delete a job                            | There is no delete endpoint. Stop the job with [`/stop-job`](#stop-a-job) if it is still running. Once a job reaches a finished state, its record is removed automatically after `history-job-expire-minutes` (default 1440 minutes) elapses -- see [History Job Expiry Configuration](separated-cluster-deployment.md#44-history-job-expiry-configuration). |
 
-**Note:** `isStartWithSavePoint: true` requires `jobId` to be provided in the request; submitting
-without a `jobId` in that case fails with `Please provide jobId when start with save point.`
+**Note:** `restoreMode` requires `restoreSourceJobId`. `isStartWithSavePoint: true` remains a legacy
+shortcut and requires `jobId` to be provided in the request; submitting without a `jobId` in that
+case fails with `Please provide jobId when start with save point.`

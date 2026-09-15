@@ -25,12 +25,20 @@ export default {
     clear: 'Clear Tags',
     success: 'Node tags updated.',
     failed: 'Failed to update node tags.',
+    outcomeUnknown: 'The tag update result is unknown. Refresh before retrying.',
+    loadFailed: 'Failed to refresh node information.',
     invalid: 'Each tag line must use key=value.',
+    contentRequired: 'Enter at least one tag, or use Clear Tags.',
+    duplicate: 'Tag keys must be unique.',
     select: 'Select',
     local: 'Local',
     remote: 'Remote',
     remoteHint: 'Open the target node Web UI to update this worker.',
     noWorkerSelected: 'No worker selected',
-    workerRequired: 'Please select a worker first.'
+    workerRequired: 'Please select a worker first.',
+    confirm: 'Confirm',
+    cancelConfirm: 'Dismiss',
+    updateConfirmMessage: 'Update tags for the selected worker?',
+    clearConfirmMessage: 'Clear all tags for the selected worker?'
   }
 }

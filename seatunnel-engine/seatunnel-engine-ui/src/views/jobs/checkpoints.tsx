@@ -24,7 +24,8 @@ import type {
   CheckpointHistoryRecord,
   CheckpointInfo,
   CheckpointOverview,
-  CheckpointPipeline
+  CheckpointPipeline,
+  RestoreMode
 } from '@/service/job/types'
 
 export default defineComponent({
@@ -68,11 +69,28 @@ export default defineComponent({
 
     onMounted(refresh)
 
-    const restoreLatestState = () => {
+    const isCheckpointRestorable = (checkpoint?: CheckpointInfo | null) =>
+      checkpoint?.checkpointType === 'checkpoint' ||
+      checkpoint?.checkpointType === 'completed-point'
+
+    const canRestore = (mode: RestoreMode) => {
+      const pipelines = overview.value?.pipelines || []
+      return (
+        pipelines.length > 0 &&
+        pipelines.every((pipeline) =>
+          mode === 'CHECKPOINT'
+            ? isCheckpointRestorable(pipeline.latestCompleted)
+            : Boolean(pipeline.latestSavepoint)
+        )
+      )
+    }
+
+    const restoreLatestState = (restoreMode: RestoreMode) => {
       router.push({
         name: 'jobs',
         query: {
-          restoreJobId: props.jobId
+          restoreMode,
+          restoreSourceJobId: props.jobId
         }
       })
     }
@@ -113,15 +131,6 @@ export default defineComponent({
         title: t('detail.checkpoints.latestSavepoint'),
         key: 'latestSavepoint',
         render: (row) => checkpointLabel(row.latestSavepoint)
-      },
-      {
-        title: t('detail.checkpoints.action'),
-        key: 'actions',
-        render: () => (
-          <NButton size="small" tertiary type="primary" onClick={restoreLatestState}>
-            {t('detail.checkpoints.restoreLatest')}
-          </NButton>
-        )
       }
     ]
 
@@ -166,6 +175,30 @@ export default defineComponent({
             {t('detail.checkpoints.refresh')}
           </NButton>
         </NSpace>
+        {(canRestore('CHECKPOINT') || canRestore('SAVEPOINT')) && (
+          <NSpace justify="end">
+            {canRestore('CHECKPOINT') && (
+              <NButton
+                size="small"
+                tertiary
+                type="primary"
+                onClick={() => restoreLatestState('CHECKPOINT')}
+              >
+                {t('detail.checkpoints.restoreFromCheckpoint')}
+              </NButton>
+            )}
+            {canRestore('SAVEPOINT') && (
+              <NButton
+                size="small"
+                tertiary
+                type="primary"
+                onClick={() => restoreLatestState('SAVEPOINT')}
+              >
+                {t('detail.checkpoints.restoreFromSavepoint')}
+              </NButton>
+            )}
+          </NSpace>
+        )}
         {error.value && <NAlert type="error">{error.value}</NAlert>}
         <NDataTable
           columns={pipelineColumns}

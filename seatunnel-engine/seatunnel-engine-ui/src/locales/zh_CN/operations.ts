@@ -26,11 +26,14 @@ export default {
     loadFailed: '加载 Connector OptionRule 失败。',
     required: '必填',
     optional: '可选',
+    root: '根规则',
+    conditional: '条件规则',
     conditionRules: '条件规则',
     valueConstraints: '取值约束',
     section: '分组',
     ruleType: '规则类型',
     expression: '表达式',
+    expressionTree: '表达式树',
     requiredCount: '必填项数量',
     optionalCount: '可选项数量',
     conditionCount: '嵌套条件数量',
@@ -38,6 +41,8 @@ export default {
     key: '配置项',
     type: '类型',
     defaultValue: '默认值',
+    fallbackKeys: '回退键',
+    optionValues: '允许值',
     description: '说明'
   },
   httpStatus: {

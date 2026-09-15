@@ -42,7 +42,7 @@ Web UI 在可视化巡检之外，也提供常用运维操作：可以提交和�
 | UI 区域    | 当前能力                                                                                                              |
 | ---------- | --------------------------------------------------------------------------------------------------------------------- |
 | Overview   | 查看集群版本、slot 使用、worker 数量和作业数量                                                                        |
-| Jobs       | 通过配置文本或上传文件提交作业、从 savepoint 状态恢复启动作业、查看运行中和已完成作业、分页浏览作业列表、进入作业详情 |
+| Jobs       | 通过配置文本或上传文件提交作业、从 checkpoint 或 savepoint 状态恢复启动作业、查看运行中和已完成作业、分页浏览作业列表、进入作业详情 |
 | Job Detail | 查看 DAG、作业指标、异常文本、作业配置、checkpoint 概览与历史、日志，以及开启后的实时可观测指标                       |
 | Operations | 浏览 Connector OptionRule 元数据，并查看安全过滤后的 HTTP、HTTPS、认证和 mTLS 状态                                    |
 | Workers    | 查看 worker 节点系统监控信息，并更新当前节点 tags                                                                     |
@@ -54,7 +54,7 @@ Web UI 在可视化巡检之外，也提供常用运维操作：可以提交和�
 
 Jobs 页面提供 “Submit Job” 面板，可以直接在 Web UI 中提交新的 SeaTunnel 作业。用户可以粘贴 JSON、HOCON 或 SQL 任务配置，也可以上传 `.json`、`.conf`、`.config` 或 `.sql` 配置文件。
 
-同一个面板也支持从 savepoint 状态恢复启动作业：开启恢复模式并填写已有作业 ID 后，会复用 REST API 的 `isStartWithSavePoint=true` 和 `jobId=<existing-job-id>` 契约，因此提交的配置仍需与被恢复的作业匹配。
+同一个面板也支持从 checkpoint 或 savepoint 状态恢复启动作业：选择恢复模式并填写来源作业 ID 后，会发送明确的 REST 参数 `restoreMode=CHECKPOINT|SAVEPOINT` 和 `restoreSourceJobId=<existing-job-id>`，因此提交的配置仍需与被恢复的作业匹配。Web UI 不会为 checkpoint 恢复传递目标作业 ID，因此引擎会创建新的作业 ID；savepoint 恢复会保留来源作业 ID。
 
 ### 运行中的作业
 
@@ -72,7 +72,7 @@ Jobs 页面提供 “Submit Job” 面板，可以直接在 Web UI 中提交新�
 - **Overview**：展示作业 DAG、source 和 sink 吞吐指标、flush signal 指标，以及开启可观测性后的 vertex 或 edge 实时指标。
 - **Exception**：当作业失败或上报异常时，展示异常文本。
 - **Configuration**：展示引擎暴露的运行时作业配置。
-- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。“恢复最新状态”操作会打开提交面板，并自动带入源作业 ID，用于从 savepoint 或最新 checkpoint 状态恢复提交。
+- **Checkpoints**：展示 checkpoint 计数、最近完成的 checkpoint、最近的 savepoint 和 checkpoint 历史记录。仅当所有 pipeline 都存在对应可恢复状态时，页面才会提供独立的 checkpoint 或 savepoint 恢复操作；操作会打开提交面板并自动带入来源作业 ID 和恢复模式。
 - **Log**：展示引擎日志 API 返回的作业日志文件。
 
 #### 实时可观测性（Realtime Observability）

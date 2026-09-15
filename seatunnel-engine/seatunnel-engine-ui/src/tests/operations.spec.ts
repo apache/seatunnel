@@ -37,13 +37,18 @@ describe('operations', () => {
             key: 'row.num',
             type: 'java.lang.Integer',
             defaultValue: 5,
-            description: 'row count'
+            description: 'row count',
+            fallbackKeys: ['rows'],
+            optionValues: [1, 5, 10]
           }
         ],
         requiredOptions: [],
         conditionRules: [
           {
             expression: 'format = json',
+            expressionTree: {
+              condition: 'format = json'
+            },
             optionRule: {
               optionalOptions: [],
               requiredOptions: [
@@ -100,8 +105,12 @@ describe('operations', () => {
     expect(wrapper.text()).toContain('Connector Option Rules')
     expect(wrapper.text()).toContain('HTTP Service Status')
     expect(wrapper.text()).toContain('row.num')
+    expect(wrapper.text()).toContain('rows')
+    expect(wrapper.text()).toContain('1, 5, 10')
     expect(wrapper.text()).toContain('Condition Rules')
     expect(wrapper.text()).toContain('format = json')
+    expect(wrapper.text()).toContain('schema')
+    expect(wrapper.text()).toContain('Expression Tree')
     expect(wrapper.text()).toContain('Value Constraints')
     expect(wrapper.text()).toContain('row.num > 0')
     wrapper.unmount()

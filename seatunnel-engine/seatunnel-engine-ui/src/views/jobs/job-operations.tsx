@@ -22,6 +22,7 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NPopconfirm,
   NSelect,
   NSpace,
   NSwitch,
@@ -33,7 +34,8 @@ import type { SelectOption, UploadFileInfo } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { JobsService } from '@/service/job'
-import type { ConfigFormat, SubmitJobResponse } from '@/service/job/types'
+import { isRequestOutcomeUnknown } from '@/service/service'
+import type { ConfigFormat, RestoreMode, SubmitJobResponse } from '@/service/job/types'
 
 type FeedbackType = 'success' | 'warning' | 'error'
 
@@ -48,18 +50,32 @@ const configFormatOptions: SelectOption[] = [
   { label: 'SQL', value: 'sql' }
 ]
 
+const restoreModeOptions: SelectOption[] = [
+  { label: 'Checkpoint', value: 'CHECKPOINT' },
+  { label: 'Savepoint', value: 'SAVEPOINT' }
+]
+
+const isRestoreMode = (value: unknown): value is RestoreMode =>
+  value === 'CHECKPOINT' || value === 'SAVEPOINT'
+
 export default defineComponent({
   setup() {
     const { t } = useI18n()
     const route = useRoute()
-    const initialRestoreJobId =
-      typeof route.query.restoreJobId === 'string' ? route.query.restoreJobId : ''
+    const initialRestoreSourceJobId =
+      typeof route.query.restoreSourceJobId === 'string' ? route.query.restoreSourceJobId : ''
+    const routeRestoreMode = route.query.restoreMode
+    const initialRestoreMode: RestoreMode = isRestoreMode(routeRestoreMode)
+      ? routeRestoreMode
+      : 'SAVEPOINT'
     const textJobName = ref('')
     const fileJobName = ref('')
-    const textRestoreJobId = ref(initialRestoreJobId)
-    const fileRestoreJobId = ref(initialRestoreJobId)
-    const textStartWithSavepoint = ref(Boolean(initialRestoreJobId))
-    const fileStartWithSavepoint = ref(Boolean(initialRestoreJobId))
+    const textRestoreSourceJobId = ref(initialRestoreSourceJobId)
+    const fileRestoreSourceJobId = ref(initialRestoreSourceJobId)
+    const textRestoreEnabled = ref(Boolean(initialRestoreSourceJobId))
+    const fileRestoreEnabled = ref(Boolean(initialRestoreSourceJobId))
+    const textRestoreMode = ref<RestoreMode>(initialRestoreMode)
+    const fileRestoreMode = ref<RestoreMode>(initialRestoreMode)
     const configFormat = ref<ConfigFormat>('hocon')
     const configContent = ref('')
     const fileList = ref<UploadFileInfo[]>([])
@@ -79,12 +95,15 @@ export default defineComponent({
     }
 
     const submitText = async () => {
+      if (submittingText.value) {
+        return
+      }
       if (!configContent.value.trim()) {
         setFeedback('warning', t('jobs.operations.configRequired'))
         return
       }
-      if (textStartWithSavepoint.value && !textRestoreJobId.value.trim()) {
-        setFeedback('warning', t('jobs.operations.restoreJobIdRequired'))
+      if (textRestoreEnabled.value && !textRestoreSourceJobId.value.trim()) {
+        setFeedback('warning', t('jobs.operations.restoreSourceJobIdRequired'))
         return
       }
 
@@ -95,25 +114,33 @@ export default defineComponent({
           config: configContent.value,
           format: configFormat.value,
           jobName: textJobName.value,
-          jobId: textRestoreJobId.value,
-          isStartWithSavePoint: textStartWithSavepoint.value
+          restoreMode: textRestoreEnabled.value ? textRestoreMode.value : undefined,
+          restoreSourceJobId: textRestoreEnabled.value ? textRestoreSourceJobId.value : undefined
         })
         setFeedback('success', formatSubmitSuccess(response))
       } catch (error) {
-        setFeedback('error', t('jobs.operations.submitFailed'))
+        setFeedback(
+          'error',
+          isRequestOutcomeUnknown(error)
+            ? t('jobs.operations.submitOutcomeUnknown')
+            : t('jobs.operations.submitFailed')
+        )
       } finally {
         submittingText.value = false
       }
     }
 
     const submitFile = async () => {
+      if (submittingFile.value) {
+        return
+      }
       const file = fileList.value[0]?.file
       if (!file) {
         setFeedback('warning', t('jobs.operations.fileRequired'))
         return
       }
-      if (fileStartWithSavepoint.value && !fileRestoreJobId.value.trim()) {
-        setFeedback('warning', t('jobs.operations.restoreJobIdRequired'))
+      if (fileRestoreEnabled.value && !fileRestoreSourceJobId.value.trim()) {
+        setFeedback('warning', t('jobs.operations.restoreSourceJobIdRequired'))
         return
       }
 
@@ -123,12 +150,17 @@ export default defineComponent({
         const response = await JobsService.submitJobByUploadFile({
           file,
           jobName: fileJobName.value,
-          jobId: fileRestoreJobId.value,
-          isStartWithSavePoint: fileStartWithSavepoint.value
+          restoreMode: fileRestoreEnabled.value ? fileRestoreMode.value : undefined,
+          restoreSourceJobId: fileRestoreEnabled.value ? fileRestoreSourceJobId.value : undefined
         })
         setFeedback('success', formatSubmitSuccess(response))
       } catch (error) {
-        setFeedback('error', t('jobs.operations.submitFailed'))
+        setFeedback(
+          'error',
+          isRequestOutcomeUnknown(error)
+            ? t('jobs.operations.submitOutcomeUnknown')
+            : t('jobs.operations.submitFailed')
+        )
       } finally {
         submittingFile.value = false
       }
@@ -170,24 +202,35 @@ export default defineComponent({
                   }}
                 />
               </NFormItem>
-              <NFormItem label={t('jobs.operations.startWithSavepoint')}>
+              <NFormItem label={t('jobs.operations.restore')}>
                 <NSwitch
-                  value={textStartWithSavepoint.value}
+                  value={textRestoreEnabled.value}
                   onUpdateValue={(value) => {
-                    textStartWithSavepoint.value = value
+                    textRestoreEnabled.value = value
                   }}
                 />
               </NFormItem>
-              {textStartWithSavepoint.value && (
-                <NFormItem label={t('jobs.operations.restoreJobId')}>
-                  <NInput
-                    value={textRestoreJobId.value}
-                    placeholder={t('jobs.operations.restoreJobIdPlaceholder')}
-                    onUpdateValue={(value) => {
-                      textRestoreJobId.value = value
-                    }}
-                  />
-                </NFormItem>
+              {textRestoreEnabled.value && (
+                <>
+                  <NFormItem label={t('jobs.operations.restoreMode')}>
+                    <NSelect
+                      value={textRestoreMode.value}
+                      options={restoreModeOptions}
+                      onUpdateValue={(value) => {
+                        textRestoreMode.value = value as RestoreMode
+                      }}
+                    />
+                  </NFormItem>
+                  <NFormItem label={t('jobs.operations.restoreSourceJobId')}>
+                    <NInput
+                      value={textRestoreSourceJobId.value}
+                      placeholder={t('jobs.operations.restoreSourceJobIdPlaceholder')}
+                      onUpdateValue={(value) => {
+                        textRestoreSourceJobId.value = value
+                      }}
+                    />
+                  </NFormItem>
+                </>
               )}
               <NFormItem label={t('jobs.operations.configContent')}>
                 <NInput
@@ -205,15 +248,34 @@ export default defineComponent({
                   onClick={() => {
                     configContent.value = ''
                     textJobName.value = ''
-                    textRestoreJobId.value = ''
-                    textStartWithSavepoint.value = false
+                    textRestoreSourceJobId.value = ''
+                    textRestoreEnabled.value = false
+                    textRestoreMode.value = 'SAVEPOINT'
                   }}
                 >
                   {t('jobs.operations.reset')}
                 </NButton>
-                <NButton type="primary" loading={submittingText.value} onClick={submitText}>
-                  {t('jobs.operations.submit')}
-                </NButton>
+                <NPopconfirm
+                  positiveText={t('jobs.operations.confirm')}
+                  negativeText={t('jobs.operations.cancelConfirm')}
+                  onPositiveClick={submitText}
+                >
+                  {{
+                    trigger: () => (
+                      <NButton
+                        type="primary"
+                        loading={submittingText.value}
+                        disabled={
+                          !configContent.value.trim() ||
+                          (textRestoreEnabled.value && !textRestoreSourceJobId.value.trim())
+                        }
+                      >
+                        {t('jobs.operations.submit')}
+                      </NButton>
+                    ),
+                    default: () => t('jobs.operations.submitConfirmMessage')
+                  }}
+                </NPopconfirm>
               </NSpace>
             </NForm>
           </NTabPane>
@@ -243,39 +305,69 @@ export default defineComponent({
                   }}
                 </NUpload>
               </NFormItem>
-              <NFormItem label={t('jobs.operations.startWithSavepoint')}>
+              <NFormItem label={t('jobs.operations.restore')}>
                 <NSwitch
-                  value={fileStartWithSavepoint.value}
+                  value={fileRestoreEnabled.value}
                   onUpdateValue={(value) => {
-                    fileStartWithSavepoint.value = value
+                    fileRestoreEnabled.value = value
                   }}
                 />
               </NFormItem>
-              {fileStartWithSavepoint.value && (
-                <NFormItem label={t('jobs.operations.restoreJobId')}>
-                  <NInput
-                    value={fileRestoreJobId.value}
-                    placeholder={t('jobs.operations.restoreJobIdPlaceholder')}
-                    onUpdateValue={(value) => {
-                      fileRestoreJobId.value = value
-                    }}
-                  />
-                </NFormItem>
+              {fileRestoreEnabled.value && (
+                <>
+                  <NFormItem label={t('jobs.operations.restoreMode')}>
+                    <NSelect
+                      value={fileRestoreMode.value}
+                      options={restoreModeOptions}
+                      onUpdateValue={(value) => {
+                        fileRestoreMode.value = value as RestoreMode
+                      }}
+                    />
+                  </NFormItem>
+                  <NFormItem label={t('jobs.operations.restoreSourceJobId')}>
+                    <NInput
+                      value={fileRestoreSourceJobId.value}
+                      placeholder={t('jobs.operations.restoreSourceJobIdPlaceholder')}
+                      onUpdateValue={(value) => {
+                        fileRestoreSourceJobId.value = value
+                      }}
+                    />
+                  </NFormItem>
+                </>
               )}
               <NSpace justify="end">
                 <NButton
                   onClick={() => {
                     fileList.value = []
                     fileJobName.value = ''
-                    fileRestoreJobId.value = ''
-                    fileStartWithSavepoint.value = false
+                    fileRestoreSourceJobId.value = ''
+                    fileRestoreEnabled.value = false
+                    fileRestoreMode.value = 'SAVEPOINT'
                   }}
                 >
                   {t('jobs.operations.reset')}
                 </NButton>
-                <NButton type="primary" loading={submittingFile.value} onClick={submitFile}>
-                  {t('jobs.operations.submit')}
-                </NButton>
+                <NPopconfirm
+                  positiveText={t('jobs.operations.confirm')}
+                  negativeText={t('jobs.operations.cancelConfirm')}
+                  onPositiveClick={submitFile}
+                >
+                  {{
+                    trigger: () => (
+                      <NButton
+                        type="primary"
+                        loading={submittingFile.value}
+                        disabled={
+                          !fileList.value[0]?.file ||
+                          (fileRestoreEnabled.value && !fileRestoreSourceJobId.value.trim())
+                        }
+                      >
+                        {t('jobs.operations.submit')}
+                      </NButton>
+                    ),
+                    default: () => t('jobs.operations.submitConfirmMessage')
+                  }}
+                </NPopconfirm>
               </NSpace>
             </NForm>
           </NTabPane>

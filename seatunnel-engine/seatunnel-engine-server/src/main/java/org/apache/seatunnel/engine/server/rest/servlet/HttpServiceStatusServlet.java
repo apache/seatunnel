@@ -78,10 +78,7 @@ public class HttpServiceStatusServlet extends BaseServlet {
                         .add("dynamicPortEnabled", httpConfig.isEnableDynamicPort())
                         .add("portRange", httpConfig.getPortRange())
                         .add("basicAuthEnabled", httpConfig.isEnableBasicAuth())
-                        .add(
-                                "mutualTlsEnabled",
-                                hasText(httpConfig.getTrustStorePath())
-                                        && hasText(httpConfig.getTrustStorePassword()));
+                        .add("mutualTlsEnabled", isMutualTlsEnabled());
         writeJson(resp, status);
     }
 
@@ -126,6 +123,31 @@ public class HttpServiceStatusServlet extends BaseServlet {
     private boolean hasSslConnectionFactory(ServerConnector connector) {
         return connector.getConnectionFactories().stream()
                 .anyMatch(factory -> factory instanceof SslConnectionFactory);
+    }
+
+    /**
+     * Returns whether an active HTTPS connector requires client certificates.
+     *
+     * <p>The configured trust-store fields are insufficient for this status: mTLS is active only
+     * when Jetty's effective SSL context requires client authentication.
+     *
+     * @return true when an SSL connector is configured to require client authentication.
+     */
+    private boolean isMutualTlsEnabled() {
+        for (Connector connector : server.getConnectors()) {
+            if (!(connector instanceof ServerConnector)) {
+                continue;
+            }
+            for (Object factory : ((ServerConnector) connector).getConnectionFactories()) {
+                if (factory instanceof SslConnectionFactory
+                        && ((SslConnectionFactory) factory)
+                                .getSslContextFactory()
+                                .getNeedClientAuth()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     /**

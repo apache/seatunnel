@@ -26,11 +26,14 @@ export default {
     loadFailed: 'Failed to load connector option rules.',
     required: 'Required',
     optional: 'Optional',
+    root: 'Root',
+    conditional: 'Conditional',
     conditionRules: 'Condition Rules',
     valueConstraints: 'Value Constraints',
     section: 'Section',
     ruleType: 'Rule Type',
     expression: 'Expression',
+    expressionTree: 'Expression Tree',
     requiredCount: 'Required Options',
     optionalCount: 'Optional Options',
     conditionCount: 'Nested Conditions',
@@ -38,6 +41,8 @@ export default {
     key: 'Key',
     type: 'Type',
     defaultValue: 'Default',
+    fallbackKeys: 'Fallback Keys',
+    optionValues: 'Allowed Values',
     description: 'Description'
   },
   httpStatus: {

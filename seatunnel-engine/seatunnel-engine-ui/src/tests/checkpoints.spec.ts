@@ -37,7 +37,7 @@ describe('checkpoints', () => {
     routerState.push.mockReset()
   })
 
-  test('restores from checkpoint view by preloading submit job restore id', async () => {
+  test('restores all checkpoint pipelines with an explicit source and mode', async () => {
     vi.spyOn(JobsService, 'getCheckpointOverview').mockResolvedValue({
       jobId: '123456789',
       updatedAt: 1720000000123,
@@ -53,7 +53,22 @@ describe('checkpoints', () => {
           },
           latestCompleted: {
             checkpointId: 10,
-            checkpointType: 'CHECKPOINT_TYPE',
+            checkpointType: 'checkpoint',
+            status: 'COMPLETED'
+          }
+        },
+        {
+          pipelineId: 2,
+          counts: {
+            triggered: 1,
+            completed: 1,
+            failed: 0,
+            inProgress: 0,
+            restored: 0
+          },
+          latestCompleted: {
+            checkpointId: 11,
+            checkpointType: 'checkpoint',
             status: 'COMPLETED'
           }
         }
@@ -73,13 +88,78 @@ describe('checkpoints', () => {
     await flushPromises()
     const restoreButton = wrapper
       .findAll('button')
-      .find((button) => button.text() === 'Restore Latest State')
+      .find((button) => button.text() === 'Restore From Checkpoint')
     expect(restoreButton).toBeTruthy()
     await restoreButton?.trigger('click')
     expect(routerState.push).toHaveBeenCalledWith({
       name: 'jobs',
       query: {
-        restoreJobId: '123456789'
+        restoreMode: 'CHECKPOINT',
+        restoreSourceJobId: '123456789'
+      }
+    })
+    wrapper.unmount()
+  })
+
+  test('offers savepoint restore only when every pipeline has a savepoint', async () => {
+    vi.spyOn(JobsService, 'getCheckpointOverview').mockResolvedValue({
+      jobId: '123456789',
+      updatedAt: 1720000000123,
+      pipelines: [
+        {
+          pipelineId: 1,
+          counts: {
+            triggered: 1,
+            completed: 1,
+            failed: 0,
+            inProgress: 0,
+            restored: 0
+          },
+          latestSavepoint: {
+            checkpointId: 11,
+            checkpointType: 'savepoint',
+            status: 'COMPLETED'
+          }
+        },
+        {
+          pipelineId: 2,
+          counts: {
+            triggered: 1,
+            completed: 1,
+            failed: 0,
+            inProgress: 0,
+            restored: 0
+          },
+          latestSavepoint: {
+            checkpointId: 12,
+            checkpointType: 'savepoint',
+            status: 'COMPLETED'
+          }
+        }
+      ]
+    })
+    vi.spyOn(JobsService, 'getCheckpointHistory').mockResolvedValue([])
+
+    const wrapper = mount(checkpoints, {
+      props: {
+        jobId: '123456789'
+      },
+      global: {
+        plugins: [i18n]
+      }
+    })
+
+    await flushPromises()
+    const restoreButton = wrapper
+      .findAll('button')
+      .find((button) => button.text() === 'Restore From Savepoint')
+    expect(restoreButton).toBeTruthy()
+    await restoreButton?.trigger('click')
+    expect(routerState.push).toHaveBeenCalledWith({
+      name: 'jobs',
+      query: {
+        restoreMode: 'SAVEPOINT',
+        restoreSourceJobId: '123456789'
       }
     })
     wrapper.unmount()

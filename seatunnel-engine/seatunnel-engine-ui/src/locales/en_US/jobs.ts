@@ -28,17 +28,22 @@ export default {
     configContent: 'Config',
     configPlaceholder: 'Paste JSON, HOCON, or SQL job config',
     configFile: 'Config File',
-    startWithSavepoint: 'Restore',
-    restoreJobId: 'Restore Job ID',
-    restoreJobIdPlaceholder: 'Existing job ID with savepoint state',
+    restore: 'Restore',
+    restoreMode: 'Restore Mode',
+    restoreSourceJobId: 'Restore Source Job ID',
+    restoreSourceJobIdPlaceholder: 'Existing job ID containing the selected state',
     chooseFile: 'Choose File',
     reset: 'Reset',
     submit: 'Submit',
     configRequired: 'Job config is required.',
     fileRequired: 'Please choose a config file.',
-    restoreJobIdRequired: 'Restore job ID is required when restore is enabled.',
+    restoreSourceJobIdRequired: 'Restore source job ID is required when restore is enabled.',
     submitSuccess: 'Submitted {job}.',
-    submitFailed: 'Failed to submit job.'
+    submitFailed: 'Failed to submit job.',
+    submitOutcomeUnknown: 'The submit result is unknown. Refresh jobs before submitting again.',
+    confirm: 'Confirm',
+    cancelConfirm: 'Dismiss',
+    submitConfirmMessage: 'Submit this job?'
   },
   actions: {
     view: 'View',
@@ -56,6 +61,7 @@ export default {
     savepointFailed: 'Failed to stop {job} with savepoint.',
     cancelSuccess: 'Cancel request sent for {job}.',
     cancelFailed: 'Failed to cancel {job}.',
+    operationOutcomeUnknown: 'The operation result for {job} is unknown. Refresh before retrying.',
     refreshFailed: 'Failed to refresh running jobs.'
   }
 }

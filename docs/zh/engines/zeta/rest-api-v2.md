@@ -1937,8 +1937,8 @@ Checkpoint 信息字段：
 | 目标                       | 方法                                                                                                                                                       |
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 暂停一个正在运行的作业（先停止，之后再恢复） | 调用 [`/stop-job`](#停止作业)，并设置 `isStopWithSavePoint: true`。作业会停止运行，同时会保存一个当前状态的 savepoint。                                                                    |
-| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `isStartWithSavePoint: true`，并传入与之前停止时**相同**的 `jobId` 和相同的作业配置。作业会基于该 `jobId` 最近一次的 savepoint 恢复。                                |
+| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `restoreMode=SAVEPOINT`、`restoreSourceJobId=<stopped-job-id>` 并传入相同的作业配置。作业会基于该来源作业最近一次的 savepoint 恢复。仍支持使用相同 `jobId` 加 `isStartWithSavePoint: true` 的旧契约。                                |
 | 删除一个作业                   | 没有专门的删除接口。如果作业仍在运行，先通过 [`/stop-job`](#停止作业) 停止它；作业进入结束状态后，其记录会在 `history-job-expire-minutes`（默认 1440 分钟）到期后自动清理，参见[历史作业过期配置](separated-cluster-deployment.md#44-历史作业过期配置)。 |
 
-**注意：** 当 `isStartWithSavePoint: true` 时必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
+**注意：** 设置 `restoreMode` 时必须提供 `restoreSourceJobId`。`isStartWithSavePoint: true` 仍是旧的快捷方式，必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
 `Please provide jobId when start with save point.`

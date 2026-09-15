@@ -18,6 +18,8 @@
 package org.apache.seatunnel.engine.server.rest.servlet;
 
 import org.apache.seatunnel.shade.org.eclipse.jetty.server.Server;
+import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
+import org.apache.seatunnel.shade.org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
@@ -65,7 +67,7 @@ class HttpServiceStatusServletTest {
         new HttpServiceStatusServlet(null, seaTunnelConfig, new Server()).doGet(null, response);
 
         String status = body.toString();
-        assertTrue(status.contains("\"mutualTlsEnabled\":true"));
+        assertFalse(status.contains("\"mutualTlsEnabled\":true"));
         assertFalse(status.contains("/secrets/key-store.p12"));
         assertFalse(status.contains("key-store-password"));
         assertFalse(status.contains("key-manager-password"));
@@ -73,5 +75,26 @@ class HttpServiceStatusServletTest {
         assertFalse(status.contains("trust-store-password"));
         assertFalse(status.contains("operator"));
         assertFalse(status.contains("basic-auth-password"));
+    }
+
+    /**
+     * Verifies that mTLS status reflects the effective Jetty SSL connector, not secret presence.
+     */
+    @Test
+    void shouldReportMutualTlsFromActiveSslConnector() throws IOException, ServletException {
+        SeaTunnelConfig seaTunnelConfig = new SeaTunnelConfig();
+        seaTunnelConfig.getEngineConfig().getHttpConfig().setEnableHttps(true);
+        Server server = new Server();
+        SslContextFactory.Server sslContextFactory = new SslContextFactory.Server();
+        sslContextFactory.setNeedClientAuth(true);
+        server.addConnector(new ServerConnector(server, sslContextFactory));
+
+        HttpServletResponse response = mock(HttpServletResponse.class);
+        StringWriter body = new StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(body));
+
+        new HttpServiceStatusServlet(null, seaTunnelConfig, server).doGet(null, response);
+
+        assertTrue(body.toString().contains("\"mutualTlsEnabled\":true"));
     }
 }

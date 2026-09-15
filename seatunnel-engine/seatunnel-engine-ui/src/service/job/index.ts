@@ -38,13 +38,20 @@ const optionalParam = (value?: string) => {
   return normalized ? normalized : undefined
 }
 
+const operationRequestConfig = {
+  timeout: 0
+}
+
 export const submitJob = (request: SubmitJobRequest) =>
   post<SubmitJobResponse>('/submit-job', request.config, {
+    ...operationRequestConfig,
     params: {
       format: request.format,
       jobName: optionalParam(request.jobName),
       jobId: optionalParam(request.jobId),
-      isStartWithSavePoint: request.isStartWithSavePoint || undefined
+      isStartWithSavePoint: request.isStartWithSavePoint || undefined,
+      restoreMode: request.restoreMode,
+      restoreSourceJobId: optionalParam(request.restoreSourceJobId)
     },
     headers: {
       'Content-Type': 'text/plain;charset=UTF-8'
@@ -55,20 +62,27 @@ export const submitJobByUploadFile = (request: SubmitJobFileRequest) => {
   const formData = new FormData()
   formData.append('config_file', request.file)
   return post<SubmitJobResponse>('/submit-job/upload', formData, {
+    ...operationRequestConfig,
     params: {
       jobName: optionalParam(request.jobName),
       jobId: optionalParam(request.jobId),
-      isStartWithSavePoint: request.isStartWithSavePoint || undefined
+      isStartWithSavePoint: request.isStartWithSavePoint || undefined,
+      restoreMode: request.restoreMode,
+      restoreSourceJobId: optionalParam(request.restoreSourceJobId)
     }
   })
 }
 
 export const stopJob = (request: StopJobRequest) =>
-  post<StopJobResponse>('/stop-job', {
-    jobId: request.jobId,
-    isStopWithSavePoint: request.isStopWithSavePoint ?? false,
-    force: request.force ?? false
-  })
+  post<StopJobResponse>(
+    '/stop-job',
+    {
+      jobId: request.jobId,
+      isStopWithSavePoint: request.isStopWithSavePoint ?? false,
+      force: request.force ?? false
+    },
+    operationRequestConfig
+  )
 
 export const getCheckpointOverview = (jobId: string) =>
   get<CheckpointOverview>(`/jobs/checkpoints/${jobId}`)

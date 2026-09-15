@@ -101,6 +101,7 @@ export interface JobPage {
 }
 
 export type ConfigFormat = 'json' | 'hocon' | 'sql'
+export type RestoreMode = 'CHECKPOINT' | 'SAVEPOINT'
 
 export interface SubmitJobRequest {
   config: string
@@ -108,6 +109,8 @@ export interface SubmitJobRequest {
   jobName?: string
   jobId?: string
   isStartWithSavePoint?: boolean
+  restoreMode?: RestoreMode
+  restoreSourceJobId?: string
 }
 
 export interface SubmitJobFileRequest {
@@ -115,6 +118,8 @@ export interface SubmitJobFileRequest {
   jobName?: string
   jobId?: string
   isStartWithSavePoint?: boolean
+  restoreMode?: RestoreMode
+  restoreSourceJobId?: string
 }
 
 export interface SubmitJobResponse {

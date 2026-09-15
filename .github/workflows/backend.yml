@@ -155,6 +155,7 @@ jobs:
     outputs:
       api: ${{ steps.filter.outputs.api }}
       engine: ${{ steps.filter.outputs.engine }}
+      ui: ${{ steps.filter.outputs.ui }}
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
       edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
@@ -203,6 +204,12 @@ jobs:
           file_list=${engine_files#*$'\n'}
           echo "engine=$true_or_false" >> $GITHUB_OUTPUT
           echo "engine_files=$file_list" >> $GITHUB_OUTPUT
+
+          ui_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-engine/seatunnel-engine-ui/**"`
+          true_or_false=${ui_files%%$'\n'*}
+          file_list=${ui_files#*$'\n'}
+          echo "ui=$true_or_false" >> $GITHUB_OUTPUT
+          echo "ui_files=$file_list" >> $GITHUB_OUTPUT
           
           deleted_poms_files=`python tools/update_modules_check/check_file_updates.py d $workspace apache/dev origin/$current_branch "**/pom.xml"`
           true_or_false=${deleted_poms_files%%$'\n'*}
@@ -472,7 +479,7 @@ jobs:
           npm run build
 
   seatunnel-ui:
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.ui == 'true'
     needs: [ changes, sanity-check ]
     name: Build SeaTunnel UI
     runs-on: ubuntu-latest

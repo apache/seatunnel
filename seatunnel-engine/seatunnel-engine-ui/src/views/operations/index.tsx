@@ -52,6 +52,7 @@ type OptionRow = OptionMetadata & {
 
 interface ConditionRuleRow {
   expression: string
+  expressionTree: string
   requiredCount: number
   optionalCount: number
   nestedConditionCount: number
@@ -80,29 +81,44 @@ export default defineComponent({
       { label: 'Transform', value: 'transform' }
     ]
 
-    const optionRows = () => {
-      const optional =
-        optionRules.value?.optionRule?.optionalOptions?.map((option) => ({
+    const collectOptionRows = (
+      rule: OptionRuleResponse['optionRule'],
+      section: string,
+      expression = '-'
+    ): OptionRow[] => {
+      const required = (rule.requiredOptions || []).flatMap((requiredRule: RequiredOptionRule) =>
+        (requiredRule.options || []).map((option) => ({
           ...option,
-          section: t('operations.optionRules.optional'),
-          ruleType: '-',
-          expression: '-'
-        })) || []
-      const required =
-        optionRules.value?.optionRule?.requiredOptions?.flatMap((rule: RequiredOptionRule) =>
-          (rule.options || []).map((option) => ({
-            ...option,
-            section: t('operations.optionRules.required'),
-            ruleType: rule.ruleType,
-            expression: rule.expression || '-'
-          }))
-        ) || []
-      return [...required, ...optional]
+          section,
+          ruleType: requiredRule.ruleType,
+          expression: requiredRule.expression || expression
+        }))
+      )
+      const optional = (rule.optionalOptions || []).map((option) => ({
+        ...option,
+        section,
+        ruleType: '-',
+        expression
+      }))
+      const conditional = (rule.conditionRules || []).flatMap((conditionRule: ConditionRule) =>
+        collectOptionRows(
+          conditionRule.optionRule,
+          t('operations.optionRules.conditional'),
+          conditionRule.expression || '-'
+        )
+      )
+      return [...required, ...optional, ...conditional]
     }
+
+    const optionRows = () =>
+      optionRules.value
+        ? collectOptionRows(optionRules.value.optionRule, t('operations.optionRules.root'))
+        : []
 
     const conditionRows = (): ConditionRuleRow[] =>
       (optionRules.value?.optionRule?.conditionRules || []).map((rule: ConditionRule) => ({
         expression: rule.expression || '-',
+        expressionTree: rule.expressionTree ? JSON.stringify(rule.expressionTree) : '-',
         requiredCount: rule.optionRule?.requiredOptions?.length || 0,
         optionalCount: rule.optionRule?.optionalOptions?.length || 0,
         nestedConditionCount: rule.optionRule?.conditionRules?.length || 0
@@ -168,6 +184,17 @@ export default defineComponent({
             : String(row.defaultValue)
       },
       {
+        title: t('operations.optionRules.fallbackKeys'),
+        key: 'fallbackKeys',
+        render: (row) => (row.fallbackKeys?.length ? row.fallbackKeys.join(', ') : '-')
+      },
+      {
+        title: t('operations.optionRules.optionValues'),
+        key: 'optionValues',
+        render: (row) =>
+          row.optionValues?.length ? row.optionValues.map((value) => String(value)).join(', ') : '-'
+      },
+      {
         title: t('operations.optionRules.description'),
         key: 'description',
         render: (row) => row.description || '-'
@@ -176,6 +203,7 @@ export default defineComponent({
 
     const conditionColumns: DataTableColumns<ConditionRuleRow> = [
       { title: t('operations.optionRules.expression'), key: 'expression' },
+      { title: t('operations.optionRules.expressionTree'), key: 'expressionTree' },
       {
         title: t('operations.optionRules.requiredCount'),
         key: 'requiredCount'

@@ -25,8 +25,8 @@ import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
 import finishedJobs from '@/views/jobs/finished-jobs'
-import { getFinishedJobs, JobsService } from '@/service/job'
-import { get } from '@/service/service'
+import { getFinishedJobs, JobsService, stopJob, submitJob } from '@/service/job'
+import { get, post } from '@/service/service'
 import type { JobPage, Job } from '@/service/job/types'
 
 const routeState = vi.hoisted(() => ({
@@ -43,7 +43,11 @@ vi.mock('vue-router', () => ({
   })
 }))
 
-vi.mock('@/service/service', () => ({ get: vi.fn(), post: vi.fn() }))
+vi.mock('@/service/service', () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  isRequestOutcomeUnknown: () => false
+}))
 
 describe('jobs', () => {
   const app = createApp({})
@@ -146,7 +150,8 @@ describe('jobs', () => {
   })
   test('Job Operations component', async () => {
     routeState.query = {
-      restoreJobId: '888413907541032961'
+      restoreMode: 'CHECKPOINT',
+      restoreSourceJobId: '888413907541032961'
     }
     const submitJobSpy = vi.spyOn(JobsService, 'submitJob').mockResolvedValue({
       jobId: '888413907541032961',
@@ -162,18 +167,23 @@ describe('jobs', () => {
     expect(wrapper.text()).toContain('Submit Job')
     expect(wrapper.text()).toContain('Config Text')
     expect(wrapper.text()).toContain('Config File')
-    expect(wrapper.text()).toContain('Restore Job ID')
+    expect(wrapper.text()).toContain('Restore Source Job ID')
     await wrapper.find('textarea').setValue('env { job.mode = "BATCH" }')
     const submitButton = wrapper.findAll('button').find((button) => button.text() === 'Submit')
     expect(submitButton).toBeTruthy()
     await submitButton?.trigger('click')
+    const submitConfirmation = wrapper.findAllComponents(NPopconfirm)[0]
+    const onPositiveClick = submitConfirmation.props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
     await flushPromises()
     expect(submitJobSpy).toHaveBeenCalledWith({
       config: 'env { job.mode = "BATCH" }',
       format: 'hocon',
       jobName: '',
-      jobId: '888413907541032961',
-      isStartWithSavePoint: true
+      restoreMode: 'CHECKPOINT',
+      restoreSourceJobId: '888413907541032961'
     })
     wrapper.unmount()
   })
@@ -184,6 +194,44 @@ describe('jobs', () => {
 
     getFinishedJobs(1, 10)
 
-    expect(getMock).toHaveBeenCalledWith('/finished-jobs', {page: 1, rows: 10})
+    expect(getMock).toHaveBeenCalledWith('/finished-jobs', { page: 1, rows: 10 })
+  })
+
+  test('job operations preserve the selected restore source without a client timeout', () => {
+    const postMock = vi.mocked(post)
+    postMock.mockClear()
+
+    submitJob({
+      config: 'env { job.mode = "BATCH" }',
+      format: 'hocon',
+      restoreMode: 'CHECKPOINT',
+      restoreSourceJobId: '888413907541032961'
+    })
+    stopJob({
+      jobId: '888413907541032961',
+      isStopWithSavePoint: true
+    })
+
+    expect(postMock).toHaveBeenNthCalledWith(
+      1,
+      '/submit-job',
+      'env { job.mode = "BATCH" }',
+      expect.objectContaining({
+        timeout: 0,
+        params: expect.objectContaining({
+          restoreMode: 'CHECKPOINT',
+          restoreSourceJobId: '888413907541032961'
+        })
+      })
+    )
+    expect(postMock).toHaveBeenNthCalledWith(
+      2,
+      '/stop-job',
+      expect.objectContaining({
+        jobId: '888413907541032961',
+        isStopWithSavePoint: true
+      }),
+      { timeout: 0 }
+    )
   })
 })

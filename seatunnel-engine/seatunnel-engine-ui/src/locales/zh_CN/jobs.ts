@@ -28,17 +28,22 @@ export default {
     configContent: '配置',
     configPlaceholder: '粘贴 JSON、HOCON 或 SQL 任务配置',
     configFile: '配置文件',
-    startWithSavepoint: '恢复启动',
-    restoreJobId: '恢复任务 ID',
-    restoreJobIdPlaceholder: '已有 savepoint 状态的任务 ID',
+    restore: '恢复启动',
+    restoreMode: '恢复模式',
+    restoreSourceJobId: '恢复来源任务 ID',
+    restoreSourceJobIdPlaceholder: '包含所选状态的已有任务 ID',
     chooseFile: '选择文件',
     reset: '重置',
     submit: '提交',
     configRequired: '任务配置不能为空。',
     fileRequired: '请选择配置文件。',
-    restoreJobIdRequired: '开启恢复启动时必须填写任务 ID。',
+    restoreSourceJobIdRequired: '开启恢复启动时必须填写恢复来源任务 ID。',
     submitSuccess: '已提交 {job}。',
-    submitFailed: '任务提交失败。'
+    submitFailed: '任务提交失败。',
+    submitOutcomeUnknown: '无法确认任务是否已提交，请刷新任务列表后再重试。',
+    confirm: '确认',
+    cancelConfirm: '关闭',
+    submitConfirmMessage: '确认提交此任务？'
   },
   actions: {
     view: '查看',
@@ -56,6 +61,7 @@ export default {
     savepointFailed: '通过保存点停止 {job} 失败。',
     cancelSuccess: '已发送 {job} 的取消请求。',
     cancelFailed: '取消 {job} 失败。',
+    operationOutcomeUnknown: '无法确认 {job} 的操作结果，请刷新后再重试。',
     refreshFailed: '刷新运行中作业失败。'
   }
 }

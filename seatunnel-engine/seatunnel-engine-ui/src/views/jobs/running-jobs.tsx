@@ -23,6 +23,7 @@ import type { DataTableColumns } from 'naive-ui'
 import type { Job } from '@/service/job/types'
 import { useRouter } from 'vue-router'
 import { getColorFromStatus } from '@/utils/getTypeFromStatus'
+import { isRequestOutcomeUnknown } from '@/service/service'
 
 type FeedbackType = 'success' | 'error'
 
@@ -39,7 +40,7 @@ export default defineComponent({
     const page = ref(1)
     const pageSize = ref(10)
     const total = ref(0)
-    const actionLoading = ref('')
+    const actionLoading = ref(new Set<string>())
     const feedback = ref<Feedback | null>(null)
 
     let timer: ReturnType<typeof setTimeout> | undefined
@@ -80,6 +81,19 @@ export default defineComponent({
     fetch()
 
     const router = useRouter()
+    const isActionLoading = (actionKey: string) => actionLoading.value.has(actionKey)
+    const hasJobActionLoading = (jobId: string) =>
+      Array.from(actionLoading.value).some((actionKey) => actionKey.startsWith(`${jobId}-`))
+    const setActionLoading = (actionKey: string, loading: boolean) => {
+      const next = new Set(actionLoading.value)
+      if (loading) {
+        next.add(actionKey)
+      } else {
+        next.delete(actionKey)
+      }
+      actionLoading.value = next
+    }
+
     function createColumns(): DataTableColumns<Job> {
       const view = (job: Job) => {
         router.push({ name: 'detail', params: { jobId: job.jobId } })
@@ -87,7 +101,11 @@ export default defineComponent({
 
       const controlJob = async (job: Job, force: boolean, savepoint = false) => {
         const action = savepoint ? 'savepoint' : force ? 'cancel' : 'stop'
-        actionLoading.value = `${job.jobId}-${action}`
+        const actionKey = `${job.jobId}-${action}`
+        if (hasJobActionLoading(job.jobId)) {
+          return
+        }
+        setActionLoading(actionKey, true)
         feedback.value = null
         try {
           await JobsService.stopJob({
@@ -113,18 +131,20 @@ export default defineComponent({
           feedback.value = {
             type: 'error',
             message: t(
-              savepoint
-                ? 'jobs.actions.savepointFailed'
-                : force
-                  ? 'jobs.actions.cancelFailed'
-                  : 'jobs.actions.stopFailed',
+              isRequestOutcomeUnknown(error)
+                ? 'jobs.actions.operationOutcomeUnknown'
+                : savepoint
+                  ? 'jobs.actions.savepointFailed'
+                  : force
+                    ? 'jobs.actions.cancelFailed'
+                    : 'jobs.actions.stopFailed',
               {
                 job: job.jobName || job.jobId
               }
             )
           }
         } finally {
-          actionLoading.value = ''
+          setActionLoading(actionKey, false)
         }
       }
 
@@ -186,7 +206,8 @@ export default defineComponent({
                       <NButton
                         size="small"
                         tertiary
-                        loading={actionLoading.value === `${row.jobId}-stop`}
+                        disabled={hasJobActionLoading(row.jobId)}
+                        loading={isActionLoading(`${row.jobId}-stop`)}
                       >
                         {t('jobs.actions.stop')}
                       </NButton>
@@ -208,7 +229,8 @@ export default defineComponent({
                         size="small"
                         tertiary
                         type="warning"
-                        loading={actionLoading.value === `${row.jobId}-savepoint`}
+                        disabled={hasJobActionLoading(row.jobId)}
+                        loading={isActionLoading(`${row.jobId}-savepoint`)}
                       >
                         {t('jobs.actions.savepoint')}
                       </NButton>
@@ -230,7 +252,8 @@ export default defineComponent({
                         size="small"
                         tertiary
                         type="error"
-                        loading={actionLoading.value === `${row.jobId}-cancel`}
+                        disabled={hasJobActionLoading(row.jobId)}
+                        loading={isActionLoading(`${row.jobId}-cancel`)}
                       >
                         {t('jobs.actions.cancel')}
                       </NButton>

@@ -20,6 +20,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 // import { createTestingPinia } from '@pinia/testing'
 import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
+import { NPopconfirm } from 'naive-ui'
 import i18n from '@/locales'
 import type { Monitor } from '@/service/manager/types'
 import { managerService } from '@/service/manager'
@@ -89,6 +90,12 @@ describe('managers', () => {
     const updateButton = wrapper.findAll('button').find((button) => button.text() === 'Update Tags')
     expect(updateButton).toBeTruthy()
     await updateButton?.trigger('click')
+    const confirmations = wrapper.findAllComponents(NPopconfirm)
+    expect(confirmations).toHaveLength(2)
+    const onPositiveClick = confirmations[1].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
     await flushPromises()
     expect(updateTagsSpy).toHaveBeenCalledWith({
       uuid: 'worker-1',
@@ -96,6 +103,7 @@ describe('managers', () => {
         zone: 'prod'
       }
     })
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
 })

@@ -24,6 +24,7 @@ import {
   NInput,
   NLayout,
   NLayoutContent,
+  NPopconfirm,
   NSpace,
   NTag,
   NTooltip
@@ -33,6 +34,7 @@ import type { DataTableColumns } from 'naive-ui'
 import { managerService } from '@/service/manager'
 import type { Monitor } from '@/service/manager/types'
 import { useRoute } from 'vue-router'
+import { isRequestOutcomeUnknown } from '@/service/service'
 
 export default defineComponent({
   setup() {
@@ -46,52 +48,82 @@ export default defineComponent({
     const tagLoading = ref(false)
 
     const fetch = async () => {
-      let res = await managerService.getMonitors()
-      const isMaster = route?.path.endsWith('/master') || false
-      res = res.filter((row) => row.isMaster === String(isMaster)) || []
-      monitors.value = res
-      if (selectedMonitor.value) {
-        selectedMonitor.value =
-          res.find((row) => row.uuid && row.uuid === selectedMonitor.value?.uuid) || null
+      try {
+        let res = await managerService.getMonitors()
+        const isMaster = route?.path.endsWith('/master') || false
+        res = res.filter((row) => row.isMaster === String(isMaster)) || []
+        monitors.value = res
+        if (selectedMonitor.value) {
+          selectedMonitor.value =
+            res.find((row) => row.uuid && row.uuid === selectedMonitor.value?.uuid) || null
+        }
+        return true
+      } catch {
+        tagError.value = t('managers.tags.loadFailed')
+        return false
       }
     }
     fetch()
 
     const parseTags = () => {
       const tags: Record<string, string> = {}
+      const tagKeys = new Set<string>()
       for (const rawLine of tagContent.value.split('\n')) {
         const line = rawLine.trim()
         if (!line) {
           continue
         }
         const separatorIndex = line.indexOf('=')
-        if (separatorIndex <= 0) {
+        const key = line.substring(0, separatorIndex).trim()
+        if (!key) {
           throw new Error(t('managers.tags.invalid'))
         }
-        tags[line.substring(0, separatorIndex).trim()] = line.substring(separatorIndex + 1).trim()
+        if (tagKeys.has(key)) {
+          throw new Error(t('managers.tags.duplicate'))
+        }
+        tagKeys.add(key)
+        tags[key] = line.substring(separatorIndex + 1).trim()
       }
       return tags
     }
 
     const updateTags = async (clear = false) => {
-      tagLoading.value = true
+      if (tagLoading.value) {
+        return
+      }
       tagMessage.value = ''
       tagError.value = ''
+      if (!selectedMonitor.value?.uuid) {
+        tagError.value = t('managers.tags.workerRequired')
+        return
+      }
+      if (!clear && !tagContent.value.trim()) {
+        tagError.value = t('managers.tags.contentRequired')
+        return
+      }
+      let tags: Record<string, string>
       try {
-        if (!selectedMonitor.value?.uuid) {
-          tagError.value = t('managers.tags.workerRequired')
-          return
-        }
+        tags = clear ? {} : parseTags()
+      } catch (error) {
+        tagError.value = error instanceof Error ? error.message : t('managers.tags.invalid')
+        return
+      }
+
+      tagLoading.value = true
+      try {
         await managerService.updateTags({
           uuid: selectedMonitor.value.uuid,
-          tags: clear ? {} : parseTags()
+          tags
         })
         if (clear) {
           tagContent.value = ''
         }
         tagMessage.value = t('managers.tags.success')
+        await fetch()
       } catch (error) {
-        tagError.value = error instanceof Error ? error.message : t('managers.tags.failed')
+        tagError.value = isRequestOutcomeUnknown(error)
+          ? t('managers.tags.outcomeUnknown')
+          : t('managers.tags.failed')
       } finally {
         tagLoading.value = false
       }
@@ -215,21 +247,43 @@ export default defineComponent({
                   />
                 </NFormItem>
                 <NSpace justify="end">
-                  <NButton
-                    loading={tagLoading.value}
-                    disabled={!selectedMonitor.value}
-                    onClick={() => updateTags(true)}
+                  <NPopconfirm
+                    positiveText={t('managers.tags.confirm')}
+                    negativeText={t('managers.tags.cancelConfirm')}
+                    onPositiveClick={() => updateTags(true)}
                   >
-                    {t('managers.tags.clear')}
-                  </NButton>
-                  <NButton
-                    type="primary"
-                    loading={tagLoading.value}
-                    disabled={!selectedMonitor.value}
-                    onClick={() => updateTags()}
+                    {{
+                      trigger: () => (
+                        <NButton
+                          loading={tagLoading.value}
+                          disabled={!selectedMonitor.value || tagLoading.value}
+                        >
+                          {t('managers.tags.clear')}
+                        </NButton>
+                      ),
+                      default: () => t('managers.tags.clearConfirmMessage')
+                    }}
+                  </NPopconfirm>
+                  <NPopconfirm
+                    positiveText={t('managers.tags.confirm')}
+                    negativeText={t('managers.tags.cancelConfirm')}
+                    onPositiveClick={() => updateTags()}
                   >
-                    {t('managers.tags.update')}
-                  </NButton>
+                    {{
+                      trigger: () => (
+                        <NButton
+                          type="primary"
+                          loading={tagLoading.value}
+                          disabled={
+                            !selectedMonitor.value || !tagContent.value.trim() || tagLoading.value
+                          }
+                        >
+                          {t('managers.tags.update')}
+                        </NButton>
+                      ),
+                      default: () => t('managers.tags.updateConfirmMessage')
+                    }}
+                  </NPopconfirm>
                 </NSpace>
               </NForm>
             </div>

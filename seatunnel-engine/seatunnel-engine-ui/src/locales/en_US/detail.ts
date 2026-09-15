@@ -73,7 +73,9 @@ export default {
     stateSize: 'State Size',
     failureReason: 'Failure Reason',
     action: 'Action',
-    restoreLatest: 'Restore Latest State'
+    restoreLatest: 'Restore Latest State',
+    restoreFromCheckpoint: 'Restore From Checkpoint',
+    restoreFromSavepoint: 'Restore From Savepoint'
   },
   liveMetrics: {
     pinnedTitle: 'Pinned live metrics',

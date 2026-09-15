@@ -72,10 +72,10 @@ public class UpdateTagsService extends BaseService {
         Map<String, String> previousTags = new HashMap<>(localMember.getAttributes());
         localMember.updateAttribute(tags);
         log.info(
-                "Node tags updated: node={}, {} -> {}",
+                "Node tags updated: node={}, previousTags={}, tags={}",
                 localMember.getAddress(),
-                previousTags,
-                tags);
+                summarizeTagsForAudit(previousTags),
+                summarizeTagsForAudit(tags));
         return new JsonObject().add("status", "success").add("message", "update node tags done.");
     }
 
@@ -123,5 +123,18 @@ public class UpdateTagsService extends BaseService {
                                         value.getValue() != null
                                                 ? value.getValue().toString()
                                                 : ""));
+    }
+
+    /**
+     * Produces a content-free audit summary for a user-supplied tag map.
+     *
+     * <p>Tags are arbitrary user input, so neither their keys nor values are safe to write to the
+     * server log.
+     *
+     * @param tags updated tag map.
+     * @return the number of tags without any tag content.
+     */
+    static String summarizeTagsForAudit(Map<String, String> tags) {
+        return tags.size() + " tag(s)";
     }
 }

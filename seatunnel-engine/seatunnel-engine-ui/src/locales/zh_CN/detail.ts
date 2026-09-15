@@ -73,7 +73,9 @@ export default {
     stateSize: '状态大小',
     failureReason: '失败原因',
     action: '操作',
-    restoreLatest: '恢复最新状态'
+    restoreLatest: '恢复最新状态',
+    restoreFromCheckpoint: '从 Checkpoint 恢复',
+    restoreFromSavepoint: '从 Savepoint 恢复'
   },
   liveMetrics: {
     pinnedTitle: '已固定实时指标',

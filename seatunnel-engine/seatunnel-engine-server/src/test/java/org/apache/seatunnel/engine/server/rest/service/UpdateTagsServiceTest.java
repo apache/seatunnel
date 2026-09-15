@@ -23,6 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -63,5 +64,19 @@ class UpdateTagsServiceTest {
                         IllegalArgumentException.class,
                         () -> UpdateTagsService.extractStructuredTagParams(request));
         assertTrue(error.getMessage().contains("tags field"));
+    }
+
+    @Test
+    void shouldExcludeTagContentFromAuditSummary() {
+        Map<String, String> tags = new HashMap<>();
+        tags.put("api-token", "sensitive-value");
+        tags.put("zone", "production");
+
+        String summary = UpdateTagsService.summarizeTagsForAudit(tags);
+
+        assertEquals("2 tag(s)", summary);
+        assertFalse(summary.contains("api-token"));
+        assertFalse(summary.contains("sensitive-value"));
+        assertFalse(summary.contains("production"));
     }
 }

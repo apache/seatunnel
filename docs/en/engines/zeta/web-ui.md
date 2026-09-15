@@ -42,7 +42,7 @@ The Web UI combines visual inspection with common operational actions. It suppor
 | UI area    | Current capability                                                                                                                                                 |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | Overview   | View cluster version, slot usage, worker count, and job counts                                                                                                     |
-| Jobs       | Submit jobs from configuration text or uploaded files, restore jobs from savepoint state, view running and finished jobs, paginate job lists, and open job details |
+| Jobs       | Submit jobs from configuration text or uploaded files, restore jobs from checkpoint or savepoint state, view running and finished jobs, paginate job lists, and open job details |
 | Job Detail | View DAG, job metrics, exception text, job configuration, checkpoint overview and history, logs, and realtime observability data                                   |
 | Operations | Browse connector OptionRule metadata and view safe HTTP, HTTPS, authentication, and mTLS status                                                                    |
 | Workers    | View worker-node system monitoring information and update tags on the current node                                                                                 |
@@ -54,7 +54,7 @@ The Web UI combines visual inspection with common operational actions. It suppor
 
 The Jobs page includes a "Submit Job" panel for submitting a new SeaTunnel job without leaving the Web UI. Users can paste JSON, HOCON, or SQL job configuration text, or upload a `.json`, `.conf`, `.config`, or `.sql` configuration file.
 
-The same panel can start a job from savepoint state by enabling restore mode and entering the existing job ID. This reuses the REST API contract `isStartWithSavePoint=true` and `jobId=<existing-job-id>`, so the submitted configuration still needs to match the job being restored.
+The same panel can restore a job from checkpoint or savepoint state by selecting a restore mode and entering the source job ID. It sends the explicit REST parameters `restoreMode=CHECKPOINT|SAVEPOINT` and `restoreSourceJobId=<existing-job-id>`, so the submitted configuration still needs to match the job being restored. The Web UI does not send a destination job ID for checkpoint restore, so the engine creates a new job ID; savepoint restore retains the source job ID.
 
 ### Running Jobs
 
@@ -72,7 +72,7 @@ The Job Detail page contains five main tabs:
 - **Overview**: shows the job DAG, source and sink throughput metrics, flush-signal metrics, and realtime vertex or edge metrics when observability is enabled.
 - **Exception**: shows the job error message when the job has failed or reported an exception.
 - **Configuration**: shows the runtime job configuration exposed by the engine.
-- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. The restore latest state action opens the submit panel with the source job ID prefilled for savepoint or latest checkpoint-state restore.
+- **Checkpoints**: shows checkpoint counts, latest completed checkpoint, latest savepoint, and recent checkpoint history. It offers separate checkpoint and savepoint restore actions only when every pipeline has a corresponding restorable state, then opens the submit panel with the source job ID and restore mode prefilled.
 - **Log**: shows job log files returned by the engine log API.
 
 #### Realtime Observability
