@@ -88,6 +88,10 @@ public class JsonSerializationSchema implements SerializationSchema {
 
         try {
             runtimeConverter.convert(mapper, node, row);
+            // Avoid intermediate String allocation for the common UTF-8 path.
+            if (StandardCharsets.UTF_8.equals(charset)) {
+                return mapper.writeValueAsBytes(node);
+            }
             return mapper.writeValueAsString(node).getBytes(charset);
         } catch (Throwable t) {
             throw CommonError.jsonOperationError(FORMAT, row.toString(), t);
