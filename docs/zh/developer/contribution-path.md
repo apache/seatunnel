@@ -21,6 +21,7 @@ title: 贡献路径
 
 - 修文档
 - 贡献 connector 或 transform
+- 定位并修复性能问题
 - 修一个 bug
 - 想先知道应该去哪里提问、再决定要不要提 PR
 
@@ -70,6 +71,19 @@ title: 贡献路径
 - [贡献 Transform-V2 插件](./contribute-transform-v2-guide.md)
 - [Transform 插件体系](../architecture/transform-plugin-system.md)
 - [Transforms 目录](../transforms)
+
+### 性能贡献
+
+比较好的起点包括：
+
+- 从已观察到的问题或测得的性能回退出发，而不是随意选择看起来繁忙的方法
+- 在开始较大的实现之前，先与社区讨论负载、证据和预期收益
+- 先贡献可复现的 Benchmark，再提交性能优化
+
+建议先看：
+
+- [贡献性能优化](./contribute-performance-guide.md)
+- [Zeta 基准测试](../engines/zeta/benchmark.md)
 
 ### 代码或架构贡献
 
@@ -165,4 +179,5 @@ workflow 按下面的规则选择 jobs：
 - 文档路径：[文档格式规范](./docs-format-specification.md) -> [快速入门总览](../getting-started/overview.md)
 - connector 路径：[开发自己的 Connector](./how-to-create-your-connector.md) -> [Source Connector 开发指南](./source-connector-development.md) 或 [Sink Connector 开发指南](./sink-connector-development.md)
 - transform 路径：[贡献 Transform-V2 插件](./contribute-transform-v2-guide.md) -> [Transform 插件体系](../architecture/transform-plugin-system.md)
+- 性能路径：[贡献性能优化](./contribute-performance-guide.md) -> [Zeta 基准测试](../engines/zeta/benchmark.md)
 - 引擎路径：[搭建开发环境](./setup.md) -> [架构概览](../architecture/overview.md)
