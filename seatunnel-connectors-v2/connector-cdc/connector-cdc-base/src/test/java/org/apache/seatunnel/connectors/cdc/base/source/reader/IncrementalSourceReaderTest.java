@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -44,6 +45,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
+import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
 
 import java.util.Arrays;
@@ -257,7 +259,7 @@ class IncrementalSourceReaderTest {
                         checkpointTables,
                         historyTableChanges);
 
-        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema);
+        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema, true);
 
         Mockito.verify(schema).restoreCheckpointProducedType(checkpointTables);
         Mockito.verify(schema).restoreCheckpointHistoryTableChanges(historyTableChanges);
@@ -276,7 +278,7 @@ class IncrementalSourceReaderTest {
                         Mockito.mock(Offset.class),
                         Collections.emptyList());
 
-        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema);
+        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema, true);
 
         Mockito.verifyNoInteractions(schema);
     }
@@ -301,7 +303,7 @@ class IncrementalSourceReaderTest {
                         Collections.emptyList(),
                         checkpointRowType);
 
-        IncrementalSourceReader.restoreCheckpointState(split, schema);
+        IncrementalSourceReader.restoreCheckpointState(split, schema, true);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<CatalogTable>> captor = ArgumentCaptor.forClass(List.class);
@@ -339,7 +341,7 @@ class IncrementalSourceReaderTest {
                         Collections.emptyList(),
                         checkpointRowType);
 
-        IncrementalSourceReader.restoreCheckpointState(split, schema);
+        IncrementalSourceReader.restoreCheckpointState(split, schema, true);
 
         @SuppressWarnings("unchecked")
         ArgumentCaptor<List<CatalogTable>> captor = ArgumentCaptor.forClass(List.class);
@@ -371,8 +373,94 @@ class IncrementalSourceReaderTest {
                         Collections.emptyList(),
                         checkpointRowType);
 
-        IncrementalSourceReader.restoreCheckpointState(split, schema);
+        IncrementalSourceReader.restoreCheckpointState(split, schema, true);
 
         Mockito.verifyNoInteractions(schema);
+    }
+
+    /**
+     * Regression guard for the savepoint-restore column drop: a job that does not propagate schema
+     * changes (the default) must keep the schema discovered from the live database, because nothing
+     * in its change stream could ever widen a checkpoint schema that predates an ADD COLUMN
+     * executed while the job was stopped. Debezium history is still restored, since it only drives
+     * decoding of the stream itself.
+     */
+    @Test
+    void restoreCheckpointStateKeepsLiveSchemaWhenSchemaChangesAreDisabled() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        CatalogTable checkpointTable = Mockito.mock(CatalogTable.class);
+        Mockito.when(checkpointTable.getTablePath())
+                .thenReturn(TablePath.of("catalog", "database", "customers"));
+        Map<TableId, byte[]> historyTableChanges =
+                Collections.singletonMap(
+                        new TableId("catalog", "database", "customers"), new byte[] {1});
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        Collections.singletonList(checkpointTable),
+                        historyTableChanges);
+
+        IncrementalSourceReader.restoreCheckpointState(incrementalSplit, schema, false);
+
+        Mockito.verify(schema, Mockito.never()).restoreCheckpointProducedType(Mockito.anyList());
+        Mockito.verify(schema).restoreCheckpointHistoryTableChanges(historyTableChanges);
+    }
+
+    /**
+     * The legacy checkpoint data type path is subject to the same rule: without schema change
+     * propagation the checkpointed row type must not replace the live schema.
+     */
+    @Test
+    void restoreCheckpointStateKeepsLiveSchemaForLegacyCheckpointWhenSchemaChangesAreDisabled() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        SeaTunnelRowType checkpointRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType[] {BasicType.INT_TYPE, BasicType.STRING_TYPE});
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(new TableId("catalog", "database", "customers")),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointRowType);
+
+        IncrementalSourceReader.restoreCheckpointState(split, schema, false);
+
+        Mockito.verifyNoInteractions(schema);
+    }
+
+    /**
+     * The switch must mirror what the connectors hand to Debezium as {@code
+     * include.schema.changes}, because that is the flag gating DDL emission (MySQL) and the
+     * RELATION listener (PostgreSQL); a non-JDBC source never emits schema change events.
+     */
+    @Test
+    void isSchemaChangeEnabledMirrorsDebeziumIncludeSchemaChanges() {
+        RelationalDatabaseConnectorConfig enabledConfig =
+                Mockito.mock(RelationalDatabaseConnectorConfig.class);
+        Mockito.when(enabledConfig.isSchemaChangesHistoryEnabled()).thenReturn(true);
+        JdbcSourceConfig enabledSource = Mockito.mock(JdbcSourceConfig.class);
+        Mockito.when(enabledSource.getDbzConnectorConfig()).thenReturn(enabledConfig);
+        Assertions.assertTrue(IncrementalSourceReader.isSchemaChangeEnabled(enabledSource));
+
+        RelationalDatabaseConnectorConfig disabledConfig =
+                Mockito.mock(RelationalDatabaseConnectorConfig.class);
+        Mockito.when(disabledConfig.isSchemaChangesHistoryEnabled()).thenReturn(false);
+        JdbcSourceConfig disabledSource = Mockito.mock(JdbcSourceConfig.class);
+        Mockito.when(disabledSource.getDbzConnectorConfig()).thenReturn(disabledConfig);
+        Assertions.assertFalse(IncrementalSourceReader.isSchemaChangeEnabled(disabledSource));
+
+        Assertions.assertFalse(
+                IncrementalSourceReader.isSchemaChangeEnabled(Mockito.mock(SourceConfig.class)));
     }
 }
