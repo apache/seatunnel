@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
@@ -102,6 +103,7 @@ public class SourceSplitEnumeratorTaskTest {
         Mockito.when(future.join()).thenReturn(null);
         TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
         Mockito.when(context.getTaskExecutionService()).thenReturn(taskExecutionService);
+        Mockito.when(taskExecutionService.getSeaTunnelConfig()).thenReturn(seaTunnelConfig());
 
         enumeratorTask.setTaskExecutionContext(context);
 
@@ -156,6 +158,7 @@ public class SourceSplitEnumeratorTaskTest {
         Mockito.when(future.join()).thenReturn(null);
         TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
         Mockito.when(context.getTaskExecutionService()).thenReturn(taskExecutionService);
+        Mockito.when(taskExecutionService.getSeaTunnelConfig()).thenReturn(seaTunnelConfig());
 
         enumeratorTask.setTaskExecutionContext(context);
         enumeratorTask.init();
@@ -211,6 +214,7 @@ public class SourceSplitEnumeratorTaskTest {
         Mockito.when(future.join()).thenReturn(null);
         TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
         Mockito.when(context.getTaskExecutionService()).thenReturn(taskExecutionService);
+        Mockito.when(taskExecutionService.getSeaTunnelConfig()).thenReturn(seaTunnelConfig());
 
         enumeratorTask.setTaskExecutionContext(context);
         enumeratorTask.init();
@@ -305,6 +309,7 @@ public class SourceSplitEnumeratorTaskTest {
                         });
         TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
         Mockito.when(context.getTaskExecutionService()).thenReturn(taskExecutionService);
+        Mockito.when(taskExecutionService.getSeaTunnelConfig()).thenReturn(seaTunnelConfig());
 
         enumeratorTask.setTaskExecutionContext(context);
         enumeratorTask.init();
@@ -370,6 +375,26 @@ public class SourceSplitEnumeratorTaskTest {
         Field field = target.getClass().getDeclaredField(fieldName);
         field.setAccessible(true);
         return field.get(target);
+    }
+
+    /**
+     * Builds the {@link SeaTunnelConfig} every test needs.
+     *
+     * <p>{@link SourceSplitEnumeratorTask#init()} unconditionally reads {@code
+     * getTaskExecutionService().getSeaTunnelConfig().getEngineConfig().getManagedSourceRuntimeConfig()}
+     * to resolve the legacy-vs-managed lane, even for tests that only exercise the legacy lane. A
+     * real, default-constructed instance is enough: {@code SeaTunnelConfig} initializes its {@code
+     * EngineConfig} inline, whose {@code managedSourceRuntimeConfig} field initializer supplies a
+     * disabled, legacy-only config, and the constructor builds only an in-memory Hazelcast {@code
+     * Config} without loading any YAML.
+     *
+     * <p>Deliberately not a Mockito mock: this helper is evaluated inside {@code
+     * Mockito.when(...).thenReturn(seaTunnelConfig())} argument position, where starting a second
+     * stubbing on another mock before {@code thenReturn} completes throws
+     * UnfinishedStubbingException.
+     */
+    private static SeaTunnelConfig seaTunnelConfig() {
+        return new SeaTunnelConfig();
     }
 
     private static final class LockAwareEnumerator

@@ -35,6 +35,13 @@ public class ServerConfigOptions {
                     .withDescription(
                             "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
 
+    public static final Option<ManagedSourceRuntimeConfig> MANAGED_SOURCE_RUNTIME =
+            Options.key("managed-source-runtime")
+                    .type(new TypeReference<ManagedSourceRuntimeConfig>() {})
+                    .defaultValue(new ManagedSourceRuntimeConfig())
+                    .withDescription(
+                            "Engine-managed Source reader and coordinator runtime rollout gates and safety limits.");
+
     public static final Option<Boolean> STAIN_TRACE_ENABLED =
             Options.key("stain-trace-enabled")
                     .booleanType()
