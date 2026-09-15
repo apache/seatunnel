@@ -34,7 +34,7 @@ public class SplunkSourceOptions extends HttpCommonOptions {
     public static final Option<Long> MAX_RESPONSE_SIZE_BYTES =
             Options.key("max_response_size_bytes")
                     .longType()
-                    .defaultValue(50L * 1024 * 1024) // 50MB?
+                    .defaultValue(20L * 1024 * 1024) // 20MB
                     .withDescription(
                             "Maximum allowed HTTP response size in bytes before failing fast, to avoid unbounded in-memory buffering on large Splunk exports. "
                                     + "Narrow the search's time window or result count if you hit this limit!");
