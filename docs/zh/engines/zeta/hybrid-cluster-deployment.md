@@ -296,6 +296,9 @@ map:
            clusterName: seatunnel-cluster
            storage.type: hdfs
            fs.defaultFS: hdfs://localhost:9000
+    engine_finishedJobMetrics:
+       map-store:
+         enabled: false
 ```
 
 如果没有 HDFS，并且您的集群只有一个节点，您可以像这样配置使用本地文件：
@@ -313,12 +316,17 @@ map:
            clusterName: seatunnel-cluster
            storage.type: hdfs
            fs.defaultFS: file:///
+    engine_finishedJobMetrics:
+       map-store:
+         enabled: false
 ```
 
 说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
 配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
 WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
 report 重新构建。
+
+说明：本节示例同时为 `engine_finishedJobMetrics` 关闭了 MapStore，因此整个集群重启后，重启前已完成作业的指标不会保留。作业恢复不依赖该 IMap。如需保留这些指标，请删除 `engine_finishedJobMetrics` 配置项：按精确名称配置的 map 不会继承 `engine*` 的任何设置，因此仅在其中设置 `enabled: true` 无效。
 
 如果您使用 OSS，可以像这样配置：
 
@@ -339,6 +347,9 @@ map:
            fs.oss.accessKeyId: OSS access key id
            fs.oss.accessKeySecret: OSS access key secret
            fs.oss.endpoint: OSS endpoint
+    engine_finishedJobMetrics:
+       map-store:
+         enabled: false
 ```
 
 注意：使用OSS 时，确保 lib目录下有这几个jar。

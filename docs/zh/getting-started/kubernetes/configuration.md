@@ -196,6 +196,12 @@ hazelcast:
 这个覆盖是可选的。需要避免持久化仅用于观测的数据、减少 MapStore/WAL 写放大时可以使用；如果希望 checkpoint monitor 的 overview/history 与其他 `engine*` IMap 使用相同的 MapStore 配置，可以不添加该覆盖。
 :::
 
+### Finished Job Metrics MapStore
+
+:::info 说明
+下面的示例同时为 `engine_finishedJobMetrics` 关闭了 MapStore，因此整个集群重启后，重启前已完成作业的指标不会保留。作业恢复不依赖该 IMap。如需保留这些指标，请删除 `engine_finishedJobMetrics` 配置项：按精确名称配置的 map 不会继承 `engine*` 的任何设置，因此仅在其中设置 `enabled: true` 无效。
+:::
+
 ### HDFS
 
 ```yaml
@@ -212,6 +218,9 @@ hazelcast:
           clusterName: seatunnel-cluster
           storage.type: hdfs
           fs.defaultFS: hdfs://namenode:8020
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 ### S3 或兼容对象存储
@@ -237,6 +246,9 @@ hazelcast:
           fs.s3a.access.key: YOUR_ACCESS_KEY
           fs.s3a.secret.key: YOUR_SECRET_KEY
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 :::caution 注意
@@ -302,6 +314,9 @@ hazelcast:
           fs.oss.endpoint: https://oss-<region>.aliyuncs.com
           fs.oss.accessKeyId: YOUR_ACCESS_KEY_ID
           fs.oss.accessKeySecret: YOUR_ACCESS_KEY_SECRET
+    engine_finishedJobMetrics:
+      map-store:
+        enabled: false
 ```
 
 如果不希望把 OSS 凭据渲染到最终 ConfigMap，可以使用 Hadoop credential provider 存储 `fs.oss.accessKeyId`、`fs.oss.accessKeySecret`，或通过 `fs.oss.credentials.provider` 指定自定义 provider。自定义 provider 需要实现 Aliyun OSS SDK 的 `com.aliyun.oss.common.auth.CredentialsProvider`，并在 SeaTunnel 镜像中可被加载。
