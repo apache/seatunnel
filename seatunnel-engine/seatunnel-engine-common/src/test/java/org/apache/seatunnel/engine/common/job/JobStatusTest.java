@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.common.job;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.parallel.ResourceLock;
 
+import java.util.Arrays;
 import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -36,5 +37,34 @@ public class JobStatusTest {
         } finally {
             Locale.setDefault(originalLocale);
         }
+    }
+
+    /**
+     * The ordinal position of every status is part of the internal RPC contract, so reordering or
+     * inserting a constant breaks wire compatibility with older members.
+     *
+     * <p>If this test fails, move the new status to the end of {@link JobStatus} (and update this
+     * list) rather than reordering existing constants. When inserting one is unavoidable, handle
+     * the compatibility impact explicitly — do not just refresh the expected list, or every stored
+     * ordinal and every in-flight status report silently changes meaning.
+     */
+    @Test
+    void testOrdinalOrderIsStableForInternalRpcCompatibility() {
+        assertEquals(
+                Arrays.asList(
+                        JobStatus.INITIALIZING,
+                        JobStatus.CREATED,
+                        JobStatus.PENDING,
+                        JobStatus.SCHEDULED,
+                        JobStatus.RUNNING,
+                        JobStatus.FAILING,
+                        JobStatus.FAILED,
+                        JobStatus.DOING_SAVEPOINT,
+                        JobStatus.SAVEPOINT_DONE,
+                        JobStatus.CANCELING,
+                        JobStatus.CANCELED,
+                        JobStatus.FINISHED,
+                        JobStatus.UNKNOWABLE),
+                Arrays.asList(JobStatus.values()));
     }
 }
