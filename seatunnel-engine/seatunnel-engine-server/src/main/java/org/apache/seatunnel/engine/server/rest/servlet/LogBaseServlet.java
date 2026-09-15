@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.rest.servlet;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.server.rest.LogContentReader;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.extern.slf4j.Slf4j;
@@ -44,8 +44,8 @@ public class LogBaseServlet extends BaseServlet {
      * segments and symbolic links cannot escape the canonical log directory.
      *
      * <p>At most {@code log-response-max-size-mb} of content is read, so that requesting the log of
-     * a long-running streaming job cannot exhaust the node's heap. Larger files are truncated to
-     * their tail.
+     * a long-running streaming job cannot exhaust the node's heap. A larger file is represented by
+     * its tail, and the response then opens with a notice saying so.
      *
      * @param resp response used to return status and log content
      * @param logPath configured log directory
@@ -73,7 +73,7 @@ public class LogBaseServlet extends BaseServlet {
                 return;
             }
             String logContent =
-                    FileUtils.readFileTailToStr(
+                    LogContentReader.read(
                             new File(canonicalFilePath).toPath(), maxLogResponseBytes());
             write(resp, logContent);
         } catch (IOException e) {
@@ -86,12 +86,10 @@ public class LogBaseServlet extends BaseServlet {
     }
 
     private long maxLogResponseBytes() {
-        int maxSizeMb =
-                getSeaTunnelServer(false)
-                        .getSeaTunnelConfig()
-                        .getEngineConfig()
-                        .getHttpConfig()
-                        .getLogResponseMaxSizeMb();
-        return maxSizeMb <= 0 ? -1L : maxSizeMb * 1024L * 1024L;
+        return getSeaTunnelServer(false)
+                .getSeaTunnelConfig()
+                .getEngineConfig()
+                .getHttpConfig()
+                .getLogResponseMaxSizeBytes();
     }
 }

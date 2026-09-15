@@ -244,4 +244,63 @@ public class FileUtilsTest {
         Assertions.assertTrue(content.toString().endsWith(tail), "tail must be a suffix");
         Assertions.assertEquals(33, tail.length());
     }
+
+    @Test
+    void readFileTailToStrKeepsALineTerminatedAtTheEndOfTheWindow(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("trailing-newline.log");
+        // A log whose last entry is longer than the limit - a stack trace, say - leaves a window
+        // whose only line break is the file's own trailing one. That break terminates the retained
+        // line rather than starting a new one, so aligning to it would leave nothing to return.
+        String content = "earlier line\nabcdefghijklmnopqrstuvwxyz\n";
+        Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+
+        String tail = FileUtils.readFileTailToStr(file, 10);
+
+        Assertions.assertEquals("rstuvwxyz\n", tail);
+    }
+
+    @Test
+    void readFileTailToStrAlignsOnABreakThatIsNotTheLastByte(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("no-trailing-newline.log");
+        String content = "earlier line\nlast line without a terminator";
+        Files.write(file, content.getBytes(StandardCharsets.UTF_8));
+
+        // The window is "line\nlast line without a terminator", so there is a real boundary to
+        // align to and the partial word before it has to be dropped.
+        String tail = FileUtils.readFileTailToStr(file, 35);
+
+        Assertions.assertEquals("last line without a terminator", tail);
+    }
+
+    @Test
+    void readFileTailToStrDecodesUtf8WhateverThePlatformCharsetIs(@TempDir Path tempDir)
+            throws IOException {
+        Path file = tempDir.resolve("charset.log");
+        String content = "日志内容\n";
+        byte[] utf8 = content.getBytes(StandardCharsets.UTF_8);
+        Files.write(file, utf8);
+
+        // Under the limit, at the limit and unlimited all take a different branch, and all three
+        // have to agree with the over-limit branch about the encoding - otherwise the same file
+        // would change encoding as it grew.
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, utf8.length + 1));
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, utf8.length));
+        Assertions.assertEquals(content, FileUtils.readFileTailToStr(file, 0));
+    }
+
+    @Test
+    void effectiveTailLimitClampsALimitTooLargeToBeRead() {
+        Assertions.assertEquals(64L * 1024 * 1024, FileUtils.effectiveTailLimit(64L * 1024 * 1024));
+        Assertions.assertEquals(
+                FileUtils.MAX_TAIL_BYTES, FileUtils.effectiveTailLimit(FileUtils.MAX_TAIL_BYTES));
+        // A limit a byte array cannot hold has to be clamped rather than honoured: a file sized
+        // between the clamp and the configured limit must still be read as a tail, because reading
+        // it whole would fail with "Required array size too large" however much heap is available.
+        Assertions.assertEquals(
+                FileUtils.MAX_TAIL_BYTES, FileUtils.effectiveTailLimit(8L * 1024 * 1024 * 1024));
+        Assertions.assertEquals(
+                FileUtils.MAX_TAIL_BYTES, FileUtils.effectiveTailLimit(Long.MAX_VALUE));
+    }
 }

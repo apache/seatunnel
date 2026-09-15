@@ -1451,10 +1451,23 @@ Supported formats are `json` and `html`, with `html` as the default.
 #### Response Size Limit
 
 Reading a log file returns at most `seatunnel.engine.http.log-response-max-size-mb` of content
-(64 MB by default). A log file larger than that is truncated to its last 64 MB, starting at the
-first complete line, because for a job that has been running for a long time the end of the log is
-the part that explains what happened. Set the option to `0` to restore unlimited reads - be aware
-that a single request for a multi-gigabyte log file then has to fit in the node's heap.
+(64 MB by default). A log file larger than that is represented by its last
+`log-response-max-size-mb` of content, because for a job that has been running for a long time the
+end of the log is the part that explains what happened.
+
+A truncated response opens with a line naming the returned and the total size, so that a partial log
+is not mistaken for a complete one:
+
+```
+[SeaTunnel] Log truncated: returning the last 67108864 bytes of 3435973836, starting at the first complete line. Raise seatunnel.engine.http.log-response-max-size-mb, or set it to 0 for no limit, to return more.
+```
+
+The content itself starts at the first complete line after the cut, so the response is slightly
+smaller than the limit. When a single line is longer than the limit there is no line boundary to
+align to and the content starts at the first whole character instead.
+
+Set the option to `0` to restore unlimited reads - be aware that a single request for a
+multi-gigabyte log file then has to fit in the node's heap.
 
 #### Examples
 

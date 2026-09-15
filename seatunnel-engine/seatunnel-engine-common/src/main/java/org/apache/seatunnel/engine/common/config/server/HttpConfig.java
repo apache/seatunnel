@@ -90,6 +90,17 @@ public class HttpConfig implements Serializable {
     private int logResponseMaxSizeMb =
             ServerConfigOptions.MasterServerConfigOptions.LOG_RESPONSE_MAX_SIZE_MB.defaultValue();
 
+    /**
+     * Returns {@link #logResponseMaxSizeMb} as a byte count, or -1 when the log endpoints are
+     * configured to return content of unlimited size.
+     *
+     * <p>Both the v1 and the v2 log endpoint read their cap from here, so the two cannot end up
+     * disagreeing about what the option means.
+     */
+    public long getLogResponseMaxSizeBytes() {
+        return logResponseMaxSizeMb <= 0 ? -1L : logResponseMaxSizeMb * 1024L * 1024L;
+    }
+
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;

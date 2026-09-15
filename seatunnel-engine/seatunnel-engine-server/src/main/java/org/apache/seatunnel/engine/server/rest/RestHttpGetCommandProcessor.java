@@ -20,7 +20,6 @@ package org.apache.seatunnel.engine.server.rest;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.log.FormatType;
@@ -396,8 +395,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
      * segments and symbolic links cannot escape the canonical log directory.
      *
      * <p>At most {@code log-response-max-size-mb} of content is read, so that requesting the log of
-     * a long-running streaming job cannot exhaust the node's heap. Larger files are truncated to
-     * their tail.
+     * a long-running streaming job cannot exhaust the node's heap. A larger file is represented by
+     * its tail, and the response then opens with a notice saying so.
      *
      * @param httpGetCommand command used to send the HTTP response
      * @param logPath configured log directory
@@ -418,7 +417,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 return;
             }
             String logContent =
-                    FileUtils.readFileTailToStr(
+                    LogContentReader.read(
                             new File(canonicalFilePath).toPath(), logService.maxLogResponseBytes());
             this.prepareResponse(httpGetCommand, logContent);
         } catch (IOException e) {

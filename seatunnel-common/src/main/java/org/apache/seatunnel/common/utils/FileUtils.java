@@ -49,6 +49,13 @@ import java.util.stream.Stream;
 @Slf4j
 public class FileUtils {
 
+    /**
+     * The largest tail {@link #readFileTailToStr(Path, long)} can return. A byte array cannot hold
+     * more than {@link Integer#MAX_VALUE} entries and some JVMs reserve a few of those for the
+     * array header, so a limit above this one cannot be honoured however much heap is available.
+     */
+    public static final long MAX_TAIL_BYTES = Integer.MAX_VALUE - 8;
+
     public static List<URL> searchJarFiles(@NonNull Path directory) throws IOException {
         if (!directory.toFile().exists()) {
             return new ArrayList<>();
@@ -90,41 +97,74 @@ public class FileUtils {
      *
      * <p>The tail starts at the first line break after the cut point, so it never begins with half
      * a line and never splits a multi-byte UTF-8 character. Content is decoded as UTF-8 rather than
-     * with the platform default charset used by {@link #readFileToStr(Path)}, because aligning on
-     * character boundaries is only meaningful against a known encoding.
+     * with the platform default charset used by {@link #readFileToStr(Path)} - aligning on
+     * character boundaries is only meaningful against a known encoding, and a file whose encoding
+     * changed as it grew past the limit would be worse than one that is consistently wrong.
+     *
+     * <p>The limit that actually applies is {@link #effectiveTailLimit(long)} rather than {@code
+     * maxBytes} itself, so a caller asking for more than a byte array can hold still gets a bounded
+     * read instead of an {@link OutOfMemoryError}.
      *
      * @param path file to read
      * @param maxBytes maximum number of bytes to keep from the end; a value <= 0 means unlimited
-     * @return the whole file, or its tail when the file is larger than {@code maxBytes}
+     * @return the whole file, or its tail when the file is larger than the effective limit
      */
     public static String readFileTailToStr(Path path, long maxBytes) {
-        if (maxBytes <= 0) {
-            return readFileToStr(path);
-        }
-        try (SeekableByteChannel channel = Files.newByteChannel(path, StandardOpenOption.READ)) {
-            long size = channel.size();
-            if (size <= maxBytes) {
-                return readFileToStr(path);
+        try {
+            if (maxBytes <= 0) {
+                return readFileToUtf8Str(path);
             }
-            // A String cannot hold more than Integer.MAX_VALUE chars anyway, so a limit above that
-            // can never take effect and clamping keeps the cast below safe.
-            int keep = (int) Math.min(maxBytes, Integer.MAX_VALUE - 8);
-            ByteBuffer buffer = ByteBuffer.allocate(keep);
-            channel.position(size - keep);
-            while (buffer.hasRemaining() && channel.read(buffer) > 0) {
-                // Keep reading until the requested tail is filled or the file ends.
+            long keep = effectiveTailLimit(maxBytes);
+            try (SeekableByteChannel channel =
+                    Files.newByteChannel(path, StandardOpenOption.READ)) {
+                if (channel.size() <= keep) {
+                    return readFileToUtf8Str(path);
+                }
+                ByteBuffer buffer = ByteBuffer.allocate((int) keep);
+                channel.position(channel.size() - keep);
+                while (buffer.hasRemaining() && channel.read(buffer) > 0) {
+                    // Keep reading until the requested tail is filled or the file ends.
+                }
+                byte[] tail = buffer.array();
+                int length = buffer.position();
+                int start = lineStartOffset(tail, length);
+                return new String(tail, start, length - start, StandardCharsets.UTF_8);
             }
-            return new String(
-                    tailFromLineStart(buffer.array(), buffer.position()), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("SeaTunnel", "read", path.toString(), e);
         }
     }
 
-    private static byte[] tailFromLineStart(byte[] bytes, int length) {
-        for (int i = 0; i < length; i++) {
+    /**
+     * Returns the number of bytes {@link #readFileTailToStr(Path, long)} keeps for the given
+     * positive limit, which is {@code maxBytes} clamped to {@link #MAX_TAIL_BYTES}.
+     *
+     * <p>Comparing the file size against this instead of against {@code maxBytes} is what keeps the
+     * read bounded. A limit above {@link #MAX_TAIL_BYTES} cannot be honoured, so a file sized
+     * between the two has to be read as a tail rather than whole - reading it whole would fail with
+     * {@code OutOfMemoryError: Required array size too large}, which is the very failure the tail
+     * read exists to prevent.
+     */
+    public static long effectiveTailLimit(long maxBytes) {
+        return Math.min(maxBytes, MAX_TAIL_BYTES);
+    }
+
+    private static String readFileToUtf8Str(Path path) throws IOException {
+        return new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Returns the offset of the first byte to keep in a retained tail window, which is the start of
+     * the first complete line in it.
+     */
+    private static int lineStartOffset(byte[] bytes, int length) {
+        // A '\n' on the final byte is the terminator of the line before it, not the start of
+        // another line, so it is not a boundary to align to. Stopping short of it is what keeps a
+        // window holding a single newline-terminated line - the shape produced by a log whose last
+        // entry is a large stack trace - from being reported as empty.
+        for (int i = 0; i < length - 1; i++) {
             if (bytes[i] == '\n') {
-                return Arrays.copyOfRange(bytes, i + 1, length);
+                return i + 1;
             }
         }
         // A single line longer than the limit leaves no boundary to align to, so drop just the
@@ -133,7 +173,7 @@ public class FileUtils {
         while (start < length && (bytes[start] & 0xC0) == 0x80) {
             start++;
         }
-        return Arrays.copyOfRange(bytes, start, length);
+        return start;
     }
 
     public static void writeStringToFile(String filePath, String str) {

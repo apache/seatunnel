@@ -53,13 +53,11 @@ public class LogService extends BaseLogService {
      * log-response-max-size-mb}. A value <= 0 means unlimited.
      */
     public long maxLogResponseBytes() {
-        int maxSizeMb =
-                getSeaTunnelServer(false)
-                        .getSeaTunnelConfig()
-                        .getEngineConfig()
-                        .getHttpConfig()
-                        .getLogResponseMaxSizeMb();
-        return maxSizeMb <= 0 ? -1L : maxSizeMb * 1024L * 1024L;
+        return getSeaTunnelServer(false)
+                .getSeaTunnelConfig()
+                .getEngineConfig()
+                .getHttpConfig()
+                .getLogResponseMaxSizeBytes();
     }
 
     public List<String> allLogName() {
