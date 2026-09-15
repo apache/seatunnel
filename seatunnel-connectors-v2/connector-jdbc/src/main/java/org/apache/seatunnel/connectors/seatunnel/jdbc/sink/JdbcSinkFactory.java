@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -55,16 +56,34 @@ import org.apache.commons.collections4.CollectionUtils;
 import com.google.auto.service.AutoService;
 
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
 public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
+    private static final int MAX_CACHED_PATTERNS = 256;
+
+    // Shared across all jobs in this JVM; bounded LRU so dynamically-generated regex patterns
+    // cannot grow this cache without limit over the life of the process.
+    private static final Map<String, Pattern> COMPILED_PATTERN_CACHE =
+            Collections.synchronizedMap(
+                    new LinkedHashMap<String, Pattern>(16, 0.75f, true) {
+                        @Override
+                        protected boolean removeEldestEntry(Map.Entry<String, Pattern> eldest) {
+                            return size() > MAX_CACHED_PATTERNS;
+                        }
+                    });
+
     @Override
     public String factoryIdentifier() {
         return "Jdbc";
@@ -118,48 +137,12 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             map.put(JdbcSinkOptions.TABLE.key(), catalogTable.getTableId().getTableName());
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
-        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
-            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
-                map.put(
-                        JdbcSinkOptions.PRIMARY_KEYS.key(),
-                        String.join(",", primaryKey.getColumnNames()));
-            } else {
-                Optional<ConstraintKey> keyOptional =
-                        catalogTable.getTableSchema().getConstraintKeys().stream()
-                                .filter(
-                                        key ->
-                                                ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
-                                                        key.getConstraintType()))
-                                .findFirst();
-                keyOptional.ifPresent(
-                        constraintKey ->
-                                map.put(
-                                        JdbcSinkOptions.PRIMARY_KEYS.key(),
-                                        constraintKey.getColumnNames().stream()
-                                                .map(
-                                                        ConstraintKey.ConstraintKeyColumn
-                                                                ::getColumnName)
-                                                .collect(Collectors.joining(","))));
-            }
+        Optional<List<String>> multiTablePrimaryKeys =
+                resolveMultiTablePrimaryKeys(config, catalogTable);
+        if (multiTablePrimaryKeys.isPresent()) {
+            catalogTable = applyPrimaryKeys(map, catalogTable, multiTablePrimaryKeys.get());
         } else {
-            PrimaryKey configPk =
-                    PrimaryKey.of(
-                            catalogTable.getTablePath().getTableName() + "_config_pk",
-                            config.get(JdbcSinkOptions.PRIMARY_KEYS));
-            TableSchema tableSchema = catalogTable.getTableSchema();
-            catalogTable =
-                    CatalogTable.of(
-                            catalogTable.getTableId(),
-                            TableSchema.builder()
-                                    .primaryKey(configPk)
-                                    .constraintKey(tableSchema.getConstraintKeys())
-                                    .columns(tableSchema.getColumns())
-                                    .build(),
-                            catalogTable.getOptions(),
-                            catalogTable.getPartitionKeys(),
-                            catalogTable.getComment(),
-                            catalogTable.getCatalogName());
+            catalogTable = applyFallbackPrimaryKeys(config, map, catalogTable);
         }
         config = ReadonlyConfig.fromMap(new HashMap<>(map));
         final ReadonlyConfig options = config;
@@ -192,6 +175,290 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         finalCatalogTable);
     }
 
+    /**
+     * Writes the resolved primary key columns into the sink config map and rebuilds the catalog
+     * table so that auto-created tables and generated upsert/update/delete statements use the given
+     * key columns.
+     *
+     * @param map the sink config map that is later turned back into a {@link ReadonlyConfig}
+     * @param catalogTable the table being processed
+     * @param primaryKeys the resolved key columns
+     * @return a new catalog table whose primary key is replaced with the resolved columns
+     */
+    private CatalogTable applyPrimaryKeys(
+            Map<String, String> map, CatalogTable catalogTable, List<String> primaryKeys) {
+        validatePrimaryKeyColumns(primaryKeys, catalogTable.getTablePath().getTableName());
+        map.put(JdbcSinkOptions.PRIMARY_KEYS.key(), String.join(",", primaryKeys));
+        PrimaryKey configPk =
+                PrimaryKey.of(
+                        catalogTable.getTablePath().getTableName() + "_config_pk", primaryKeys);
+        TableSchema tableSchema = catalogTable.getTableSchema();
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                TableSchema.builder()
+                        .primaryKey(configPk)
+                        .constraintKey(tableSchema.getConstraintKeys())
+                        .columns(tableSchema.getColumns())
+                        .build(),
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName());
+    }
+
+    /**
+     * Resolves the primary key columns using the pre-existing fallback logic when no multi-table
+     * mapping matches: explicit top-level {@code primary_keys}, otherwise the catalog primary key,
+     * otherwise the first unique key. When no key can be determined, the config map is left
+     * unchanged and the sink falls back to plain INSERT.
+     *
+     * @param config the sink config
+     * @param map the sink config map that is later turned back into a {@link ReadonlyConfig}
+     * @param catalogTable the table being processed
+     * @return the (possibly rebuilt) catalog table
+     */
+    private CatalogTable applyFallbackPrimaryKeys(
+            ReadonlyConfig config, Map<String, String> map, CatalogTable catalogTable) {
+        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
+            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+                map.put(
+                        JdbcSinkOptions.PRIMARY_KEYS.key(),
+                        String.join(",", primaryKey.getColumnNames()));
+            } else {
+                Optional<ConstraintKey> keyOptional =
+                        catalogTable.getTableSchema().getConstraintKeys().stream()
+                                .filter(
+                                        key ->
+                                                ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                        key.getConstraintType()))
+                                .findFirst();
+                keyOptional.ifPresent(
+                        constraintKey ->
+                                map.put(
+                                        JdbcSinkOptions.PRIMARY_KEYS.key(),
+                                        constraintKey.getColumnNames().stream()
+                                                .map(
+                                                        ConstraintKey.ConstraintKeyColumn
+                                                                ::getColumnName)
+                                                .collect(Collectors.joining(","))));
+            }
+            return catalogTable;
+        }
+        return applyPrimaryKeys(map, catalogTable, config.get(JdbcSinkOptions.PRIMARY_KEYS));
+    }
+
+    /**
+     * Validates that each resolved primary key column is a non-empty plain identifier that does not
+     * contain a comma, so it can be safely comma-joined into {@code PRIMARY_KEYS} and used in
+     * generated SQL.
+     *
+     * @param primaryKeys the resolved key columns
+     * @param tableName the table being processed, used in the error message
+     * @throws JdbcConnectorException when a column name is blank or contains a comma
+     */
+    private void validatePrimaryKeyColumns(List<String> primaryKeys, String tableName) {
+        for (String key : primaryKeys) {
+            if (StringUtils.isBlank(key)) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                        String.format(
+                                "Resolved primary key column for table '%s' is empty.", tableName));
+            }
+            if (key.contains(",")) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                        String.format(
+                                "Resolved primary key column '%s' for table '%s' must not contain a comma.",
+                                key, tableName));
+            }
+        }
+    }
+
+    /**
+     * Resolves the per-table primary key mapping from {@code multi_table_config.primary_keys}.
+     *
+     * <p>Each key is a Java regular expression matched against the upstream table name using full
+     * match semantics; the first matching pattern in declaration order wins. Every pattern is
+     * compiled eagerly so an invalid expression fails fast with {@code JDBC-12} instead of
+     * surfacing lazily once a matching table is processed. An unmatched table returns {@link
+     * Optional#empty()}, leaving the fallback logic to run.
+     *
+     * @param config the sink config
+     * @param catalogTable the table being processed
+     * @return the resolved key columns, or {@link Optional#empty()} when no pattern matches
+     */
+    Optional<List<String>> resolveMultiTablePrimaryKeys(
+            ReadonlyConfig config, CatalogTable catalogTable) {
+        Map<String, Object> multiTableConfig = config.get(JdbcSinkOptions.MULTI_TABLE_CONFIG);
+        if (multiTableConfig == null || multiTableConfig.isEmpty()) {
+            return Optional.empty();
+        }
+        Object primaryKeysObj = multiTableConfig.get("primary_keys");
+        if (!(primaryKeysObj instanceof Map)) {
+            return Optional.empty();
+        }
+        LinkedHashMap<Pattern, List<String>> primaryKeyMap =
+                toCompiledPatternMap((Map<?, ?>) primaryKeysObj);
+        String tableName = catalogTable.getTableId().getTableName();
+        for (Map.Entry<Pattern, List<String>> entry : primaryKeyMap.entrySet()) {
+            if (entry.getKey().matcher(tableName).matches()) {
+                return Optional.of(
+                        expandPrimaryKeyPlaceholder(
+                                entry.getValue(), catalogTable, entry.getKey().pattern()));
+            }
+        }
+        return Optional.empty();
+    }
+
+    /**
+     * Converts the configured {@code primary_keys} map into an ordered map of compiled patterns to
+     * key-column lists. A {@link LinkedHashMap} is used so the first matching pattern in
+     * declaration order wins.
+     *
+     * @throws JdbcConnectorException when a pattern is not a valid regular expression
+     */
+    private LinkedHashMap<Pattern, List<String>> toCompiledPatternMap(Map<?, ?> primaryKeyMap) {
+        LinkedHashMap<Pattern, List<String>> ordered = new LinkedHashMap<>();
+        for (Map.Entry<?, ?> entry : primaryKeyMap.entrySet()) {
+            ordered.put(
+                    compilePattern(String.valueOf(entry.getKey())),
+                    toPrimaryKeyList(entry.getValue()));
+        }
+        return ordered;
+    }
+
+    /**
+     * Compiles a user-supplied regular expression, memoizing the result so each distinct pattern is
+     * compiled only once and reused across tables. Raises {@code JDBC-12} up front when the pattern
+     * is invalid.
+     *
+     * @throws JdbcConnectorException when the pattern is not a valid regular expression
+     */
+    Pattern compilePattern(String pattern) {
+        Pattern compiled = COMPILED_PATTERN_CACHE.get(pattern);
+        if (compiled != null) {
+            return compiled;
+        }
+        try {
+            compiled = Pattern.compile(pattern);
+        } catch (java.util.regex.PatternSyntaxException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                    String.format(
+                            "Invalid regular expression '%s' in multi_table_config.primary_keys.",
+                            pattern),
+                    e);
+        }
+        COMPILED_PATTERN_CACHE.put(pattern, compiled);
+        return compiled;
+    }
+
+    /**
+     * Converts a configured primary key value into a list of column names. A list value is used
+     * as-is; a string value is split by comma.
+     *
+     * @throws JdbcConnectorException when the value is neither a list nor a string
+     */
+    private List<String> toPrimaryKeyList(Object value) {
+        if (value instanceof List) {
+            List<String> keys = new ArrayList<>();
+            for (Object element : (List<?>) value) {
+                keys.add(String.valueOf(element));
+            }
+            return keys;
+        }
+        if (value instanceof String) {
+            String stringValue = (String) value;
+            if (StringUtils.isBlank(stringValue)) {
+                return Collections.emptyList();
+            }
+            return Arrays.stream(stringValue.split(","))
+                    .map(String::trim)
+                    .collect(Collectors.toList());
+        }
+        throw new JdbcConnectorException(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                "multi_table_config.primary_keys values must be a string or a list of strings.");
+    }
+
+    /**
+     * Expands {@code ${primary_key}} and {@code ${unique_key}} placeholders in a key-column list.
+     * Each placeholder must be a whole element and is replaced by the corresponding upstream key
+     * columns.
+     *
+     * @throws JdbcConnectorException when a placeholder is used but the upstream table has no
+     *     matching key
+     */
+    private List<String> expandPrimaryKeyPlaceholder(
+            List<String> keys, CatalogTable catalogTable, String pattern) {
+        String primaryKeyPlaceholder =
+                "${" + TablePlaceholder.REPLACE_PRIMARY_KEY.getPlaceholder() + "}";
+        String uniqueKeyPlaceholder =
+                "${" + TablePlaceholder.REPLACE_UNIQUE_KEY.getPlaceholder() + "}";
+        List<String> primaryKeyColumns = getPrimaryKeyColumns(catalogTable);
+        List<String> uniqueKeyColumns = getUniqueKeyColumns(catalogTable);
+        List<String> resolved = new ArrayList<>();
+        for (String key : keys) {
+            if (primaryKeyPlaceholder.equals(key)) {
+                if (primaryKeyColumns.isEmpty()) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                            String.format(
+                                    "Table '%s' matched pattern '%s' in multi_table_config.primary_keys "
+                                            + "which uses '${primary_key}', but the upstream table has no primary key.",
+                                    catalogTable.getTableId().getTableName(), pattern));
+                }
+                resolved.addAll(primaryKeyColumns);
+            } else if (uniqueKeyPlaceholder.equals(key)) {
+                if (uniqueKeyColumns.isEmpty()) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                            String.format(
+                                    "Table '%s' matched pattern '%s' in multi_table_config.primary_keys "
+                                            + "which uses '${unique_key}', but the upstream table has no unique key.",
+                                    catalogTable.getTableId().getTableName(), pattern));
+                }
+                resolved.addAll(uniqueKeyColumns);
+            } else {
+                resolved.add(key);
+            }
+        }
+        return resolved;
+    }
+
+    /**
+     * Returns the upstream primary key column names, or an empty list when there is no primary key.
+     */
+    private List<String> getPrimaryKeyColumns(CatalogTable catalogTable) {
+        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+        if (primaryKey == null || CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+            return Collections.emptyList();
+        }
+        return new ArrayList<>(primaryKey.getColumnNames());
+    }
+
+    /**
+     * Returns the first upstream unique key column names, or an empty list when there is no unique
+     * key.
+     */
+    private List<String> getUniqueKeyColumns(CatalogTable catalogTable) {
+        Optional<ConstraintKey> keyOptional =
+                catalogTable.getTableSchema().getConstraintKeys().stream()
+                        .filter(
+                                key ->
+                                        ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                key.getConstraintType()))
+                        .findFirst();
+        return keyOptional
+                .map(
+                        constraintKey ->
+                                constraintKey.getColumnNames().stream()
+                                        .map(ConstraintKey.ConstraintKeyColumn::getColumnName)
+                                        .collect(Collectors.toList()))
+                .orElseGet(Collections::emptyList);
+    }
+
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
@@ -220,6 +487,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
+                        JdbcSinkOptions.MULTI_TABLE_CONFIG,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,

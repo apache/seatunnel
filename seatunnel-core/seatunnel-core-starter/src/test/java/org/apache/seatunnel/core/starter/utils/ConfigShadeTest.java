@@ -436,6 +436,37 @@ public class ConfigShadeTest {
                 token, encryptedConfig.getConfigList("sink").get(0).getString("token"));
     }
 
+    @Test
+    public void testDecryptPreservesSpecialCharacterKeys() {
+        Config input =
+                ConfigFactory.parseString(
+                        "source { FakeSource { plugin_output = \"fake\" } }\n"
+                                + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\", "
+                                + "username = \"u\", password = \"p\", "
+                                + "multi-table_config { primary_keys { "
+                                + "\"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"], "
+                                + "\"^t_tyuen_txn_.*$\" = [\"id_txn_ctrl\", \"DATA_SOURCE\"] "
+                                + "} } } }");
+
+        Config decrypted = ConfigShadeUtils.decryptConfig(input);
+
+        Map<String, Object> primaryKeys =
+                decrypted
+                        .getConfigList("sink")
+                        .get(0)
+                        .getConfig("multi-table_config")
+                        .getConfig("primary_keys")
+                        .root()
+                        .unwrapped();
+
+        Assertions.assertTrue(primaryKeys.containsKey("^t_nova_.*$"));
+        Assertions.assertTrue(primaryKeys.containsKey("^t_tyuen_txn_.*$"));
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"), primaryKeys.get("^t_nova_.*$"));
+        Assertions.assertEquals(
+                Arrays.asList("id_txn_ctrl", "DATA_SOURCE"), primaryKeys.get("^t_tyuen_txn_.*$"));
+    }
+
     public static class ConfigShadeWithProps implements ConfigShade {
 
         private String suffix;
