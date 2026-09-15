@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.CreateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventHandler;
@@ -335,14 +336,28 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 String tableId = event.tablePath().toString();
                 SeaTunnelRowType currentRowType = rowTypeMap.get(tableId);
                 if (currentRowType == null) {
-                    log.warn(
-                            "Ignore schema change event for unknown table {}, current table ids: {}",
-                            tableId,
-                            rowTypeMap.keySet());
-                    return;
+                    if (event instanceof CreateTableEvent) {
+                        CreateTableEvent createTableEvent = (CreateTableEvent) event;
+                        if (createTableEvent.getChangeAfter() == null) {
+                            throw new SeaTunnelEngineException(
+                                    "CreateTableEvent changeAfter cannot be null for newly added table "
+                                            + tableId);
+                        }
+                        // A create event establishes the row type before its first data row reaches
+                        // metrics and flow control, which both require the physical field types.
+                        rowTypeMap.put(
+                                tableId, createTableEvent.getChangeAfter().getSeaTunnelRowType());
+                    } else {
+                        log.warn(
+                                "Ignore schema change event for unknown table {}, current table ids: {}",
+                                tableId,
+                                rowTypeMap.keySet());
+                        return;
+                    }
+                } else {
+                    rowTypeMap.put(
+                            tableId, dataTypeChangeEventHandler.reset(currentRowType).apply(event));
                 }
-                rowTypeMap.put(
-                        tableId, dataTypeChangeEventHandler.reset(currentRowType).apply(event));
             } else {
                 throw new SeaTunnelEngineException(
                         "Unsupported row type: " + rowType.getClass().getName());
