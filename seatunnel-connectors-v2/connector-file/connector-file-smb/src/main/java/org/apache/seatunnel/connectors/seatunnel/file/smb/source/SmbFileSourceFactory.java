@@ -48,9 +48,9 @@ public class SmbFileSourceFactory implements TableSourceFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .exclusive(SmbFileSourceOptions.TABLE_CONFIGS, SmbFileSourceOptions.FILE_PATH)
-                .required(SmbFileSourceOptions.SMB_HOST)
-                .required(SmbFileSourceOptions.SMB_USER)
-                .required(SmbFileSourceOptions.SMB_SHARE)
+                .optional(SmbFileSourceOptions.SMB_HOST)
+                .optional(SmbFileSourceOptions.SMB_USER)
+                .optional(SmbFileSourceOptions.SMB_SHARE)
                 .optional(SmbFileSourceOptions.SMB_PORT)
                 .optional(SmbFileSourceOptions.SMB_PASSWORD)
                 .optional(SmbFileSourceOptions.SMB_DOMAIN)

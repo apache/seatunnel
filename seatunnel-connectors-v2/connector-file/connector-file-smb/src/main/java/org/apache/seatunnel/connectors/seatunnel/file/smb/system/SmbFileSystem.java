@@ -45,7 +45,6 @@ import com.hierynomus.smbj.share.File;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.URI;
 import java.util.ArrayList;
@@ -113,19 +112,20 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
         return uri;
     }
 
-    private DiskShare connectShare() throws IOException {
+    SmbConnection openConnection() throws IOException {
         try {
             Connection connection = client.connect(host, port);
             AuthenticationContext ac =
                     new AuthenticationContext(user, password.toCharArray(), domain);
             Session session = connection.authenticate(ac);
-            return (DiskShare) session.connectShare(share);
+            DiskShare diskShare = (DiskShare) session.connectShare(share);
+            return new SmbConnection(connection, session, diskShare);
         } catch (Exception e) {
             throw new IOException("Failed to connect to SMB share: " + share, e);
         }
     }
 
-    private String toSmbPath(Path path) {
+    String toSmbPath(Path path) {
         String pathStr = path.toUri().getPath();
         if (pathStr.startsWith("/")) {
             pathStr = pathStr.substring(1);
@@ -143,21 +143,21 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
     @Override
     public FSDataInputStream open(Path f, int bufferSize) throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
             String smbPath = toSmbPath(f);
             File smbFile =
-                    diskShare.openFile(
-                            smbPath,
-                            EnumSet.of(AccessMask.GENERIC_READ),
-                            null,
-                            SMB2ShareAccess.ALL,
-                            SMB2CreateDisposition.FILE_OPEN,
-                            null);
-            InputStream is = smbFile.getInputStream();
-            return new FSDataInputStream(new SmbInputStream(is, smbFile, diskShare, statistics));
+                    conn.getDiskShare()
+                            .openFile(
+                                    smbPath,
+                                    EnumSet.of(AccessMask.GENERIC_READ),
+                                    null,
+                                    SMB2ShareAccess.ALL,
+                                    SMB2CreateDisposition.FILE_OPEN,
+                                    null);
+            return new FSDataInputStream(new SmbInputStream(smbFile, conn, statistics));
         } catch (Exception e) {
-            closeDiskShare(diskShare);
+            closeQuietly(conn);
             throw new IOException("Failed to open file: " + f, e);
         }
     }
@@ -172,8 +172,9 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
             long blockSize,
             Progressable progress)
             throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
+            DiskShare diskShare = conn.getDiskShare();
             String smbPath = toSmbPath(f);
 
             Path parent = f.getParent();
@@ -202,16 +203,19 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
                     try {
                         super.close();
                     } finally {
-                        smbFile.close();
-                        closeDiskShare(diskShare);
+                        try {
+                            smbFile.close();
+                        } finally {
+                            conn.close();
+                        }
                     }
                 }
             };
         } catch (IOException e) {
-            closeDiskShare(diskShare);
+            closeQuietly(conn);
             throw e;
         } catch (Exception e) {
-            closeDiskShare(diskShare);
+            closeQuietly(conn);
             throw new IOException("Failed to create file: " + f, e);
         }
     }
@@ -224,8 +228,9 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
     @Override
     public boolean rename(Path src, Path dst) throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
+            DiskShare diskShare = conn.getDiskShare();
             String srcPath = toSmbPath(src);
             String dstPath = toSmbPath(dst);
 
@@ -271,21 +276,22 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
         } catch (Exception e) {
             throw new IOException("Failed to rename " + src + " to " + dst, e);
         } finally {
-            closeDiskShare(diskShare);
+            conn.close();
         }
     }
 
     @Override
     public boolean delete(Path f, boolean recursive) throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
+            DiskShare diskShare = conn.getDiskShare();
             String smbPath = toSmbPath(f);
             if (!fileExists(diskShare, smbPath)) {
                 return false;
             }
             return delete(diskShare, smbPath, recursive);
         } finally {
-            closeDiskShare(diskShare);
+            conn.close();
         }
     }
 
@@ -322,8 +328,9 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
     @Override
     public FileStatus[] listStatus(Path f) throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
+            DiskShare diskShare = conn.getDiskShare();
             String smbPath = toSmbPath(f);
             if (!fileExists(diskShare, smbPath)) {
                 throw new FileNotFoundException("Path does not exist: " + f);
@@ -351,7 +358,7 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
             }
             return result.toArray(new FileStatus[0]);
         } finally {
-            closeDiskShare(diskShare);
+            conn.close();
         }
     }
 
@@ -365,12 +372,12 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
     @Override
     public boolean mkdirs(Path f, FsPermission permission) throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
-            mkdirs(diskShare, f);
+            mkdirs(conn.getDiskShare(), f);
             return true;
         } finally {
-            closeDiskShare(diskShare);
+            conn.close();
         }
     }
 
@@ -394,8 +401,9 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
     @Override
     public FileStatus getFileStatus(Path f) throws IOException {
-        DiskShare diskShare = connectShare();
+        SmbConnection conn = openConnection();
         try {
+            DiskShare diskShare = conn.getDiskShare();
             String smbPath = toSmbPath(f);
             if (smbPath.isEmpty()) {
                 return new FileStatus(
@@ -412,24 +420,25 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
             FileAllInformation info = diskShare.getFileInformation(smbPath);
             return toFileStatus(info, f);
         } finally {
-            closeDiskShare(diskShare);
+            conn.close();
         }
     }
 
     @Override
     public FileStatusListingSession openFileStatusListingSession() throws IOException {
-        return new SmbListingSession(connectShare());
+        return new SmbListingSession(openConnection());
     }
 
     private final class SmbListingSession implements FileStatusListingSession {
-        private final DiskShare diskShare;
+        private final SmbConnection conn;
 
-        private SmbListingSession(DiskShare diskShare) {
-            this.diskShare = diskShare;
+        private SmbListingSession(SmbConnection conn) {
+            this.conn = conn;
         }
 
         @Override
         public FileStatus getFileStatus(Path path) throws IOException {
+            DiskShare diskShare = conn.getDiskShare();
             String smbPath = toSmbPath(path);
             if (smbPath.isEmpty()) {
                 return new FileStatus(
@@ -449,6 +458,7 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
         @Override
         public void list(Path directory, FileStatusConsumer consumer) throws IOException {
+            DiskShare diskShare = conn.getDiskShare();
             String smbPath = toSmbPath(directory);
             List<FileIdBothDirectoryInformation> children = diskShare.list(smbPath);
             for (FileIdBothDirectoryInformation child : children) {
@@ -463,7 +473,7 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
         @Override
         public void close() throws IOException {
-            closeDiskShare(diskShare);
+            conn.close();
         }
     }
 
@@ -528,10 +538,10 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
                 path.makeQualified(getUri(), getWorkingDirectory()));
     }
 
-    private void closeDiskShare(DiskShare diskShare) {
-        if (diskShare != null) {
+    private void closeQuietly(SmbConnection conn) {
+        if (conn != null) {
             try {
-                diskShare.close();
+                conn.close();
             } catch (Exception ignored) {
             }
         }

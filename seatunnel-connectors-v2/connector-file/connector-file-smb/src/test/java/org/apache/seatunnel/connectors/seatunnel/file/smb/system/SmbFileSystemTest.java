@@ -104,4 +104,34 @@ class SmbFileSystemTest {
         fs.initialize(URI.create("smb://myhost:4455"), conf);
         Assertions.assertEquals(URI.create("smb://myhost:4455"), fs.getUri());
     }
+
+    @Test
+    void toSmbPathShouldConvertSlashes() throws Exception {
+        SmbFileSystem fs = initFs();
+        String result = fs.toSmbPath(new Path("/data/subdir/file.txt"));
+        Assertions.assertEquals("data\\subdir\\file.txt", result);
+    }
+
+    @Test
+    void toSmbPathShouldHandleRootPath() throws Exception {
+        SmbFileSystem fs = initFs();
+        String result = fs.toSmbPath(new Path("/"));
+        Assertions.assertEquals("", result);
+    }
+
+    @Test
+    void smbConnectionCloseHandlesNulls() throws Exception {
+        SmbConnection conn = new SmbConnection(null, null, null);
+        Assertions.assertDoesNotThrow(conn::close);
+    }
+
+    private SmbFileSystem initFs() throws Exception {
+        SmbFileSystem fs = new SmbFileSystem();
+        Configuration conf = new Configuration();
+        conf.set(SmbFileSystem.FS_SMB_HOST, "myhost");
+        conf.set(SmbFileSystem.FS_SMB_USER, "user");
+        conf.set(SmbFileSystem.FS_SMB_SHARE, "data");
+        fs.initialize(URI.create("smb://myhost"), conf);
+        return fs;
+    }
 }

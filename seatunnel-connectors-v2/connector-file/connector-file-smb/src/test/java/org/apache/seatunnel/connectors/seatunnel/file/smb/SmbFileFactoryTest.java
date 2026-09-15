@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.smb.config.SmbConf;
+import org.apache.seatunnel.connectors.seatunnel.file.smb.config.SmbFileSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.smb.sink.SmbFileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.smb.source.SmbFileSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.smb.system.SmbFileSystem;
@@ -73,6 +74,25 @@ class SmbFileFactoryTest {
                 optionRule
                         .getOptionalOptions()
                         .contains(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL));
+    }
+
+    @Test
+    void connectionParamsAreOptional() {
+        OptionRule optionRule = (new SmbFileSourceFactory()).optionRule();
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(SmbFileSourceOptions.SMB_HOST));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(SmbFileSourceOptions.SMB_USER));
+        Assertions.assertTrue(
+                optionRule.getOptionalOptions().contains(SmbFileSourceOptions.SMB_SHARE));
+    }
+
+    @Test
+    void tablesConfigsModeValidation() {
+        OptionRule optionRule = (new SmbFileSourceFactory()).optionRule();
+        Map<String, Object> config = new HashMap<>();
+        config.put("tables_configs", new java.util.ArrayList<>());
+        Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
     }
 
     @Test

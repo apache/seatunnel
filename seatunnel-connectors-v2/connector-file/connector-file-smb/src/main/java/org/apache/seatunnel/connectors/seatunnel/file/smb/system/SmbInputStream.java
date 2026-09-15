@@ -20,46 +20,47 @@ package org.apache.seatunnel.connectors.seatunnel.file.smb.system;
 import org.apache.hadoop.fs.FSInputStream;
 import org.apache.hadoop.fs.FileSystem;
 
-import com.hierynomus.smbj.share.DiskShare;
 import com.hierynomus.smbj.share.File;
 
 import java.io.IOException;
-import java.io.InputStream;
 
 public class SmbInputStream extends FSInputStream {
 
-    private InputStream wrappedStream;
-    private File smbFile;
-    private DiskShare diskShare;
-    private FileSystem.Statistics stats;
+    private final File smbFile;
+    private final SmbConnection smbConnection;
+    private final FileSystem.Statistics stats;
     private boolean closed;
     private long pos;
 
-    SmbInputStream(
-            InputStream stream, File smbFile, DiskShare diskShare, FileSystem.Statistics stats) {
-        if (stream == null) {
-            throw new IllegalArgumentException("Null InputStream");
+    SmbInputStream(File smbFile, SmbConnection smbConnection, FileSystem.Statistics stats) {
+        if (smbFile == null) {
+            throw new IllegalArgumentException("Null SMB File");
         }
-        this.wrappedStream = stream;
         this.smbFile = smbFile;
-        this.diskShare = diskShare;
+        this.smbConnection = smbConnection;
         this.stats = stats;
         this.pos = 0;
         this.closed = false;
     }
 
     @Override
-    public void seek(long position) throws IOException {
-        throw new IOException("Seek not supported");
+    public synchronized void seek(long position) throws IOException {
+        if (closed) {
+            throw new IOException("Stream closed");
+        }
+        if (position < 0) {
+            throw new IOException("Negative seek position: " + position);
+        }
+        this.pos = position;
     }
 
     @Override
-    public boolean seekToNewSource(long targetPos) throws IOException {
-        throw new IOException("Seek not supported");
+    public boolean seekToNewSource(long targetPos) {
+        return false;
     }
 
     @Override
-    public long getPos() throws IOException {
+    public long getPos() {
         return pos;
     }
 
@@ -68,14 +69,16 @@ public class SmbInputStream extends FSInputStream {
         if (closed) {
             throw new IOException("Stream closed");
         }
-        int byteRead = wrappedStream.read();
-        if (byteRead >= 0) {
-            pos++;
+        byte[] buf = new byte[1];
+        int result = smbFile.read(buf, pos);
+        if (result <= 0) {
+            return -1;
         }
-        if (stats != null && byteRead >= 0) {
+        pos++;
+        if (stats != null) {
             stats.incrementBytesRead(1);
         }
-        return byteRead;
+        return buf[0] & 0xFF;
     }
 
     @Override
@@ -83,11 +86,17 @@ public class SmbInputStream extends FSInputStream {
         if (closed) {
             throw new IOException("Stream closed");
         }
-        int result = wrappedStream.read(buf, off, len);
-        if (result > 0) {
-            pos += result;
+        if (len == 0) {
+            return 0;
         }
-        if (stats != null && result > 0) {
+        byte[] tmp = new byte[len];
+        int result = smbFile.read(tmp, pos);
+        if (result <= 0) {
+            return -1;
+        }
+        System.arraycopy(tmp, 0, buf, off, result);
+        pos += result;
+        if (stats != null) {
             stats.incrementBytesRead(result);
         }
         return result;
@@ -98,35 +107,29 @@ public class SmbInputStream extends FSInputStream {
         if (closed) {
             return;
         }
+        closed = true;
         IOException closeFailure = null;
         try {
-            wrappedStream.close();
             super.close();
         } catch (IOException e) {
             closeFailure = e;
-        } finally {
-            closed = true;
-            try {
-                if (smbFile != null) {
-                    smbFile.close();
-                }
-            } catch (Exception e) {
-                if (closeFailure == null) {
-                    closeFailure = new IOException(e);
-                } else {
-                    closeFailure.addSuppressed(e);
-                }
+        }
+        try {
+            smbFile.close();
+        } catch (Exception e) {
+            if (closeFailure == null) {
+                closeFailure = new IOException(e);
+            } else {
+                closeFailure.addSuppressed(e);
             }
-            try {
-                if (diskShare != null) {
-                    diskShare.close();
-                }
-            } catch (Exception e) {
-                if (closeFailure == null) {
-                    closeFailure = new IOException(e);
-                } else {
-                    closeFailure.addSuppressed(e);
-                }
+        }
+        try {
+            smbConnection.close();
+        } catch (Exception e) {
+            if (closeFailure == null) {
+                closeFailure = new IOException(e);
+            } else {
+                closeFailure.addSuppressed(e);
             }
         }
         if (closeFailure != null) {
