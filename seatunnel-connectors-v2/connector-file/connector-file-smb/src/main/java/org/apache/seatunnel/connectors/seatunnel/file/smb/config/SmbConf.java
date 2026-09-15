@@ -44,17 +44,34 @@ public class SmbConf extends HadoopConf {
 
     public static HadoopConf buildWithConfig(ReadonlyConfig config) {
         String host = config.get(SmbFileBaseOptions.SMB_HOST);
+        String user = config.get(SmbFileBaseOptions.SMB_USER);
+        String share = config.get(SmbFileBaseOptions.SMB_SHARE);
+        if (host == null || host.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "SMB 'host' is required but was not provided. "
+                            + "Please set the 'host' option in your connector configuration.");
+        }
+        if (user == null || user.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "SMB 'user' is required but was not provided. "
+                            + "Please set the 'user' option in your connector configuration.");
+        }
+        if (share == null || share.isEmpty()) {
+            throw new IllegalArgumentException(
+                    "SMB 'share' is required but was not provided. "
+                            + "Please set the 'share' option in your connector configuration.");
+        }
         int port = config.get(SmbFileBaseOptions.SMB_PORT);
         String defaultFS = String.format("smb://%s:%s", host, port);
         HadoopConf hadoopConf = new SmbConf(defaultFS);
         HashMap<String, String> smbOptions = new HashMap<>();
         smbOptions.put(SmbFileSystem.FS_SMB_HOST, host);
         smbOptions.put(SmbFileSystem.FS_SMB_PORT, String.valueOf(port));
-        smbOptions.put(SmbFileSystem.FS_SMB_USER, config.get(SmbFileBaseOptions.SMB_USER));
+        smbOptions.put(SmbFileSystem.FS_SMB_USER, user);
         config.getOptional(SmbFileBaseOptions.SMB_PASSWORD)
                 .ifPresent(password -> smbOptions.put(SmbFileSystem.FS_SMB_PASSWORD, password));
         smbOptions.put(SmbFileSystem.FS_SMB_DOMAIN, config.get(SmbFileBaseOptions.SMB_DOMAIN));
-        smbOptions.put(SmbFileSystem.FS_SMB_SHARE, config.get(SmbFileBaseOptions.SMB_SHARE));
+        smbOptions.put(SmbFileSystem.FS_SMB_SHARE, share);
         hadoopConf.setExtraOptions(smbOptions);
         return hadoopConf;
     }
