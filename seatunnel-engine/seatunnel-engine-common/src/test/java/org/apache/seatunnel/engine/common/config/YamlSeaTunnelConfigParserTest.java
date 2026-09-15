@@ -85,6 +85,29 @@ public class YamlSeaTunnelConfigParserTest {
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
                 1000, config.getEngineConfig().getCoordinatorServiceConfig().getMaxThreadNum());
+        Assertions.assertEquals(8, config.getEngineConfig().getMaxPromotedCooperativeWorkers());
+        Assertions.assertEquals(
+                4, config.getEngineConfig().getMaxPromotedCooperativeWorkersPerJob());
+    }
+
+    @Test
+    public void testPromotedCooperativeWorkerDefaultsAreUnlimited() {
+        EngineConfig engineConfig = new EngineConfig();
+
+        Assertions.assertEquals(0, engineConfig.getMaxPromotedCooperativeWorkers());
+        Assertions.assertEquals(0, engineConfig.getMaxPromotedCooperativeWorkersPerJob());
+    }
+
+    @Test
+    public void testPromotedCooperativeWorkerLimitsRejectNegativeValues() {
+        EngineConfig engineConfig = new EngineConfig();
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> engineConfig.setMaxPromotedCooperativeWorkers(-1));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> engineConfig.setMaxPromotedCooperativeWorkersPerJob(-1));
     }
 
     @Test

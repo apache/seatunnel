@@ -85,6 +85,15 @@ public class EngineConfig {
 
     private int timerFlushPoolSize =
             ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.defaultValue();
+
+    private int maxPromotedCooperativeWorkers =
+            ServerConfigOptions.WorkerServerConfigOptions.MAX_PROMOTED_COOPERATIVE_WORKERS
+                    .defaultValue();
+
+    private int maxPromotedCooperativeWorkersPerJob =
+            ServerConfigOptions.WorkerServerConfigOptions.MAX_PROMOTED_COOPERATIVE_WORKERS_PER_JOB
+                    .defaultValue();
+
     private int historyJobExpireMinutes =
             ServerConfigOptions.MasterServerConfigOptions.HISTORY_JOB_EXPIRE_MINUTES.defaultValue();
 
@@ -228,6 +237,27 @@ public class EngineConfig {
                 ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE.key()
                         + " must be > 0");
         this.timerFlushPoolSize = timerFlushPoolSize;
+    }
+
+    public void setMaxPromotedCooperativeWorkers(int maxPromotedCooperativeWorkers) {
+        if (maxPromotedCooperativeWorkers < 0) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.WorkerServerConfigOptions.MAX_PROMOTED_COOPERATIVE_WORKERS
+                                    .key()
+                            + " must be >= 0");
+        }
+        this.maxPromotedCooperativeWorkers = maxPromotedCooperativeWorkers;
+    }
+
+    public void setMaxPromotedCooperativeWorkersPerJob(int maxPromotedCooperativeWorkersPerJob) {
+        if (maxPromotedCooperativeWorkersPerJob < 0) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.WorkerServerConfigOptions
+                                    .MAX_PROMOTED_COOPERATIVE_WORKERS_PER_JOB
+                                    .key()
+                            + " must be >= 0");
+        }
+        this.maxPromotedCooperativeWorkersPerJob = maxPromotedCooperativeWorkersPerJob;
     }
 
     public void setStainTraceSampleRate(int stainTraceSampleRate) {

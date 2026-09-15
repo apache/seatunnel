@@ -213,6 +213,32 @@ job-metrics-partition-count: 4
 在高并发竞争的情况下，增加分区数量可能会提高并行度；但如果设置过大，会引入额外的分布与合并开销，从而降低整体性能。
 分区数量应在作业启动前进行配置。如果在作业已启动后更改，可能导致指标键不匹配，因此建议在修改此选项后重启 SeaTunnel。
 
+### 4.9 协作线程晋升预算（该参数在Master节点无效）
+
+开启线程共享（`task_execution_thread_share_mode` 为 `ALL` 或 `PART`）后，多个任务共享一个协作 worker 线程。如果某次任务调用超过调用计时器允许的时间，该 worker 会被晋升：它继续独占执行这个慢任务，同时新建一个 worker 继续处理其余任务。因此每次晋升都会增加一个线程，节点上的线程数会随着慢调用的数量增长，而不是随着 slot 数量增长。
+
+**max-promoted-cooperative-workers**
+
+该 Worker 节点最多可以为慢任务独占的协作 worker 线程数量。默认值 `0` 表示不限制，与之前的行为一致。
+
+**max-promoted-cooperative-workers-per-job**
+
+单个作业在该节点上最多可以占用的晋升协作 worker 线程数量，避免一个作业占满整个预算。默认值 `0` 表示不限制。
+
+预算耗尽时不会丢弃晋升请求：慢任务继续执行，晋升会按照有界退避策略重试。
+
+该预算限制的是晋升次数，而不是共享队列的活性。如果晋升被拒绝后没有任何 worker 能够从队列中取任务（所有 worker 要么已被晋升，要么阻塞在任务调用中），仍然会新建一个 worker。因此对于调用会长时间阻塞的负载，每个阻塞调用仍然对应一个 worker，这正是保证排队的 source、sink 和 coordinator 任务能够启动的前提；预算消除的是每个慢调用过去会永久增加的那个线程。
+
+示例：
+
+```yaml
+seatunnel:
+  engine:
+    task_execution_thread_share_mode: ALL
+    max-promoted-cooperative-workers: 16
+    max-promoted-cooperative-workers-per-job: 4
+```
+
 ## 5. 配置 SeaTunnel Engine 网络服务
 
 所有 SeaTunnel Engine 网络相关的配置都在 `hazelcast.yaml` 文件中.
