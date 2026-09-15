@@ -26,12 +26,10 @@ import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 public class SeaTunnelSpark {
 
     public static void main(String[] args) throws CommandException {
+        EngineType engineType = SparkEngineTypeResolver.resolve();
         SparkCommandArgs sparkCommandArgs =
                 CommandLineUtils.parse(
-                        args,
-                        new SparkCommandArgs(),
-                        EngineType.SPARK3.getStarterShellName(),
-                        true);
+                        args, new SparkCommandArgs(), engineType.getStarterShellName(), true);
         SeaTunnel.run(sparkCommandArgs.buildCommand());
     }
 }
