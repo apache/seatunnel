@@ -246,6 +246,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
 
+    /** Skips reader collection on later metrics ticks while the previous report is outstanding. */
     private final AtomicBoolean cdcProgressReportInFlight = new AtomicBoolean();
 
     /** Client for managing connector packages on the server. */
@@ -1046,6 +1047,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         } catch (Exception error) {
             inFlight.set(false);
             onFailure.accept(error);
+        } catch (Error error) {
+            inFlight.set(false);
+            throw error;
         }
     }
 

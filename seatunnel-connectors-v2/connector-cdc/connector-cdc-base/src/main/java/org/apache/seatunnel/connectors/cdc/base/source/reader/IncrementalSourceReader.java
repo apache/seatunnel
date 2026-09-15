@@ -304,6 +304,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         return cdcProgressTracker.current();
     }
 
+    /**
+     * Restores the deserializer's checkpoint schema before records are consumed. Prefer catalog
+     * tables when present, fall back to legacy row types, and restore schema history independently.
+     */
     static <T> void restoreCheckpointState(
             IncrementalSplit incrementalSplit,
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
@@ -342,6 +346,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         }
     }
 
+    /**
+     * Reconstructs catalog tables from legacy row types without inventing table identities. A
+     * single-table row type is usable only when the split identifies exactly one table.
+     */
     private static List<CatalogTable> restoreLegacyCheckpointTables(
             IncrementalSplit incrementalSplit) {
         if (incrementalSplit.getCheckpointDataType() instanceof MultipleRowType) {
@@ -369,6 +377,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                         (SeaTunnelRowType) incrementalSplit.getCheckpointDataType()));
     }
 
+    /** Preserves the original table path when converting a legacy checkpoint row type. */
     private static CatalogTable toLegacyCheckpointTable(
             String tableId, org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType) {
         TablePath tablePath = TablePath.of(tableId);
@@ -383,6 +392,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 rowType);
     }
 
+    /**
+     * Returns table identities for restore logging without including checkpoint schema payloads.
+     */
     private static List<String> toCheckpointTablePaths(List<CatalogTable> checkpointTables) {
         return checkpointTables.stream()
                 .map(table -> table.getTablePath().getFullName())

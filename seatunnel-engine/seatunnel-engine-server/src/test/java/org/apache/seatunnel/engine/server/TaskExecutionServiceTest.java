@@ -702,6 +702,15 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     @Test
     public void testStaleTaskDoneCleansOnlyOwnedGenerationResources() throws Exception {
+        assertStaleGenerationCleanup(false);
+    }
+
+    @Test
+    public void testStaleCancellationCleansOnlyOwnedGenerationResources() throws Exception {
+        assertStaleGenerationCleanup(true);
+    }
+
+    private void assertStaleGenerationCleanup(boolean cancel) throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation location = newTaskGroupLocation();
         Task oldTask = new TestTask(new AtomicBoolean(true), 0, true);
@@ -714,7 +723,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 new TaskGroupDefaultImpl(location, "new-generation", Lists.newArrayList(newTask));
         TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
         TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
-        CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<Void> oldCancellationFuture = Mockito.spy(new CompletableFuture<>());
         CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
         CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
         TaskExecutionService.TaskGroupExecutionTracker oldTracker =
@@ -750,7 +759,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 getField(taskExecutionService, "taskAsyncFunctionFuture");
         ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
                 timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
-        executionContexts.put(location, newContext);
+        executionContexts.put(location, cancel ? oldContext : newContext);
         cancellationFutures.put(oldContext, oldCancellationFuture);
         cancellationFutures.put(newContext, newCancellationFuture);
         asyncFutures.put(oldContext, oldAsyncFutures);
@@ -759,7 +768,21 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         timerFlushFutures.put(newContext, newTimerFlushFutures);
 
         try {
-            oldTracker.taskDone(oldTask);
+            if (cancel) {
+                // Publish the replacement after cancelTaskGroup captures the old future.
+                Mockito.doAnswer(
+                                invocation -> {
+                                    executionContexts.put(location, newContext);
+                                    return invocation.callRealMethod();
+                                })
+                        .when(oldCancellationFuture)
+                        .cancel(false);
+                taskExecutionService.cancelTaskGroup(location);
+                Assertions.assertTrue(oldCancellationFuture.isCancelled());
+                Assertions.assertFalse(oldResultFuture.isDone());
+            } else {
+                oldTracker.taskDone(oldTask);
+            }
 
             Assertions.assertSame(newContext, executionContexts.get(location));
             List<CdcProgressEnvelope<?>> reports =
@@ -771,21 +794,34 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
             assertEquals(1L, oldContext.getExecutionId());
             assertEquals(2L, newContext.getExecutionId());
-            Assertions.assertNull(oldContext.getClassLoaders());
+            if (cancel) {
+                Assertions.assertNotNull(oldContext.getClassLoaders());
+                Assertions.assertSame(oldCancellationFuture, cancellationFutures.get(oldContext));
+            } else {
+                Assertions.assertNull(oldContext.getClassLoaders());
+                Assertions.assertFalse(cancellationFutures.containsKey(oldContext));
+            }
             Assertions.assertNotNull(newContext.getClassLoaders());
             Assertions.assertTrue(oldAsyncFuture.isCancelled());
             Mockito.verify(oldTimerFlushFuture).cancel(false);
-            Assertions.assertFalse(newCancellationFuture.isCancelled());
-            Assertions.assertFalse(cancellationFutures.containsKey(oldContext));
+            Assertions.assertFalse(newCancellationFuture.isDone());
             Assertions.assertSame(newCancellationFuture, cancellationFutures.get(newContext));
             Assertions.assertFalse(newAsyncFuture.isCancelled());
             Mockito.verify(newTimerFlushFuture, Mockito.never()).cancel(false);
-            assertEquals(FINISHED, oldResultFuture.get().getExecutionState());
+            if (cancel) {
+                oldTracker.taskDone(oldTask);
+            }
+            Assertions.assertSame(newContext, executionContexts.get(location));
+            assertEquals(cancel ? CANCELED : FINISHED, oldResultFuture.get().getExecutionState());
         } finally {
             executionContexts.remove(location);
+            cancellationFutures.remove(oldContext);
             cancellationFutures.remove(newContext);
+            asyncFutures.remove(oldContext);
             asyncFutures.remove(newContext);
+            timerFlushFutures.remove(oldContext);
             timerFlushFutures.remove(newContext);
+            oldAsyncFuture.cancel(true);
             newAsyncFuture.cancel(true);
         }
     }

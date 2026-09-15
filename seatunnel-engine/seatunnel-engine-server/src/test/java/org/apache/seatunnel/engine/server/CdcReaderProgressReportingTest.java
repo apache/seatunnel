@@ -19,7 +19,11 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -31,6 +35,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CdcReaderProgressReportingTest {
@@ -117,6 +122,81 @@ class CdcReaderProgressReportingTest {
                 },
                 failure::set);
         assertTrue(retried.get());
+        assertFalse(inFlight.get());
+    }
+
+    @Test
+    void synchronousFatalErrorReleasesSlotAndPropagates() {
+        AtomicBoolean inFlight = new AtomicBoolean();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        OutOfMemoryError fatal = new OutOfMemoryError("synthetic collection failure");
+        assertSame(
+                fatal,
+                assertThrows(
+                        OutOfMemoryError.class,
+                        () ->
+                                TaskExecutionService.reportCdcProgressAsync(
+                                        inFlight,
+                                        () -> {
+                                            throw fatal;
+                                        },
+                                        failure::set)));
+        assertFalse(inFlight.get());
+        assertNull(failure.get());
+        CompletableFuture<Object> next = new CompletableFuture<>();
+        TaskExecutionService.reportCdcProgressAsync(inFlight, () -> next, failure::set);
+        assertTrue(inFlight.get());
+        next.complete(null);
+        assertFalse(inFlight.get());
+    }
+
+    @Test
+    void callbackRegistrationErrorReleasesSlotAndPropagates() {
+        AtomicBoolean inFlight = new AtomicBoolean();
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        CompletionStage<?> stage = Mockito.mock(CompletionStage.class);
+        LinkageError fatal = new LinkageError("synthetic callback registration failure");
+        Mockito.doThrow(fatal).when(stage).whenComplete(Mockito.any());
+        assertSame(
+                fatal,
+                assertThrows(
+                        LinkageError.class,
+                        () ->
+                                TaskExecutionService.reportCdcProgressAsync(
+                                        inFlight, () -> stage, failure::set)));
+        assertFalse(inFlight.get());
+        assertNull(failure.get());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void synchronousFailureHandlerCanStartNextReport(boolean collectionFails) {
+        AtomicBoolean inFlight = new AtomicBoolean();
+        CompletableFuture<Object> next = new CompletableFuture<>();
+        AtomicInteger sent = new AtomicInteger();
+        TaskExecutionService.reportCdcProgressAsync(
+                inFlight,
+                () -> {
+                    IllegalStateException failure =
+                            new IllegalStateException("invocation rejected");
+                    if (collectionFails) {
+                        throw failure;
+                    }
+                    CompletableFuture<Object> failed = new CompletableFuture<>();
+                    failed.completeExceptionally(failure);
+                    return failed;
+                },
+                error ->
+                        TaskExecutionService.reportCdcProgressAsync(
+                                inFlight,
+                                () -> {
+                                    sent.incrementAndGet();
+                                    return next;
+                                },
+                                ignored -> {}));
+        assertEquals(1, sent.get());
+        assertTrue(inFlight.get());
+        next.complete(null);
         assertFalse(inFlight.get());
     }
 
