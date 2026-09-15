@@ -52,6 +52,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -510,7 +511,22 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private String getPartOfJson(String data) {
         ReadContext jsonReadContext = JsonPath.using(jsonConfiguration).parse(data);
-        return JsonUtils.toJsonString(jsonReadContext.read(JsonPath.compile(contentJson)));
+        JsonPath contentPath = JsonPath.compile(contentJson);
+        List<Object> matches = jsonReadContext.read(contentPath, List.class);
+        // jsonConfiguration carries ALWAYS_RETURN_LIST, which makes a *definite*
+        // content_field path (e.g. "$.results") come back as a synthetic
+        // single-element list wrapping the resolved value instead of the value
+        // itself - so an already-array value is returned as [[...]]. An
+        // *indefinite* path (e.g. containing "[*]") is unaffected and already
+        // yields its natural list of matches. Unwrap only the synthetic
+        // definite-path wrapper here; otherwise an array-valued content field
+        // collapses into a single malformed row in
+        // JsonDeserializationSchema#collect instead of one row per element.
+        Object content =
+                contentPath.isDefinite()
+                        ? (matches.isEmpty() ? Collections.emptyList() : matches.get(0))
+                        : matches;
+        return JsonUtils.toJsonString(content);
     }
 
     private List<List<String>> dataFlip(List<List<String>> results) {
