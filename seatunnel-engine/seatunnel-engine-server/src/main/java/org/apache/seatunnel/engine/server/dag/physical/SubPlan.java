@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -579,31 +581,50 @@ public class SubPlan {
         if (getPipelineState().ordinal() < PipelineStatus.RUNNING.ordinal()) {
             updatePipelineState(PipelineStatus.CANCELING);
         } else if (PipelineStatus.RUNNING.equals(getPipelineState())) {
-            AtomicBoolean allTaskRunning = new AtomicBoolean(true);
-            getCoordinatorVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
-            getPhysicalVertexList()
-                    .forEach(
-                            task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
-                                    allTaskRunning.set(false);
-                                    return;
-                                }
-                            });
-
             jobMaster
                     .getCheckpointManager()
                     .reportedPipelineRunning(
-                            this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
+                            this.getPipelineLocation().getPipelineId(),
+                            isCheckpointCoordinatorAlreadyStarted());
         }
         startSubPlanStateProcess();
+    }
+
+    /**
+     * Determines whether the checkpoint coordinator was already running before a master switch. An
+     * unbounded source task group can be FINISHED because the coordinator closed an idle reader,
+     * while the remaining reader task groups keep the pipeline running.
+     */
+    @VisibleForTesting
+    boolean isCheckpointCoordinatorAlreadyStarted() {
+        AtomicBoolean allTaskRunning = new AtomicBoolean(true);
+        getCoordinatorVertexList()
+                .forEach(
+                        task -> {
+                            if (!ExecutionState.RUNNING.equals(task.getExecutionState())) {
+                                allTaskRunning.set(false);
+                            }
+                        });
+
+        getPhysicalVertexList()
+                .forEach(
+                        task -> {
+                            if (!isRecoverableRunningState(task)) {
+                                allTaskRunning.set(false);
+                            }
+                        });
+        return allTaskRunning.get();
+    }
+
+    /**
+     * Keeps only intentionally closed unbounded source groups in the running-restore path; all
+     * other terminal and failed physical vertices still reset the checkpoint coordinator.
+     */
+    @VisibleForTesting
+    static boolean isRecoverableRunningState(PhysicalVertex physicalVertex) {
+        ExecutionState executionState = physicalVertex.getExecutionState();
+        return ExecutionState.RUNNING.equals(executionState)
+                || physicalVertex.isRecoverableFinishedStateForRunningPipelineRestore();
     }
 
     public List<PhysicalVertex> getPhysicalVertexList() {
