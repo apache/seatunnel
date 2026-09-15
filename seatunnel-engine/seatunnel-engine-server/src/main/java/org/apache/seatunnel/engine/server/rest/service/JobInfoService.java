@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.rest.service;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -53,6 +54,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -453,7 +455,7 @@ public class JobInfoService extends BaseService {
             throw new IllegalArgumentException("Dry-run is only supported via CLI");
         }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
-                && requestParams.get(RestConstant.JOB_ID) == null) {
+                && StringUtils.isBlank(requestParams.get(RestConstant.JOB_ID))) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
         validateCheckpointRestoreRequest(requestParams);
@@ -486,7 +488,7 @@ public class JobInfoService extends BaseService {
             throw new IllegalArgumentException("Dry-run is only supported via CLI");
         }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))
-                && requestParams.get(RestConstant.JOB_ID) == null) {
+                && StringUtils.isBlank(requestParams.get(RestConstant.JOB_ID))) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
         validateCheckpointRestoreRequest(requestParams);
@@ -521,12 +523,26 @@ public class JobInfoService extends BaseService {
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
+    /**
+     * Validates the explicit restore parameters before parsing the submitted job configuration.
+     *
+     * <p>A blank source ID is equivalent to an omitted source ID. Rejecting it here prevents the
+     * restore path from issuing a lookup for a null source after configuration parsing begins.
+     *
+     * @param requestParams REST query parameters.
+     */
     private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
         String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
         RestoreMode restoreMode =
-                restoreModeValue == null ? RestoreMode.NONE : RestoreMode.valueOf(restoreModeValue);
+                restoreModeValue == null || restoreModeValue.trim().isEmpty()
+                        ? RestoreMode.NONE
+                        : RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
         if (restoreMode.isRestore()
-                && requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null) {
+                && (requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null
+                        || requestParams
+                                .get(RestConstant.RESTORE_SOURCE_JOB_ID)
+                                .trim()
+                                .isEmpty())) {
             throw new IllegalArgumentException(
                     "restoreSourceJobId is required when restoreMode=" + restoreMode);
         }

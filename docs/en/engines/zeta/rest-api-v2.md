@@ -1348,16 +1348,31 @@ For more information about customize encryption, please refer to the documentati
 
 ### Update the tags of running node
 
-<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Because the update can only target a specific node, the current node's `ip:port` needs to be used for the update</code><code>(If the update is successful, return a success message)</code></summary>
+<details><summary><code>POST</code><code><b>/update-tags</b></code><code>Updates the tags of the current REST node with the legacy flat-map request body</code><code>(If the update is successful, return a success message)</code></summary>
 
 
 #### update node tags
 ##### Body
-If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
+`/update-tags` keeps the legacy flat `Map` contract without reserving tag names or values:
+
 ```json
 {
   "tag1": "dev_1",
-  "tag2": "dev_2"
+  "tags": {
+    "nested": "legacy-value"
+  }
+}
+```
+
+The Web UI uses `POST /update-local-member-tags` for the target-validated request format. It sends the request to its own REST origin, so open the UI from the target worker's REST address and use the member `uuid` from `/system-monitoring-information`; remote rows remain read-only and a mismatched UUID returns an error instead of updating a different node.
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {
+    "tag1": "dev_1",
+    "tag2": "dev_2"
+  }
 }
 ```
 ##### Responses
@@ -1370,7 +1385,17 @@ If the request parameter is a `Map` object, it indicates that the tags of the cu
 ```
 #### remove node tags
 ##### Body
-If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+Use an empty `tags` map with `POST /update-local-member-tags` to clear target node tags:
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {}
+}
+```
+
+An empty flat `Map` sent to `POST /update-tags` clears the current REST node:
+
 ```json
 {}
 ```
@@ -1653,6 +1678,36 @@ More information about `Telemetry` can be found in the [Telemetry](telemetry.md)
 
 </details>
 
+### Get HTTP Service Status
+
+<details>
+ <summary><code>GET</code> <code><b>/http-service/status</b></code> <code>(Return HTTP service runtime status.)</code></summary>
+
+#### Response
+
+Returns the HTTP service switches, configured ports, effective connector ports, context path, and authentication mode for the current node.
+Sensitive values such as passwords and keystore or truststore paths are not returned.
+
+#### Response Example
+
+```json
+{
+  "httpEnabled": true,
+  "httpsEnabled": false,
+  "contextPath": "/",
+  "configuredHttpPort": 5801,
+  "configuredHttpsPort": 58443,
+  "httpPort": 5801,
+  "httpsPort": 58443,
+  "dynamicPortEnabled": false,
+  "portRange": 100,
+  "basicAuthEnabled": false,
+  "mutualTlsEnabled": false
+}
+```
+
+</details>
+
 ### Get Job Checkpoint Overview
 
 <details>
@@ -1914,8 +1969,9 @@ There is no dedicated `pause`, `resume` or `delete` endpoint. Use the existing j
 | Goal                                   | How                                                                                                                                                                                                        |
 |-----------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Pause a running job (stop now, resume later) | Call [`/stop-job`](#stop-a-job) with `isStopWithSavePoint: true`. The job stops and a savepoint of its current state is persisted.                                                                       |
-| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `isStartWithSavePoint: true`, the **same** `jobId` that was stopped, and the same job config. The job restores from its latest savepoint for that `jobId`. |
+| Resume a paused job                     | Call [`/submit-job`](#submit-a-job) again with `restoreMode=SAVEPOINT`, `restoreSourceJobId=<stopped-job-id>`, and the same job config. The job restores from its latest savepoint for that source job. The legacy `isStartWithSavePoint: true` with the same `jobId` remains supported. |
 | Delete a job                            | There is no delete endpoint. Stop the job with [`/stop-job`](#stop-a-job) if it is still running. Once a job reaches a finished state, its record is removed automatically after `history-job-expire-minutes` (default 1440 minutes) elapses -- see [History Job Expiry Configuration](separated-cluster-deployment.md#44-history-job-expiry-configuration). |
 
-**Note:** `isStartWithSavePoint: true` requires `jobId` to be provided in the request; submitting
-without a `jobId` in that case fails with `Please provide jobId when start with save point.`
+**Note:** `restoreMode` requires `restoreSourceJobId`. `isStartWithSavePoint: true` remains a legacy
+shortcut and requires `jobId` to be provided in the request; submitting without a `jobId` in that
+case fails with `Please provide jobId when start with save point.`

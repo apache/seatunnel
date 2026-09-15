@@ -1324,16 +1324,31 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ### 更新运行节点的tags
 
 <details>
-<summary><code>POST</code><code><b>/update-tags</b></code><code>因为更新只能针对于某个节点，因此需要用当前节点ip:port用于更新</code><code>(如果更新成功，则返回"success"信息)</code></summary>
+<summary><code>POST</code><code><b>/update-tags</b></code><code>使用旧版扁平 map 请求体更新当前 REST 节点的 tags</code><code>(如果更新成功，则返回"success"信息)</code></summary>
 
 
 #### 更新节点tags
 ##### 请求体
-如果请求参数是`Map`对象，表示要更新当前节点的tags
+`/update-tags` 保留旧版扁平 `Map` 契约，不保留任何特殊 tag 名或 value：
+
 ```json
 {
   "tag1": "dev_1",
-  "tag2": "dev_2"
+  "tags": {
+    "nested": "legacy-value"
+  }
+}
+```
+
+Web UI 使用 `POST /update-local-member-tags` 发送带目标校验的请求。该请求会发送到 Web UI 自身的 REST 源地址，因此需要从目标 Worker 的 REST 地址打开 UI，并使用 `/system-monitoring-information` 返回的 member `uuid` 明确目标节点；远端节点保持只读，如果 `uuid` 与当前 REST 节点不一致，服务端会返回错误，避免误更新其他节点。
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {
+    "tag1": "dev_1",
+    "tag2": "dev_2"
+  }
 }
 ```
 ##### 响应
@@ -1346,7 +1361,17 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ```
 #### 移除节点tags
 ##### 请求体
-如果参数为空`Map`对象，表示要清除当前节点的tags
+使用空的 `tags` map，通过 `POST /update-local-member-tags` 清空目标节点 tags：
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {}
+}
+```
+
+将空的扁平 `Map` 发送到 `POST /update-tags`，即可清空当前 REST 节点的 tags：
+
 ```json
 {}
 ```
@@ -1625,6 +1650,36 @@ logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级�
 
 </details>
 
+### 获取 HTTP 服务状态
+
+<details>
+ <summary><code>GET</code> <code><b>/http-service/status</b></code> <code>(返回当前节点 HTTP 服务运行状态。)</code></summary>
+
+#### 响应
+
+返回当前节点 HTTP 服务开关、配置端口、实际监听端口、上下文路径和认证模式。
+接口不会返回密码、keystore 路径、truststore 路径等敏感值。
+
+#### 响应示例
+
+```json
+{
+  "httpEnabled": true,
+  "httpsEnabled": false,
+  "contextPath": "/",
+  "configuredHttpPort": 5801,
+  "configuredHttpsPort": 58443,
+  "httpPort": 5801,
+  "httpsPort": 58443,
+  "dynamicPortEnabled": false,
+  "portRange": 100,
+  "basicAuthEnabled": false,
+  "mutualTlsEnabled": false
+}
+```
+
+</details>
+
 ### 获取作业 Checkpoint 概览
 
 <details>
@@ -1882,8 +1937,8 @@ Checkpoint 信息字段：
 | 目标                       | 方法                                                                                                                                                       |
 |---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | 暂停一个正在运行的作业（先停止，之后再恢复） | 调用 [`/stop-job`](#停止作业)，并设置 `isStopWithSavePoint: true`。作业会停止运行，同时会保存一个当前状态的 savepoint。                                                                    |
-| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `isStartWithSavePoint: true`，并传入与之前停止时**相同**的 `jobId` 和相同的作业配置。作业会基于该 `jobId` 最近一次的 savepoint 恢复。                                |
+| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `restoreMode=SAVEPOINT`、`restoreSourceJobId=<stopped-job-id>` 并传入相同的作业配置。作业会基于该来源作业最近一次的 savepoint 恢复。仍支持使用相同 `jobId` 加 `isStartWithSavePoint: true` 的旧契约。                                |
 | 删除一个作业                   | 没有专门的删除接口。如果作业仍在运行，先通过 [`/stop-job`](#停止作业) 停止它；作业进入结束状态后，其记录会在 `history-job-expire-minutes`（默认 1440 分钟）到期后自动清理，参见[历史作业过期配置](separated-cluster-deployment.md#44-历史作业过期配置)。 |
 
-**注意：** 当 `isStartWithSavePoint: true` 时必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
+**注意：** 设置 `restoreMode` 时必须提供 `restoreSourceJobId`。`isStartWithSavePoint: true` 仍是旧的快捷方式，必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
 `Please provide jobId when start with save point.`
