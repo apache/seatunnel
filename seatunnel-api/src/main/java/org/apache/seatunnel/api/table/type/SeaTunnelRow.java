@@ -260,6 +260,7 @@ public final class SeaTunnelRow implements Serializable {
             case DOUBLE:
                 return getArrayNotNullSize((Double[]) v) * 8;
             case ARRAY:
+            case ROW:
                 int total = 0;
                 for (Object elem : (Object[]) v) {
                     total += getBytesForValue(elem, dataType);
@@ -287,6 +288,9 @@ public final class SeaTunnelRow implements Serializable {
         int size = 0;
         if (Objects.nonNull(v)) {
             for (Map o : (Map[]) v) {
+                if (o == null) {
+                    continue;
+                }
                 for (Map.Entry<?, ?> entry : ((Map<?, ?>) o).entrySet()) {
                     size += getBytesForValue(entry.getKey()) + getBytesForValue(entry.getValue());
                 }
