@@ -18,6 +18,7 @@
 package org.apache.seatunnel.api.env;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.options.EnvOptionRule;
 
 import org.junit.jupiter.api.Assertions;
@@ -28,5 +29,11 @@ public class EnvOptionRuleTest {
     public void testGetEnvOptionRules() throws Exception {
         OptionRule envOptionRules = new EnvOptionRule().optionRule();
         Assertions.assertNotNull(envOptionRules);
+        Assertions.assertTrue(
+                envOptionRules.getOptionalOptions().contains(EnvCommonOptions.OPENLINEAGE_ENABLED));
+        Assertions.assertTrue(
+                envOptionRules
+                        .getOptionalOptions()
+                        .contains(EnvCommonOptions.OPENLINEAGE_HEARTBEAT_MIN_INTERVAL_MS));
     }
 }

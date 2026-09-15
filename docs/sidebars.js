@@ -31,7 +31,8 @@ const sidebars = {
                     "label": "Concepts",
                     "items": [
                         "introduction/concepts/connector-v2-features",
-                        "introduction/concepts/schema-feature"
+                        "introduction/concepts/schema-feature",
+                        "introduction/concepts/lineage"
                     ]
                 }
             ]
