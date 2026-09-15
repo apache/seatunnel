@@ -26,10 +26,12 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.api.sink.SinkDataPartitioner;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportSinkDataPartition;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
@@ -42,11 +44,13 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnecto
 import org.apache.seatunnel.connectors.seatunnel.paimon.handler.PaimonSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.paimon.security.PaimonSecurityContext;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonBucketAssignerFactory;
+import org.apache.seatunnel.connectors.seatunnel.paimon.sink.bucket.PaimonFixedBucketPartitioner;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.commit.PaimonCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.paimon.sink.state.PaimonSinkState;
 
+import org.apache.paimon.table.BucketMode;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.utils.BranchManager;
@@ -68,6 +72,7 @@ public class PaimonSink
                         PaimonAggregatedCommitInfo>,
                 SupportSaveMode,
                 SupportMultiTableSink,
+                SupportSinkDataPartition<SeaTunnelRow>,
                 SupportLoadTable<Table>,
                 SupportSchemaEvolutionSink {
 
@@ -203,6 +208,18 @@ public class PaimonSink
     @Override
     public Table getLoadTable() {
         return paimonTable;
+    }
+
+    @Override
+    public Optional<SinkDataPartitioner<SeaTunnelRow>> getSinkDataPartitioner(int writerCount) {
+        if (paimonTable == null || paimonTable.bucketMode() != BucketMode.HASH_FIXED) {
+            return Optional.empty();
+        }
+        return Optional.of(
+                new PaimonFixedBucketPartitioner(
+                        catalogTable.getTableSchema().toPhysicalRowDataType(),
+                        paimonTable.schema(),
+                        writerCount));
     }
 
     @Override
