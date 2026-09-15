@@ -17,12 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.splunk;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.splunk.config.SplunkSourceParameter;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+
+import java.util.HashMap;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -46,25 +51,26 @@ public class SplunkSourceReaderTest {
 
     @Test
     public void testFailsFastWhenResponseExceedsMaxSize() throws Exception {
-        MockWebServer server = new MockWebServer();
-        server.start();
-        server.enqueue(new okhttp3.mockwebserver.MockResponse().setBody("exceeds-limit"));
+        try (MockWebServer server = new MockWebServer()) {
+            server.start();
+            server.enqueue(new MockResponse().setBody("exceeds-limit"));
 
-        java.util.HashMap<String, Object> configMap = new java.util.HashMap<>();
-        configMap.put("url", server.url("/").toString());
-        configMap.put("api_key", "Splunk test-key");
-        configMap.put("max_response_size_bytes", 5L); // Tiny limit
+            HashMap<String, Object> configMap = new HashMap<>();
+            configMap.put("url", server.url("/").toString());
+            configMap.put("api_key", "Splunk test-key");
+            configMap.put("max_response_size_bytes", 5L); // tiny limit to trigger
 
-        org.apache.seatunnel.api.configuration.ReadonlyConfig config =
-                org.apache.seatunnel.api.configuration.ReadonlyConfig.fromMap(configMap);
-        SplunkSourceParameter parameter = new SplunkSourceParameter();
-        parameter.buildWithConfig(config, "Splunk test-key");
+            ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+            SplunkSourceParameter parameter = new SplunkSourceParameter();
+            parameter.buildWithConfig(config, "Splunk test-key");
 
-        SplunkSourceReader reader = new SplunkSourceReader(parameter, null, null, null, null);
-
-        org.junit.jupiter.api.Assertions.assertThrows(
-                HttpConnectorException.class, () -> reader.executeRequest());
-
-        server.shutdown();
+            SplunkSourceReader reader = new SplunkSourceReader(parameter, null, null, null, null);
+            reader.open();
+            try {
+                Assertions.assertThrows(HttpConnectorException.class, reader::executeRequest);
+            } finally {
+                reader.close();
+            }
+        }
     }
 }
