@@ -167,6 +167,10 @@ public class GenericTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
+                builder.scale(typeDefine.getScale());
+                break;
 
             case Types.OTHER:
             case Types.ARRAY:
