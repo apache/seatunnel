@@ -183,6 +183,8 @@ sink {
 
 - 单个 `TiDB-CDC` 块可以通过 `table-names` 采集多张表，或通过 `database-name` + `table-name` 采集单张表；两种方式必须配置其一，否则任务校验失败。
 - 任务从 savepoint 恢复时：新增到 `table-names` 的表会先执行一次全量快照，再并入增量流；从 `table-names` 移除的表停止采集，其 checkpoint 位点将被丢弃，之后如果再加回来会重新执行全量快照。
+- Split 按"表 × key 区间"切分并轮询分配给 reader，因此一个 reader 通常会持有来自多张表的 split；事务组装按表隔离，多张表混布在同一个 reader 上不影响正确性。
+- 变更事件组装缓冲（pre-write/commit 暂存区，以及将拉取与写入解耦的已提交事件队列）在 reader 内部按表维护。当下游 sink 阻塞时，所有被采集的表会同时填充各自的缓冲，因此单个 reader 的最坏情况内存随采集表数线性增长——规划大规模多表作业时请据此评估 reader 内存。
 - `startup.mode = "specific"` 不是 TiDB CDC 的有效配置值，请使用 `initial`、`earliest` 或 `latest`。
 - 只有默认 TiKV 客户端设置不能满足集群需求时，才需要调整 `tikv.grpc.*` 和 `tikv.batch_*_concurrency` 参数。
 

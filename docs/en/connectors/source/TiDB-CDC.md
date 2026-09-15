@@ -183,6 +183,8 @@ sink {
 
 - A single `TiDB-CDC` block can capture multiple tables via `table-names`, or one table via `database-name` + `table-name`. Setting neither pair fails job validation.
 - When a job is restored from a savepoint, tables added to `table-names` run a fresh snapshot before joining the incremental stream. Tables removed from `table-names` stop being captured and their checkpoint positions are discarded; if such a table is added back later it runs a fresh snapshot again.
+- Splits are table key ranges assigned to readers round-robin, so a reader usually holds splits of several captured tables. Transaction assembly is isolated per table, so mixing tables on one reader does not affect correctness.
+- Change-event assembly buffers (pre-write/commit staging and the committed-event queue that decouples pulling from writing) are maintained per table inside each reader. When the downstream sink stalls, every captured table fills its own buffers at the same time, so worst-case per-reader memory grows linearly with the number of captured tables — size reader memory accordingly for wide multi-table jobs.
 - `startup.mode = "specific"` is not a valid TiDB CDC option. Use `initial`, `earliest`, or `latest`.
 - Tune `tikv.grpc.*` and `tikv.batch_*_concurrency` only when the default TiKV client settings are not enough for your cluster.
 
