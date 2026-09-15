@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 
@@ -49,6 +50,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 
 @Slf4j
 public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
@@ -212,20 +214,34 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
 
     @Override
     public CatalogTable getTable(String sqlQuery) throws SQLException {
+        return resolveQueryTable(sqlQuery).getTable();
+    }
+
+    /**
+     * The OceanBase MySQL driver cannot report prepared-statement metadata before execution, so
+     * execute the query once with the returned row count capped and reuse the single {@link
+     * ResultSetMetaData} for both the query-derived table and the single-table verification.
+     */
+    @Override
+    public QueryTableResolution resolveQueryTable(String sqlQuery) throws SQLException {
         String tableName = null;
         String databaseName = null;
         String schemaName = null;
         String catalogName = "jdbc_catalog";
+        Optional<TablePath> singlePhysicalTablePath = Optional.empty();
         TableSchema.Builder schemaBuilder = TableSchema.builder();
 
         Connection connection = getConnection(defaultUrl);
-        try (Statement statement = connection.createStatement();
-                ResultSet resultSet = statement.executeQuery(sqlQuery)) {
-            ResultSetMetaData metaData = resultSet.getMetaData();
-            tableName = metaData.getTableName(1);
-            databaseName = metaData.getCatalogName(1);
-            schemaName = metaData.getSchemaName(1);
-            catalogName = metaData.getCatalogName(1);
+        try (Statement statement = connection.createStatement()) {
+            statement.setMaxRows(1);
+            try (ResultSet resultSet = statement.executeQuery(sqlQuery)) {
+                ResultSetMetaData metaData = resultSet.getMetaData();
+                tableName = metaData.getTableName(1);
+                databaseName = metaData.getCatalogName(1);
+                schemaName = metaData.getSchemaName(1);
+                catalogName = metaData.getCatalogName(1);
+                singlePhysicalTablePath = CatalogUtils.getSinglePhysicalTablePath(metaData);
+            }
         }
         databaseName = StringUtils.defaultIfBlank(databaseName, null);
         schemaName = StringUtils.defaultIfBlank(schemaName, null);
@@ -252,13 +268,15 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 schemaBuilder.column(buildColumn(columnResultSet));
             }
         }
-        return CatalogTable.of(
-                TableIdentifier.of(catalogName, tablePath),
-                schemaBuilder.build(),
-                new HashMap<>(),
-                new ArrayList<>(),
-                "",
-                catalogName);
+        return new QueryTableResolution(
+                CatalogTable.of(
+                        TableIdentifier.of(catalogName, tablePath),
+                        schemaBuilder.build(),
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "",
+                        catalogName),
+                singlePhysicalTablePath);
     }
 
     @Override

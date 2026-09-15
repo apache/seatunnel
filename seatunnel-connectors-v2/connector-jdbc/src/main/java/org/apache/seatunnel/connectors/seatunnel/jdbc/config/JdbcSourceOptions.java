@@ -124,6 +124,20 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("Use regular expression for table path matching");
 
+    public static final Option<QueryTableMetadataMergeMode> QUERY_TABLE_METADATA_MERGE =
+            Options.key("query_table_metadata_merge")
+                    .enumType(QueryTableMetadataMergeMode.class)
+                    .defaultValue(QueryTableMetadataMergeMode.COMMENT)
+                    .withDescription(
+                            "How much metadata of the underlying physical table is merged into the schema"
+                                    + " derived from a query-only source table. Only applies when the query is"
+                                    + " verified to map to a single physical table. COMMENT (default) merges the"
+                                    + " column comments, table comment and table options; ALL additionally merges"
+                                    + " the primary key, constraint keys and partition keys — the same result as"
+                                    + " configuring table_path together with query, which may switch sinks with"
+                                    + " generate_sink_sql from insert to upsert and enable primary-key based split"
+                                    + " planning; NONE disables resolving the underlying table entirely.");
+
     public static final Option<Integer> FETCH_SIZE =
             Options.key("fetch_size")
                     .intType()
