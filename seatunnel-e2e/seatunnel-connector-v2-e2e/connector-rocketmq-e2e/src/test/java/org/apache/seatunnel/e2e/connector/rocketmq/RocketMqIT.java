@@ -704,6 +704,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .atMost(1, TimeUnit.MINUTES)
                 .until(() -> true);
 
+        // Direct queue sends again, so the route has to be confirmed here too rather than
+        // relying on the wait before the initial batch.
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 10; i++) {
             Message msg = new Message(sourceTopic, (payload + "_additional_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -738,6 +741,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 firstJobFuture.get().getExitCode(),
                 "First job should exit successfully after savepoint");
 
+        // These sends land after savepointJob(), which is precisely the window the comment
+        // below describes: the name server can briefly drop an auto-created topic route
+        // while the job is stopped. Confirm the route before writing, not only before the
+        // restore that follows.
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 15; i++) {
             Message msg = new Message(sourceTopic, (payload + "_restore_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
