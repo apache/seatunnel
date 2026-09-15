@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -88,6 +89,10 @@ public class JdbcOutputFormatTest {
 
         Assertions.assertTrue(ex.getMessage().contains("Failed to clear JDBC batch"));
         Assertions.assertEquals(1, getBatchCount(outputFormat));
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(0, executor.executeBatchCount);
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+        Assertions.assertEquals(0, executor.executeBatchCount);
     }
 
     @Test
@@ -129,6 +134,58 @@ public class JdbcOutputFormatTest {
 
         Assertions.assertThrows(
                 JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(1, executor.executeBatchCount);
+    }
+
+    @Test
+    public void testCloseDoesNotFlushAgainAfterFlushFailure() throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        FailingBatchExecutor executor = new FailingBatchExecutor();
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder().batchSize(1).maxRetries(0).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat<String, FailingBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.open();
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+    }
+
+    @Test
+    public void testCloseDoesNotFlushAgainAfterRuntimeFlushFailure() throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        RuntimeFailingBatchExecutor executor = new RuntimeFailingBatchExecutor();
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder().batchSize(1).maxRetries(0).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat<String, RuntimeFailingBatchExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.open();
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+        Assertions.assertEquals(1, executor.executeBatchCount);
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::close);
         Assertions.assertEquals(1, executor.executeBatchCount);
     }
 
@@ -178,6 +235,25 @@ public class JdbcOutputFormatTest {
         public void executeBatch() throws SQLException {
             executeBatchCount++;
             throw new SQLException("data too long", "22001");
+        }
+    }
+
+    private static class FailingBatchExecutor extends CountingExecutor {
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCount++;
+            throw new SQLException("flush failed");
+        }
+    }
+
+    private static class RuntimeFailingBatchExecutor extends CountingExecutor {
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCount++;
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.SQL_OPERATION_FAILED, "flush failed");
         }
     }
 }

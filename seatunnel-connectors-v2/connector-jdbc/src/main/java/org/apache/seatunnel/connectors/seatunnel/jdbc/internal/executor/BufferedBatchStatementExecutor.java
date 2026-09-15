@@ -63,12 +63,6 @@ public class BufferedBatchStatementExecutor implements JdbcBatchStatementExecuto
 
     @Override
     public void closeStatements() throws SQLException {
-        try {
-            if (!buffer.isEmpty()) {
-                executeBatch();
-            }
-        } finally {
-            statementExecutor.closeStatements();
-        }
+        statementExecutor.closeStatements();
     }
 }

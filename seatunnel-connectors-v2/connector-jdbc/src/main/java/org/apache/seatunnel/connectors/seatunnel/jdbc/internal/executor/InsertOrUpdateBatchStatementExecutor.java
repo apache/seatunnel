@@ -50,7 +50,6 @@ public class InsertOrUpdateBatchStatementExecutor
     private transient PreparedStatement insertStatement;
     private transient PreparedStatement updateStatement;
     private transient Boolean preExistFlag;
-    private transient boolean submitted;
 
     public InsertOrUpdateBatchStatementExecutor(
             StatementFactory insertStmtFactory,
@@ -98,7 +97,6 @@ public class InsertOrUpdateBatchStatementExecutor
         }
 
         preExistFlag = exist;
-        submitted = false;
     }
 
     @Override
@@ -112,7 +110,6 @@ public class InsertOrUpdateBatchStatementExecutor
                 insertStatement.clearBatch();
             }
         }
-        submitted = true;
     }
 
     @Override
@@ -124,21 +121,14 @@ public class InsertOrUpdateBatchStatementExecutor
             updateStatement.clearBatch();
         }
         preExistFlag = null;
-        submitted = true;
     }
 
     @Override
     public void closeStatements() throws SQLException {
-        try {
-            if (!submitted) {
-                executeBatch();
-            }
-        } finally {
-            for (PreparedStatement statement :
-                    Arrays.asList(existStatement, insertStatement, updateStatement)) {
-                if (statement != null) {
-                    statement.close();
-                }
+        for (PreparedStatement statement :
+                Arrays.asList(existStatement, insertStatement, updateStatement)) {
+            if (statement != null) {
+                statement.close();
             }
         }
     }
