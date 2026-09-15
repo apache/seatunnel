@@ -10,6 +10,23 @@ Use this path if you want to run SeaTunnel on Spark:
 - [Quick Start With Spark](../getting-started/locally/quick-start-spark.md)
 - [Job Configuration Guide](../getting-started/job-configuration-guide.md)
 
+SeaTunnel provides separate Spark 3 starters so existing Spark 3.3 deployments can remain on
+their current runtime while Spark 3.5 deployments use the Spark 3.5.8 starter:
+
+- `seatunnel-spark-3-starter.jar` for Spark 3.3.x
+- `seatunnel-spark-3.5-starter.jar` for Spark 3.5.x
+
+For an existing Spark 3.4 deployment, retain the existing `seatunnel-spark-3-starter.jar`
+and `start-seatunnel-spark-3-connector-v2` launcher. This change does not add a separate
+Spark 3.4 starter or extend its compatibility coverage.
+
+The Spark 3.5 starter reuses the translation layer compiled against Spark 3.3.
+Row-encoder and batch-write tests exercise selected paths on Spark 3.5.8, but do not
+prove compatibility of every Catalyst or DataSource V2 path. Other binary
+incompatibilities may surface only when those paths execute on the target runtime.
+Validate your connectors and deployment mode before upgrading; dedicated Spark 3.5
+micro-batch streaming coverage is still pending.
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:
@@ -48,6 +65,8 @@ Spark on YARN client mode:
 ```shell
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
+
+For Spark 3.5, use `start-seatunnel-spark-3.5-connector-v2.sh` with the same options.
 
 ## Minimal Example Job
 
