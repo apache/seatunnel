@@ -46,14 +46,14 @@ public class BigQueryClientFactory {
     public static BigQueryWriteClient getWriteClient(ReadonlyConfig config) {
         try {
             if (config.get(BigQuerySinkOptions.EMULATOR_HOST) != null) {
-                log.info(
-                        "Using BigQuery Emulator at {}",
-                        config.get(BigQuerySinkOptions.EMULATOR_HOST));
-                String emulatorHost = config.get(BigQuerySinkOptions.EMULATOR_HOST);
+                String emulatorGrpcHost =
+                        config.getOptional(BigQuerySinkOptions.EMULATOR_GRPC_HOST)
+                                .orElse(config.get(BigQuerySinkOptions.EMULATOR_HOST));
+                log.info("Using BigQuery emulator Storage Write API at {}", emulatorGrpcHost);
 
                 BigQueryWriteSettings settings =
                         BigQueryWriteSettings.newBuilder()
-                                .setEndpoint(emulatorHost)
+                                .setEndpoint(emulatorGrpcHost)
                                 .setTransportChannelProvider(
                                         BigQueryWriteSettings.defaultGrpcTransportProviderBuilder()
                                                 .setChannelConfigurator(
@@ -64,7 +64,7 @@ public class BigQueryClientFactory {
                                 .build();
 
                 BigQueryWriteClient bigQueryWriteClient = BigQueryWriteClient.create(settings);
-                log.info("Created BigQueryWriteClient for emulator at {}", emulatorHost);
+                log.info("Created BigQueryWriteClient for emulator at {}", emulatorGrpcHost);
 
                 return bigQueryWriteClient;
             }

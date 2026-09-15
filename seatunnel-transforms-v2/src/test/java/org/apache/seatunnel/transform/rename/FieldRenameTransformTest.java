@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.stream.Collectors;
 
 public class FieldRenameTransformTest {
@@ -273,5 +275,50 @@ public class FieldRenameTransformTest {
         FieldRenameTransform transform = new FieldRenameTransform(config, DEFAULT_TABLE);
 
         Assertions.assertEquals("invoicenum", transform.convertName("InvoiceNum"));
+    }
+
+    @Test
+    public void testRestoreEventPropagatesRenamedSchema() {
+        FieldRenameConfig config = new FieldRenameConfig().setPrefix("restored-");
+        FieldRenameTransform transform = new FieldRenameTransform(config, DEFAULT_TABLE);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        DEFAULT_TABLE.getTableId(),
+                        TableSchema.builder()
+                                .columns(DEFAULT_TABLE.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f4", BasicType.STRING_TYPE, 64L, true, null, null))
+                                .build(),
+                        DEFAULT_TABLE.getOptions(),
+                        DEFAULT_TABLE.getPartitionKeys(),
+                        DEFAULT_TABLE.getComment());
+
+        RestoreTableSchemaEvent event =
+                (RestoreTableSchemaEvent)
+                        transform.mapSchemaChangeEvent(new RestoreTableSchemaEvent(restoredTable));
+
+        Assertions.assertArrayEquals(
+                new String[] {"restored-f1", "restored-f2", "restored-f3", "restored-f4"},
+                event.getChangeAfter().getTableSchema().getFieldNames());
+    }
+
+    @Test
+    public void testConvertCaseIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            FieldRenameConfig config = new FieldRenameConfig().setConvertCase(ConvertCase.UPPER);
+            FieldRenameTransform transform = new FieldRenameTransform(config, DEFAULT_TABLE);
+            Assertions.assertEquals("I", transform.convertName("i"));
+            Assertions.assertEquals("ABC", transform.convertName("abc"));
+
+            config = new FieldRenameConfig().setConvertCase(ConvertCase.LOWER);
+            transform = new FieldRenameTransform(config, DEFAULT_TABLE);
+            Assertions.assertEquals("i", transform.convertName("I"));
+            Assertions.assertEquals("abc", transform.convertName("ABC"));
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }
