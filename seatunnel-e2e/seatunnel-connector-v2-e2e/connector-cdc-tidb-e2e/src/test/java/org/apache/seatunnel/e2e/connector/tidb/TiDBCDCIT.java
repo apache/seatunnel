@@ -816,6 +816,244 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
         executeSql("UPDATE " + database + "." + tableName + " SET f_bigint = 10000 where id = 30");
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "")
+    public void testTiDBCdcLegacyConfigRestoredWithTableNamesExpanded(TestContainer container)
+            throws IOException, InterruptedException {
+        clearSimpleTables();
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/tidb/tidbcdc_legacy_single_table.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // snapshot stage with the original database-name/table-name config
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_2))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_2))));
+                        });
+
+        // streaming stage before the savepoint
+        upsertDeleteSimpleTable(TIDB_DATABASE, SOURCE_TABLE_2, 11, 12);
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_2))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_2))));
+                        });
+
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+
+        // restore with the table-names config which additionally captures SOURCE_TABLE_3:
+        // the config style migrates from the original keys to table-names in one restore
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/tidb/tidbcdc_multi_table_to_tidb.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // the table added by the config migration must run its initial snapshot
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_3))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_3))));
+                        });
+
+        // stream stage on both the original and the added table
+        upsertDeleteSimpleTable(TIDB_DATABASE, SOURCE_TABLE_2, 21, 22);
+        upsertDeleteSimpleTable(TIDB_DATABASE, SOURCE_TABLE_3, 25, 26);
+
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_2))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_2))));
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_3))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_3))));
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason = "")
+    public void testTiDBCdcTableNamesRestoredWithLegacyConfigReduced(TestContainer container)
+            throws IOException, InterruptedException {
+        clearSimpleTables();
+
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.executeJob(
+                                "/tidb/tidbcdc_multi_table_to_tidb.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        // both tables sync with the table-names config before the savepoint
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_2))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_2))));
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_3))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_3))));
+                        });
+
+        Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+
+        // restore with the original single-table config keys: SOURCE_TABLE_3 is no longer
+        // configured and must stop receiving changes, SOURCE_TABLE_2 keeps streaming
+        CompletableFuture.supplyAsync(
+                () -> {
+                    try {
+                        container.restoreJob(
+                                "/tidb/tidbcdc_legacy_single_table.conf", String.valueOf(jobId));
+                    } catch (Exception e) {
+                        log.error("Commit task exception :" + e.getMessage());
+                        throw new RuntimeException(e);
+                    }
+                    return null;
+                });
+
+        upsertDeleteSimpleTable(TIDB_DATABASE, SOURCE_TABLE_2, 31, 32);
+        await().atMost(180000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_DATABASE,
+                                                            SOURCE_TABLE_2))),
+                                    JsonUtils.toJsonString(
+                                            query(
+                                                    String.format(
+                                                            SIMPLE_SQL_TEMPLATE,
+                                                            TIDB_SINK_DATABASE,
+                                                            SOURCE_TABLE_2))));
+                        });
+
+        // changes on the removed table must not reach the sink any more; the sink keeps
+        // exactly the pre-savepoint rows while the pipeline keeps streaming SOURCE_TABLE_2
+        upsertDeleteSimpleTable(TIDB_DATABASE, SOURCE_TABLE_3, 35, 36);
+        await().atMost(20, TimeUnit.SECONDS)
+                .during(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        query(
+                                                        String.format(
+                                                                SIMPLE_SQL_TEMPLATE,
+                                                                TIDB_SINK_DATABASE,
+                                                                SOURCE_TABLE_3))
+                                                .size()));
+    }
+
     private void clearSimpleTables() {
         clearTable(TIDB_DATABASE, SOURCE_TABLE_2);
         clearTable(TIDB_DATABASE, SOURCE_TABLE_3);
