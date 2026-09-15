@@ -15,38 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.sink;
 
 import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+
+import java.io.IOException;
 
 /**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
+ * Writer-side contract for applying {@link TableOperationEvent}s after in-flight rows are flushed.
  */
-public interface Collector<T> {
-
-    void collect(T record);
-
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void collect(TableOperationEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
+public interface SupportTableOperationSinkWriter {
 
     /**
-     * Returns the checkpoint lock.
+     * Apply a table operation to the third-party receiver. Implementations must flush buffered rows
+     * for the target table before executing a destructive operation such as truncate.
      *
-     * @return The object to use as the lock
+     * @param event table operation from upstream
+     * @throws IOException if the operation cannot be applied
      */
-    Object getCheckpointLock();
-
-    default boolean isEmptyThisPollNext() {
-        return false;
-    }
-
-    default void resetEmptyThisPollNext() {}
+    void applyTableOperation(TableOperationEvent event) throws IOException;
 }
