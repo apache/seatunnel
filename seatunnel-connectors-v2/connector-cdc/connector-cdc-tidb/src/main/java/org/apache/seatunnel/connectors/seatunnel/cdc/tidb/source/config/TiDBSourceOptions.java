@@ -55,8 +55,8 @@ public class TiDBSourceOptions implements Serializable {
                     .withDescription(
                             "Table names to capture changes from, each entry must be in the"
                                     + " format database_name.table_name, for example:"
-                                    + " [\"db1.table1\", \"db2.table2\"]. Mutually exclusive with"
-                                    + " database-name/table-name.");
+                                    + " [\"db1.table1\", \"db2.table2\"]. Takes precedence over"
+                                    + " database-name/table-name when both are set.");
 
     public static final Option<StartupMode> STARTUP_MODE =
             Options.key(SourceOptions.STARTUP_MODE_KEY)
