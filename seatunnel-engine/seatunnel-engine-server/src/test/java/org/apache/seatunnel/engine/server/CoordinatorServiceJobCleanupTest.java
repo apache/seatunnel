@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
@@ -310,6 +311,51 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertDoesNotThrow(
                 () -> coordinatorService.submitJob(jobId, createJobData(jobId, true), true).join());
+    }
+
+    @Test
+    void testSubmitCheckpointRestoreDoesNotTrustLegacySavepointFlag() {
+        CoordinatorService coordinatorService = server.getCoordinatorService();
+        long destinationJobId = System.currentTimeMillis();
+        long sourceJobId = destinationJobId - 1;
+        long initializationTimestamp = 100L;
+
+        IMap<Long, JobInfo> runningJobInfoIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+        IMap<Object, Object> runningJobStateIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_STATE);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        runningJobInfoIMap.put(destinationJobId, new JobInfo(initializationTimestamp, null));
+        runningJobStateIMap.put(destinationJobId, JobStatus.FINISHED);
+        pendingJobCleanupIMap.put(
+                destinationJobId,
+                new JobCleanupRecord(
+                        initializationTimestamp,
+                        JobStatus.FINISHED,
+                        stateKeys(destinationJobId),
+                        stateKeys(destinationJobId),
+                        System.currentTimeMillis()));
+
+        CompletionException exception =
+                Assertions.assertThrows(
+                        CompletionException.class,
+                        () ->
+                                coordinatorService
+                                        .submitJob(
+                                                destinationJobId,
+                                                createJobData(
+                                                        destinationJobId,
+                                                        RestoreMode.CHECKPOINT,
+                                                        sourceJobId,
+                                                        "stream_fake_to_console.conf"),
+                                                true)
+                                        .join());
+        Assertions.assertInstanceOf(JobException.class, exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains("waiting for terminal state cleanup"));
+        Assertions.assertTrue(pendingJobCleanupIMap.containsKey(destinationJobId));
     }
 
     @Test
@@ -614,6 +660,23 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
 
     private Data createJobData(long jobId, boolean isStartWithSavePoint, String configFile) {
         return createJobData(jobId, isStartWithSavePoint, configFile, Collections.emptyMap());
+    }
+
+    private Data createJobData(
+            long jobId, RestoreMode restoreMode, Long restoreSourceJobId, String configFile) {
+        LogicalDag logicalDag =
+                TestUtils.createTestLogicalPlan(configFile, "job-cleanup-submit-test", jobId);
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        restoreMode,
+                        restoreSourceJobId,
+                        nodeEngine.getSerializationService(),
+                        logicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        return nodeEngine.getSerializationService().toData(jobImmutableInformation);
     }
 
     private Data createJobData(

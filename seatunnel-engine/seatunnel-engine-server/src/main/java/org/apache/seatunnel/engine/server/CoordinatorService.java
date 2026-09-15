@@ -1386,6 +1386,8 @@ public class CoordinatorService {
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
 
+        // Keep the legacy argument for wire compatibility. Restore semantics are derived from
+        // JobImmutableInformation.
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
         // This avoids potential issues like redundant job restores or other anomalies.
@@ -1405,9 +1407,12 @@ public class CoordinatorService {
                     try {
                         JobImmutableInformation submittedJobImmutableInformation =
                                 deserializeJobImmutableInformation(jobImmutableInformation);
+                        boolean isSavepointRestore =
+                                submittedJobImmutableInformation != null
+                                        && submittedJobImmutableInformation.isSavepointRestore();
                         validateCheckpointRestoreSourceJobIsTerminal(
                                 submittedJobImmutableInformation, jobId);
-                        if (isStartWithSavePoint) {
+                        if (isSavepointRestore) {
                             cleanupPendingPipelineCleanupForRestore(jobId);
                         }
                         JobCleanupRecord pendingCleanupRecord =
@@ -1416,7 +1421,7 @@ public class CoordinatorService {
                                         : null;
                         if (pendingCleanupRecord != null
                                 && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
-                            if (isStartWithSavePoint) {
+                            if (isSavepointRestore) {
                                 cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
                             } else {
                                 throw new JobException(
@@ -1440,7 +1445,7 @@ public class CoordinatorService {
                                         runningJobInfoIMap,
                                         engineConfig,
                                         seaTunnelServer);
-                        if (!isStartWithSavePoint
+                        if (!isSavepointRestore
                                 && getJobHistoryService().getJobMetrics(jobId)
                                         != JobMetrics.empty()) {
                             throw new JobException(
