@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -281,6 +282,22 @@ public class SqlServerDialect implements JdbcDialect {
     @Override
     public TypeConverter<BasicTypeDefine> getTypeConverter() {
         return SqlServerTypeConverter.INSTANCE;
+    }
+
+    @Override
+    public String getLimitClause(int limit) {
+        return " OFFSET 0 ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
+    public String getOffsetLimitClause(int offset, int limit) {
+        return " OFFSET " + offset + " ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table)
+        return true;
     }
 
     @Override
