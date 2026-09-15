@@ -18,6 +18,15 @@ You need to check this document before you upgrade to related version.
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
 
+### DataValidator Array Length
+
+The `LENGTH` rule now counts array elements rather than characters in the
+array's Java identity string. This can change which array-valued rows pass
+validation. Review array length limits that were adjusted to the previous
+behavior, and check previously skipped or routed data before replaying it.
+String, collection, binary and null handling remain unchanged. No configuration
+or state format migration is required.
+
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
