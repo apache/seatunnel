@@ -40,8 +40,8 @@ public class TiDBSourceCheckpointState implements Serializable {
     private int assignCount;
     /**
      * Tables already enumerated before this checkpoint, in {@code database_name.table_name} format.
-     * Null when deserialized from a legacy checkpoint, in which case newly added tables are not
-     * discovered on restore.
+     * Null when deserialized from a legacy checkpoint written before this field existed; the
+     * enumerator reconstructs it from the restored splits before enumerating missing tables.
      */
     private Set<String> enumeratedTables;
 

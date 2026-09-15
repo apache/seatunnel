@@ -57,7 +57,15 @@ public class TiDBSourceSplitEnumerator
     private final Context<TiDBSourceSplit> context;
     private TiSession tiSession;
     private final Map<String, Long> tableIds = new LinkedHashMap<>();
-    private final Set<String> enumeratedTables;
+    // Not final: reconstructed in run() when restoring a legacy checkpoint whose state lacks the
+    // ledger field. All cross-thread reads and the reassignment happen under stateLock.
+    private Set<String> enumeratedTables;
+    // Tables recovered from restored splits while reconstructing the missing ledger of a legacy
+    // checkpoint (one written before `enumeratedTables` existed). Seeded from the checkpoint
+    // state's own pending splits in the constructor, and extended by addSplitsBack: every engine
+    // routes the readers' restored splits through addSplitsBack before run(), so by the time run()
+    // executes this set covers all tables that had a split in flight at checkpoint time.
+    private final Set<String> legacyRestoredTables = new HashSet<>();
 
     private volatile boolean shouldEnumerate;
 
@@ -81,6 +89,17 @@ public class TiDBSourceSplitEnumerator
             this.pendingSplit.putAll(restoreState.getPendingSplit());
             this.assignCount.set(restoreState.getAssignCount());
             this.enumeratedTables = restoreState.getEnumeratedTablesRef();
+            if (this.enumeratedTables == null) {
+                restoreState
+                        .getPendingSplit()
+                        .values()
+                        .forEach(
+                                splits ->
+                                        splits.forEach(
+                                                split ->
+                                                        legacyRestoredTables.add(
+                                                                split.tableFullName())));
+            }
             discardRemovedTables();
         } else {
             this.enumeratedTables = new HashSet<>();
@@ -165,7 +184,29 @@ public class TiDBSourceSplitEnumerator
                 addPendingSplit(sourceSplits);
                 shouldEnumerate = false;
             }
-        } else if (enumeratedTables != null) {
+        } else {
+            if (enumeratedTables == null) {
+                // Legacy checkpoint: the ledger field did not exist yet. Reconstruct it from
+                // every table that had a split in flight at checkpoint time (restored reader
+                // splits collected via addSplitsBack, plus this state's own pending remainder).
+                // An empty baseline means no table had splits in flight, so every configured
+                // table counts as newly added — the correct outcome in that state.
+                Set<String> baseline = new HashSet<>(legacyRestoredTables);
+                pendingSplit
+                        .values()
+                        .forEach(
+                                splits ->
+                                        splits.forEach(
+                                                split -> baseline.add(split.tableFullName())));
+                synchronized (stateLock) {
+                    enumeratedTables = baseline;
+                }
+                log.info(
+                        "{} Reconstructed enumerated-table state from restored splits for a"
+                                + " legacy checkpoint, tables={}.",
+                        CDC_DIAG_PREFIX,
+                        enumeratedTables);
+            }
             Set<String> missingTables = new HashSet<>(tableIds.keySet());
             missingTables.removeAll(enumeratedTables);
             if (!missingTables.isEmpty()) {
@@ -273,6 +314,11 @@ public class TiDBSourceSplitEnumerator
     public void addSplitsBack(List<TiDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to TiDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
+            synchronized (stateLock) {
+                if (enumeratedTables == null) {
+                    splits.forEach(split -> legacyRestoredTables.add(split.tableFullName()));
+                }
+            }
             addPendingSplit(splits, subtaskId);
             if (context.registeredReaders().contains(subtaskId)) {
                 assignSplit(Collections.singletonList(subtaskId));

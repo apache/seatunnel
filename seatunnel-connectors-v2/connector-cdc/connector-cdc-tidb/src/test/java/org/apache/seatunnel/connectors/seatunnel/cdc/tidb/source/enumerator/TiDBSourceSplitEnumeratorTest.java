@@ -263,7 +263,40 @@ class TiDBSourceSplitEnumeratorTest {
     }
 
     @Test
-    void runShouldNotEnumerateAnythingForLegacyCheckpointWithoutEnumeratedTables()
+    void runShouldEnumerateMissingTablesForLegacyCheckpointRestoredSplits() throws Exception {
+        TiDBSourceConfig config =
+                TiDBSourceConfig.builder()
+                        .tableNames(Arrays.asList("db.table_one", "db.table_two"))
+                        .build();
+        TiDBSourceCheckpointState legacyState =
+                new TiDBSourceCheckpointState(false, Collections.emptyMap());
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        TiDBSourceSplitEnumerator enumerator =
+                new TiDBSourceSplitEnumerator(context, config, legacyState);
+        setTableIds(enumerator, "db.table_one", 1L, "db.table_two", 2L);
+
+        TiDBSourceSplit restoredSplit = newSplitForTable("db", "table_one", "restored");
+        enumerator.addSplitsBack(Collections.singletonList(restoredSplit), 0);
+
+        enumerator.run();
+
+        List<TiDBSourceSplit> assignedSplits = new ArrayList<>(context.getAssignedSplits(0));
+        assignedSplits.addAll(context.getAssignedSplits(1));
+        List<TiDBSourceSplit> tableOneSplits = splitsOfTable(assignedSplits, "db.table_one");
+        Assertions.assertEquals(1, tableOneSplits.size());
+        Assertions.assertEquals(
+                restoredSplit.getKeyRange().getStart(),
+                tableOneSplits.get(0).getKeyRange().getStart());
+        Assertions.assertEquals(2, splitsOfTable(assignedSplits, "db.table_two").size());
+        TiDBSourceCheckpointState snapshot = enumerator.snapshotState(1L);
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("db.table_one", "db.table_two")),
+                snapshot.getEnumeratedTables());
+    }
+
+    @Test
+    void runShouldEnumerateAllConfiguredTablesWhenLegacyCheckpointHasNoSplitsInFlight()
             throws Exception {
         TiDBSourceConfig config =
                 TiDBSourceConfig.builder()
@@ -279,18 +312,144 @@ class TiDBSourceSplitEnumeratorTest {
 
         enumerator.run();
 
-        Assertions.assertTrue(context.getAssignedSplits(0).isEmpty());
-        Assertions.assertTrue(context.getAssignedSplits(1).isEmpty());
-        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+        List<TiDBSourceSplit> assignedSplits = new ArrayList<>(context.getAssignedSplits(0));
+        assignedSplits.addAll(context.getAssignedSplits(1));
+        Assertions.assertEquals(2, splitsOfTable(assignedSplits, "db.table_one").size());
+        Assertions.assertEquals(2, splitsOfTable(assignedSplits, "db.table_two").size());
+        TiDBSourceCheckpointState snapshot = enumerator.snapshotState(1L);
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("db.table_one", "db.table_two")),
+                snapshot.getEnumeratedTables());
+    }
+
+    @Test
+    void runShouldEnumerateOnlyMissingTablesForLegacyCheckpointWithPendingSplits()
+            throws Exception {
+        TiDBSourceConfig config =
+                TiDBSourceConfig.builder()
+                        .tableNames(Arrays.asList("db.table_one", "db.table_two"))
+                        .build();
+        Map<Integer, TiDBSourceSplit> legacyPendingSplit = new HashMap<>();
+        legacyPendingSplit.put(0, newSplitForTable("db", "table_one", "state"));
+        TiDBSourceCheckpointState legacyState =
+                new TiDBSourceCheckpointState(false, legacyPendingSplit);
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        TiDBSourceSplitEnumerator enumerator =
+                new TiDBSourceSplitEnumerator(context, config, legacyState);
+        setTableIds(enumerator, "db.table_one", 1L, "db.table_two", 2L);
+
+        enumerator.registerReader(0);
+        enumerator.run();
+
+        List<TiDBSourceSplit> assignedSplits = new ArrayList<>(context.getAssignedSplits(0));
+        assignedSplits.addAll(context.getAssignedSplits(1));
+        Assertions.assertEquals(1, splitsOfTable(assignedSplits, "db.table_one").size());
+        Assertions.assertEquals(2, splitsOfTable(assignedSplits, "db.table_two").size());
+        TiDBSourceCheckpointState snapshot = enumerator.snapshotState(1L);
+        Assertions.assertEquals(
+                new HashSet<>(Arrays.asList("db.table_one", "db.table_two")),
+                snapshot.getEnumeratedTables());
+    }
+
+    @Test
+    void runShouldNotReEnumerateTableRestoredFromLegacyCheckpoint() throws Exception {
+        TiDBSourceConfig config =
+                TiDBSourceConfig.builder()
+                        .tableNames(Collections.singletonList("db.table_one"))
+                        .build();
+        TiDBSourceCheckpointState legacyState =
+                new TiDBSourceCheckpointState(false, Collections.emptyMap());
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        TiDBSourceSplitEnumerator enumerator =
+                new TiDBSourceSplitEnumerator(context, config, legacyState);
+        setTableIds(enumerator, "db.table_one", 1L);
+
+        TiDBSourceSplit restoredSplit = newSplitForTable("db", "table_one", "restored");
+        enumerator.addSplitsBack(Collections.singletonList(restoredSplit), 0);
+
+        enumerator.run();
+
+        List<TiDBSourceSplit> assignedSplits = new ArrayList<>(context.getAssignedSplits(0));
+        assignedSplits.addAll(context.getAssignedSplits(1));
+        List<TiDBSourceSplit> tableOneSplits = splitsOfTable(assignedSplits, "db.table_one");
+        Assertions.assertEquals(1, tableOneSplits.size());
+        Assertions.assertEquals(
+                restoredSplit.getKeyRange().getStart(),
+                tableOneSplits.get(0).getKeyRange().getStart());
+        TiDBSourceCheckpointState snapshot = enumerator.snapshotState(1L);
+        Assertions.assertEquals(
+                new HashSet<>(Collections.singletonList("db.table_one")),
+                snapshot.getEnumeratedTables());
+    }
+
+    @Test
+    void restoreWithLegacySingleTableConfigShouldDiscardRemovedTableState() throws Exception {
+        // a checkpoint written by a multi-table job, restored with the original single-table
+        // database-name/table-name config: the removed table's state is discarded while the
+        // remaining table keeps streaming without re-enumeration
+        TiDBSourceConfig legacyConfig =
+                TiDBSourceConfig.builder().databaseName("db").tableName("table_one").build();
+        Map<Integer, List<TiDBSourceSplit>> pendingSplit = new HashMap<>();
+        pendingSplit.put(
+                0,
+                new ArrayList<>(
+                        Arrays.asList(
+                                newSplitForTable("db", "table_two", "removed"),
+                                newSplitForTable("db", "table_one", "kept"))));
+        TiDBSourceCheckpointState restoreState =
+                new TiDBSourceCheckpointState(
+                        false,
+                        pendingSplit,
+                        0,
+                        new HashSet<>(Arrays.asList("db.table_one", "db.table_two")));
+
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(1, Collections.singleton(0));
+        TiDBSourceSplitEnumerator restored =
+                new TiDBSourceSplitEnumerator(context, legacyConfig, restoreState);
+        setTableIds(restored, "db.table_one", 1L);
+
+        Assertions.assertEquals(1, restored.currentUnassignedSplitSize());
+        Assertions.assertEquals(
+                new HashSet<>(Collections.singletonList("db.table_one")),
+                restored.snapshotState(1L).getEnumeratedTables());
+
+        restored.registerReader(0);
+        Assertions.assertEquals(0, restored.currentUnassignedSplitSize());
+        Assertions.assertEquals(
+                1, splitsOfTable(context.getAssignedSplits(0), "db.table_one").size());
+
+        restored.run();
+        Assertions.assertEquals(1, context.getAssignedSplits(0).size());
+        Assertions.assertEquals(
+                new HashSet<>(Collections.singletonList("db.table_one")),
+                restored.snapshotState(2L).getEnumeratedTables());
     }
 
     private static TiDBSourceSplit newSplit(String suffix) {
+        return newSplitForTable("db", "table", suffix);
+    }
+
+    private static TiDBSourceSplit newSplitForTable(String database, String table, String suffix) {
         Coprocessor.KeyRange keyRange =
                 Coprocessor.KeyRange.newBuilder()
                         .setStart(ByteString.copyFromUtf8("start-" + suffix))
                         .setEnd(ByteString.copyFromUtf8("end-" + suffix))
                         .build();
-        return new TiDBSourceSplit("db", "table", keyRange, -1L, keyRange.getStart(), false);
+        return new TiDBSourceSplit(database, table, keyRange, -1L, keyRange.getStart(), false);
+    }
+
+    private static List<TiDBSourceSplit> splitsOfTable(
+            List<TiDBSourceSplit> splits, String tableFullName) {
+        List<TiDBSourceSplit> result = new ArrayList<>();
+        for (TiDBSourceSplit split : splits) {
+            if (tableFullName.equals(split.tableFullName())) {
+                result.add(split);
+            }
+        }
+        return result;
     }
 
     private static void setPendingSplitField(
