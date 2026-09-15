@@ -13,7 +13,7 @@ v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相�
 
 这里需要区分两个容易混淆的“默认值”来源：
 
-- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`、`upload-max-file-size-mb = 10`、`upload-max-request-size-mb = 10`
+- 代码默认值：`enable-http = false`、`enable-https = false`、`port = 8080`、`context-path = ""`、`enable-dynamic-port = false`、`port-range = 100`、`upload-max-file-size-mb = 10`、`upload-max-request-size-mb = 10`、`log-response-max-size-mb = 64`
 - 发行包自带的 `seatunnel.yaml` 示例：默认写入了 `enable-http: true` 和 `port: 8080`
 
 因此，直接使用发行包自带配置启动时，Web UI 和 REST API 通常会监听
@@ -68,6 +68,7 @@ seatunnel:
       port: 8080
       upload-max-file-size-mb: 10
       upload-max-request-size-mb: 10
+      log-response-max-size-mb: 64
 ```
 
 ## Web UI 与 8080 排查
@@ -1424,6 +1425,23 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 当前支持的格式有`json`和`html`，默认为`html`。
 
+#### 响应大小限制
+
+读取日志文件时最多返回 `seatunnel.engine.http.log-response-max-size-mb` 大小的内容（默认 64 MB）。
+超过该限制的日志文件只返回末尾 `log-response-max-size-mb` 的内容——对长时间运行的作业来说，日志末尾
+才是解释问题的部分。
+
+被截断的响应会以一行提示开头，写明返回的字节数和文件总大小，避免把不完整的日志当成完整日志：
+
+```
+[SeaTunnel] Log truncated: returning the last 67108864 bytes of 3435973836, starting at the first complete line. Raise seatunnel.engine.http.log-response-max-size-mb, or set it to 0 for no limit, to return more.
+```
+
+正文从截断点之后的第一个完整行开始，因此实际返回会略小于该限制；如果单行长度本身就超过限制，则没有可
+对齐的换行，正文从第一个完整字符开始。
+
+把该项设为 `0` 可恢复不限制读取，但要注意此时单个请求需要把整个多 GB 的日志文件放进节点堆内存。
+
 
 #### 例子
 
@@ -1448,7 +1466,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 #### 例子
 
 获取当前节点的日志列表：`http://localhost:5801/log`
-获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
+获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log`
+
+日志内容同样受 `seatunnel.engine.http.log-response-max-size-mb` 限制，规则与上面的全节点接口一致。
 
 </details>
 
