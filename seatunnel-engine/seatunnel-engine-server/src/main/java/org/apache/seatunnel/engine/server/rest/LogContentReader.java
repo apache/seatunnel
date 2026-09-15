@@ -56,8 +56,7 @@ public final class LogContentReader {
      * is.
      *
      * @param path canonical path of the log file, already resolved against the log directory
-     * @param maxBytes cap from {@code HttpConfig#getLogResponseMaxSizeBytes()}; <= 0 means no
-     *     limit
+     * @param maxBytes cap from {@code HttpConfig#getLogResponseMaxSizeBytes()}; <= 0 means no limit
      * @return the log content, opening with a truncation notice when the file exceeded the cap
      * @throws IOException if the file cannot be sized
      */
