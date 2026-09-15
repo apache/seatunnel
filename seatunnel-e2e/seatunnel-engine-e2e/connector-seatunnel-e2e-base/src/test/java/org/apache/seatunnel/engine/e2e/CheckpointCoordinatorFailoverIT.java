@@ -705,42 +705,46 @@ public class CheckpointCoordinatorFailoverIT {
      * removed permanently (this pipeline is about to fail anyway), so unlike catching a kill at the
      * exact moment a barrier is dispatched, the very next scheduled trigger attempt that has not
      * already started -- or the one after that -- is guaranteed to observe the missing entry once
-     * the removal completes, with no timing window to miss. To also demonstrate the fault lands on
-     * a previously healthy coordinator (not one that was simply never able to checkpoint at all),
-     * the test first waits for the checkpoint-id counter to reach 2, which -- since {@code
-     * tryTriggerPendingCheckpoint} never allocates a new id while {@code pendingCounter > 0} (line
-     * ~800) -- can only happen after checkpoint id 1 has fully completed and been acknowledged.
+     * the removal completes, with no timing window to miss.
      *
-     * <p><b>Which failure path actually fires is a genuine, harmless race -- not a defect.</b>
-     * {@code CheckpointManager#sendOperationToMemberNode} (the same {@code
-     * queryTaskGroupAddress}-guarded call this class's javadoc traces above) is not only what
-     * {@code triggerCheckpoint} uses to dispatch a checkpoint's barrier; {@code notifyCompleted}
-     * (line ~466) uses the exact same call to send {@code notifyCheckpointCompleted} / {@code
-     * notifyCheckpointEnd} once a checkpoint's barrier has already been fully acknowledged, and a
-     * failure there is reported via {@code CheckpointCloseReason
-     * #CHECKPOINT_NOTIFY_COMPLETE_FAILED} instead. "Checkpoint id counter reached 2" (waited for
-     * above) only proves checkpoint 1's own {@code notifyCompleted} already succeeded -- {@code
-     * pendingCounter} is decremented (line ~1377) strictly after it returns true -- but it proves
-     * nothing about checkpoint 2's *own* lifecycle: {@code pendingCounter} is incremented (line
-     * ~1003) before checkpoint 2's barrier is even dispatched, so by the time this test's thread
-     * actually performs the removal a few Awaitility-poll-intervals later, checkpoint 2's barrier
-     * dispatch may already have completed normally and moved on to its *own* {@code
-     * notifyCompleted} call -- which then hits the very same removed entry instead. Both paths
-     * detect the identical injected fault (the missing {@code ownedSlotProfilesIMap} entry) via the
-     * identical {@code queryTaskGroupAddress} lookup and both correctly fail the job through {@code
-     * handleCoordinatorError}; only the intermediate label differs. Treating one of the two as the
-     * sole acceptable outcome makes the test flaky on nothing but scheduling timing, so it accepts
-     * either.
+     * <p><b>Injecting only after checkpoint 1's completion notification has actually finished.</b>
+     * An earlier version of this test waited for the checkpoint id *counter* (a separate, persisted
+     * allocator) to reach 2 before injecting the fault. That counter is wrong for this purpose:
+     * {@code checkpointIdCounter.getAndIncrement()} runs inside {@code createPendingCheckpoint} at
+     * the moment checkpoint 2 is *created* -- i.e. once it has already been dispatched -- not after
+     * checkpoint 1 finishes. Worse, it is called once per created checkpoint regardless of
+     * completion, so it can already read 2 moments after checkpoint 1 itself is created, long
+     * before checkpoint 1 (let alone checkpoint 2) has done anything. That made the fault-injection
+     * point effectively unordered with respect to checkpoint 1's and checkpoint 2's own
+     * barrier-dispatch-and-notify lifecycle, so the missing {@code ownedSlotProfilesIMap} entry
+     * could be discovered by whichever of the two checkpoints' {@code queryTaskGroupAddress} calls
+     * (barrier dispatch or completion notify, for either checkpoint) happened to run next, reported
+     * as either {@code CheckpointCloseReason#CHECKPOINT_INSIDE_ERROR} or {@code
+     * CheckpointCloseReason#CHECKPOINT_NOTIFY_COMPLETE_FAILED} depending on scheduling luck.
      *
-     * <p><b>What this test proves:</b> a real checkpoint-barrier-or-notify-completion dispatch
-     * failure, on a coordinator that was previously checkpointing successfully, fails the job
-     * (terminal {@code JobStatus.FAILED}, with an error message traceable to either {@code
-     * CheckpointCloseReason#CHECKPOINT_INSIDE_ERROR} or {@code
-     * CheckpointCloseReason#CHECKPOINT_NOTIFY_COMPLETE_FAILED}) within a bounded window. <b>What it
-     * implicitly also proves:</b> the pre-fix silent-forever-{@code RUNNING} behavior from #10442
-     * no longer occurs -- had it, the bounded {@code Awaitility} wait below for {@code
-     * JobStatus.FAILED} would time out and fail this test, since the old code left the job {@code
-     * RUNNING} with no further checkpoints and no error, forever.
+     * <p>This test instead waits for {@link CheckpointCoordinator#getLatestCompletedCheckpointId()}
+     * to reach 1. That field is set at the very top of {@code completePendingCheckpoint} --
+     * strictly before that same, synchronous call dispatches checkpoint 1's own completion
+     * notification and strictly before it decrements {@code pendingCounter} (line ~1424). Because
+     * {@code tryTriggerPendingCheckpoint} refuses to create checkpoint 2 at all while {@code
+     * pendingCounter > 0} (line ~818), and this coordinator's fixed-rate trigger schedule (line
+     * ~2000: {@code checkpoint.interval}) reschedules checkpoint 2's own creation attempt only
+     * {@code checkpoint.interval} after checkpoint 1's *own* trigger timestamp, observing
+     * checkpoint 1 completed here still leaves the full remainder of that interval before
+     * checkpoint 2 can even be created -- comfortably more time than this trivial single-split job
+     * needs to detect completion and perform the removal. The fault is therefore injected strictly
+     * between checkpoint 1's completion and checkpoint 2's creation, so it is checkpoint 2's
+     * barrier dispatch -- not checkpoint 1's own completion notify, and not checkpoint 2's own
+     * completion notify -- that is guaranteed to be the one to observe the missing entry.
+     *
+     * <p><b>What this test proves:</b> a real checkpoint-barrier dispatch failure, on a coordinator
+     * that was previously checkpointing successfully, fails the job (terminal {@code
+     * JobStatus.FAILED}, with an error message traceable to {@code CheckpointCloseReason
+     * #CHECKPOINT_INSIDE_ERROR}) within a bounded window. <b>What it implicitly also proves:</b>
+     * the pre-fix silent-forever-{@code RUNNING} behavior from #10442 no longer occurs -- had it,
+     * the bounded {@code Awaitility} wait below for {@code JobStatus.FAILED} would time out and
+     * fail this test, since the old code left the job {@code RUNNING} with no further checkpoints
+     * and no error, forever.
      */
     @Test
     public void testStreamJobFailsAfterCheckpointTriggerDispatchFailure() throws Exception {
@@ -789,27 +793,23 @@ public class CheckpointCoordinatorFailoverIT {
                                         "Waiting for the source to start producing rows");
                             });
 
-            // Prove checkpointing is healthy before injecting the fault: the id counter can only
-            // reach 2 once checkpoint id 1 has been fully acknowledged -- see the class javadoc
-            // above for why (tryTriggerPendingCheckpoint never allocates a new id while
-            // pendingCounter is still above zero).
-            CounterStateStore<String> checkpointCounterStore = checkpointCounterStore(node);
-            String checkpointIdKey =
-                    StateStoreCheckpointIDCounter.convertLongIntToBase64(jobId, pipelineId);
+            // Prove checkpointing is healthy before injecting the fault, and do so at a point
+            // that is actually ordered before checkpoint 2 can be created: poll
+            // CheckpointCoordinator#getLatestCompletedCheckpointId() (set at the top of
+            // completePendingCheckpoint, strictly before that call's own completion-notify
+            // dispatch and pendingCounter decrement) rather than the persisted checkpoint id
+            // counter, which advances at checkpoint *creation* time and can therefore already
+            // read 2 while checkpoint 1 is still running -- see the class javadoc above.
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
-                    .pollInterval(200, TimeUnit.MILLISECONDS)
+                    .pollInterval(50, TimeUnit.MILLISECONDS)
                     .untilAsserted(
-                            () -> {
-                                Long currentId = checkpointCounterStore.get(checkpointIdKey);
-                                Assertions.assertNotNull(
-                                        currentId,
-                                        "waiting for the first checkpoint id to be allocated");
-                                Assertions.assertTrue(
-                                        currentId >= 2,
-                                        "waiting for checkpoint id 1 to be fully acknowledged"
-                                                + " before injecting the fault");
-                            });
+                            () ->
+                                    Assertions.assertTrue(
+                                            getLatestCompletedCheckpointId(node, jobId, pipelineId)
+                                                    >= 1,
+                                            "waiting for checkpoint id 1 to fully complete before"
+                                                    + " injecting the fault"));
 
             // Real-fault injection: remove this pipeline's entry from the same live, shared,
             // named Hazelcast IMap (engine_ownedSlotProfilesIMap) that
@@ -825,8 +825,8 @@ public class CheckpointCoordinatorFailoverIT {
                     removedSlotProfiles,
                     "the running task's slot-profile bookkeeping should exist before injection");
             log.info(
-                    "Job {} checkpoint id counter reached 2; removed pipeline {}'s slot-profile"
-                            + " bookkeeping ({} task group(s)) so the next checkpoint-barrier"
+                    "Job {} checkpoint 1 fully completed; removed pipeline {}'s slot-profile"
+                            + " bookkeeping ({} task group(s)) so checkpoint 2's checkpoint-barrier"
                             + " dispatch hits CheckpointCoordinator's real, unmodified"
                             + " queryTaskGroupAddress failure path.",
                     jobId,
@@ -845,27 +845,18 @@ public class CheckpointCoordinatorFailoverIT {
             Assertions.assertEquals(JobStatus.FAILED, jobResult.getStatus());
             Assertions.assertNotNull(
                     jobResult.getError(), "a FAILED job should carry a non-null error message");
-            // Either reason is a correct detection of the same injected fault -- see the
-            // "Which failure path actually fires is a genuine, harmless race" section of the
-            // class javadoc above for why both CheckpointManager#sendOperationToMemberNode call
-            // sites (checkpoint-trigger barrier dispatch and post-completion notify) can observe
-            // the removed ownedSlotProfilesIMap entry depending on scheduling timing.
+            // The fault-injection point is ordered strictly between checkpoint 1's completion
+            // and checkpoint 2's creation (see the class javadoc above), so it is specifically
+            // checkpoint 2's barrier-dispatch call to queryTaskGroupAddress that observes the
+            // missing entry -- the same synchronous throw path #10448 fixed.
             Assertions.assertTrue(
                     jobResult
-                                    .getError()
-                                    .contains(
-                                            CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR.message())
-                            || jobResult
-                                    .getError()
-                                    .contains(
-                                            CheckpointCloseReason.CHECKPOINT_NOTIFY_COMPLETE_FAILED
-                                                    .message()),
+                            .getError()
+                            .contains(CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR.message()),
                     () ->
-                            "Expected the job failure to be attributed to either the checkpoint"
+                            "Expected the job failure to be attributed to the checkpoint"
                                     + " coordinator's CHECKPOINT_INSIDE_ERROR path (see"
-                                    + " CheckpointCoordinator#handleCoordinatorError) or its"
-                                    + " CHECKPOINT_NOTIFY_COMPLETE_FAILED path (see"
-                                    + " CheckpointCoordinator#notifyCompleted), but got: "
+                                    + " CheckpointCoordinator#handleCoordinatorError), but got: "
                                     + jobResult.getError());
         } finally {
             if (engineClient != null) {
@@ -948,5 +939,37 @@ public class CheckpointCoordinatorFailoverIT {
                 masterNode.getMap(Constant.IMAP_RUNNING_JOB_STATE);
         Object stored = runningJobStateIMap.get(coordinator.getReadyToCloseImapKey());
         return stored instanceof Set ? ((Set<?>) stored).size() : 0;
+    }
+
+    /**
+     * Reads {@code CheckpointCoordinator#getLatestCompletedCheckpointId()} directly from the
+     * pipeline's own coordinator, so a caller can deterministically wait for a specific checkpoint
+     * to have fully completed rather than inferring completion from a persisted counter that
+     * advances at checkpoint *creation* time (see {@code
+     * testStreamJobFailsAfterCheckpointTriggerDispatchFailure}'s class javadoc for why that
+     * distinction matters).
+     *
+     * <p>Returns -1 while the job master, checkpoint manager, or pipeline coordinator has not been
+     * registered yet, instead of throwing, for the same Awaitility-compatibility reason documented
+     * on {@link #getReadyToCloseCount}.
+     */
+    private static long getLatestCompletedCheckpointId(
+            HazelcastInstanceImpl masterNode, long jobId, int pipelineId) {
+        JobMaster jobMaster = getJobMaster(masterNode, jobId);
+        if (jobMaster == null) {
+            return -1L;
+        }
+        CheckpointManager checkpointManager = jobMaster.getCheckpointManager();
+        if (checkpointManager == null) {
+            return -1L;
+        }
+        try {
+            return checkpointManager
+                    .getCheckpointCoordinator(pipelineId)
+                    .getLatestCompletedCheckpointId();
+        } catch (RuntimeException e) {
+            // The coordinator for this pipeline has not been registered yet.
+            return -1L;
+        }
     }
 }
