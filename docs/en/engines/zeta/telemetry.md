@@ -49,6 +49,47 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Whether is cluster safe of partition                                    |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Whether is local member safe of partition                               |
 
+### SeaTunnel Engine Cluster Health Metrics
+
+These metrics expose a SeaTunnel Engine view of cluster stability and recent topology changes. They are intended to
+help operators answer questions such as whether the cluster is safe now, whether a master change happened recently,
+or whether a member left shortly before a job failure.
+
+These metrics are exported by the active master only. A worker metrics scrape may not contain the
+`seatunnel_engine_cluster_*` metrics.
+
+These topology counters are lightweight observability signals kept in local in-memory state and exported from the
+current master. They may reset after master failover or process restart and should not be interpreted as durable
+cluster-lifetime totals.
+
+| MetricName                                            | Type    | Labels | DESCRIPTION                                                                 |
+|-------------------------------------------------------|---------|--------|-----------------------------------------------------------------------------|
+| seatunnel_engine_cluster_safe                         | Gauge   | -      | Whether the SeaTunnel Engine cluster partition state is currently safe       |
+| seatunnel_engine_cluster_member_count                 | Gauge   | -      | The current SeaTunnel Engine cluster member count                            |
+| seatunnel_engine_cluster_partition_migration_in_progress | Gauge | -      | Whether SeaTunnel Engine cluster partition migration is currently in progress |
+| seatunnel_engine_cluster_master_change_total          | Counter | -      | The total number of observed SeaTunnel Engine master changes                 |
+| seatunnel_engine_cluster_member_join_total            | Counter | -      | The total number of observed SeaTunnel Engine member joins                   |
+| seatunnel_engine_cluster_member_leave_total           | Counter | -      | The total number of observed SeaTunnel Engine member leaves                  |
+| seatunnel_engine_cluster_last_master_change_timestamp_ms | Gauge | -      | The timestamp in milliseconds of the most recent SeaTunnel Engine master change |
+| seatunnel_engine_cluster_last_member_join_timestamp_ms | Gauge  | -      | The timestamp in milliseconds of the most recent SeaTunnel Engine member join |
+| seatunnel_engine_cluster_last_member_leave_timestamp_ms | Gauge | -      | The timestamp in milliseconds of the most recent SeaTunnel Engine member leave |
+
+`seatunnel_engine_cluster_safe` reflects the underlying cluster partition safety state used by SeaTunnel Engine. It
+should not be interpreted as a full end-to-end SeaTunnel job or engine health signal.
+
+Example PromQL:
+
+```promql
+# Is the cluster safe right now?
+seatunnel_engine_cluster_safe
+
+# Did any member leave recently?
+time() * 1000 - seatunnel_engine_cluster_last_member_leave_timestamp_ms
+
+# Was partition migration in progress?
+seatunnel_engine_cluster_partition_migration_in_progress
+```
+
 ### Engine State Store Metrics
 
 These metrics expose the basic size and local resource usage of Zeta engine state stores. The current backend is
