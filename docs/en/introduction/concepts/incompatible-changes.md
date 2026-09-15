@@ -207,11 +207,15 @@ You need to check this document before you upgrade to related version.
     - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
   - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, buffered points are flushed on each checkpoint; tune `batch_size` for lower latency between checkpoints. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
 
-- **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
+- **Behavior change: File connectors no longer resolve external resources in XML input**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
-  - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
-  - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
-  - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+  - **Description**: The XML reader now parses every file with a reader obtained from [Apache Commons Secure XML](https://commons.apache.org/proper/commons-secure-xml/).
+    External DTDs and external entities are never fetched and resolve to empty content, and entity expansion is bounded.
+  - **Impact**: XML files that rely on external content (an external DTD subset, or entities declared with `SYSTEM`/`PUBLIC` identifiers) are parsed as if that content were empty.
+    Files that do not depend on external content are unaffected.
+    This includes the common case of a `<!DOCTYPE ...>` declaration that merely points to an external DTD used for validation, as well as declarations that only define internal entities.
+    There is no configuration option to enable external resource resolution.
+  - **Migration Guide**: Inline the content of external DTDs and entities into the XML file before ingesting it with SeaTunnel. (#11250)
 
 ### Transform Changes
 

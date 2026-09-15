@@ -109,7 +109,10 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 
 :::caution
 
-出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+FIXME: translation pending, English text follows.
+External resources referenced by XML files (`file_format_type = xml`), such as external DTDs and external entities, are never resolved and are replaced with empty content.
+XML files with a `<!DOCTYPE ...>` declaration are tolerated as long as they do not rely on any external content.
+There is no configuration option to enable external resource resolution.
 
 :::
 
