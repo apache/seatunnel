@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
@@ -24,6 +26,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPh
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcEnumeratorProgressSource;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import org.slf4j.Logger;
@@ -40,11 +43,14 @@ import java.util.stream.Collectors;
  * source readers.
  */
 public class IncrementalSourceEnumerator
-        implements SourceSplitEnumerator<SourceSplitBase, PendingSplitsState> {
+        implements SourceSplitEnumerator<SourceSplitBase, PendingSplitsState>,
+                CdcProgressProvider<CdcEnumeratorProgressReport> {
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSourceEnumerator.class);
 
     private final SourceSplitEnumerator.Context<SourceSplitBase> context;
     private final SplitAssigner splitAssigner;
+    private final String connectorType;
+    private final String positionType;
 
     /** using TreeSet to prefer assigning incremental split to task-0 for easier debug */
     private final TreeSet<Integer> readersAwaitingSplit;
@@ -53,10 +59,31 @@ public class IncrementalSourceEnumerator
 
     public IncrementalSourceEnumerator(
             SourceSplitEnumerator.Context<SourceSplitBase> context, SplitAssigner splitAssigner) {
+        this(context, splitAssigner, "UNKNOWN", "UNKNOWN");
+    }
+
+    public IncrementalSourceEnumerator(
+            SourceSplitEnumerator.Context<SourceSplitBase> context,
+            SplitAssigner splitAssigner,
+            String connectorType,
+            String positionType) {
         this.context = context;
         this.splitAssigner = splitAssigner;
+        this.connectorType = connectorType;
+        this.positionType = positionType;
         this.readersAwaitingSplit = new TreeSet<>();
         this.running = false;
+    }
+
+    @Override
+    public CdcEnumeratorProgressReport getCdcProgress() {
+        if (!(splitAssigner instanceof CdcEnumeratorProgressSource)) {
+            return null;
+        }
+        synchronized (context) {
+            return ((CdcEnumeratorProgressSource) splitAssigner)
+                    .getCdcEnumeratorProgress(connectorType, positionType);
+        }
     }
 
     @Override
