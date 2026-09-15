@@ -1184,6 +1184,229 @@ public class CheckpointCoordinatorTest
     }
 
     /**
+     * Builds an already-completeExceptionally'd {@code InvocationFuture} mock that behaves like a
+     * genuinely failed barrier-dispatch RPC for {@code CompletableFuture.allOf(...)}.
+     *
+     * <p>{@code InvocationFuture} is a final Hazelcast class with a package-private constructor, so
+     * it cannot be subclassed or instantiated directly from test code; it is mocked here using
+     * Mockito's inline mock maker (enabled for this module via {@code
+     * src/test/resources/mockito-extensions/org.mockito.plugins.MockMaker}), which mocks the class
+     * in place rather than generating a subclass. {@code completeExceptionally} is stubbed with
+     * {@code doCallRealMethod()} so the call genuinely runs the inherited {@code
+     * java.util.concurrent.CompletableFuture#completeExceptionally} implementation on this exact
+     * instance, setting its real internal completion state. That state is read directly (not
+     * through any overridable method) by the JDK's own {@code CompletableFuture.allOf(...)}
+     * internals, so the resulting future correctly observes this failure exactly as it would for a
+     * real, permanently-failed barrier RPC.
+     *
+     * @param cause the exception the simulated barrier dispatch RPC fails with
+     * @return a mock {@code InvocationFuture} already completed exceptionally with {@code cause}
+     */
+    private InvocationFuture<?> completedExceptionallyInvocationFuture(Throwable cause) {
+        InvocationFuture<?> future = Mockito.mock(InvocationFuture.class);
+        Mockito.doCallRealMethod().when(future).completeExceptionally(Mockito.any(Throwable.class));
+        future.completeExceptionally(cause);
+        return future;
+    }
+
+    /**
+     * Regression for the checkpoint barrier-dispatch dead-letter bug: before the fix, {@code
+     * startTriggerPendingCheckpoint} only waited for {@code triggerCheckpoint} to *send* every
+     * per-task barrier RPC ({@code CompletableFuture.allOf(completableFutureArray).get()} resolves
+     * as soon as the array of {@code InvocationFuture}s exists), never for any individual RPC to
+     * actually be acknowledged. A barrier RPC that failed permanently was therefore a dead letter,
+     * silently relying on the {@code checkpoint.timeout} backstop to eventually notice the stall.
+     *
+     * <p>This test stubs {@code sendOperationToMemberNode} to return an already
+     * completeExceptionally'd {@code InvocationFuture} and asserts the coordinator now routes that
+     * failure to {@code handleCoordinatorError} with {@code CHECKPOINT_INSIDE_ERROR} promptly,
+     * without relying on the {@code checkpoint.timeout} backstop (the configured timeout is set far
+     * longer than this test's Awaitility bound, so a pass here can only be explained by the new
+     * asynchronous observation path, not by the timeout firing).
+     */
+    @Test
+    void testBarrierDispatchFailureIsRoutedToCoordinatorError() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            // Must be far longer than the Awaitility bound below so a pass can only be explained
+            // by the new asynchronous barrier-dispatch-failure path, not by this backstop firing.
+            checkpointConfig.setCheckpointTimeout(600000);
+
+            TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(Collections.singleton(taskLocation))
+                            .startingSubtasks(Collections.singleton(taskLocation))
+                            .build();
+
+            RuntimeException dispatchFailure =
+                    new RuntimeException("simulated barrier dispatch RPC failure");
+            InvocationFuture<?> failedInvocationFuture =
+                    completedExceptionallyInvocationFuture(dispatchFailure);
+
+            CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+            Mockito.doReturn(failedInvocationFuture)
+                    .when(mockManager)
+                    .sendOperationToMemberNode(Mockito.any(TaskOperation.class));
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> mockIMap = Mockito.mock(IMap.class);
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            mockManager,
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            mockIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+
+            long checkpointId = 1L;
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            pendingCheckpoints.put(checkpointId, pendingCheckpoint);
+
+            ReflectionUtils.invoke(
+                    spy,
+                    "startTriggerPendingCheckpoint",
+                    CompletableFuture.completedFuture(pendingCheckpoint));
+
+            org.awaitility.Awaitility.await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Mockito.verify(spy, Mockito.atLeastOnce())
+                                            .handleCoordinatorError(
+                                                    Mockito.anyString(),
+                                                    Mockito.any(Throwable.class),
+                                                    Mockito.eq(
+                                                            CheckpointCloseReason
+                                                                    .CHECKPOINT_INSIDE_ERROR)));
+
+            // The real dispatch failure must reach handleCoordinatorError, possibly wrapped in a
+            // CompletionException by CompletableFuture.allOf(...) (per its documented contract).
+            ArgumentCaptor<Throwable> throwableCaptor = ArgumentCaptor.forClass(Throwable.class);
+            Mockito.verify(spy, Mockito.atLeastOnce())
+                    .handleCoordinatorError(
+                            Mockito.anyString(),
+                            throwableCaptor.capture(),
+                            Mockito.eq(CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR));
+            Throwable observed = throwableCaptor.getValue();
+            Assertions.assertTrue(
+                    observed == dispatchFailure || observed.getCause() == dispatchFailure,
+                    "expected the real barrier dispatch failure (possibly CompletionException-wrapped), was: "
+                            + observed);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * Regression for the barrier-dispatch stale-callback guard: a dispatch failure for a checkpoint
+     * that has ALREADY completed (and was therefore removed from {@code pendingCheckpoints} by
+     * {@code completePendingCheckpoint}) must be ignored. A late-arriving RPC failure for a stale
+     * checkpoint id must not fail the whole coordinator.
+     */
+    @Test
+    void testStaleBarrierDispatchFailureForCompletedCheckpointIsIgnored() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointConfig checkpointConfig = new CheckpointConfig();
+            checkpointConfig.setStorage(new CheckpointStorageConfig());
+            checkpointConfig.setCheckpointTimeout(600000);
+
+            TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
+            CheckpointPlan plan =
+                    CheckpointPlan.builder()
+                            .pipelineId(1)
+                            .pipelineSubtasks(Collections.singleton(taskLocation))
+                            .startingSubtasks(Collections.singleton(taskLocation))
+                            .build();
+
+            InvocationFuture<?> failedInvocationFuture =
+                    completedExceptionallyInvocationFuture(
+                            new RuntimeException("simulated barrier dispatch RPC failure"));
+
+            CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+            Mockito.doReturn(failedInvocationFuture)
+                    .when(mockManager)
+                    .sendOperationToMemberNode(Mockito.any(TaskOperation.class));
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> mockIMap = Mockito.mock(IMap.class);
+
+            CheckpointCoordinator coordinator =
+                    new CheckpointCoordinator(
+                            mockManager,
+                            Mockito.mock(CheckpointStorage.class),
+                            checkpointConfig,
+                            1L,
+                            plan,
+                            Mockito.mock(CheckpointIDCounter.class),
+                            null,
+                            executorService,
+                            mockIMap,
+                            false,
+                            null);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+
+            long checkpointId = 1L;
+            PendingCheckpoint pendingCheckpoint =
+                    new PendingCheckpoint(
+                            1L,
+                            1,
+                            checkpointId,
+                            System.currentTimeMillis(),
+                            CheckpointType.CHECKPOINT_TYPE,
+                            new HashSet<>(),
+                            new HashMap<>(),
+                            new HashMap<>());
+
+            // Deliberately do NOT register pendingCheckpoint in pendingCheckpoints: this
+            // simulates the checkpoint having already completed and been removed (see
+            // CheckpointCoordinator#completePendingCheckpoint) by the time the barrier RPC
+            // failure is observed.
+
+            ReflectionUtils.invoke(
+                    spy,
+                    "startTriggerPendingCheckpoint",
+                    CompletableFuture.completedFuture(pendingCheckpoint));
+
+            Mockito.verify(spy, Mockito.after(2000).never())
+                    .handleCoordinatorError(
+                            Mockito.anyString(),
+                            Mockito.any(Throwable.class),
+                            Mockito.any(CheckpointCloseReason.class));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
      * Regression for the per-subtask state remap in {@code CheckpointCoordinator#restoreTaskState}:
      * for every old/new parallelism pair in 1..4 x 1..4, every subtask state recorded in the
      * checkpoint must be handed to exactly one subtask of the restored plan (no duplicate, no
