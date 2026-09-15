@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.exception.ClickhouseConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.shard.Shard;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.sink.file.ClickhouseTable;
 import org.apache.seatunnel.connectors.seatunnel.clickhouse.source.split.ClickhouseSourceSplit;
@@ -48,6 +49,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -382,6 +384,35 @@ public class ClickhouseValueReaderTest {
                 .thenReturn("id, name, age, non_existent_field");
         result = (boolean) isAllSortKeyInRowTypeMethod.invoke(reader);
         Assertions.assertFalse(result);
+    }
+
+    @Test
+    public void testStreamReaderSurfacesAsyncQueryFailure() throws ClickHouseException {
+        // Force the streaming (asynchronous) read strategy.
+        ReflectionUtils.setField(
+                reader, ClickhouseValueReader.class, "shouldUseStreamReader", true);
+
+        // The asynchronous thread fails while executing the streaming query.
+        ClickHouseRequest mockRequest = Mockito.mock(ClickHouseRequest.class);
+        ClickHouseRequest mockQueryRequest = Mockito.mock(ClickHouseRequest.class);
+        Mockito.when(mockProxy.getClickhouseConnection()).thenReturn(mockRequest);
+        Mockito.when(mockRequest.query(any(String.class))).thenReturn(mockQueryRequest);
+        Mockito.when(mockQueryRequest.executeAndWait())
+                .thenThrow(ClickHouseException.of("simulated query failure", node));
+
+        // The failure must be reported instead of being silently turned into an end of stream.
+        ClickhouseConnectorException exception =
+                Assertions.assertThrows(
+                        ClickhouseConnectorException.class,
+                        () ->
+                                Assertions.assertTimeoutPreemptively(
+                                        Duration.ofSeconds(30), () -> reader.hasNext()));
+        Assertions.assertTrue(
+                String.valueOf(exception).contains("simulated query failure")
+                        || (exception.getCause() != null
+                                && String.valueOf(exception.getCause())
+                                        .contains("simulated query failure")),
+                "the query failure should be preserved: " + exception);
     }
 
     private void initStreamValueReaderMock() throws ClickHouseException {
