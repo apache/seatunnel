@@ -56,7 +56,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Exercises the source factory metadata contract against MinIO without submitting a job. */
 @Timeout(60)
 public class S3FileConnectDryRunIT extends TestSuiteBase implements TestResource {
-    private static final String IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    private static final String IMAGE = "quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z";
     private static final String BUCKET = "dry-run-events";
     private static final String ACCESS_KEY = "minioadmin";
     private static final String SECRET_KEY = "minioadmin";
