@@ -69,6 +69,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -285,6 +286,12 @@ public class CheckpointCoordinator {
         }
     }
 
+    /**
+     * Builds a live 2-thread scheduler for this coordinator.
+     *
+     * <p>Only called from the constructor and from a {@code CHECKPOINT_COORDINATOR_RESET} cleanup:
+     * a terminal coordinator must not get a replacement scheduler, or its threads outlive the job.
+     */
     private ScheduledExecutorService createScheduler() {
         ScheduledThreadPoolExecutor executor =
                 new ScheduledThreadPoolExecutor(
@@ -550,10 +557,23 @@ public class CheckpointCoordinator {
     @VisibleForTesting
     protected void scheduleTriggerPendingCheckpoint(
             CheckpointType checkpointType, long delayMills) {
-        scheduler.schedule(
-                () -> tryTriggerPendingCheckpoint(checkpointType),
-                delayMills,
-                TimeUnit.MILLISECONDS);
+        try {
+            scheduler.schedule(
+                    () -> tryTriggerPendingCheckpoint(checkpointType),
+                    delayMills,
+                    TimeUnit.MILLISECONDS);
+        } catch (RejectedExecutionException e) {
+            // A concurrent terminal cleanup shuts the scheduler down and, for a terminal close
+            // reason, does not replace it. Callers that reach here before taking the lock can
+            // therefore lose the race against that cleanup; the coordinator is ending anyway,
+            // so skip the reschedule instead of surfacing a rejection from an already-terminating
+            // pipeline.
+            LOG.info(
+                    String.format(
+                            "Job %s pipeline %s scheduler is already shut down, skip scheduling a"
+                                    + " %s checkpoint.",
+                            jobId, pipelineId, checkpointType));
+        }
     }
 
     /**

@@ -1047,6 +1047,34 @@ public class CheckpointCoordinatorTest
     }
 
     /**
+     * The other half of the same invariant: a master-failover reset does need the scheduler back,
+     * so this pins that {@code CHECKPOINT_COORDINATOR_RESET} still leaves a live one rather than
+     * relying on unrelated tests tripping over it.
+     */
+    @Test
+    void testResetRecreatesLiveScheduler() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+
+            coordinator.restoreCoordinator(true);
+
+            ScheduledExecutorService scheduler =
+                    (ScheduledExecutorService)
+                            ReflectionUtils.getField(coordinator, "scheduler")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "scheduler field not found"));
+            Assertions.assertFalse(
+                    scheduler.isShutdown(),
+                    "a coordinator reset must leave a schedulable checkpoint scheduler behind");
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
      * Regression: when {@code notifyCompleted()} fails (returns {@code false}), {@code
      * completePendingCheckpoint} must return immediately without decrementing {@code
      * pendingCounter} or executing any other "success path" logic.
