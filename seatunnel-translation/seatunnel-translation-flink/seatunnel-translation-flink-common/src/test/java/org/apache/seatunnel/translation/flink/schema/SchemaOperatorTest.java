@@ -20,11 +20,14 @@ package org.apache.seatunnel.translation.flink.schema;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
@@ -69,6 +72,30 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class SchemaOperatorTest {
+
+    @Test
+    void testRestoreSchemaEventIsAlwaysSupported() throws Exception {
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.LONG_TYPE, 20L, false, null, null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        OperatorTestContext context =
+                createOperator(new OperatorStateStoreStub(), false, Collections.emptyList());
+        context.operator.processElement(
+                new StreamRecord<>(
+                        createSchemaRow(new RestoreTableSchemaEvent(restoredTable)), 1L));
+
+        assertTrue(getBooleanField(context.operator, "schemaChangePending"));
+        assertEquals(1, getPendingQueue(context.operator).size());
+    }
 
     @Test
     void testWaitRoundBeforeReleasingBufferedRecords() throws Exception {
@@ -277,18 +304,18 @@ public class SchemaOperatorTest {
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore, boolean restored) throws Exception {
         return createOperator(
-                stateStore, Collections.singletonList(SchemaChangeType.ADD_COLUMN), restored);
+                stateStore, restored, Collections.singletonList(SchemaChangeType.ADD_COLUMN));
     }
 
     private static OperatorTestContext createOperator(
             List<SchemaChangeType> supportedTypes, boolean restored) throws Exception {
-        return createOperator(new OperatorStateStoreStub(), supportedTypes, restored);
+        return createOperator(new OperatorStateStoreStub(), restored, supportedTypes);
     }
 
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore,
-            List<SchemaChangeType> supportedTypes,
-            boolean restored)
+            boolean restored,
+            List<SchemaChangeType> supportedTypes)
             throws Exception {
         SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
         Mockito.when(source.supports()).thenReturn(supportedTypes);

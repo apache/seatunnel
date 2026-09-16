@@ -4,16 +4,16 @@ import ChangeLog from '../changelog/connector-aerospike.md';
 
 > Aerospike 数据写入连接器
 
-## 许可证兼容性通知
-
-此连接器依赖于根据AGPL 3.0许可的Aerospike客户端库。
-使用此连接器时，您需要遵守AGPL 3.0许可条款。
-
 ## 支持引擎
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
+
+## 许可证兼容性通知
+
+此连接器依赖于根据AGPL 3.0许可的Aerospike客户端库。
+使用此连接器时，您需要遵守AGPL 3.0许可条款。
 
 ## 主要特性
 

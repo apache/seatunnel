@@ -35,7 +35,7 @@ public final class StopConfig implements Serializable {
     @Getter private final StopMode stopMode;
     private final String specificOffsetFile;
     private final Long specificOffsetPos;
-    private final Long timestamp;
+    @Getter private final Long timestamp;
 
     public Offset getStopOffset(OffsetFactory offsetFactory) {
         switch (stopMode) {
