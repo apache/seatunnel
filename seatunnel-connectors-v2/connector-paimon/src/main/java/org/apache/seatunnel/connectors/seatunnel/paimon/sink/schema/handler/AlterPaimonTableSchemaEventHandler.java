@@ -23,10 +23,12 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -85,6 +87,9 @@ public class AlterPaimonTableSchemaEventHandler {
             }
         } else if (event instanceof AlterTableColumnEvent) {
             applySingleSchemaChangeEvent(event);
+        } else if (event instanceof AlterTableCommentEvent) {
+            // Table-level comment changes, handle gracefully
+            applySingleSchemaChangeEvent(event);
         } else {
             throw new UnsupportedOperationException("Unsupported alter table event: " + event);
         }
@@ -128,6 +133,13 @@ public class AlterPaimonTableSchemaEventHandler {
                 paimonCatalog.alterTable(
                         identifier, SchemaChange.renameColumn(oldColumn, column.getName()), false);
             }
+        } else if (event instanceof AlterTableCommentEvent
+                || event instanceof AlterColumnCommentEvent) {
+            // Comment-only changes are not supported by Paimon sink, safely ignore
+            log.info(
+                    "Ignoring comment change event for table {} - Paimon sink does not support comment sync: {}",
+                    paimonTablePath.getFullName(),
+                    event.getClass().getSimpleName());
         } else {
             throw new UnsupportedOperationException("Unsupported alter table event: " + event);
         }

@@ -229,4 +229,14 @@ public abstract class Column implements Serializable {
 
     /** Returns a copy of the column with a replaced sourceType. */
     public abstract Column reSourceType(String sourceType);
+
+    /**
+     * Returns a copy of the column with a replaced comment.
+     *
+     * <p>Subclasses should override this method when they support comment mutation.
+     */
+    public Column copyWithComment(String comment) {
+        throw new UnsupportedOperationException(
+                String.format("%s does not support replacing comments", getClass().getName()));
+    }
 }

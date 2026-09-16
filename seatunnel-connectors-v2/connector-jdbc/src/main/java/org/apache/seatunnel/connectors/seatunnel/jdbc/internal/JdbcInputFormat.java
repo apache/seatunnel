@@ -38,6 +38,7 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -57,6 +58,7 @@ public class JdbcInputFormat implements Serializable {
     private final JdbcRowConverter jdbcRowConverter;
     private final Map<TablePath, CatalogTable> tables;
     private final ChunkSplitter chunkSplitter;
+    private final boolean configuredAutoCommit;
 
     private transient String splitTableId;
     private transient TableSchema splitTableSchema;
@@ -65,23 +67,37 @@ public class JdbcInputFormat implements Serializable {
     private volatile boolean hasNext;
 
     public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
-        this.jdbcDialect =
+        this(
                 JdbcDialectLoader.load(
                         config.getJdbcConnectionConfig().getUrl(),
                         config.getJdbcConnectionConfig().getDialect(),
-                        config.getCompatibleMode());
-        this.chunkSplitter = ChunkSplitter.create(config);
+                        config.getCompatibleMode()),
+                ChunkSplitter.create(config),
+                tables,
+                config.getJdbcConnectionConfig().isAutoCommit());
+    }
+
+    JdbcInputFormat(
+            JdbcDialect jdbcDialect,
+            ChunkSplitter chunkSplitter,
+            Map<TablePath, CatalogTable> tables,
+            boolean configuredAutoCommit) {
+        this.jdbcDialect = jdbcDialect;
+        this.chunkSplitter = chunkSplitter;
         this.jdbcRowConverter = jdbcDialect.getRowConverter();
         this.tables = tables;
+        this.configuredAutoCommit = configuredAutoCommit;
     }
 
     public void openInputFormat() {}
 
     public void closeInputFormat() throws IOException {
-        close();
-
-        if (chunkSplitter != null) {
-            chunkSplitter.close();
+        try {
+            close();
+        } finally {
+            if (chunkSplitter != null) {
+                chunkSplitter.close();
+            }
         }
     }
 
@@ -101,10 +117,31 @@ public class JdbcInputFormat implements Serializable {
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
         } catch (SQLException se) {
+            cleanupAfterOpenFailure(se);
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
                     "open() failed." + se.getMessage(),
                     se);
+        } catch (RuntimeException runtimeException) {
+            cleanupAfterOpenFailure(runtimeException);
+            throw runtimeException;
+        }
+    }
+
+    private void cleanupAfterOpenFailure(Throwable openException) {
+        boolean shouldDiscardConnection = statement == null;
+        try {
+            close();
+        } catch (IOException cleanupException) {
+            openException.addSuppressed(cleanupException);
+            shouldDiscardConnection = true;
+        } finally {
+            if (shouldDiscardConnection) {
+                // Statement creation may establish or mutate the cached connection before failing
+                // without returning a statement. Discard it because close() cannot identify and
+                // finish that transaction safely.
+                chunkSplitter.close();
+            }
         }
     }
 
@@ -114,11 +151,14 @@ public class JdbcInputFormat implements Serializable {
      * @throws IOException Indicates that a resource could not be closed.
      */
     public void close() throws IOException {
+        Connection connection = getStatementConnection();
         if (resultSet != null) {
             try {
                 resultSet.close();
             } catch (SQLException e) {
                 LOG.info("ResultSet couldn't be closed - " + e.getMessage());
+            } finally {
+                resultSet = null;
             }
         }
         if (statement != null) {
@@ -126,7 +166,86 @@ public class JdbcInputFormat implements Serializable {
                 statement.close();
             } catch (SQLException e) {
                 LOG.info("Statement couldn't be closed - " + e.getMessage());
+            } finally {
+                statement = null;
             }
+        }
+
+        hasNext = false;
+        splitTableSchema = null;
+        splitTableId = null;
+        finishReadTransaction(connection);
+    }
+
+    private Connection getStatementConnection() {
+        if (statement == null) {
+            return null;
+        }
+        try {
+            Connection connection = statement.getConnection();
+            if (connection == null) {
+                LOG.warn(
+                        "The JDBC source statement returned no connection. "
+                                + "Closing the cached connection to avoid reusing an unknown "
+                                + "transaction.");
+                chunkSplitter.close();
+            }
+            return connection;
+        } catch (SQLException e) {
+            LOG.warn(
+                    "Failed to get the JDBC source connection from the current statement. "
+                            + "Closing the cached connection to avoid reusing an unknown "
+                            + "transaction.",
+                    e);
+            chunkSplitter.close();
+            return null;
+        }
+    }
+
+    private void finishReadTransaction(Connection connection) {
+        try {
+            finishReadTransaction(connection, configuredAutoCommit);
+        } catch (SQLException e) {
+            LOG.warn(
+                    "Failed to finish the JDBC source read transaction. "
+                            + "Closing the connection to avoid leaving or reusing an idle "
+                            + "transaction.",
+                    e);
+            discardConnection(connection, e);
+        }
+    }
+
+    private void discardConnection(Connection connection, SQLException cleanupException) {
+        try {
+            if (connection != null) {
+                connection.close();
+            }
+        } catch (SQLException closeException) {
+            cleanupException.addSuppressed(closeException);
+            LOG.warn(
+                    "Failed to close the JDBC source connection after transaction cleanup failed.",
+                    cleanupException);
+        } finally {
+            // Clear the provider's cached reference and retry close for drivers whose first close
+            // attempt failed.
+            chunkSplitter.close();
+        }
+    }
+
+    static void finishReadTransaction(Connection connection, boolean configuredAutoCommit)
+            throws SQLException {
+        if (connection == null || connection.isClosed()) {
+            return;
+        }
+
+        boolean currentAutoCommit = connection.getAutoCommit();
+        if (!currentAutoCommit) {
+            // JDBC source reads do not have changes to commit. Rollback ends the server-side cursor
+            // transaction, releases its snapshot, and also recovers a transaction in failed state.
+            connection.rollback();
+        }
+        if (currentAutoCommit != configuredAutoCommit) {
+            connection.setAutoCommit(configuredAutoCommit);
         }
     }
 

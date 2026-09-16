@@ -222,7 +222,7 @@ source {
 transform {
   Sql {
     plugin_input = "raw"
-    query = "SELECT 'text' AS msg_type, named_struct('text', concat('User ', name, ' is ', cast(age as string), ' years old')) AS content FROM raw"
+    query = "SELECT 'text' AS msg_type, MAP('text', concat('User ', name, ' is ', cast(age as string), ' years old')) AS content FROM raw"
   }
 }
 

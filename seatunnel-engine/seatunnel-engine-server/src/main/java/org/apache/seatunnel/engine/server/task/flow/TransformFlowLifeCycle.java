@@ -18,7 +18,9 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.signal.Signal;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -26,12 +28,30 @@ import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.error.DefaultErrorSinkWriter;
+import org.apache.seatunnel.engine.server.task.error.DefaultRowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerConfigUtil.StageType;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingFlatMapTransform;
+import org.apache.seatunnel.engine.server.task.error.ErrorHandlingMapTransform;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkConfig;
+import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.LocalErrorHandlerCounter;
+import org.apache.seatunnel.engine.server.task.error.RowErrorClassifier;
+import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.error.StateStoreErrorHandlerCounter;
+import org.apache.seatunnel.engine.server.task.error.SynchronizedErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
 import org.apache.seatunnel.engine.server.trace.StainTraceStage;
@@ -45,6 +65,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_PROCESS_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_IN;
@@ -53,7 +74,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECO
 /** Executes transform operators and extends stain trace payloads across transform boundaries. */
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
-        implements OneInputFlowLifeCycle<Record<?>> {
+        implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
     private final TransformChainAction<T> action;
 
@@ -61,12 +82,18 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
 
     private final Collector<Record<?>> collector;
 
+    private ErrorHandler<T> errorHandler;
+
     private transient Counter processNs;
     private transient Counter recordsIn;
     private transient Counter recordsOut;
     private volatile Counter stainTraceEntriesTruncatedTotal;
     private volatile Boolean stainTracePropagateToAllSplits;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
+    private boolean dryRunSampleEnabled;
+    private boolean dryRunSamplePrintData;
+    private int dryRunSampleLimit;
+    private int[] dryRunSampleCounts;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
@@ -77,6 +104,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         this.action = action;
         this.transform = action.getTransforms();
         this.collector = collector;
+        this.dryRunSampleCounts = new int[transform.size()];
     }
 
     @Override
@@ -87,12 +115,23 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         // a fresh context which is not tracked/reported on the worker.)
         final org.apache.seatunnel.api.common.metrics.MetricsContext metricsContext =
                 runningTask.getMetricsContext();
+        Map<String, Object> jobEnvOptions = runningTask.getJobEnvOptions();
+        this.dryRunSampleEnabled = DryRunSampleConfig.isEnabled(jobEnvOptions);
+        this.dryRunSampleLimit = DryRunSampleConfig.getLimit(jobEnvOptions);
+        this.dryRunSamplePrintData = DryRunSampleConfig.isPrintData(jobEnvOptions);
         this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
         this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
         this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
+        initErrorHandlingTransforms();
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
+                if (dryRunSampleEnabled) {
+                    log.info(
+                            "Dry-run sample [transform:{}] schemas: {}",
+                            t.getPluginName(),
+                            describeProducedSchemas(t.getProducedCatalogTables()));
+                }
             } catch (Exception e) {
                 log.error(
                         "Open transform: {} failed, cause: {}",
@@ -103,6 +142,14 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         }
     }
 
+    static List<String> describeProducedSchemas(List<CatalogTable> catalogTables) {
+        List<String> schemas = new ArrayList<>(catalogTables.size());
+        for (CatalogTable catalogTable : catalogTables) {
+            schemas.add(catalogTable.getTablePath() + ": " + catalogTable.getSeaTunnelRowType());
+        }
+        return schemas;
+    }
+
     @Override
     public void received(Record<?> record) {
         if (record.getData() instanceof Barrier) {
@@ -111,6 +158,8 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
+                flushErrorHandler(barrier.getId());
+                snapshotErrorHandler(barrier.getId());
                 runningTask.addState(barrier, ActionStateKey.of(action), Collections.emptyList());
             }
             // ack after #addState
@@ -152,6 +201,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         } else if (record.getData() instanceof Signal) {
             if (prepareClose) {
                 return;
+            }
+            if (record.getData() instanceof FlushSignal) {
+                flushErrorHandler();
             }
             collector.collect(record);
         } else {
@@ -238,7 +290,8 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         List<T> dataList = new ArrayList<>();
         dataList.add(inputData);
 
-        for (SeaTunnelTransform<T> transformer : transform) {
+        for (int transformIndex = 0; transformIndex < transform.size(); transformIndex++) {
+            SeaTunnelTransform<T> transformer = transform.get(transformIndex);
             List<T> nextInputDataList = new ArrayList<>();
             if (transformer instanceof SeaTunnelFlatMapTransform) {
                 SeaTunnelFlatMapTransform<T> transformDecorator =
@@ -273,6 +326,19 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
 
             dataList = nextInputDataList;
+            if (dryRunSampleEnabled && dryRunSamplePrintData) {
+                for (T output : dataList) {
+                    if (dryRunSampleCounts[transformIndex] >= dryRunSampleLimit) {
+                        break;
+                    }
+                    dryRunSampleCounts[transformIndex]++;
+                    log.info(
+                            "Dry-run sample [transform:{}] row {}: {}",
+                            transformer.getPluginName(),
+                            dryRunSampleCounts[transformIndex],
+                            output);
+                }
+            }
         }
 
         return dataList;
@@ -296,7 +362,144 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         e);
             }
         }
+        if (errorHandler != null) {
+            try {
+                errorHandler.close();
+            } catch (Exception e) {
+                log.error("Close ErrorHandler for transform stage failed", e);
+                throw new IOException("Close ErrorHandler for transform stage failed", e);
+            }
+        }
         super.close();
+    }
+
+    private void flushErrorHandler() {
+        flushErrorHandler(null);
+    }
+
+    private void flushErrorHandler(Long checkpointId) {
+        if (errorHandler == null) {
+            return;
+        }
+        try {
+            if (checkpointId == null) {
+                errorHandler.flush();
+            } else {
+                errorHandler.flush(checkpointId);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Flush ErrorHandler for transform stage failed", e);
+        }
+    }
+
+    private void snapshotErrorHandler(long checkpointId) {
+        if (errorHandler != null) {
+            errorHandler.snapshotState(checkpointId);
+        }
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
+        if (errorHandler != null) {
+            errorHandler.notifyCheckpointComplete(checkpointId);
+        }
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) {
+        if (errorHandler != null) {
+            errorHandler.notifyCheckpointAborted(checkpointId);
+        }
+    }
+
+    private void initErrorHandlingTransforms() {
+        if (!(runningTask instanceof SeaTunnelTask)) {
+            return;
+        }
+        SeaTunnelTask seaTunnelTask = (SeaTunnelTask) runningTask;
+        Map<String, Object> envOptions = seaTunnelTask.getEnvOptions();
+
+        StageErrorConfig stageConfig =
+                ErrorHandlerConfigUtil.buildStageConfig(
+                        envOptions, StageType.TRANSFORM, getJobIdOrDefault(seaTunnelTask));
+
+        if (stageConfig.getMode() == ErrorHandlerMode.DISABLE) {
+            return;
+        }
+        ErrorSinkRowWriter<T> errorSinkWriter = createErrorSinkWriter(seaTunnelTask, stageConfig);
+        ErrorHandler<T> handler =
+                createErrorHandler(
+                        seaTunnelTask, stageConfig, errorSinkWriter, action.getId(), "TRANSFORM");
+        this.errorHandler = handler;
+        RowErrorClassifier<T> classifier = new DefaultRowErrorClassifier<>();
+
+        for (int i = 0; i < transform.size(); i++) {
+            SeaTunnelTransform<T> t = transform.get(i);
+            if (t instanceof SeaTunnelFlatMapTransform) {
+                transform.set(
+                        i,
+                        new ErrorHandlingFlatMapTransform<>(
+                                (SeaTunnelFlatMapTransform<T>) t, handler, classifier));
+            } else if (t instanceof SeaTunnelMapTransform) {
+                transform.set(
+                        i,
+                        new ErrorHandlingMapTransform<>(
+                                (SeaTunnelMapTransform<T>) t, handler, classifier));
+            }
+        }
+    }
+
+    private ErrorHandler<T> createErrorHandler(
+            SeaTunnelTask seaTunnelTask,
+            StageErrorConfig stageConfig,
+            ErrorSinkRowWriter<T> errorSinkWriter,
+            long actionId,
+            String stageName) {
+        TaskLocation location = seaTunnelTask.getTaskLocation();
+        if (location == null || seaTunnelTask.getExecutionContext() == null) {
+            return new ErrorHandler<>(stageConfig, errorSinkWriter, new LocalErrorHandlerCounter());
+        }
+        return new ErrorHandler<>(
+                stageConfig,
+                errorSinkWriter,
+                new StateStoreErrorHandlerCounter(
+                        seaTunnelTask
+                                .getExecutionContext()
+                                .getStateStores()
+                                .errorHandlerCounterStore(),
+                        location.getJobId(),
+                        location.getPipelineId(),
+                        actionId,
+                        stageName));
+    }
+
+    private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {
+        return seaTunnelTask.getTaskLocation() == null
+                ? -1L
+                : seaTunnelTask.getTaskLocation().getJobId();
+    }
+
+    @SuppressWarnings("unchecked")
+    private ErrorSinkRowWriter<T> createErrorSinkWriter(
+            SeaTunnelTask seaTunnelTask, StageErrorConfig stageConfig) {
+        if (stageConfig.getMode() != ErrorHandlerMode.ROUTE) {
+            return null;
+        }
+        ErrorSinkConfig sinkConfig = stageConfig.getSink();
+        if (sinkConfig == null || !sinkConfig.isConfigured()) {
+            return null;
+        }
+        DefaultErrorSinkWriter<T> writer =
+                new DefaultErrorSinkWriter<>(
+                        stageConfig,
+                        sinkConfig,
+                        seaTunnelTask.getTaskLocation().getJobId(),
+                        seaTunnelTask.getTaskLocation().getTaskIndex(),
+                        seaTunnelTask.getExecutionContext().getClassLoaderService(),
+                        runningTask.getMetricsContext(),
+                        event -> {});
+        writer.open();
+        return (ErrorSinkRowWriter<T>) new SynchronizedErrorSinkRowWriter<>(writer);
     }
 
     private Counter getStainTraceEntriesTruncatedTotal() {

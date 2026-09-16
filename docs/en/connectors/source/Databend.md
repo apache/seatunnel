@@ -21,7 +21,14 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## Description
 
-A source connector for reading data from Databend.
+A source connector for reading data from [Databend](https://databend.rs/) using the Databend JDBC
+driver. You can read a single table with `database` + `table`, run an ad-hoc query with `query`,
+or supply an explicit statement through `sql`. The connector executes the query in batch mode and
+returns each result row as a SeaTunnel row.
+
+The connector supports column projection through standard SQL and exposes a few JDBC tuning
+options such as `fetch_size` and `ssl`. It does not currently read multiple tables in a single
+source block; configure one Databend source per table.
 
 ## Dependencies
 
@@ -131,6 +138,22 @@ source {
     sql = "SELECT * FROM default.users"
     ssl = true
     fetch_size = 1000
+  }
+}
+```
+
+### Filter On A Computed Column
+
+Use any expression supported by Databend in `query` to project and filter rows before they reach
+SeaTunnel:
+
+```hocon
+source {
+  Databend {
+    url = "jdbc:databend://localhost:8000"
+    username = "root"
+    password = ""
+    query = "SELECT id, name, age FROM default.users WHERE age >= 18 AND starts_with(name, 'A') ORDER BY id"
   }
 }
 ```

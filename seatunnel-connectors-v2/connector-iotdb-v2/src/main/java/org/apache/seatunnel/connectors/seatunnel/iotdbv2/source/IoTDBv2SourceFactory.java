@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.iotdbv2.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -28,10 +29,8 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SourceConstants;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 
 import com.google.auto.service.AutoService;
 
@@ -55,6 +54,8 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
                         ConnectorCommonOptions.SCHEMA)
                 .optional(
                         IoTDBv2SourceOptions.SQL_DIALECT,
+                        Conditions.matches(IoTDBv2SourceOptions.SQL_DIALECT, "(?i)^(tree|table)$"))
+                .optional(
                         IoTDBv2SourceOptions.DATABASE,
                         IoTDBv2SourceOptions.FETCH_SIZE,
                         IoTDBv2SourceOptions.DEFAULT_THRIFT_BUFFER_SIZE,
@@ -71,22 +72,11 @@ public class IoTDBv2SourceFactory implements TableSourceFactory {
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
         ReadonlyConfig conf = context.getOptions();
-        String targetSqlDialect;
-        if (conf.get(IoTDBv2SourceOptions.SQL_DIALECT) != null) {
-            String sqlDialect = conf.get(IoTDBv2SourceOptions.SQL_DIALECT);
-            if (SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-                targetSqlDialect = SourceConstants.TABLE;
-            } else {
-                if (SourceConstants.TREE.equalsIgnoreCase(sqlDialect)) {
-                    targetSqlDialect = SourceConstants.TREE;
-                } else {
-                    throw new IotdbConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT, "Sql dialect not supported");
-                }
-            }
-        } else {
-            targetSqlDialect = SourceConstants.TREE;
-        }
+        String sqlDialect = conf.get(IoTDBv2SourceOptions.SQL_DIALECT);
+        String targetSqlDialect =
+                SourceConstants.TABLE.equalsIgnoreCase(sqlDialect)
+                        ? SourceConstants.TABLE
+                        : SourceConstants.TREE;
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
                         new IoTDBv2Source(catalogTable, context.getOptions(), targetSqlDialect);

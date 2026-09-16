@@ -24,24 +24,19 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.MountableFile;
 import org.tikv.common.TiSession;
 
 import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -88,53 +83,9 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer("bash", "-c", "mkdir -p " + TIDB_CDC_PLUGIN_LIB);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-
-                copyDriverToContainer(container, mysqlDriverJarPath());
-                copyDriverToContainer(container, tiKVClientJarPath());
+                DependencyJar.of(Driver.class).copyTo(container, TIDB_CDC_PLUGIN_LIB);
+                DependencyJar.of(TiSession.class).copyTo(container, TIDB_CDC_PLUGIN_LIB);
             };
-
-    private void copyDriverToContainer(GenericContainer<?> container, Path driverJarPath) {
-        container.copyFileToContainer(
-                MountableFile.forHostPath(driverJarPath),
-                TIDB_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
-    }
-
-    private Path mysqlDriverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
-
-    private Path tiKVClientJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            TiSession.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve TiKV client jar from the test classpath", e);
-        }
-    }
 
     @BeforeAll
     @Override

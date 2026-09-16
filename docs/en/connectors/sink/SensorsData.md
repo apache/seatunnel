@@ -227,6 +227,10 @@ sink {
 
 ### Profile Property Updates
 
+User profile records (`record_type = "users"`) update the attributes attached to a SensorsData user
+profile. Setting `null_as_profile_unset = true` makes null properties delete the corresponding
+profile attribute instead of leaving the previous value in place.
+
 ```hocon
 sink {
   SensorsData {
@@ -234,7 +238,7 @@ sink {
     time_free = true
 
     entity_name = users
-    record_type = profile
+    record_type = users
     schema = users
     distinct_id_column = user_id
     identity_fields = [
@@ -274,6 +278,68 @@ sink {
     ]
     item_id_column = product_id
     item_type_column = product_type
+  }
+}
+```
+
+### User Details (Detail Records)
+
+User detail records (`record_type = "details"`) attach a per-record identifier to a SensorsData
+user. The `detail_id_column` provides that detail key, while `distinct_id_column` and
+`identity_fields` identify the parent user.
+
+```hocon
+sink {
+  SensorsData {
+    consumer = console
+    server_url = "http://10.129.27.43:8106/sa?project=sditest"
+    time_free = true
+
+    record_type = details
+    schema = fund_manager
+    distinct_id_column = c_id
+    detail_id_column = c_id
+    identity_fields = [
+      { target = "$identity_distinct_id", source = c_id }
+    ]
+    property_fields = [
+      { target = c_id, source = c_id, type = STRING }
+      { target = fund_amount, source = c_int, type = INT }
+      { target = "$is_valid", source = c_boolean, type = BOOLEAN }
+    ]
+  }
+}
+```
+
+### Dynamic Event Names With Multiple Identities
+
+This example builds the event name from the data row itself (`event_name = "${c_event}"`) and
+maps several identities at once (`$identity_login_id`, `$identity_distinct_id`). Records that fail
+to convert are skipped via `skip_error_record = true`.
+
+```hocon
+sink {
+  SensorsData {
+    consumer = console
+    server_url = "http://10.1.136.63:8106/sa?project=default"
+    time_free = true
+
+    record_type = events
+    schema = events
+    event_name = "${c_event}"
+    time_column = c_date
+    distinct_id_column = c_bigint
+    identity_fields = [
+      { source = c_bigint, target = "$identity_login_id" }
+      { source = c_bigint, target = "$identity_distinct_id" }
+    ]
+    property_fields = [
+      { target = c_tinyint, source = c_tinyint, type = INT }
+      { target = c_bigint,   source = c_bigint,   type = BIGINT }
+      { target = c_int,      source = c_int,      type = INT }
+      { target = c_boolean,  source = c_boolean,  type = BOOLEAN }
+    ]
+    skip_error_record = true
   }
 }
 ```

@@ -100,7 +100,7 @@ Cassandra source 支持两种读取方式：
 
 示例条目：
 
-```
+```hocon
 {
   cql = "SELECT id, name FROM keyspace.table1"
 }
@@ -199,6 +199,25 @@ sink {
     datacenter = "datacenter1"
     keyspace = "test"
     table = "mt_sink_table"
+  }
+}
+```
+
+### 提高读取一致性级别
+
+当读取结果必须满足配置的副本因子时，使用 `consistency_level = "QUORUM"`，并配合
+`datacenter` 让 Driver 连接到正确的本地协调节点：
+
+```hocon
+source {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    consistency_level = "QUORUM"
+    cql = "SELECT id, name, score FROM test.accounts"
   }
 }
 ```

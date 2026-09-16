@@ -56,6 +56,13 @@ public class SimpleBatchStatementExecutor implements JdbcBatchStatementExecutor<
     }
 
     @Override
+    public void clearBatch() throws SQLException {
+        if (statement != null) {
+            statement.clearBatch();
+        }
+    }
+
+    @Override
     public void closeStatements() throws SQLException {
         if (statement != null) {
             statement.close();

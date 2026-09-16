@@ -68,6 +68,12 @@ public final class MetricNames {
     /** Total records received by Sink (writer.write call count). */
     public static final String SINK_RECORDS_IN = "SinkRecordsIn";
 
+    /** Total row-level sink errors routed to the configured ErrorData sink. */
+    public static final String SINK_ERROR_RECORDS_ROUTED = "SinkErrorRecordsRouted";
+
+    /** Total row-level sink errors dropped after logging. */
+    public static final String SINK_ERROR_RECORDS_DROPPED = "SinkErrorRecordsDropped";
+
     /** Total nanoseconds spent in Sink writer.prepareCommit. */
     public static final String SINK_PREPARE_COMMIT_NANOS = "SinkPrepareCommitNs";
 

@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### For SeaTunnel Zeta Engine
 
-1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
+1. You must ensure `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
@@ -97,30 +97,30 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                     |
 |---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | -                                          | The OSS path to write files in.                                                                                                                                                  |
-| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir.                                                               |
-| bucket                                | string  | yes      | -                                          |                                                                                                                                                                                 |
-| access_key                            | string  | yes      | -                                          |                                                                                                                                                                                 |
-| access_secret                         | string  | yes      | -                                          |                                                                                                                                                                                 |
-| endpoint                              | string  | yes      | -                                          |                                                                                                                                                                                 |
-| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                            |
-| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                          |
-| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                          |
-| file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                                 |
-| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                          |
-| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv                                                                                                                                 |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                                     |
+| path                                  | string  | yes      | -                                          | The OSS path the sink writes to. Combined with `bucket`, the actual location is `oss://<bucket><path>`.                                                                          |
+| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Needs an OSS dir.                                                              |
+| bucket                                | string  | yes      | -                                          | The bucket address of OSS file system, for example `oss://tyrantlucifer-image-bed`.                                                                                            |
+| access_key                            | string  | yes      | -                                          | The access key of the OSS bucket.                                                                                                                                               |
+| access_secret                         | string  | yes      | -                                          | The access secret of the OSS bucket.                                                                                                                                            |
+| endpoint                              | string  | yes      | -                                          | The OSS endpoint, for example `oss-cn-beijing.aliyuncs.com`.                                                                                                                    |
+| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename.                                                                                                                                           |
+| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true.                                                                                                                                         |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true.                                                                                                                                         |
+| file_format_type                      | string  | no       | "csv"                                      | File format type, supported: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `canal_json`, `debezium_json`, `maxwell_json`.                                    |
+| filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`.                                                          |
+| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv.                                                                                                                                |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`.                                                                                                                    |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
-| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                           |
-| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                           |
-| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                           |
-| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                                       |
-| is_enable_transaction                 | boolean | no       | true                                       |                                                                                                                                                                                 |
-| batch_size                            | int     | no       | 1000000                                    |                                                                                                                                                                                 |
-| compress_codec                        | string  | no       | none                                       |                                                                                                                                                                                 |
-| common-options                        | object  | no       | -                                          |                                                                                                                                                                                 |
+| partition_by                          | array   | no       | -                                          | Only used when have_partition is true.                                                                                                                                          |
+| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used when have_partition is true.                                                                                                                                          |
+| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used when have_partition is true.                                                                                                                                          |
+| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns.                                                                                                                      |
+| is_enable_transaction                 | boolean | no       | true                                       | If `true`, data will not be lost or duplicated when written to the target directory. When `true`, `${transactionId}_` is automatically prefixed to the file name.                |
+| batch_size                            | int     | no       | 1000000                                    | The maximum number of rows in a file. For SeaTunnel Engine the file row count is jointly decided by `batch_size` and `checkpoint.interval`.                                       |
+| compress_codec                        | string  | no       | none                                       | The compress codec of files. Excel does not support any compression format.                                                                                                     |
+| common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                      |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                                       |
-| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file format_type is excel.                                                                                                                                       |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                                       |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                              |
@@ -130,10 +130,10 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | create_empty_file_when_no_data        | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                               |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
-| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
+| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv. `false`: don't write header, `true`: write header.                                                                                  |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
-| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Before turning on the synchronous task, do different treatment of the target path                                                                                               |
-| data_save_mode                        | Enum    | no       | APPEND_DATA                                | Before opening the synchronous task, the data file in the target path is differently processed                                                                                  |
+| schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Controls how the target directory is treated before the synchronization task starts.                                                                                            |
+| data_save_mode                        | Enum    | no       | APPEND_DATA                                | Controls how existing data files in the target directory are processed before the synchronization task starts.                                                                 |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
 | schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
@@ -145,19 +145,19 @@ For example, set `bucket = "oss://seatunnel-test"` and `path = "/warehouse/event
 
 ### bucket [string]
 
-The bucket address of oss file system, for example: `oss://tyrantlucifer-image-bed`
+The bucket address of OSS file system, for example: `oss://tyrantlucifer-image-bed`.
 
 ### access_key [string]
 
-The access key of oss file system.
+The access key of the OSS bucket.
 
 ### access_secret [string]
 
-The access secret of oss file system.
+The access secret of the OSS bucket.
 
 ### endpoint [string]
 
-The endpoint of oss file system.
+The OSS endpoint, for example `oss-cn-beijing.aliyuncs.com`.
 
 ### custom_filename [boolean]
 

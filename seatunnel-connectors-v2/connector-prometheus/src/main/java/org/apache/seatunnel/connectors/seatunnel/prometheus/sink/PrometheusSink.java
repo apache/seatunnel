@@ -69,7 +69,7 @@ public class PrometheusSink extends AbstractSimpleSink<SeaTunnelRow, Void>
     @Override
     public PrometheusWriter createWriter(SinkWriter.Context context) {
         return new PrometheusWriter(
-                catalogTable.getSeaTunnelRowType(), httpParameter, pluginConfig);
+                catalogTable.getSeaTunnelRowType(), httpParameter, pluginConfig, context);
     }
 
     @Override

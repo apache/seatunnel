@@ -25,8 +25,6 @@ public class PrometheusSinkOptions extends HttpCommonOptions {
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
 
-    private static final Long DEFAULT_FLUSH_INTERVAL = 300000L;
-
     public static final Option<String> KEY_TIMESTAMP =
             Options.key("key_timestamp")
                     .stringType()
@@ -43,11 +41,6 @@ public class PrometheusSinkOptions extends HttpCommonOptions {
             Options.key("batch_size")
                     .intType()
                     .defaultValue(DEFAULT_BATCH_SIZE)
-                    .withDescription("the batch size writer to prometheus");
-
-    public static final Option<Long> FLUSH_INTERVAL =
-            Options.key("flush_interval")
-                    .longType()
-                    .defaultValue(DEFAULT_FLUSH_INTERVAL)
-                    .withDescription("the flush interval writer to prometheus");
+                    .withDescription(
+                            "the positive number of rows buffered before writing to prometheus");
 }

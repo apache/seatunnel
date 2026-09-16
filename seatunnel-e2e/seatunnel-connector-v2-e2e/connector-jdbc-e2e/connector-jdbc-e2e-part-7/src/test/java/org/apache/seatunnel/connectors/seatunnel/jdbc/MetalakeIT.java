@@ -24,6 +24,8 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -137,21 +139,17 @@ public class MetalakeIT extends SeaTunnelContainer {
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
         // execute extra commands
         executeExtraCommands(server);
         server.start();
 
+        DependencyJar.ofClassName(DRIVER_CLASS).copyTo(server, "/tmp/seatunnel/plugins/Jdbc/lib");
         server.execInContainer(
                 "bash",
                 "-c",
-                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                        + driverUrl()
-                        + " --no-check-certificate"
-                        + "&& mkdir -p /tmp/gravitino && cd /tmp/gravitino && curl -C - --retry 5 -L -k -o gravitino-0.9.1-bin.tar.gz https://dlcdn.apache.org/gravitino/0.9.1/gravitino-0.9.1-bin.tar.gz && tar -zxvf gravitino-0.9.1-bin.tar.gz && cd /tmp/gravitino/gravitino-0.9.1-bin && ./bin/gravitino.sh start");
+                "mkdir -p /tmp/gravitino && cd /tmp/gravitino && curl -C - --retry 5 -L -k -o gravitino-0.9.1-bin.tar.gz https://dlcdn.apache.org/gravitino/0.9.1/gravitino-0.9.1-bin.tar.gz && tar -zxvf gravitino-0.9.1-bin.tar.gz && cd /tmp/gravitino/gravitino-0.9.1-bin && ./bin/gravitino.sh start");
 
         given().ignoreExceptions()
                 .await()
@@ -218,10 +216,6 @@ public class MetalakeIT extends SeaTunnelContainer {
         Container.ExecResult execResult =
                 executeJob("/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     protected GenericContainer<?> initContainer() {

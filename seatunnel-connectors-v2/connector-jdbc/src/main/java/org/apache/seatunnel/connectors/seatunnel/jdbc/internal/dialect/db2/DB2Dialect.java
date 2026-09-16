@@ -70,6 +70,12 @@ public class DB2Dialect implements JdbcDialect {
 
     @Override
     public String tableIdentifier(String database, String tableName) {
+        // DB2 connections are already bound to a database by the JDBC URL. When the table name
+        // carries a schema, prefixing the configured database would generate an invalid
+        // catalog.schema.table identifier.
+        if (tableName.contains(".")) {
+            return quoteIdentifier(tableName);
+        }
         return quoteIdentifier(database) + "." + quoteIdentifier(tableName);
     }
 
@@ -131,11 +137,10 @@ public class DB2Dialect implements JdbcDialect {
         // Combine all parts to form the final SQL statement
         String mergeStatement =
                 String.format(
-                        "MERGE INTO %s.%s AS target USING (VALUES (%s)) AS source (%s) ON %s "
+                        "MERGE INTO %s AS target USING (VALUES (%s)) AS source (%s) ON %s "
                                 + "WHEN MATCHED AND (%s) THEN UPDATE SET %s "
                                 + "WHEN NOT MATCHED THEN %s",
-                        quoteIdentifier(database),
-                        quoteIdentifier(tableName),
+                        tableIdentifier(database, tableName),
                         placeholderList,
                         fieldList,
                         onClause,
