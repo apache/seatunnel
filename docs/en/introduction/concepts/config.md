@@ -208,7 +208,7 @@ In a config file, we can define variables and replace them at runtime. However, 
 
 ### Usage of Variables:
 - `${varName}`: If the variable is not provided, an exception will be thrown.
-- `${varName:default}`: If the variable is not provided, the default value will be used. Top node as source/transform/sink and plugin node shall not be configured with default value in json format directly. If you set a plain default value, it should be enclosed in double quotes. When the default value is a map or list with map inside, the default variable value in JSON format needs to be wrapped in triple quotes, as follows:
+- `${varName:default}`: If the variable is not provided, the default value will be used. Duplicate placeholder keys in the configuration file must have identical default values. Top node as source/transform/sink and plugin node shall not be configured with default value in json format directly. If you set a plain default value, it should be enclosed in double quotes. When the default value is a map or list with map inside, the default variable value in JSON format needs to be wrapped in triple quotes, as follows:
   
   `properties = """${mysql_props:{"useSSL":"false","connectionTimeZone":"Asia/Shanghai","serverTimezone":"UTC","allowPublicKeyRetrieval":"true"}}"""` 
 - `${varName:}`: If the variable is not provided, an empty string will be used.
@@ -322,6 +322,7 @@ sink {
 ```
 
 ### Important Notes:
+- To avoid unexpected data synchronization errors, duplicate keys are not allowed in the `-i` parameters.
 - If a value contains special characters like `(`, enclose it in single quotes (`'`).
 - If a value contains commas, it must be wrapped with `\"`. For example: `-i read_cols=\"id,name\"`. However, array types do not require wrapping with `\"`; for example: `-i include_fields=[id,name]`.
 - If the value is a map type, you can pass it as a JSON string, which supports arrays and JSON objects nested to any depth. You can format the parameter value in two ways:

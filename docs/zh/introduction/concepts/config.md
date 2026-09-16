@@ -208,7 +208,7 @@ sql = """ select * from "table" """
 
 变量使用方法：
  - `${varName}`，如果变量未传值，则抛出异常。
- - `${varName:default}`，如果变量未传值，则使用默认值。默认值如果包含占位符，不会被解析。顶层的source/transform/sink节点和插件所在的节点不允许直接设置json默认值。如果设置默认值，普通变量需要写在双引号中。如果默认值是map类型，json格式变量值需要写在三引号中，如下：
+ - `${varName:default}`，如果变量未传值，则使用默认值。配置文件中多个相同的key默认值也必须相同。默认值如果包含占位符，不会被解析。顶层的source/transform/sink节点和插件所在的节点不允许直接设置json默认值。如果设置默认值，普通变量需要写在双引号中。如果默认值是map类型，json格式变量值需要写在三引号中，如下：
     
     `properties = """${mysql_props:{"useSSL":"false","connectionTimeZone":"Asia/Shanghai","serverTimezone":"UTC","allowPublicKeyRetrieval":"true"}}"""`
  - `${varName:}`，如果变量未传值，则使用空字符串。
@@ -324,7 +324,7 @@ sink {
 ```
 
 一些注意事项:
-
+- 为了避免非预期的数据同步错误，`-i` 传参不能出现重复的key。
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
 - 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但数组类型不需要用`\"`包裹，如`-i include_fields=[id,name]`。
 - 如果值是map类型，可以使用json传参，参数值支持任意深度的数组和json嵌套。参数值可以使用单引号包裹标准json,也可以使用反斜杠转义。
