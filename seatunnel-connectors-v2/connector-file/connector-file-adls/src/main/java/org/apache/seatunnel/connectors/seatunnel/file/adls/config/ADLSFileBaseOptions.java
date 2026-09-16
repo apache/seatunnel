@@ -22,7 +22,15 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptio
 
 import java.util.Map;
 
+/**
+ * User-facing ADLS Gen2 options shared by file sources and sinks.
+ *
+ * <p>All authentication fields are declared here to keep option names stable across connector
+ * roles. {@link ADLSConfigValidator} applies the conditional requirements and mutual exclusion for
+ * the selected {@link AuthType}.
+ */
 public class ADLSFileBaseOptions extends FileBaseSourceOptions {
+    /** Supported ADLS Gen2 authentication flows. */
     public enum AuthType {
         SHARED_KEY,
         OAUTH_CLIENT_CREDENTIALS
@@ -73,6 +81,9 @@ public class ADLSFileBaseOptions extends FileBaseSourceOptions {
                     .stringType()
                     .defaultValue("https://login.microsoftonline.com")
                     .withDescription("Microsoft Entra authority host");
+
+    // This escape hatch is limited to non-routing, non-credential ABFS tuning; the validator
+    // rejects connector-owned keys before the map reaches Hadoop.
     public static final Option<Map<String, String>> HADOOP_PROPERTIES =
             Options.key("hadoop_adls_properties")
                     .mapType()

@@ -22,7 +22,15 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Hadoop filesystem configuration for an ADLS Gen2 container.
+ *
+ * <p>This class translates the connector's stable options into the account-qualified ABFS keys
+ * expected by Hadoop. Keeping that translation in one place prevents source and sink factories from
+ * constructing subtly different filesystem or authentication configurations.
+ */
 public class ADLSHadoopConf extends HadoopConf {
+    // ABFSS is the safe default because Hadoop must not send ADLS credentials over plain HTTP.
     private String schema = ADLSRuntimeCompatibility.SECURE_ABFS_SCHEME;
 
     public ADLSHadoopConf(String nameKey) {
@@ -43,6 +51,13 @@ public class ADLSHadoopConf extends HadoopConf {
         this.schema = schema;
     }
 
+    /**
+     * Validates connector options and builds the Hadoop configuration used to create the ADLS
+     * filesystem.
+     *
+     * @param config connector configuration
+     * @return account-qualified ADLS Hadoop configuration
+     */
     public static ADLSHadoopConf buildWithReadOnlyConfig(ReadonlyConfig config) {
         ADLSConfigValidator.validate(config);
         String account = config.get(ADLSFileBaseOptions.ACCOUNT_NAME);
@@ -52,6 +67,8 @@ public class ADLSHadoopConf extends HadoopConf {
                 new ADLSHadoopConf(
                         ADLSRuntimeCompatibility.secureAbfsUri(account, container, suffix));
         Map<String, String> options = new HashMap<>();
+        // Add the advanced settings first so connector-derived authentication values always win,
+        // even if validation is relaxed or bypassed by a future caller.
         config.getOptional(ADLSFileBaseOptions.HADOOP_PROPERTIES)
                 .ifPresent(values -> values.forEach(options::put));
         ADLSFileBaseOptions.AuthType auth = config.get(ADLSFileBaseOptions.AUTH_TYPE);

@@ -26,7 +26,15 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+/**
+ * Validates ADLS-specific naming, authentication, and Hadoop override constraints.
+ *
+ * <p>These checks run before Hadoop initializes the filesystem so configuration errors identify the
+ * SeaTunnel option that caused the problem instead of surfacing later as opaque Azure or ABFS
+ * failures.
+ */
 final class ADLSConfigValidator {
+    // Enforce Azure resource naming rules locally to avoid constructing invalid ABFS authorities.
     private static final Pattern ACCOUNT = Pattern.compile("[a-z0-9]{3,24}");
     private static final Pattern CONTAINER =
             Pattern.compile("[a-z0-9](?:[a-z0-9]|-(?!-)){1,61}[a-z0-9]");
@@ -35,6 +43,7 @@ final class ADLSConfigValidator {
 
     private ADLSConfigValidator() {}
 
+    /** Validates the complete ADLS configuration, including auth-mode-specific options. */
     static void validate(ReadonlyConfig config) {
         String account = required(config, ADLSFileBaseOptions.ACCOUNT_NAME);
         String container = required(config, ADLSFileBaseOptions.CONTAINER);
@@ -55,6 +64,8 @@ final class ADLSConfigValidator {
         }
 
         ADLSFileBaseOptions.AuthType authType = config.get(ADLSFileBaseOptions.AUTH_TYPE);
+        // Authentication modes are intentionally exclusive. Accepting unused credentials can hide
+        // a mistaken auth_type and make credential rotation behavior ambiguous.
         if (authType == ADLSFileBaseOptions.AuthType.SHARED_KEY) {
             required(config, ADLSFileBaseOptions.ACCOUNT_KEY);
             rejectPresent(config, ADLSFileBaseOptions.TENANT_ID);
@@ -81,6 +92,8 @@ final class ADLSConfigValidator {
                                 "'hadoop_adls_properties' cannot contain blank keys or null values");
                     }
                     String normalized = key.toLowerCase(Locale.ROOT);
+                    // Routing and credential keys remain connector-owned so the validated account,
+                    // endpoint, and auth mode cannot be changed through the advanced escape hatch.
                     if (normalized.equals("fs.defaultfs")
                             || normalized.startsWith("fs.abfs")
                             || normalized.startsWith("fs.azure.account.auth.type")
