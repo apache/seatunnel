@@ -152,6 +152,22 @@ logical maps are persisted:
 | `finished-job-state` | Terminal state for completed, cancelled, or failed jobs |
 | `finished-job-metrics` | Final metrics snapshot after job termination |
 
+SeaTunnel Engine also creates a short-lived internal map named `engine_gracefulMemberRemoval`.
+The supplied Hazelcast server configurations set `hazelcast.shutdownhook.policy: GRACEFUL`, so Hazelcast's
+built-in JVM shutdown hook invokes SeaTunnel's graceful-shutdown callback while map and operation services
+are still active. The callback writes each server member's address into this map before member removal.
+After classifying the corresponding `memberRemoved` event, a stable coordinator removes the marker.
+During active-master failover, the marker remains until its TTL expires so asynchronous job recovery
+can classify the restored task correctly.
+Custom Hazelcast configurations must keep the built-in shutdown hook enabled and retain the `GRACEFUL`
+shutdown-hook policy to preserve this behavior.
+
+- If the marker is present and still valid, the resulting `deployed node offline` task failure is
+  logged at `WARN`.
+- If the marker is absent, expired, or never written, the same offline failure remains at `ERROR`.
+- The marker uses a 5-minute Hazelcast TTL, so operators should treat it as ephemeral runtime state
+  rather than long-lived history.
+
 ### MapStore (disk-backed persistence)
 
 Hazelcast MapStore writes IMap entries to local disk so they survive process restarts. This is

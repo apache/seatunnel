@@ -116,6 +116,7 @@ SeaTunnel 服务端配置由 `seatunnel.yaml` 中的 `seatunnel.engine` 提供�
 
 ```yaml
 properties:
+  hazelcast.shutdownhook.policy: GRACEFUL
   hazelcast.invocation.max.retry.count: 20
   hazelcast.tcp.join.port.try.count: 30
   hazelcast.logging.type: log4j2

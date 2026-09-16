@@ -116,6 +116,7 @@ Use the following Hazelcast `properties` as the baseline configuration. They are
 
 ```yaml
 properties:
+  hazelcast.shutdownhook.policy: GRACEFUL
   hazelcast.invocation.max.retry.count: 20
   hazelcast.tcp.join.port.try.count: 30
   hazelcast.logging.type: log4j2
