@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 > RabbitMQ source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to read data from RabbitMQ queues.
@@ -36,7 +42,12 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | queue_name                 | string  | no       | -             |
 | schema                     | config  | no       | -             |
 | tables_configs             | array   | no       | -             |
+| format                     | string  | no       | json          |
+| protobuf_schema            | string  | no       | -             |
+| protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
@@ -53,6 +64,7 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
 | auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
 
 ### host [string]
 
@@ -80,6 +92,16 @@ the password to use when connecting to the broker
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
 
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
+
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
+
 ### queue_name [string]
 
 the queue to consume messages from. *Note: Required if `tables_configs` is not configured.*
@@ -101,6 +123,18 @@ the schema fields of upstream data. For more details, please refer to [Schema Fe
 ### tables_configs [array]
 
 Used to read from multiple queues simultaneously. Each object in the array must contain `queue_name` and `schema`.
+
+### format [string]
+
+The message payload format. Supported values are `json` and `protobuf`. The default value is `json`.
+
+### protobuf_schema [string]
+
+Effective when `format` is `protobuf`. Defines the Protobuf schema used to deserialize the RabbitMQ message payload.
+
+### protobuf_message_name [string]
+
+Effective when `format` is `protobuf`. Specifies the Protobuf message name to deserialize.
 
 ### network_recovery_interval [int]
 
@@ -165,6 +199,11 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for consumer accounts without queue-declaration permission.
+
 ## Migration Guide & Configuration Rules
 
 If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
@@ -174,7 +213,10 @@ If you are upgrading from a previous version that only supported single-table re
 - Use `tables_configs` for multi-table mode.
 - Use root-level `queue_name` and `schema` for single-queue mode.
 - In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
+- When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name` at the same level as the queue configuration.
 - If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
 - `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
 ## Example
@@ -271,6 +313,48 @@ sink {
   }
 }
 ```
+
+### Protobuf Read Example
+
+```hocon
+source {
+    RabbitMQ {
+        host = "rabbitmq-e2e"
+        port = 5672
+        queue_name = "protobuf_queue"
+        format = protobuf
+        protobuf_message_name = Person
+        protobuf_schema = """
+            syntax = "proto3";
+            message Person {
+              int64 id = 1;
+              string name = 2;
+            }
+        """
+        schema = {
+            fields {
+                id = bigint
+                name = string
+            }
+        }
+    }
+}
+```
+
+## FAQ
+
+### Why must parallelism be set to 1 to achieve exactly-once?
+
+RabbitMQ dispatches messages among multiple active consumers on the same queue in a round-robin manner. When multiple parallel readers consume from the same queue, message ordering and deterministic offset/acknowledgement coordination across distributed workers cannot be guaranteed. Therefore, setting parallelism to 1 is required for deterministic exactly-once delivery.
+
+### What message formats are supported by RabbitMQ source?
+
+RabbitMQ source supports JSON by default and Protobuf when `format` is set to `protobuf`. The connector deserializes each RabbitMQ message payload into one SeaTunnel row according to the configured `schema`.
+
+### How does the source handle unacknowledged messages when a failure occurs?
+
+When a SeaTunnel task fails or crashes, the RabbitMQ connection drops, and RabbitMQ automatically requeues any unacknowledged messages. Upon job restoration from a checkpoint, the reader resumes processing without message loss.
+
 ## Changelog
 
 <ChangeLog />

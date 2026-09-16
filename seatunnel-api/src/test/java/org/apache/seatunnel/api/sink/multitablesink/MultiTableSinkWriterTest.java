@@ -927,6 +927,100 @@ public class MultiTableSinkWriterTest {
         Assertions.assertTrue(restored.getFailedTables().isEmpty());
     }
 
+    /**
+     * A primary key whose {@code hashCode()} is {@link Integer#MIN_VALUE} must still route to a
+     * valid queue. {@code Math.abs(Integer.MIN_VALUE)} is itself negative, so the old routing
+     * produced a negative index and the write failed with {@link IndexOutOfBoundsException}
+     * whenever the replica count was not a power of two.
+     */
+    @Test
+    public void testMinValuePrimaryKeyHashRoutesToValidQueue() throws IOException {
+        // 3 is not a power of two, so Integer.MIN_VALUE % 3 == -2 under the old routing
+        int replicaNum = 3;
+        // Under the fix both rows route to (Integer.MIN_VALUE & Integer.MAX_VALUE) % 3 == 0.
+        int expectedIndex = (Integer.MIN_VALUE & Integer.MAX_VALUE) % replicaNum;
+        Assertions.assertEquals(0, expectedIndex);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        // Integer.valueOf(Integer.MIN_VALUE).hashCode() and Long.valueOf(Long.MIN_VALUE)
+        // .hashCode() are both Integer.MIN_VALUE
+        SeaTunnelRow longKeyRow = new SeaTunnelRow(new Object[] {Long.MIN_VALUE});
+        longKeyRow.setTableId("test.table");
+
+        Assertions.assertDoesNotThrow(
+                () -> multiTableSinkWriter.write(buildRow("test.table", Integer.MIN_VALUE)));
+        Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.write(longKeyRow));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+
+        int totalWrites =
+                sinkWriters.values().stream()
+                        .mapToInt(writer -> ((RecordingSinkWriter) writer).getWriteCount())
+                        .sum();
+        Assertions.assertEquals(2, totalWrites);
+
+        // Pin the target queue exactly rather than only asserting no-throw: both rows must land
+        // in queue 0 and nowhere else, so this fails if the routing regresses, not merely if it
+        // throws.
+        Assertions.assertEquals(2, writersByIndex[expectedIndex].getWriteCount());
+        for (int i = 0; i < replicaNum; i++) {
+            if (i != expectedIndex) {
+                Assertions.assertEquals(0, writersByIndex[i].getWriteCount());
+            }
+        }
+    }
+
+    @Test
+    public void testOrdinaryNegativeHashRoutesToMaskedIndex() throws IOException {
+        // The fix is a general bitmask, not a special case for Integer.MIN_VALUE: it changes the
+        // index for every negative hash, since Math.abs(h) is -h while h & Integer.MAX_VALUE is
+        // h + 2^31. An INT primary key hashes to its own value, so this key's hash is -5, and:
+        //   old routing: Math.abs(-5) % 3               == 2
+        //   new routing: (-5 & Integer.MAX_VALUE) % 3   == 0
+        // The resulting index is asserted exactly, not merely checked for being in range.
+        int replicaNum = 3;
+        int primaryKey = -5;
+        int expectedIndex = (primaryKey & Integer.MAX_VALUE) % replicaNum;
+        Assertions.assertEquals(0, expectedIndex);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        multiTableSinkWriter.write(buildRow("test.table", primaryKey));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+
+        Assertions.assertEquals(1, writersByIndex[expectedIndex].getWriteCount());
+        // Index 2 is where the old Math.abs routing would have sent this row.
+        Assertions.assertEquals(0, writersByIndex[2].getWriteCount());
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);

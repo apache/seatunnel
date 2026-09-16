@@ -37,23 +37,23 @@ The source uses MQTT auto-reconnect. If the client remains disconnected longer t
 
 ## Options
 
-| name                | type    | required | default value |
-|---------------------|---------|----------|---------------|
-| url                 | string  | yes      | -             |
-| topic               | string  | yes      | -             |
-| schema              | config  | yes      | -             |
-| username            | string  | no       | -             |
-| password            | string  | no       | -             |
-| qos                 | int     | no       | 1             |
-| format              | string  | no       | json          |
-| field_delimiter     | string  | no       | ,             |
-| client_id           | string  | no       | -             |
-| clean_session       | boolean | no       | true          |
-| connection_timeout  | int     | no       | 30            |
-| keep_alive_interval | int     | no       | 60            |
-| reconnect_timeout   | int     | no       | 120           |
-| max_queue_size      | int     | no       | 1000          |
-| common-options      |         | no       | -             |
+| name                | type    | required | default value | description                                                                                                            |
+|---------------------|---------|----------|---------------|------------------------------------------------------------------------------------------------------------------------|
+| url                 | string  | yes      | -             | MQTT broker URL, e.g. `tcp://localhost:1883`.                                                                          |
+| topic               | string  | yes      | -             | MQTT topic to subscribe messages from.                                                                                 |
+| schema              | config  | yes      | -             | Output schema of the source. See [Schema Feature](../../introduction/concepts/schema-feature.md).                      |
+| username            | string  | no       | -             | MQTT broker authentication username. Leave unset for anonymous access.                                                 |
+| password            | string  | no       | -             | MQTT broker authentication password. Leave unset for anonymous access.                                                 |
+| qos                 | int     | no       | 1             | MQTT subscribe QoS level. `0` is at-most-once, `1` is at-least-once.                                                   |
+| format              | string  | no       | json          | Message deserialization format: `json` or `text`.                                                                      |
+| field_delimiter     | string  | no       | ,             | Field delimiter for `text` format. Only used when `format=text`.                                                       |
+| client_id           | string  | no       | -             | MQTT client id. Required when `clean_session=false`; generated automatically otherwise.                                 |
+| clean_session       | boolean | no       | true          | Whether to use a clean MQTT session.                                                                                  |
+| connection_timeout  | int     | no       | 30            | MQTT connection timeout in seconds.                                                                                    |
+| keep_alive_interval | int     | no       | 60            | MQTT keep alive interval in seconds.                                                                                   |
+| reconnect_timeout   | int     | no       | 120           | Maximum seconds to wait for MQTT auto-reconnect before failing the source.                                             |
+| max_queue_size      | int     | no       | 1000          | Maximum number of MQTT messages buffered in memory before deserialization.                                             |
+| common-options      |         | no       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details.  |
 
 ### url [string]
 
