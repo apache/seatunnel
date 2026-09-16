@@ -270,6 +270,17 @@ public class TaskDeployStaleContextRaceTest extends AbstractSeaTunnelServerTest 
         }
     }
 
+    /**
+     * Reaches {@code executionContexts} reflectively so the remover thread can delete an entry
+     * while a deployment is in flight - the whole point of this test.
+     *
+     * <p>There is no non-reflective seam for that: the map is private, and the public surface
+     * ({@code deployTask}, {@code cancelTaskGroup}) only removes an entry as part of a larger
+     * operation that also tears down the task group, which would stop the deployment being raced
+     * rather than race it. Adding a package-private accessor purely for this test would widen the
+     * production API for test-only visibility, so the reflection is deliberately kept here and
+     * confined to test setup.
+     */
     @SuppressWarnings("unchecked")
     private static ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContextsOf(
             TaskExecutionService taskExecutionService) throws Exception {
