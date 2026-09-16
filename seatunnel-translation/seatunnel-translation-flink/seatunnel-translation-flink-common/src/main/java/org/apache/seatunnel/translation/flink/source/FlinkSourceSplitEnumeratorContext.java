@@ -33,9 +33,7 @@ import org.apache.flink.runtime.source.coordinator.SourceCoordinatorContext;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 import java.util.function.IntConsumer;
 
@@ -107,61 +105,99 @@ public class FlinkSourceSplitEnumeratorContext<SplitT extends SourceSplit>
         return eventListener;
     }
 
+    /**
+     * Best-effort Flink job id resolution for event enrichment. Failure must never abort
+     * checkpoint/savepoint restore (see issue #10193).
+     */
     private static String getFlinkJobId(SplitEnumeratorContext enumContext) {
         try {
             return getJobIdForV15(enumContext);
         } catch (Exception e) {
-            log.warn("Get flink job id failed", e);
+            log.warn(
+                    "Failed to resolve Flink job id from SplitEnumeratorContext ({}). "
+                            + "Event jobId will be null; checkpoint/savepoint restore continues. Cause: {}",
+                    enumContext == null ? "null" : enumContext.getClass().getName(),
+                    e.toString());
             return null;
         }
     }
 
-    private static String getJobIdForV15(SplitEnumeratorContext enumContext) {
-        try {
-            SourceCoordinatorContext coordinatorContext = (SourceCoordinatorContext) enumContext;
-            Field field =
-                    coordinatorContext.getClass().getDeclaredField("operatorCoordinatorContext");
-            field.setAccessible(true);
-            OperatorCoordinator.Context operatorCoordinatorContext =
-                    (OperatorCoordinator.Context) field.get(coordinatorContext);
-            Field[] fields = operatorCoordinatorContext.getClass().getDeclaredFields();
-            Optional<Field> fieldOptional =
-                    Arrays.stream(fields)
-                            .filter(f -> f.getName().equals("globalFailureHandler"))
-                            .findFirst();
-            if (!fieldOptional.isPresent()) {
-                // RecreateOnResetOperatorCoordinator.QuiesceableContext
-                fieldOptional =
-                        Arrays.stream(fields)
-                                .filter(f -> f.getName().equals("context"))
-                                .findFirst();
-                field = fieldOptional.get();
-                field.setAccessible(true);
-                operatorCoordinatorContext =
-                        (OperatorCoordinator.Context) field.get(operatorCoordinatorContext);
-            }
-
-            // OperatorCoordinatorHolder.LazyInitializedCoordinatorContext
-            field =
-                    Arrays.stream(operatorCoordinatorContext.getClass().getDeclaredFields())
-                            .filter(f -> f.getName().equals("globalFailureHandler"))
-                            .findFirst()
-                            .get();
-            field.setAccessible(true);
-
-            // SchedulerBase$xxx
-            Object obj = field.get(operatorCoordinatorContext);
-            fields = obj.getClass().getDeclaredFields();
-            field =
-                    Arrays.stream(fields)
-                            .filter(f -> f.getName().equals("arg$1"))
-                            .findFirst()
-                            .get();
-            field.setAccessible(true);
-            SchedulerBase schedulerBase = (SchedulerBase) field.get(obj);
-            return schedulerBase.getExecutionGraph().getJobID().toString();
-        } catch (Exception e) {
-            throw new IllegalStateException("Initialize flink job-id failed", e);
+    /**
+     * Resolves Flink job id via reflection into Flink internals. On Flink 1.16+ restore, {@code
+     * RecreateOnResetOperatorCoordinator} may expose a QuiesceableContext whose nested {@code
+     * globalFailureHandler} is null; treat that as a soft miss instead of throwing NPE.
+     */
+    private static String getJobIdForV15(SplitEnumeratorContext enumContext) throws Exception {
+        if (!(enumContext instanceof SourceCoordinatorContext)) {
+            return null;
         }
+        SourceCoordinatorContext coordinatorContext = (SourceCoordinatorContext) enumContext;
+        Field operatorCoordinatorContextField =
+                findDeclaredField(coordinatorContext.getClass(), "operatorCoordinatorContext");
+        if (operatorCoordinatorContextField == null) {
+            return null;
+        }
+        operatorCoordinatorContextField.setAccessible(true);
+        OperatorCoordinator.Context operatorCoordinatorContext =
+                (OperatorCoordinator.Context)
+                        operatorCoordinatorContextField.get(coordinatorContext);
+        if (operatorCoordinatorContext == null) {
+            return null;
+        }
+
+        // RecreateOnResetOperatorCoordinator.QuiesceableContext wraps the real context.
+        if (findDeclaredField(operatorCoordinatorContext.getClass(), "globalFailureHandler")
+                == null) {
+            Field nestedContextField =
+                    findDeclaredField(operatorCoordinatorContext.getClass(), "context");
+            if (nestedContextField == null) {
+                log.warn(
+                        "Cannot resolve Flink job id under restore coordinator context {}; skipping.",
+                        operatorCoordinatorContext.getClass().getName());
+                return null;
+            }
+            nestedContextField.setAccessible(true);
+            operatorCoordinatorContext =
+                    (OperatorCoordinator.Context)
+                            nestedContextField.get(operatorCoordinatorContext);
+            if (operatorCoordinatorContext == null) {
+                return null;
+            }
+        }
+
+        Field globalFailureHandlerField =
+                findDeclaredField(operatorCoordinatorContext.getClass(), "globalFailureHandler");
+        if (globalFailureHandlerField == null) {
+            return null;
+        }
+        globalFailureHandlerField.setAccessible(true);
+        Object globalFailureHandler = globalFailureHandlerField.get(operatorCoordinatorContext);
+        if (globalFailureHandler == null) {
+            // Expected on Flink 1.16+ coordinator reset/restore paths.
+            log.warn(
+                    "Flink globalFailureHandler is null under {}; job id unavailable during restore.",
+                    operatorCoordinatorContext.getClass().getName());
+            return null;
+        }
+
+        Field schedulerField = findDeclaredField(globalFailureHandler.getClass(), "arg$1");
+        if (schedulerField == null) {
+            return null;
+        }
+        schedulerField.setAccessible(true);
+        Object scheduler = schedulerField.get(globalFailureHandler);
+        if (!(scheduler instanceof SchedulerBase)) {
+            return null;
+        }
+        return ((SchedulerBase) scheduler).getExecutionGraph().getJobID().toString();
+    }
+
+    private static Field findDeclaredField(Class<?> clazz, String name) {
+        for (Field field : clazz.getDeclaredFields()) {
+            if (name.equals(field.getName())) {
+                return field;
+            }
+        }
+        return null;
     }
 }
