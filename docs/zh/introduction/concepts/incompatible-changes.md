@@ -11,6 +11,17 @@
   - **变更说明**：重定向响应被视为上报失败，不再将请求转发到其他地址，避免转发配置的请求头，也避免重定向将事件 POST 请求改为 GET 请求。
   - **升级指南**：直接配置最终的事件上报 URL，确保该地址接受 POST 请求并返回成功的 2xx 响应。配置项名称不变。
 
+### RabbitMQ Connector
+
+- **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
+  - **影响范围**：`seatunnel-connectors-v2/connector-rabbitmq`
+  - **变更说明**：此前使用 `amqps://` 的 `url`/`uri` 建立连接时，会隐式启用“信任所有证书”的
+    TrustManager 且不校验主机名。现在 `amqps://` 连接会强制校验证书，与 `ssl = true` 的
+    host/port 路径行为保持一致。
+  - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
+  - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
+    `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
 ### Zeta REST 分页参数校验
 
 - **行为变更：分页接口开始校验 `page` 与 `rows`**

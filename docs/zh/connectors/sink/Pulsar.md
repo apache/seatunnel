@@ -262,6 +262,20 @@ sink {
 }
 ```
 
+## FAQ
+
+### Pulsar Sink 如何实现精确一次（Exactly-Once）与至少一次（At-Least-Once）写入？
+
+通过 `semantics` 参数进行配置：`EXACTLY_ONCE` 利用 Pulsar 事务协调器将数据写入与计算引擎 Checkpoint 屏障紧密绑定并协同提交；`AT_LEAST_ONCE` 则依赖 Producer 确认应答，具备更高的吞吐写入表现。
+
+### Pulsar Sink 是否支持动态多表/多 Topic 路由？
+
+支持。在整库或多表同步场景下，若未指定全局固定的单个 `topic`，SeaTunnel 将根据每条数据记录携带的表标识自动动态路由至对应的 Pulsar Topic。
+
+### 支持向 Pulsar 写入哪些数据序列化格式？
+
+Pulsar Sink 支持通过 `format` 参数指定 `json`、`text` 以及 `avro` 格式，方便与下游消费者或 Schema Registry 系统无缝对接。
+
 ## 变更日志
 
 <ChangeLog />

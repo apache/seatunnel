@@ -46,6 +46,8 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | protobuf_schema            | string  | no       | -             |
 | protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
@@ -62,6 +64,7 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
 | auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
 
 ### host [string]
 
@@ -88,6 +91,16 @@ the password to use when connecting to the broker
 ### url [string]
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
+
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
 
 ### queue_name [string]
 
@@ -186,6 +199,11 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for consumer accounts without queue-declaration permission.
+
 ## Migration Guide & Configuration Rules
 
 If you are upgrading from a previous version that only supported single-table reads, your existing configuration will work without any changes.
@@ -197,6 +215,8 @@ If you are upgrading from a previous version that only supported single-table re
 - In multi-table mode, put each queue's `schema` inside its own `tables_configs` item.
 - When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name` at the same level as the queue configuration.
 - If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
 - `host` and `port` are always required. `virtual_host` is optional unless your RabbitMQ deployment requires a non-default virtual host.
 
 ## Example
