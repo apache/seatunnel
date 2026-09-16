@@ -164,8 +164,8 @@ class DefaultAutoscalerSignalCollectorTest {
 
     private static final class FakeResourceManager implements ResourceManager {
         private final ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
-        private final LatestWorkerSampleStore sampleStore =
-                new LatestWorkerSampleStore(5_000L, 120_000L);
+        private final WorkerResourceSampleStore sampleStore =
+                new WorkerResourceSampleStore(5_000L, 120_000L);
         private final ResourceShortageStats shortageStats = new ResourceShortageStats();
 
         @Override
@@ -245,7 +245,7 @@ class DefaultAutoscalerSignalCollectorTest {
         public void reportAutoscalerMetrics(WorkerMetricsSample sample, long receiveTimeMillis) {}
 
         @Override
-        public LatestWorkerSampleStore getAutoscalerWorkerSampleStore() {
+        public WorkerResourceSampleStore getAutoscalerWorkerSampleStore() {
             return sampleStore;
         }
 

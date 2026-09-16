@@ -28,13 +28,13 @@ import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 
-class LatestWorkerSampleStoreTest {
+class WorkerResourceSampleStoreTest {
 
     private static final Address WORKER = address(5801);
 
     @Test
     void acceptsLatestValidSample() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerResourceSampleStore store = new WorkerResourceSampleStore(5_000L, 5_000L);
         WorkerMetricsSample sample = new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d);
 
         Assertions.assertTrue(store.record(sample, 1_000L));
@@ -47,7 +47,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void rejectsInvalidSamplesAndKeepsPreviousAcceptedValue() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerResourceSampleStore store = new WorkerResourceSampleStore(5_000L, 5_000L);
         WorkerMetricsSample sample = new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d);
 
         Assertions.assertTrue(store.record(sample, 1_000L));
@@ -63,7 +63,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void rejectsFutureAndOutOfOrderSamples() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerResourceSampleStore store = new WorkerResourceSampleStore(5_000L, 5_000L);
 
         Assertions.assertFalse(
                 store.record(new WorkerMetricsSample(WORKER, 7_001L, 0.1d, 0.1d), 1_000L));
@@ -77,7 +77,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void rejectsStaleSamplesOnArrivalAndKeepsPreviousAcceptedValue() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerResourceSampleStore store = new WorkerResourceSampleStore(5_000L, 5_000L);
         WorkerMetricsSample sample = new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d);
 
         Assertions.assertTrue(store.record(sample, 1_000L));
@@ -89,7 +89,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void removesSamplesForUnregisteredWorkers() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerResourceSampleStore store = new WorkerResourceSampleStore(5_000L, 5_000L);
         Address other = address(5802);
 
         store.record(new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d), 1_000L);
@@ -103,7 +103,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void classifiesSampleFreshnessForRegisteredWorkers() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerResourceSampleStore store = new WorkerResourceSampleStore(5_000L, 5_000L);
         Address stale = address(5802);
         Address missing = address(5803);
         store.record(new WorkerMetricsSample(WORKER, 10_000L, 0.5d, 0.6d), 10_000L);

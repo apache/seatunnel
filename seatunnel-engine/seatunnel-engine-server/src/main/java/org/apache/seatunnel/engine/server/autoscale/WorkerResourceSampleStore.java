@@ -31,14 +31,14 @@ import java.util.Set;
  * <p>Samples with invalid utilization, timestamps beyond the allowed future tolerance, or
  * non-increasing event time are rejected before they influence a snapshot.
  */
-public final class LatestWorkerSampleStore {
+public final class WorkerResourceSampleStore {
 
     /** Maximum event-time lead over the receiver clock allowed for an accepted sample. */
     private final long futureTimestampToleranceMillis;
     /** Maximum age of a sample that may participate in a summary. */
     private final long freshnessMillis;
 
-    private final Map<Address, WorkerMetricsSample> samples = new HashMap<>();
+    private final Map<Address, WorkerMetricsSample> latestSamples = new HashMap<>();
 
     /**
      * Creates a sample store with fixed timestamp acceptance and freshness windows.
@@ -46,7 +46,7 @@ public final class LatestWorkerSampleStore {
      * @param futureTimestampToleranceMillis maximum allowed event-time lead over the receiver clock
      * @param freshnessMillis maximum age of a sample that may participate in a summary
      */
-    public LatestWorkerSampleStore(long futureTimestampToleranceMillis, long freshnessMillis) {
+    public WorkerResourceSampleStore(long futureTimestampToleranceMillis, long freshnessMillis) {
         this.futureTimestampToleranceMillis = futureTimestampToleranceMillis;
         this.freshnessMillis = freshnessMillis;
     }
@@ -65,20 +65,20 @@ public final class LatestWorkerSampleStore {
         if (nowMillis - sample.getEventTimeMillis() > freshnessMillis) {
             return false;
         }
-        WorkerMetricsSample previous = samples.get(sample.getWorkerAddress());
+        WorkerMetricsSample previous = latestSamples.get(sample.getWorkerAddress());
         if (previous != null && sample.getEventTimeMillis() <= previous.getEventTimeMillis()) {
             return false;
         }
-        samples.put(sample.getWorkerAddress(), sample);
+        latestSamples.put(sample.getWorkerAddress(), sample);
         return true;
     }
 
     public synchronized Optional<WorkerMetricsSample> getLatest(Address workerAddress) {
-        return Optional.ofNullable(samples.get(workerAddress));
+        return Optional.ofNullable(latestSamples.get(workerAddress));
     }
 
     public synchronized void retainWorkers(Set<Address> currentWorkers) {
-        Iterator<Address> iterator = samples.keySet().iterator();
+        Iterator<Address> iterator = latestSamples.keySet().iterator();
         while (iterator.hasNext()) {
             if (!currentWorkers.contains(iterator.next())) {
                 iterator.remove();
@@ -87,7 +87,7 @@ public final class LatestWorkerSampleStore {
     }
 
     public synchronized void remove(Address workerAddress) {
-        samples.remove(workerAddress);
+        latestSamples.remove(workerAddress);
     }
 
     /** Summarizes the latest samples for the current workers at the supplied time. */
@@ -100,7 +100,7 @@ public final class LatestWorkerSampleStore {
         double jvmMemorySum = 0.0d;
 
         for (Address currentWorker : currentWorkers) {
-            WorkerMetricsSample sample = samples.get(currentWorker);
+            WorkerMetricsSample sample = latestSamples.get(currentWorker);
             if (sample == null) {
                 missing++;
                 continue;

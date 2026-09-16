@@ -38,8 +38,8 @@ import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerView;
-import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
 import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
+import org.apache.seatunnel.engine.server.autoscale.WorkerResourceSampleStore;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
@@ -927,7 +927,7 @@ public class CoordinatorServiceTest {
         Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
         Mockito.when(resourceManager.getAutoscalerWorkerSampleStore())
                 .thenReturn(
-                        new LatestWorkerSampleStore(
+                        new WorkerResourceSampleStore(
                                 TimeUnit.SECONDS.toMillis(5), TimeUnit.SECONDS.toMillis(120)));
         Mockito.when(resourceManager.getResourceShortageStats())
                 .thenReturn(new ResourceShortageStats());

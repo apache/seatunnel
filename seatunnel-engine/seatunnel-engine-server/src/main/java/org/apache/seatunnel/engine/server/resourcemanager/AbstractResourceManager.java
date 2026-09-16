@@ -21,9 +21,9 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
-import org.apache.seatunnel.engine.server.autoscale.LatestWorkerSampleStore;
 import org.apache.seatunnel.engine.server.autoscale.ResourceShortageStats;
 import org.apache.seatunnel.engine.server.autoscale.WorkerMetricsSample;
+import org.apache.seatunnel.engine.server.autoscale.WorkerResourceSampleStore;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotAllocationStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.SlotRatioStrategy;
@@ -74,7 +74,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
 
     @Getter private final SlotAllocationStrategy slotAllocationStrategy;
 
-    @Getter private final LatestWorkerSampleStore autoscalerWorkerSampleStore;
+    @Getter private final WorkerResourceSampleStore autoscalerWorkerSampleStore;
 
     @Getter private final ResourceShortageStats resourceShortageStats = new ResourceShortageStats();
 
@@ -101,7 +101,7 @@ public abstract class AbstractResourceManager implements ResourceManager {
         this.autoscalerRuntimeConfig = autoscalerRuntimeConfig;
         this.mode = engineConfig.getMode();
         this.autoscalerWorkerSampleStore =
-                new LatestWorkerSampleStore(
+                new WorkerResourceSampleStore(
                         TimeUnit.SECONDS.toMillis(
                                 autoscalerRuntimeConfig.getFutureTimestampToleranceSeconds()),
                         TimeUnit.SECONDS.toMillis(
