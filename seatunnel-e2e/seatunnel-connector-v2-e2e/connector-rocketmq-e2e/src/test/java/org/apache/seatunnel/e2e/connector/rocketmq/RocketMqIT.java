@@ -153,12 +153,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         rocketMqContainer.start();
         log.info("RocketMq container started");
         initProducer();
-        // Unlike the other topics in this file, test_topic_source is written directly via
-        // producer.send(Message, MessageQueue) in generateTestData(), which bypasses the normal
-        // route-resolution path a plain send(Message) would use. Establish and confirm the route
-        // up front so the name server has already published it before any source job (started by
-        // a later @TestTemplate method, sometimes minutes after this write) queries it.
-        waitForTopicRoute("test_topic_source");
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
@@ -168,7 +162,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), "test_topic_source", 0, 100);
-        waitForTopicRoute("test_topic_source");
     }
 
     @SneakyThrows
@@ -361,6 +354,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqLatestToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_latest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -369,6 +364,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqEarliestToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_earliest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -377,6 +374,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqSpecificOffsetsToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_specific_offsets_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -385,6 +384,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqTimestampToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_timestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -443,6 +444,12 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @SneakyThrows
     private void generateTestData(
             ProducerRecordConverter converter, String topic, int start, int end) {
+        // These records are written with producer.send(Message, MessageQueue), which addresses a
+        // queue directly and so bypasses the route resolution a plain send(Message) would do.
+        // Establish and confirm the route first, otherwise the send fails with MQClientException
+        // "No topic route info in name server". Every caller needs this, not just the topic
+        // prepared in startUp().
+        waitForTopicRoute(topic);
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
@@ -696,6 +703,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .atMost(1, TimeUnit.MINUTES)
                 .until(() -> true);
 
+        // Direct queue sends again, so the route has to be confirmed here too rather than
+        // relying on the wait before the initial batch.
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 10; i++) {
             Message msg = new Message(sourceTopic, (payload + "_additional_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -730,6 +740,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 firstJobFuture.get().getExitCode(),
                 "First job should exit successfully after savepoint");
 
+        // These sends land after savepointJob(), which is precisely the window the comment
+        // below describes: the name server can briefly drop an auto-created topic route
+        // while the job is stopped. Confirm the route before writing, not only before the
+        // restore that follows.
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 15; i++) {
             Message msg = new Message(sourceTopic, (payload + "_restore_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -746,8 +761,12 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         + (srcEndAfterAll - srcEndBeforeStart));
 
         // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        // for a savepoint. Restore only after both dynamic topics are visible again. The sink
+        // topic needs this as much as the source one: the post-restore poll below reads it
+        // through getTopicMaxOffset, and a lost route there stalls that poll rather than the
+        // restore itself.
         waitForTopicRoute(sourceTopic);
+        waitForTopicRoute(sinkTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {
