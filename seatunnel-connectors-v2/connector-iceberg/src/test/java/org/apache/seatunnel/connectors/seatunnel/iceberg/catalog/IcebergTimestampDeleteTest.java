@@ -58,11 +58,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class IcebergTimestampDeleteTest {
     @Test
     void deleteOffsetTimestampWindowPreservesOtherRecords() throws Exception {
-        Map<String, Object> catalogProperties = new HashMap<>();
-        catalogProperties.put("type", "hadoop");
         Map<String, Object> config = new HashMap<>();
         config.put(IcebergCommonOptions.KEY_CATALOG_NAME.key(), "test");
-        config.put(IcebergCommonOptions.CATALOG_PROPS.key(), catalogProperties);
+        config.put(IcebergCommonOptions.CATALOG_PROPS.key(), Collections.emptyMap());
         // Keep real Iceberg commits and Parquet I/O without Hadoop's native filesystem tools.
         try (InMemoryCatalog setup = new InMemoryCatalog();
                 MockedConstruction<IcebergCatalogLoader> ignored =
