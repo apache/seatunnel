@@ -134,4 +134,3 @@ connector-python
 connector-bigquery
 connector-nats-jetstream
 connector-file-adls
-connector-file-adls-runtime

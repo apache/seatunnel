@@ -52,18 +52,22 @@ class ADLSHadoopConfTest {
     void configuresOAuthClientCredentials() {
         Map<String, Object> values = baseConfig();
         values.put("auth_type", "OAUTH_CLIENT_CREDENTIALS");
+        values.put("endpoint_suffix", "dfs.example.test");
+        values.put("authority_host", "https://login.example.test/");
         values.put("tenant_id", "tenant");
         values.put("client_id", "client");
         values.put("client_secret", "secret");
 
         ADLSHadoopConf conf =
                 ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(values));
-        String account = "testaccount.dfs.core.windows.net";
+        String account = "testaccount.dfs.example.test";
 
+        Assertions.assertEquals(
+                "abfss://files@testaccount.dfs.example.test", conf.getHdfsNameKey());
         Assertions.assertEquals(
                 "OAuth", conf.getExtraOptions().get("fs.azure.account.auth.type." + account));
         Assertions.assertEquals(
-                "https://login.microsoftonline.com/tenant/oauth2/token",
+                "https://login.example.test/tenant/oauth2/token",
                 conf.getExtraOptions().get("fs.azure.account.oauth2.client.endpoint." + account));
     }
 

@@ -21,12 +21,18 @@ import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.HashMap;
+import java.util.Map;
 
 /** Builds and validates the isolated ABFS runtime configuration used by ADLS. */
 public final class ADLSRuntimeCompatibility {
     public static final String SECURE_ABFS_SCHEME = "abfss";
     public static final String SECURE_ABFS_IMPLEMENTATION =
             "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
+    private static final String DEFAULT_ENDPOINT_SUFFIX = "dfs.core.windows.net";
+    private static final String DEFAULT_AUTHORITY_HOST = "https://login.microsoftonline.com";
+    private static final String CLIENT_CREDENTIALS_PROVIDER =
+            "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider";
 
     private ADLSRuntimeCompatibility() {}
 
@@ -38,14 +44,21 @@ public final class ADLSRuntimeCompatibility {
      * @return configuration suitable for a Hadoop FileSystem lookup
      */
     public static Configuration newConfiguration(String accountName, String container) {
-        validateDnsLabel(accountName, "accountName");
-        validateDnsLabel(container, "container");
-        String authority = accountName + ".dfs.core.windows.net";
         Configuration configuration = new Configuration(false);
-        configuration.set("fs.defaultFS", SECURE_ABFS_SCHEME + "://" + container + "@" + authority);
+        configuration.set(
+                "fs.defaultFS", secureAbfsUri(accountName, container, DEFAULT_ENDPOINT_SUFFIX));
         configuration.set("fs." + SECURE_ABFS_SCHEME + ".impl", SECURE_ABFS_IMPLEMENTATION);
         configuration.setBoolean("fs." + SECURE_ABFS_SCHEME + ".impl.disable.cache", true);
         return configuration;
+    }
+
+    /** Builds the secure ABFS URI used by the connector and Hadoop configuration. */
+    public static String secureAbfsUri(
+            String accountName, String container, String endpointSuffix) {
+        validateDnsLabel(accountName, "accountName");
+        validateDnsLabel(container, "container");
+        validateEndpointSuffix(endpointSuffix);
+        return SECURE_ABFS_SCHEME + "://" + container + "@" + accountName + "." + endpointSuffix;
     }
 
     /** Fails fast when the ABFS implementation is absent from the runtime classpath. */
@@ -64,11 +77,19 @@ public final class ADLSRuntimeCompatibility {
     /** Returns the account-scoped Shared Key settings expected by ABFS. */
     public static void configureSharedKey(
             Configuration configuration, String accountName, String accountKey) {
-        validateDnsLabel(accountName, "accountName");
+        sharedKeyOptions(accountName, DEFAULT_ENDPOINT_SUFFIX, accountKey)
+                .forEach(configuration::set);
+    }
+
+    /** Builds the account-scoped Shared Key settings expected by ABFS. */
+    public static Map<String, String> sharedKeyOptions(
+            String accountName, String endpointSuffix, String accountKey) {
+        String host = accountHost(accountName, endpointSuffix);
         requireNonBlank(accountKey, "accountKey");
-        String host = accountName + ".dfs.core.windows.net";
-        configuration.set("fs.azure.account.auth.type." + host, "SharedKey");
-        configuration.set("fs.azure.account.key." + host, accountKey);
+        Map<String, String> options = new HashMap<>();
+        options.put("fs.azure.account.auth.type." + host, "SharedKey");
+        options.put("fs.azure.account.key." + host, accountKey);
+        return options;
     }
 
     /** Returns the account-scoped OAuth client-credentials settings expected by ABFS. */
@@ -78,20 +99,38 @@ public final class ADLSRuntimeCompatibility {
             String tenantId,
             String clientId,
             String clientSecret) {
-        validateDnsLabel(accountName, "accountName");
+        clientCredentialsOptions(
+                        accountName,
+                        DEFAULT_ENDPOINT_SUFFIX,
+                        DEFAULT_AUTHORITY_HOST,
+                        tenantId,
+                        clientId,
+                        clientSecret)
+                .forEach(configuration::set);
+    }
+
+    /** Builds the account-scoped OAuth client-credentials settings expected by ABFS. */
+    public static Map<String, String> clientCredentialsOptions(
+            String accountName,
+            String endpointSuffix,
+            String authorityHost,
+            String tenantId,
+            String clientId,
+            String clientSecret) {
+        String host = accountHost(accountName, endpointSuffix);
+        String normalizedAuthorityHost = normalizeAuthorityHost(authorityHost);
         requireNonBlank(tenantId, "tenantId");
         requireNonBlank(clientId, "clientId");
         requireNonBlank(clientSecret, "clientSecret");
-        String host = accountName + ".dfs.core.windows.net";
-        configuration.set("fs.azure.account.auth.type." + host, "OAuth");
-        configuration.set(
-                "fs.azure.account.oauth.provider.type." + host,
-                "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider");
-        configuration.set("fs.azure.account.oauth2.client.id." + host, clientId);
-        configuration.set("fs.azure.account.oauth2.client.secret." + host, clientSecret);
-        configuration.set(
+        Map<String, String> options = new HashMap<>();
+        options.put("fs.azure.account.auth.type." + host, "OAuth");
+        options.put("fs.azure.account.oauth.provider.type." + host, CLIENT_CREDENTIALS_PROVIDER);
+        options.put("fs.azure.account.oauth2.client.id." + host, clientId);
+        options.put("fs.azure.account.oauth2.client.secret." + host, clientSecret);
+        options.put(
                 "fs.azure.account.oauth2.client.endpoint." + host,
-                "https://login.microsoftonline.com/" + tenantId + "/oauth2/token");
+                normalizedAuthorityHost + "/" + tenantId + "/oauth2/token");
+        return options;
     }
 
     private static ClassLoader classLoader() {
@@ -109,6 +148,28 @@ public final class ADLSRuntimeCompatibility {
         if (!value.matches("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")) {
             throw new IllegalArgumentException(name + " must be a lowercase DNS label");
         }
+    }
+
+    private static String accountHost(String accountName, String endpointSuffix) {
+        validateDnsLabel(accountName, "accountName");
+        validateEndpointSuffix(endpointSuffix);
+        return accountName + "." + endpointSuffix;
+    }
+
+    private static void validateEndpointSuffix(String endpointSuffix) {
+        requireNonBlank(endpointSuffix, "endpointSuffix");
+        if (!endpointSuffix.matches("[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?")) {
+            throw new IllegalArgumentException("endpointSuffix must be a DNS suffix");
+        }
+    }
+
+    private static String normalizeAuthorityHost(String authorityHost) {
+        requireNonBlank(authorityHost, "authorityHost");
+        String normalized = authorityHost;
+        while (normalized.endsWith("/")) {
+            normalized = normalized.substring(0, normalized.length() - 1);
+        }
+        return normalized;
     }
 
     private static void requireNonBlank(String value, String name) {
