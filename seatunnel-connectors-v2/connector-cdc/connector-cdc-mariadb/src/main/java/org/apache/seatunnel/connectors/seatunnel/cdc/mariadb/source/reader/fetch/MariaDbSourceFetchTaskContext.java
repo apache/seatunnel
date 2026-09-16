@@ -21,7 +21,6 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
@@ -76,7 +75,6 @@ import java.io.IOException;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -282,13 +280,15 @@ public class MariaDbSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                         ? MariaDbBinlogOffset.INITIAL_OFFSET
                         : getInitOffset(mariaDbSplit);
         LOG.info("mariadb cdc start at {}", offset);
-        Map<String, String> offsetMap = new HashMap<>(offset.getOffset());
-        StartupConfig startupConfig = getSourceConfig().getStartupConfig();
-        if (startupConfig == null || startupConfig.getStartupMode() != StartupMode.SPECIFIC) {
-            offsetMap.put(MariaDbBinlogOffset.EVENTS_TO_SKIP_OFFSET_KEY, "0");
-            offsetMap.put(MariaDbBinlogOffset.ROWS_TO_SKIP_OFFSET_KEY, "0");
-        }
-        MySqlOffsetContext mySqlOffsetContext = loader.load(offsetMap);
+        // A checkpointed incremental offset is the restart offset Debezium attached to the last
+        // emitted row: the position of the enclosing transaction start plus the number of events
+        // and rows of that transaction already emitted ("event" / "row"). Debezium re-reads the
+        // transaction from that position and relies on those two counters to skip the rows it
+        // already delivered, so they must be handed over untouched, exactly as the MySQL connector
+        // does. Forcing them to zero re-emits the in-flight transaction after a restore and
+        // duplicates its rows in the sink. Offsets that come from a watermark or a startup mode
+        // simply carry no counters, which the Debezium loader treats as zero.
+        MySqlOffsetContext mySqlOffsetContext = loader.load(offset.getOffset());
 
         if (!isBinlogAvailable(mySqlOffsetContext)) {
             throw new IllegalStateException(
