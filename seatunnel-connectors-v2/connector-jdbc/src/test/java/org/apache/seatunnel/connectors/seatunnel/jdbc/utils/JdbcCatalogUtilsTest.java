@@ -650,8 +650,7 @@ public class JdbcCatalogUtilsTest {
                         Collections.emptyList(),
                         null);
 
-        CatalogTable mergeTable =
-                JdbcCatalogUtils.mergeComments(DEFAULT_TABLE, tableOfQuery);
+        CatalogTable mergeTable = JdbcCatalogUtils.mergeComments(DEFAULT_TABLE, tableOfQuery);
 
         Assertions.assertEquals(
                 Arrays.asList(null, "f2 comment", null),
