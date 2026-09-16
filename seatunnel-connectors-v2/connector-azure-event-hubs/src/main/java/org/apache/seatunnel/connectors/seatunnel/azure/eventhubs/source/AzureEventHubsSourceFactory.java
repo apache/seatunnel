@@ -72,7 +72,11 @@ public class AzureEventHubsSourceFactory implements TableSourceFactory {
                                                 AzureEventHubsSourceConfig.MAX_POLL_TIMEOUT_MS)))
                 .optional(
                         AzureEventHubsSourceOptions.PREFETCH_COUNT,
-                        Conditions.greaterThan(AzureEventHubsSourceOptions.PREFETCH_COUNT, 0))
+                        Conditions.greaterThan(AzureEventHubsSourceOptions.PREFETCH_COUNT, 0)
+                                .and(
+                                        Conditions.lessOrEqual(
+                                                AzureEventHubsSourceOptions.PREFETCH_COUNT,
+                                                AzureEventHubsSourceConfig.MAX_PREFETCH_COUNT)))
                 .build();
     }
 

@@ -46,6 +46,10 @@ Azure Event Hubs 命名空间连接字符串。必须单独配置 `event_hub_nam
 
 首个版本仅支持命名空间连接字符串认证，暂不支持 Microsoft Entra ID、托管身份和自定义端点认证。
 
+请为源作业使用仅具有 `Listen` 权限的专用 SAS 策略，不要使用 `RootManageSharedAccessKey`。命名空间级策略可访问该命名空间内的资源，而 Event Hub 级策略仅允许访问对应的 Hub。参见 [Azure SAS 授权](https://learn.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature)。
+
+包含 `EntityPath` 的 Hub 级连接字符串不能直接使用。请保留策略名称和密钥，移除 `EntityPath` 段，并将 `event_hub_name` 设置为同一个 Hub。这只改变 Hub 名称的传入方式，不会扩大 SAS 策略的权限。模拟器测试不验证 Azure 服务端的 SAS 授权，因此使用 Hub 级策略前，应在目标 Azure 部署中验证。
+
 ### event_hub_name [string]
 
 要消费的 Event Hub 名称。
@@ -84,7 +88,7 @@ Azure Event Hubs 命名空间连接字符串。必须单独配置 `event_hub_nam
 
 ### prefetch_count [int]
 
-Azure SDK 为分配给源读取器的每个分区预取的最大事件数。该值必须大于零且不小于 `max_batch_size`。一个读取器可以负责多个分区，因此其客户端缓冲总量由该值乘以已分配的分区数进行限制。
+Azure SDK 为分配给源读取器的每个分区预取的最大事件数。该值必须在 1 到 8000 之间且不小于 `max_batch_size`。创建源配置时会校验这些边界，早于连接 Azure。一个读取器可以负责多个分区，因此其客户端缓冲总量由该值乘以已分配的分区数进行限制。
 
 ### schema [config]
 
@@ -98,7 +102,7 @@ Azure SDK 为分配给源读取器的每个分区预取的最大事件数。该�
 
 该源仅支持流处理。启动时，每个 Event Hubs 分区创建一个 SeaTunnel 源分片，并通过 SeaTunnel 常规的分片所有者计算进行分配。源并行度可并发处理不同分区；并行度高于分区数时，部分读取器会空闲。
 
-首个版本仅在初始枚举时发现分区。作业启动后新增的分区不会动态发现，需要重启作业。
+首个版本仅在初始枚举时发现分区。作业启动后新增的分区不会动态发现，恢复已有源状态时也不会发现。要发现新增分区，必须在不恢复源状态的情况下启动，这会对所有分区重新应用 `start_mode`，可能重放或跳过已有数据，因此需要提前规划重启方式。
 
 SeaTunnel 检查点状态是唯一的恢复依据。连接器不使用 Azure Blob Storage 检查点或 `EventProcessorClient`。分片检查点保存下一条待读取的序列号。已取入读取器队列但尚未发出的事件会在恢复后重放，已发出的事件会推进分片状态。启用检查点时提供至少一次投递语义。
 

@@ -16,19 +16,53 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.source;
 
+import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsStartMode;
 import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.exception.AzureEventHubsConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import reactor.core.publisher.Flux;
 
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 class AzureEventHubsConsumerTest {
+
+    @ParameterizedTest
+    @ValueSource(
+            strings = {
+                "Endpoint=sb://example.servicebus.windows.net/;SharedAccessKeyName=listen;private-sas-key",
+                "Endpoint=sb://example.servicebus.windows.net/ SharedAccessKey=private-sas-key;SharedAccessKeyName=listen"
+            })
+    void malformedConnectionStringDoesNotExposeCredentialsInStackTrace(String connectionString) {
+        String secret = "private-sas-key";
+        AzureEventHubsSourceConfig config =
+                AzureEventHubsSourceConfig.builder()
+                        .connectionString(connectionString)
+                        .eventHubName("events")
+                        .consumerGroup("$Default")
+                        .prefetchCount(300)
+                        .build();
+
+        AzureEventHubsConnectorException exception =
+                Assertions.assertThrows(
+                        AzureEventHubsConnectorException.class,
+                        () -> new AzureEventHubsConsumer(config));
+        StringWriter trace = new StringWriter();
+        exception.printStackTrace(new PrintWriter(trace));
+
+        Assertions.assertFalse(trace.toString().contains(secret));
+        Assertions.assertTrue(exception.getMessage().contains("events"));
+        Assertions.assertTrue(exception.getMessage().contains("IllegalArgumentException"));
+        Assertions.assertNull(exception.getCause());
+    }
 
     @Test
     void earliestUsesTheCurrentPartitionBeginning() {

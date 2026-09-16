@@ -29,6 +29,7 @@ import java.io.Serializable;
 public class AzureEventHubsSourceConfig implements Serializable {
 
     public static final long MAX_POLL_TIMEOUT_MS = 5_000L;
+    public static final int MAX_PREFETCH_COUNT = 8_000;
 
     private static final long serialVersionUID = 1L;
 
@@ -77,8 +78,9 @@ public class AzureEventHubsSourceConfig implements Serializable {
             throw new IllegalArgumentException(
                     "Option 'poll_timeout_ms' must be between 1 and " + MAX_POLL_TIMEOUT_MS);
         }
-        if (prefetchCount <= 0) {
-            throw new IllegalArgumentException("Option 'prefetch_count' must be greater than zero");
+        if (prefetchCount <= 0 || prefetchCount > MAX_PREFETCH_COUNT) {
+            throw new IllegalArgumentException(
+                    "Option 'prefetch_count' must be between 1 and " + MAX_PREFETCH_COUNT);
         }
         if (prefetchCount < maxBatchSize) {
             throw new IllegalArgumentException(

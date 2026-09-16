@@ -57,12 +57,14 @@ public class AzureEventHubsConsumer implements EventHubsConsumer {
                             .prefetchCount(config.getPrefetchCount())
                             .buildAsyncConsumerClient();
         } catch (RuntimeException e) {
+            // SDK parser exceptions can echo credentials from a malformed connection string.
             throw new AzureEventHubsConnectorException(
                     AzureEventHubsConnectorErrorCode.CONNECTION_FAILED,
                     "Could not create Event Hubs consumer for hub '"
                             + config.getEventHubName()
-                            + "'",
-                    e);
+                            + "' ("
+                            + e.getClass().getSimpleName()
+                            + "). Check connection_string and consumer configuration.");
         }
     }
 

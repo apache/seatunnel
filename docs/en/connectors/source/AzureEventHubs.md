@@ -46,6 +46,10 @@ Azure Event Hubs namespace connection string. Configure `event_hub_name` separat
 
 This first version supports namespace connection-string authentication. Microsoft Entra ID, managed identity and custom endpoint authentication are not yet supported.
 
+Use a dedicated SAS policy with only the `Listen` right; do not use `RootManageSharedAccessKey` for a source job. A namespace-scoped policy grants access across that namespace, while an Event Hub-scoped policy limits access to that hub. See [Azure SAS authorization](https://learn.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature).
+
+Hub-scoped connection strings containing `EntityPath` cannot be used unchanged. Keep the policy name and key, remove the `EntityPath` segment, and set `event_hub_name` to that same hub. This only changes how the hub name is supplied; it does not broaden the SAS policy's permissions. The emulator tests do not verify Azure service-side SAS authorization, so validate a hub-scoped policy against the target Azure deployment before use.
+
 ### event_hub_name [string]
 
 Name of the Event Hub to consume.
@@ -84,7 +88,7 @@ Maximum time one partition poll waits for events. The value must be between 1 an
 
 ### prefetch_count [int]
 
-Maximum events the Azure SDK prefetches for each partition assigned to a source reader. It must be greater than zero and at least `max_batch_size`. A reader can own multiple partitions, so its total client-side buffer is bounded by this value multiplied by its assigned partition count.
+Maximum events the Azure SDK prefetches for each partition assigned to a source reader. It must be between 1 and 8000 and at least `max_batch_size`. These bounds are validated when the source configuration is created, before connecting to Azure. A reader can own multiple partitions, so its total client-side buffer is bounded by this value multiplied by its assigned partition count.
 
 ### schema [config]
 
@@ -98,7 +102,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 The source is streaming-only. At startup, one SeaTunnel source split is created for each Event Hubs partition and assigned with the regular SeaTunnel split owner calculation. Source parallelism can process different partitions concurrently; parallelism greater than the partition count leaves some readers idle.
 
-This first version discovers partitions only during the initial enumeration. Partitions added after the job starts require a job restart and are not picked up dynamically.
+This first version discovers partitions only during the initial enumeration. Partitions added after the job starts are not picked up dynamically or when restoring existing source state. Discovering them requires starting without restored source state, which reapplies `start_mode` to every partition and can replay or skip existing data; plan the restart accordingly.
 
 SeaTunnel checkpoint state is the only recovery authority. The connector does not use Azure Blob Storage checkpointing or `EventProcessorClient`. A split checkpoint stores the next sequence number to read. Events fetched into the reader queue but not emitted before a checkpoint are replayed after recovery, while emitted events advance the split state. This provides at-least-once delivery when checkpointing is enabled.
 

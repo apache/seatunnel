@@ -80,7 +80,7 @@ public class AzureEventHubsSourceOptions extends ConnectorCommonOptions {
                     .intType()
                     .defaultValue(300)
                     .withDescription(
-                            "Maximum number of events the Azure SDK prefetches for each partition assigned to a source reader.");
+                            "Maximum number of events the Azure SDK prefetches for each partition assigned to a source reader. Must be between 1 and 8000 and at least max_batch_size.");
 
     private AzureEventHubsSourceOptions() {}
 }

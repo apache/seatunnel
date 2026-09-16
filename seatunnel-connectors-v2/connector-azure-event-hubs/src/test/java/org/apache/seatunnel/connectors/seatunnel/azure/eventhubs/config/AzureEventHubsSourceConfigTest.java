@@ -112,6 +112,31 @@ class AzureEventHubsSourceConfigTest {
     }
 
     @Test
+    void acceptsSdkMaximumPrefetchCount() {
+        Map<String, Object> options = validOptions();
+        options.put("max_batch_size", 8000);
+        options.put("prefetch_count", 8000);
+
+        Assertions.assertEquals(8000, config(options).getPrefetchCount());
+    }
+
+    @Test
+    void rejectsPrefetchCountAboveSdkMaximumWithSafeDiagnostic() {
+        Map<String, Object> options = validOptions();
+        options.put("prefetch_count", 8001);
+        options.put(
+                "connection_string",
+                "Endpoint=sb://example/;SharedAccessKeyName=listen;SharedAccessKey=private-sas-key;");
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+
+        Assertions.assertEquals(
+                "Option 'prefetch_count' must be between 1 and 8000", exception.getMessage());
+        Assertions.assertNull(exception.getCause());
+    }
+
+    @Test
     void prefetchMustHoldAtLeastOneConfiguredBatch() {
         Map<String, Object> options = validOptions();
         options.put("max_batch_size", 101);
