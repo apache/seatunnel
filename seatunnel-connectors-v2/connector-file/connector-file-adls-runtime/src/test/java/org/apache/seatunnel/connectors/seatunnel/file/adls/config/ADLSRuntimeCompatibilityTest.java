@@ -92,8 +92,7 @@ class ADLSRuntimeCompatibilityTest {
                         "examplestorage", "dfs.example.test", "sentinel-key");
         Assertions.assertEquals(
                 "sentinel-key",
-                sharedKeyOptions.get(
-                        "fs.azure.account.key.examplestorage.dfs.example.test"));
+                sharedKeyOptions.get("fs.azure.account.key.examplestorage.dfs.example.test"));
 
         Map<String, String> oauthOptions =
                 ADLSRuntimeCompatibility.clientCredentialsOptions(
