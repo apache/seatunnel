@@ -538,9 +538,9 @@ public class JdbcCatalogUtils {
      * table (e.g. {@code SELECT * FROM db.table}, resolved from the result set metadata), load
      * exactly that table and merge the missing metadata into the query-derived table. How much is
      * merged depends on {@code metadataMergeMode}: {@link QueryTableMetadataMergeMode#COMMENT} (the
-     * default) merges only the column comments, table comment and table options, keeping the
-     * query-derived identity, primary key, constraint keys and partition keys untouched so runtime
-     * behavior (sink insert/upsert semantics, split planning) is unchanged; {@link
+     * default) merges only the column comments and table comment, keeping the query-derived
+     * identity, table options, primary key, constraint keys and partition keys untouched so runtime
+     * behavior (sink DDL, insert/upsert semantics, split planning) is unchanged; {@link
      * QueryTableMetadataMergeMode#ALL} merges everything, the same way as configuring {@code
      * table_path} together with {@code query}; {@link QueryTableMetadataMergeMode#NONE} skips the
      * merge entirely. Fall back to the query-derived table when the underlying table can not be
@@ -570,7 +570,7 @@ public class JdbcCatalogUtils {
             CatalogTable mergedTable =
                     QueryTableMetadataMergeMode.ALL.equals(metadataMergeMode)
                             ? mergeCatalogTable(tableOfPath, tableOfQuery)
-                            : mergeCommentsAndOptions(tableOfPath, tableOfQuery);
+                            : mergeComments(tableOfPath, tableOfQuery);
             log.info(
                     "Merged the metadata (mode: {}) of underlying table {} into the query-derived table",
                     metadataMergeMode,
@@ -586,14 +586,12 @@ public class JdbcCatalogUtils {
     }
 
     /**
-     * Merges only the metadata that cannot change runtime behavior — column comments, the table
-     * comment and the table options — from the underlying physical table into the query-derived
-     * table. The query-derived identifier, column definitions, primary key, constraint keys and
-     * partition keys are kept, so sink insert/upsert semantics and split planning stay exactly as
-     * if no underlying table had been resolved.
+     * Merges only column comments and the table comment from the underlying physical table into the
+     * query-derived table. The query-derived identifier, table options, column definitions, primary
+     * key, constraint keys and partition keys are kept, so sink DDL, insert/upsert semantics and
+     * split planning stay exactly as if no underlying table had been resolved.
      */
-    static CatalogTable mergeCommentsAndOptions(
-            CatalogTable tableOfPath, CatalogTable tableOfQuery) {
+    static CatalogTable mergeComments(CatalogTable tableOfPath, CatalogTable tableOfQuery) {
         Map<String, Column> columnsOfPath =
                 tableOfPath.getTableSchema().getColumns().stream()
                         .collect(
@@ -620,7 +618,7 @@ public class JdbcCatalogUtils {
                                 mergeColumnComments(
                                         tableSchemaOfQuery, columnsOfPath, columnsOfQuery))
                         .build(),
-                tableOfPath.getOptions(),
+                tableOfQuery.getOptions(),
                 tableOfQuery.getPartitionKeys(),
                 tableOfPath.getComment());
     }

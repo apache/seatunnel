@@ -36,17 +36,17 @@ public enum QueryTableMetadataMergeMode {
     NONE,
 
     /**
-     * Merge only the metadata that cannot change runtime behavior: column comments, the table
-     * comment and the table options. The primary key, constraint keys and partition keys are not
-     * merged, so sinks with {@code generate_sink_sql} keep plain inserts and split planning is
-     * unchanged. This is the default.
+     * Merge only column comments and the table comment. Table options, the primary key, constraint
+     * keys and partition keys are not merged, so generated sink DDL, sink insert/upsert semantics
+     * and split planning are unchanged. This is the default.
      */
     COMMENT,
 
     /**
-     * Additionally merge the primary key, constraint keys and partition keys — the same result as
-     * configuring {@code table_path} together with {@code query}. This may switch sinks with {@code
-     * generate_sink_sql} from insert to upsert and enable primary-key based split planning.
+     * Additionally merge the table options, primary key, constraint keys and partition keys — the
+     * same result as configuring {@code table_path} together with {@code query}. This may change
+     * generated sink DDL, switch sinks with {@code generate_sink_sql} from insert to upsert and
+     * enable primary-key based split planning.
      */
     ALL;
 
