@@ -495,7 +495,9 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     }
 
     default LocalDateTime convertLocalDateTime(T typeDefine, Number value) {
-        return convertLocalDateTime(value);
+        return EpochTimeUtils.convertToInstant(typeDefine, value)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDateTime();
     }
 
     default LocalDateTime convertLocalDateTime(Object value) throws UnsupportedOperationException {
@@ -604,14 +606,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     }
 
     default LocalDateTime convertLocalDateTime(Number value) {
-        if (value.longValue() < 999999999) {
-            return LocalDateTime.ofEpochSecond(
-                    value.longValue(),
-                    0,
-                    ZoneId.systemDefault().getRules().getOffset(LocalDateTime.now()));
-        }
-        return new Date(value.longValue())
-                .toInstant()
+        return EpochTimeUtils.convertToInstant(value)
                 .atZone(ZoneId.systemDefault())
                 .toLocalDateTime();
     }
@@ -763,7 +758,9 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     }
 
     default LocalDate convertLocalDate(T typeDefine, Number value) {
-        return convertLocalDate(value);
+        return EpochTimeUtils.convertToInstant(typeDefine, value)
+                .atZone(ZoneId.systemDefault())
+                .toLocalDate();
     }
 
     default LocalDate convertLocalDate(Object value) throws UnsupportedOperationException {
@@ -798,14 +795,7 @@ public interface BasicDataConverter<T> extends DataConverter<T> {
     }
 
     default LocalDate convertLocalDate(Number value) {
-        if (value.longValue() < 999999999) {
-            return LocalDateTime.ofEpochSecond(
-                            value.longValue(),
-                            0,
-                            ZoneId.systemDefault().getRules().getOffset(LocalDateTime.now()))
-                    .toLocalDate();
-        }
-        return new Date(value.longValue()).toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+        return EpochTimeUtils.convertToInstant(value).atZone(ZoneId.systemDefault()).toLocalDate();
     }
 
     default BigDecimal convertDecimal(T typeDefine, Object value)
