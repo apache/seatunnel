@@ -223,6 +223,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache License, Version 2.0) Apache Commons Codec (commons-codec:commons-codec:1.13 - https://commons.apache.org/proper/commons-codec/)
      (Apache License, Version 2.0) Apache Commons Collections (org.apache.commons:commons-collections4:4.4 - https://commons.apache.org/proper/commons-collections/)
      (Apache License, Version 2.0) Apache Commons Compress (org.apache.commons:commons-compress:1.20 - https://commons.apache.org/proper/commons-compress/)
+     (The Apache Software License, Version 2.0) Apache Commons Logging (commons-logging:commons-logging:1.2 - https://commons.apache.org/proper/commons-logging/)
      (The Apache Software License, Version 2.0) Commons Lang (commons-lang:commons-lang:2.6 - http://commons.apache.org/lang/)
      (Apache License, Version 2.0) Apache Commons IO (commons-io:commons-io:2.11.0 - http://commons.apache.org/proper/commons-io/)
      (Apache License, Version 2.0) Apache Commons Lang (org.apache.commons:commons-lang3:3.5 - http://commons.apache.org/proper/commons-lang/)
@@ -284,6 +285,7 @@ The text of each license is the standard Apache 2.0 license.
      (Apache-2.0) curator-recipes (org.apache.curator:curator-recipes:2.13.0 - https://github.com/apache/curator)
      (Apache-2.0) hadoop-annotations (org.apache.hadoop:hadoop-annotations:3.1.4 - https://hadoop.apache.org)
      (Apache-2.0) hadoop-auth (org.apache.hadoop:hadoop-auth:3.1.4 - https://hadoop.apache.org)
+     (The Apache Software License, Version 2.0) Apache Hadoop Azure support (org.apache.hadoop:hadoop-azure:3.2.0 - https://hadoop.apache.org/)
      (Apache-2.0) hadoop-client (org.apache.hadoop:hadoop-client:3.1.4 - https://hadoop.apache.org)
      (Apache-2.0) hadoop-common (org.apache.hadoop:hadoop-common:3.1.4 - https://hadoop.apache.org)
      (Apache-2.0) hadoop-hdfs-client (org.apache.hadoop:hadoop-hdfs-client:3.1.4 - https://hadoop.apache.org)
@@ -343,6 +345,8 @@ The text of each license is the standard Apache 2.0 license.
       (Apache-2.0) hugegraph-common (org.apache.hugegraph:hugegraph-common:1.5.0 - https://github.com/apache/incubator-hugegraph-commons/tree/master/hugegraph-common)
       (Apache-2.0) jnats (io.nats:jnats:2.24.0 - https://github.com/nats-io/nats.java)
       (Apache-2.0) jspecify (org.jspecify:jspecify:1.0.0 - https://github.com/jspecify/jspecify)
+     (The Apache Software License, Version 2.0) Microsoft Azure Storage Client SDK (com.microsoft.azure:azure-storage:7.0.0 - https://github.com/Azure/azure-storage-java)
+     (Apache License, Version 2.0) WildFly OpenSSL (org.wildfly.openssl:wildfly-openssl:1.0.4.Final - https://github.com/wildfly/wildfly-openssl)
 
 
 ========================================================================
@@ -411,6 +415,7 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
       (MIT License) oshi-core (com.github.oshi:oshi-core:6.6.5 - https://github.com/oshi/oshi)
       (MIT License) Bouncy Castle Provider (LTS Distribution) (org.bouncycastle:bcprov-lts8on:2.73.9 - https://www.bouncycastle.org/lts-java)
      (MIT License) Azure Core (com.azure:azure-core:1.58.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Microsoft Azure SDK for Key Vault Core (com.microsoft.azure:azure-keyvault-core:1.0.0 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure Netty HTTP Client (com.azure:azure-core-http-netty:1.16.5 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure JSON (com.azure:azure-json:1.5.1 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure Storage Common (com.azure:azure-storage-common:12.34.0 - https://github.com/Azure/azure-sdk-for-java)
