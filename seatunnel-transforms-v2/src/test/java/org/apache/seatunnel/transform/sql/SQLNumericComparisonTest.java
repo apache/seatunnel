@@ -60,6 +60,16 @@ class SQLNumericComparisonTest {
                 new BigDecimal("1.00000000000000000002"),
                 new BigDecimal("1.00000000000000000001"),
                 1);
+        addPair(
+                cases,
+                new BigDecimal("-123456789012345678.99"),
+                new BigDecimal("-123456789012345678.98"),
+                -1);
+        addPair(
+                cases,
+                new BigDecimal("-1.00000000000000000002"),
+                new BigDecimal("-1.00000000000000000001"),
+                -1);
         addPair(cases, new BigDecimal("9007199254740993"), 9007199254740992L, 1);
         addPair(cases, new BigDecimal("2.00"), 2L, 0);
         addPair(cases, new BigDecimal("2.0"), new BigDecimal("2.00"), 0);
