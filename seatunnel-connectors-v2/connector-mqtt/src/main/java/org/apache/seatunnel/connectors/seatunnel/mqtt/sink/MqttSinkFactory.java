@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.seatunnel.mqtt.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.mqtt.config.MqttFormatValidator;
 
 import com.google.auto.service.AutoService;
 
@@ -40,13 +42,20 @@ public class MqttSinkFactory implements TableSinkFactory {
                 .optional(
                         MqttSinkOptions.USERNAME,
                         MqttSinkOptions.PASSWORD,
-                        MqttSinkOptions.QOS,
-                        MqttSinkOptions.FORMAT,
                         MqttSinkOptions.FIELD_DELIMITER,
-                        MqttSinkOptions.BATCH_SIZE,
                         MqttSinkOptions.RETRY_TIMEOUT,
                         MqttSinkOptions.CONNECTION_TIMEOUT,
                         MqttSinkOptions.CLEAN_SESSION)
+                .optional(
+                        MqttSinkOptions.QOS,
+                        Conditions.greaterOrEqual(MqttSinkOptions.QOS, 0)
+                                .and(Conditions.lessOrEqual(MqttSinkOptions.QOS, 1)))
+                .optional(
+                        MqttSinkOptions.FORMAT,
+                        Conditions.extension(MqttSinkOptions.FORMAT, new MqttFormatValidator()))
+                .optional(
+                        MqttSinkOptions.BATCH_SIZE,
+                        Conditions.greaterOrEqual(MqttSinkOptions.BATCH_SIZE, 1))
                 .build();
     }
 
