@@ -242,6 +242,79 @@ public class SeaTunnelConfValidateCommandTest {
     }
 
     @Test
+    public void testConnectDryRunTerminalOmittedInputUsesNamedSchema() {
+        List<DryRunConnectValidator.PluginResult> results =
+                runConnectValidatorFromString(
+                        "source { FakeSource { plugin_output=src, schema={ fields { name=string } } } }\n"
+                                + "transform {\n"
+                                + " Copy { plugin_input=[src], plugin_output=named, src_field=name, dest_field=copied }\n"
+                                + " Copy { plugin_output=terminal, src_field=copied, dest_field=copied_again }\n"
+                                + "}\n"
+                                + "sink { InMemory { plugin_input=[terminal] } }");
+        Assertions.assertEquals(4, results.size());
+        Assertions.assertEquals(
+                DryRunConnectValidator.PluginResult.Status.VALIDATED, results.get(2).getStatus());
+    }
+
+    @Test
+    public void testConnectDryRunRejectsSingleExplicitSelfCycle() {
+        ConfigCheckException exception =
+                Assertions.assertThrows(
+                        ConfigCheckException.class,
+                        () ->
+                                runConnectValidatorFromString(
+                                        "source { DryRunTestSource { plugin_output=src } }\n"
+                                                + "transform { Copy { plugin_input=[self], plugin_output=self, src_field=name, dest_field=copied } }\n"
+                                                + "sink { InMemory { plugin_input=[self] } }"));
+        Assertions.assertTrue(exception.getMessage().contains("self -> self"));
+    }
+
+    @Test
+    public void testConnectDryRunOmittedInputPrefersExistingDefault() {
+        List<DryRunConnectValidator.PluginResult> results =
+                runConnectValidatorFromString(
+                        "source { DryRunTestSource {} }\n"
+                                + "transform {\n"
+                                + " DryRunTestTransform { plugin_output=named, expected_input_count=1, expected_input_table=test_table, produced_table=named_table }\n"
+                                + " DryRunTestTransform { plugin_output=terminal, expected_input_count=1, expected_input_table=test_table, produced_table=terminal_table }\n"
+                                + "}\n"
+                                + "sink { DryRunTestSink { plugin_input=[terminal], expected_table=terminal_table } }");
+        Assertions.assertEquals(4, results.size());
+        results.forEach(
+                result ->
+                        Assertions.assertEquals(
+                                DryRunConnectValidator.PluginResult.Status.VALIDATED,
+                                result.getStatus()));
+    }
+
+    @Test
+    public void testConnectDryRunDuplicateUnnamedOutputsWaitForOtherInput() {
+        DryRunTestTransformFactory.resetCreatedTables();
+        String defaultId = org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
+        List<DryRunConnectValidator.PluginResult> results =
+                runConnectValidatorFromString(
+                        "source { DryRunTestSource { plugin_output=src } }\n"
+                                + "transform {\n"
+                                + " DryRunTestTransform { plugin_input=[src], expected_input_count=1, produced_table=first }\n"
+                                + " DryRunTestTransform { plugin_input=[src], expected_input_count=1, produced_table=second }\n"
+                                + " DryRunTestTransform { plugin_input=["
+                                + defaultId
+                                + ",later], plugin_output=joined, expected_input_count=2, produced_table=joined }\n"
+                                + " DryRunTestTransform { plugin_input=[src], plugin_output=later, expected_input_count=1, produced_table=later }\n"
+                                + "}\n"
+                                + "sink { DryRunTestSink { plugin_input=[joined], expected_table=joined } }");
+        Assertions.assertEquals(6, results.size());
+        results.forEach(
+                result ->
+                        Assertions.assertEquals(
+                                DryRunConnectValidator.PluginResult.Status.VALIDATED,
+                                result.getStatus()));
+        Assertions.assertEquals(
+                Arrays.asList("first", "second", "later", "joined"),
+                DryRunTestTransformFactory.getCreatedTables());
+    }
+
+    @Test
     public void testConnectDryRunRejectsUnresolvedTransformCycleWithoutRetryingIndefinitely() {
         ConfigCheckException exception =
                 Assertions.assertTimeoutPreemptively(
@@ -260,10 +333,8 @@ public class SeaTunnelConfValidateCommandTest {
                                                                 + "}\n"
                                                                 + "sink { InMemory { plugin_input = [src] } }")));
 
-        Assertions.assertTrue(
-                exception.getMessage().contains("Unable to resolve transform dependencies"));
-        Assertions.assertTrue(exception.getMessage().contains("t1 <- [t2]"));
-        Assertions.assertTrue(exception.getMessage().contains("t2 <- [t1]"));
+        Assertions.assertTrue(exception.getMessage().contains("Transform dependency cycle"));
+        Assertions.assertTrue(exception.getMessage().contains("t1 -> t2 -> t1"));
     }
 
     @Test
@@ -322,8 +393,10 @@ public class SeaTunnelConfValidateCommandTest {
                                     + " }"));
         }
 
-        List<DryRunConnectValidator.ScheduledTransform> scheduled =
-                DryRunConnectValidator.scheduleTransforms(transforms, Collections.singleton("src"));
+        List<org.apache.seatunnel.engine.core.parse.TransformDependencyScheduler.ScheduledTransform>
+                scheduled =
+                        DryRunConnectValidator.scheduleTransforms(
+                                transforms, Collections.singleton("src"));
 
         Assertions.assertEquals(transformCount, scheduled.size());
         for (int evaluationIndex = 0; evaluationIndex < transformCount; evaluationIndex++) {

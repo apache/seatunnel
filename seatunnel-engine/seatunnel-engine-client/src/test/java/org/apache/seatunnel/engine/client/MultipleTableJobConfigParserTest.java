@@ -131,10 +131,8 @@ public class MultipleTableJobConfigParserTest {
                                                                 .getContextClassLoader(),
                                                         new LinkedHashMap<>())));
 
-        Assertions.assertTrue(
-                exception.getMessage().contains("Unable to resolve transform dependencies"));
-        Assertions.assertTrue(exception.getMessage().contains("t1 <- [t2]"));
-        Assertions.assertTrue(exception.getMessage().contains("t2 <- [t1]"));
+        Assertions.assertTrue(exception.getMessage().contains("Transform dependency cycle"));
+        Assertions.assertTrue(exception.getMessage().contains("t1 -> t2 -> t1"));
     }
 
     @Test
@@ -724,6 +722,80 @@ public class MultipleTableJobConfigParserTest {
         tableWithActions.put(
                 "src", Collections.singletonList(new Tuple2<>(catalogTable, sourceAction)));
         return tableWithActions;
+    }
+
+    @Test
+    public void testTerminalOmittedInputUsesNamedTransformSchemaAndEdge() {
+        assertOmittedInputBinding(false);
+    }
+
+    @Test
+    public void testOmittedInputPrefersExistingDefaultOverLastNamedOutput() {
+        assertOmittedInputBinding(true);
+    }
+
+    private void assertOmittedInputBinding(boolean existingDefault) {
+        LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tables = sourceActionMap();
+        if (existingDefault) {
+            tables.put(
+                    org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID,
+                    tables.get("src"));
+        }
+        String selectedColumn = existingDefault ? "name" : "name_copy";
+        Config config =
+                ConfigFactory.parseString(
+                        "env { execution.parallelism = 1, job.mode = BATCH }\n"
+                                + "transform {\n"
+                                + "  sql { plugin_input=[src], plugin_output=named, query=\"select name as name_copy from dual\" }\n"
+                                + "  sql { plugin_output=terminal, query=\"select "
+                                + selectedColumn
+                                + " from dual\" }\n"
+                                + "}");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig)
+                .parseTransforms(
+                        config.getConfigList("transform"),
+                        Thread.currentThread().getContextClassLoader(),
+                        tables);
+        Action terminal = tables.get("terminal").get(0)._2();
+        Assertions.assertEquals("Transform[1]-sql", terminal.getName());
+        Assertions.assertEquals(
+                Collections.singletonList(
+                        tables.get(existingDefault ? "src" : "named").get(0)._2()),
+                terminal.getUpstream());
+        Assertions.assertArrayEquals(
+                new String[] {selectedColumn},
+                tables.get("terminal").get(0)._1().getSeaTunnelRowType().getFieldNames());
+    }
+
+    @Test
+    public void testDuplicateUnnamedOutputsWaitForOtherJoinInput() {
+        String defaultId = org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
+        Config config =
+                ConfigFactory.parseString(
+                        "env { execution.parallelism = 1, job.mode = BATCH }\n"
+                                + "transform {\n"
+                                + "  sql { plugin_input=[src], query=\"select * from dual\" }\n"
+                                + "  sql { plugin_input=[src], query=\"select * from dual\" }\n"
+                                + "  sql { plugin_input=["
+                                + defaultId
+                                + ",later], plugin_output=joined, query=\"select * from dual\" }\n"
+                                + "  sql { plugin_input=[src], plugin_output=later, query=\"select * from dual\" }\n"
+                                + "}");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tables = sourceActionMap();
+        new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig)
+                .parseTransforms(
+                        config.getConfigList("transform"),
+                        Thread.currentThread().getContextClassLoader(),
+                        tables);
+        Action joined = tables.get("joined").get(0)._2();
+        Assertions.assertEquals("Transform[4]-sql", joined.getName());
+        Assertions.assertEquals(
+                Arrays.asList(tables.get(defaultId).get(0)._2(), tables.get("later").get(0)._2()),
+                joined.getUpstream());
     }
 
     private static CatalogTable mockCatalogTable(String tableName) {

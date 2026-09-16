@@ -13,12 +13,17 @@ You need to check this document before you upgrade to related version.
     multi-transform configuration with unresolved inputs is rejected instead of silently
     dropping unavailable inputs or connecting the last unresolved transform to an unintended
     upstream table. Cyclic or unresolved dependency graphs that previously caused an
-    indefinite retry loop now fail with a configuration error.
+    indefinite retry loop now fail with `JobDefineCheckException` during Zeta parsing or
+    `ConfigCheckException` during connect dry-run validation. An explicit self-reference with
+    no previously available input is rejected too, including single-transform jobs.
   - **Migration guide**: Correct `plugin_input` references to match the intended source or
     transform `plugin_output`, and remove dependency cycles. Reordering transforms is not
-    required for an otherwise valid dependency graph. The existing single-transform fallback
-    and terminal explicit-empty-input fallback are retained; this is not a blanket removal of
-    implicit chaining. Valid graphs whose dependencies were previously resolved correctly
+    required for an otherwise valid dependency graph. The existing single-transform mismatch
+    fallback and terminal explicit-empty-input fallback are retained. An omitted `plugin_input`
+    still resolves the default output ID first; it does not always select the preceding transform.
+    When that ID is unavailable and only the omitted-input transform remains, the parser retains
+    the legacy fallback to the last inserted table. Graph validation's existing requirements for
+    explicit IDs in complex jobs are unchanged. Valid graphs whose dependencies resolved correctly
     retain their evaluation order and default transform action names. (#12079)
 
 ### RabbitMQ Connector

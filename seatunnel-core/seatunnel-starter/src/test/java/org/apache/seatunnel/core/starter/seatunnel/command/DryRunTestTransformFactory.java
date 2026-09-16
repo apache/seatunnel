@@ -38,6 +38,8 @@ public class DryRunTestTransformFactory implements TableTransformFactory {
             Options.key("expected_input_count").intType().noDefaultValue();
     static final Option<String> PRODUCED_TABLE =
             Options.key("produced_table").stringType().noDefaultValue();
+    static final Option<String> EXPECTED_INPUT_TABLE =
+            Options.key("expected_input_table").stringType().noDefaultValue();
 
     private static final List<String> CREATED_TABLES = new ArrayList<>();
 
@@ -48,7 +50,10 @@ public class DryRunTestTransformFactory implements TableTransformFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(EXPECTED_INPUT_COUNT, PRODUCED_TABLE).build();
+        return OptionRule.builder()
+                .required(EXPECTED_INPUT_COUNT, PRODUCED_TABLE)
+                .optional(EXPECTED_INPUT_TABLE)
+                .build();
     }
 
     @Override
@@ -62,6 +67,20 @@ public class DryRunTestTransformFactory implements TableTransformFactory {
                             + context.getCatalogTables().size());
         }
         String producedTableName = context.getOptions().get(PRODUCED_TABLE);
+        context.getOptions()
+                .getOptional(EXPECTED_INPUT_TABLE)
+                .ifPresent(
+                        expected -> {
+                            String actual =
+                                    context.getCatalogTables().get(0).getTableId().getTableName();
+                            if (!expected.equals(actual)) {
+                                throw new IllegalStateException(
+                                        "expected input table "
+                                                + expected
+                                                + " but received "
+                                                + actual);
+                            }
+                        });
         CatalogTable producedTable =
                 CatalogTableUtil.getCatalogTable(
                         producedTableName, context.getCatalogTables().get(0).getSeaTunnelRowType());
