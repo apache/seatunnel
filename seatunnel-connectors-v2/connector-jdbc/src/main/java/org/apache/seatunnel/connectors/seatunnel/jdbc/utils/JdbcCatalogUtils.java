@@ -74,8 +74,11 @@ public class JdbcCatalogUtils {
     private static final String DOT_PLACEHOLDER = "__$DOT$__";
 
     /**
-     * MySQL data types that accept the {@code UNSIGNED} attribute. Mirrors the {@code *_UNSIGNED}
-     * type names understood by {@code MySqlTypeConverter} and {@code OceanBaseMySqlTypeConverter}.
+     * MySQL data types that accept the {@code UNSIGNED} attribute. This is the set of {@code
+     * *_UNSIGNED} type names handled by {@code MySqlTypeConverter}, which is a superset of the ones
+     * {@code OceanBaseMySqlTypeConverter} handles ({@code BIT} and {@code YEAR} are missing there).
+     * Keeping the superset is deliberate: the guard decides whether a column is unsigned, and
+     * narrowing it per dialect would silently drop the attribute for the shared numeric types.
      */
     private static final Set<String> UNSIGNED_TYPE_NAMES =
             Collections.unmodifiableSet(
