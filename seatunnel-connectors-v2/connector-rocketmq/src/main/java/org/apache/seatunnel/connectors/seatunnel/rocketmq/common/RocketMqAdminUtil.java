@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.com.google.common.collect.Maps;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
 
@@ -48,7 +49,6 @@ import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 import org.apache.rocketmq.tools.command.CommandUtil;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +59,9 @@ import java.util.stream.Collectors;
 
 /** Tools for creating RocketMq topic and group. */
 public class RocketMqAdminUtil {
+
+    // Package-private for test injection
+    static long RETRY_BACKOFF_MILLIS = 1000L;
 
     public static String createUniqInstance(String prefix) {
         return prefix.concat("-").concat(UUID.randomUUID().toString());
@@ -284,9 +287,56 @@ public class RocketMqAdminUtil {
             adminClient = RocketMqAdminUtil.startMQAdminTool(config);
             Map<MessageQueue, OffsetWrapper> consumerOffsets = Maps.newConcurrentMap();
             for (String topic : topics) {
-                ConsumeStats consumeStats =
-                        adminClient.examineConsumeStats(config.getGroupId(), topic);
-                consumerOffsets.putAll(consumeStats.getOffsetTable());
+                final DefaultMQAdminExt finalAdminClient = adminClient;
+                try {
+                    ConsumeStats consumeStats =
+                            RetryUtils.retryWithException(
+                                    () ->
+                                            finalAdminClient.examineConsumeStats(
+                                                    config.getGroupId(), topic),
+                                    new RetryUtils.RetryMaterial(
+                                            3,
+                                            true,
+                                            e ->
+                                                    e instanceof MQClientException
+                                                            && ((MQClientException) e)
+                                                                            .getResponseCode()
+                                                                    == ResponseCode.TOPIC_NOT_EXIST,
+                                            RETRY_BACKOFF_MILLIS,
+                                            true));
+                    consumerOffsets.putAll(consumeStats.getOffsetTable());
+                } catch (Exception e) {
+                    Throwable cause =
+                            (e instanceof RuntimeException
+                                            && e.getMessage() != null
+                                            && e.getMessage().contains("failed after retry"))
+                                    ? e.getCause()
+                                    : e;
+                    if (cause instanceof MQClientException
+                            && ((MQClientException) cause).getResponseCode()
+                                    == ResponseCode.TOPIC_NOT_EXIST) {
+                        throw new RocketMqConnectorException(
+                                RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR,
+                                String.format(
+                                        "Consumer group offset lookup failed for topic '%s' because route info for the group could not be resolved (transient name server delay or subscription group not provisioned).",
+                                        topic),
+                                cause);
+                    }
+                    if (cause instanceof MQClientException) {
+                        throw (MQClientException) cause;
+                    }
+                    if (cause instanceof MQBrokerException) {
+                        throw (MQBrokerException) cause;
+                    }
+                    if (cause instanceof RemotingException) {
+                        throw (RemotingException) cause;
+                    }
+                    if (cause instanceof InterruptedException) {
+                        Thread.currentThread().interrupt();
+                        throw (InterruptedException) cause;
+                    }
+                    throw new RuntimeException(cause);
+                }
             }
             return consumerOffsets.keySet().stream()
                     .filter(messageQueue -> messageQueues.contains(messageQueue))
@@ -299,17 +349,8 @@ public class RocketMqAdminUtil {
                 | MQBrokerException
                 | RemotingException
                 | InterruptedException e) {
-            if (e instanceof MQClientException) {
-                if (((MQClientException) e).getResponseCode() == ResponseCode.TOPIC_NOT_EXIST) {
-                    return Collections.emptyMap();
-                } else {
-                    throw new RocketMqConnectorException(
-                            RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-                }
-            } else {
-                throw new RocketMqConnectorException(
-                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-            }
+            throw new RocketMqConnectorException(
+                    RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
         } finally {
             if (adminClient != null) {
                 adminClient.shutdown();
