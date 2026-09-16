@@ -47,6 +47,9 @@
         <module>connector-http-shopify</module>
         <module>connector-http-zendesk</module>
         <module>connector-http-stripe</module>
+        <module>connector-http-paypal</module>
+        <module>connector-http-linear</module>
+        <module>connector-mem0</module>
     </modules>
 
 </project>

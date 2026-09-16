@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 用于从 `Apache Paimon` 读取数据
@@ -304,6 +310,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Paimon 源连接器支持哪些读取模式？
+
+SeaTunnel Paimon 源连接器支持批处理快照读取与流式 changelog 消费。在批处理模式下，可扫描指定或最新快照；在流式模式下，持续监听并拉取新提交的增量数据变更。
+
+### 如何配置 Paimon 的存储路径与 Catalog？
+
+通过 `warehouse` 配置底层存储根路径（如 `hdfs:///paimon/warehouse`、`s3a://bucket/warehouse` 或本地路径），并通过 `paimon.catalog.type` 指定 Catalog 类型（如 `filesystem`、`hive` 等）。相关的存储认证参数可统一在 `paimon.hadoop.conf` 中声明。
+
+### Paimon 源连接器是否支持列投影？
+
+支持。Paimon 源连接器仅读取上游作业 Schema 中声明的目标字段，对底层 ORC 或 Parquet 等列式存储格式避免冗余数据反序列化，从而提升查询性能。
 
 ## 变更日志
 

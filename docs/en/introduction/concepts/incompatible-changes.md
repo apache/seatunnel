@@ -5,6 +5,35 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### RabbitMQ Connector
+
+- **Breaking Change: `amqps://` connections now verify broker certificates**
+  - **Affected component**: `seatunnel-connectors-v2/connector-rabbitmq`
+  - **Description**: Previously, connecting with an `amqps://` `url`/`uri` implicitly installed a
+    trust-all trust manager without hostname verification. Certificate verification is now
+    enforced for `amqps://` connections, consistent with the `ssl = true` host/port path.
+  - **Impact**: Jobs that connect with `amqps://` URLs to brokers using self-signed or private-CA
+    certificates will fail to connect after upgrading.
+  - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
+    trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
+    configuration with a properly configured trust store.
+
+### Zeta REST Pagination Parameter Validation
+
+- **Behavior change: `page` and `rows` are validated on paginated endpoints**
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`,
+    `GET /running-jobs` and `GET /running-jobs/summary`. The latter two are served by the same
+    `RunningJobsServlet` instance, so both receive the validation.
+  - **Description**: These endpoints now reject a `page` or `rows` value that is not an integer or
+    is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
+    Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
+    internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
+    positive offset and silently return the wrong page.
+  - **Impact**: Requests that relied on `rows=0` returning an empty page now receive `400` with a
+    message naming the offending parameter. Callers passing valid positive values are unaffected.
+    The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
+    starting exactly at `total`, which still returns an empty page, are all unchanged.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
@@ -203,6 +232,11 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
 ### Transform Changes
+
+- **Behavior change: AMAZON embedding honors retry options**
+  - **Affected component**: `Embedding` transform with `model_provider = AMAZON`.
+  - **Description**: Configured SeaTunnel retry and backoff options now reach the Bedrock runtime. Previously, the transform ignored these settings and used one SeaTunnel attempt.
+  - **Impact and migration**: Configured `model_retry_max_attempts` values greater than 1 now enable SeaTunnel retries, which may incur additional model charges; use 1 to retain a single SeaTunnel attempt. The default remains 1. The SDK's own retry and timeout behavior is unchanged; `model_request_timeout_ms` is not currently applied to Bedrock calls.
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`

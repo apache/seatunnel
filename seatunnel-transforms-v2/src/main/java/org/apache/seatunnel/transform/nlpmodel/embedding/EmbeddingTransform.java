@@ -173,17 +173,21 @@ public class EmbeddingTransform extends MultipleFieldOutputTransform {
                                     invocationOptions);
                     break;
                 case AMAZON:
+                    String bedrockModelId = config.get(ModelTransformConfig.MODEL);
+                    int bedrockDimension = config.get(ModelTransformConfig.DIMENSION);
+                    int bedrockBatchSize =
+                            config.get(EmbeddingTransformConfig.SINGLE_VECTORIZED_INPUT_NUMBER);
                     model =
                             new BedrockModel(
-                                    config.get(ModelTransformConfig.API_KEY),
-                                    config.get(ModelTransformConfig.SECRET_KEY),
-                                    config.get(ModelTransformConfig.AWS_REGION),
-                                    config.get(ModelTransformConfig.API_PATH),
-                                    config.get(ModelTransformConfig.MODEL),
-                                    config.get(ModelTransformConfig.DIMENSION),
-                                    config.get(
-                                            EmbeddingTransformConfig
-                                                    .SINGLE_VECTORIZED_INPUT_NUMBER));
+                                    BedrockModel.createBedrockClient(
+                                            config.get(ModelTransformConfig.API_KEY),
+                                            config.get(ModelTransformConfig.SECRET_KEY),
+                                            config.get(ModelTransformConfig.AWS_REGION),
+                                            config.get(ModelTransformConfig.API_PATH)),
+                                    bedrockModelId,
+                                    bedrockDimension,
+                                    bedrockBatchSize,
+                                    invocationOptions);
                     break;
                 case LOCAL:
                 default:
