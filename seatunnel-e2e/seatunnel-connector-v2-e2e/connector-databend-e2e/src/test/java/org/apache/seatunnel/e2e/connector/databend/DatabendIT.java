@@ -235,7 +235,12 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         this.minioContainer =
-                new GenericContainer<>("minio/minio:latest")
+                // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated
+                // pulls; quay.io is MinIO's own registry and mirrors the same tags publicly.
+                // Pinned to the same release used by the other MinIO containers in this test
+                // suite instead of :latest, so an upstream MinIO release can't silently change
+                // this test's behavior underneath it.
+                new GenericContainer<>("quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("minio")
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
@@ -259,6 +264,8 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(DATABEND_CONTAINER_HOST)
+                        // The nightly image can reset JDBC while its object storage becomes ready.
+                        .withStartupAttempts(3)
                         .withUsername("root")
                         .withPassword("")
                         .withEnv("STORAGE_TYPE", "s3")

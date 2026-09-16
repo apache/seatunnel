@@ -17,10 +17,6 @@
 
 package org.apache.seatunnel.engine.server.utils;
 
-import org.apache.seatunnel.common.utils.ExceptionUtils;
-
-import lombok.extern.slf4j.Slf4j;
-
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
@@ -42,7 +38,6 @@ import java.util.function.Predicate;
  * 2. Check if resources are sufficient. <br>
  * 3. If resources are sufficient, take() the data; otherwise, do not take data from the queue.
  */
-@Slf4j
 public class PeekBlockingQueue<E> {
 
     private final BlockingQueue<E> queue = new LinkedBlockingQueue<>();
@@ -56,7 +51,7 @@ public class PeekBlockingQueue<E> {
         this.idExtractor = idExtractor;
     }
 
-    public void put(E element) {
+    public void put(E element) throws InterruptedException {
         lock.lock();
         try {
             queue.put(element);
@@ -64,7 +59,8 @@ public class PeekBlockingQueue<E> {
             jobIdMap.put(jobId, element);
             notEmpty.signalAll();
         } catch (InterruptedException e) {
-            log.error("Put element into queue failed. {}", ExceptionUtils.getMessage(e));
+            Thread.currentThread().interrupt();
+            throw e;
         } finally {
             lock.unlock();
         }

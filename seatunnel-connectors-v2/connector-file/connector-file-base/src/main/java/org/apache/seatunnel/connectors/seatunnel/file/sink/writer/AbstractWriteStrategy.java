@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -61,6 +62,7 @@ import java.io.IOException;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -226,7 +228,8 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
+        if (!fileSinkConfig.isSchemaEvolutionEnabled()
+                && !(event instanceof RestoreTableSchemaEvent)) {
             throw new UnsupportedOperationException(
                     "Received AlterTableEvent but schema_evolution_enabled=false at this sink. "
                             + "Either set schema_evolution_enabled=true to handle schema changes, "
@@ -256,6 +259,7 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         // append new cols at the end of the sink's catalog, but upstream's actual row has new
         // cols at the position upstream put them. Reading changeAfter directly aligns the sink's
         // catalog with the actual row layout.
+        TableSchema previousTableSchema = this.tableSchema;
         if (event.getChangeAfter() != null) {
             this.tableSchema = event.getChangeAfter().getTableSchema();
         } else {
@@ -266,7 +270,12 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
 
         // Step 3: update sinkColumnNames to reflect the structural change.
-        updateSinkColumnNames(event);
+        if (event instanceof RestoreTableSchemaEvent) {
+            this.sinkColumnNames =
+                    restoreSinkColumnNames(previousTableSchema, tableSchema, sinkColumnNames);
+        } else {
+            updateSinkColumnNames(event);
+        }
 
         // Step 4: rebuild sinkColumnsIndexInRow from sinkColumnNames + new seaTunnelRowType.
         this.sinkColumnsIndexInRow = rebuildSinkColumnsIndex();
@@ -386,6 +395,27 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
                 updateSinkColumnNames(sub);
             }
         }
+    }
+
+    private static List<String> restoreSinkColumnNames(
+            TableSchema previousSchema,
+            TableSchema restoredSchema,
+            List<String> previousSinkColumnNames) {
+        List<String> previousFields = Arrays.asList(previousSchema.getFieldNames());
+        List<String> restoredFields = Arrays.asList(restoredSchema.getFieldNames());
+        List<String> restoredSinkColumns = new ArrayList<>();
+        for (String restoredField : restoredFields) {
+            boolean previouslySelected =
+                    previousSinkColumnNames.stream()
+                            .anyMatch(column -> column.equalsIgnoreCase(restoredField));
+            boolean newlyAdded =
+                    previousFields.stream()
+                            .noneMatch(column -> column.equalsIgnoreCase(restoredField));
+            if (previouslySelected || newlyAdded) {
+                restoredSinkColumns.add(restoredField);
+            }
+        }
+        return restoredSinkColumns;
     }
 
     /** Case-insensitive indexOf for a list of column names. Returns -1 if not found. */
