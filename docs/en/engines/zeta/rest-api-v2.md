@@ -783,8 +783,16 @@ When we can't get the job info, the response will be:
 > | name  |   type   | data type | description                                                                       |
 > |-------|----------|-----------|-----------------------------------------------------------------------------------|
 > | state | optional | string    | finished job status. `FINISHED`,`CANCELED`,`FAILED`,`SAVEPOINT_DONE`,`UNKNOWABLE` |
-> | page  | optional | int       | page number.                                                                      |
-> | rows  | optional | int       | page size.                                                                        |
+> | page  | optional | int       | page number. Must be an integer greater than 0.                                   |
+> | rows  | optional | int       | page size, defaults to 10. Must be an integer greater than 0.                     |
+
+When `page` is supplied, the response is wrapped as `{"data": [...], "total": n}`, where `total`
+is the number of jobs matching `state` before the page is applied. When it is omitted, the bare
+array is returned.
+
+A `page` or `rows` value that is not an integer, or is not greater than 0, returns `400`. A page
+starting beyond the end of the result set also returns `400`, while a page starting exactly at
+`total` returns an empty page.
 
 #### Responses
 
