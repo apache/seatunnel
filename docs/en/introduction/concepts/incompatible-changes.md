@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### SQL and Calcite Vector Arithmetic
+
+- **Behavior correction**: `VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`,
+  `L1_DISTANCE`, `L2_DISTANCE` and `VECTOR_NORMALIZE` now widen float elements before
+  intermediate multiplication or subtraction. Finite inputs no longer produce
+  incorrect infinity, NaN or zero merely because an intermediate float operation
+  overflows or underflows. Results can also differ in their low-order digits.
+- **Migration**: Review thresholds and previously computed vector metrics or normalized
+  embeddings before replaying data. No options, types, schemas or state formats change.
+  Null inputs and actual zero vectors retain their handling. No non-finite input
+  validation or sanitization is added; corrected finite intermediates can also
+  affect results when mixed with non-finite elements. Normalized output elements
+  remain float, and random-projection arithmetic is unaffected.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
