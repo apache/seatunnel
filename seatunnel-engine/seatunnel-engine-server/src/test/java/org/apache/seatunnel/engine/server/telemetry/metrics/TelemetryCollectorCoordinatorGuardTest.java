@@ -58,6 +58,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class TelemetryCollectorCoordinatorGuardTest {
 
@@ -69,6 +70,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
     private ClusterObservabilityService mockClusterObservabilityService;
     private InternalPartitionService mockPartitionService;
     private PartitionService mockHazelcastPartitionService;
+    private HazelcastInstanceImpl mockHazelcastInstance;
 
     @BeforeEach
     void setUp() throws UnknownHostException, NoSuchFieldException, IllegalAccessException {
@@ -84,7 +86,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
         NodeEngineImpl mockNodeEngine = Mockito.mock(NodeEngineImpl.class);
         MemberImpl mockMember = Mockito.mock(MemberImpl.class);
         Config mockConfig = Mockito.mock(Config.class);
-        HazelcastInstanceImpl mockHazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
+        mockHazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
 
         Mockito.when(mockNode.getNodeEngine()).thenReturn(mockNodeEngine);
         Mockito.when(mockNodeEngine.getService(SeaTunnelServer.SERVICE_NAME))
@@ -534,6 +536,80 @@ public class TelemetryCollectorCoordinatorGuardTest {
         assertSingleClusterMetricSample(
                 findMetric(result, "seatunnel_engine_cluster_last_member_leave_timestamp_ms"),
                 222D);
+    }
+
+    /**
+     * Covers the master gate in ClusterMetricExports.collect(): a non-master member must export
+     * none of the seatunnel_engine_cluster_* families and must not trigger the cluster-wide safety
+     * check or the topology snapshot, while the unconditional node_count metric is still exported.
+     */
+    @Test
+    void testClusterMetricExportsSkipsSeatunnelClusterMetricsWhenNotMaster()
+            throws UnknownHostException {
+        Mockito.when(mockNode.isMaster()).thenReturn(false);
+        Mockito.when(mockClusterService.getMasterAddress())
+                .thenReturn(new Address("127.0.0.1", 5801));
+
+        List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
+
+        List<String> clusterMetricNames =
+                result.stream()
+                        .map(s -> s.name)
+                        .filter(name -> name.startsWith("seatunnel_engine_cluster_"))
+                        .collect(Collectors.toList());
+        Assertions.assertTrue(
+                clusterMetricNames.isEmpty(),
+                "non-master node must not export seatunnel_engine_cluster_* metrics but exported "
+                        + clusterMetricNames);
+        Assertions.assertNotNull(
+                findMetric(result, "node_count"),
+                "node_count must still be exported from every member");
+        Mockito.verify(mockHazelcastPartitionService, Mockito.never()).isClusterSafe();
+        Mockito.verify(mockClusterObservabilityService, Mockito.never()).snapshot();
+    }
+
+    /**
+     * Covers the hazelcastInstance == null branch of ClusterMetricExports.resolveClusterSafe(): the
+     * safe gauge must degrade to 0 instead of failing the scrape, and the remaining cluster health
+     * metrics must still be exported.
+     */
+    @Test
+    void testClusterMetricExportsReportsClusterUnsafeWhenHazelcastInstanceMissing()
+            throws UnknownHostException, NoSuchFieldException, IllegalAccessException {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockClusterService.getMasterAddress())
+                .thenReturn(new Address("127.0.0.1", 5801));
+        Field hazelcastInstanceField = Node.class.getDeclaredField("hazelcastInstance");
+        hazelcastInstanceField.setAccessible(true);
+        hazelcastInstanceField.set(mockNode, null);
+
+        List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
+
+        assertSingleClusterMetricSample(findMetric(result, "seatunnel_engine_cluster_safe"), 0D);
+        assertSingleClusterMetricSample(
+                findMetric(result, "seatunnel_engine_cluster_partition_migration_in_progress"), 0D);
+        Assertions.assertNotNull(findMetric(result, "seatunnel_engine_cluster_member_count"));
+        Mockito.verify(mockHazelcastPartitionService, Mockito.never()).isClusterSafe();
+    }
+
+    /**
+     * Covers the partitionService == null branch of ClusterMetricExports.resolveClusterSafe(): when
+     * the Hazelcast instance exposes no PartitionService the safe gauge must degrade to 0 instead
+     * of throwing, and the remaining cluster health metrics must still be exported.
+     */
+    @Test
+    void testClusterMetricExportsReportsClusterUnsafeWhenPartitionServiceMissing()
+            throws UnknownHostException {
+        Mockito.when(mockNode.isMaster()).thenReturn(true);
+        Mockito.when(mockClusterService.getMasterAddress())
+                .thenReturn(new Address("127.0.0.1", 5801));
+        Mockito.when(mockHazelcastInstance.getPartitionService()).thenReturn(null);
+
+        List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
+
+        assertSingleClusterMetricSample(findMetric(result, "seatunnel_engine_cluster_safe"), 0D);
+        Assertions.assertNotNull(findMetric(result, "seatunnel_engine_cluster_member_count"));
+        Mockito.verify(mockHazelcastPartitionService, Mockito.never()).isClusterSafe();
     }
 
     private void assertMetricSample(

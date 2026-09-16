@@ -75,7 +75,9 @@ cluster-lifetime totals.
 | seatunnel_engine_cluster_last_member_leave_timestamp_ms | Gauge | -      | The timestamp in milliseconds of the most recent SeaTunnel Engine member leave |
 
 `seatunnel_engine_cluster_safe` reflects the underlying cluster partition safety state used by SeaTunnel Engine. It
-should not be interpreted as a full end-to-end SeaTunnel job or engine health signal.
+should not be interpreted as a full end-to-end SeaTunnel job or engine health signal. It is backed by a cluster-wide
+safety check that contacts every member on each master scrape, so it can add scrape latency while a partition
+migration is in progress; size the Prometheus scrape timeout for the master accordingly.
 
 Example PromQL:
 

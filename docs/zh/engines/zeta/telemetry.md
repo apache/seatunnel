@@ -74,7 +74,8 @@ master 切换、某个作业失败前是否发生过成员离开等。
 | seatunnel_engine_cluster_last_member_leave_timestamp_ms  | Gauge   | -      | 最近一次 SeaTunnel Engine 成员离开的毫秒时间戳 |
 
 `seatunnel_engine_cluster_safe` 反映的是 SeaTunnel Engine 所依赖的底层集群分区安全状态，不应被理解为完整的端到端 SeaTunnel 作业
-或引擎健康信号。
+或引擎健康信号。该指标由一次集群级安全检查得出，每次 master 抓取都会联系所有成员，因此在分区迁移进行中可能增加抓取延迟；
+请据此为 master 节点设置合适的 Prometheus 抓取超时。
 
 PromQL 示例：
 

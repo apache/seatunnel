@@ -40,23 +40,50 @@ public class ClusterObservabilityService {
     private long lastMasterChangeTimestampMs;
     private Address lastKnownMasterAddress;
 
+    /**
+     * Creates the service and captures the master address known at construction time. This baseline
+     * is what the first {@code refreshMasterState()} compares against, so the initial master
+     * discovery is never counted as a master change.
+     *
+     * @param node the local Hazelcast node used to resolve the current master address
+     */
     public ClusterObservabilityService(Node node) {
         this.node = node;
         this.lastKnownMasterAddress = currentMasterAddress();
     }
 
+    /**
+     * Records a member join. Invoked from the Hazelcast membership-event thread via {@code
+     * SeaTunnelServer#memberAdded}. Synchronized on this instance so that the counters and the
+     * master-change detection stay consistent with a concurrent {@link #snapshot()} taken on the
+     * metrics-scrape thread.
+     */
     public synchronized void recordMemberAdded() {
         memberJoinTotal++;
         lastMemberJoinTimestampMs = System.currentTimeMillis();
         refreshMasterState();
     }
 
+    /**
+     * Records a member leave. Invoked from the Hazelcast membership-event thread via {@code
+     * SeaTunnelServer#memberRemoved}, before the coordinator failover handling runs. It is O(1) and
+     * must stay cheap so it can never delay that failover-critical path. Synchronized on this
+     * instance for the same reason as {@link #recordMemberAdded()}.
+     */
     public synchronized void recordMemberRemoved() {
         memberLeaveTotal++;
         lastMemberLeaveTimestampMs = System.currentTimeMillis();
         refreshMasterState();
     }
 
+    /**
+     * Returns an immutable copy of the current counters and timestamps. Invoked from the metrics
+     * scrape thread by {@code ClusterMetricExports}. The master address is re-checked here as well,
+     * so a master change is still observed even when no membership event was delivered to this
+     * node. Synchronized on this instance so the snapshot is never built from a half-updated state.
+     *
+     * @return a consistent point-in-time view of the topology counters
+     */
     public synchronized ClusterObservabilitySnapshot snapshot() {
         refreshMasterState();
         return new ClusterObservabilitySnapshot(
