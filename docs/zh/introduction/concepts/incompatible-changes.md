@@ -11,6 +11,17 @@
   - **变更说明**：Transform 现在会等待所有声明的 `plugin_input` 依赖就绪。多 Transform 配置中存在无法解析的输入时，会被拒绝，而不再静默丢弃不可用的输入，或将最后一个未解析的 Transform 连接到非预期的上游表。此前导致无限重试的循环依赖或无法解析的依赖图，现在会报配置错误。
   - **迁移指南**：修正 `plugin_input`，使其引用预期的 Source 或 Transform 的 `plugin_output`，并消除循环依赖。对于依赖关系本身有效的图，无需调整 Transform 的声明顺序。原有的单 Transform 回退逻辑和末尾显式空输入列表的回退逻辑仍然保留，并非全面移除隐式串联。此前能够正确解析依赖的有效图，其求值顺序和默认 Transform Action 名称保持不变。 (#12079)
 
+### RabbitMQ Connector
+
+- **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
+  - **影响范围**：`seatunnel-connectors-v2/connector-rabbitmq`
+  - **变更说明**：此前使用 `amqps://` 的 `url`/`uri` 建立连接时，会隐式启用“信任所有证书”的
+    TrustManager 且不校验主机名。现在 `amqps://` 连接会强制校验证书，与 `ssl = true` 的
+    host/port 路径行为保持一致。
+  - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
+  - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
+    `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
 ### Zeta REST 分页参数校验
 
 - **行为变更：分页接口开始校验 `page` 与 `rows`**

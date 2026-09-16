@@ -21,6 +21,19 @@ You need to check this document before you upgrade to related version.
     implicit chaining. Valid graphs whose dependencies were previously resolved correctly
     retain their evaluation order and default transform action names. (#12079)
 
+### RabbitMQ Connector
+
+- **Breaking Change: `amqps://` connections now verify broker certificates**
+  - **Affected component**: `seatunnel-connectors-v2/connector-rabbitmq`
+  - **Description**: Previously, connecting with an `amqps://` `url`/`uri` implicitly installed a
+    trust-all trust manager without hostname verification. Certificate verification is now
+    enforced for `amqps://` connections, consistent with the `ssl = true` host/port path.
+  - **Impact**: Jobs that connect with `amqps://` URLs to brokers using self-signed or private-CA
+    certificates will fail to connect after upgrading.
+  - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
+    trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
+    configuration with a properly configured trust store.
+
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
