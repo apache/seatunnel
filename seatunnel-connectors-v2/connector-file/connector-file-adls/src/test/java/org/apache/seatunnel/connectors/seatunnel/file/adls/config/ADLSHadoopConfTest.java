@@ -71,6 +71,29 @@ class ADLSHadoopConfTest {
                 conf.getExtraOptions().get("fs.azure.account.oauth2.client.endpoint." + account));
     }
 
+    @Test
+    void configuresAzuriteBlobFileSystemForIntegrationTests() {
+        Map<String, Object> values = baseConfig();
+        values.put("account_key", "secret-key");
+        values.put("endpoint_suffix", "blob.azurite.test");
+        Map<String, String> advanced = new HashMap<>();
+        advanced.put("fs.azure.test.emulator", "true");
+        values.put("hadoop_adls_properties", advanced);
+
+        ADLSHadoopConf conf =
+                ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(values));
+
+        Assertions.assertEquals(
+                "wasb://files@testaccount.blob.azurite.test", conf.getHdfsNameKey());
+        Assertions.assertEquals("wasb", conf.getSchema());
+        Assertions.assertEquals(
+                "org.apache.hadoop.fs.azure.NativeAzureFileSystem", conf.getFsHdfsImpl());
+        Assertions.assertFalse(conf.getExtraOptions().containsKey("fs.azure.test.emulator"));
+        Assertions.assertEquals(
+                "secret-key",
+                conf.getExtraOptions().get("fs.azure.account.key.testaccount.blob.azurite.test"));
+    }
+
     private static Map<String, Object> baseConfig() {
         Map<String, Object> values = new HashMap<>();
         values.put("account_name", "testaccount");

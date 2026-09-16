@@ -29,6 +29,9 @@ public final class ADLSRuntimeCompatibility {
     public static final String SECURE_ABFS_SCHEME = "abfss";
     public static final String SECURE_ABFS_IMPLEMENTATION =
             "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
+    static final String AZURE_BLOB_SCHEME = "wasb";
+    static final String AZURE_BLOB_IMPLEMENTATION =
+            "org.apache.hadoop.fs.azure.NativeAzureFileSystem";
     private static final String DEFAULT_ENDPOINT_SUFFIX = "dfs.core.windows.net";
     private static final String DEFAULT_AUTHORITY_HOST = "https://login.microsoftonline.com";
     private static final String CLIENT_CREDENTIALS_PROVIDER =
@@ -59,6 +62,14 @@ public final class ADLSRuntimeCompatibility {
         validateDnsLabel(container, "container");
         validateEndpointSuffix(endpointSuffix);
         return SECURE_ABFS_SCHEME + "://" + container + "@" + accountName + "." + endpointSuffix;
+    }
+
+    /** Builds the Azure Blob URI used only by the Azurite-backed integration test path. */
+    static String azureBlobUri(String accountName, String container, String endpointSuffix) {
+        validateDnsLabel(accountName, "accountName");
+        validateDnsLabel(container, "container");
+        validateEndpointSuffix(endpointSuffix);
+        return AZURE_BLOB_SCHEME + "://" + container + "@" + accountName + "." + endpointSuffix;
     }
 
     /** Fails fast when the ABFS implementation is absent from the runtime classpath. */
