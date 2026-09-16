@@ -20,19 +20,48 @@ package org.apache.seatunnel.engine.server.autoscale;
 import java.io.Serializable;
 import java.util.Objects;
 
+/** Summarizes the freshness and aggregate values of the latest samples from registered workers. */
 public final class WorkerSampleSummary implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** Number of registered workers considered when building this summary. */
     private final int totalSamples;
-    private final int validSamples;
-    private final int missingSamples;
-    private final int staleSamples;
-    private final int futureSamples;
-    private final MetricValue cpu;
-    private final MetricValue jvmMemory;
-    private final boolean scaleInMetricsValid;
 
+    /** Number of worker samples that are present, fresh, and valid for evaluation. */
+    private final int validSamples;
+
+    /** Number of registered workers without an accepted sample. */
+    private final int missingSamples;
+
+    /** Number of samples older than the configured freshness window. */
+    private final int staleSamples;
+
+    /** Number of samples whose event time is beyond the allowed future timestamp tolerance. */
+    private final int futureSamples;
+
+    /** Aggregated CPU utilization of valid worker samples. */
+    private final MetricValue cpu;
+
+    /** Aggregated JVM memory utilization of valid worker samples. */
+    private final MetricValue jvmMemory;
+
+    /** Whether every current worker has a complete and valid metric sample. */
+    private final boolean allWorkerMetricsValid;
+
+    /**
+     * Creates a summary of the latest worker samples.
+     *
+     * @param totalSamples number of registered workers considered
+     * @param validSamples number of present, fresh, and valid samples
+     * @param missingSamples number of registered workers without an accepted sample
+     * @param staleSamples number of samples older than the freshness window
+     * @param futureSamples number of samples whose event time exceeds the future timestamp
+     *     tolerance
+     * @param cpu aggregated CPU utilization of valid samples
+     * @param jvmMemory aggregated JVM memory utilization of valid samples
+     * @param allWorkerMetricsValid whether every current worker has a complete and valid sample
+     */
     public WorkerSampleSummary(
             int totalSamples,
             int validSamples,
@@ -41,7 +70,7 @@ public final class WorkerSampleSummary implements Serializable {
             int futureSamples,
             MetricValue cpu,
             MetricValue jvmMemory,
-            boolean scaleInMetricsValid) {
+            boolean allWorkerMetricsValid) {
         this.totalSamples = totalSamples;
         this.validSamples = validSamples;
         this.missingSamples = missingSamples;
@@ -49,7 +78,7 @@ public final class WorkerSampleSummary implements Serializable {
         this.futureSamples = futureSamples;
         this.cpu = Objects.requireNonNull(cpu, "cpu");
         this.jvmMemory = Objects.requireNonNull(jvmMemory, "jvmMemory");
-        this.scaleInMetricsValid = scaleInMetricsValid;
+        this.allWorkerMetricsValid = allWorkerMetricsValid;
     }
 
     public int getTotalSamples() {
@@ -80,7 +109,7 @@ public final class WorkerSampleSummary implements Serializable {
         return jvmMemory;
     }
 
-    public boolean isScaleInMetricsValid() {
-        return scaleInMetricsValid;
+    public boolean isAllWorkerMetricsValid() {
+        return allWorkerMetricsValid;
     }
 }

@@ -19,12 +19,9 @@ import java.util.Collections;
 
 class DefaultAutoScalerTest {
     @Test
-    void publishesOnlyWhenFiringStartsOrItsRepeatIntervalElapses() {
+    void publishesOnlyWhenFiringStarts() {
         AutoscalerConfig config =
-                AutoscalerConfig.builder()
-                        .scaleOutStabilizationSeconds(1)
-                        .recommendationRepeatSeconds(10)
-                        .build();
+                AutoscalerConfig.builder().scaleOutStabilizationSeconds(1).build();
         FakeTime time = new FakeTime();
         InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(10, 10);
         EvaluationAction[] action = {EvaluationAction.SCALE_OUT};
@@ -43,14 +40,12 @@ class DefaultAutoScalerTest {
         Assertions.assertEquals(1, store.view(true, true).getRecommendationHistory().size());
         time.monotonicMillis = 11_000L;
         scaler.evaluateOnce();
-        Assertions.assertEquals(2, store.view(true, true).getRecommendationHistory().size());
-        Assertions.assertEquals(
-                1L, store.view(true, true).getLatestRecommendation().getGeneration());
+        Assertions.assertEquals(1, store.view(true, true).getRecommendationHistory().size());
         action[0] = EvaluationAction.NO_ACTION;
         time.monotonicMillis = 12_000L;
         scaler.evaluateOnce();
         AutoscalerView view = store.view(true, true);
-        Assertions.assertEquals(2, view.getRecommendationHistory().size());
+        Assertions.assertEquals(1, view.getRecommendationHistory().size());
         Assertions.assertEquals(
                 AutoscalingState.FIRING,
                 view.getLatestEvaluationRecord().getStateTransition().getPreviousState());
@@ -66,7 +61,6 @@ class DefaultAutoScalerTest {
                 AutoscalerConfig.builder()
                         .scaleOutStabilizationSeconds(1)
                         .keepFiringSeconds(10)
-                        .recommendationRepeatSeconds(100)
                         .build();
         FakeTime time = new FakeTime();
         InMemoryAutoscalerStateStore store = new InMemoryAutoscalerStateStore(10, 10);
@@ -158,7 +152,7 @@ class DefaultAutoScalerTest {
                                 .cpu(MetricValue.valid(0.1d))
                                 .jvmMemory(MetricValue.valid(0.1d))
                                 .fixedSlotUtilization(MetricValue.valid(0.1d))
-                                .scaleInMetricsValid(true)
+                                .allWorkerMetricsValid(true)
                                 .build(),
                 snapshot -> new AutoscaleEvaluation(action[0], Collections.singletonList("test")),
                 DefaultAutoScaler.stateTracker(config),

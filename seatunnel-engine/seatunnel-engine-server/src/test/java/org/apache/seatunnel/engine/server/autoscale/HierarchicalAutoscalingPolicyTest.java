@@ -38,7 +38,7 @@ class HierarchicalAutoscalingPolicyTest {
                 policy.evaluate(
                         baseSnapshot()
                                 .resourceShortageCount(1L)
-                                .waitShortage(true)
+                                .hasNewWaitShortage(true)
                                 .cpu(MetricValue.valid(0.1d))
                                 .jvmMemory(MetricValue.valid(0.1d))
                                 .fixedSlotUtilization(MetricValue.valid(0.1d))
@@ -61,6 +61,37 @@ class HierarchicalAutoscalingPolicyTest {
 
         Assertions.assertEquals(EvaluationAction.SCALE_OUT, evaluation.getEvaluationAction());
         Assertions.assertTrue(evaluation.getDecisionReasons().contains("cpu_utilization_high"));
+    }
+
+    @Test
+    void maxWorkerCountBlocksScaleOut() {
+        AutoscaleEvaluation evaluation =
+                policy.evaluate(
+                        baseSnapshot()
+                                .currentWorkers(10)
+                                .maxWorkers(10)
+                                .cpu(MetricValue.valid(0.8d))
+                                .build());
+
+        Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
+        Assertions.assertTrue(
+                evaluation.getDecisionReasons().contains("scale_out_blocked_by_max_workers"));
+    }
+
+    @Test
+    void maxWorkerCountDoesNotBlockScaleIn() {
+        AutoscaleEvaluation evaluation =
+                policy.evaluate(
+                        baseSnapshot()
+                                .currentWorkers(10)
+                                .maxWorkers(10)
+                                .cpu(MetricValue.valid(0.1d))
+                                .jvmMemory(MetricValue.valid(0.1d))
+                                .fixedSlotUtilization(MetricValue.valid(0.1d))
+                                .allWorkerMetricsValid(true)
+                                .build());
+
+        Assertions.assertEquals(EvaluationAction.SCALE_IN, evaluation.getEvaluationAction());
     }
 
     @Test
@@ -117,10 +148,42 @@ class HierarchicalAutoscalingPolicyTest {
                                 .fixedSlotUtilization(MetricValue.unknown())
                                 .cpu(MetricValue.valid(0.29d))
                                 .jvmMemory(MetricValue.valid(0.29d))
-                                .scaleInMetricsValid(true)
+                                .allWorkerMetricsValid(true)
                                 .build());
 
         Assertions.assertEquals(EvaluationAction.SCALE_IN, evaluation.getEvaluationAction());
+    }
+
+    @Test
+    void pendingJobsBlockScaleIn() {
+        AutoscaleEvaluation evaluation =
+                policy.evaluate(
+                        baseSnapshot()
+                                .cpu(MetricValue.valid(0.1d))
+                                .jvmMemory(MetricValue.valid(0.1d))
+                                .fixedSlotUtilization(MetricValue.valid(0.1d))
+                                .pendingJobCount(1)
+                                .build());
+
+        Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
+        Assertions.assertTrue(
+                evaluation.getDecisionReasons().contains("scale_in_blocked_by_pending_jobs"));
+    }
+
+    @Test
+    void pendingDurationBlocksScaleIn() {
+        AutoscaleEvaluation evaluation =
+                policy.evaluate(
+                        baseSnapshot()
+                                .cpu(MetricValue.valid(0.1d))
+                                .jvmMemory(MetricValue.valid(0.1d))
+                                .fixedSlotUtilization(MetricValue.valid(0.1d))
+                                .longestPendingDurationMillis(100L)
+                                .build());
+
+        Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
+        Assertions.assertTrue(
+                evaluation.getDecisionReasons().contains("scale_in_blocked_by_pending_jobs"));
     }
 
     @Test
@@ -131,7 +194,7 @@ class HierarchicalAutoscalingPolicyTest {
                                 .cpu(MetricValue.valid(0.3d))
                                 .jvmMemory(MetricValue.valid(0.29d))
                                 .fixedSlotUtilization(MetricValue.valid(0.1d))
-                                .scaleInMetricsValid(true)
+                                .allWorkerMetricsValid(true)
                                 .build());
 
         Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
@@ -146,12 +209,12 @@ class HierarchicalAutoscalingPolicyTest {
                                 .jvmMemory(MetricValue.valid(0.1d))
                                 .fixedSlotUtilization(MetricValue.valid(0.1d))
                                 .missingWorkerSamples(1)
-                                .scaleInMetricsValid(false)
+                                .allWorkerMetricsValid(false)
                                 .build());
 
         Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
         Assertions.assertTrue(
-                evaluation.getDecisionReasons().contains("scale_in_metrics_incomplete"));
+                evaluation.getDecisionReasons().contains("scale_in_blocked_by_incomplete_metrics"));
     }
 
     @Test
@@ -190,10 +253,14 @@ class HierarchicalAutoscalingPolicyTest {
                                 .cpu(MetricValue.valid(0.29d))
                                 .jvmMemory(MetricValue.valid(0.29d))
                                 .fixedSlotUtilization(MetricValue.valid(0.29d))
-                                .scaleInMetricsValid(true)
+                                .allWorkerMetricsValid(true)
                                 .build());
 
         Assertions.assertEquals(EvaluationAction.SCALE_IN, evaluation.getEvaluationAction());
+        Assertions.assertTrue(evaluation.getDecisionReasons().contains("cpu_utilization_low"));
+        Assertions.assertTrue(
+                evaluation.getDecisionReasons().contains("jvm_memory_utilization_low"));
+        Assertions.assertTrue(evaluation.getDecisionReasons().contains("slot_utilization_low"));
     }
 
     @Test
@@ -206,11 +273,29 @@ class HierarchicalAutoscalingPolicyTest {
                                 .cpu(MetricValue.valid(0.1d))
                                 .jvmMemory(MetricValue.valid(0.1d))
                                 .fixedSlotUtilization(MetricValue.valid(0.1d))
-                                .scaleInMetricsValid(true)
+                                .allWorkerMetricsValid(true)
                                 .build());
 
         Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
-        Assertions.assertTrue(evaluation.getDecisionReasons().contains("min_workers_reached"));
+        Assertions.assertTrue(
+                evaluation.getDecisionReasons().contains("scale_in_blocked_by_min_workers"));
+    }
+
+    @Test
+    void minWorkerCountDoesNotOverrideMissingScaleInCondition() {
+        AutoscaleEvaluation evaluation =
+                policy.evaluate(
+                        baseSnapshot()
+                                .currentWorkers(1)
+                                .minWorkers(1)
+                                .cpu(MetricValue.valid(0.5d))
+                                .jvmMemory(MetricValue.valid(0.5d))
+                                .fixedSlotUtilization(MetricValue.valid(0.5d))
+                                .allWorkerMetricsValid(true)
+                                .build());
+
+        Assertions.assertEquals(EvaluationAction.NO_ACTION, evaluation.getEvaluationAction());
+        Assertions.assertTrue(evaluation.getDecisionReasons().contains("no_scaling_condition_met"));
     }
 
     private AutoscalerMetricsSnapshot.Builder baseSnapshot() {
@@ -233,8 +318,8 @@ class HierarchicalAutoscalingPolicyTest {
                 .pendingJobCount(0)
                 .longestPendingDurationMillis(0L)
                 .resourceShortageCount(0L)
-                .waitShortage(false)
-                .rejectShortage(false)
-                .scaleInMetricsValid(true);
+                .hasNewWaitShortage(false)
+                .hasNewRejectShortage(false)
+                .allWorkerMetricsValid(true);
     }
 }

@@ -33,7 +33,7 @@ class ResourceShortageStatsTest {
         Assertions.assertEquals(2L, snapshot.getSequence());
         Assertions.assertEquals(1L, snapshot.getWaitCount());
         Assertions.assertEquals(1L, snapshot.getRejectCount());
-        Assertions.assertTrue(snapshot.isLatestReject());
+        Assertions.assertTrue(snapshot.hasNewRejectShortage());
         Assertions.assertEquals(1, snapshot.getLatestTaskGroupCount());
         Assertions.assertEquals("slot", snapshot.getLatestRequestedResourceProfile());
     }
@@ -42,16 +42,16 @@ class ResourceShortageStatsTest {
     void computesDeltaFromPreviousSequence() {
         ResourceShortageStats stats = new ResourceShortageStats();
         stats.recordWaitShortage(1, "slot");
-        ResourceShortageSnapshot first = stats.snapshotSince(0L);
+        ResourceShortageSnapshot first = stats.getIncrementalSnapshot(0L);
 
         stats.recordWaitShortage(1, "slot");
         stats.recordRejectShortage(1, "slot");
-        ResourceShortageSnapshot second = stats.snapshotSince(first.getSequence());
+        ResourceShortageSnapshot second = stats.getIncrementalSnapshot(first.getSequence());
 
         Assertions.assertEquals(1L, first.getShortageCount());
         Assertions.assertEquals(2L, second.getShortageCount());
-        Assertions.assertTrue(second.isLatestWait());
-        Assertions.assertTrue(second.isLatestReject());
+        Assertions.assertTrue(second.hasNewWaitShortage());
+        Assertions.assertTrue(second.hasNewRejectShortage());
     }
 
     @Test
@@ -61,9 +61,9 @@ class ResourceShortageStatsTest {
         long previousSequence = stats.snapshot().getSequence();
 
         stats.recordRejectShortage(1, "slot");
-        ResourceShortageSnapshot snapshot = stats.snapshotSince(previousSequence);
+        ResourceShortageSnapshot snapshot = stats.getIncrementalSnapshot(previousSequence);
 
-        Assertions.assertFalse(snapshot.isLatestWait());
-        Assertions.assertTrue(snapshot.isLatestReject());
+        Assertions.assertFalse(snapshot.hasNewWaitShortage());
+        Assertions.assertTrue(snapshot.hasNewRejectShortage());
     }
 }

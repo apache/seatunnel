@@ -34,7 +34,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void acceptsLatestValidSample() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L);
+        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
         WorkerMetricsSample sample = new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d);
 
         Assertions.assertTrue(store.record(sample, 1_000L));
@@ -47,7 +47,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void rejectsInvalidSamplesAndKeepsPreviousAcceptedValue() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L);
+        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
         WorkerMetricsSample sample = new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d);
 
         Assertions.assertTrue(store.record(sample, 1_000L));
@@ -63,7 +63,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void rejectsFutureAndOutOfOrderSamples() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L);
+        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
 
         Assertions.assertFalse(
                 store.record(new WorkerMetricsSample(WORKER, 7_001L, 0.1d, 0.1d), 1_000L));
@@ -77,7 +77,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void removesSamplesForUnregisteredWorkers() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L);
+        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
         Address other = address(5802);
 
         store.record(new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d), 1_000L);
@@ -91,7 +91,7 @@ class LatestWorkerSampleStoreTest {
 
     @Test
     void classifiesSampleFreshnessForRegisteredWorkers() {
-        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L);
+        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
         Address stale = address(5802);
         Address missing = address(5803);
         store.record(new WorkerMetricsSample(WORKER, 10_000L, 0.5d, 0.6d), 10_000L);
@@ -102,14 +102,14 @@ class LatestWorkerSampleStoreTest {
         workers.add(stale);
         workers.add(missing);
 
-        WorkerSampleSummary summary = store.summarize(workers, 10_500L, 5_000L);
+        WorkerSampleSummary summary = store.summarize(workers, 10_500L);
 
         Assertions.assertEquals(3, summary.getTotalSamples());
         Assertions.assertEquals(1, summary.getValidSamples());
         Assertions.assertEquals(1, summary.getStaleSamples());
         Assertions.assertEquals(1, summary.getMissingSamples());
         Assertions.assertEquals(MetricValue.valid(0.5d).getStatus(), summary.getCpu().getStatus());
-        Assertions.assertFalse(summary.isScaleInMetricsValid());
+        Assertions.assertFalse(summary.isAllWorkerMetricsValid());
     }
 
     private static Address address(int port) {

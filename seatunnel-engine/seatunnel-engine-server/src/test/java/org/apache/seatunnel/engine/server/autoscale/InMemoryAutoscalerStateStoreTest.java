@@ -25,8 +25,8 @@ class InMemoryAutoscalerStateStoreTest {
                 record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 1L);
         AutoscalingEvaluationRecord second =
                 record(EvaluationAction.SCALE_OUT, AutoscalingState.PENDING, 2L);
-        store.recordEvaluation(first);
-        store.recordEvaluation(second);
+        store.saveEvaluation(first);
+        store.saveEvaluation(second);
         ScalingRecommendation recommendation = recommendation(1L, 0L);
         store.saveRecommendation(recommendation);
 
@@ -45,8 +45,8 @@ class InMemoryAutoscalerStateStoreTest {
         ScalingRecommendation recommendation = recommendation(1L, 0L);
         store.saveRecommendation(recommendation);
         store.saveRecommendation(recommendation);
-        store.recordEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 1L));
-        store.recordEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 2L));
+        store.saveEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 1L));
+        store.saveEvaluation(record(EvaluationAction.NO_ACTION, AutoscalingState.NORMAL, 2L));
         Assertions.assertEquals(2, store.view(true, true).getEvaluationHistory().size());
         Assertions.assertEquals(2, store.view(true, true).getRecommendationHistory().size());
     }

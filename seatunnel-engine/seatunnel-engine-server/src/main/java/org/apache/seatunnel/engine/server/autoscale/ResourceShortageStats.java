@@ -55,10 +55,17 @@ public final class ResourceShortageStats {
     }
 
     public synchronized ResourceShortageSnapshot snapshot() {
-        return snapshotSince(0L);
+        return getIncrementalSnapshot(0L);
     }
 
-    public synchronized ResourceShortageSnapshot snapshotSince(long previousSequence) {
+    /**
+     * Creates an incremental snapshot relative to a previously observed shortage-event sequence.
+     *
+     * @param previousSequence the shortage-event sequence already observed by the caller
+     * @return a snapshot containing events after {@code previousSequence} and current cumulative
+     *     statistics
+     */
+    public synchronized ResourceShortageSnapshot getIncrementalSnapshot(long previousSequence) {
         long shortageCount = Math.max(0L, sequence - previousSequence);
         boolean hasNewEvents = shortageCount > 0L;
         return new ResourceShortageSnapshot(

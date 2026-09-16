@@ -926,7 +926,9 @@ public class CoordinatorServiceTest {
         ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
         Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
         Mockito.when(resourceManager.getAutoscalerWorkerSampleStore())
-                .thenReturn(new LatestWorkerSampleStore(TimeUnit.SECONDS.toMillis(5)));
+                .thenReturn(
+                        new LatestWorkerSampleStore(
+                                TimeUnit.SECONDS.toMillis(5), TimeUnit.SECONDS.toMillis(120)));
         Mockito.when(resourceManager.getResourceShortageStats())
                 .thenReturn(new ResourceShortageStats());
         ReflectionUtils.setField(coordinatorService, "resourceManager", resourceManager);

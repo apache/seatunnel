@@ -50,9 +50,9 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
     private final long resourceShortageCount;
     private final long waitShortageCount;
     private final long rejectShortageCount;
-    private final boolean waitShortage;
-    private final boolean rejectShortage;
-    private final boolean scaleInMetricsValid;
+    private final boolean hasNewWaitShortage;
+    private final boolean hasNewRejectShortage;
+    private final boolean allWorkerMetricsValid;
 
     private AutoscalerMetricsSnapshot(Builder builder) {
         this.evaluationTimeMillis = builder.evaluationTimeMillis;
@@ -76,9 +76,9 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         this.resourceShortageCount = builder.resourceShortageCount;
         this.waitShortageCount = builder.waitShortageCount;
         this.rejectShortageCount = builder.rejectShortageCount;
-        this.waitShortage = builder.waitShortage;
-        this.rejectShortage = builder.rejectShortage;
-        this.scaleInMetricsValid = builder.scaleInMetricsValid;
+        this.hasNewWaitShortage = builder.hasNewWaitShortage;
+        this.hasNewRejectShortage = builder.hasNewRejectShortage;
+        this.allWorkerMetricsValid = builder.allWorkerMetricsValid;
     }
 
     public static Builder builder() {
@@ -165,20 +165,20 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         return rejectShortageCount;
     }
 
-    public boolean isWaitShortage() {
-        return waitShortage;
+    public boolean hasNewWaitShortage() {
+        return hasNewWaitShortage;
     }
 
-    public boolean isRejectShortage() {
-        return rejectShortage;
+    public boolean hasNewRejectShortage() {
+        return hasNewRejectShortage;
     }
 
-    public boolean isScaleInMetricsValid() {
-        return scaleInMetricsValid;
+    public boolean isAllWorkerMetricsValid() {
+        return allWorkerMetricsValid;
     }
 
     public boolean hasSchedulerShortage() {
-        return resourceShortageCount > 0L || waitShortage || rejectShortage;
+        return resourceShortageCount > 0L || hasNewWaitShortage || hasNewRejectShortage;
     }
 
     public static final class Builder {
@@ -203,9 +203,9 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
         private long resourceShortageCount;
         private long waitShortageCount;
         private long rejectShortageCount;
-        private boolean waitShortage;
-        private boolean rejectShortage;
-        private boolean scaleInMetricsValid;
+        private boolean hasNewWaitShortage;
+        private boolean hasNewRejectShortage;
+        private boolean allWorkerMetricsValid;
 
         public Builder evaluationTimeMillis(long evaluationTimeMillis) {
             this.evaluationTimeMillis = evaluationTimeMillis;
@@ -307,18 +307,18 @@ public final class AutoscalerMetricsSnapshot implements Serializable {
             return this;
         }
 
-        public Builder waitShortage(boolean waitShortage) {
-            this.waitShortage = waitShortage;
+        public Builder hasNewWaitShortage(boolean hasNewWaitShortage) {
+            this.hasNewWaitShortage = hasNewWaitShortage;
             return this;
         }
 
-        public Builder rejectShortage(boolean rejectShortage) {
-            this.rejectShortage = rejectShortage;
+        public Builder hasNewRejectShortage(boolean hasNewRejectShortage) {
+            this.hasNewRejectShortage = hasNewRejectShortage;
             return this;
         }
 
-        public Builder scaleInMetricsValid(boolean scaleInMetricsValid) {
-            this.scaleInMetricsValid = scaleInMetricsValid;
+        public Builder allWorkerMetricsValid(boolean allWorkerMetricsValid) {
+            this.allWorkerMetricsValid = allWorkerMetricsValid;
             return this;
         }
 

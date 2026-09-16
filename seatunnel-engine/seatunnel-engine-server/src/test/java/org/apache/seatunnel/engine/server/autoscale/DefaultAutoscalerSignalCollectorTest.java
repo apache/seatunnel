@@ -56,7 +56,7 @@ class DefaultAutoscalerSignalCollectorTest {
         Assertions.assertEquals(MetricStatus.VALID, snapshot.getFixedSlotUtilization().getStatus());
         Assertions.assertEquals(0.25d, snapshot.getFixedSlotUtilization().getValue(), 0.0001d);
         Assertions.assertEquals(1, snapshot.getValidWorkerSamples());
-        Assertions.assertTrue(snapshot.isScaleInMetricsValid());
+        Assertions.assertTrue(snapshot.isAllWorkerMetricsValid());
     }
 
     @Test
@@ -117,7 +117,7 @@ class DefaultAutoscalerSignalCollectorTest {
         AutoscalerMetricsSnapshot second = collector.collect();
 
         Assertions.assertEquals(1L, first.getResourceShortageCount());
-        Assertions.assertTrue(first.isWaitShortage());
+        Assertions.assertTrue(first.hasNewWaitShortage());
         Assertions.assertEquals(2, first.getPendingJobCount());
         Assertions.assertEquals(300L, first.getLongestPendingDurationMillis());
         Assertions.assertEquals(0L, second.getResourceShortageCount());
@@ -164,7 +164,8 @@ class DefaultAutoscalerSignalCollectorTest {
 
     private static final class FakeResourceManager implements ResourceManager {
         private final ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
-        private final LatestWorkerSampleStore sampleStore = new LatestWorkerSampleStore(5_000L);
+        private final LatestWorkerSampleStore sampleStore =
+                new LatestWorkerSampleStore(5_000L, 120_000L);
         private final ResourceShortageStats shortageStats = new ResourceShortageStats();
 
         @Override

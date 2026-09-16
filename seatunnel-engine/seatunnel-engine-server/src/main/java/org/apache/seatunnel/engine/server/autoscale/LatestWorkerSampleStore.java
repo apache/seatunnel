@@ -33,11 +33,22 @@ import java.util.Set;
  */
 public final class LatestWorkerSampleStore {
 
+    /** Maximum event-time lead over the receiver clock allowed for an accepted sample. */
     private final long futureTimestampToleranceMillis;
+    /** Maximum age of a sample that may participate in a summary. */
+    private final long freshnessMillis;
+
     private final Map<Address, WorkerMetricsSample> samples = new HashMap<>();
 
-    public LatestWorkerSampleStore(long futureTimestampToleranceMillis) {
+    /**
+     * Creates a sample store with fixed timestamp acceptance and freshness windows.
+     *
+     * @param futureTimestampToleranceMillis maximum allowed event-time lead over the receiver clock
+     * @param freshnessMillis maximum age of a sample that may participate in a summary
+     */
+    public LatestWorkerSampleStore(long futureTimestampToleranceMillis, long freshnessMillis) {
         this.futureTimestampToleranceMillis = futureTimestampToleranceMillis;
+        this.freshnessMillis = freshnessMillis;
     }
 
     /** Records a valid, newer sample for a worker. */
@@ -75,8 +86,8 @@ public final class LatestWorkerSampleStore {
         samples.remove(workerAddress);
     }
 
-    public synchronized WorkerSampleSummary summarize(
-            Set<Address> currentWorkers, long nowMillis, long freshnessMillis) {
+    /** Summarizes the latest samples for the current workers at the supplied time. */
+    public synchronized WorkerSampleSummary summarize(Set<Address> currentWorkers, long nowMillis) {
         int valid = 0;
         int missing = 0;
         int stale = 0;
@@ -108,7 +119,7 @@ public final class LatestWorkerSampleStore {
         MetricValue cpu = valid == 0 ? MetricValue.missing() : MetricValue.valid(cpuSum / valid);
         MetricValue jvmMemory =
                 valid == 0 ? MetricValue.missing() : MetricValue.valid(jvmMemorySum / valid);
-        boolean scaleInMetricsValid =
+        boolean allWorkerMetricsValid =
                 !currentWorkers.isEmpty()
                         && valid == currentWorkers.size()
                         && missing == 0
@@ -123,7 +134,7 @@ public final class LatestWorkerSampleStore {
                 future,
                 cpu,
                 jvmMemory,
-                scaleInMetricsValid);
+                allWorkerMetricsValid);
     }
 
     private static boolean isValidUtilization(double value) {

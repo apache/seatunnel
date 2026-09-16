@@ -27,7 +27,6 @@ public final class DefaultAutoScaler {
     private long masterEpoch;
     private long generation;
     private volatile boolean closed;
-    private long lastPublishedTimeMillis = -1L;
 
     public DefaultAutoScaler(
             long masterEpoch,
@@ -61,18 +60,25 @@ public final class DefaultAutoScaler {
         if (closed) {
             return;
         }
+
+        // Obtain the current monotonic time
+        long monotonicTimeMillis = timeSource.monotonicTimeMillis();
+
         AutoscalerMetricsSnapshot snapshot = signalCollector.collect();
         stateStore.updateCurrentSnapshot(snapshot);
+
         AutoscaleEvaluation evaluation = policy.evaluate(snapshot);
-        long monotonicTimeMillis = timeSource.monotonicTimeMillis();
         AutoscalingStateTransition transition =
                 stateTracker.evaluate(evaluation.getEvaluationAction(), monotonicTimeMillis);
+
         long evaluatedAtMillis = timeSource.currentTimeMillis();
-        stateStore.recordEvaluation(
+        stateStore.saveEvaluation(
                 new AutoscalingEvaluationRecord(evaluation, transition, evaluatedAtMillis));
-        if (!shouldPublishRecommendation(transition, monotonicTimeMillis)) {
+
+        if (!transition.startsFiring()) {
             return;
         }
+
         publishRecommendation(
                 transition.getCurrentStateAction(), snapshot, evaluation, evaluatedAtMillis);
     }
@@ -84,7 +90,6 @@ public final class DefaultAutoScaler {
     public synchronized void reset(long masterEpoch) {
         this.masterEpoch = masterEpoch;
         generation = 0L;
-        lastPublishedTimeMillis = -1L;
         stateTracker.reset();
         recommendationPublisher.reset();
     }
@@ -97,7 +102,7 @@ public final class DefaultAutoScaler {
         return generation;
     }
 
-    private RecommendationPublisher.PublicationResult publishRecommendation(
+    private void publishRecommendation(
             EvaluationAction action,
             AutoscalerMetricsSnapshot snapshot,
             AutoscaleEvaluation evaluation,
@@ -116,24 +121,7 @@ public final class DefaultAutoScaler {
                                                 config.getEvaluationIntervalSeconds()))
                         .decisionReasons(evaluation.getDecisionReasons())
                         .build();
-        RecommendationPublisher.PublicationResult result =
-                recommendationPublisher.publish(recommendation);
-        if (result == RecommendationPublisher.PublicationResult.ACCEPTED) {
-            lastPublishedTimeMillis = timeSource.monotonicTimeMillis();
-        }
-        return result;
-    }
-
-    private boolean isRepeatDue(long currentTimeMillis) {
-        return lastPublishedTimeMillis >= 0
-                && currentTimeMillis - lastPublishedTimeMillis
-                        >= TimeUnit.SECONDS.toMillis(config.getRecommendationRepeatSeconds());
-    }
-
-    private boolean shouldPublishRecommendation(
-            AutoscalingStateTransition transition, long currentMonotonicMillis) {
-        return transition.startsFiring()
-                || (transition.remainsFiring() && isRepeatDue(currentMonotonicMillis));
+        recommendationPublisher.publish(recommendation);
     }
 
     private int recommendedWorkers(EvaluationAction action, AutoscalerMetricsSnapshot snapshot) {

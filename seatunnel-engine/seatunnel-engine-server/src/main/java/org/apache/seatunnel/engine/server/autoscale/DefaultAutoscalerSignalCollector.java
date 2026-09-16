@@ -25,7 +25,6 @@ import com.hazelcast.cluster.Address;
 
 import java.util.HashSet;
 import java.util.Objects;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntSupplier;
 import java.util.function.LongSupplier;
@@ -93,14 +92,11 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
         WorkerSampleSummary workerSampleSummary =
                 resourceManager
                         .getAutoscalerWorkerSampleStore()
-                        .summarize(
-                                currentWorkers,
-                                nowMillis,
-                                TimeUnit.SECONDS.toMillis(config.getMaxMetricStalenessSeconds()));
+                        .summarize(currentWorkers, nowMillis);
         ResourceShortageSnapshot shortageSnapshot =
                 resourceManager
                         .getResourceShortageStats()
-                        .snapshotSince(lastShortageSequence.get());
+                        .getIncrementalSnapshot(lastShortageSequence.get());
         lastShortageSequence.set(shortageSnapshot.getSequence());
         SlotSummary slotSummary = summarizeSlots();
 
@@ -125,9 +121,9 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
                 .resourceShortageCount(shortageSnapshot.getShortageCount())
                 .waitShortageCount(shortageSnapshot.getWaitCount())
                 .rejectShortageCount(shortageSnapshot.getRejectCount())
-                .waitShortage(shortageSnapshot.isLatestWait())
-                .rejectShortage(shortageSnapshot.isLatestReject())
-                .scaleInMetricsValid(workerSampleSummary.isScaleInMetricsValid())
+                .hasNewWaitShortage(shortageSnapshot.hasNewWaitShortage())
+                .hasNewRejectShortage(shortageSnapshot.hasNewRejectShortage())
+                .allWorkerMetricsValid(workerSampleSummary.isAllWorkerMetricsValid())
                 .build();
     }
 

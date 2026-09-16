@@ -21,7 +21,7 @@ public interface AutoscalerStateStore {
 
     void updateCurrentSnapshot(AutoscalerMetricsSnapshot snapshot);
 
-    void recordEvaluation(AutoscalingEvaluationRecord record);
+    void saveEvaluation(AutoscalingEvaluationRecord record);
 
     void saveRecommendation(ScalingRecommendation recommendation);
 

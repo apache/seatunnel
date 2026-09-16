@@ -51,7 +51,7 @@ public final class InMemoryAutoscalerStateStore implements AutoscalerStateStore 
     }
 
     @Override
-    public synchronized void recordEvaluation(AutoscalingEvaluationRecord record) {
+    public synchronized void saveEvaluation(AutoscalingEvaluationRecord record) {
         latestEvaluationRecord = Objects.requireNonNull(record, "record");
         evaluationHistory.add(record);
         trim(evaluationHistory, evaluationHistorySize);

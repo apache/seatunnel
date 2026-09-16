@@ -58,8 +58,4 @@ public final class AutoscalingStateTransition implements Serializable {
     public boolean startsFiring() {
         return previousState == AutoscalingState.PENDING && currentState == AutoscalingState.FIRING;
     }
-
-    public boolean remainsFiring() {
-        return previousState == AutoscalingState.FIRING && currentState == AutoscalingState.FIRING;
-    }
 }
