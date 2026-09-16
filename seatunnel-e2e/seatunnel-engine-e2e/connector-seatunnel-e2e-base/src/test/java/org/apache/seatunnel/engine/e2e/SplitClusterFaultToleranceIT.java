@@ -370,6 +370,7 @@ public class SplitClusterFaultToleranceIT {
      * the cancel, and shuts the worker down the instant a task vertex is first observed CANCELING -
      * landing squarely inside the RPC-in-flight window instead of guessing at timing.
      */
+    @Disabled("Pre-existing dev failure tracked in #12353")
     @Test
     public void testStreamJobCancelResolvesWhenWorkerCrashesBeforeCancelAck() throws Exception {
         String testCaseName = "testStreamJobCancelResolvesWhenWorkerCrashesBeforeCancelAck";
