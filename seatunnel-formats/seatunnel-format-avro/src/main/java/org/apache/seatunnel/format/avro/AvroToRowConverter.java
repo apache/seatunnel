@@ -95,6 +95,7 @@ public class AvroToRowConverter implements Serializable {
         }
         switch (dataType.getSqlType()) {
             case STRING:
+            case JSON:
                 return val.toString();
             case BOOLEAN:
             case INT:

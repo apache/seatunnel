@@ -116,8 +116,7 @@ public class JdbcOutputFormatBuilder {
             String table,
             TableSchema tableSchema,
             TableSchema databaseTableSchema) {
-        String insertSQL =
-                dialect.getInsertIntoStatement(database, table, tableSchema.getFieldNames());
+        String insertSQL = dialect.getInsertIntoStatement(database, table, tableSchema);
         insertSQL = applyOracleAppendValuesHintIfNeeded(jdbcSinkConfig, insertSQL);
         return createSimpleBufferedExecutor(
                 insertSQL, tableSchema, databaseTableSchema, dialect.getRowConverter());
@@ -251,8 +250,7 @@ public class JdbcOutputFormatBuilder {
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
-                                dialect.getInsertIntoStatement(
-                                        database, table, tableSchema.getFieldNames()),
+                                dialect.getInsertIntoStatement(database, table, tableSchema),
                                 tableSchema.getFieldNames()),
                 tableSchema,
                 databaseTableSchema,
@@ -272,18 +270,13 @@ public class JdbcOutputFormatBuilder {
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
-                                dialect.getInsertIntoStatement(
-                                        database, table, tableSchema.getFieldNames()),
+                                dialect.getInsertIntoStatement(database, table, tableSchema),
                                 tableSchema.getFieldNames()),
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
                                 dialect.getUpdateStatement(
-                                        database,
-                                        table,
-                                        tableSchema.getFieldNames(),
-                                        pkNames,
-                                        isPrimaryKeyUpdated),
+                                        database, table, tableSchema, pkNames, isPrimaryKeyUpdated),
                                 tableSchema.getFieldNames()),
                 tableSchema,
                 databaseTableSchema,
@@ -309,18 +302,13 @@ public class JdbcOutputFormatBuilder {
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
-                                dialect.getInsertIntoStatement(
-                                        database, table, tableSchema.getFieldNames()),
+                                dialect.getInsertIntoStatement(database, table, tableSchema),
                                 tableSchema.getFieldNames()),
                 connection ->
                         FieldNamedPreparedStatement.prepareStatement(
                                 connection,
                                 dialect.getUpdateStatement(
-                                        database,
-                                        table,
-                                        tableSchema.getFieldNames(),
-                                        pkNames,
-                                        isPrimaryKeyUpdated),
+                                        database, table, tableSchema, pkNames, isPrimaryKeyUpdated),
                                 tableSchema.getFieldNames()),
                 pkTableSchema,
                 keyExtractor,

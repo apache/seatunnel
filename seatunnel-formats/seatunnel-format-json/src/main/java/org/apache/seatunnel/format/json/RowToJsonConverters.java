@@ -18,6 +18,7 @@
 
 package org.apache.seatunnel.format.json;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
@@ -29,9 +30,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -171,6 +174,24 @@ public class RowToJsonConverters implements Serializable {
                         return mapper.getNodeFactory().textNode((String) value);
                     }
                 };
+            case JSON:
+                return new RowToJsonConverter() {
+                    @Override
+                    public JsonNode convert(ObjectMapper mapper, JsonNode reuse, Object value) {
+                        try {
+                            JsonNode jsonNode =
+                                    mapper.reader()
+                                            .with(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
+                                            .readTree((String) value);
+                            if (jsonNode == null || jsonNode.isMissingNode()) {
+                                throw new IOException("JSON value is empty");
+                            }
+                            return jsonNode;
+                        } catch (IOException e) {
+                            throw CommonError.jsonOperationError("Common", "invalid JSON value", e);
+                        }
+                    }
+                };
             case DATE:
                 return new RowToJsonConverter() {
                     @Override
@@ -244,6 +265,7 @@ public class RowToJsonConverters implements Serializable {
                                     }
                                 });
         final String[] fieldNames = rowType.getFieldNames();
+        final SeaTunnelDataType<?>[] fieldTypes = rowType.getFieldTypes();
         final int arity = fieldNames.length;
 
         return new RowToJsonConverter() {
@@ -261,6 +283,13 @@ public class RowToJsonConverters implements Serializable {
                 for (int i = 0; i < arity; i++) {
                     String fieldName = fieldNames[i];
                     SeaTunnelRow row = (SeaTunnelRow) value;
+                    if (fieldTypes[i].getSqlType() == SqlType.JSON && row.getField(i) == null) {
+                        // Missing fields preserve SQL NULL, while the JSON text "null" remains an
+                        // explicit NullNode. Remove reused values so consecutive rows stay
+                        // isolated.
+                        node.remove(fieldName);
+                        continue;
+                    }
                     node.set(
                             fieldName,
                             fieldConverters[i].convert(

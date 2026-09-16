@@ -154,9 +154,11 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             case SR_STRING:
-            case SR_JSON:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
+                break;
+            case SR_JSON:
+                builder.dataType(BasicType.JSON_TYPE);
                 break;
             case SR_DATE:
                 builder.dataType(LocalTimeType.LOCAL_DATE_TYPE);
@@ -305,6 +307,10 @@ public class StarRocksTypeConverter implements TypeConverter<BasicTypeDefine<Sta
                 reconvertBuildArrayInternal(elementType, builder, column.getName());
                 break;
             case ROW:
+                builder.columnType(SR_JSON);
+                builder.dataType(SR_JSON);
+                break;
+            case JSON:
                 builder.columnType(SR_JSON);
                 builder.dataType(SR_JSON);
                 break;

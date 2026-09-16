@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -47,12 +48,13 @@ public class StarRocksJsonSerializerTest {
 
     @Test
     public void serialize() {
-        String[] fieldNames = {"id", "name", "array", "map", "timestamp"};
+        String[] fieldNames = {"id", "name", "array", "map", "json", "timestamp"};
         SeaTunnelDataType<?>[] fieldTypes = {
             BasicType.LONG_TYPE,
             BasicType.STRING_TYPE,
             ArrayType.STRING_ARRAY_TYPE,
             new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE),
+            BasicType.JSON_TYPE,
             LocalTimeType.LOCAL_DATE_TIME_TYPE
         };
 
@@ -64,12 +66,13 @@ public class StarRocksJsonSerializerTest {
             "Tom",
             new String[] {"tag1", "tag2"},
             Collections.singletonMap("key1", "value1"),
+            "{\"nested\":[true,2]}",
             LocalDateTime.parse("2024-01-25 07:55:45.123", dateTimeFormatter)
         };
         SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
         String jsonString = starRocksJsonSerializer.serialize(seaTunnelRow);
         Assertions.assertEquals(
-                "{\"id\":1,\"name\":\"Tom\",\"array\":[\"tag1\",\"tag2\"],\"map\":{\"key1\":\"value1\"},\"timestamp\":\"2024-01-25 07:55:45.123\"}",
+                "{\"id\":1,\"name\":\"Tom\",\"array\":[\"tag1\",\"tag2\"],\"map\":{\"key1\":\"value1\"},\"json\":{\"nested\":[true,2]},\"timestamp\":\"2024-01-25 07:55:45.123\"}",
                 jsonString);
     }
 
@@ -91,5 +94,24 @@ public class StarRocksJsonSerializerTest {
 
         String jsonString = serializer.serialize(row);
         Assertions.assertEquals("{\"id\":1,\"ts_tz\":\"2026-04-15 04:15:23\"}", jsonString);
+    }
+
+    /**
+     * Verifies invalid or incomplete JSON values are rejected before Stream Load.
+     *
+     * <p>Malformed values must not be converted into quoted strings or partial JSON documents.
+     */
+    @Test
+    public void rejectInvalidJson() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"json"}, new SeaTunnelDataType[] {BasicType.JSON_TYPE});
+        StarRocksJsonSerializer serializer = new StarRocksJsonSerializer(rowType, false);
+
+        for (String invalidJson : new String[] {"", "   ", "true false", "{\"missing\":"}) {
+            Assertions.assertThrows(
+                    SeaTunnelRuntimeException.class,
+                    () -> serializer.serialize(new SeaTunnelRow(new Object[] {invalidJson})));
+        }
     }
 }
