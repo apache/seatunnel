@@ -658,12 +658,6 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>connector-file-adls-runtime</artifactId>
-                    <version>${project.version}</version>
-                    <scope>provided</scope>
-                </dependency>
-                <dependency>
-                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-file-gcs</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>

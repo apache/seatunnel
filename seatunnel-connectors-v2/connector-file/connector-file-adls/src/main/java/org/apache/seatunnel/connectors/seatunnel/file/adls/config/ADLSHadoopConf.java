@@ -23,9 +23,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ADLSHadoopConf extends HadoopConf {
-    private static final String SCHEME = "abfss";
-    private static final String IMPL = "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
-    private String schema = SCHEME;
+    private String schema = ADLSRuntimeCompatibility.SECURE_ABFS_SCHEME;
 
     public ADLSHadoopConf(String nameKey) {
         super(nameKey);
@@ -33,7 +31,7 @@ public class ADLSHadoopConf extends HadoopConf {
 
     @Override
     public String getFsHdfsImpl() {
-        return IMPL;
+        return ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION;
     }
 
     @Override
@@ -51,38 +49,25 @@ public class ADLSHadoopConf extends HadoopConf {
         String container = config.get(ADLSFileBaseOptions.CONTAINER);
         String suffix = config.get(ADLSFileBaseOptions.ENDPOINT_SUFFIX);
         ADLSHadoopConf result =
-                new ADLSHadoopConf("abfss://" + container + "@" + account + "." + suffix);
+                new ADLSHadoopConf(
+                        ADLSRuntimeCompatibility.secureAbfsUri(account, container, suffix));
         Map<String, String> options = new HashMap<>();
         config.getOptional(ADLSFileBaseOptions.HADOOP_PROPERTIES)
                 .ifPresent(values -> values.forEach(options::put));
-        String accountKey = account + "." + suffix;
         ADLSFileBaseOptions.AuthType auth = config.get(ADLSFileBaseOptions.AUTH_TYPE);
         if (auth == ADLSFileBaseOptions.AuthType.SHARED_KEY) {
-            options.put("fs.azure.account.auth.type." + accountKey, "SharedKey");
-            options.put(
-                    "fs.azure.account.key." + accountKey,
-                    config.get(ADLSFileBaseOptions.ACCOUNT_KEY));
+            options.putAll(
+                    ADLSRuntimeCompatibility.sharedKeyOptions(
+                            account, suffix, config.get(ADLSFileBaseOptions.ACCOUNT_KEY)));
         } else {
-            options.put("fs.azure.account.auth.type." + accountKey, "OAuth");
-            options.put(
-                    "fs.azure.account.oauth.provider.type." + accountKey,
-                    "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider");
-            options.put(
-                    "fs.azure.account.oauth2.client.id." + accountKey,
-                    config.get(ADLSFileBaseOptions.CLIENT_ID));
-            options.put(
-                    "fs.azure.account.oauth2.client.secret." + accountKey,
-                    config.get(ADLSFileBaseOptions.CLIENT_SECRET));
-            String authorityHost = config.get(ADLSFileBaseOptions.AUTHORITY_HOST);
-            while (authorityHost.endsWith("/")) {
-                authorityHost = authorityHost.substring(0, authorityHost.length() - 1);
-            }
-            options.put(
-                    "fs.azure.account.oauth2.client.endpoint." + accountKey,
-                    authorityHost
-                            + "/"
-                            + config.get(ADLSFileBaseOptions.TENANT_ID)
-                            + "/oauth2/token");
+            options.putAll(
+                    ADLSRuntimeCompatibility.clientCredentialsOptions(
+                            account,
+                            suffix,
+                            config.get(ADLSFileBaseOptions.AUTHORITY_HOST),
+                            config.get(ADLSFileBaseOptions.TENANT_ID),
+                            config.get(ADLSFileBaseOptions.CLIENT_ID),
+                            config.get(ADLSFileBaseOptions.CLIENT_SECRET)));
         }
         result.setExtraOptions(options);
         return result;

@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import java.util.Locale;
 import java.util.Map;
@@ -38,15 +40,19 @@ final class ADLSConfigValidator {
         String container = required(config, ADLSFileBaseOptions.CONTAINER);
         String endpoint = required(config, ADLSFileBaseOptions.ENDPOINT_SUFFIX);
         if (!ACCOUNT.matcher(account).matches()) {
-            throw new IllegalArgumentException(
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED,
                     "'account_name' must contain 3-24 lowercase letters or digits");
         }
         if (!CONTAINER.matcher(container).matches()) {
-            throw new IllegalArgumentException(
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED,
                     "'container' must be a valid 3-63 character Azure container name");
         }
         if (!ENDPOINT.matcher(endpoint).matches()) {
-            throw new IllegalArgumentException("'endpoint_suffix' must be a DNS suffix");
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED,
+                    "'endpoint_suffix' must be a DNS suffix");
         }
 
         ADLSFileBaseOptions.AuthType authType = config.get(ADLSFileBaseOptions.AUTH_TYPE);
@@ -71,7 +77,8 @@ final class ADLSConfigValidator {
         properties.forEach(
                 (key, value) -> {
                     if (key == null || key.trim().isEmpty() || value == null) {
-                        throw new IllegalArgumentException(
+                        throw new FileConnectorException(
+                                CommonErrorCode.VALIDATION_FAILED,
                                 "'hadoop_adls_properties' cannot contain blank keys or null values");
                     }
                     String normalized = key.toLowerCase(Locale.ROOT);
@@ -81,7 +88,8 @@ final class ADLSConfigValidator {
                             || normalized.startsWith("fs.azure.account.key")
                             || normalized.startsWith("fs.azure.account.oauth")
                             || normalized.startsWith("fs.s3")) {
-                        throw new IllegalArgumentException(
+                        throw new FileConnectorException(
+                                CommonErrorCode.VALIDATION_FAILED,
                                 "'hadoop_adls_properties' cannot override connector-owned key '"
                                         + key
                                         + "'");
@@ -92,14 +100,17 @@ final class ADLSConfigValidator {
     private static String required(ReadonlyConfig config, Option<String> option) {
         String value = config.get(option);
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("'" + option.key() + "' must not be blank");
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED,
+                    "'" + option.key() + "' must not be blank");
         }
         return value.trim();
     }
 
     private static void rejectPresent(ReadonlyConfig config, Option<String> option) {
         if (config.getOptional(option).filter(value -> !value.trim().isEmpty()).isPresent()) {
-            throw new IllegalArgumentException(
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED,
                     "'" + option.key() + "' is not valid for the selected 'auth_type'");
         }
     }

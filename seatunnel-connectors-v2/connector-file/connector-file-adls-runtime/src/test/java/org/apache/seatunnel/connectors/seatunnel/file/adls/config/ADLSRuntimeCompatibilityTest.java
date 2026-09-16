@@ -22,6 +22,8 @@ import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
+
 class ADLSRuntimeCompatibilityTest {
     @Test
     void validatesSecureAbfsDriverAndBaseConfiguration() {
@@ -76,6 +78,35 @@ class ADLSRuntimeCompatibilityTest {
                 "https://login.microsoftonline.com/tenant/oauth2/token",
                 configuration.get(
                         "fs.azure.account.oauth2.client.endpoint.examplestorage.dfs.core.windows.net"));
+    }
+
+    @Test
+    void buildsConnectorOptionsForCustomAzureEndpoints() {
+        Assertions.assertEquals(
+                "abfss://analytics@examplestorage.dfs.example.test",
+                ADLSRuntimeCompatibility.secureAbfsUri(
+                        "examplestorage", "analytics", "dfs.example.test"));
+
+        Map<String, String> sharedKeyOptions =
+                ADLSRuntimeCompatibility.sharedKeyOptions(
+                        "examplestorage", "dfs.example.test", "sentinel-key");
+        Assertions.assertEquals(
+                "sentinel-key",
+                sharedKeyOptions.get(
+                        "fs.azure.account.key.examplestorage.dfs.example.test"));
+
+        Map<String, String> oauthOptions =
+                ADLSRuntimeCompatibility.clientCredentialsOptions(
+                        "examplestorage",
+                        "dfs.example.test",
+                        "https://login.example.test/",
+                        "tenant",
+                        "client",
+                        "secret");
+        Assertions.assertEquals(
+                "https://login.example.test/tenant/oauth2/token",
+                oauthOptions.get(
+                        "fs.azure.account.oauth2.client.endpoint.examplestorage.dfs.example.test"));
     }
 
     @Test
