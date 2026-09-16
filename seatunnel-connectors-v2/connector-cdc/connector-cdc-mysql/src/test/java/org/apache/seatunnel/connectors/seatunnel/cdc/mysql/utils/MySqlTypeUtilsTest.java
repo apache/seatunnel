@@ -53,7 +53,9 @@ public class MySqlTypeUtilsTest {
         Assertions.assertEquals("status_flags", seatunnelColumn.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, seatunnelColumn.getDataType());
         Assertions.assertEquals(64L, seatunnelColumn.getColumnLength());
-        Assertions.assertEquals("SET UNSIGNED", seatunnelColumn.getSourceType());
+        // The synthetic name must not leak into the source type, otherwise it would be emitted
+        // verbatim into generated auto-create DDL, which MySQL rejects.
+        Assertions.assertEquals("SET", seatunnelColumn.getSourceType());
     }
 
     /** Creates the minimal Debezium connector config needed by {@link MySqlTypeUtils}. */

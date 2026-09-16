@@ -104,6 +104,9 @@ public class MySqlTypeUtils {
                     "Normalizing unexpected type name 'SET UNSIGNED' to 'SET' for column {}",
                     column.name());
             dataType = "SET";
+            // ColumnType is exposed as Column#getSourceType and is emitted verbatim into generated
+            // auto-create DDL, so it must be normalized as well.
+            builder.columnType(dataType);
         }
         builder.dataType(dataType);
         switch (dataType) {

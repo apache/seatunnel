@@ -76,6 +76,10 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
     public static final String MYSQL_JSON = "JSON";
     public static final String MYSQL_ENUM = "ENUM";
     public static final String MYSQL_SET = "SET";
+    // Not a real MySQL type. It is synthesized by convert() when the catalog marks a SET column as
+    // unsigned, which happens because unsigned detection is a substring match over the whole
+    // COLUMN_TYPE, e.g. SET('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION',...). Columns reported this
+    // way are handled exactly like SET. See https://github.com/apache/seatunnel/issues/10451
     public static final String MYSQL_SET_UNSIGNED = "SET UNSIGNED";
 
     // ------------------------------time-------------------------
@@ -248,6 +252,12 @@ public class MySqlTypeConverter implements TypeConverter<BasicTypeDefine<MysqlTy
             case MYSQL_ENUM:
             case MYSQL_SET:
             case MYSQL_SET_UNSIGNED:
+                if (MYSQL_SET_UNSIGNED.equals(mysqlDataType)) {
+                    log.warn(
+                            "{} is not a real MySQL type, converted column as {}.",
+                            MYSQL_SET_UNSIGNED,
+                            MYSQL_SET);
+                }
                 builder.dataType(BasicType.STRING_TYPE);
                 if (typeDefine.getLength() == null || typeDefine.getLength() <= 0) {
                     builder.columnLength(100L);
