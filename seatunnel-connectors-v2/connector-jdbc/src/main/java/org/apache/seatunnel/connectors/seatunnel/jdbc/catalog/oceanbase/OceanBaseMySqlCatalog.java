@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -48,7 +49,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 
 @Slf4j
 public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
@@ -167,7 +167,7 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
         Preconditions.checkArgument(!(numberScale > 0 && timePrecision > 0));
 
         OceanBaseMysqlType oceanbaseMysqlType = OceanBaseMysqlType.getByName(columnType);
-        boolean unsigned = columnType.toLowerCase(Locale.ROOT).contains("unsigned");
+        boolean unsigned = JdbcCatalogUtils.isNumericUnsignedColumnType(columnType);
 
         BasicTypeDefine<OceanBaseMysqlType> typeDefine =
                 BasicTypeDefine.<OceanBaseMysqlType>builder()
