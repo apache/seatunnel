@@ -51,8 +51,7 @@ final class ADLSConfigValidator {
         }
         if (!ENDPOINT.matcher(endpoint).matches()) {
             throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED,
-                    "'endpoint_suffix' must be a DNS suffix");
+                    CommonErrorCode.VALIDATION_FAILED, "'endpoint_suffix' must be a DNS suffix");
         }
 
         ADLSFileBaseOptions.AuthType authType = config.get(ADLSFileBaseOptions.AUTH_TYPE);
@@ -101,8 +100,7 @@ final class ADLSConfigValidator {
         String value = config.get(option);
         if (value == null || value.trim().isEmpty()) {
             throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED,
-                    "'" + option.key() + "' must not be blank");
+                    CommonErrorCode.VALIDATION_FAILED, "'" + option.key() + "' must not be blank");
         }
         return value.trim();
     }
