@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint.scheduler;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -107,17 +109,28 @@ class SharedCheckpointSchedulerTest {
         Assertions.assertFalse(task.cancel(false), "cancel must be idempotent");
     }
 
-    /** A pending task cancelled before its timer fires must never reach the dispatch pool. */
+    /**
+     * A pending task cancelled before its timer fires must never reach the dispatch pool.
+     *
+     * <p>This is a negative assertion, so it has to hold for a window that outlasts the task's own
+     * delay rather than being checked once. {@code during} keeps re-checking across that window, so
+     * a body that runs at any point inside it fails the test immediately.
+     */
     @Test
-    void testCancelBeforeTimerFiresStopsTheBody() throws InterruptedException {
+    void testCancelBeforeTimerFiresStopsTheBody() {
         PipelineCheckpointScheduler lease = scheduler.lease(1L, 0);
         AtomicBoolean ran = new AtomicBoolean(false);
 
         ScheduledFuture<?> future = lease.schedule(() -> ran.set(true), 500, TimeUnit.MILLISECONDS);
         Assertions.assertTrue(future.cancel(false));
 
-        Thread.sleep(800);
-        Assertions.assertFalse(ran.get(), "a cancelled task must not run its body");
+        Awaitility.await()
+                .during(Duration.ofMillis(800))
+                .atMost(Duration.ofSeconds(AWAIT_SECONDS))
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        ran.get(), "a cancelled task must not run its body"));
         Assertions.assertEquals(0, lease.outstandingCount());
     }
 
@@ -183,5 +196,79 @@ class SharedCheckpointSchedulerTest {
         Assertions.assertTrue(future.isCancelled());
         Assertions.assertTrue(lease.isShutdown());
         Assertions.assertEquals(0, runs.get());
+    }
+
+    /** More blocked bodies than the bound allows must not create more threads than the bound. */
+    @Test
+    void testDispatchPoolRespectsItsBound() throws InterruptedException {
+        int maxThreads = SharedCheckpointScheduler.getMaxDispatchThreadNum();
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch blockedBodiesStarted = new CountDownLatch(maxThreads);
+
+        try {
+            for (int pipelineId = 0; pipelineId < maxThreads * 2; pipelineId++) {
+                scheduler
+                        .lease(1L, pipelineId)
+                        .schedule(
+                                blockUntilReleased(blockedBodiesStarted, release),
+                                0,
+                                TimeUnit.MILLISECONDS);
+            }
+
+            Assertions.assertTrue(
+                    blockedBodiesStarted.await(AWAIT_SECONDS, TimeUnit.SECONDS),
+                    "the dispatch pool should grow to its bound under load");
+            Assertions.assertTrue(
+                    scheduler.getDispatcherPoolSize() <= maxThreads,
+                    "dispatch threads must not exceed the bound, but pool size was "
+                            + scheduler.getDispatcherPoolSize());
+        } finally {
+            release.countDown();
+        }
+    }
+
+    /**
+     * The point of splitting timing from execution: a pipeline whose checkpoint body is stuck must
+     * not hold up another pipeline's trigger.
+     */
+    @Test
+    void testBlockedPipelineDoesNotDelayOtherPipelines() throws InterruptedException {
+        int blockedPipelines = SharedCheckpointScheduler.getMaxDispatchThreadNum() - 1;
+        CountDownLatch release = new CountDownLatch(1);
+        CountDownLatch blockedBodiesStarted = new CountDownLatch(blockedPipelines);
+
+        try {
+            for (int pipelineId = 0; pipelineId < blockedPipelines; pipelineId++) {
+                scheduler
+                        .lease(1L, pipelineId)
+                        .schedule(
+                                blockUntilReleased(blockedBodiesStarted, release),
+                                0,
+                                TimeUnit.MILLISECONDS);
+            }
+            Assertions.assertTrue(blockedBodiesStarted.await(AWAIT_SECONDS, TimeUnit.SECONDS));
+
+            CountDownLatch healthyPipelineRan = new CountDownLatch(1);
+            scheduler
+                    .lease(2L, 0)
+                    .schedule(healthyPipelineRan::countDown, 0, TimeUnit.MILLISECONDS);
+
+            Assertions.assertTrue(
+                    healthyPipelineRan.await(AWAIT_SECONDS, TimeUnit.SECONDS),
+                    "a pipeline blocked in its checkpoint body must not delay another pipeline");
+        } finally {
+            release.countDown();
+        }
+    }
+
+    private static Runnable blockUntilReleased(CountDownLatch started, CountDownLatch release) {
+        return () -> {
+            started.countDown();
+            try {
+                release.await();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        };
     }
 }

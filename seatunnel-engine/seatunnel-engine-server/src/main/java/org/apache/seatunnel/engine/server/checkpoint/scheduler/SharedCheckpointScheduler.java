@@ -21,11 +21,11 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -39,12 +39,13 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Timing and execution are deliberately split across two pools. A timer thread does nothing but
  * hand the task to the dispatch pool, so a checkpoint body that blocks on an RPC delays neither its
- * own pipeline's next timer nor any other pipeline's. The dispatch pool is elastic and reaps idle
- * threads, so it is not a fixed cost per pipeline either.
+ * own pipeline's next timer nor any other pipeline's. The dispatch pool grows on demand up to a
+ * bound and reaps idle threads, so it is not a fixed cost per pipeline either.
  *
  * <p>Checkpoint work is intentionally not dispatched onto the coordinator executor: that pool is
  * bounded over a {@code SynchronousQueue} and rejects work when saturated, which would silently
- * drop a checkpoint trigger or a timeout watchdog.
+ * drop a checkpoint trigger or a timeout watchdog. The dispatch pool here is bounded but never
+ * rejects, for the same reason: see {@link #MAX_DISPATCH_THREAD_NUM}.
  *
  * <p>One instance is held per member by {@code SeaTunnelEngineContext}. It is not a singleton
  * because several members run in one JVM during tests and E2E runs.
@@ -58,8 +59,37 @@ public class SharedCheckpointScheduler implements AutoCloseable {
      */
     private static final int TIMER_THREAD_NUM = 2;
 
+    /** Dispatch threads scale with the host rather than with the pipeline count. */
+    private static final int MIN_DISPATCH_THREAD_NUM = 8;
+
+    private static final int DISPATCH_THREADS_PER_CORE = 2;
+
+    /**
+     * Upper bound on dispatch threads for the whole member, so that a member cannot grow threads
+     * without limit when many pipelines block at once.
+     *
+     * <p>The bound is paired with an unbounded queue on purpose. A bounded queue would have to
+     * reject once full, and a rejected task here is a dropped checkpoint trigger or a dropped
+     * timeout watchdog, which is a correctness problem rather than a resource one. Queueing instead
+     * trades an unbounded thread count for delay, and that delay is reachable only when every
+     * dispatch thread is blocked at the same moment.
+     *
+     * <p>Running out of dispatch threads is not expected in normal operation: the heavy barrier
+     * work already runs on the coordinator's own executor via {@code thenApplyAsync}, so a
+     * dispatched body is short-lived.
+     */
+    private static final int MAX_DISPATCH_THREAD_NUM =
+            Math.max(
+                    MIN_DISPATCH_THREAD_NUM,
+                    Runtime.getRuntime().availableProcessors() * DISPATCH_THREADS_PER_CORE);
+
+    /**
+     * Idle dispatch threads are reaped after this long, so an idle member pays for none of them.
+     */
+    private static final long DISPATCH_THREAD_KEEP_ALIVE_SECONDS = 60L;
+
     private final ScheduledThreadPoolExecutor timer;
-    private final ExecutorService dispatcher;
+    private final ThreadPoolExecutor dispatcher;
     private volatile boolean closed = false;
 
     public SharedCheckpointScheduler() {
@@ -73,12 +103,21 @@ public class SharedCheckpointScheduler implements AutoCloseable {
         // Coordinators cancel the timeout watchdog on every acknowledged checkpoint. Without this,
         // cancelled entries would sit in the shared queue until their delay elapsed.
         this.timer.setRemoveOnCancelPolicy(true);
+        // Core and maximum are equal because a ThreadPoolExecutor backed by an unbounded queue
+        // never grows past its core size; allowCoreThreadTimeOut then gives back the elasticity,
+        // so threads are still created on demand and reaped once idle.
         this.dispatcher =
-                Executors.newCachedThreadPool(
+                new ThreadPoolExecutor(
+                        MAX_DISPATCH_THREAD_NUM,
+                        MAX_DISPATCH_THREAD_NUM,
+                        DISPATCH_THREAD_KEEP_ALIVE_SECONDS,
+                        TimeUnit.SECONDS,
+                        new LinkedBlockingQueue<>(),
                         new ThreadFactoryBuilder()
                                 .setNameFormat("checkpoint-dispatcher-%d")
                                 .setDaemon(true)
                                 .build());
+        this.dispatcher.allowCoreThreadTimeOut(true);
     }
 
     /**
@@ -129,6 +168,16 @@ public class SharedCheckpointScheduler implements AutoCloseable {
     /** Exposed for tests asserting that the timer thread count does not grow with pipelines. */
     public int getTimerPoolSize() {
         return timer.getPoolSize();
+    }
+
+    /** Exposed for tests asserting that the dispatch pool respects its bound. */
+    int getDispatcherPoolSize() {
+        return dispatcher.getPoolSize();
+    }
+
+    /** The member-wide ceiling on dispatch threads. */
+    static int getMaxDispatchThreadNum() {
+        return MAX_DISPATCH_THREAD_NUM;
     }
 
     /** Shuts down the shared threads. Called once per member, when the engine context closes. */
