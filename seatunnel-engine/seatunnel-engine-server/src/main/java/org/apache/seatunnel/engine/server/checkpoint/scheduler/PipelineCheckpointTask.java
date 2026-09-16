@@ -61,7 +61,25 @@ final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
         }
     }
 
-    /** Runs on the dispatch pool after the timer has fired. */
+    /**
+     * Runs on the dispatch pool after the timer has fired.
+     *
+     * <p>The cancellation check is a single read taken before the body starts, and that is
+     * deliberate. A task already handed to the dispatch pool can still run its body once if {@link
+     * #cancel(boolean)} lands after this check, so cancellation is best-effort for a task that has
+     * already been dispatched, and guaranteed only for one that is still waiting on the timer.
+     *
+     * <p>That is safe because no caller relies on cancellation to prevent the body from running.
+     * Both scheduled bodies re-validate coordinator and checkpoint state under the coordinator's
+     * own lock before they act: the periodic trigger re-checks the completed/shutdown and pending
+     * state, and the timeout watchdog re-checks that its checkpoint is still pending and not fully
+     * acknowledged. A late body therefore finds the state it is asked to act on already gone and
+     * does nothing.
+     *
+     * <p>Do not tighten this into a guarantee by holding a lock across {@code body.run()}. The body
+     * can block on an RPC, so a lock held here would be held for the length of a checkpoint and
+     * would serialise unrelated pipelines on the shared dispatch pool.
+     */
     @Override
     public void run() {
         if (cancelled.get()) {
@@ -78,6 +96,16 @@ final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
         }
     }
 
+    /**
+     * Cancels the task in whichever phase it is currently in.
+     *
+     * <p>Before the timer fires this stops the body outright. After it has been dispatched the
+     * outcome is a race with {@link #run()}, which is the intended contract rather than a defect;
+     * see {@link #run()} for why a late body is harmless.
+     *
+     * <p>Returns {@code true} only for the caller that wins the transition, so repeated calls from
+     * {@code cancelAll()} and from a coordinator holding the same future are idempotent.
+     */
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
         if (!cancelled.compareAndSet(false, true)) {
