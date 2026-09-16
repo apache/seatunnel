@@ -411,11 +411,15 @@ The text of each license is also included at licenses/LICENSE-[project].txt.
       (MIT License) oshi-core (com.github.oshi:oshi-core:6.6.5 - https://github.com/oshi/oshi)
       (MIT License) Bouncy Castle Provider (LTS Distribution) (org.bouncycastle:bcprov-lts8on:2.73.9 - https://www.bouncycastle.org/lts-java)
      (MIT License) Azure Core (com.azure:azure-core:1.58.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure Core (com.azure:azure-core:1.57.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure Core AMQP (com.azure:azure-core-amqp:2.11.3 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure Netty HTTP Client (com.azure:azure-core-http-netty:1.16.5 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure JSON (com.azure:azure-json:1.5.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Azure Event Hubs (com.azure:azure-messaging-eventhubs:5.21.3 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure Storage Common (com.azure:azure-storage-common:12.34.0 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure Queue Storage (com.azure:azure-storage-queue:12.30.0 - https://github.com/Azure/azure-sdk-for-java)
      (MIT License) Azure XML (com.azure:azure-xml:1.2.1 - https://github.com/Azure/azure-sdk-for-java)
+     (MIT License) Qpid Proton-J Extensions (com.microsoft.azure:qpid-proton-j-extensions:1.2.6 - https://github.com/Azure/qpid-proton-j-extensions)
 
 
 ========================================================================
