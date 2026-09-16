@@ -353,8 +353,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
 
         tryOpen();
-        outputFormat.flush();
         try {
+            outputFormat.flush();
             Connection connection = connectionProvider.getConnection();
             if (!connection.getAutoCommit()) {
                 connection.commit();
