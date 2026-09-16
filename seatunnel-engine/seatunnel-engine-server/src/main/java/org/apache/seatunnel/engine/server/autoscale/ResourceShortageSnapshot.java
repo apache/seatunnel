@@ -42,8 +42,8 @@ public final class ResourceShortageSnapshot implements Serializable {
     /** Whether a new REJECT shortage event occurred since the previous snapshot cursor. */
     private final boolean hasNewRejectShortage;
 
-    /** Number of task groups associated with the latest shortage event. */
-    private final int latestTaskGroupCount;
+    /** Number of requested resources associated with the latest shortage event. */
+    private final int latestRequestedResourceCount;
 
     /** Requested resource profile associated with the latest shortage event. */
     private final String latestRequestedResourceProfile;
@@ -57,7 +57,7 @@ public final class ResourceShortageSnapshot implements Serializable {
      * @param rejectCount cumulative REJECT shortage count
      * @param hasNewWaitShortage whether a new WAIT shortage occurred since the previous cursor
      * @param hasNewRejectShortage whether a new REJECT shortage occurred since the previous cursor
-     * @param latestTaskGroupCount task-group count from the latest shortage event
+     * @param latestRequestedResourceCount requested-resource count from the latest shortage event
      * @param latestRequestedResourceProfile requested resource profile from the latest shortage
      *     event
      */
@@ -68,7 +68,7 @@ public final class ResourceShortageSnapshot implements Serializable {
             long rejectCount,
             boolean hasNewWaitShortage,
             boolean hasNewRejectShortage,
-            int latestTaskGroupCount,
+            int latestRequestedResourceCount,
             String latestRequestedResourceProfile) {
         this.sequence = sequence;
         this.shortageCount = shortageCount;
@@ -76,7 +76,7 @@ public final class ResourceShortageSnapshot implements Serializable {
         this.rejectCount = rejectCount;
         this.hasNewWaitShortage = hasNewWaitShortage;
         this.hasNewRejectShortage = hasNewRejectShortage;
-        this.latestTaskGroupCount = latestTaskGroupCount;
+        this.latestRequestedResourceCount = latestRequestedResourceCount;
         this.latestRequestedResourceProfile = latestRequestedResourceProfile;
     }
 
@@ -104,8 +104,8 @@ public final class ResourceShortageSnapshot implements Serializable {
         return hasNewRejectShortage;
     }
 
-    public int getLatestTaskGroupCount() {
-        return latestTaskGroupCount;
+    public int getLatestRequestedResourceCount() {
+        return latestRequestedResourceCount;
     }
 
     public String getLatestRequestedResourceProfile() {

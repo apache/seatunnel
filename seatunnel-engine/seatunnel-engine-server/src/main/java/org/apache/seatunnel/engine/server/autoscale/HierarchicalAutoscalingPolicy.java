@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.autoscale;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
@@ -81,7 +80,8 @@ public final class HierarchicalAutoscalingPolicy implements AutoscalingPolicy {
             return new AutoscaleEvaluation(EvaluationAction.SCALE_IN, scaleInReasons);
         }
 
-        return new AutoscaleEvaluation(EvaluationAction.NO_ACTION, Collections.singletonList("no_scaling_condition_met"));
+        return new AutoscaleEvaluation(
+                EvaluationAction.NO_ACTION, Collections.singletonList("no_scaling_condition_met"));
     }
 
     private List<String> evaluateScaleIn(AutoscalerMetricsSnapshot snapshot) {

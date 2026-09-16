@@ -175,7 +175,16 @@ public class DefaultSlotService implements SlotService {
                                                     sampleTimeMillis,
                                                     systemLoadInfo.getCpuPercentage(),
                                                     systemLoadInfo.getMemPercentage()))
-                                    .join();
+                                    .whenComplete(
+                                            (ignored, error) -> {
+                                                if (error != null) {
+                                                    LOGGER.warning(
+                                                            "failed send autoscaler metrics to resource manager, will retry later. this address: "
+                                                                    + nodeEngine
+                                                                            .getClusterService()
+                                                                            .getThisAddress());
+                                                }
+                                            });
                         }
                     } catch (Exception e) {
                         LOGGER.warning(

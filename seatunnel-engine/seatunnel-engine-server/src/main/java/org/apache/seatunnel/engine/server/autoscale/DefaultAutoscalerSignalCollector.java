@@ -23,7 +23,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import com.hazelcast.cluster.Address;
 
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.IntSupplier;
@@ -86,8 +88,9 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
     @Override
     public AutoscalerMetricsSnapshot collect() {
         long nowMillis = currentTimeMillisSupplier.getAsLong();
-        HashSet<Address> currentWorkers =
-                new HashSet<>(resourceManager.getRegisterWorker().keySet());
+        Map<Address, WorkerProfile> currentWorkerProfiles =
+                new HashMap<>(resourceManager.getRegisterWorker());
+        HashSet<Address> currentWorkers = new HashSet<>(currentWorkerProfiles.keySet());
         resourceManager.getAutoscalerWorkerSampleStore().retainWorkers(currentWorkers);
         WorkerSampleSummary workerSampleSummary =
                 resourceManager
@@ -98,7 +101,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
                         .getResourceShortageStats()
                         .getIncrementalSnapshot(lastShortageSequence.get());
         lastShortageSequence.set(shortageSnapshot.getSequence());
-        SlotSummary slotSummary = summarizeSlots();
+        SlotSummary slotSummary = summarizeSlots(currentWorkerProfiles);
 
         return AutoscalerMetricsSnapshot.builder()
                 .evaluationTimeMillis(nowMillis)
@@ -127,8 +130,8 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
                 .build();
     }
 
-    private SlotSummary summarizeSlots() {
-        int workerCount = resourceManager.getRegisterWorker().size();
+    private SlotSummary summarizeSlots(Map<Address, WorkerProfile> workerProfiles) {
+        int workerCount = workerProfiles.size();
         if (workerCount == 0) {
             return new SlotSummary(slotServiceConfig.isDynamicSlot(), 0, 0, MetricValue.unknown());
         }
@@ -136,7 +139,7 @@ public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalC
         int assignedSlots = 0;
         int unassignedSlots = 0;
         if (!slotServiceConfig.isDynamicSlot()) {
-            for (WorkerProfile workerProfile : resourceManager.getRegisterWorker().values()) {
+            for (WorkerProfile workerProfile : workerProfiles.values()) {
                 assignedSlots += safeLength(workerProfile.getAssignedSlots());
                 unassignedSlots += safeLength(workerProfile.getUnassignedSlots());
             }

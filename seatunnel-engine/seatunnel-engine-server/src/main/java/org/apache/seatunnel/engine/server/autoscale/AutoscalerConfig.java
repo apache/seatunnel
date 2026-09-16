@@ -59,9 +59,6 @@ public final class AutoscalerConfig implements Serializable {
      */
     private final int scaleInStabilizationSeconds;
 
-    /** Interval between repeated recommendations while one scaling direction remains firing. */
-    private final int recommendationRepeatSeconds;
-
     /**
      * Time to remain in RECOVERING before returning to NORMAL after a firing condition disappears.
      */
@@ -109,7 +106,6 @@ public final class AutoscalerConfig implements Serializable {
         this.futureTimestampToleranceSeconds = builder.futureTimestampToleranceSeconds;
         this.scaleOutStabilizationSeconds = builder.scaleOutStabilizationSeconds;
         this.scaleInStabilizationSeconds = builder.scaleInStabilizationSeconds;
-        this.recommendationRepeatSeconds = builder.recommendationRepeatSeconds;
         this.keepFiringSeconds = builder.keepFiringSeconds;
         this.scaleOutCpuThreshold = builder.scaleOutCpuThreshold;
         this.scaleOutJvmMemoryThreshold = builder.scaleOutJvmMemoryThreshold;
@@ -155,10 +151,6 @@ public final class AutoscalerConfig implements Serializable {
 
     public int getScaleInStabilizationSeconds() {
         return scaleInStabilizationSeconds;
-    }
-
-    public int getRecommendationRepeatSeconds() {
-        return recommendationRepeatSeconds;
     }
 
     public int getKeepFiringSeconds() {
@@ -229,7 +221,6 @@ public final class AutoscalerConfig implements Serializable {
         private int futureTimestampToleranceSeconds = 5;
         private int scaleOutStabilizationSeconds = 300;
         private int scaleInStabilizationSeconds = 600;
-        private int recommendationRepeatSeconds = 300;
         private int keepFiringSeconds = 0;
         private double scaleOutCpuThreshold = 0.8d;
         private double scaleOutJvmMemoryThreshold = 0.8d;
@@ -270,11 +261,6 @@ public final class AutoscalerConfig implements Serializable {
 
         public Builder scaleInStabilizationSeconds(int value) {
             scaleInStabilizationSeconds = value;
-            return this;
-        }
-
-        public Builder recommendationRepeatSeconds(int value) {
-            recommendationRepeatSeconds = value;
             return this;
         }
 
@@ -351,7 +337,6 @@ public final class AutoscalerConfig implements Serializable {
             }
             checkPositive(scaleOutStabilizationSeconds, "scaleOutStabilizationSeconds must be > 0");
             checkPositive(scaleInStabilizationSeconds, "scaleInStabilizationSeconds must be > 0");
-            checkPositive(recommendationRepeatSeconds, "recommendationRepeatSeconds must be > 0");
             if (keepFiringSeconds < 0) {
                 throw new IllegalArgumentException("keepFiringSeconds must be >= 0");
             }

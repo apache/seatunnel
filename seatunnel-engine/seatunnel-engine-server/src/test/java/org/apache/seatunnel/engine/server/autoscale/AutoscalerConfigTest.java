@@ -51,13 +51,6 @@ class AutoscalerConfigTest {
     }
 
     @Test
-    void rejectsNonPositiveRecommendationRepeatInterval() {
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> AutoscalerConfig.builder().recommendationRepeatSeconds(0).build());
-    }
-
-    @Test
     void defaultsKeepFiringToZeroAndRejectsNegativeValues() {
         Assertions.assertEquals(0, AutoscalerConfig.defaults().getKeepFiringSeconds());
         Assertions.assertThrows(

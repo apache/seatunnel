@@ -33,24 +33,24 @@ public final class ResourceShortageStats {
     private long rejectCount;
     private long latestWaitSequence;
     private long latestRejectSequence;
-    private int latestTaskGroupCount;
+    private int latestRequestedResourceCount;
     private String latestRequestedResourceProfile;
 
     public synchronized void recordWaitShortage(
-            int taskGroupCount, String requestedResourceProfile) {
+            int requestedResourceCount, String requestedResourceProfile) {
         long currentSequence = ++sequence;
         waitCount++;
         latestWaitSequence = currentSequence;
-        latestTaskGroupCount = taskGroupCount;
+        latestRequestedResourceCount = requestedResourceCount;
         latestRequestedResourceProfile = requestedResourceProfile;
     }
 
     public synchronized void recordRejectShortage(
-            int taskGroupCount, String requestedResourceProfile) {
+            int requestedResourceCount, String requestedResourceProfile) {
         long currentSequence = ++sequence;
         rejectCount++;
         latestRejectSequence = currentSequence;
-        latestTaskGroupCount = taskGroupCount;
+        latestRequestedResourceCount = requestedResourceCount;
         latestRequestedResourceProfile = requestedResourceProfile;
     }
 
@@ -75,7 +75,7 @@ public final class ResourceShortageStats {
                 rejectCount,
                 hasNewEvents && latestWaitSequence > previousSequence,
                 hasNewEvents && latestRejectSequence > previousSequence,
-                latestTaskGroupCount,
+                latestRequestedResourceCount,
                 latestRequestedResourceProfile);
     }
 }

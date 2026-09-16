@@ -76,6 +76,18 @@ class LatestWorkerSampleStoreTest {
     }
 
     @Test
+    void rejectsStaleSamplesOnArrivalAndKeepsPreviousAcceptedValue() {
+        LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
+        WorkerMetricsSample sample = new WorkerMetricsSample(WORKER, 1_000L, 0.5d, 0.6d);
+
+        Assertions.assertTrue(store.record(sample, 1_000L));
+        Assertions.assertFalse(
+                store.record(new WorkerMetricsSample(WORKER, 2_000L, 0.2d, 0.3d), 8_000L));
+
+        Assertions.assertEquals(sample, store.getLatest(WORKER).get());
+    }
+
+    @Test
     void removesSamplesForUnregisteredWorkers() {
         LatestWorkerSampleStore store = new LatestWorkerSampleStore(5_000L, 5_000L);
         Address other = address(5802);

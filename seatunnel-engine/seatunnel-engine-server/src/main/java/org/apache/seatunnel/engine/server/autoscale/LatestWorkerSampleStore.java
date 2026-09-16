@@ -61,6 +61,10 @@ public final class LatestWorkerSampleStore {
         if (sample.getEventTimeMillis() - nowMillis > futureTimestampToleranceMillis) {
             return false;
         }
+        // Reject samples that are already outside the freshness window on arrival.
+        if (nowMillis - sample.getEventTimeMillis() > freshnessMillis) {
+            return false;
+        }
         WorkerMetricsSample previous = samples.get(sample.getWorkerAddress());
         if (previous != null && sample.getEventTimeMillis() <= previous.getEventTimeMillis()) {
             return false;
