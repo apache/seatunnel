@@ -168,7 +168,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), "test_topic_source", 0, 100);
-        waitForTopicRoute("test_topic_source");
     }
 
     @SneakyThrows
@@ -487,6 +486,13 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(
                                     producer.fetchPublishMessageQueues(topic).isEmpty(),
                                     "Topic route is not ready: " + topic);
+                            Assertions.assertFalse(
+                                    RocketMqAdminUtil.offsetTopics(
+                                                    newConfiguration(),
+                                                    Collections.singletonList(topic))
+                                            .get(0)
+                                            .isEmpty(),
+                                    "Topic route is not visible in the name server: " + topic);
                         });
     }
 
@@ -745,9 +751,10 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 "Source end offset should advance by at least 25, actual: "
                         + (srcEndAfterAll - srcEndBeforeStart));
 
-        // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        // The name server can briefly drop auto-created topic routes while the job is stopped for
+        // a savepoint. The restored job needs both routes immediately.
         waitForTopicRoute(sourceTopic);
+        waitForTopicRoute(sinkTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {

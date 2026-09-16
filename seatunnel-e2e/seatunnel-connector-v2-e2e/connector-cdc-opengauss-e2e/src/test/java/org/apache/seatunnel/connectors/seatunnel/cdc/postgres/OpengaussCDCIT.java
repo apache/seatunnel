@@ -418,21 +418,21 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFieldWithRestore(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testAddFieldWithRestore(TestContainer container) throws Exception {
         Long jobId = JobIdGenerator.newJobId();
         try {
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            return container.executeJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                    });
+            CompletableFuture<Container.ExecResult> initialJobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             // stream stage
             await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -451,8 +451,13 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                             SINK_TABLE_3)))));
 
             Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+            // Wait for the original job to stop before producing post-savepoint changes. Otherwise
+            // it can consume the new row with the pre-DDL schema and permanently write a null for
+            // the added column before the restored job starts.
+            Container.ExecResult initialJobResult = initialJobFuture.get(2, TimeUnit.MINUTES);
+            Assertions.assertEquals(
+                    0, initialJobResult.getExitCode(), initialJobResult.getStderr());
 
-            // add field add insert source table data
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
             insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);

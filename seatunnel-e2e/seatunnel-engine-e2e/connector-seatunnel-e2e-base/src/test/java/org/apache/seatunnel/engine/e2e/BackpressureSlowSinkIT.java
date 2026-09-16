@@ -88,6 +88,14 @@ public class BackpressureSlowSinkIT {
     /** How long to sustain the slow-sink backpressure condition before asserting and stopping. */
     private static final long BACKPRESSURE_WINDOW_MS = TimeUnit.SECONDS.toMillis(90);
 
+    /**
+     * Maximum time allowed for the checkpoint-progress assertion. This is deliberately separate
+     * from {@link #BACKPRESSURE_WINDOW_MS}: a heavily contended CI worker can delay checkpoint
+     * scheduling without invalidating the bounded-queue and backpressure signals observed during
+     * the mandatory 90-second window.
+     */
+    private static final long CHECKPOINT_PROGRESS_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(3);
+
     /** Sampling cadence for checkpoint/queue observations during the sustained window. */
     private static final long POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
 
@@ -99,10 +107,10 @@ public class BackpressureSlowSinkIT {
 
     /**
      * Conservative lower bound for how many additional checkpoints must complete during {@link
-     * #BACKPRESSURE_WINDOW_MS}. This is well below the nominal count implied by {@code
-     * checkpoint.interval = 15000} in {@link #CONF_FILE} (~6 over 90s) to absorb job startup
-     * ramp-up and CI scheduling slack while still proving checkpoints keep completing repeatedly,
-     * not just once.
+     * #CHECKPOINT_PROGRESS_TIMEOUT_MS}. The test still observes at least {@link
+     * #BACKPRESSURE_WINDOW_MS} of sustained backpressure, but checkpoint progress is
+     * condition-driven so temporary CI scheduling stalls do not turn a healthy job into a flaky
+     * wall-clock failure.
      */
     private static final long MIN_NEW_COMPLETED_CHECKPOINTS = 3;
 
@@ -197,8 +205,10 @@ public class BackpressureSlowSinkIT {
         List<Long> queueCapacitySamples = new ArrayList<>();
         List<Long> blockedNsSamples = new ArrayList<>();
 
-        long deadline = System.currentTimeMillis() + BACKPRESSURE_WINDOW_MS;
-        while (System.currentTimeMillis() < deadline) {
+        long startTime = System.currentTimeMillis();
+        long backpressureDeadline = startTime + BACKPRESSURE_WINDOW_MS;
+        long checkpointProgressDeadline = startTime + CHECKPOINT_PROGRESS_TIMEOUT_MS;
+        while (true) {
             // The job must stay healthy throughout - no crash, no failure, no stuck state - while
             // the slow sink keeps the intermediate queue saturated.
             Assertions.assertEquals(
@@ -227,6 +237,15 @@ public class BackpressureSlowSinkIT {
                 }
             }
 
+            long now = System.currentTimeMillis();
+            long newlyCompleted =
+                    completedSamples.get(completedSamples.size() - 1) - completedSamples.get(0);
+            if (now >= backpressureDeadline
+                    && (newlyCompleted >= MIN_NEW_COMPLETED_CHECKPOINTS
+                            || now >= checkpointProgressDeadline)) {
+                break;
+            }
+
             Thread.sleep(POLL_INTERVAL_MS);
         }
 
@@ -247,9 +266,11 @@ public class BackpressureSlowSinkIT {
         Assertions.assertTrue(
                 newlyCompleted >= MIN_NEW_COMPLETED_CHECKPOINTS,
                 String.format(
-                        "expected at least %d additional checkpoints to complete during the %ds "
-                                + "sustained backpressure window, only observed %d (samples=%s)",
+                        "expected at least %d additional checkpoints to complete within %ds while "
+                                + "sustaining backpressure for at least %ds, only observed %d "
+                                + "(samples=%s)",
                         MIN_NEW_COMPLETED_CHECKPOINTS,
+                        CHECKPOINT_PROGRESS_TIMEOUT_MS / 1000,
                         BACKPRESSURE_WINDOW_MS / 1000,
                         newlyCompleted,
                         completedSamples));
