@@ -39,7 +39,7 @@
             you need to open this annotation and change the dependency of config-shade to project.
             <module>seatunnel-config</module>
         -->
-        <module>seatunnel-config</module>
+        <!-- <module>seatunnel-config</module> -->
         <module>seatunnel-common</module>
         <module>seatunnel-core</module>
         <module>seatunnel-transforms-v2</module>
