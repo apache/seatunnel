@@ -20,15 +20,18 @@ package org.apache.seatunnel.common.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
-import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseValue;
+
 public class PlaceholderUtils {
+
+    public static final String PLACEHOLDER_STARTER = "${";
 
     private static final Pattern PLACEHOLDER_PATTERN =
             Pattern.compile("\\$\\{\\??" + "(?:\"([^\"]+)\"|([^{}:]+))" + "(?::(.+))?" + "\\}");
@@ -74,45 +77,109 @@ public class PlaceholderUtils {
         return input;
     }
 
-    public static Set<String> extractPlaceholderKeys(String input) {
-        Set<String> keys = new LinkedHashSet<>();
-        if (StringUtils.isBlank(input)) {
-            return keys;
-        }
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(input);
-        while (matcher.find()) {
-            String key = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
-            if (StringUtils.isNotBlank(key)) {
-                keys.add(key);
-            }
-        }
-        return keys;
-    }
+    public static String processPlaceholders(
+            String input,
+            Predicate<String> isSystemPlaceholder,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
 
-    public static String replaceAllPlaceholders(
-            String input, Function<String, String> valueResolver) {
-        if (StringUtils.isBlank(input)) {
+        Objects.requireNonNull(isSystemPlaceholder, "isSystemPlaceholder predicate cannot be null");
+        Objects.requireNonNull(userConfigMap, "userConfigMap cannot be null");
+        Objects.requireNonNull(defaultConfigMap, "defaultConfigMap cannot be null");
+
+        if (StringUtils.isBlank(input) || !input.contains(PLACEHOLDER_STARTER)) {
             return input;
         }
-        Matcher matcher = PLACEHOLDER_PATTERN.matcher(input);
-        StringBuffer result = new StringBuffer();
 
-        while (matcher.find()) {
-            String pureKey = matcher.group(1) != null ? matcher.group(1) : matcher.group(2);
-            String defaultValue = matcher.group(3);
-            String resolvedValue = valueResolver.apply(pureKey);
-            String replacement;
+        StringBuilder result = new StringBuilder();
+        int i = 0;
 
-            replacement =
-                    Stream.of(resolvedValue, defaultValue, System.getProperty(pureKey))
+        while (i < input.length()) {
+            int start = input.indexOf(PLACEHOLDER_STARTER, i);
+            if (start == -1) {
+                result.append(input.substring(i));
+                break;
+            }
+
+            result.append(input, i, start);
+
+            int keyStart = start + 2;
+            boolean optional = false;
+            if (keyStart < input.length() && input.charAt(keyStart) == '?') {
+                keyStart++;
+                optional = true;
+            }
+
+            int closePos = ConfigValueUtils.findClosePos(input, keyStart);
+            if (closePos == -1) {
+                result.append(input.substring(start));
+                break;
+            }
+
+            int colonPos = input.indexOf(':', keyStart);
+            if (colonPos == -1 || colonPos > closePos) {
+                colonPos = -1;
+            }
+
+            String key;
+            String defaultValue = null;
+            if (colonPos > 0) {
+                key = input.substring(keyStart, colonPos).trim();
+                defaultValue = input.substring(colonPos + 1, closePos);
+            } else {
+                key = input.substring(keyStart, closePos).trim();
+            }
+
+            boolean hasDefault = (defaultValue != null);
+
+            if (defaultConfigMap.containsKey(key)) {
+                String existingDefault = defaultConfigMap.get(key);
+                boolean prevHasDefault = (existingDefault != null);
+
+                if (prevHasDefault != hasDefault) {
+                    throw new IllegalArgumentException(
+                            String.format(
+                                    "Inconsistent placeholder usage for key '%s'. "
+                                            + "It is used with a default value in one place and without a default value in another. "
+                                            + "Please ensure consistent usage across the configuration.",
+                                    key));
+                }
+
+                if (hasDefault) {
+                    if (!existingDefault.equals(defaultValue)) {
+                        Object existingObj = parseValue(existingDefault);
+                        Object currObj = parseValue(defaultValue);
+
+                        if (!existingObj.equals(currObj)) {
+                            throw new IllegalArgumentException(
+                                    String.format(
+                                            "Duplicate placeholder key '%s' with conflicting default values. "
+                                                    + "Existing: '%s', New: '%s'. Please ensure the exact same default value is used.",
+                                            key, existingDefault, defaultValue));
+                        }
+                    }
+                }
+            } else {
+                defaultConfigMap.put(key, defaultValue);
+            }
+
+            String resolvedValue = null;
+
+            // Priority: input > default > system
+            if (!isSystemPlaceholder.test(key)) {
+                resolvedValue = userConfigMap.get(key);
+            }
+
+            String replacement =
+                    Stream.of(resolvedValue, defaultValue, System.getProperty(key))
                             .filter(Objects::nonNull)
                             .findFirst()
-                            .orElse(matcher.group(0));
+                            .orElse(optional ? "" : input.substring(start, closePos + 1));
 
-            matcher.appendReplacement(result, Matcher.quoteReplacement(replacement));
+            result.append(replacement);
+            i = closePos + 1;
         }
 
-        matcher.appendTail(result);
         return result.toString();
     }
 }

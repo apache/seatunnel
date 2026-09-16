@@ -18,22 +18,19 @@
 package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigOriginFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
+import org.apache.seatunnel.common.utils.PlaceholderUtils;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import lombok.NonNull;
@@ -41,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -51,8 +49,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.common.utils.PlaceholderUtils.extractPlaceholderKeys;
-import static org.apache.seatunnel.common.utils.PlaceholderUtils.replaceAllPlaceholders;
+import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseValue;
 
 /** Used to build the {@link Config} from config file. */
 @Slf4j
@@ -266,8 +263,7 @@ public class ConfigBuilder {
                                         Collectors.toMap(
                                                 Map.Entry::getKey,
                                                 entry ->
-                                                        parseUserValue(entry.getValue())
-                                                                .unwrapped())));
+                                                        parseValue(entry.getValue()).unwrapped())));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -285,13 +281,14 @@ public class ConfigBuilder {
                 config.withFallback(sourceConfig)
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-        Map<String, Object> originalConfigMap = originalResolvedConfig.root().unwrapped();
+        Map<String, Object> originalResolvedConfigMap = originalResolvedConfig.root().unwrapped();
 
-        processVariablesMap(originalConfigMap, userConfigMap);
+        Map<String, String> defaultConfigMap = new HashMap<>();
+        processVariablesMap(originalResolvedConfigMap, userConfigMap, defaultConfigMap);
 
-        originalConfigMap.keySet().removeIf(key -> !originalRootKeys.contains(key));
+        originalResolvedConfigMap.keySet().removeIf(key -> !originalRootKeys.contains(key));
 
-        return ConfigFactory.parseMap(originalConfigMap);
+        return ConfigFactory.parseMap(originalResolvedConfigMap);
     }
 
     private static Map<String, String> extractUserVariables(List<String> variables) {
@@ -330,7 +327,7 @@ public class ConfigBuilder {
         }
 
         if (userConfigMap.containsKey(userKey)) {
-            throw new ConfigException.Generic(
+            throw new ConfigCheckException(
                     "Duplicate -i variable key detected: '"
                             + userKey
                             + "'. Please remove duplicate keys.");
@@ -338,80 +335,49 @@ public class ConfigBuilder {
         return userKey;
     }
 
-    public static ConfigValue parseUserValue(String value) {
-        if (value == null) {
-            return ConfigValueFactory.fromAnyRef(null);
-        }
-
-        if (value.startsWith("\"") && value.endsWith("\"") && value.length() > 1) {
-            value = StringUtils.unwrap(value, "\"");
-            return ConfigValueFactory.fromAnyRef(value);
-        }
-
-        boolean maybeJsonOrArray =
-                (value.startsWith("{") && value.endsWith("}"))
-                        || (value.startsWith("[") && value.endsWith("]"));
-
-        if (maybeJsonOrArray) {
-            try {
-                Config parsed = ConfigFactory.parseString("v = " + value);
-                return parsed.root().get("v");
-            } catch (ConfigException e) {
-                throw new ConfigException.BadValue(
-                        ConfigOriginFactory.newSimple(),
-                        String.format(
-                                "Value '%s' looks like JSON or Array but failed to parse. "
-                                        + "If you intended to pass a Map/List, please check the syntax. "
-                                        + "If you intended to pass a plain string, wrap the entire value in double quotes (e.g., \"your_value\"). ",
-                                value),
-                        e.getMessage());
-            }
-        }
-
-        return ConfigValueFactory.fromAnyRef(value);
-    }
-
     private static void processVariablesMap(
-            Map<String, Object> mapValue, Map<String, String> userConfigMap) {
+            Map<String, Object> mapValue,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
         mapValue.forEach(
                 (innerKey, innerValue) -> {
                     if (innerValue instanceof Map) {
-                        processVariablesMap((Map<String, Object>) innerValue, userConfigMap);
+                        processVariablesMap(
+                                (Map<String, Object>) innerValue, userConfigMap, defaultConfigMap);
                     } else if (innerValue instanceof List) {
                         mapValue.put(
                                 innerKey,
-                                processVariablesList((List<?>) innerValue, userConfigMap));
+                                processVariablesList(
+                                        (List<?>) innerValue, userConfigMap, defaultConfigMap));
                     } else {
-                        processVariable(innerKey, innerValue, mapValue, userConfigMap);
+                        processVariable(
+                                innerKey, innerValue, mapValue, userConfigMap, defaultConfigMap);
                     }
                 });
     }
 
-    private static List<?> processVariablesList(List<?> list, Map<String, String> userConfigMap) {
+    private static List<?> processVariablesList(
+            List<?> list, Map<String, String> userConfigMap, Map<String, String> defaultConfigMap) {
         return list.stream()
                 .map(
                         variable -> {
                             if (variable instanceof String) {
                                 String variableString = (String) variable;
                                 String replacedValue =
-                                        replaceAllPlaceholders(
+                                        PlaceholderUtils.processPlaceholders(
                                                 variableString,
-                                                pureKey -> {
-                                                    if (TablePlaceholder.isSystemPlaceholder(
-                                                            pureKey)) {
-                                                        return null;
-                                                    }
-                                                    return userConfigMap.containsKey(pureKey)
-                                                            ? userConfigMap.get(pureKey)
-                                                            : System.getProperty(pureKey);
-                                                });
+                                                TablePlaceholder::isSystemPlaceholder,
+                                                userConfigMap,
+                                                defaultConfigMap);
 
-                                return parseUserValue(replacedValue);
+                                if (!replacedValue.equals(variableString)) {
+                                    return parseValue(replacedValue);
+                                }
                             } else if (variable instanceof Map) {
-                                processVariablesMap((Map<String, Object>) variable, userConfigMap);
                                 return variable;
                             } else if (variable instanceof List) {
-                                return processVariablesList((List<?>) variable, userConfigMap);
+                                return processVariablesList(
+                                        (List<?>) variable, userConfigMap, defaultConfigMap);
                             }
                             return variable;
                         })
@@ -422,31 +388,27 @@ public class ConfigBuilder {
             String variableKey,
             Object variableValue,
             Map<String, Object> parentMap,
-            Map<String, String> userConfigMap) {
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
+
         if (Objects.isNull(variableValue)) {
             return;
         }
+
         String variableString = variableValue.toString();
-        Set<String> placeholders = extractPlaceholderKeys(variableString);
 
         String replacedValue =
-                replaceAllPlaceholders(
+                PlaceholderUtils.processPlaceholders(
                         variableString,
-                        pureKey -> {
-                            if (TablePlaceholder.isSystemPlaceholder(pureKey)) {
-                                return null;
-                            }
-                            if (userConfigMap.containsKey(pureKey)) {
-                                return userConfigMap.get(pureKey);
-                            }
-                            return null;
-                        });
+                        TablePlaceholder::isSystemPlaceholder,
+                        userConfigMap,
+                        defaultConfigMap);
 
-        variableValue = parseUserValue(replacedValue);
-
-        if (!placeholders.isEmpty()) {
-            parentMap.put(variableKey, variableValue);
+        if (!replacedValue.equals(variableValue)) {
+            variableValue = parseValue(replacedValue);
         }
+
+        parentMap.put(variableKey, variableValue);
     }
 
     private static String convertToString(Object value) {

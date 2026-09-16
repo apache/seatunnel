@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.core.starter.command;
 
+import org.apache.seatunnel.common.utils.ConfigValueUtils;
+
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
@@ -43,7 +45,7 @@ public class ParameterSplitter implements IParameterSplitter {
             char c = value.charAt(i);
 
             if (c == '"') {
-                if (isEscapedQuote(value, i)) {
+                if (ConfigValueUtils.isEscapedQuote(value, i)) {
                     currentToken.append(c);
                     continue;
                 }
@@ -123,15 +125,5 @@ public class ParameterSplitter implements IParameterSplitter {
                 && (quoteIndex == value.length() - 1
                         || END_DELIMITERS.contains(next)
                         || (next == ' ' && END_DELIMITERS.contains(afterNext)));
-    }
-
-    private boolean isEscapedQuote(String value, int quoteIndex) {
-        int backslashCount = 0;
-        int i = quoteIndex - 1;
-        while (i >= 0 && value.charAt(i) == '\\') {
-            backslashCount++;
-            i--;
-        }
-        return backslashCount % 2 == 1;
     }
 }

@@ -224,25 +224,20 @@ public class ConfigBuilderTest {
         // table_list
         String value =
                 "[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]";
-        try {
-            Config parsed = ConfigFactory.parseString("v = " + value);
-            ConfigValue result = parsed.root().get("v");
-            Object parsedObj = result.unwrapped();
-            Assertions.assertInstanceOf(List.class, parsedObj);
+        Config parsed = ConfigFactory.parseString("v = " + value);
+        ConfigValue result = parsed.root().get("v");
+        Object parsedObj = result.unwrapped();
+        Assertions.assertInstanceOf(List.class, parsedObj);
 
-            List<Object> parsedList = (List<Object>) parsedObj;
+        List<Object> parsedList = (List<Object>) parsedObj;
 
-            List<Map<String, String>> expectedList = new ArrayList<>();
-            Map<String, String> map = new LinkedHashMap<>();
-            map.put("table_path", "json_test.ml_*");
-            map.put("use_regex", "true");
-            expectedList.add(map);
-            expectedList.add(Collections.singletonMap("table_path", "json_test.ratings"));
+        List<Map<String, String>> expectedList = new ArrayList<>();
+        Map<String, String> map = new LinkedHashMap<>();
+        map.put("table_path", "json_test.ml_*");
+        map.put("use_regex", "true");
+        expectedList.add(map);
+        expectedList.add(Collections.singletonMap("table_path", "json_test.ratings"));
 
-            Assertions.assertArrayEquals(parsedList.toArray(), expectedList.toArray());
-
-        } catch (Exception e) {
-            log.warn("Failed to parse value as ConfigValue, fallback to plain string: {}", value);
-        }
+        Assertions.assertArrayEquals(parsedList.toArray(), expectedList.toArray());
     }
 }
