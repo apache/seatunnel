@@ -162,7 +162,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), "test_topic_source", 0, 100);
-        waitForTopicRoute("test_topic_source");
     }
 
     @SneakyThrows
@@ -762,8 +761,12 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         + (srcEndAfterAll - srcEndBeforeStart));
 
         // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        // for a savepoint. Restore only after both dynamic topics are visible again. The sink
+        // topic needs this as much as the source one: the post-restore poll below reads it
+        // through getTopicMaxOffset, and a lost route there stalls that poll rather than the
+        // restore itself.
         waitForTopicRoute(sourceTopic);
+        waitForTopicRoute(sinkTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {
