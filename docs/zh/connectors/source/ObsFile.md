@@ -75,7 +75,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | sheet_name                | string  | 否  | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
 | excel_engine              | string  | 否  | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
 | poi_excel_max_file_size   | long    | 否  | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
-| delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
+| delimiter/field_delimiter | string  | 否  | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认 `\001`，与 hive 的默认分隔符相同。**delimiter** 参数将在 2.3.5 版本后废弃，请改用 **field_delimiter**。                                  |
 | row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
 | parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |
 | skip_header_row_number    | long    | 否  | 0                   | 跳过前几行，但仅适用于 txt 和 csv。                  |
