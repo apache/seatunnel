@@ -57,6 +57,18 @@ public class JdbcOutputFormatBuilder {
     @NonNull private final TableSchema tableSchema;
     @Nullable private final TableSchema databaseTableSchema;
 
+    private boolean commitOnFlush;
+
+    /**
+     * Commits the connection after every successful batch flush when it uses manual commit. Only
+     * the non-XA writer enables this, and only when checkpointing is disabled, so flushed batches
+     * are not held in one unbounded transaction until close.
+     */
+    public JdbcOutputFormatBuilder commitOnFlush(boolean commitOnFlush) {
+        this.commitOnFlush = commitOnFlush;
+        return this;
+    }
+
     public JdbcOutputFormat build() {
         JdbcOutputFormat.StatementExecutorFactory statementExecutorFactory;
 
@@ -106,7 +118,8 @@ public class JdbcOutputFormatBuilder {
         return new JdbcOutputFormat(
                 connectionProvider,
                 jdbcSinkConfig.getJdbcConnectionConfig(),
-                statementExecutorFactory);
+                statementExecutorFactory,
+                commitOnFlush);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
