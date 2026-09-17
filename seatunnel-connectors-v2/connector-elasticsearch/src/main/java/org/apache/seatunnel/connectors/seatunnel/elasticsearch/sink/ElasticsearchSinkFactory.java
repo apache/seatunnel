@@ -25,13 +25,18 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.AuthTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchValidators.ApiKeyEncodedFormatValidator;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 
 import com.google.auto.service.AutoService;
+import lombok.extern.slf4j.Slf4j;
 
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions.API_KEY_ENCODED;
@@ -56,7 +61,8 @@ import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Ela
 import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSinkOptions.VECTOR_DIMENSIONS;
 
 @AutoService(Factory.class)
-public class ElasticsearchSinkFactory implements TableSinkFactory {
+@Slf4j
+public class ElasticsearchSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Elasticsearch";
@@ -110,8 +116,53 @@ public class ElasticsearchSinkFactory implements TableSinkFactory {
     }
 
     @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) throws Exception {
+        validateElasticsearchConnection(context.getOptions());
+    }
+
+    /**
+     * Validates Elasticsearch/OpenSearch connectivity and authentication. This method is called
+     * both during dry-run and during normal task submission so that connection issues are surfaced
+     * as early as possible.
+     */
+    private void validateElasticsearchConnection(ReadonlyConfig config) {
+        try (EsRestClient client = EsRestClient.createInstance(config)) {
+            // 1. Validate connectivity and authentication by fetching cluster info (GET /)
+            ElasticsearchClusterInfo clusterInfo = client.getClusterInfo();
+            if (clusterInfo == null) {
+                throw new SeaTunnelException(
+                        "Failed to retrieve cluster info from Elasticsearch/OpenSearch: "
+                                + "getClusterInfo() returned null");
+            }
+            log.info(
+                    "Successfully connected to {} cluster, version={}",
+                    clusterInfo.isOpensearch() ? "OpenSearch" : "Elasticsearch",
+                    clusterInfo.getClusterVersion());
+
+            // 2. Validate target index accessibility (HEAD /{index})
+            // Skip validation for dynamic index names containing placeholders
+            String index = config.get(INDEX);
+            if (index != null && !index.contains(ElasticsearchSinkOptions.INDEX_VARIABLE_PREFIX)) {
+                // checkIndexExist returns true/false for index existence;
+                // if credentials lack read permission, it throws an exception.
+                boolean exists = client.checkIndexExist(index);
+                log.info("Target index '{}' exists={}", index, exists);
+            }
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to validate Elasticsearch/OpenSearch connection: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
+
+        // Validate Elasticsearch/OpenSearch connectivity before creating the sink.
+        // This runs at task submission time (both HTTP API and CLI) so that
+        // connection issues surface immediately rather than during sync.
+        validateElasticsearchConnection(readonlyConfig);
+
         String original = readonlyConfig.get(INDEX);
         CatalogTable newTable =
                 CatalogTable.of(

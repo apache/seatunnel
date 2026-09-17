@@ -26,7 +26,10 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -36,8 +39,12 @@ import org.apache.seatunnel.connectors.cdc.base.source.BaseChangeStreamTableSour
 import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
+import io.debezium.config.Configuration;
+import io.debezium.connector.mysql.MySqlConnection;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -46,7 +53,8 @@ import java.util.Optional;
 
 @AutoService(Factory.class)
 @Slf4j
-public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory {
+public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFactory
+        implements SupportSourceDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return MySqlIncrementalSource.IDENTIFIER;
@@ -111,9 +119,95 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
     }
 
     @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context)
+            throws Exception {
+        Class.forName("com.mysql.cj.jdbc.Driver");
+        // This internally opens a real JDBC connection to read table metadata,
+        // which implicitly validates connectivity and basic SELECT privilege.
+        return CatalogTableUtil.getCatalogTables(context.getOptions(), context.getClassLoader());
+    }
+
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
+        validateMySqlPermissions(context.getOptions());
+    }
+
+    /**
+     * Validates MySQL CDC required privileges (REPLICATION SLAVE and REPLICATION CLIENT). This
+     * method is called both during dry-run and during normal task submission so that permission
+     * issues are surfaced as early as possible.
+     */
+    private void validateMySqlPermissions(ReadonlyConfig config) {
+        // Build a minimal Debezium Configuration from user config to create a MySqlConnection.
+        JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(config.get(JdbcCommonOptions.URL));
+        String username = config.get(MySqlIncrementalSourceOptions.USERNAME);
+        String password = config.get(MySqlIncrementalSourceOptions.PASSWORD);
+        long connectTimeoutMs =
+                config.getOptional(MySqlIncrementalSourceOptions.CONNECT_TIMEOUT_MS)
+                        .orElse(JdbcSourceOptions.CONNECT_TIMEOUT_MS.defaultValue());
+
+        Configuration dbzConfiguration =
+                Configuration.create()
+                        .with("database.hostname", urlInfo.getHost())
+                        .with("database.port", urlInfo.getPort())
+                        .with("database.user", username)
+                        .with("database.password", password)
+                        .with("connect.timeout.ms", String.valueOf(connectTimeoutMs))
+                        .with(
+                                "database.serverTimezone",
+                                config.getOptional(MySqlIncrementalSourceOptions.SERVER_TIME_ZONE)
+                                        .orElse(JdbcSourceOptions.SERVER_TIME_ZONE.defaultValue()))
+                        .build();
+
+        try (MySqlConnection connection =
+                MySqlConnectionUtils.createMySqlConnection(dbzConfiguration)) {
+            connection.connect();
+
+            // Check REPLICATION SLAVE privilege (required for reading binlog events)
+            if (!connection.userHasPrivileges("REPLICATION SLAVE")) {
+                throw new SeaTunnelException(
+                        "MySQL user '"
+                                + username
+                                + "' does not have the 'REPLICATION SLAVE' privilege "
+                                + "required for CDC binlog reading. "
+                                + "Please execute: GRANT REPLICATION SLAVE ON *.* TO '"
+                                + username
+                                + "'@'%';");
+            }
+
+            // Check REPLICATION CLIENT privilege (required for SHOW MASTER STATUS)
+            if (!connection.userHasPrivileges("REPLICATION CLIENT")) {
+                throw new SeaTunnelException(
+                        "MySQL user '"
+                                + username
+                                + "' does not have the 'REPLICATION CLIENT' privilege "
+                                + "required for CDC binlog reading. "
+                                + "Please execute: GRANT REPLICATION CLIENT ON *.* TO '"
+                                + username
+                                + "'@'%';");
+            }
+        } catch (SeaTunnelException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to validate MySQL CDC permissions for user '"
+                            + username
+                            + "': "
+                            + e.getMessage(),
+                    e);
+        }
+    }
+
+    @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
+        // Validate MySQL CDC required privileges before creating the source.
+        // This runs at task submission time (both HTTP API and CLI) so that
+        // permission issues surface immediately rather than during sync.
+        validateMySqlPermissions(context.getOptions());
+
         return () -> {
             // Load the JDBC driver in to DriverManager
             try {

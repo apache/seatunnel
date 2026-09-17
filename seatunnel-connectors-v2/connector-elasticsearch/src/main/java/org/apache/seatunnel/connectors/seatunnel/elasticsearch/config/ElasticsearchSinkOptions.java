@@ -31,6 +31,9 @@ import static org.apache.seatunnel.api.sink.DataSaveMode.ERROR_WHEN_DATA_EXISTS;
 
 public class ElasticsearchSinkOptions extends ElasticsearchBaseOptions {
 
+    /** Prefix used in index names to denote variable placeholders, e.g. seatunnel_${age}. */
+    public static final String INDEX_VARIABLE_PREFIX = "${";
+
     public static final Option<String> INDEX_TYPE =
             Options.key("index_type")
                     .stringType()
