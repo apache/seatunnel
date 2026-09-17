@@ -241,14 +241,12 @@ public class SubPlan {
     }
 
     private PipelineStatus getPipelineEndState() {
-        PipelineStatus pipelineStatus = null;
-        if (failedTaskNum.get() > 0) {
-            pipelineStatus = PipelineStatus.FAILED;
+        PipelineStatus pipelineStatus = determinePipelineEndState();
+        if (PipelineStatus.FAILED.equals(pipelineStatus)) {
             // we don't care the checkpoint error reason when the task is
             // failed.
             jobMaster.getCheckpointManager().cancelCheckpoint(getPipelineId()).join();
-        } else if (canceledTaskNum.get() > 0) {
-            pipelineStatus = PipelineStatus.CANCELED;
+        } else if (PipelineStatus.CANCELED.equals(pipelineStatus)) {
             CheckpointCoordinatorState checkpointCoordinatorState =
                     jobMaster.getCheckpointManager().cancelCheckpoint(getPipelineId()).join();
             if (CheckpointCoordinatorStatus.FAILED.equals(
@@ -257,17 +255,7 @@ public class SubPlan {
                 errorByPhysicalVertex.compareAndSet(
                         null, checkpointCoordinatorState.getThrowableMsg());
             }
-
-            // Because the pipeline state must update by tasks, If the pipeline can not get enough
-            // slot, the pipeline state will turn to Failing and then cancel all tasks in this
-            // pipeline.
-            // Because the tasks never run, so the tasks will complete with CANCELED. But the actual
-            // status of the pipeline should be FAILED
-            if (getPipelineState().equals(PipelineStatus.FAILING)) {
-                pipelineStatus = PipelineStatus.FAILED;
-            }
         } else {
-            pipelineStatus = PipelineStatus.FINISHED;
             CheckpointCoordinatorState checkpointCoordinatorState =
                     jobMaster
                             .getCheckpointManager()
@@ -287,6 +275,27 @@ public class SubPlan {
             }
         }
         return pipelineStatus;
+    }
+
+    PipelineStatus determinePipelineEndState() {
+        // Once cancellation has started, a worker failure must not overwrite the cancellation
+        // requested by the user.
+        if (PipelineStatus.CANCELING.equals(getPipelineState())) {
+            return PipelineStatus.CANCELED;
+        }
+        if (failedTaskNum.get() > 0) {
+            return PipelineStatus.FAILED;
+        }
+        if (canceledTaskNum.get() > 0) {
+            // Because the pipeline state must update by tasks, if the pipeline cannot get enough
+            // slots, the pipeline state turns to FAILING and then cancels all tasks in this
+            // pipeline. Because the tasks never run, they complete with CANCELED, but the actual
+            // status of the pipeline should be FAILED.
+            return PipelineStatus.FAILING.equals(getPipelineState())
+                    ? PipelineStatus.FAILED
+                    : PipelineStatus.CANCELED;
+        }
+        return PipelineStatus.FINISHED;
     }
 
     private boolean checkNeedRestore(PipelineStatus pipelineStatus) {

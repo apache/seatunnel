@@ -86,6 +86,18 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testCancellationWinsOverWorkerFailure() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+
+        SubPlan subPlan = planWithStateMaps.physicalPlan.getPipelineList().get(0);
+        subPlan.updatePipelineState(PipelineStatus.CANCELING);
+        subPlan.getFailedTaskNum().set(1);
+
+        Assertions.assertEquals(PipelineStatus.CANCELED, subPlan.determinePipelineEndState());
+    }
+
+    @Test
     void testPhysicalPlanIgnoresLateTransitionWhenJobStateAlreadyTerminal() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
