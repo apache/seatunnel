@@ -63,9 +63,7 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Time;
@@ -513,30 +511,27 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         + "  `c_int_unsigned` int unsigned DEFAULT NULL,"
                         + "  `c_set` set('REAL_AS_FLOAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,"
                         + "  `c_enum` enum('unsigned','other') DEFAULT NULL)";
-        try (Connection connection =
-                        DriverManager.getConnection(
-                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()),
-                                jdbcCase.getUserName(),
-                                jdbcCase.getPassword());
-                Statement statement = connection.createStatement()) {
+        try (Statement statement = connection.createStatement()) {
             statement.execute(createSql);
+            try {
+                TableSchema tableSchema =
+                        catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName)).getTableSchema();
 
-            TableSchema tableSchema =
-                    catalog.getTable(TablePath.of(MYSQL_DATABASE, tableName)).getTableSchema();
-
-            // The synthetic " UNSIGNED" suffix must not be attached to these columns anymore.
-            Assertions.assertEquals(
-                    BasicType.STRING_TYPE, tableSchema.getColumn("c_set").getDataType());
-            Assertions.assertEquals(
-                    BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
-            // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
-            // LONG, while a plain INT stays INT.
-            Assertions.assertEquals(
-                    BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
-            Assertions.assertEquals(
-                    BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
-
-            statement.execute("DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+                // The synthetic " UNSIGNED" suffix must not be attached to these columns anymore.
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_set").getDataType());
+                Assertions.assertEquals(
+                        BasicType.STRING_TYPE, tableSchema.getColumn("c_enum").getDataType());
+                // A genuinely unsigned numeric column keeps its attribute: INT UNSIGNED widens to
+                // LONG, while a plain INT stays INT.
+                Assertions.assertEquals(
+                        BasicType.LONG_TYPE, tableSchema.getColumn("c_int_unsigned").getDataType());
+                Assertions.assertEquals(
+                        BasicType.INT_TYPE, tableSchema.getColumn("c_int").getDataType());
+            } finally {
+                statement.execute(
+                        "DROP TABLE IF EXISTS `" + MYSQL_DATABASE + "`.`" + tableName + "`");
+            }
         }
     }
 
