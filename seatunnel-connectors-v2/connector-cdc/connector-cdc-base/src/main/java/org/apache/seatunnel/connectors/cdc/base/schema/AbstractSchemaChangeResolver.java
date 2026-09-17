@@ -66,6 +66,16 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
 
     @Override
     public boolean support(SourceRecord record) {
+        return supportsDdl(record, SUPPORT_DDL);
+    }
+
+    /**
+     * Checks whether a captured schema record contains one of the supported DDL statements.
+     *
+     * <p>Subclasses can extend the accepted DDL set for a connector-specific feature without
+     * changing the default schema-evolution contract.
+     */
+    protected boolean supportsDdl(SourceRecord record, List<String> supportedDdl) {
         String ddl = SourceRecordUtils.getDdl(record);
         Struct value = (Struct) record.value();
         List<Struct> tableChanges = value.getArray(HistoryRecord.Fields.TABLE_CHANGES);
@@ -74,7 +84,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
             return false;
         }
         return StringUtils.isNotBlank(ddl)
-                && SUPPORT_DDL.stream()
+                && supportedDdl.stream()
                         .map(String::toUpperCase)
                         .anyMatch(prefix -> ddl.toUpperCase().contains(prefix));
     }
