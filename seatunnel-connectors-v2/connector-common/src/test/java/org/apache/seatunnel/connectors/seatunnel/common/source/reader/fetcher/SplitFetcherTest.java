@@ -226,6 +226,64 @@ class SplitFetcherTest {
     }
 
     /**
+     * A reader whose {@code wakeUp()} already unblocks a pending fetch cooperatively (as
+     * KafkaPartitionSplitReader and FlussSourceSplitReader do, by having their own {@code fetch()}
+     * catch a wakeup signal and return a normal, possibly empty batch instead of throwing) must not
+     * have that ordinary shutdown misreported as a failure by the fetcher thread's added interrupt.
+     * The fetcher issues {@code wakeUp()} and the thread interrupt back to back under the same
+     * lock, so the interrupt can still land after {@code fetch()} has already returned through the
+     * cooperative path; cleanup must see neither a stray interrupt nor a spurious error in that
+     * case.
+     */
+    @Test
+    void cooperativeWakeUpReaderShutdownIsNotMisreportedAsFailure() throws Exception {
+        SplitReader<String, SourceSplit> reader = mock(SplitReader.class);
+        AtomicBoolean wokenUp = new AtomicBoolean();
+        CountDownLatch fetching = new CountDownLatch(1);
+        AtomicBoolean cleanupCompleted = new AtomicBoolean();
+        when(reader.fetch())
+                .thenAnswer(
+                        invocation -> {
+                            fetching.countDown();
+                            // Mirrors KafkaPartitionSplitReader#fetch() catching WakeupException
+                            // from consumer.poll() and returning a normal batch instead of
+                            // propagating an exception.
+                            while (!wokenUp.get()) {
+                                LockSupport.parkNanos(TimeUnit.MILLISECONDS.toNanos(1));
+                            }
+                            return records();
+                        });
+        doAnswer(
+                        invocation -> {
+                            wokenUp.set(true);
+                            return null;
+                        })
+                .when(reader)
+                .wakeUp();
+        doAnswer(
+                        invocation -> {
+                            assertFalse(Thread.currentThread().isInterrupted());
+                            cleanupCompleted.set(true);
+                            return null;
+                        })
+                .when(reader)
+                .close();
+        List<Throwable> errors = new CopyOnWriteArrayList<>();
+        SplitFetcher<String, SourceSplit> fetcher =
+                fetcher(reader, new LinkedBlockingQueue<>(), errors);
+        fetcher.addSplits(Collections.singletonList(split("snapshot")));
+        Thread thread = start(fetcher);
+        try {
+            assertTrue(fetching.await(5, TimeUnit.SECONDS));
+        } finally {
+            stop(fetcher, thread);
+        }
+        assertTrue(cleanupCompleted.get());
+        verify(reader, times(1)).wakeUp();
+        assertTrue(errors.isEmpty());
+    }
+
+    /**
      * Shutdown arriving after a read failure must not interrupt the reader's close operation or
      * conceal the original failure.
      */
