@@ -261,6 +261,7 @@ public final class SeaTunnelRow implements Serializable {
                 return getArrayNotNullSize((Double[]) v) * 8;
             case ARRAY:
             case ROW:
+                // Nested elements need their declared type to account for their contents.
                 int total = 0;
                 for (Object elem : (Object[]) v) {
                     total += getBytesForValue(elem, dataType);
@@ -289,6 +290,7 @@ public final class SeaTunnelRow implements Serializable {
         if (Objects.nonNull(v)) {
             for (Map o : (Map[]) v) {
                 if (o == null) {
+                    // Null array elements contribute no payload bytes, like other nullable values.
                     continue;
                 }
                 for (Map.Entry<?, ?> entry : ((Map<?, ?>) o).entrySet()) {
