@@ -866,11 +866,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      *
      * @param taskGroupLocation the task group location
      * @param task the function to execute on the shared task executor
-     * @return the future that completes when the asynchronous function finishes
      * @throws TaskGroupContextNotFoundException if the task group has no active deployment
      */
-    public CompletableFuture<?> asyncExecuteFunction(
-            TaskGroupLocation taskGroupLocation, Runnable task) {
+    public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
         // The ID distinguishes multiple async functions owned by the same deployment and lets each
         // completion callback remove only its own future.
         String id = UUID.randomUUID().toString();
@@ -904,7 +902,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     + " with id "
                                     + id);
                 });
-        return future;
     }
 
     /**

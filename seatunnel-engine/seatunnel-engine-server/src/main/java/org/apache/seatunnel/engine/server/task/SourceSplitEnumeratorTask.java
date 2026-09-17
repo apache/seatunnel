@@ -138,7 +138,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @NonNull @Override
     public ProgressState call() throws Exception {
-        enumeratorContext.throwIfSplitDeliveryFailed();
         stateProcess();
         return progress.toState();
     }
@@ -157,27 +156,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         byte[] serialize = null;
         // Do not modify this lock object, as it is also used in the SourceSplitEnumerator.
         synchronized (enumeratorContext) {
-            enumeratorContext.awaitPendingSplitDeliveries();
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
                 serialize = enumeratorStateSerializer.serialize(snapshotState);
-                enumeratorContext.blockSplitDeliveryUntilReaderBarrierSent();
             }
-            try {
-                if (barrier.snapshot()) {
-                    // Split deliveries that were enqueued while snapshotState waited for
-                    // connector-owned locks must be acknowledged before readers receive this
-                    // barrier. Later deliveries wait until the barrier is sent, preserving
-                    // checkpoint ownership without reintroducing the run() monitor deadlock.
-                    enumeratorContext.awaitPendingSplitDeliveries();
-                }
-                log.debug("source split enumerator send state [{}] to master", snapshotState);
-                sendToActiveReader(barrier);
-            } finally {
-                if (barrier.snapshot()) {
-                    enumeratorContext.unblockSplitDeliveryAfterReaderBarrierSent();
-                }
-            }
+            log.debug("source split enumerator send state [{}] to master", snapshotState);
+            sendToActiveReader(barrier);
         }
         if (barrier.snapshot()) {
             this.getExecutionContext()
@@ -231,10 +215,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     public synchronized void addSplitsBack(List<SplitT> splits, int subtaskId)
             throws ExecutionException, InterruptedException {
-        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
-        synchronized (enumeratorContext) {
-            enumerator.addSplitsBack(splits, subtaskId);
-        }
+        getEnumerator().addSplitsBack(splits, subtaskId);
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr)
@@ -268,18 +249,12 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public void requestSplit(long taskIndex) throws ExecutionException, InterruptedException {
-        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
-        synchronized (enumeratorContext) {
-            enumerator.handleSplitRequest((int) taskIndex);
-        }
+        getEnumerator().handleSplitRequest((int) taskIndex);
     }
 
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent)
             throws ExecutionException, InterruptedException {
-        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
-        synchronized (enumeratorContext) {
-            enumerator.handleSourceEvent(subtaskId, sourceEvent);
-        }
+        getEnumerator().handleSourceEvent(subtaskId, sourceEvent);
     }
 
     public void addTaskMemberMapping(TaskLocation taskID, Address memberAdder) {
@@ -356,9 +331,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case STARTING:
                 currState = RUNNING;
                 log.info("received enough reader, starting enumerator...");
-                // Some streaming enumerators keep run() alive until close or interruption. Do not
-                // hold the checkpoint monitor across this call, otherwise periodic checkpoints can
-                // never acquire the monitor after the source starts.
                 enumerator.run();
                 break;
             case RUNNING:
@@ -431,11 +403,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
-        synchronized (enumeratorContext) {
-            // Checkpoint listeners may reassign splits, so keep them exclusive with snapshots.
-            enumerator.notifyCheckpointComplete(checkpointId);
-        }
+        getEnumerator().notifyCheckpointComplete(checkpointId);
         if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
@@ -443,11 +411,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
-        SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
-        synchronized (enumeratorContext) {
-            // Checkpoint listeners may reassign splits, so keep them exclusive with snapshots.
-            enumerator.notifyCheckpointAborted(checkpointId);
-        }
+        getEnumerator().notifyCheckpointAborted(checkpointId);
         if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
