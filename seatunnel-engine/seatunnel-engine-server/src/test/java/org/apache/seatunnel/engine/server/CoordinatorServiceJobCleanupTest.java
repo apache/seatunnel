@@ -314,7 +314,7 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
-    void testSubmitCheckpointRestoreDoesNotTrustLegacySavepointFlag() {
+    void testSubmitSavepointUsesLegacyParameter() {
         CoordinatorService coordinatorService = server.getCoordinatorService();
         long destinationJobId = System.currentTimeMillis();
         long sourceJobId = destinationJobId - 1;
@@ -347,10 +347,10 @@ class CoordinatorServiceJobCleanupTest extends AbstractSeaTunnelServerTest {
                                                 destinationJobId,
                                                 createJobData(
                                                         destinationJobId,
-                                                        RestoreMode.CHECKPOINT,
+                                                        RestoreMode.SAVEPOINT,
                                                         sourceJobId,
                                                         "stream_fake_to_console.conf"),
-                                                true)
+                                                false)
                                         .join());
         Assertions.assertInstanceOf(JobException.class, exception.getCause());
         Assertions.assertTrue(
