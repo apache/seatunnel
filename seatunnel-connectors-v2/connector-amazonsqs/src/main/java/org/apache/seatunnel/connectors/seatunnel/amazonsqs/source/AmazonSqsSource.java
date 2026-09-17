@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SupportColumnProjection;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitSource;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -39,14 +40,24 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
     private AmazonSqsSourceConfig amazonSqsSourceConfig;
     private DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private CatalogTable catalogTable;
+    private MessageFormat format;
 
     public AmazonSqsSource(
             AmazonSqsSourceConfig amazonSqsSourceConfig,
             CatalogTable catalogTable,
             DeserializationSchema<SeaTunnelRow> deserializationSchema) {
+        this(amazonSqsSourceConfig, catalogTable, deserializationSchema, MessageFormat.JSON);
+    }
+
+    AmazonSqsSource(
+            AmazonSqsSourceConfig amazonSqsSourceConfig,
+            CatalogTable catalogTable,
+            DeserializationSchema<SeaTunnelRow> deserializationSchema,
+            MessageFormat format) {
         this.amazonSqsSourceConfig = amazonSqsSourceConfig;
         this.catalogTable = catalogTable;
         this.deserializationSchema = deserializationSchema;
+        this.format = format;
     }
 
     @Override
@@ -71,6 +82,7 @@ public class AmazonSqsSource extends AbstractSingleSplitSource<SeaTunnelRow>
                 readerContext,
                 amazonSqsSourceConfig,
                 deserializationSchema,
-                catalogTable.getSeaTunnelRowType());
+                catalogTable.getSeaTunnelRowType(),
+                format);
     }
 }
