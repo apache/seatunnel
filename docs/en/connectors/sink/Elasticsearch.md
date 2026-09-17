@@ -12,6 +12,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 Output data to Elasticsearch or OpenSearch-compatible clusters. The connector uses the Bulk API to buffer documents and flush them in batches. Document IDs are derived from the primary key columns, which makes the sink suitable for CDC workloads that need update and delete semantics. Elasticsearch `2.x` through `8.x` is supported.
 
+> **Note on `--dry-run` validation**: The Elasticsearch sink implements the dry-run validation SPI. When you run `seatunnel.sh --dry-run connect`, the connector creates a short-lived client and verifies connectivity and authentication by fetching cluster info (`GET /`), then checks target index accessibility (`HEAD /{index}`) unless the index name contains a dynamic placeholder such as `${field}`.
+
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)

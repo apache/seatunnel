@@ -62,6 +62,8 @@ mysql> GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIE
 mysql> FLUSH PRIVILEGES;
 ```
 
+> **关于 `--dry-run` 校验的说明**：MySQL CDC 连接器实现了 dry-run 校验 SPI。当你执行 `seatunnel.sh --dry-run connect` 时，连接器会打开一个真实（但只读）的 JDBC 连接，校验配置用户是否拥有 `REPLICATION SLAVE` 和 `REPLICATION CLIENT` 权限，并在缺失时给出可操作的报错。该权限校验通过匹配 `SHOW GRANTS FOR CURRENT_USER` 输出中的 `ALL` 或具体权限名来判断；仅通过 MySQL 8 角色（且不是用户当前默认角色）授予的权限可能无法被识别，因此这类用户应直接授予相应权限。
+
 ### 启用MySQL Binlog
 
 一定要为MySQL复制启用binlog。binlog记录事务更新以供复制工具传播更改.

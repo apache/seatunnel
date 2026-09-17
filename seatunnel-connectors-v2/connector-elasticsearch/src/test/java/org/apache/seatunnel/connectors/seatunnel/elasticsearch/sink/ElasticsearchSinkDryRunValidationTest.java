@@ -237,21 +237,6 @@ class ElasticsearchSinkDryRunValidationTest {
                 anotherDynamic.contains(ElasticsearchSinkOptions.INDEX_VARIABLE_PREFIX));
     }
 
-    @Test
-    void testCreateSinkAlsoValidatesConnection() {
-        ElasticsearchSinkFactory factory = new ElasticsearchSinkFactory();
-        EsRestClient mockClient = mock(EsRestClient.class);
-        when(mockClient.getClusterInfo()).thenThrow(new RuntimeException("Connection refused"));
-
-        try (MockedStatic<EsRestClient> mockedStatic = mockStatic(EsRestClient.class)) {
-            mockedStatic.when(() -> EsRestClient.createInstance(any())).thenReturn(mockClient);
-
-            TableSinkFactoryContext context = createSinkContext("test_index");
-            // createSink should also validate connection and throw
-            Assertions.assertThrows(SeaTunnelException.class, () -> factory.createSink(context));
-        }
-    }
-
     private TableSinkFactoryContext createSinkContext(String indexName) {
         Map<String, Object> config = new HashMap<>();
         config.put("hosts", Arrays.asList("localhost:9200"));

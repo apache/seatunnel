@@ -6,6 +6,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 输出数据到 `Elasticsearch`
 
+> **关于 `--dry-run` 校验的说明**：Elasticsearch sink 实现了 dry-run 校验 SPI。当你执行 `seatunnel.sh --dry-run connect` 时，连接器会创建一个短生命周期的客户端，通过获取集群信息（`GET /`）校验连通性和认证，随后校验目标索引的可访问性（`HEAD /{index}`），除非索引名包含如 `${field}` 这样的动态占位符。
+
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)

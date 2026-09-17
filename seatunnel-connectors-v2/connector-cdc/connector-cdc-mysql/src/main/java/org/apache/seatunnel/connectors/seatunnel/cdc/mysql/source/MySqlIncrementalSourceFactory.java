@@ -135,8 +135,14 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
 
     /**
      * Validates MySQL CDC required privileges (REPLICATION SLAVE and REPLICATION CLIENT). This
-     * method is called both during dry-run and during normal task submission so that permission
-     * issues are surfaced as early as possible.
+     * method is only invoked by {@link #validateConnectionForDryRun(TableSourceFactoryContext,
+     * List)} during a dry-run, so that permission issues are surfaced up-front without introducing
+     * an extra connection/failure point on the production submission or checkpoint-recovery path.
+     *
+     * <p>Note: the underlying {@link MySqlConnection#userHasPrivileges(String)} check matches the
+     * {@code SHOW GRANTS FOR CURRENT_USER} output against {@code ALL} or the literal grant name.
+     * Privileges granted solely through a MySQL 8 role that is not the user's active default role
+     * may not be reflected, which could produce a false negative for such users.
      */
     private void validateMySqlPermissions(ReadonlyConfig config) {
         // Build a minimal Debezium Configuration from user config to create a MySqlConnection.
@@ -203,11 +209,6 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
-        // Validate MySQL CDC required privileges before creating the source.
-        // This runs at task submission time (both HTTP API and CLI) so that
-        // permission issues surface immediately rather than during sync.
-        validateMySqlPermissions(context.getOptions());
-
         return () -> {
             // Load the JDBC driver in to DriverManager
             try {

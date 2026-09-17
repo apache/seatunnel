@@ -121,9 +121,10 @@ public class ElasticsearchSinkFactory implements TableSinkFactory, SupportSinkDr
     }
 
     /**
-     * Validates Elasticsearch/OpenSearch connectivity and authentication. This method is called
-     * both during dry-run and during normal task submission so that connection issues are surfaced
-     * as early as possible.
+     * Validates Elasticsearch/OpenSearch connectivity and authentication. This method is only
+     * invoked by {@link #validateConnectionForDryRun(TableSinkFactoryContext)} during a dry-run, so
+     * that connection issues are surfaced up-front without introducing an extra connection/failure
+     * point on the production submission or resume path.
      */
     private void validateElasticsearchConnection(ReadonlyConfig config) {
         try (EsRestClient client = EsRestClient.createInstance(config)) {
@@ -157,11 +158,6 @@ public class ElasticsearchSinkFactory implements TableSinkFactory, SupportSinkDr
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig readonlyConfig = context.getOptions();
-
-        // Validate Elasticsearch/OpenSearch connectivity before creating the sink.
-        // This runs at task submission time (both HTTP API and CLI) so that
-        // connection issues surface immediately rather than during sync.
-        validateElasticsearchConnection(readonlyConfig);
 
         String original = readonlyConfig.get(INDEX);
         CatalogTable newTable =

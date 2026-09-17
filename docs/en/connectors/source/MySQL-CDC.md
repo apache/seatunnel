@@ -63,6 +63,8 @@ mysql> GRANT SELECT, RELOAD, SHOW DATABASES, REPLICATION SLAVE, REPLICATION CLIE
 mysql> FLUSH PRIVILEGES;
 ```
 
+> **Note on `--dry-run` validation**: The MySQL CDC connector implements the dry-run validation SPI. When you run `seatunnel.sh --dry-run connect`, the connector opens a real (but read-only) JDBC connection and verifies that the configured user has the `REPLICATION SLAVE` and `REPLICATION CLIENT` privileges, reporting an actionable error if they are missing. This privilege check matches the output of `SHOW GRANTS FOR CURRENT_USER` against `ALL` or the literal grant name; privileges granted only through a MySQL 8 role that is not the user's active default role may not be detected, so such users should grant the privileges directly.
+
 ### Enabling the MySQL Binlog
 
 You must enable binary logging for MySQL replication. The binary logs record transaction updates for replication tools to propagate changes.
