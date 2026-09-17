@@ -17,6 +17,12 @@
 name: publish-docker
 
 on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Existing release tag to publish (for example, v3.0.0)'
+        required: true
+        type: string
   push:
     tags:
       - '*'
@@ -37,12 +43,32 @@ jobs:
       packages: write
     timeout-minutes: 60
     steps:
+      - name: Validate manually selected release tag
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          case "${RELEASE_TAG}" in
+            '' | *[!0-9A-Za-z._-]*)
+              echo "release_tag must contain only letters, digits, dots, underscores, or hyphens."
+              exit 1
+              ;;
+          esac
+          if ! git ls-remote --exit-code --tags \
+            "https://github.com/${{ github.repository }}.git" \
+            "refs/tags/${RELEASE_TAG}" >/dev/null; then
+            echo "release_tag '${RELEASE_TAG}' does not exist in the remote repository."
+            exit 1
+          fi
       - uses: actions/checkout@v4
         with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
           submodules: true
       - name: free disk space
         run: tools/github/free_disk_space.sh
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.ref }}
       - name: Cache local Maven repository
         uses: actions/cache@v4
         with:
