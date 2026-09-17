@@ -596,6 +596,87 @@ class JdbcSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testHandleSplitRequestFlushesPendingForAllReaders() throws Exception {
+        int parallelism = 2;
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        Set<Integer> registeredReaders = ConcurrentHashMap.newKeySet();
+        registeredReaders.add(0);
+        registeredReaders.add(1);
+
+        Map<Integer, List<String>> assignedByReader = new HashMap<>();
+        assignedByReader.put(0, new ArrayList<>());
+        assignedByReader.put(1, new ArrayList<>());
+
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return parallelism;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(registeredReaders);
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {
+                        for (JdbcSourceSplit split : splits) {
+                            assignedByReader.get(subtaskId).add(split.splitId());
+                        }
+                    }
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {}
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {}
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:generic://localhost:0/test")
+                                        .driverName("org.example.Driver")
+                                        .build())
+                        .splitAssignBatchSize(1)
+                        .splitMaxPendingSplits(4)
+                        .build();
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(context, sourceConfig, tables, null);
+        enumerator.open();
+
+        // Leave one split pending for reader 1 after the first handoff.
+        enumerator.addSplitsBack(
+                java.util.Arrays.asList(
+                        createSplit(tablePath, "r1-a"), createSplit(tablePath, "r1-b")),
+                1);
+        Assertions.assertEquals(Collections.singletonList("r1-a"), assignedByReader.get(1));
+        Assertions.assertTrue(assignedByReader.get(0).isEmpty());
+
+        // A request from reader 0 must still flush reader 1's remaining pending split.
+        enumerator.handleSplitRequest(0);
+
+        Assertions.assertEquals(java.util.Arrays.asList("r1-a", "r1-b"), assignedByReader.get(1));
+        Assertions.assertTrue(assignedByReader.get(0).isEmpty());
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+        enumerator.close();
+    }
+
+    @Test
     void testMaxPendingSplitsCapsLazyGeneration() throws Exception {
         int parallelism = 1;
         Set<Integer> registeredReaders = Collections.singleton(0);

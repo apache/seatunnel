@@ -118,11 +118,7 @@ public class JdbcSourceSplitEnumerator
         synchronized (stateLock) {
             runCalled = true;
             refillPendingUpToWatermark();
-            assignSplit(readers);
-            if (isGenerationComplete()) {
-                enumerationFinished = true;
-                maybeSignalNoMoreSplits(readers);
-            }
+            assignAndMaybeFinish(readers);
         }
         LOG.info("Initial split enumeration pass finished for readers {}.", readers);
     }
@@ -175,11 +171,10 @@ public class JdbcSourceSplitEnumerator
             } catch (Exception e) {
                 throw new RuntimeException("Failed to refill pending jdbc splits", e);
             }
-            assignSplit(Collections.singletonList(subtaskId));
-            if (runCalled && isGenerationComplete()) {
-                enumerationFinished = true;
-            }
-            maybeSignalNoMoreSplits(Collections.singletonList(subtaskId));
+            // Refill buckets splits by global hash ownership. Assign to every registered reader so
+            // a request from one reader cannot leave another reader's pending splits stranded
+            // while that reader is waiting on an in-flight split request.
+            assignAndMaybeFinish(context.registeredReaders());
         }
     }
 
@@ -192,12 +187,20 @@ public class JdbcSourceSplitEnumerator
             } catch (Exception e) {
                 throw new RuntimeException("Failed to refill pending jdbc splits", e);
             }
-            assignSplit(Collections.singletonList(subtaskId));
-            if (runCalled && isGenerationComplete()) {
-                enumerationFinished = true;
-            }
-            maybeSignalNoMoreSplits(Collections.singletonList(subtaskId));
+            assignAndMaybeFinish(context.registeredReaders());
         }
+    }
+
+    /**
+     * Assigns pending batches to the given readers and, once generation is complete, signals {@code
+     * NoMoreSplits} where appropriate.
+     */
+    private void assignAndMaybeFinish(Collection<Integer> readers) {
+        assignSplit(readers);
+        if (runCalled && isGenerationComplete()) {
+            enumerationFinished = true;
+        }
+        maybeSignalNoMoreSplits(readers);
     }
 
     @Override

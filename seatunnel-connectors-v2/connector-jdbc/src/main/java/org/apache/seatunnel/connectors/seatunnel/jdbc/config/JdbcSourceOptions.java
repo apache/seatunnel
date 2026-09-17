@@ -102,11 +102,9 @@ public class JdbcSourceOptions extends JdbcCommonOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription(
-                            "Whether to allow sampling-based sharding strategy. "
-                                    + "When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. "
-                                    + "Note: large-table dynamic splitting now defaults to index probing instead of full-column client sampling; "
-                                    + "this option is retained for compatibility and only affects legacy sampling fallbacks when explicitly enabled with sample-sharding.threshold. "
-                                    + "The default value is true.");
+                            "Retained for compatibility. Full-column client sampling is no longer "
+                                    + "reachable on the live dynamic-split planning path; uneven keys use "
+                                    + "index probing regardless of this flag. The default value is true.");
 
     public static final Option<Integer> SPLIT_ASSIGN_BATCH_SIZE =
             Options.key("split.assign.batch-size")
