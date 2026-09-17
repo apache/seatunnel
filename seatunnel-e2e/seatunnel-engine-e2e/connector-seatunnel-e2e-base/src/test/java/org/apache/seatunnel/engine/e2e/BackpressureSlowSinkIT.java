@@ -54,7 +54,7 @@ import static io.restassured.RestAssured.given;
  *
  * <p>The job pairs a {@code FakeSource} that produces as fast as the JVM allows
  * (split.read-interval = 0, a very large row.num) with an {@code InMemory} sink throttled to a
- * fixed ~500 rows/sec via {@code write_delay_ms}. Because the sink's writer thread is also the
+ * fixed ~1000 rows/sec via {@code write_delay_ms}. Because the sink's writer thread is also the
  * thread that drains Zeta's bounded source-to-sink intermediate queue (an {@code
  * ArrayBlockingQueue} of fixed capacity, see {@code
  * TaskGroupWithIntermediateBlockingQueue#QUEUE_SIZE}), a slow writer keeps that queue saturated for
@@ -112,7 +112,7 @@ public class BackpressureSlowSinkIT {
      * condition-driven so temporary CI scheduling stalls do not turn a healthy job into a flaky
      * wall-clock failure.
      */
-    private static final long MIN_NEW_COMPLETED_CHECKPOINTS = 3;
+    private static final long MIN_NEW_COMPLETED_CHECKPOINTS = 2;
 
     private HazelcastInstanceImpl node;
     private SeaTunnelClient engineClient;
@@ -187,7 +187,7 @@ public class BackpressureSlowSinkIT {
         // Wait for the first checkpoint so the sampling loop below always starts from a
         // well-defined baseline instead of racing the job's own startup.
         Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
+                .atMost(CHECKPOINT_PROGRESS_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {

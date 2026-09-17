@@ -111,6 +111,8 @@ public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
     }
 
     private static int findFreeBrokerPort() {
+        // The probe cannot reserve both ports until Docker binds them, so a small TOCTOU race
+        // remains; retrying several candidate pairs keeps that window bounded in practice.
         for (int i = 0; i < FREE_PORT_ATTEMPTS; i++) {
             int port = findFreePort();
             if (port > 2 && isPortFree(port - 2)) {
