@@ -73,8 +73,8 @@ import java.util.stream.Collectors;
 public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     private static final int MAX_CACHED_PATTERNS = 256;
 
-    // Shared across all jobs in this JVM; bounded LRU so dynamically-generated regex patterns
-    // cannot grow this cache without limit over the life of the process.
+    // Bounded LRU so dynamically-generated regex patterns cannot grow without limit. Patterns are
+    // immutable, so a benign duplicate compile under concurrent access has no correctness impact.
     private static final Map<String, Pattern> COMPILED_PATTERN_CACHE =
             Collections.synchronizedMap(
                     new LinkedHashMap<String, Pattern>(16, 0.75f, true) {
@@ -106,6 +106,9 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         Map<String, String> sinkTableOptions = config.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
+        // Keep the upstream table reference for pattern matching: catalogTable is rebuilt below
+        // with the resolved sink table path, whose table name no longer represents the source.
+        CatalogTable upstreamTable = catalogTable;
         // source table info
         TableIdentifier tableId = catalogTable.getTableId();
         // sink table info
@@ -138,7 +141,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
         Optional<List<String>> multiTablePrimaryKeys =
-                resolveMultiTablePrimaryKeys(config, catalogTable);
+                resolveMultiTablePrimaryKeys(config, upstreamTable);
         if (multiTablePrimaryKeys.isPresent()) {
             catalogTable = applyPrimaryKeys(map, catalogTable, multiTablePrimaryKeys.get());
         } else {
@@ -285,7 +288,8 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
      * Optional#empty()}, leaving the fallback logic to run.
      *
      * @param config the sink config
-     * @param catalogTable the table being processed
+     * @param catalogTable the upstream table; its name is matched against the patterns and its
+     *     schema is used to expand {@code ${primary_key}} / {@code ${unique_key}}
      * @return the resolved key columns, or {@link Optional#empty()} when no pattern matches
      */
     Optional<List<String>> resolveMultiTablePrimaryKeys(

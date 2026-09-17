@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -441,5 +442,31 @@ class JdbcSinkFactoryTest {
         cfg.put("multi_table_config", multiTableConfig);
 
         Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    /**
+     * The patterns must match the upstream table name even when the resolved sink table name
+     * differs, e.g. via a static {@code table} remap. Otherwise the mapping silently falls back to
+     * catalog metadata and the wrong key columns end up in the generated SQL.
+     */
+    @Test
+    void testFactoryContextWithMultiTableConfigMatchesUpstreamTableName() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table", "target_TEST_TABLE");
+
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_TABLE$", Collections.singletonList("id"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        TableSink tableSink = createSinkViaFactoryContext(cfg, false);
+        SeaTunnelSink<?, ?, ?, ?> sink = tableSink.createSink();
+        CatalogTable writeTable = sink.getWriteCatalogTable().get();
+
+        Assertions.assertNotNull(writeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                Collections.singletonList("id"),
+                writeTable.getTableSchema().getPrimaryKey().getColumnNames());
     }
 }

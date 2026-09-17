@@ -443,7 +443,7 @@ public class ConfigShadeTest {
                         "source { FakeSource { plugin_output = \"fake\" } }\n"
                                 + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\", "
                                 + "username = \"u\", password = \"p\", "
-                                + "multi-table_config { primary_keys { "
+                                + "multi_table_config { primary_keys { "
                                 + "\"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"], "
                                 + "\"^t_tyuen_txn_.*$\" = [\"id_txn_ctrl\", \"DATA_SOURCE\"] "
                                 + "} } } }");
@@ -454,7 +454,7 @@ public class ConfigShadeTest {
                 decrypted
                         .getConfigList("sink")
                         .get(0)
-                        .getConfig("multi-table_config")
+                        .getConfig("multi_table_config")
                         .getConfig("primary_keys")
                         .root()
                         .unwrapped();
