@@ -53,6 +53,12 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Hadoop {@link FileSystem} implementation for SMB/CIFS shares, backed by the smbj library
+ * (SMB2/SMB3). Each file-system operation opens a short-lived {@link SmbConnection} (Connection →
+ * Session → DiskShare) and closes it when done; long-lived resources (input/output streams, listing
+ * sessions) own their connection and close it on {@code close()}.
+ */
 public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
 
     public static final String FS_SMB_HOST = "fs.smb.host";

@@ -24,6 +24,11 @@ import com.hierynomus.smbj.share.File;
 
 import java.io.IOException;
 
+/**
+ * Seekable input stream over an SMB file. Random access is implemented via {@code smbj
+ * File.read(byte[], long fileOffset)}, which maps directly to the SMB2 READ request's built-in
+ * offset field — no buffering or re-opening needed for backward seeks.
+ */
 public class SmbInputStream extends FSInputStream {
 
     private final File smbFile;

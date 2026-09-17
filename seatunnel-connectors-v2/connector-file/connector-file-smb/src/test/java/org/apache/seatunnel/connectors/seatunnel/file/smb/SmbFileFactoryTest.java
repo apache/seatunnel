@@ -146,6 +146,36 @@ class SmbFileFactoryTest {
     }
 
     @Test
+    void buildWithConfigShouldFailWithoutHost() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("user", "admin");
+        configMap.put("share", "data");
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> SmbConf.buildWithConfig(ReadonlyConfig.fromMap(configMap)));
+    }
+
+    @Test
+    void buildWithConfigShouldFailWithoutUser() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("host", "myhost");
+        configMap.put("share", "data");
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> SmbConf.buildWithConfig(ReadonlyConfig.fromMap(configMap)));
+    }
+
+    @Test
+    void buildWithConfigShouldFailWithoutShare() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("host", "myhost");
+        configMap.put("user", "admin");
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> SmbConf.buildWithConfig(ReadonlyConfig.fromMap(configMap)));
+    }
+
+    @Test
     void buildHadoopConf() {
         Map<String, Object> configMap = new HashMap<>();
         configMap.put("host", "smb.example.com");
