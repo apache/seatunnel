@@ -1,3 +1,4 @@
+import ChangeLog from '../changelog/connector-google-ads.md';
 # GoogleAds
 
 > Google Ads 源连接器

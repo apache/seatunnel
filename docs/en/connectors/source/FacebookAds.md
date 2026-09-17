@@ -1,3 +1,4 @@
+import ChangeLog from '../changelog/connector-facebook-ads.md';
 # FacebookAds
 
 > Facebook Ads source connector

@@ -1,3 +1,4 @@
+import ChangeLog from '../changelog/connector-salesforce.md';
 # Salesforce
 
 > Salesforce 源连接器
