@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -36,11 +37,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -181,6 +184,46 @@ public class HttpSinkBatchWriterTest {
         requestBody = requestBodyCaptor.getValue();
         assertTrue(requestBody.startsWith("["));
         assertTrue(requestBody.endsWith("]"));
+    }
+
+    @Test
+    public void testArrayModeRequestExceptionIsPropagatedDuringCheckpoint() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+
+        when(httpClientProvider.doPost(anyString(), any(), anyString()))
+                .thenThrow(new IOException("connection refused"))
+                .thenReturn(new HttpResponse(HttpResponse.STATUS_OK));
+
+        sinkWriter.write(createTestRow(1, "user1", 20));
+
+        HttpConnectorException exception =
+                assertThrows(HttpConnectorException.class, () -> sinkWriter.prepareCommit());
+
+        assertEquals("connection refused", exception.getCause().getMessage());
+
+        sinkWriter.prepareCommit();
+
+        verify(httpClientProvider, times(2)).doPost(eq(TEST_URL), any(), anyString());
+    }
+
+    @Test
+    public void testCloseClosesHttpClientWhenFlushFails() throws Exception {
+        httpParameter.setArrayMode(true);
+        httpParameter.setBatchSize(BATCH_SIZE);
+        sinkWriter = new TestableHttpSinkWriter(rowType, httpParameter);
+
+        when(httpClientProvider.doPost(anyString(), any(), anyString()))
+                .thenReturn(new HttpResponse(500, "server error"));
+
+        sinkWriter.write(createTestRow(1, "user1", 20));
+
+        HttpConnectorException exception =
+                assertThrows(HttpConnectorException.class, () -> sinkWriter.close());
+
+        assertTrue(exception.getMessage().contains("http response status code:[500]"));
+        verify(httpClientProvider, times(1)).close();
     }
 
     private SeaTunnelRow createTestRow(int id, String name, int age) {
