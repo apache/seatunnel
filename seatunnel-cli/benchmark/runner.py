@@ -67,25 +67,34 @@ CLARIFICATION_REPLY = (
 )
 
 
-def load_tasks(tiers: list[int], task_ids: list[str] | None = None,
-               suite: str = "baseline") -> list[dict]:
+def load_tasks(
+    tiers: list[int], task_ids: list[str] | None = None, suite: str = "baseline"
+) -> list[dict]:
     if suite not in ("baseline", "paraphrase"):
         raise ValueError(f"Unknown task suite: {suite}")
     if suite == "paraphrase":
         from benchmark.paraphrases import load_paraphrases
 
-        if (not tiers or len(tiers) != len(set(tiers))
-                or any(t not in TIER_FILES for t in tiers)):
+        if (
+            not tiers
+            or len(tiers) != len(set(tiers))
+            or any(t not in TIER_FILES for t in tiers)
+        ):
             raise ValueError("Select distinct tiers from 1, 2 and 3")
-        tasks = [task for task in load_paraphrases(load_tasks(list(TIER_FILES)))
-                 if task["tier"] in tiers]
+        tasks = [
+            task
+            for task in load_paraphrases(load_tasks(list(TIER_FILES)))
+            if task["tier"] in tiers
+        ]
         if task_ids is not None:
             if not task_ids or len(task_ids) != len(set(task_ids)):
                 raise ValueError("Select one or more distinct paraphrase task IDs")
             unknown = set(task_ids) - {task["id"] for task in tasks}
             if unknown:
-                raise ValueError("Unknown paraphrase tasks in selected tiers: "
-                                 + ", ".join(sorted(unknown)))
+                raise ValueError(
+                    "Unknown paraphrase tasks in selected tiers: "
+                    + ", ".join(sorted(unknown))
+                )
             tasks = [task for task in tasks if task["id"] in task_ids]
         if not tasks:
             raise ValueError("No paraphrase tasks selected")
@@ -590,6 +599,7 @@ def main() -> None:
     parser.add_argument("--out", default="benchmark/results")
     args = parser.parse_args()
 
+    # Reject invalid task selections before provider setup can require credentials.
     try:
         tasks = load_tasks(args.tiers, args.tasks, args.suite)
     except (ValueError, OSError) as error:
