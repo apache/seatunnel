@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.JsonField;
 import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.http.source.SimpleTextDeserializationSchema;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -41,7 +42,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -180,6 +183,59 @@ public class HttpSourceReaderInternalPollNextTest {
         verify(httpClientProvider, times(2))
                 .execute(anyString(), anyString(), any(), any(), any(), anyBoolean());
         verify(context, times(1)).signalNoMoreElement();
+        httpSourceReader.close();
+    }
+
+    /**
+     * Regression test for a content_field extraction bug: {@code jsonConfiguration} enables {@code
+     * Option.ALWAYS_RETURN_LIST}, which wraps the resolved value of a *definite* content_field path
+     * (e.g. "$.results") inside a synthetic single-element list. Left unhandled, an already-array
+     * value such as HubSpot's "$.results" is turned into a double-nested array, and {@link
+     * JsonDeserializationSchema#collect} then only unwraps one level, collapsing every element of
+     * the array into a single malformed row instead of producing one row per element.
+     */
+    @Test
+    public void testDefiniteArrayContentFieldProducesOneRowPerElement() throws Exception {
+        when(httpClientProvider.execute(
+                        anyString(), anyString(), any(), any(), any(), anyBoolean()))
+                .thenReturn(
+                        new HttpResponse(
+                                200,
+                                "{\"results\":[{\"key1\":\"v1\",\"key2\":\"v2\"},{\"key1\":\"v3\",\"key2\":\"v4\"}]}"));
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"key1", "key2"},
+                        new SeaTunnelDataType[] {BasicType.STRING_TYPE, BasicType.STRING_TYPE});
+        JsonDeserializationSchema jsonDeserializationSchema =
+                new JsonDeserializationSchema(false, false, rowType);
+
+        List<SeaTunnelRow> collected = new ArrayList<>();
+        Collector<SeaTunnelRow> capturingCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        collected.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return new Object();
+                    }
+                };
+
+        httpSourceReader =
+                new HttpSourceReader(
+                        httpParameter, context, jsonDeserializationSchema, null, "$.results");
+        httpSourceReader.open();
+        httpSourceReader.setHttpClient(httpClientProvider);
+        httpSourceReader.internalPollNext(capturingCollector);
+
+        Assertions.assertEquals(2, collected.size());
+        Assertions.assertEquals("v1", collected.get(0).getField(0));
+        Assertions.assertEquals("v2", collected.get(0).getField(1));
+        Assertions.assertEquals("v3", collected.get(1).getField(0));
+        Assertions.assertEquals("v4", collected.get(1).getField(1));
         httpSourceReader.close();
     }
 
