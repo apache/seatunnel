@@ -26,6 +26,8 @@ import org.apache.parquet.io.SeekableInputStream;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledOnOs;
+import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
@@ -36,6 +38,10 @@ class FileSystemParquetFileTest {
     @TempDir private java.nio.file.Path tempDir;
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Hadoop local filesystem writes require winutils/HADOOP_HOME on Windows")
     void testWriteThenReadThroughTheAdapters() throws Exception {
         byte[] payload = "seatunnel".getBytes(StandardCharsets.UTF_8);
         try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"))) {
@@ -57,6 +63,10 @@ class FileSystemParquetFileTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Hadoop local filesystem writes require winutils/HADOOP_HOME on Windows")
     void testCreateOrOverwriteReplacesExistingFile() throws Exception {
         try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"))) {
             FileSystem fs = proxy.getFileSystem();
@@ -76,6 +86,10 @@ class FileSystemParquetFileTest {
     }
 
     @Test
+    @DisabledOnOs(
+            value = OS.WINDOWS,
+            disabledReason =
+                    "Hadoop local filesystem writes require winutils/HADOOP_HOME on Windows")
     void testProxyOwnsASingleFileSystemSharedByManyFiles() throws Exception {
         try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"))) {
             FileSystem fs = proxy.getFileSystem();
