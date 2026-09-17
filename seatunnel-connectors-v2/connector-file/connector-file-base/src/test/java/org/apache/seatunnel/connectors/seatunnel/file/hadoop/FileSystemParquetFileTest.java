@@ -76,6 +76,28 @@ class FileSystemParquetFileTest {
     }
 
     @Test
+    void testProxyOwnsASingleFileSystemSharedByManyFiles() throws Exception {
+        try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"))) {
+            FileSystem fs = proxy.getFileSystem();
+            // The proxy is the single owner: repeated lookups must not allocate a new
+            // FileSystem. Per-file resolution (HadoopOutputFile/HadoopInputFile.fromPath, or
+            // ParquetReader.builder(ReadSupport, Path)) allocated one per file and leaked its
+            // metrics registration, which is what these adapters exist to avoid.
+            Assertions.assertSame(fs, proxy.getFileSystem());
+
+            // Many files, one FileSystem instance.
+            for (int i = 0; i < 3; i++) {
+                Path path = new Path(tempDir.resolve("shared-" + i + ".bin").toString());
+                try (PositionOutputStream out = new FileSystemOutputFile(fs, path).create(0L)) {
+                    out.write(("row" + i).getBytes(StandardCharsets.UTF_8));
+                }
+                Assertions.assertEquals(4, FileSystemInputFile.fromPath(fs, path).getLength());
+                Assertions.assertSame(fs, proxy.getFileSystem());
+            }
+        }
+    }
+
+    @Test
     void testBlockSizeMatchesTheUnderlyingFileSystem() throws Exception {
         try (HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"))) {
             FileSystem fs = proxy.getFileSystem();

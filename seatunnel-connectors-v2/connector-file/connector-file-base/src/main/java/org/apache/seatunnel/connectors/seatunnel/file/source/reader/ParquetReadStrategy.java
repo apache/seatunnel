@@ -50,6 +50,7 @@ import org.apache.parquet.example.data.Group;
 import org.apache.parquet.example.data.simple.NanoTime;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.ParquetReader;
+import org.apache.parquet.hadoop.api.ReadSupport;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
@@ -191,9 +192,18 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         ParquetReader<Group> reader =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) -> {
+                            // ParquetReader.builder(ReadSupport, Path) resolves its own
+                            // FileSystem inside build() (twice: path.getFileSystem plus
+                            // HadoopInputFile.fromStatus), which leaks with the FS cache
+                            // disabled. Bind to the connector's FileSystem instead.
                             ParquetReader.Builder<Group> builder =
-                                    ParquetReader.builder(new GroupReadSupport(), filePath)
-                                            .withConf(configuration);
+                                    new GroupParquetReaderBuilder(
+                                            FileSystemInputFile.fromPath(
+                                                    hadoopFileSystemProxy.getFileSystem(),
+                                                    filePath));
+                            // withConf() rebuilds the read options, so it must precede
+                            // withFileRange() below.
+                            builder.withConf(hadoopFileSystemProxy.getConfiguration());
                             if (useSplitRange) {
                                 long start = split.getStart();
                                 long end = start + split.getLength();
@@ -1004,5 +1014,23 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         int fieldIndex = Arrays.asList(configRowType.getFieldNames()).indexOf(fieldName);
 
         return fieldIndex == -1 ? null : configRowType.getFieldType(fieldIndex);
+    }
+
+    /**
+     * Binds the native (Group) Parquet reader to an already-open {@link
+     * org.apache.hadoop.fs.FileSystem}. {@code ParquetReader.Builder(InputFile)} is protected and
+     * there is no public {@code builder(ReadSupport, InputFile)}, so this mirrors what {@code
+     * AvroParquetReader.Builder} does for the Avro path.
+     */
+    private static final class GroupParquetReaderBuilder extends ParquetReader.Builder<Group> {
+
+        private GroupParquetReaderBuilder(InputFile file) {
+            super(file);
+        }
+
+        @Override
+        protected ReadSupport<Group> getReadSupport() {
+            return new GroupReadSupport();
+        }
     }
 }
