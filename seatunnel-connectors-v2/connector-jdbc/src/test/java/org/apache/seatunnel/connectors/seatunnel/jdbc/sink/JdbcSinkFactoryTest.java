@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
@@ -330,6 +333,51 @@ class JdbcSinkFactoryTest {
         Assertions.assertEquals(
                 Collections.singletonList("id"),
                 factory.resolveMultiTablePrimaryKeys(config, table).get());
+    }
+
+    /**
+     * Parses the same option from a real HOCON string (like the engine does) and keeps the pattern
+     * set non-alphabetical on purpose: {@code ^table.*$} is declared last although it matches first
+     * alphabetically, so a map that does not preserve the declaration order makes it win for both
+     * tables and fails this test.
+     */
+    @Test
+    void testResolveMultiTablePrimaryKeysFromHoconFirstMatchWins() {
+        // Shaped like the config file used by the E2E test. The SeaTunnel HOCON parser turns a top
+        // level `sink` block into a list whose entries carry `plugin_name`, hence the list access.
+        Config hoconConfig =
+                ConfigFactory.parseString(
+                        "sink {\n"
+                                + "  Jdbc {\n"
+                                + "    url = \"jdbc:mysql://localhost:3306/seatunnel\"\n"
+                                + "    database = \"sink\"\n"
+                                + "    table = \"${table_name}\"\n"
+                                + "    generate_sink_sql = true\n"
+                                + "    primary_keys = [\"c_bigint\"]\n"
+                                + "    multi_table_config {\n"
+                                + "      primary_keys {\n"
+                                + "        \"^table2$\" = [\"c_mediumint\"]\n"
+                                + "        \"^table1$\" = [\"c_int\", \"c_integer\"]\n"
+                                + "        \"^table.*$\" = [\"c_smallint\"]\n"
+                                + "      }\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}");
+        ReadonlyConfig sinkConfig =
+                ReadonlyConfig.fromConfig(hoconConfig.getConfigList("sink").get(0));
+
+        Assertions.assertEquals(
+                Arrays.asList("c_int", "c_integer"),
+                factory.resolveMultiTablePrimaryKeys(
+                                sinkConfig,
+                                createCatalogTable("table1", Collections.singletonList("id")))
+                        .get());
+        Assertions.assertEquals(
+                Collections.singletonList("c_mediumint"),
+                factory.resolveMultiTablePrimaryKeys(
+                                sinkConfig,
+                                createCatalogTable("table2", Collections.singletonList("id")))
+                        .get());
     }
 
     @Test

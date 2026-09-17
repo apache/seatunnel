@@ -197,6 +197,45 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
                 container.executeJob("/jdbc_mysql_source_and_sink_with_multiple_tables.sql");
         Assertions.assertEquals(
                 0, sqlConfEexecResult.getExitCode(), sqlConfEexecResult.getStderr());
+
+        // The sink tables are dropped so that the job creates them itself: only then the primary
+        // keys resolved from multi_table_config.primary_keys end up in the generated create-table
+        // DDL and can be asserted below.
+        dropTable(SINK_DATABASE, "table1");
+        dropTable(SINK_DATABASE, "table2");
+        try {
+            Container.ExecResult multiTableConfigExecResult =
+                    container.executeJob(
+                            "/jdbc_mysql_source_and_sink_with_multi_table_config.conf");
+            Assertions.assertEquals(
+                    0,
+                    multiTableConfigExecResult.getExitCode(),
+                    multiTableConfigExecResult.getStderr());
+
+            // The catch-all pattern is declared last on purpose, so first-match-wins gives table1 a
+            // composite key and table2 a single key instead of the catch-all or the fallback key.
+            int expectedRowCount = TEST_DATASET.getRight().size();
+            Assertions.assertAll(
+                    () ->
+                            Assertions.assertIterableEquals(
+                                    Arrays.asList("c_int", "c_integer"),
+                                    queryPrimaryKeyColumns(SINK_DATABASE, "table1")),
+                    () ->
+                            Assertions.assertIterableEquals(
+                                    Arrays.asList("c_mediumint"),
+                                    queryPrimaryKeyColumns(SINK_DATABASE, "table2")),
+                    () ->
+                            Assertions.assertEquals(
+                                    expectedRowCount, queryRowCount(SINK_DATABASE, "table1")),
+                    () ->
+                            Assertions.assertEquals(
+                                    expectedRowCount, queryRowCount(SINK_DATABASE, "table2")));
+        } finally {
+            // Restore the sink tables so the other tests of this class keep their preconditions.
+            dropTable(SINK_DATABASE, "table1");
+            dropTable(SINK_DATABASE, "table2");
+            createTables(SINK_DATABASE, TABLES);
+        }
     }
 
     @TestTemplate
@@ -345,6 +384,24 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private List<String> queryPrimaryKeyColumns(String database, String table) {
+        return query(
+                        String.format(
+                                "SELECT COLUMN_NAME FROM information_schema.STATISTICS"
+                                        + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'"
+                                        + " AND INDEX_NAME = 'PRIMARY' ORDER BY SEQ_IN_INDEX",
+                                database, table))
+                .stream()
+                .map(row -> String.valueOf(row.get(0)))
+                .collect(Collectors.toList());
+    }
+
+    private int queryRowCount(String database, String table) {
+        List<List<Object>> result =
+                query(String.format("SELECT COUNT(*) FROM %s.%s", database, table));
+        return Integer.parseInt(String.valueOf(result.get(0).get(0)));
     }
 
     private void clearSinkTables() throws SQLException {
