@@ -22,9 +22,22 @@ import org.apache.hadoop.fs.Path;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
+
+import com.hierynomus.smbj.share.File;
 
 import java.io.IOException;
 import java.net.URI;
+import java.util.Arrays;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SmbFileSystemTest {
 
@@ -123,6 +136,130 @@ class SmbFileSystemTest {
     void smbConnectionCloseHandlesNulls() throws Exception {
         SmbConnection conn = new SmbConnection(null, null, null);
         Assertions.assertDoesNotThrow(conn::close);
+    }
+
+    // -- SmbInputStream seek + read tests (Issue 1 regression coverage) --
+
+    @Test
+    void seekThenReadPassesOffsetToSmbFile() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+        when(mockFile.read(any(byte[].class), eq(100L)))
+                .thenAnswer(
+                        inv -> {
+                            byte[] buf = inv.getArgument(0);
+                            Arrays.fill(buf, 0, Math.min(10, buf.length), (byte) 'A');
+                            return Math.min(10, buf.length);
+                        });
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        stream.seek(100);
+        byte[] buf = new byte[10];
+        int read = stream.read(buf, 0, 10);
+
+        Assertions.assertEquals(10, read);
+        verify(mockFile).read(any(byte[].class), eq(100L));
+        Assertions.assertEquals(110, stream.getPos());
+    }
+
+    @Test
+    void readAdvancesPosition() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+        when(mockFile.read(any(byte[].class), eq(0L)))
+                .thenAnswer(inv -> ((byte[]) inv.getArgument(0)).length);
+        when(mockFile.read(any(byte[].class), eq(10L)))
+                .thenAnswer(inv -> ((byte[]) inv.getArgument(0)).length);
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        stream.read(new byte[10], 0, 10);
+        Assertions.assertEquals(10, stream.getPos());
+
+        stream.read(new byte[5], 0, 5);
+        Assertions.assertEquals(15, stream.getPos());
+        verify(mockFile).read(any(byte[].class), eq(10L));
+    }
+
+    @Test
+    void seekBackwardThenRead() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+        when(mockFile.read(any(byte[].class), eq(0L)))
+                .thenAnswer(inv -> ((byte[]) inv.getArgument(0)).length);
+        when(mockFile.read(any(byte[].class), eq(10L)))
+                .thenAnswer(inv -> ((byte[]) inv.getArgument(0)).length);
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        stream.read(new byte[10], 0, 10);
+        Assertions.assertEquals(10, stream.getPos());
+
+        stream.seek(0);
+        Assertions.assertEquals(0, stream.getPos());
+
+        stream.read(new byte[5], 0, 5);
+        verify(mockFile, times(2)).read(any(byte[].class), eq(0L));
+    }
+
+    @Test
+    void singleByteReadUsesPosition() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+        when(mockFile.read(any(byte[].class), eq(50L)))
+                .thenAnswer(
+                        inv -> {
+                            byte[] buf = inv.getArgument(0);
+                            buf[0] = (byte) 'X';
+                            return 1;
+                        });
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        stream.seek(50);
+        int b = stream.read();
+
+        Assertions.assertEquals('X', b);
+        Assertions.assertEquals(51, stream.getPos());
+        verify(mockFile).read(any(byte[].class), eq(50L));
+    }
+
+    // -- SmbInputStream close lifecycle tests (Issue 2 regression coverage) --
+
+    @Test
+    void closeStreamClosesBothFileAndConnection() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        stream.close();
+
+        InOrder order = inOrder(mockFile, mockConn);
+        order.verify(mockFile).close();
+        order.verify(mockConn).close();
+    }
+
+    @Test
+    void closeStillClosesConnectionWhenFileCloseThrows() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+        doThrow(new RuntimeException("file close failed")).when(mockFile).close();
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        IOException thrown = Assertions.assertThrows(IOException.class, stream::close);
+
+        Assertions.assertTrue(thrown.getCause().getMessage().contains("file close failed"));
+        verify(mockConn).close();
+    }
+
+    @Test
+    void doubleCloseIsIdempotent() throws Exception {
+        File mockFile = mock(File.class);
+        SmbConnection mockConn = mock(SmbConnection.class);
+
+        SmbInputStream stream = new SmbInputStream(mockFile, mockConn, null);
+        stream.close();
+        stream.close();
+
+        verify(mockFile, times(1)).close();
+        verify(mockConn, times(1)).close();
     }
 
     private SmbFileSystem initFs() throws Exception {
