@@ -145,11 +145,12 @@ SeaTunnel Engine 使用 Hazelcast IMap 作为分布式内存键值存储。以�
 | `finished-job-metrics` | 作业终止后的最终指标快照 |
 
 SeaTunnel Engine 还会创建一个短生命周期的内部 IMap：`engine_gracefulMemberRemoval`。
-SeaTunnel 提供的 Hazelcast Server 配置会设置 `hazelcast.shutdownhook.policy: GRACEFUL`，使 Hazelcast
-内置的 JVM 关闭 hook 在 Map 和 operation service 仍处于活动状态时调用 SeaTunnel 的优雅关闭回调。
-该回调会在成员移除前把每个服务器成员的地址写入该 IMap。稳定的 Coordinator 在处理对应的 `memberRemoved` 事件后
-会移除这个标记。活跃 Master 切换期间，标记会保留到 TTL 过期，以便异步作业恢复能够正确分类恢复后的任务。
-自定义 Hazelcast 配置必须保持内置 shutdown hook 启用，并保留 `GRACEFUL` 策略，才能保持该行为。
+当 Hazelcast 为一次进程内主动关闭发出 `SHUTTING_DOWN` 事件时，SeaTunnel 会在 Hazelcast 禁用
+分布式对象代理之前，将当前服务器成员的地址写入该 IMap。该机制同时支持 Hazelcast 默认的
+`TERMINATE` shutdown-hook 策略和 `GRACEFUL` 策略；`kill -9`、OOM kill 或网络分区等非正常退出
+不会写入标记。稳定的 Coordinator 在处理对应的 `memberRemoved` 事件后，会以尽力而为的方式移除
+该条精确标记。活跃 Master 切换期间，标记会保留到 TTL 过期，以便异步作业恢复能够正确分类
+恢复后的任务。
 
 - 如果标记存在且仍然有效，对应的 `deployed node offline` 任务失败会记录为 `WARN`。
 - 如果标记缺失、过期，或者根本没有写入，同样的离线失败仍然保持为 `ERROR`。

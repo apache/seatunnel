@@ -26,6 +26,16 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.map.IMap;
+
+import java.lang.reflect.Field;
+
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.isA;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 /**
  * Covers the coordinator-side helpers of the graceful member-removal classification: the failure
@@ -95,5 +105,58 @@ class CoordinatorServiceMemberRemovedTest {
                 CoordinatorService.canClearGracefulMemberRemovalMarker(1L, false, false));
         Assertions.assertFalse(
                 CoordinatorService.canClearGracefulMemberRemovalMarker(null, false, false));
+    }
+
+    /**
+     * A marker read failure must fall back to the existing ERROR classification without escaping.
+     */
+    @Test
+    void shouldTreatMarkerReadFailureAsUnproven() throws Exception {
+        Address address = new Address("127.0.0.1", 5801);
+        IMap<Address, Long> markerMap = mock(IMap.class);
+        when(markerMap.get(address)).thenThrow(new IllegalStateException("map unavailable"));
+        CoordinatorService coordinatorService = createCoordinatorService(markerMap);
+
+        Assertions.assertNull(coordinatorService.getGracefulMemberRemovalMarker(address));
+    }
+
+    /** A marker clear failure must not escape after task failures have already been propagated. */
+    @Test
+    void shouldAbsorbMarkerClearFailure() throws Exception {
+        Address address = new Address("127.0.0.1", 5801);
+        long markedAt = 123L;
+        IMap<Address, Long> markerMap = mock(IMap.class);
+        ILogger logger = mock(ILogger.class);
+        when(markerMap.remove(address, markedAt))
+                .thenThrow(new IllegalStateException("map unavailable"));
+        CoordinatorService coordinatorService = createCoordinatorService(markerMap, logger);
+
+        Assertions.assertDoesNotThrow(
+                () -> coordinatorService.clearGracefulMemberRemovalMarker(address, markedAt));
+        verify(markerMap).remove(address, markedAt);
+        verify(logger)
+                .warning(
+                        contains("Failed to clear graceful member removal marker"),
+                        isA(IllegalStateException.class));
+    }
+
+    private static CoordinatorService createCoordinatorService(IMap<Address, Long> markerMap)
+            throws Exception {
+        return createCoordinatorService(markerMap, mock(ILogger.class));
+    }
+
+    private static CoordinatorService createCoordinatorService(
+            IMap<Address, Long> markerMap, ILogger logger) throws Exception {
+        CoordinatorService coordinatorService =
+                mock(CoordinatorService.class, org.mockito.Mockito.CALLS_REAL_METHODS);
+        setField(coordinatorService, "gracefulMemberRemovalIMap", markerMap);
+        setField(coordinatorService, "logger", logger);
+        return coordinatorService;
+    }
+
+    private static void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = CoordinatorService.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }

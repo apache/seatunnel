@@ -2176,21 +2176,41 @@ public class CoordinatorService {
      * clear is decided separately by {@link #canClearGracefulMemberRemovalMarker} once recovery has
      * finished and no restored job still needs to inspect the marker.
      */
-    private Long getGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
+    @VisibleForTesting
+    Long getGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
         if (gracefulMemberRemovalIMap == null) {
             return null;
         }
-        return gracefulMemberRemovalIMap.get(lostAddress);
+        try {
+            return gracefulMemberRemovalIMap.get(lostAddress);
+        } catch (Exception e) {
+            logger.warning(
+                    "Failed to read graceful member removal marker for "
+                            + lostAddress
+                            + "; treating the removal as unproven",
+                    e);
+            return null;
+        }
     }
 
     /**
      * Clears the marker after classification so later failures on the same address start clean.
-     * This complements the Hazelcast TTL and the restarting member's own clear on startup, so a
-     * reused address can never inherit a stale graceful classification.
+     * This complements the Hazelcast TTL and the restarting member's own clear on startup, reducing
+     * the window in which a reused address can inherit a stale graceful classification.
      */
-    private void clearGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
-        if (gracefulMemberRemovalIMap != null) {
-            gracefulMemberRemovalIMap.remove(lostAddress);
+    @VisibleForTesting
+    void clearGracefulMemberRemovalMarker(@NonNull Address lostAddress, long markedAt) {
+        if (gracefulMemberRemovalIMap == null) {
+            return;
+        }
+        try {
+            gracefulMemberRemovalIMap.remove(lostAddress, markedAt);
+        } catch (Exception e) {
+            logger.warning(
+                    "Failed to clear graceful member removal marker for "
+                            + lostAddress
+                            + "; Hazelcast TTL will remove it",
+                    e);
         }
     }
 
@@ -2221,7 +2241,7 @@ public class CoordinatorService {
                         && !restoreAllJobFromMasterNodeSwitchFuture.isDone();
         if (canClearGracefulMemberRemovalMarker(
                 markedAt, jobRestoreInProgress, restoringRunningJobsFromMasterSwitch)) {
-            clearGracefulMemberRemovalMarker(lostAddress);
+            clearGracefulMemberRemovalMarker(lostAddress, markedAt);
         }
     }
 

@@ -50,7 +50,6 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.core.LifecycleEvent;
 import com.hazelcast.core.LifecycleEvent.LifecycleState;
 import com.hazelcast.core.LifecycleListener;
-import com.hazelcast.internal.services.GracefulShutdownAwareService;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -77,7 +76,6 @@ import java.util.concurrent.TimeUnit;
 public class SeaTunnelServer
         implements ManagedService,
                 MembershipAwareService,
-                GracefulShutdownAwareService,
                 LifecycleListener,
                 LiveOperationsTracker {
 
@@ -234,23 +232,14 @@ public class SeaTunnelServer
     public void reset() {}
 
     /**
-     * Writes the marker while Hazelcast still has active map and operation services. Hazelcast
-     * invokes this callback only for its configured graceful shutdown path before it tears down
-     * managed services.
-     */
-    @Override
-    public boolean onShutdown(long timeout, TimeUnit unit) {
-        return markLocalGracefulMemberRemoval();
-    }
-
-    /**
-     * Clears a prior process marker when Hazelcast starts without waiting for its operation service
-     * to process the map operation. Waiting synchronously here blocks the startup thread before
-     * that service can become available.
+     * Publishes the local marker before Hazelcast marks the node as shutting down, and clears a
+     * prior process marker only after this member has joined the cluster.
      */
     @Override
     public void stateChanged(LifecycleEvent event) {
-        if (event.getState() == LifecycleState.STARTING) {
+        if (event.getState() == LifecycleState.SHUTTING_DOWN) {
+            markLocalGracefulMemberRemoval();
+        } else if (event.getState() == LifecycleState.STARTED) {
             clearLocalGracefulMemberRemovalMarker();
         }
     }
@@ -305,7 +294,8 @@ public class SeaTunnelServer
     }
 
     /**
-     * Updates a best-effort marker without allowing Hazelcast cleanup failures to block startup.
+     * Updates a best-effort marker without allowing Hazelcast marker failures to break lifecycle
+     * processing.
      */
     private boolean updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
         if (nodeEngine == null) {
@@ -322,14 +312,7 @@ public class SeaTunnelServer
                         Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS,
                         TimeUnit.MILLISECONDS);
             } else {
-                gracefulMemberRemovalIMap
-                        .removeAsync(thisAddress)
-                        .exceptionally(
-                                e -> {
-                                    LOGGER.warning(
-                                            "Failed to clear graceful member removal marker", e);
-                                    return null;
-                                });
+                gracefulMemberRemovalIMap.remove(thisAddress);
             }
             return true;
         } catch (Exception e) {

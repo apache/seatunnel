@@ -153,14 +153,13 @@ logical maps are persisted:
 | `finished-job-metrics` | Final metrics snapshot after job termination |
 
 SeaTunnel Engine also creates a short-lived internal map named `engine_gracefulMemberRemoval`.
-The supplied Hazelcast server configurations set `hazelcast.shutdownhook.policy: GRACEFUL`, so Hazelcast's
-built-in JVM shutdown hook invokes SeaTunnel's graceful-shutdown callback while map and operation services
-are still active. The callback writes each server member's address into this map before member removal.
-After classifying the corresponding `memberRemoved` event, a stable coordinator removes the marker.
-During active-master failover, the marker remains until its TTL expires so asynchronous job recovery
-can classify the restored task correctly.
-Custom Hazelcast configurations must keep the built-in shutdown hook enabled and retain the `GRACEFUL`
-shutdown-hook policy to preserve this behavior.
+When Hazelcast emits `SHUTTING_DOWN` for an intentional in-process shutdown, SeaTunnel writes the
+departing server member's address into this map before Hazelcast disables distributed-object proxies.
+This works with Hazelcast's default `TERMINATE` shutdown-hook policy as well as `GRACEFUL`; abrupt
+process loss such as `kill -9`, an OOM kill, or a network partition does not publish a marker. After
+classifying the corresponding `memberRemoved` event, a stable coordinator removes that exact marker
+on a best-effort basis. During active-master failover, the marker remains until its TTL expires so
+asynchronous job recovery can classify the restored task correctly.
 
 - If the marker is present and still valid, the resulting `deployed node offline` task failure is
   logged at `WARN`.

@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 
 import org.junit.jupiter.api.Assertions;
@@ -33,7 +32,6 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Field;
-import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -50,9 +48,8 @@ import static org.mockito.Mockito.when;
 class SeaTunnelServerShutdownTest {
 
     /**
-     * Verifies that Hazelcast invokes the marker write before managed-service teardown: the {@code
-     * GracefulShutdownAwareService} callback must put the marker with the native TTL and must not
-     * clear it, because the map service is still available at that point.
+     * Verifies that Hazelcast publishes the marker from {@code SHUTTING_DOWN}, before it marks the
+     * node as shutting down and disables distributed-object proxies.
      */
     @Test
     void shouldMarkGracefulMemberRemovalOnGracefulShutdown() throws Exception {
@@ -65,9 +62,7 @@ class SeaTunnelServerShutdownTest {
         when(hazelcastInstance.<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
 
-        SeaTunnelServer seaTunnelServer = createServer(nodeEngine);
-
-        seaTunnelServer.onShutdown(30, TimeUnit.SECONDS);
+        createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.SHUTTING_DOWN));
 
         verify(gracefulMemberRemovalIMap)
                 .put(
@@ -79,8 +74,8 @@ class SeaTunnelServerShutdownTest {
     }
 
     /**
-     * Verifies that stale markers are cleared asynchronously while Hazelcast starts. The completion
-     * stage lets startup continue before map services accept the remove operation.
+     * Verifies that stale markers are cleared only after Hazelcast has joined the cluster and
+     * published {@code STARTED}.
      */
     @Test
     void shouldClearGracefulMemberRemovalMarkerWhenHazelcastStarts() throws Exception {
@@ -92,33 +87,27 @@ class SeaTunnelServerShutdownTest {
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         when(hazelcastInstance.<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
-        when(gracefulMemberRemovalIMap.removeAsync(address))
-                .thenReturn(CompletableFuture.<Long>completedFuture(null));
+        createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.STARTED));
 
-        createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.STARTING));
-
-        verify(gracefulMemberRemovalIMap).removeAsync(address);
-        verify(gracefulMemberRemovalIMap, never()).remove(address);
+        verify(gracefulMemberRemovalIMap).remove(address);
+        verify(gracefulMemberRemovalIMap, never()).removeAsync(address);
     }
 
     /**
-     * Ensures later lifecycle notifications cannot clear the marker during shutdown: only the
-     * {@code STARTING} transition clears a stale marker, so a {@code SHUTTING_DOWN} event must not
-     * touch the node engine at all.
+     * Ensures startup does not touch the distributed map before the member has joined the cluster.
      */
     @Test
-    void shouldNotClearGracefulMemberRemovalMarkerAfterHazelcastStarts() throws Exception {
+    void shouldNotClearGracefulMemberRemovalMarkerBeforeHazelcastStarts() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
 
-        createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.SHUTTING_DOWN));
+        createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.STARTING));
 
         verifyNoInteractions(nodeEngine);
     }
 
     /**
-     * Managed service cleanup never attempts a late marker write after Hazelcast turns passive:
-     * {@code shutdown(boolean)} runs after the operation service is gone, so the marker must have
-     * been written by the graceful-shutdown hook instead.
+     * Managed service cleanup never attempts a late marker write after Hazelcast turns passive; the
+     * lifecycle listener must have written it before node shutdown begins.
      */
     @Test
     void shouldNotMarkGracefulMemberRemovalDuringManagedServiceShutdown() throws Exception {
@@ -130,15 +119,12 @@ class SeaTunnelServerShutdownTest {
     }
 
     /**
-     * Covers the failure branch of the asynchronous marker clear. The remove operation's future is
-     * left pending, then failed: the {@code exceptionally} handler chained by the startup listener
-     * must already be attached before completion (the clear is not fire-and-forget), and failing
-     * the operation must neither escape the Hazelcast lifecycle callback nor fall back to a
-     * blocking {@code remove}. The warning text is not asserted because the class logs through a
-     * static Hazelcast logger.
+     * Covers the failure branch of the marker clear. A transient map failure must not escape the
+     * Hazelcast lifecycle callback. The warning text is not asserted because the class logs through
+     * a static Hazelcast logger.
      */
     @Test
-    void shouldAbsorbFailedAsyncMarkerClearWithoutBlockingStartup() throws Exception {
+    void shouldAbsorbFailedMarkerClearAfterStartup() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
         HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
         IMap<Address, Long> gracefulMemberRemovalIMap = mock(IMap.class);
@@ -147,22 +133,15 @@ class SeaTunnelServerShutdownTest {
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
         when(hazelcastInstance.<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
-        CompletableFuture<Long> pendingRemove = new CompletableFuture<>();
-        when(gracefulMemberRemovalIMap.removeAsync(address)).thenReturn(pendingRemove);
+        when(gracefulMemberRemovalIMap.remove(address))
+                .thenThrow(new IllegalStateException("map service unavailable"));
 
-        createServer(nodeEngine).stateChanged(new LifecycleEvent(LifecycleState.STARTING));
+        SeaTunnelServer seaTunnelServer = createServer(nodeEngine);
 
-        Assertions.assertTrue(
-                pendingRemove.getNumberOfDependents() > 0,
-                "the async clear must chain a completion handler");
         Assertions.assertDoesNotThrow(
-                () -> {
-                    pendingRemove.completeExceptionally(
-                            new IllegalStateException("map service unavailable"));
-                });
-        Assertions.assertTrue(pendingRemove.isCompletedExceptionally());
-        verify(gracefulMemberRemovalIMap).removeAsync(address);
-        verify(gracefulMemberRemovalIMap, never()).remove(address);
+                () -> seaTunnelServer.stateChanged(new LifecycleEvent(LifecycleState.STARTED)));
+        verify(gracefulMemberRemovalIMap).remove(address);
+        verify(gracefulMemberRemovalIMap, never()).removeAsync(address);
     }
 
     private static SeaTunnelServer createServer(NodeEngineImpl nodeEngine) throws Exception {
