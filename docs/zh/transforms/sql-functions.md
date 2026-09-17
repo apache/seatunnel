@@ -433,6 +433,11 @@ ACOS(D)
 
 MAX 函数返回表达式的最大值。
 
+在 Zeta SQL 引擎中，整数数组（包括 BIGINT）和 DECIMAL 数组在比较时不会转换为浮点数。
+结果保留所选元素的类型，以及 DECIMAL 元素的小数位数。忽略 null 元素；数组为 null、
+空数组或所有元素均为 null 时返回 null。值相等时保留第一个元素。
+FLOAT 和 DOUBLE 数组保持现有排序规则：NaN 大于其他所有值，正零大于负零。
+
 示例:
 
 ARRAY_MAX(I)
@@ -442,6 +447,8 @@ ARRAY_MAX(I)
 ```ARRAY_MIN(ARRAY) -> type(array element)```
 
 MIN 函数返回表达式的最小值。
+
+Zeta SQL 引擎采用与 `ARRAY_MAX` 相同的精度、null 处理和排序规则，但选择最小元素。
 
 示例:
 

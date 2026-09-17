@@ -432,6 +432,13 @@ ACOS(D)
 
 The MAX function returns the maximum value of the expression.
 
+For the Zeta SQL engine, integral arrays (including BIGINT) and DECIMAL arrays are
+compared without conversion to floating point. The result retains the selected
+element's type and, for DECIMAL, its scale. Null elements are ignored; a null,
+empty or all-null array returns null. Equal values retain the first element.
+FLOAT and DOUBLE arrays retain their existing ordering: NaN is greater than all
+other values, and positive zero is greater than negative zero.
+
 Example:
 
 ARRAY_MAX(I)
@@ -441,6 +448,9 @@ ARRAY_MAX(I)
 ```ARRAY_MIN(ARRAY) -> type(array element)```
 
 The MIN function returns the minimum value of the expression.
+
+The Zeta SQL engine uses the same precision, null handling and ordering rules as
+`ARRAY_MAX`, selecting the minimum element instead.
 
 Example:
 
