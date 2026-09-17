@@ -1,4 +1,5 @@
 import ChangeLog from '../changelog/connector-google-ads.md';
+
 # GoogleAds
 
 > Google Ads source connector
