@@ -336,6 +336,14 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return fileSystem;
     }
 
+    /** The {@link Configuration} this proxy was built with, initializing it if necessary. */
+    public Configuration getConfiguration() {
+        if (configuration == null) {
+            initialize();
+        }
+        return configuration;
+    }
+
     /** Returns the scheme of the initialized target or source file system. */
     public String getScheme() {
         return getFileSystem().getScheme();

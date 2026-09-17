@@ -20,10 +20,12 @@ package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileSystemInputFile;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.parquet.HadoopReadOptions;
 import org.apache.parquet.hadoop.ParquetFileReader;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.util.HadoopInputFile;
@@ -150,7 +152,9 @@ public class ParquetFileSplitStrategy implements FileSplitStrategy, Closeable {
                     (configuration, userGroupInformation) -> {
                         try (ParquetFileReader reader =
                                 ParquetFileReader.open(
-                                        HadoopInputFile.fromPath(path, configuration))) {
+                                        FileSystemInputFile.fromPath(
+                                                hadoopFileSystemProxy.getFileSystem(), path),
+                                        HadoopReadOptions.builder(configuration).build())) {
                             return reader.getFooter().getBlocks();
                         }
                     });
