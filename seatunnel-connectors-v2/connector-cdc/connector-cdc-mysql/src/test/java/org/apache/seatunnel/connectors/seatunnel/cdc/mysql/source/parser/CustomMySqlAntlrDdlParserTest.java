@@ -19,9 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
@@ -128,6 +130,48 @@ public class CustomMySqlAntlrDdlParserTest {
         Assertions.assertEquals("c_enum", enumColumn.getName());
         Assertions.assertEquals("ENUM('x','y')", enumColumn.getSourceType());
         Assertions.assertEquals(BasicType.STRING_TYPE, enumColumn.getDataType());
+    }
+
+    /**
+     * Same regression as {@link #testParseAlterTableAddSetAndEnumColumnKeepsOptionList()}, reached
+     * through the other two DDL forms that share {@code toSeatunnelColumnWithFullTypeInfo}: {@code
+     * MODIFY COLUMN} and {@code CHANGE COLUMN}. {@code CHANGE} additionally renames the column, so
+     * the rebuilt type has to survive that too. A length-bearing type is kept in the same statement
+     * to pin the fallback to the base implementation.
+     */
+    @Test
+    void testParseAlterTableModifyAndChangeSetAndEnumColumnKeepOptionList() {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        CustomMySqlAntlrDdlParser parser =
+                new CustomMySqlAntlrDdlParser(factory.create(0).getDbzConnectorConfig());
+        parser.setCurrentDatabase("test_db");
+        parser.parse(
+                "ALTER TABLE products MODIFY COLUMN c_set SET('a','b','c') NULL, "
+                        + "CHANGE COLUMN c_enum_src c_enum ENUM('x','y') NULL, "
+                        + "MODIFY COLUMN c_varchar VARCHAR(64) NULL",
+                new Tables());
+
+        List<AlterTableColumnEvent> events = parser.getAndClearParsedColumnEvents();
+        Assertions.assertEquals(3, events.size());
+
+        Column modifiedColumn = ((AlterTableModifyColumnEvent) events.get(0)).getColumn();
+        Assertions.assertEquals("c_set", modifiedColumn.getName());
+        Assertions.assertEquals("SET('a','b','c')", modifiedColumn.getSourceType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, modifiedColumn.getDataType());
+
+        AlterTableChangeColumnEvent changeColumnEvent = (AlterTableChangeColumnEvent) events.get(1);
+        Assertions.assertEquals("c_enum_src", changeColumnEvent.getOldColumn());
+        Column renamedColumn = changeColumnEvent.getColumn();
+        Assertions.assertEquals("c_enum", renamedColumn.getName());
+        Assertions.assertEquals("ENUM('x','y')", renamedColumn.getSourceType());
+        Assertions.assertEquals(BasicType.STRING_TYPE, renamedColumn.getDataType());
+
+        Column varcharColumn = ((AlterTableModifyColumnEvent) events.get(2)).getColumn();
+        Assertions.assertEquals("c_varchar", varcharColumn.getName());
+        Assertions.assertEquals("VARCHAR(64)", varcharColumn.getSourceType());
     }
 
     @Test
