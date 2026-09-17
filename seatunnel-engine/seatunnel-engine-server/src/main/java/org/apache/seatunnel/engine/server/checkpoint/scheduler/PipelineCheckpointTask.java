@@ -79,6 +79,13 @@ final class PipelineCheckpointTask implements ScheduledFuture<Void>, Runnable {
      * <p>Do not tighten this into a guarantee by holding a lock across {@code body.run()}. The body
      * can block on an RPC, so a lock held here would be held for the length of a checkpoint and
      * would serialise unrelated pipelines on the shared dispatch pool.
+     *
+     * <p>The body's own side effects therefore become visible before {@code onSettled} unregisters
+     * this task, so an observer that watches for a side effect can still see this task as
+     * outstanding. That ordering is deliberate: unregistering first would drop the task from the
+     * set {@code cancelAll()} walks and leave a running body uncancellable. Nothing in the
+     * coordinator depends on the reverse order, and the window closes as soon as the dispatch
+     * thread leaves this method.
      */
     @Override
     public void run() {
