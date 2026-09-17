@@ -23,6 +23,13 @@ import org.apache.seatunnel.connectors.seatunnel.file.smb.system.SmbFileSystem;
 
 import java.util.HashMap;
 
+/**
+ * SMB-specific Hadoop configuration. Translates user-facing connector options (host, port, user,
+ * password, domain, share) into the {@code fs.smb.*} properties that {@link
+ * org.apache.seatunnel.connectors.seatunnel.file.smb.system.SmbFileSystem} reads at init time.
+ * Validates that host, user, and share are present at construction time so config errors surface
+ * immediately rather than at first I/O.
+ */
 public class SmbConf extends HadoopConf {
     private static final String HDFS_IMPL =
             "org.apache.seatunnel.connectors.seatunnel.file.smb.system.SmbFileSystem";

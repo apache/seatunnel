@@ -24,6 +24,11 @@ import com.hierynomus.smbj.share.DiskShare;
 import java.io.Closeable;
 import java.io.IOException;
 
+/**
+ * Holds the three-layer SMB resource chain (Connection → Session → DiskShare) as a single closeable
+ * unit. {@link #close()} tears down all three in reverse order, attaching suppressed exceptions so
+ * no resource is leaked even if an earlier close fails.
+ */
 public class SmbConnection implements Closeable {
 
     private final Connection connection;
