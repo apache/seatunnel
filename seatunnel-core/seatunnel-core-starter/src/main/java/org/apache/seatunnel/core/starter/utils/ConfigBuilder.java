@@ -251,9 +251,6 @@ public class ConfigBuilder {
     }
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
-        if (variables == null || variables.isEmpty()) {
-            return config;
-        }
 
         Map<String, String> userConfigMap = extractUserVariables(variables);
         Config userConfig =
@@ -293,6 +290,10 @@ public class ConfigBuilder {
 
     private static Map<String, String> extractUserVariables(List<String> variables) {
         Map<String, String> userConfigMap = new LinkedHashMap<>();
+
+        if (variables == null || variables.isEmpty()) {
+            return userConfigMap;
+        }
 
         for (String variable : variables) {
             if (variable == null) {
