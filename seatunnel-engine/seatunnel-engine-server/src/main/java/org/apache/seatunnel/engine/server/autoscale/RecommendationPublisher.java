@@ -16,6 +16,19 @@ package org.apache.seatunnel.engine.server.autoscale;
 /** Publishes accepted autoscaling recommendations to a downstream consumer. */
 public interface RecommendationPublisher {
 
+    /**
+     * Publishes a recommendation after validating its master epoch and generation ordering.
+     *
+     * <ul>
+     *   <li>{@link PublicationResult#ACCEPTED}: newer recommendation stored.
+     *   <li>{@link PublicationResult#DUPLICATE}: same master epoch and generation as the latest
+     *       accepted recommendation.
+     *   <li>{@link PublicationResult#REJECTED}: older than the latest accepted recommendation.
+     * </ul>
+     *
+     * @param recommendation recommendation to publish
+     * @return the publication result
+     */
     PublicationResult publish(ScalingRecommendation recommendation);
 
     /** Resets publication ordering for a new active-master incarnation. */

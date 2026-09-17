@@ -44,6 +44,16 @@ public final class AutoscalingStateTracker {
         this.keepFiringMillis = keepFiringMillis;
     }
 
+    /**
+     * Evaluates the next action and advances the autoscaling lifecycle state.
+     *
+     * <p>Transitions: {@code NORMAL -> PENDING -> FIRING}; {@code FIRING -> RECOVERING -> NORMAL}
+     * when the condition clears; {@code RECOVERING -> FIRING} when it returns.
+     *
+     * @param evaluationAction action produced by the autoscaling policy
+     * @param currentMonotonicMillis current timestamp from the monotonic clock
+     * @return transition containing the previous and current lifecycle states
+     */
     public synchronized AutoscalingStateTransition evaluate(
             EvaluationAction evaluationAction, long currentMonotonicMillis) {
         Objects.requireNonNull(evaluationAction, "evaluationAction");
