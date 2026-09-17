@@ -374,6 +374,10 @@ public class ConfigBuilder {
                                     return parseValue(replacedValue);
                                 }
                             } else if (variable instanceof Map) {
+                                processVariablesMap(
+                                        (Map<String, Object>) variable,
+                                        userConfigMap,
+                                        defaultConfigMap);
                                 return variable;
                             } else if (variable instanceof List) {
                                 return processVariablesList(
@@ -404,7 +408,7 @@ public class ConfigBuilder {
                         userConfigMap,
                         defaultConfigMap);
 
-        if (!replacedValue.equals(variableValue)) {
+        if (!replacedValue.equals(variableString)) {
             variableValue = parseValue(replacedValue);
         }
 
