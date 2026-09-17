@@ -181,8 +181,18 @@ class SharedCheckpointSchedulerTest {
         }
 
         Assertions.assertTrue(allRan.await(AWAIT_SECONDS, TimeUnit.SECONDS));
-        Assertions.assertEquals(
-                0, lease.outstandingCount(), "finished tasks must remove themselves");
+        // A body's side effect becomes visible before the task reaches the finally block that
+        // unregisters it, so the last countDown() does not mean the last task has settled yet.
+        // Poll instead of asserting once, or the main thread can observe a task that is finished
+        // but not yet removed.
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(AWAIT_SECONDS))
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        lease.outstandingCount(),
+                                        "finished tasks must remove themselves"));
     }
 
     @Test
