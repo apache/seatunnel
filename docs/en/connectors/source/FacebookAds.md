@@ -168,3 +168,7 @@ source {
 ### next version
 
 - Add Facebook Ads source connector with cursor pagination and multi-table support
+
+## Changelog
+
+<ChangeLog />

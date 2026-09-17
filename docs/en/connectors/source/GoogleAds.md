@@ -184,3 +184,7 @@ source {
 ### next version
 
 - Add Google Ads source connector with GAQL, automatic schema derivation and multi-table support
+
+## Changelog
+
+<ChangeLog />
