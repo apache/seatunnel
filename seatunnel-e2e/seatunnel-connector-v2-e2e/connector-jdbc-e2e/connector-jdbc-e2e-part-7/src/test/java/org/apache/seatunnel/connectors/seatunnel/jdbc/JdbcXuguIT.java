@@ -170,11 +170,6 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/xugudb/xugu-jdbc/12.2.0/xugu-jdbc-12.2.0.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
         LocalDate baseDate = LocalDate.of(2024, 1, 1);
@@ -228,7 +223,7 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(XUGU_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", XUGU_PORT, XUGU_PORT)));
+        container.addExposedPort(XUGU_PORT);
 
         return container;
     }

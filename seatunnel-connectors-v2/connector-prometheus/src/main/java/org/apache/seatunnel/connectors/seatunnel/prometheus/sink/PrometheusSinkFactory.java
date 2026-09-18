@@ -17,6 +17,7 @@
 package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -52,8 +53,9 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
                 .optional(PrometheusSinkOptions.RETRY)
                 .optional(PrometheusSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS)
                 .optional(PrometheusSinkOptions.RETRY_BACKOFF_MAX_MS)
-                .optional(PrometheusSinkOptions.BATCH_SIZE)
-                .optional(PrometheusSinkOptions.FLUSH_INTERVAL)
+                .optional(
+                        PrometheusSinkOptions.BATCH_SIZE,
+                        Conditions.greaterThan(PrometheusSinkOptions.BATCH_SIZE, 0))
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

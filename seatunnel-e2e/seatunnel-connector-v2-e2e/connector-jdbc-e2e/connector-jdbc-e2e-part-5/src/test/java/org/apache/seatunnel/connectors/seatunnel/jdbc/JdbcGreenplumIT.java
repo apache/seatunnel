@@ -91,11 +91,6 @@ public class JdbcGreenplumIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -129,10 +124,7 @@ public class JdbcGreenplumIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(GREENPLUM_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", GREENPLUM_CONTAINER_PORT, GREENPLUM_CONTAINER_PORT)));
+        container.addExposedPort(GREENPLUM_CONTAINER_PORT);
         return container;
     }
 

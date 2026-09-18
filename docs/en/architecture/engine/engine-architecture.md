@@ -76,7 +76,19 @@ flowchart TD
     linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
-### 2.2 Core Components
+### 2.2 Job Submission, ClassLoader, and Task Dispatch Flow
+
+![Zeta job submission, classloader, and task execution flow](../../../images/zeta_job_submission_classloader_task_execution_flow.png)
+
+This flow fits the engine architecture section because it connects client assembly, coordinator-owned scheduling, worker-side execution, and status reporting in one view:
+
+1. The client resolves plugin jars locally and submits `JobImmutableInformation`, which carries the logical DAG together with plugin jar URLs and connector jar identifiers.
+2. `CoordinatorService` accepts the submission, records the pending job, and returns the submit acknowledgement after `JobMaster.init()` and queueing are complete.
+3. The coordinator-owned `Scheduler` polls `PendingJobQueue`, requests resources through `preApplyResources()`, and triggers `JobMaster.run()` when the `ResourceFuture` is ready.
+4. `JobMaster` expands the logical job into the pipeline-oriented `ExecutionPlan` and `PhysicalPlan`, builds `TaskGroupImmutableInformation`, and deploys it to workers through `PhysicalVertex.deploy()` and `DeployTaskOperation`.
+5. Each worker resolves missing jars, creates child-first classloaders per task, deserializes and initializes the task group inside `TaskExecutionService`, executes the tasks, and reports deploy plus terminal status back to `JobMaster` and `CoordinatorService`.
+
+### 2.3 Core Components
 
 #### CoordinatorService
 

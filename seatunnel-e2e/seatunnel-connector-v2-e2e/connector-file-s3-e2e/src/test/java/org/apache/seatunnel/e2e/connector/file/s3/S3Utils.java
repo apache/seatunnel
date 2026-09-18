@@ -29,34 +29,48 @@ import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.PutObjectRequest;
+import com.amazonaws.services.s3.model.S3Object;
 
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 public class S3Utils implements AutoCloseable {
     private static Logger logger = LoggerFactory.getLogger(S3Utils.class);
     private static final String ACCESS_KEY = "minioadmin";
     private static final String SECRET_KEY = "minioadmin";
     private static final String REGION = "cn-north-1";
-    private static final String ENDPOINT = "http://localhost:9000";
+    private static final String DEFAULT_ENDPOINT = "http://localhost:9000";
     private static final String BUCKET = "ws-package";
 
-    private static final AmazonS3 S3_CLIENT;
+    private static AmazonS3 s3Client;
 
-    static {
+    public static synchronized void initialize(String endpoint) {
+        if (s3Client != null) {
+            s3Client.shutdown();
+        }
         BasicAWSCredentials credentials = new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY);
-        S3_CLIENT =
+        s3Client =
                 AmazonS3ClientBuilder.standard()
                         .withCredentials(new AWSStaticCredentialsProvider(credentials))
                         .enablePathStyleAccess()
                         .withEndpointConfiguration(
-                                new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
+                                new AwsClientBuilder.EndpointConfiguration(endpoint, REGION))
                         .build();
 
-        if (!S3_CLIENT.doesBucketExistV2(BUCKET)) {
-            S3_CLIENT.createBucket(BUCKET);
+        if (!s3Client.doesBucketExistV2(BUCKET)) {
+            s3Client.createBucket(BUCKET);
         }
+    }
+
+    private static synchronized AmazonS3 getS3Client() {
+        if (s3Client == null) {
+            initialize(DEFAULT_ENDPOINT);
+        }
+        return s3Client;
     }
 
     public static void uploadTestFiles(
@@ -67,7 +81,7 @@ public class S3Utils implements AutoCloseable {
         } else {
             resourcesFile = new File(filePath);
         }
-        S3_CLIENT.putObject(BUCKET, targetFilePath, resourcesFile);
+        getS3Client().putObject(BUCKET, targetFilePath, resourcesFile);
     }
 
     public static void createDir(String dir) {
@@ -76,13 +90,50 @@ public class S3Utils implements AutoCloseable {
         InputStream emptyContent = new ByteArrayInputStream(new byte[0]);
         PutObjectRequest putObjectRequest =
                 new PutObjectRequest(BUCKET, dir, emptyContent, metadata);
-        S3_CLIENT.putObject(putObjectRequest);
+        getS3Client().putObject(putObjectRequest);
+    }
+
+    public static void uploadContent(String targetFilePath, String content) {
+        byte[] contentBytes = content.getBytes(StandardCharsets.UTF_8);
+        ObjectMetadata metadata = new ObjectMetadata();
+        metadata.setContentLength(contentBytes.length);
+        getS3Client()
+                .putObject(
+                        new PutObjectRequest(
+                                BUCKET,
+                                targetFilePath,
+                                new ByteArrayInputStream(contentBytes),
+                                metadata));
+    }
+
+    public static String readContent(String targetFilePath) throws IOException {
+        try (S3Object object = getS3Client().getObject(BUCKET, targetFilePath);
+                InputStream inputStream = object.getObjectContent();
+                ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
+            byte[] buffer = new byte[1024];
+            int bytesRead;
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                outputStream.write(buffer, 0, bytesRead);
+            }
+            return new String(outputStream.toByteArray(), StandardCharsets.UTF_8);
+        }
+    }
+
+    public static boolean objectExists(String targetFilePath) {
+        return getS3Client().doesObjectExist(BUCKET, targetFilePath);
+    }
+
+    public static void deletePrefix(String prefix) {
+        getS3Client()
+                .listObjectsV2(BUCKET, prefix)
+                .getObjectSummaries()
+                .forEach(summary -> getS3Client().deleteObject(BUCKET, summary.getKey()));
     }
 
     @Override
     public void close() throws Exception {
-        if (S3_CLIENT != null) {
-            S3_CLIENT.shutdown();
+        if (s3Client != null) {
+            s3Client.shutdown();
         }
     }
 }

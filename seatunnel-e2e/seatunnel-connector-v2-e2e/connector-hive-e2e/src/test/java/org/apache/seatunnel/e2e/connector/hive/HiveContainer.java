@@ -108,6 +108,14 @@ public class HiveContainer extends GenericContainer<HiveContainer> {
     public Connection getConnection(boolean enableKerberos)
             throws ClassNotFoundException, InstantiationException, IllegalAccessException,
                     SQLException {
+        return getConnection(
+                enableKerberos,
+                ContainerUtil.getResourcesFile("/kerberos/krb5_local.conf").getPath());
+    }
+
+    public Connection getConnection(boolean enableKerberos, String kerberosConfigPath)
+            throws ClassNotFoundException, InstantiationException, IllegalAccessException,
+                    SQLException {
         Driver driver = loadHiveJdbcDriver();
         if (!enableKerberos) {
             return driver.connect(getHiveJdbcUri(false), getJdbcConnectionConfig());
@@ -115,9 +123,7 @@ public class HiveContainer extends GenericContainer<HiveContainer> {
         Configuration authConf = new Configuration();
         authConf.set("hadoop.security.authentication", "kerberos");
         Configuration configuration = new Configuration();
-        System.setProperty(
-                "java.security.krb5.conf",
-                ContainerUtil.getResourcesFile("/kerberos/krb5_local.conf").getPath());
+        System.setProperty("java.security.krb5.conf", kerberosConfigPath);
         configuration.set("hadoop.security.authentication", "KERBEROS");
         try {
             UserGroupInformation.setConfiguration(configuration);

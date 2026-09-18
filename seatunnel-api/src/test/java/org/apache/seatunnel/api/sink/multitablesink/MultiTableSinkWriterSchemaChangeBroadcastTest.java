@@ -409,7 +409,22 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
                                         new TestSchemaChangeEvent(
                                                 TablePath.of("dbA", null, "users"))));
         assertEquals("boom-before-schema-entry", schemaChangeFailure.getMessage());
-        coordinator.close();
+        // checkQueueRemain() (invoked by close()) only re-checks subSinkErrorCheck() while a
+        // queue element still looks pending, and MultiTableWriterRunnable clears that pending
+        // flag in a separate volatile write issued after the worker's throwable field is already
+        // stored (MultiTableWriterRunnable.run()). Whether close() observes that narrow window
+        // and re-surfaces the same row failure is a timing race in existing close() behavior, not
+        // a regression and not what this test verifies above. Tolerate either outcome, but fail
+        // if close() surfaces anything other than the exact failure already asserted.
+        try {
+            coordinator.close();
+        } catch (RuntimeException e) {
+            org.junit.jupiter.api.Assertions.assertSame(
+                    rowWriteFailure,
+                    e.getCause(),
+                    "close() surfaced an unexpected failure instead of the known row failure: "
+                            + e);
+        }
     }
 
     /**

@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
@@ -51,6 +53,7 @@ import io.debezium.relational.history.TableChanges;
 
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,6 +82,66 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     @Override
     public Option<StopMode> getStopModeOption() {
         return OracleIncrementalSourceOptions.STOP_MODE;
+    }
+
+    @Override
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        return getOracleStartupConfig(config);
+    }
+
+    /**
+     * Builds the startup configuration for Oracle CDC. A specific SCN is mapped to the standard
+     * {@link RedoLogOffset} structure. Generic file and position offsets are rejected because they
+     * do not apply to Oracle. The initial {@code commit_scn=0} and {@code lcr_position=null} values
+     * intentionally match the offset shape expected by the existing Oracle offset loader.
+     *
+     * @param config connector configuration
+     * @return the Oracle startup configuration
+     */
+    static StartupConfig getOracleStartupConfig(ReadonlyConfig config) {
+        StartupMode startupMode = config.get(OracleIncrementalSourceOptions.STARTUP_MODE);
+        Optional<Long> startupSpecificOffsetScn =
+                config.getOptional(OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN);
+
+        if (startupMode != StartupMode.SPECIFIC) {
+            if (startupSpecificOffsetScn.isPresent()) {
+                throw new IllegalArgumentException(
+                        OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                                + " is only supported when startup.mode is specific.");
+            }
+            return new StartupConfig(
+                    startupMode,
+                    config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
+                    config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
+                    config.get(SourceOptions.STARTUP_TIMESTAMP));
+        }
+
+        if (config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
+                || config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS).isPresent()) {
+            throw new IllegalArgumentException(
+                    "Oracle-CDC specific startup mode uses "
+                            + OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                            + " instead of file or position offsets.");
+        }
+
+        Long scn =
+                startupSpecificOffsetScn.orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN
+                                                        .key()
+                                                + " is required when startup.mode is specific."));
+        if (scn <= 0) {
+            throw new IllegalArgumentException(
+                    OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                            + " must be greater than 0.");
+        }
+
+        Map<String, String> specificOffset = new HashMap<>();
+        specificOffset.put(RedoLogOffset.SCN_KEY, String.valueOf(scn));
+        specificOffset.put(RedoLogOffset.COMMIT_SCN_KEY, "0");
+        specificOffset.put(RedoLogOffset.LCR_POSITION_KEY, null);
+        return new StartupConfig(StartupMode.SPECIFIC, specificOffset);
     }
 
     @Override

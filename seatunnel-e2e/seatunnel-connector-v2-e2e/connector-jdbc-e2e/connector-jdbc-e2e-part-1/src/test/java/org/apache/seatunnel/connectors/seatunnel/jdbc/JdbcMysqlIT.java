@@ -90,7 +90,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
-    private static final String URL = "jdbc:mysql://" + HOST + ":3306/seatunnel";
+    private static final String URL = "jdbc:mysql://%s:%s/seatunnel";
 
     private static final String SQL = "select * from seatunnel.source";
 
@@ -240,11 +240,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "c_decimal_30",
                 };
         defaultCompare(executeKey, fieldNames, "c_bigint_30");
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     @Override
@@ -434,9 +429,6 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
-
         return container;
     }
 
@@ -454,7 +446,7 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     private String getUrl() {
-        return URL.replace("HOST", dbServer.getHost());
+        return String.format(URL, dbServer.getHost(), jdbcCase.getLocalPort());
     }
 
     @Test

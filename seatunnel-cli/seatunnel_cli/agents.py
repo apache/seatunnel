@@ -288,7 +288,7 @@ def _extract_connector_blocks_raw(
     (inclusive), e.g. ``'url = "..." driver = "..."'``.
     """
     results: list[tuple[str, str, str]] = []
-    for section in ("source", "sink"):
+    for section in ("source", "transform", "sink"):
         # Find the section's opening brace
         pattern = re.compile(
             rf"(?:^|\n)\s*{section}\s*\{{", re.IGNORECASE,
@@ -345,8 +345,13 @@ def _validate_routing_pairs(
     errors: list[str],
     warnings: list[str],
 ) -> None:
-    """Validate plugin_output / plugin_input pairing across connector blocks."""
-    outputs: dict[str, str] = {}  # label → connector_name
+    """Validate plugin_output / plugin_input pairing across connector blocks.
+
+    Blocks may come from the source, transform, or sink sections; messages
+    carry the real ``section.connector`` location so diagnostics point at
+    the right block (transforms both emit and consume labels).
+    """
+    outputs: dict[str, str] = {}  # label → "section.connector_name"
     inputs: dict[str, str] = {}
 
     label_re = re.compile(
@@ -354,18 +359,19 @@ def _validate_routing_pairs(
     )
 
     for section, connector_name, block_content in blocks:
+        location = f"{section}.{connector_name}"
         for m in label_re.finditer(block_content):
             label = m.group(1)
             if "plugin_output" in m.group(0):
                 if label in outputs:
                     errors.append(
                         f"Duplicate plugin_output label \"{label}\" "
-                        f"in source.{connector_name} "
-                        f"(already used by source.{outputs[label]})"
+                        f"in {location} "
+                        f"(already used by {outputs[label]})"
                     )
-                outputs[label] = connector_name
+                outputs[label] = location
             else:
-                inputs[label] = connector_name
+                inputs[label] = location
 
     # Only validate pairing when routing labels are actually used
     if not outputs and not inputs:
@@ -375,16 +381,16 @@ def _validate_routing_pairs(
     if unmatched_inputs:
         for label in unmatched_inputs:
             errors.append(
-                f"sink.{inputs[label]}: plugin_input \"{label}\" "
-                f"has no matching plugin_output in any source"
+                f"{inputs[label]}: plugin_input \"{label}\" "
+                f"has no matching plugin_output in any source or transform"
             )
 
     orphan_outputs = set(outputs) - set(inputs)
     if orphan_outputs:
         for label in orphan_outputs:
             warnings.append(
-                f"source.{outputs[label]}: plugin_output \"{label}\" "
-                f"has no matching plugin_input in any sink"
+                f"{outputs[label]}: plugin_output \"{label}\" "
+                f"has no matching plugin_input in any transform or sink"
             )
 
 
@@ -463,9 +469,6 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Validate routing labels
-        _validate_routing_pairs(raw_blocks, errors, warnings)
-
     elif parsed is not None:
         # Standard single-connector-per-type path (pyhocon is accurate here)
         for section in ["source", "sink"]:
@@ -496,9 +499,10 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Also validate routing for single-connector configs if labels present
-        if raw_blocks:
-            _validate_routing_pairs(raw_blocks, errors, warnings)
+    # Routing validation is independent of option metadata and pyhocon —
+    # always run it when connector blocks were extracted.
+    if raw_blocks:
+        _validate_routing_pairs(raw_blocks, errors, warnings)
 
     # Check STREAMING mode needs checkpoint.interval
     if parsed is not None:
@@ -1103,6 +1107,16 @@ When generating configs with **multiple source/sink blocks**:
 - Labels should be descriptive: "jdbc_audit_log", "jdbc_users", etc.
 - ALL source blocks go inside ONE `source {{ }}` section
 - ALL sink blocks go inside ONE `sink {{ }}` section
+
+Chained/wide DAGs (transforms in the middle, 5+ blocks):
+- Wire every hop explicitly: source → transform → sink each consume the
+  upstream label and emit their own (`a_raw` → `a_filtered` → sink).
+- After inserting a transform, re-point the downstream consumer to the
+  transform's OUTPUT label — a sink still reading the source label silently
+  bypasses the transform.
+- To SPLIT one stream by condition: several transforms may consume the SAME
+  source label (each with its own predicate + distinct output label). Two
+  different sources must never emit the same label.
 
 Example — Two Jdbc sources routed to Console and Assert:
 ```hocon

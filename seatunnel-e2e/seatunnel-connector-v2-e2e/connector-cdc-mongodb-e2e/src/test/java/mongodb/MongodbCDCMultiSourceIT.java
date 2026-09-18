@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.bson.Document;
 import org.junit.jupiter.api.AfterAll;
@@ -46,7 +47,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -88,13 +88,14 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         mySqlContainer.withPassword(MYSQL_USER_PASSWORD);
         mySqlContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mysql-Docker-Image")));
-        mySqlContainer.setPortBindings(Collections.singletonList("3310:3306"));
         return mySqlContainer;
     }
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            MysqlDriverResolver::copyMySQLDriverToJdbcContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -109,7 +110,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         mongodbContainerA =
                 new MongoDBContainer(NETWORK, MongoDBContainer.ShardingClusterRole.SHARD);
         mongodbContainerA.withNetworkAliases("mongo0");
-        mongodbContainerA.setPortBindings(Collections.singletonList("27017:27017"));
         mongodbContainerA.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("MongoDB-A-Docker-Image")));
         Startables.deepStart(Stream.of(mongodbContainerA)).join();
@@ -119,7 +119,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         mongodbContainerB =
                 new MongoDBContainer(NETWORK, MongoDBContainer.ShardingClusterRole.SHARD);
         mongodbContainerB.withNetworkAliases("mongo1");
-        mongodbContainerB.setPortBindings(Collections.singletonList("27018:27017"));
         mongodbContainerB.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("MongoDB-B-Docker-Image")));
         Startables.deepStart(Stream.of(mongodbContainerB)).join();

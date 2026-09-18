@@ -42,10 +42,14 @@ For most new deployments, SeaTunnel Engine is the recommended default because it
 | **Exactly-Once** | ✅ | ✅ | ✅ |
 | **Multi-Table Sync** | ✅ | ✅ | ✅ |
 | **Schema Evolution** | ✅ | ✅ | ❌ |
-| **REST API** | ✅ | ✅ | ❌ |
+| **REST API** | ✅ | ❌ | ❌ |
 | **Web UI** | ✅ | ✅ | ✅ |
 | **Standalone Mode** | ✅ | ✅ | ✅ |
 | **Cluster Mode** | ✅ | ✅ | ✅ |
+
+:::note
+"REST API" here refers to SeaTunnel's own job submission/monitoring API ([REST API V2](zeta/rest-api-v2.md)). It is implemented by the SeaTunnel Engine (Zeta) server only, so it is not available when a job runs on the Flink or Spark engine. When using the Flink or Spark engine, submit and monitor jobs through that engine's own tooling instead (e.g. Flink's CLI/REST API, Spark's `spark-submit`/history server).
+:::
 
 ### Performance Comparison
 

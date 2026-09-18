@@ -12,8 +12,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+Write data to DB2 through JDBC. Supports batch and streaming jobs, concurrent writes, and exactly-once semantics backed by XA transactions. Enable exactly-once with `is_exactly_once = true` together with the matching `xa_data_source_class_name`.
 
 ## Using Dependency
 
@@ -27,17 +26,19 @@ semantics (using XA transaction guarantee).
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md) (XA transactions)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md) (via primary-key upsert / merge SQL)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+> Use XA transactions to ensure exactly-once. You need to enable `is_exactly_once=true` and set the matching `xa_data_source_class_name` for the database.
 
 ## Supported DataSource Info
 
-| Datasource |                    Supported Versions                    |             Driver             |                Url                |                                 Maven                                 |
-|------------|----------------------------------------------------------|--------------------------------|-----------------------------------|-----------------------------------------------------------------------|
+| Datasource | Supported versions                                   | Driver                  | Url                           | Maven                                                              |
+|------------|------------------------------------------------------|-------------------------|-------------------------------|--------------------------------------------------------------------|
 | DB2        | Different dependency version has different driver class. | com.ibm.db2.jcc.DB2Driver | jdbc:db2://127.0.0.1:50000/dbname | [Download](https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc) |
 
 ## Data Type Mapping
@@ -60,49 +61,43 @@ semantics (using XA transaction guarantee).
 
 ## Sink Options
 
-|                   Name                    |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
-|-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                             |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use DB2 the value is `com.ibm.db2.jcc.DB2Driver`.                                                                                                              |
-| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
-| password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
-| query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
-| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
-| primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
-| connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
-| max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                           |
-| batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables interval flushing. When the value is greater than `0`, each write checks elapsed time and flushes synchronously if the interval has passed. |
-| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                              |
-| generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                       |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, DB2 is `com.ibm.db2.jcc.DB2XADataSource`, and<br/>please refer to appendix for other data sources                                                                           |
-| max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                          |
-| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
-| auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
-| properties                                | Map     | No       | -       | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
-| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                    |
-| enable_upsert                             | Boolean | No       | true    | Enable upsert when `primary_keys` exists. If the input does not contain duplicate keys, setting this parameter to `false` can speed up data import. |
-
-### Tips
-
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+|                   Name                    |  Type   | Required | Default | Description                                                                                                                                                                                |
+|-------------------------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                       | String  | Yes      | -       | JDBC connection URL, for example `jdbc:db2://127.0.0.1:50000/dbname`.                                                                                                                       |
+| driver                                    | String  | Yes      | -       | JDBC driver class name. Use `com.ibm.db2.jcc.DB2Driver` for DB2.                                                                                                                            |
+| username                                  | String  | No       | -       | Username for the DB2 instance.                                                                                                                                                              |
+| password                                  | String  | No       | -       | Password for the DB2 instance.                                                                                                                                                             |
+| query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no `MERGE` upsert).                              |
+| database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/`MERGE` SQL. Mutually exclusive with `query`; when both are set, `query` wins.                         |
+| table                                     | String  | No       | -       | Target table name. Used together with `database` and `generate_sink_sql` to generate writes.                                                                                              |
+| primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build a `MERGE` upsert statement.                                                    |
+| connection_check_timeout_sec              | Int     | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                                   |
+| max_retries                               | Int     | No       | 0       | Number of retries on `executeBatch` failures.                                                                                                                                              |
+| batch_size                                | Int     | No       | 1000    | Buffered-row threshold that triggers a flush. Also flushes at `checkpoint.interval`.                                                                                                       |
+| batch_interval_ms                         | Long    | No       | 0       | Maximum time (ms) between two flushes. `0` disables interval-based flushing.                                                                                                              |
+| is_exactly_once                           | Boolean | No       | false   | Enable XA-backed exactly-once. Requires `xa_data_source_class_name` to be set.                                                                                                             |
+| generate_sink_sql                         | Boolean | No       | false   | Generate `INSERT` or `MERGE` SQL from `database`/`table`/`primary_keys` instead of supplying your own `query`.                                                                            |
+| xa_data_source_class_name                 | String  | No       | -       | XA datasource class name. For DB2 use `com.ibm.db2.jcc.DB2XADataSource`.                                                                                                                   |
+| max_commit_attempts                       | Int     | No       | 3       | Number of retries on transaction-commit failures.                                                                                                                                          |
+| transaction_timeout_sec                   | Int     | No       | -1      | Transaction timeout in seconds. `-1` means no timeout. Setting a timeout may affect exactly-once.                                                                                          |
+| auto_commit                               | Boolean | No       | true    | Whether to auto-commit each batch.                                                                                                                                                         |
+| properties                                | Map     | No       | -       | Extra JDBC connection properties. When the same key appears in both `properties` and `url`, the precedence is driver-specific.                                                            |
+| common-options                            |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                              |
+| enable_upsert                             | Boolean | No       | true    | When `primary_keys` is set with `generate_sink_sql = true`, generate `MERGE` upsert SQL. Set to `false` if your input has no duplicate keys and you want the faster insert-only path.       |
 
 ## Task Example
 
 ### Simple
 
-> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your DB2. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
+This example reads 16 rows from a `FakeSource` and inserts them into `test_table` in DB2.
 
-```
-# Defining the runtime environment
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   FakeSource {
     parallelism = 1
     plugin_output = "fake"
@@ -114,86 +109,75 @@ source {
       }
     }
   }
-  # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connectors/source
-}
-
-transform {
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
-    jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-        username = "root"
-        password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
-        }
-  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connectors/sink
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/dbname"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    username = "db2inst1"
+    password = "123456"
+    query = "insert into test_table(name, age) values(?, ?)"
+  }
 }
 ```
+
+Before running this job, create the target database and table in DB2.
 
 ### Generate Sink SQL
 
-> This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
+Skip the manual `INSERT` and let SeaTunnel generate the SQL from `database` and `table`.
 
-```
+```hocon
 sink {
-    jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-        username = "root"
-        password = "123456"
-        # Automatically generate sql statements based on database table names
-        generate_sink_sql = true
-        database = test
-        table = test_table
-    }
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/dbname"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    username = "db2inst1"
+    password = "123456"
+    generate_sink_sql = true
+    database = test
+    table = test_table
+  }
 }
 ```
 
 ### Exactly-once
 
-> For accurate write scene we guarantee accurate once
+Enable XA-backed exactly-once. The job will only commit each transaction when both phases succeed, and `max_retries`/`max_commit_attempts` provide extra robustness.
 
-```
+```hocon
 sink {
-    jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/dbname"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-    
-        max_retries = 0
-        username = "root"
-        password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
-    
-        is_exactly_once = "true"
-    
-        xa_data_source_class_name = "com.ibm.db2.jcc.DB2XADataSource"
-    }
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/dbname"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    username = "db2inst1"
+    password = "123456"
+    query = "insert into test_table(name, age) values(?, ?)"
+    max_retries = 0
+    is_exactly_once = true
+    xa_data_source_class_name = "com.ibm.db2.jcc.DB2XADataSource"
+  }
 }
 ```
 
 ### Generate Sink SQL With Upsert
 
-> When `generate_sink_sql = true` and `primary_keys` is set, DB2 uses a generated `MERGE` statement for upsert writes. If the input is insert-only and duplicate keys are impossible, set `enable_upsert = false` to use a faster insert path.
+When `generate_sink_sql = true` and `primary_keys` is set, DB2 writes via a generated `MERGE` statement. If the upstream data is insert-only, set `enable_upsert = false` for a faster insert-only path.
 
-```
+```hocon
 sink {
-    Jdbc {
-        url = "jdbc:db2://127.0.0.1:50000/E2E"
-        driver = "com.ibm.db2.jcc.DB2Driver"
-        username = "db2inst1"
-        password = "123456"
-        database = "E2E"
-        table = "SINK"
-        generate_sink_sql = true
-        enable_upsert = true
-        primary_keys = ["C_INT"]
-    }
+  Jdbc {
+    url = "jdbc:db2://127.0.0.1:50000/E2E"
+    driver = "com.ibm.db2.jcc.DB2Driver"
+    username = "db2inst1"
+    password = "123456"
+    database = "E2E"
+    table = "SINK"
+    generate_sink_sql = true
+    enable_upsert = true
+    primary_keys = ["C_INT"]
+  }
 }
 ```
 

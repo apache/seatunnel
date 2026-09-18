@@ -322,7 +322,9 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
-                SchemaChangeType.UPDATE_COLUMN);
+                SchemaChangeType.UPDATE_COLUMN,
+                SchemaChangeType.ALTER_TABLE_COMMENT,
+                SchemaChangeType.ALTER_COLUMN_COMMENT);
     }
 
     @Override

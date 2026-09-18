@@ -3,13 +3,22 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 # Snowflake
 
 > JDBC Snowflake 源连接器
->
-> ## 支持这些引擎
->
+
+## 支持以下引擎
+
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
->
+
+## 描述
+
+通过 JDBC 读取 Snowflake 数据。SeaTunnel 使用官方 Snowflake JDBC 驱动以及 JDBC Source 插件。请在 `url` 中填入 Snowflake 账户标识，并通过 `query` 控制输出 schema（只选择需要的列）。
+
+## 数据库依赖
+
+> 请下载 "Maven" 对应的支持列表，并将其复制到 `$SEATUNNEL_HOME/plugins/jdbc/lib/` 工作目录下<br/>
+> 例如 Snowflake 数据源：cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
+
 ## 关键特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -17,148 +26,132 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持用户自定义切分](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 
-> 支持查询 SQL 并可以实现投影效果。
->
-## 描述
+> 支持查询 SQL，可以实现列投影。
 
-通过 JDBC 读取外部数据源数据。
+## 支持的数据源信息
 
-## 支持的数据源列表
+| 数据源 | 支持版本                                  | 驱动                                       | Url                                          | Maven                                                          |
+|--------|-------------------------------------------|--------------------------------------------|----------------------------------------------|----------------------------------------------------------------|
+| Snowflake | 不同的依赖版本有不同的驱动程序类。    | net.snowflake.client.jdbc.SnowflakeDriver | jdbc:snowflake://<account_name>.snowflakecomputing.com | [下载](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
 
-| 数据源 | 支持的版本 | 驱动 | 连接串 | Maven |
-|--------|-----------|------|--------|-------|
-| snowflake | 不同的依赖版本有不同的驱动类 | net.snowflake.client.jdbc.SnowflakeDriver | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com | [下载](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
-
-## 数据库依赖
-
-> 请下载对应 'Maven' 的支持列表，并将其复制到 '$SEATUNNEL_HOME/plugins/jdbc/lib/' 工作目录<br/>
-> 例如 Snowflake 数据源：cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
->
 ## 数据类型映射
 
-| Snowflake 数据类型 | SeaTunnel 数据类型 |
-|------------------|------------------|
-| BOOLEAN | BOOLEAN |
-| TINYINT<br/>SMALLINT<br/>BYTEINT | SHORT_TYPE |
-| INT<br/>INTEGER | INT |
-| BIGINT | LONG |
-| DECIMAL<br/>NUMERIC<br/>NUMBER | DECIMAL(x,y) |
-| DECIMAL(x,y)(>38) | DECIMAL(38,18) |
-| REAL<br/>FLOAT4 | FLOAT |
-| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT | DOUBLE |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT | STRING |
-| DATE | DATE |
-| TIME | TIME |
-| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP |
-| BINARY<br/>VARBINARY | BYTES |
-| GEOGRAPHY (WKB or EWKB)<br/>GEOMETRY (WKB or EWKB) | BYTES |
-| GEOGRAPHY (GeoJSON, WKT or EWKT)<br/>GEOMETRY (GeoJSON, WKB or EWKB) | STRING |
+|                             Snowflake 数据类型                            | SeaTunnel 数据类型 |
+|-----------------------------------------------------------------------------|--------------------|
+| BOOLEAN                                                                     | BOOLEAN            |
+| TINYINT<br/>SMALLINT<br/>BYTEINT                                            | SHORT              |
+| INT<br/>INTEGER                                                             | INT                |
+| BIGINT                                                                      | LONG               |
+| DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
+| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
+| REAL<br/>FLOAT4                                                             | FLOAT              |
+| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
+| DATE                                                                        | DATE               |
+| TIME                                                                        | TIME               |
+| DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
+| BINARY<br/>VARBINARY                                                        | BYTES              |
+| GEOGRAPHY (WKB 或 EWKB)<br/>GEOMETRY (WKB 或 EWKB)                          | BYTES              |
+| GEOGRAPHY (GeoJSON, WKT 或 EWKT)<br/>GEOMETRY (GeoJSON, WKB 或 EWKB)        | STRING             |
 
-## 选项
+## 源选项
 
-| 参数名 | 类型 | 必须 | 默认值 | 描述 |
-|--------|------|------|--------|------|
-| url | String | 是 | - | JDBC 连接的 URL。参考示例：jdbc&#58;snowflake://<account_name>.snowflakecomputing.com |
-| driver | String | 是 | - | 用于连接到远程数据源的 jdbc 类名，如果您使用 Snowflake，值为 `net.snowflake.client.jdbc.SnowflakeDriver`。 |
-| username | String | 否 | - | 连接实例用户名 |
-| password | String | 否 | - | 连接实例密码 |
-| query | String | 是 | - | 查询语句 |
-| connection_check_timeout_sec | Int | 否 | 30 | 等待用于验证连接的数据库操作完成的时间（秒） |
-| partition_column | String | 否 | - | 用于并行性分割的列名，仅支持数值类型，仅支持数值类型主键，只能配置一列。 |
-| partition_lower_bound | BigDecimal | 否 | - | partition_column 的最小值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最小值。 |
-| partition_upper_bound | BigDecimal | 否 | - | partition_column 的最大值用于扫描，如果未设置，SeaTunnel 将查询数据库获取最大值。 |
-| partition_num | Int | 否 | job parallelism | 分割数量，仅支持正整数。默认值是任务并行度。 |
-| fetch_size | Int | 否 | 0 | 对于返回大量对象的查询，您可以配置查询中使用的行提取大小，以通过减少满足选择条件所需的数据库命中次数来提高性能。零表示使用 jdbc 默认值。 |
-| properties | Map | 否 | - | 其他连接配置参数，当 properties 和 URL 具有相同参数时，优先级由驱动程序的具体实现确定。例如，在 MySQL 中，properties 优先于 URL。 |
-| common-options | | 否 | - | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。 |
+|             名称            |    类型    | 是否必填 | 默认值 | 描述                                                                                                                                                                                |
+|------------------------------|------------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                          | String     | 是      | -       | JDBC 连接 URL，例如 `jdbc:snowflake://<account_name>.snowflakecomputing.com`。可以在 URL 后追加 Snowflake JDBC 参数（如 `?GEOGRAPHY_OUTPUT_FORMAT='EWKT'`）。                          |
+| driver                       | String     | 是      | -       | JDBC 驱动类名，Snowflake 使用 `net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                                          |
+| username                     | String     | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
+| password                     | String     | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
+| query                        | String     | 是      | -       | 读取数据的 SELECT 语句。SELECT 的列列表决定输出 schema，只选择需要的列即可。                                                                                                          |
+| connection_check_timeout_sec | Int        | 否       | 30      | 连接校验超时时间（秒），超过该时间未完成则失败。                                                                                                                                    |
+| partition_column             | String     | 否       | -       | 用于并行拆分读取的列。支持数值列和字符串列（配合 `split.string_split_mode` 使用）；只能配置一列。                                                                                    |
+| partition_lower_bound        | String     | 否       | -       | `partition_column` 的下界，用于范围拆分；不设置时 SeaTunnel 查询最小值。                                                                                                            |
+| partition_upper_bound        | String     | 否       | -       | `partition_column` 的上界，用于范围拆分；不设置时 SeaTunnel 查询最大值。                                                                                                            |
+| partition_num                | Int        | 否       | 10      | 并行读取时的拆分数量，默认值为 `10`。如果 `env.parallelism` 更大并希望每个读取任务一个拆分，可适当上调。                                                                              |
+| fetch_size                   | Int        | 否       | 0       | JDBC 读取时的 fetch size。`0` 表示使用驱动默认值；返回大量行时可设为正值以减少数据库往返。                                                                                          |
+| properties                   | Map        | 否       | -       | 额外的 JDBC 连接参数。`properties` 与 `url` 包含相同键时，优先级由驱动决定。                                                                                                        |
+| common-options               |            | 否       | -       | Source 插件通用参数，详见 [源通用选项](../common-options/source-common-options.md)。                                                                                                |
 
-## 提示
+### 小贴士
 
-> 如果未设置 partition_column，它将以单并发运行，如果设置了 partition_column，它将根据任务的并发度并行执行。
+> 不配置 `partition_column` 时，源端按单拆分读取；配置后，SeaTunnel 会按 `partition_num`（默认 10）和作业并行度两者中较大的值并行读取。
 >
-> JDBC 驱动程序连接参数在 JDBC 连接字符串中受支持。例如，您可以添加 `?GEOGRAPHY_OUTPUT_FORMAT='EWKT'` 来指定地理空间数据类型。有关可配置参数和地理空间数据类型的更多信息，请访问 Snowflake 官方[文档](https://docs.snowflake.com/en/sql-reference/data-types-geospatial)
-
-## 注意事项
-
-- Snowflake 作业使用 `Jdbc` 插件名，并配置 `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`。
-- 运行任务前，需要把 Snowflake JDBC 驱动 jar 放到 `$SEATUNNEL_HOME/plugins/jdbc/lib/`。
-- 并行读取时，`partition_column`、`partition_lower_bound`、`partition_upper_bound`、`partition_num` 应该描述同一个数值列范围。
-- Snowflake 地理空间字段会按 Snowflake JDBC 参数返回为字节或字符串，例如 `GEOGRAPHY_OUTPUT_FORMAT`。
+> Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）可通过 `?` 直接追加，示例：`?GEOGRAPHY_OUTPUT_FORMAT='EWKT'`。完整可配置参数及地理空间类型请参考 Snowflake [Geospatial Data Types](https://docs.snowflake.com/en/sql-reference/data-types-geospatial)。
 
 ## 任务示例
 
-### 简单
+### 简单示例
 
-> 此示例在单个并行中查询您的测试"数据库"中的 type_bin 表的 16 条数据，并查询其所有字段。您也可以指定要查询的字段以最终输出到控制台。
+此示例从 Snowflake 中查询 `type_bin` 的所有字段并打印到控制台。
 
- ```
- # 定义运行时环境
- env {
-     parallelism = 2
-    job.mode = "BATCH"
- }
- source {
-     Jdbc {
-         url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-         driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-         connection_check_timeout_sec = 100
-         username = "root"
-         password = "123456"
-         query = "select * from type_bin limit 16"
-     }
- }
- transform {
- # 如果您想了解有关如何配置 seatunnel 的更多信息并查看完整的转换插件列表，
- # 请访问 https://seatunnel.apache.org/docs/transforms/sql
- }
- sink {
-    Console {}
- }
- ```
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
 
-### 并行
+source {
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    connection_check_timeout_sec = 100
+    username = "USER"
+    password = "PASSWORD"
+    query = "select * from type_bin limit 16"
+  }
+}
 
-> 使用您配置的分片字段和分片数据并行读取查询表。如果您想读取整个表，可以这样做
+sink {
+  Console {}
+}
+```
 
- ```
- Jdbc {
-     url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-     driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-     connection_check_timeout_sec = 100
-     username = "root"
-     password = "123456"
-     # 根据需要定义查询逻辑
-     query = "select * from type_bin"
-     # 并行分片读取字段
-     partition_column = "id"
-     # 分片数量
-     partition_num = 10
- }
- ```
+### 按数值列并行读取
 
-### 并行边界
+按数值的 `partition_column` 并行读取整张表，让 SeaTunnel 自动查询上下界。
 
-> 指定查询的上下边界内的数据更高效。根据您配置的上下边界读取数据源更高效
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    username = "USER"
+    password = "PASSWORD"
+    query = "select * from type_bin"
+    partition_column = "id"
+    partition_num = 10
+  }
+}
+```
 
- ```
- Jdbc {
-     url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-     driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-     connection_check_timeout_sec = 100
-     username = "root"
-     password = "123456"
-     # 根据需要定义查询逻辑
-     query = "select * from type_bin"
-     partition_column = "id"
-     # 读取开始边界
-     partition_lower_bound = 1
-     # 读取结束边界
-     partition_upper_bound = 500
-     partition_num = 10
- }
- ```
+### 显式指定上下界的并行读取
+
+显式给出 `partition_lower_bound` 与 `partition_upper_bound`，可跳过 SeaTunnel 为学习列范围额外发出的 `MIN`/`MAX` 查询。
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    username = "USER"
+    password = "PASSWORD"
+    query = "select * from type_bin"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 500
+    partition_num = 10
+  }
+}
+```
+
+## 说明
+
+- Snowflake 任务使用 `Jdbc` 插件名，并设置 `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`。
+- 运行任务前请把 Snowflake JDBC 驱动 jar 放到 `$SEATUNNEL_HOME/plugins/jdbc/lib/`。
+- 并行读取时，`partition_column`、`partition_lower_bound`、`partition_upper_bound` 和 `partition_num` 必须描述同一数值列的范围。
+- Snowflake 地理空间列的字节/字符串返回形式由 Snowflake JDBC URL 参数（如 `GEOGRAPHY_OUTPUT_FORMAT`）决定。
 
 ## 变更日志
 

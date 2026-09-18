@@ -91,7 +91,8 @@ public class MySqlTypeUtils {
                         .dataType(column.typeName())
                         .scale(column.scale().orElse(0))
                         .nullable(column.isOptional())
-                        .defaultValue(defaultValue);
+                        .defaultValue(defaultValue)
+                        .comment(column.comment());
 
         if (column.length() >= 0) {
             builder.length((long) column.length()).precision((long) column.length());

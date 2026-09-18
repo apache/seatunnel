@@ -21,28 +21,36 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import io.debezium.antlr.AntlrDdlParserListener;
 import io.debezium.antlr.DataTypeResolver;
+import io.debezium.connector.mysql.MySqlValueConverters;
 import io.debezium.connector.mysql.antlr.MySqlAntlrDdlParser;
 import io.debezium.ddl.parser.mysql.generated.MySqlParser;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import io.debezium.relational.TableId;
+import io.debezium.relational.Tables;
 
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A ddl parser that will use custom listener. */
 public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
 
-    private final LinkedList<AlterTableColumnEvent> parsedEvents;
+    private final LinkedList<AlterTableEvent> parsedEvents;
 
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
+    /**
+     * Creates a parser that propagates listener failures instead of silently treating malformed DDL
+     * as a no-op.
+     */
     public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
-        super();
+        super(true, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
         this.parsedEvents = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
     }
@@ -306,9 +314,16 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
         return new CustomMySqlAntlrDdlParserListener(dbzConnectorConfig, this, parsedEvents);
     }
 
-    public List<AlterTableColumnEvent> getAndClearParsedEvents() {
-        List<AlterTableColumnEvent> result = Lists.newArrayList(parsedEvents);
+    public List<AlterTableEvent> getAndClearParsedEvents() {
+        List<AlterTableEvent> result = Lists.newArrayList(parsedEvents);
         parsedEvents.clear();
         return result;
+    }
+
+    public List<AlterTableColumnEvent> getAndClearParsedColumnEvents() {
+        return getAndClearParsedEvents().stream()
+                .filter(event -> event instanceof AlterTableColumnEvent)
+                .map(event -> (AlterTableColumnEvent) event)
+                .collect(Collectors.toList());
     }
 }

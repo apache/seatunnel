@@ -7,21 +7,11 @@ import ChangeLog from '../changelog/connector-cdc-tidb.md';
 ## Support Those Engines
 
 > SeaTunnel Zeta<br/>
-> Flink <br/>
-
-## Key features
-
-- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+> Flink<br/>
 
 ## Description
 
-The TiDB CDC connector allows for reading snapshot data and incremental data from TiDB database. This document
-describes how to set up the TiDB CDC connector to snapshot data and capture streaming event in TiDB database.
+The TiDB CDC connector reads snapshot data and incremental change events from TiDB by talking to its TiKV placement-driver (PD) and TiKV nodes through the `tikv-client-java` Java client. It supports parallel snapshot reads and exactly-once streaming, and is the recommended way to bring TiDB tables into a SeaTunnel pipeline.
 
 ## Supported DataSource Info
 
@@ -32,57 +22,68 @@ describes how to set up the TiDB CDC connector to snapshot data and capture stre
 
 ## Using Dependency
 
-### Install Jdbc Driver
+### Install JDBC Driver
 
 #### For Flink Engine
 
-> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and the [tikv-client-java jar package](https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0) has been placed in directory `${SEATUNNEL_HOME}/plugins/`.
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and the [tikv-client-java jar package](https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0) have been placed in directory `${SEATUNNEL_HOME}/plugins/`.
 
 #### For SeaTunnel Zeta Engine
 
-> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and the [tikv-client-java jar package](https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
+> 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/mysql/mysql-connector-java) and the [tikv-client-java jar package](https://mvnrepository.com/artifact/org.tikv/tikv-client-java/3.2.0) have been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
-Please download and put the MySQL driver and tikv-java-client in the directory required by your engine.
+Please download and put the MySQL driver and `tikv-client-java` in the directory required by your engine.
+
+## Key features
+
+- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 ## Data Type Mapping
 
-| Mysql Data Type                                                                                | SeaTunnel Data Type |
-|------------------------------------------------------------------------------------------------|---------------------|
-| BIT(1)<br/>TINYINT(1)                                                                          | BOOLEAN             |
-| TINYINT                                                                                        | TINYINT             |
-| TINYINT UNSIGNED<br/>SMALLINT                                                                  | SMALLINT            |
-| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR            | INT                 |
-| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                   | BIGINT              |
-| BIGINT UNSIGNED                                                                                | DECIMAL(20,0)       |
-| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED       | DECIMAL(p,s)        |
-| FLOAT<br/>FLOAT UNSIGNED                                                                       | FLOAT               |
-| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                          | DOUBLE              |
-| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON<br/>ENUM  | STRING              |
-| DATE                                                                                           | DATE                |
-| TIME(s)                                                                                        | TIME(s)             |
-| DATETIME<br/>TIMESTAMP(s)                                                                      | TIMESTAMP(s)        |
-| BINARY<br/>VARBINAR<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB <br/>GEOMETRY | BYTES               |
+| MySQL Data Type                                                                              | SeaTunnel Data Type |
+|----------------------------------------------------------------------------------------------|---------------------|
+| BIT(1)<br/>TINYINT(1)                                                                        | BOOLEAN             |
+| TINYINT                                                                                      | TINYINT             |
+| TINYINT UNSIGNED<br/>SMALLINT                                                                | SMALLINT            |
+| SMALLINT UNSIGNED<br/>MEDIUMINT<br/>MEDIUMINT UNSIGNED<br/>INT<br/>INTEGER<br/>YEAR          | INT                 |
+| INT UNSIGNED<br/>INTEGER UNSIGNED<br/>BIGINT                                                 | BIGINT              |
+| BIGINT UNSIGNED                                                                              | DECIMAL(20, 0)      |
+| DECIMAL(p, s) <br/>DECIMAL(p, s) UNSIGNED <br/>NUMERIC(p, s) <br/>NUMERIC(p, s) UNSIGNED     | DECIMAL(p, s)       |
+| FLOAT<br/>FLOAT UNSIGNED                                                                     | FLOAT               |
+| DOUBLE<br/>DOUBLE UNSIGNED<br/>REAL<br/>REAL UNSIGNED                                        | DOUBLE              |
+| CHAR<br/>VARCHAR<br/>TINYTEXT<br/>MEDIUMTEXT<br/>TEXT<br/>LONGTEXT<br/>ENUM<br/>JSON         | STRING              |
+| DATE                                                                                         | DATE                |
+| TIME(s)                                                                                      | TIME(s)             |
+| DATETIME<br/>TIMESTAMP(s)                                                                    | TIMESTAMP(s)        |
+| BINARY<br/>VARBINARY<br/>BIT(p)<br/>TINYBLOB<br/>MEDIUMBLOB<br/>BLOB<br/>LONGBLOB<br/>GEOMETRY | BYTES             |
 
 ## Source Options
 
-| Name                    | Type    | Required | Default | Description                                                                                                                                                                                                                                                                                                                                                                                  |
-|-------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                     | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: `jdbc:mysql://tidb0:4000/inventory`.                                                                                                                                                                                                                                                                                                        |
-| username                | String  | Yes      | -       | Username used to connect to the TiDB server.                                                                                                                                                                                                                                                                                                                                                 |
-| password                | String  | Yes      | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                      |
-| pd-addresses            | String  | Yes      | -       | TiKV cluster's PD address                                                                                                                                                                                                                                                                                                                                                                    |
-| database-name           | String  | Yes      | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                    |
-| table-name              | String  | Yes      | -       | Table name to monitor in `database-name`. Do not include the database name here.                                                                                                                                                                                                                                                                                                             |
-| startup.mode            | Enum    | No       | INITIAL | Optional startup mode for TiDB CDC consumer, valid enumerations are `initial`, `earliest` and `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest available offset.<br/> `latest`: Startup from the latest offset and skip the initial snapshot.                                                                                                           |
-| batch-size-per-scan     | Int     | No       | 1000    | Size per scan.                                                                                                                                                                                                                                                                                                                                                                               |
-| tikv.grpc.timeout_in_ms | Long    | No       | -       | TiKV GRPC timeout in ms.                                                                                                                                                                                                                                                                                                                                                                     |
-| tikv.grpc.scan_timeout_in_ms | Long    | No       | -       | TiKV GRPC scan timeout in ms.                                                                                                                                                                                                                                                                                                                                                                |
-| tikv.batch_get_concurrency | Integer | No       | -       | TiKV GRPC batch get concurrency                                                                                                                                                                                                                                                                                                                                                              |
-| tikv.batch_scan_concurrency | Integer | No       | -       | TiKV GRPC batch scan concurrency                                                                                                                                                                                                                                                                                                                                                             |
+| Name                          | Type    | Required | Default  | Description                                                                                                                                                                                                                                                                                                              |
+|-------------------------------|---------|----------|----------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                           | String  | Yes      | -        | MySQL-compatible JDBC URL used to discover table metadata. Example: `jdbc:mysql://tidb0:4000/inventory`.                                                                                                                                                                                                                  |
+| username                      | String  | Yes      | -        | Username used to connect to the TiDB server.                                                                                                                                                                                                                                                                             |
+| password                      | String  | Yes      | -        | Password used to connect to the TiDB server.                                                                                                                                                                                                                                                                             |
+| pd-addresses                  | String  | Yes      | -        | TiKV placement-driver (PD) endpoints, comma-separated, e.g. `pd0:2379,pd1:2379`.                                                                                                                                                                                                                                          |
+| database-name                 | String  | Yes      | -        | Name of the TiDB database to monitor.                                                                                                                                                                                                                                                                                     |
+| table-name                    | String  | Yes      | -        | Table name to monitor inside `database-name`. Do not include the database name.                                                                                                                                                                                                                                          |
+| startup.mode                  | Enum    | No       | INITIAL  | Optional startup mode for the TiDB CDC consumer. Valid values are `initial`, `earliest`, `latest`. `initial` snapshots historical data first, then keeps reading incremental changes. `earliest` starts from the earliest available offset. `latest` skips the initial snapshot and only consumes new changes from now on.    |
+| batch-size-per-scan           | Int     | No       | 1000     | Number of rows fetched per scan request against TiKV.                                                                                                                                                                                                                                                                     |
+| tikv.grpc.timeout_in_ms        | Long    | No       | -        | TiKV gRPC client timeout in milliseconds. Increase it when TiKV is slow to respond under load.                                                                                                                                                                                                                            |
+| tikv.grpc.scan_timeout_in_ms   | Long    | No       | -        | TiKV gRPC scan timeout in milliseconds. Increase it when large scans time out.                                                                                                                                                                                                                                            |
+| tikv.batch_get_concurrency    | Integer | No       | -        | Concurrency for TiKV `BatchGet` requests. Tune upward when reads are bottlenecked by TiKV CPU.                                                                                                                                                                                                                            |
+| tikv.batch_scan_concurrency    | Integer | No       | -        | Concurrency for TiKV `BatchScan` requests. Tune upward when snapshot reads are bottlenecked by TiKV CPU.                                                                                                                                                                                                                  |
 
 ## Task Example
 
 ### Simple
+
+This example streams CDC events from a TiDB table into a JDBC sink. Set `job.mode = "STREAMING"` and a checkpoint interval so incremental events flow continuously.
 
 ```hocon
 env {
@@ -92,7 +93,6 @@ env {
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   TiDB-CDC {
     plugin_output = "products_tidb_cdc"
     url = "jdbc:mysql://tidb0:4000/tidb_cdc"
@@ -106,11 +106,8 @@ source {
   }
 }
 
-transform {
-}
-
 sink {
-  jdbc {
+  Jdbc {
     plugin_input = "products_tidb_cdc"
     url = "jdbc:mysql://tidb0:4000/tidb_cdc"
     driver = "com.mysql.cj.jdbc.Driver"

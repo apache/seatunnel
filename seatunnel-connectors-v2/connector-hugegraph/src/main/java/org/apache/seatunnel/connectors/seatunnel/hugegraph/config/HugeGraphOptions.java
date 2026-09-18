@@ -71,7 +71,9 @@ public class HugeGraphOptions {
             Options.key("batch_interval_ms")
                     .intType()
                     .defaultValue(5000)
-                    .withDescription("The batch flash period");
+                    .withDescription(
+                            "Retained for compatibility. Configure sink.flush.interval in the "
+                                    + "job env block for Zeta timer flush.");
 
     public static final Option<Boolean> CHECK_VERTEX =
             Options.key("check_vertex")

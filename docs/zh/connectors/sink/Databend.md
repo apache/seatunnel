@@ -33,6 +33,14 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 
 > 1. 你需要下载 [Databend JDBC driver jar package](https://github.com/databendlabs/databend-jdbc/) 并添加到目录 `${SEATUNNEL_HOME}/lib/`.
 
+## 支持的数据源信息
+
+为了使用 Databend 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。
+
+| 数据源   | 支持的版本        | 依赖                                                                                   |
+|----------|-------------------|----------------------------------------------------------------------------------------|
+| Databend | 1.2.x 及以上版本  | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-databend) |
+
 ## Sink 选项
 
 | 名称                  | 类型 | 是否必须 | 默认值 | 描述                                 |
@@ -52,6 +60,7 @@ Databend sink 内部通过 stage attachment 实现数据的批量导入。
 | jdbc_config         | Map | 否 | - | 额外的 JDBC 连接配置，如连接超时参数等             |
 | conflict_key        | String | 否 | - | cdc 模式下的冲突键，用于确定冲突解决的主键 |
 | enable_delete       | Boolean | 否 | false | cdc 模式下是否允许删除操作 |
+| common-options      |  | 否 | - | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### schema_save_mode [Enum]
 
@@ -161,7 +170,53 @@ sink {
 Databend 中的数据时，才需要设置 `enable_delete = true`。
 如果不配置 `conflict_key`，sink 会按普通批量插入方式写入。
 
+下面的端到端示例将 CDC 行类型（`INSERT`、`UPDATE_BEFORE`、`UPDATE_AFTER`、`DELETE`）
+写入 Databend。sink 会根据 `conflict_key` 指定的主键合并更新并执行删除。
+
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 1000
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    schema = {
+      fields {
+        id = "int"
+        name = "string"
+        position = "string"
+        age = "int"
+        score = "double"
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, "Alice", "Engineer", 30, 95.5]
+      },
+      {
+        kind = INSERT
+        fields = [2, "Bob", "Developer", 25, 85.0]
+      },
+      {
+        kind = UPDATE_BEFORE
+        fields = [2, "Bob", "Developer", 25, 85.0]
+      },
+      {
+        kind = UPDATE_AFTER
+        fields = [2, "Bob", "Senior Developer", 25, 87.0]
+      },
+      {
+        kind = DELETE
+        fields = [2, "Bob", "Senior Developer", 25, 87.0]
+      }
+    ]
+  }
+}
+
 sink {
   Databend {
     url = "jdbc:databend://databend:8000/default?ssl=false"
@@ -169,9 +224,44 @@ sink {
     password = ""
     database = "default"
     table = "sink_table"
-    
+
     # 开启 CDC 写入模式
     batch_size = 1
+    conflict_key = "id"
+    enable_delete = true
+  }
+}
+```
+
+### 将 MySQL CDC 流式写入 Databend
+
+同一套 CDC 参数同样适用于流式任务。下面的示例将 MySQL CDC 事件持续写入 Databend。流式
+CDC 场景下建议把 `batch_size` 调小一些，让每个 checkpoint 都能反映最新写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Databend {
+    url = "jdbc:databend://databend:8000/default?ssl=false"
+    username = "root"
+    password = ""
+    database = "default"
+    table = "orders"
+    batch_size = 500
     conflict_key = "id"
     enable_delete = true
   }

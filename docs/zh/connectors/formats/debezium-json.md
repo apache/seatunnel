@@ -113,3 +113,11 @@ sink {
 }
 ```
 
+# 参考
+
+SeaTunnel 还支持以下几种 CDC 变更日志格式，它们同样会被解释为 INSERT/UPDATE/DELETE 消息：
+
+- [Canal JSON](canal-json.md)
+- [Maxwell JSON](maxwell-json.md)
+- [OGG JSON](ogg-json.md)
+

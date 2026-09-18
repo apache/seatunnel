@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -46,11 +47,12 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.luben.zstd.Zstd;
+import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -104,20 +106,11 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-mysql-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    private String zstdUrl() {
-        return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                // TODO: remove this after fix the issue of encountering a failure to create the
-                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
-                // Manually create iceberg metadata and data directory in container
+                // Iceberg's Hadoop catalog cannot reliably create the mounted warehouse's
+                // metadata and data directories from the job containers.
                 container.execInContainer(
                         "sh",
                         "-c",
@@ -130,21 +123,10 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                                 + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
 
-                Container.ExecResult extraCommandsZSTD =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && wget "
-                                        + zstdUrl());
-                Assertions.assertEquals(
-                        0, extraCommandsZSTD.getExitCode(), extraCommandsZSTD.getStderr());
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(Driver.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
             };
 
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";

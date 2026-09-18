@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -39,8 +37,6 @@ public class DmSchemaChangeIT extends AbstractSchemaChangeBaseIT {
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
 
-    private static final String DM_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/dameng/DmJdbcDriver18/8.1.1.193/DmJdbcDriver18-8.1.1.193.jar";
     private final String schemaEvolutionCase_config = "/mysqlcdc_to_dm_with_schema_change.conf";
     private final String schemaEvolutionCaseExactlyOnce_config =
             "/mysqlcdc_to_dm_with_schema_change_exactly_once.conf";
@@ -53,7 +49,6 @@ public class DmSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                 .jdbcUrl(DM_URL)
                 .username(DM_USERNAME)
                 .password(DM_PASSWORD)
-                .driverUrl(DM_DRIVER_JAR)
                 .port(DM_PORT)
                 .driverClassName(DRIVER_CLASS)
                 .databaseName(DM_DATABASE)
@@ -78,7 +73,6 @@ public class DmSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withStartupTimeout(Duration.ofMinutes(5))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", DM_PORT, DM_PORT)));
         container.setPrivilegedMode(true);
         return container;
     }

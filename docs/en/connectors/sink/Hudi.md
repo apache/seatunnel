@@ -25,38 +25,40 @@ The SeaTunnel Hudi sink writes Hudi data files and `.hoodie` metadata, but it do
 
 Base configuration:
 
-|            name            |  type   | required | default value               |
-|----------------------------|---------|----------|-----------------------------|
-| table_dfs_path             | string  | yes      | -                           |
-| conf_files_path            | string  | no       | -                           |
-| table_list                 | Array   | no       | -                           |
-| schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST|
-| data_save_mode             | enum    | no       | APPEND_DATA                 |
-| common-options             | Config  | no       | -                           |
+|            name            |  type   | required | default value                | description |
+|----------------------------|---------|----------|------------------------------|-------------|
+| table_dfs_path             | string  | yes      | -                            | Root path for Hudi table data and metadata. |
+| conf_files_path            | string  | no       | -                            | Semicolon-separated local paths to HDFS client configuration files. |
+| table_list                 | Array   | no       | -                            | Per-table settings for multi-table jobs. |
+| schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target schema before the job starts. |
+| data_save_mode             | enum    | no       | APPEND_DATA                  | How to handle existing table data before the job starts. |
+| common-options             | Config  | no       | -                            | [Common sink options](../common-options/sink-common-options.md). |
 
 Table list configuration:
 
-|       name                 |  type  | required | default value |
-|----------------------------|--------|----------|---------------|
-| table_name                 | string | yes      | -             |
-| database                   | string | no       | default       |
-| table_type                 | enum   | no       | COPY_ON_WRITE |
-| op_type                    | enum   | no       | insert        |
-| record_key_fields          | string | no       | -             |
-| partition_fields           | string | no       | -             |
-| precombine_field           | string | no       | -             |
-| batch_interval_ms          | Int    | no       | 1000          |
-| batch_size                 | Int    | no       | 1000          |
-| insert_shuffle_parallelism | Int    | no       | 2             |
-| upsert_shuffle_parallelism | Int    | no       | 2             |
-| min_commits_to_keep        | Int    | no       | 20            |
-| max_commits_to_keep        | Int    | no       | 30            |
-| index_type                 | enum   | no       | BLOOM         |
-| index_class_name           | string | no       | -             |
-| record_byte_size           | Int    | no       | 1024          |
-| cdc_enabled                | boolean| no       | false         |
+|       name                 |  type  | required | default value | description |
+|----------------------------|--------|----------|---------------|-------------|
+| table_name                 | string | yes      | -             | Target Hudi table name. |
+| database                   | string | no       | default       | Target Hudi database name. |
+| table_type                 | enum   | no       | COPY_ON_WRITE | Hudi table type: `COPY_ON_WRITE` or `MERGE_ON_READ`. |
+| op_type                    | enum   | no       | INSERT        | Write operation: `INSERT`, `UPSERT`, or `BULK_INSERT`. |
+| record_key_fields          | string | no       | -             | Field or fields used to build the Hudi record key; required for `UPSERT`. |
+| partition_fields           | string | no       | -             | Field or fields used to build the partition path. |
+| precombine_field           | string | no       | -             | Field used to resolve multiple updates to the same record. |
+| batch_interval_ms          | Int    | no       | 1000          | Currently unused; flushes are triggered only by `batch_size` or a checkpoint. |
+| batch_size                 | Int    | no       | 1000          | Maximum buffered rows before a flush. |
+| insert_shuffle_parallelism | Int    | no       | 2             | Shuffle parallelism for insert operations. |
+| upsert_shuffle_parallelism | Int    | no       | 2             | Shuffle parallelism for upsert operations. |
+| min_commits_to_keep        | Int    | no       | 20            | Minimum number of commits retained during cleaning. |
+| max_commits_to_keep        | Int    | no       | 30            | Maximum number of commits retained during cleaning. |
+| index_type                 | enum   | no       | BLOOM         | Hudi index type: `BLOOM`, `SIMPLE`, or `GLOBAL_BLOOM`. |
+| index_class_name           | string | no       | -             | Fully qualified custom Hudi index class name. |
+| record_byte_size           | Int    | no       | 1024          | Estimated average record size in bytes. |
+| cdc_enabled                | boolean| no       | false         | Persist Hudi CDC change-log data when enabled. |
 
-Note: When this configuration corresponds to a single table, you can flatten the configuration items in table_list to the outer layer.
+Note: When this configuration corresponds to a single table, you can flatten the configuration items in `table_list` to the outer layer. For a multi-table job, keep table-specific options inside each `table_list` entry; `table_dfs_path`, `conf_files_path`, `schema_save_mode`, and `data_save_mode` remain at the sink level.
+
+`record_key_fields` is required for `UPSERT` (validated at startup) and for `BULK_INSERT` (currently unvalidated — omitting it causes a `NullPointerException` during writing, not a config-time error). For CDC input, the upstream record must contain the fields used by `record_key_fields`; set `cdc_enabled = true` only when the Hudi CDC change log is required.
 
 ### table_name [string]
 
@@ -108,7 +110,8 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### batch_interval_ms [Int]
 
-`batch_interval_ms` The maximum interval, in milliseconds, between two flushes to Hudi.
+`batch_interval_ms` is retained for compatibility. To schedule time-based flushes on Zeta, configure
+`sink.flush.interval` in the job `env` block.
 
 ### batch_size [Int]
 
@@ -136,12 +139,12 @@ Note: When this configuration corresponds to a single table, you can flatten the
 
 ### schema_save_mode [Enum]
 
-Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.  
-Option introduction：  
-`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved        
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved        
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
-`IGNORE` ：Ignore the treatment of the table
+Controls how the connector handles the target table schema before the job starts:
+
+- `RECREATE_SCHEMA`: Create the table if it does not exist; otherwise delete and recreate it.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Create the table only when it does not exist.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Fail when the table does not exist.
+- `IGNORE`: Do not perform schema handling.
 
 ### data_save_mode [Enum]
 
@@ -156,6 +159,23 @@ Choose how to handle existing data before the synchronization task starts.
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
+
+## Timer Flush
+
+Timer flush is an engine-level feature supported only by Zeta. Configure `sink.flush.interval` in the job `env` block
+to write pending Hudi records even when `batch_size` has not been reached. Spark and Flink do not inject `FlushSignal`
+records and therefore do not trigger this scheduled flush.
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+Hudi timer flush reuses the connector's synchronized batch flush and the Hudi client's auto-commit behavior. The Hudi
+sink does not provide a 2PC exactly-once writer, so timer flush provides at-least-once delivery. Retries can create
+additional commits. With `INSERT`, generated record keys can also produce duplicate rows after recovery; `UPSERT` with
+stable `record_key_fields` limits duplicate logical records.
 
 ## Examples
 
@@ -259,6 +279,22 @@ sink {
     op_type = "UPSERT"
     record_key_fields = "id"
     cdc_enabled = true
+  }
+}
+```
+
+### S3 Storage
+
+The sink can write to an S3-compatible path. The `connector-hudi` module does not depend on `hadoop-aws`/`aws-java-sdk`, so resolving the `s3a://` scheme requires placing `hadoop-aws` and the matching AWS SDK bundle (or SeaTunnel's `seatunnel-hadoop-aws` jar) into `$SEATUNNEL_HOME/lib` (or the connector's plugin lib directory) before the example below will work. After that, provide the required Hadoop filesystem settings through `conf_files_path` (or the runtime classpath), then use an `s3a://` table path.
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "s3a://hudi/"
+    conf_files_path = "/etc/hadoop/core-site.xml;/etc/hadoop/hdfs-site.xml"
+    table_name = "st_test"
+    op_type = "UPSERT"
+    record_key_fields = "id"
   }
 }
 ```

@@ -19,7 +19,9 @@ Used to write data to IoTDB.
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> The IoTDB sink connector writes rows by calling the IoTDB insert RPC. When a row carries a non-unique `(device, timestamp)` pair, the write is treated as an upsert — the latest value overwrites earlier ones — so duplicate deliveries from upstream do not create phantom rows. Row-kind `UPDATE`/`DELETE` are not interpreted as CDC operations; all rows are written as inserts.
 
 ## Supported DataSource Info
 
@@ -202,6 +204,34 @@ IoTDB> SELECT * FROM root.test_group.* align by device;
 |2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|
 +------------------------+------------------------+--------------+-----------+
 ```
+
+### Case4: Streaming writes with explicit batch flush
+
+For long-running streaming jobs, increase `batch_size` to reduce per-row RPC overhead. The connector flushes the buffered rows when either the buffer fills up to `batch_size` or the checkpoint completes. Set `max_retries` and `max_retry_backoff_ms` to keep the job resilient against transient RPC failures.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  IoTDB {
+    node_urls = ["localhost:6667", "localhost:6668"]
+    username = "root"
+    password = "root"
+    key_device = "device_name"
+    key_timestamp = "event_ts"
+    batch_size = 2048
+    max_retries = 3
+    retry_backoff_multiplier_ms = 100
+    max_retry_backoff_ms = 5000
+  }
+}
+```
+
+`node_urls` accepts multiple IoTDB nodes. The sink will pick one as the active write node per task and fall over to the others when the active node fails.
 
 ## Changelog
 

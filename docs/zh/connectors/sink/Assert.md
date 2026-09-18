@@ -17,8 +17,11 @@ Assert 是一个用于校验任务输出结果的数据接收器。它可以按�
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置
 
@@ -135,6 +138,16 @@ Sink 插件的通用参数，请参考 [Sink Common Options](../common-options/s
 - `field_rules` 用于检查每一行中的字段值。
 - `tables_configs` 用于多表任务，`table_path` 必须和上游数据携带的表路径一致。
 - `equals_to` 会比较实际字段值和配置的期望值。数组、Map、Row 这类复杂值需要使用和 source 数据一致的 HOCON 写法。
+
+:::tip
+
+Assert 是一个终端 sink —— 没有外部存储系统可以写入。它适合在不需要下游数据库的情况下校验中间结果。连接器不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义，每条收到的记录都会按配置的规则进行断言。行数、字段值或 catalog 元数据校验失败时，任务会以对应的错误信息直接失败。
+
+:::
+
+## 流式校验
+
+Assert 同时支持 `BATCH` 与 `STREAMING` 两种作业模式。字段规则（如 `NOT_NULL`、`MIN_LENGTH`、`MAX_LENGTH` 等）会在每一条记录到达 Sink Writer 时进行检查；行数规则（`MIN_ROW` / `MAX_ROW`）只在 Sink Writer 关闭时（作业关闭、savepoint 或失败时）执行一次，对比的是该 Writer 实例自创建以来累计接收的总行数，既不会按 checkpoint 窗口重复校验，也不会在 checkpoint 之间重置。如果需要真正按 checkpoint 窗口的行数校验，这超出了文档更新范围，需要改动源代码。
 
 ## 示例
 
@@ -630,6 +643,67 @@ sink {
   }
 }
 
+```
+
+### 流式校验并按 Checkpoint 窗口断言行数
+
+下面的示例演示一个流式作业：作业结束时累计行数满足 `MIN_ROW` / `MAX_ROW` 区间（`50 ≤ 总行数 ≤ 5000`）。该校验只在 Writer 关闭时执行一次，对比累计行数，并不是按 checkpoint 窗口重复执行。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+    plugin_output = "stream_data"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "stream_data"
+    rules =
+      {
+        row_rules = [
+          {
+            rule_type = MIN_ROW
+            rule_value = 50
+          },
+          {
+            rule_type = MAX_ROW
+            rule_value = 5000
+          }
+        ],
+        field_rules = [{
+          field_name = age
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            },
+            {
+              rule_type = MIN
+              rule_value = 0
+            },
+            {
+              rule_type = MAX
+              rule_value = 150
+            }
+          ]
+        }]
+      }
+  }
+}
 ```
 
 ## 变更日志

@@ -57,6 +57,7 @@ class HazelcastCounterStateStoreTest {
 
         assertNull(store.get("missing"));
         assertNull(store.incrementAndGet("missing"));
+        assertNull(store.addAndGet("missing", 3L));
         assertFalse(iMap.containsKey("missing"));
     }
 
@@ -81,5 +82,17 @@ class HazelcastCounterStateStoreTest {
 
         assertEquals(8L, store.incrementAndGet("counter"));
         assertEquals(8L, store.get("counter"));
+    }
+
+    @Test
+    void addAndGetShouldAdvanceExistingCounterByDelta() {
+        IMap<String, Long> iMap = hazelcastInstance.getMap("counter-state-store-add");
+        iMap.clear();
+        HazelcastCounterStateStore<String> store = new HazelcastCounterStateStore<>(iMap);
+
+        store.set("counter", 7L);
+
+        assertEquals(12L, store.addAndGet("counter", 5L));
+        assertEquals(12L, store.get("counter"));
     }
 }

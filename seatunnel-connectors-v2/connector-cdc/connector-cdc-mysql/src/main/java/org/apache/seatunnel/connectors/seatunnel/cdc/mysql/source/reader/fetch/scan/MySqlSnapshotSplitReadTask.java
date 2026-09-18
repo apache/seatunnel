@@ -223,7 +223,7 @@ public class MySqlSnapshotSplitReadTask
                 rows++;
                 final Object[] row = new Object[columnArray.getGreatestColumnPosition()];
                 for (int i = 0; i < columnArray.getColumns().length; i++) {
-                    Column actualColumn = table.columns().get(i);
+                    Column actualColumn = columnArray.getColumns()[i];
                     row[columnArray.getColumns()[i].position() - 1] =
                             readField(rs, i + 1, actualColumn, table);
                 }

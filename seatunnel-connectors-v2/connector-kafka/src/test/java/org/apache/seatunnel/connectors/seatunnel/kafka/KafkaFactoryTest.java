@@ -21,6 +21,9 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory;
 
@@ -64,6 +67,14 @@ class KafkaFactoryTest {
         offsets.put("test-topic-0", 100L);
         cfg.put("start_mode.offsets", offsets);
         return cfg;
+    }
+
+    @Test
+    void testSourceSupportsConnectDryRun() {
+        Assertions.assertTrue(
+                FactoryUtil.discoverFactory(
+                                getClass().getClassLoader(), TableSourceFactory.class, "Kafka")
+                        instanceof SupportSourceDryRunValidation);
     }
 
     @Test

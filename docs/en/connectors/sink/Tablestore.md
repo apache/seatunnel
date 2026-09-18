@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 > Tablestore sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write SeaTunnel rows to Alibaba Cloud Tablestore.
@@ -14,6 +20,16 @@ Write SeaTunnel rows to Alibaba Cloud Tablestore.
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Data Type Mapping
+
+| SeaTunnel type                         | Tablestore attribute column type | Tablestore primary key type |
+|----------------------------------------|----------------------------------|-----------------------------|
+| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                        | `INTEGER`                   |
+| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                         | `STRING`                    |
+| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                         | `STRING`                    |
+| `BOOLEAN`                              | `BOOLEAN`                        | `STRING`                    |
+| `BYTES`                                | `BINARY`                         | `BINARY`                    |
 
 ## Options
 
@@ -88,16 +104,6 @@ sink {
   }
 }
 ```
-
-## Type mapping
-
-| SeaTunnel type                         | Tablestore attribute column type | Tablestore primary key type |
-|----------------------------------------|----------------------------------|-----------------------------|
-| `INT`, `TINYINT`, `SMALLINT`, `BIGINT` | `INTEGER`                        | `INTEGER`                   |
-| `FLOAT`, `DOUBLE`, `DECIMAL`           | `DOUBLE`                         | `STRING`                    |
-| `STRING`, `DATE`, `TIME`, `TIMESTAMP`  | `STRING`                         | `STRING`                    |
-| `BOOLEAN`                              | `BOOLEAN`                        | `STRING`                    |
-| `BYTES`                                | `BINARY`                         | `BINARY`                    |
 
 ## Changelog
 

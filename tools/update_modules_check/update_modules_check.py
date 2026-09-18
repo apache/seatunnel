@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
 #  this work for additional information regarding copyright ownership.
@@ -13,9 +14,65 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# !/usr/bin/python
 import json
 import sys
+import zlib
+
+
+# Selected from the module durations in GitHub Actions run 31611542978, where
+# the resulting seven shards were estimated at 79.1-89.6 minutes. The stable
+# hash keeps existing modules in the same shard when modules are added or removed,
+# without maintaining per-module durations or assignments.
+#
+# Re-tune only when the module set or durations change enough to unbalance the
+# shards. Export the latest per-module durations as {module: seconds}, evaluate
+# candidate seeds by assigning each module with the crc32 expression below, and
+# choose the seed that minimizes (maximum shard duration, shard-duration spread).
+# Update test_historical_seed_assignments_are_preserved with the seed so an
+# accidental reshuffle cannot silently change the CI matrix.
+_FULL_CONNECTOR_IT_SHARD_SEED = "37709"
+
+# Connector modules handled by jobs outside the shared connector shards. Add a
+# module here only after its dedicated job handles API, engine, and direct changes
+# to that module.
+ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
+    "connector-jdbc-e2e",
+    "connector-kafka-e2e",
+    "connector-rocketmq-e2e",
+    "connector-kudu-e2e",
+    "connector-amazonsqs-e2e",
+    "connector-google-pubsub-e2e",
+    "connector-doris-e2e",
+    "connector-paimon-e2e",
+    "connector-cdc-oracle-e2e",
+    "connector-file-local-e2e",
+    "connector-file-sftp-e2e",
+    "connector-redis-e2e",
+    "connector-elasticsearch-e2e",
+    "connector-cdc-mysql-e2e",
+    "connector-iceberg-e2e",
+    "connector-hbase-e2e",
+    "connector-sensorsdata-e2e",
+)
+
+# These suites have dedicated jobs in backend.yml, but they are not listed by
+# seatunnel-connector-v2-e2e's project.modules input.
+ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
+    "connector-seatunnel-e2e-base",
+    "connector-console-seatunnel-e2e",
+    "seatunnel-edge-agent-e2e",
+)
+
+ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+    + ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES
+)
+
+# The JDBC aggregate is excluded from full shards because its dedicated part
+# jobs own full runs, but direct JDBC changes still use the updated leaf shards.
+_CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = set(
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+) - {"connector-jdbc-e2e"}
 
 
 def get_cv2_modules(files):
@@ -62,6 +119,12 @@ def replace_comma_to_commacolon(modules_str):
     modules_str = modules_str.replace(",", ",:")
     modules_str = ":" + modules_str
     print(modules_str)
+
+
+def modules_to_json(modules):
+    return json.dumps(
+        [module.lstrip(":") for module in modules.split(",") if module]
+    )
 
 
 def get_sub_modules(file):
@@ -141,73 +204,84 @@ def get_deleted_modules(files):
     print(output_module)
 
 
-def get_sub_it_modules(modules, total_num, current_num):
-    modules_arr = list(dict.fromkeys(modules.split(",")))
-    modules_arr.remove("connector-jdbc-e2e")
-    modules_arr.remove("connector-kafka-e2e")
-    modules_arr.remove("connector-rocketmq-e2e")
-    modules_arr.remove("connector-kudu-e2e")
-    modules_arr.remove("connector-amazonsqs-e2e")
-    modules_arr.remove("connector-doris-e2e")
-    modules_arr.remove("connector-paimon-e2e")
-    modules_arr.remove("connector-cdc-oracle-e2e")
-    modules_arr.remove("connector-file-local-e2e")
-    modules_arr.remove("connector-file-sftp-e2e")
-    modules_arr.remove("connector-redis-e2e")
-    modules_arr.remove("connector-sensorsdata-e2e")
-    if "connector-seatunnel-e2e-base" in modules_arr:
-        modules_arr.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in modules_arr:
-        modules_arr.remove("connector-console-seatunnel-e2e")
-    if "seatunnel-edge-agent-e2e" in modules_arr:
-        modules_arr.remove("seatunnel-edge-agent-e2e")
-    output = ""
-    for i, module in enumerate(modules_arr):
-        if len(module) > 0 and i % int(total_num) == int(current_num):
-            output = output + ",:" + module
+def _filter_shared_it_modules(modules, extra_exclusions=()):
+    excluded_modules = _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB | set(
+        extra_exclusions
+    )
+    return [
+        module
+        for module in dict.fromkeys(modules)
+        if module and module not in excluded_modules
+    ]
 
-    output = output[1:len(output)]
-    print(output)
+
+def filter_dedicated_shard_modules(modules, dedicated_modules, fail_on_missing):
+    """Remove modules owned by dedicated jobs and optionally detect workflow drift."""
+    module_set = set(modules)
+    if fail_on_missing:
+        missing_modules = [
+            module for module in dedicated_modules if module not in module_set
+        ]
+        if missing_modules:
+            raise ValueError(
+                "Missing dedicated shard modules from all-connectors input: "
+                + ",".join(missing_modules)
+            )
+
+    dedicated_modules_set = set(dedicated_modules)
+    return [module for module in modules if module not in dedicated_modules_set]
+
+
+def split_full_connector_it_modules(modules, total_num):
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+
+    shards = [[] for _ in range(total_num)]
+    for module in sorted(set(modules)):
+        shard_key = f"{_FULL_CONNECTOR_IT_SHARD_SEED}:{module}".encode("utf-8")
+        shard = zlib.crc32(shard_key) % total_num
+        shards[shard].append(module)
+    return shards
+
+
+def build_sub_it_modules(modules, total_num, current_num):
+    """Build one stable full connector shard after applying ownership exclusions."""
+    total_num = int(total_num)
+    current_num = int(current_num)
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+    if not 0 <= current_num < total_num:
+        raise ValueError(
+            f"shard index {current_num} out of range [0, {total_num})"
+        )
+
+    modules_arr = [module for module in dict.fromkeys(modules.split(",")) if module]
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES, True
+    )
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES, False
+    )
+    shards = split_full_connector_it_modules(modules_arr, total_num)
+    return ",".join(":" + module for module in shards[current_num])
+
+
+def get_sub_it_modules(modules, total_num, current_num):
+    print(build_sub_it_modules(modules, total_num, current_num))
 
 
 def get_sub_update_it_modules(modules, total_num, current_num):
     final_modules = list()
-    # :connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1
-    modules = modules[1:]
-    # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
-    module_list = list(dict.fromkeys(modules.split(",:")))
-    if "connector-kudu-e2e" in module_list:
-        module_list.remove("connector-kudu-e2e")
-    if "connector-amazonsqs-e2e" in module_list:
-        module_list.remove("connector-amazonsqs-e2e")
-    if "connector-kafka-e2e" in module_list:
-        module_list.remove("connector-kafka-e2e")
-    if "connector-rocketmq-e2e" in module_list:
-        module_list.remove("connector-rocketmq-e2e")
-    if "seatunnel-engine-k8s-e2e" in module_list:
-        module_list.remove("seatunnel-engine-k8s-e2e")
-    if "connector-seatunnel-e2e-base" in module_list:
-        module_list.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in module_list:
-        module_list.remove("connector-console-seatunnel-e2e")
-    if "connector-doris-e2e" in module_list:
-        module_list.remove("connector-doris-e2e")
-    if "connector-paimon-e2e" in module_list:
-        module_list.remove("connector-paimon-e2e")
-    if "connector-cdc-oracle-e2e" in module_list:
-        module_list.remove("connector-cdc-oracle-e2e")
-    if "connector-file-local-e2e" in module_list:
-        module_list.remove("connector-file-local-e2e")
-    if "connector-file-sftp-e2e" in module_list:
-        module_list.remove("connector-file-sftp-e2e")
-    if "connector-redis-e2e" in module_list:
-        module_list.remove("connector-redis-e2e")
-    if "connector-seatunnel-e2e-base" in module_list:
-        module_list.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in module_list:
-        module_list.remove("connector-console-seatunnel-e2e")
-    if "seatunnel-edge-agent-e2e" in module_list:
-        module_list.remove("seatunnel-edge-agent-e2e")
+    module_names = json.loads(modules)
+    module_list = _filter_shared_it_modules(
+        module_names,
+        {
+            "connector-seatunnel-e2e-base",
+            "connector-console-seatunnel-e2e",
+            "seatunnel-engine-k8s-e2e",
+            "seatunnel-edge-agent-e2e",
+        },
+    )
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
@@ -231,6 +305,8 @@ def main(argv):
         get_final_ut_modules(argv[2])
     elif argv[1] == "replace":
         replace_comma_to_commacolon(argv[2])
+    elif argv[1] == "json":
+        print(modules_to_json(argv[2]))
     elif argv[1] == "sub":
         get_sub_modules(argv[2])
     elif argv[1] == "delete":

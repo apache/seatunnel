@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 > Qdrant sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 [Qdrant](https://qdrant.tech/) is a high-performance vector search engine and vector database.

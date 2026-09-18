@@ -64,6 +64,83 @@ Expansion is NOT needed when:
 - Sink supports multi-table (e.g., Jdbc with `generate_sink_sql = true`)
 - Source uses multi-table syntax natively (e.g., CDC with regex `table-name`)
 
+### Wide-DAG Wiring (5+ blocks, transforms in the middle)
+
+When a job mixes pipelines WITH transforms and pipelines WITHOUT them, wire
+each hop explicitly — every block consumes exactly one upstream label and
+emits its own. Always produce ONE complete config with single `source { }`,
+`transform { }`, and `sink { }` sections (never separate fragments per block).
+
+Complete example — chain `source → Sql → FieldMapper → sink` plus an
+independent second pipeline in the same job:
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:mysql://host:3306/shop"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "${MYSQL_USER}"
+    password = "${MYSQL_PASSWORD}"
+    query = "SELECT * FROM orders"
+    plugin_output = "orders_raw"
+  }
+  Jdbc {
+    url = "jdbc:mysql://host:3306/shop"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "${MYSQL_USER}"
+    password = "${MYSQL_PASSWORD}"
+    query = "SELECT * FROM audit_log"
+    plugin_output = "audit_raw"
+  }
+}
+
+transform {
+  Sql {
+    plugin_input = "orders_raw"
+    plugin_output = "orders_filtered"
+    query = "SELECT * FROM orders_raw WHERE amount > 10"
+  }
+  FieldMapper {
+    plugin_input = "orders_filtered"
+    plugin_output = "orders_final"
+    field_mapper = {
+      id = order_id
+      amount = total
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "orders_final"
+  }
+  Console {
+    plugin_input = "audit_raw"
+  }
+}
+```
+
+The chain hops are: `orders_raw` (source) → `orders_filtered` (Sql) →
+`orders_final` (FieldMapper) → first sink; the second pipeline goes
+`audit_raw` → second sink directly.
+
+Common wiring mistakes to avoid:
+- **Label reuse across chains**: one label may feed multiple parallel
+  branches (intentional split), but two different SOURCES must never emit
+  the same label.
+- **Broken chain**: a transform emitting `orders_filtered` while the sink
+  still consumes `orders_raw` silently bypasses the transform. After adding
+  a transform, re-point the downstream consumer to the transform's output
+  label.
+- **Transform applied to the wrong pipeline**: transforms only apply to the
+  chain whose label they consume — placement inside `transform { }` does not
+  scope them; only `plugin_input` does.
+
 ## SOP
 
 1. **Count pipelines** from the structured plan.

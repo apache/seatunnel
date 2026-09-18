@@ -101,6 +101,7 @@ Current connector support differs by file connector:
 | OssFile | Yes | Handles existing OSS paths and objects through the file sink save mode flow. |
 | ObsFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
 | CosFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
+| BosFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
 
 If a file connector page does not list `schema_save_mode` or `data_save_mode`, do not assume the option is accepted by that connector.
 
@@ -175,7 +176,7 @@ Confirm `data_save_mode = CUSTOM_PROCESSING` and that `custom_sql` is set. Catal
 
 ### A file sink rejects `data_save_mode`
 
-Check the specific connector option table. `S3File`, `OssFile`, `HdfsFile`, `FtpFile`, `SftpFile`, and `LocalFile` expose file save mode options. `ObsFile` and `CosFile` currently do not.
+Check the specific connector option table. `S3File`, `OssFile`, `HdfsFile`, `FtpFile`, `SftpFile`, and `LocalFile` expose file save mode options. `ObsFile`, `CosFile`, and `BosFile` currently do not.
 
 ### I only want to create the target table
 

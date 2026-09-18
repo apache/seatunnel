@@ -20,7 +20,12 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## 描述
 
-用于从 Databend 读取数据的源连接器。
+通过 Databend JDBC 驱动从 [Databend](https://databend.rs/) 读取数据的源连接器。可以使用
+`database` + `table` 读取单张表，使用 `query` 执行一次性查询，也可以通过 `sql` 提供完整的
+SQL 语句。连接器在批处理模式下执行查询，并把每一行结果转换为 SeaTunnel 行。
+
+连接器支持标准 SQL 的列投影，并提供 `fetch_size`、`ssl` 等 JDBC 调优选项。当前不支持在同
+一个 source 块中读取多张表，需要为每张表配置一个 Databend source。
 
 ## 依赖
 
@@ -34,9 +39,11 @@ import ChangeLog from '../changelog/connector-databend.md';
 
 ## 支持的数据源信息
 
-| 数据源 | 支持版本 | 驱动 | Url | Maven |
-|--------|----------|------|-----|-------|
-| Databend | 1.2.x 及以上版本 | - | - | - |
+为了使用 Databend 连接器，需要以下依赖项。它们可以通过 install-plugin.sh 或从 Maven 中央存储库下载。
+
+| 数据源   | 支持的版本        | 依赖                                                                                   |
+|----------|-------------------|----------------------------------------------------------------------------------------|
+| Databend | 1.2.x 及以上版本  | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-databend) |
 
 ## 数据类型映射
 
@@ -71,9 +78,10 @@ import ChangeLog from '../changelog/connector-databend.md';
 | table | String | 否 | - | Databend 表名称 |
 | query | String | 否 | - | Databend 查询语句。如果设置，会覆盖 database 和 table 的设置 |
 | sql | String | 否 | - | 自定义 SQL 语句。若同时配置 `sql` 和 `query`，优先使用 `sql` |
-| fetch_size | Integer | 否 | 1 | 每次从 Databend 拉取的记录数。读取大量数据时可以适当调大 |
+| fetch_size | Integer | 否 | 1 | 每次从 Databend 拉取的记录数。读取大量数据时可以适当调大。设为 `0` 使用 JDBC 驱动默认值 |
 | ssl | Boolean | 否 | false | 是否使用 SSL 连接 Databend |
 | jdbc_config | Map | 否 | - | 额外的 JDBC 连接配置，如加载均衡策略等 |
+| common-options |  | 否 | - | 源插件常用参数，详见 [源通用选项](../common-options/source-common-options.md). |
 
 必须配置 `sql`、`query`、或同时配置 `database` 和 `table`。如果同时配置了多个读取入口，实际读取 SQL 的优先级是：`sql`、`query`、最后是 `SELECT * FROM database.table`。当前连接器不支持 `table_list`，如果要读多张表，请为每张表分别配置一个 Databend source。
 
@@ -126,6 +134,21 @@ source {
     sql = "SELECT * FROM default.users"
     ssl = true
     fetch_size = 1000
+  }
+}
+```
+
+### 在查询中过滤和投影
+
+可以直接在 `query` 里使用 Databend 支持的任意表达式，提前把不需要的列过滤掉：
+
+```hocon
+source {
+  Databend {
+    url = "jdbc:databend://localhost:8000"
+    username = "root"
+    password = ""
+    query = "SELECT id, name, age FROM default.users WHERE age >= 18 AND starts_with(name, 'A') ORDER BY id"
   }
 }
 ```

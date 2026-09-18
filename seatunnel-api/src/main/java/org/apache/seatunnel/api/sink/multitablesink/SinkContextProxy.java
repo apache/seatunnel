@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.common.utils.function.RunnableWithException;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public class SinkContextProxy implements SinkWriter.Context {
 
@@ -55,6 +57,21 @@ public class SinkContextProxy implements SinkWriter.Context {
     @Override
     public EventListener getEventListener() {
         return context.getEventListener();
+    }
+
+    @Override
+    public Optional<RowErrorCollector> getRowErrorCollector() {
+        return context.getRowErrorCollector();
+    }
+
+    @Override
+    public void enableDeferredTerminalWriteOutcomes() {
+        context.enableDeferredTerminalWriteOutcomes();
+    }
+
+    @Override
+    public boolean isDeferredTerminalWriteOutcomesEnabled() {
+        return context.isDeferredTerminalWriteOutcomesEnabled();
     }
 
     @Override

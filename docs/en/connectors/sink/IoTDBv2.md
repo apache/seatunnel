@@ -57,9 +57,9 @@ Used to write data to IoTDB 2.x. The connector name in job configuration is `IoT
 | key_tag_fields              | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as TAG columns                                                                                                                                                                                                                                                                   |
 | key_attribute_fields        | Array   | No       | -                    | IoTDB-tree: invalid <br/> IoTDB-table: Specify the field names in SeaTunnelRow to be used as ATTRIBUTE columns                                                                                                                                                                                                                                                             |
 | batch_size                  | Integer | No       | 1024                 | The connector flushes buffered records to IoTDB when the number of buffered records reaches `batch_size`. It also flushes before checkpoint commit and when the writer is closed.                                                                                                                             |
-| max_retries                 | Integer | No       | 0                    | The maximum number of retries when flushing records fails.                                                                                                                                                                                                                                                                                                                 |
-| retry_backoff_multiplier_ms | Integer | No       | 0                    | The multiplier used to calculate the retry backoff delay.                                                                                                                                                                                                                                                                                                                  |
-| max_retry_backoff_ms        | Integer | No       | 0                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
+| max_retries                 | Integer | No       | -                    | The maximum number of retries when flushing records fails.                                                                                                                                                                                                                                                                                                                 |
+| retry_backoff_multiplier_ms | Integer | No       | -                    | The multiplier used to calculate the retry backoff delay.                                                                                                                                                                                                                                                                                                                  |
+| max_retry_backoff_ms        | Integer | No       | -                    | The maximum retry backoff delay in milliseconds.                                                                                                                                                                                                                                                                                                                          |
 | default_thrift_buffer_size  | Integer | No       | -                    | Thrift init buffer size in IoTDB client                                                                                                                                                                                                                                                                                                                                    |
 | max_thrift_frame_size       | Integer | No       | -                    | Thrift max frame size in IoTDB client                                                                                                                                                                                                                                                                                                                                      |
 | zone_id                     | String  | No       | -                    | java.time.ZoneId in IoTDB client                                                                                                                                                                                                                                                                                                                                           |
@@ -377,6 +377,55 @@ IoTDB> DESC "test_database"."0700HK";
 |     status|  BOOLEAN|   FIELD|
 |temperature|   DOUBLE|   FIELD|
 +-----------+---------+-------+
+```
+
+#### Case 4: Combined TAG, ATTRIBUTE, and FIELD columns
+
+This case wires all three column categories at once: a TAG column for high-cardinality
+filterable metadata, an ATTRIBUTE column for low-cardinality profile-like metadata, and explicit
+FIELD columns for measurements. All three are required for a fully-tagged IoTDB-table write.
+
+```hocon
+sink {
+  IoTDBv2 {
+    node_urls = ["localhost:6667"]
+    username = "root"
+    password = "root"
+    sql_dialect = "table"
+    storage_group = "test_database"
+    key_device = "region"
+    key_timestamp = "ts"
+    key_tag_fields = ["tag"]
+    key_attribute_fields = ["model_id"]
+    key_measurement_fields = ["status", "arrival_date", "temperature"]
+  }
+}
+```
+
+The data format of IoTDB output is as follows:
+
+```shell
+IoTDB> SELECT * FROM "test_database"."0700HK";
++-----------------------------+----+--------+------+------------+-----------+
+|                         time| tag|model_id|status|arrival_date|temperature|
++-----------------------------+----+--------+------+------------+-----------+
+|2025-07-30T17:52:34.851+08:00|tag1|     id1|  true|  2024-11-12|       4.34|
+|2025-07-29T17:51:34.851+08:00|tag2|     id2| false|  2024-12-01|       5.54|
+|2025-07-28T17:50:34.851+08:00|tag3|     id3| false|  2024-12-22|       7.34|
++-----------------------------+----+--------+------+------------+-----------+
+```
+```shell
+IoTDB> DESC "test_database"."0700HK";
++-------------+---------+---------+
+|    ColumnName| DataType| Category|
++-------------+---------+---------+
+|         time|TIMESTAMP|     TIME|
+|          tag|   STRING|      TAG|
+|     model_id|   STRING|ATTRIBUTE|
+|       status|  BOOLEAN|    FIELD|
+| arrival_date|     DATE|    FIELD|
+|  temperature|   DOUBLE|    FIELD|
++-------------+---------+---------+
 ```
 
 ## Changelog

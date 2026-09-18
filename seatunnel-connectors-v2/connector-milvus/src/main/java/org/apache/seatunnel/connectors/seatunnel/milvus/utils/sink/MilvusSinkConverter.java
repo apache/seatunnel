@@ -73,7 +73,12 @@ public class MilvusSinkConverter {
             case STRING:
             case DATE:
                 if (isJson) {
-                    return gson.fromJson(value.toString(), JsonObject.class);
+                    // A Milvus JSON field may hold any JSON root: object, array or
+                    // primitive. Forcing JsonObject fails with "Expected a
+                    // com.google.gson.JsonObject but was com.google.gson.JsonPrimitive"
+                    // for non-object values (issue #9677). Object roots still parse
+                    // to JsonObject, so existing behavior is preserved.
+                    return JsonParser.parseString(value.toString());
                 }
                 return value.toString();
             case FLOAT_VECTOR:

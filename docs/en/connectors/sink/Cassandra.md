@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 > Cassandra sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write data to Apache Cassandra in batch mode.
@@ -15,11 +21,17 @@ columns are written, and every configured field must exist in the target table.
 The connector does not create keyspaces, tables, or missing columns. Prepare the target Cassandra
 schema before starting the job.
 
-## Key features
+## Supported DataSource Info
+
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Cassandra  | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cassandra) |
+
+## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Sink Options
 
 | Name              | Type    | Required | Default     | Description |
 |-------------------|---------|----------|-------------|-------------|
@@ -98,8 +110,13 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 - `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
 - `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
   before a flush.
+- The sink uses the Cassandra Java driver. Authentication and consistency options match the
+  driver's terminology; configure `consistency_level` together with the cluster's replication
+  strategy when stronger guarantees are required.
+- `batch_type = "UNLOGGED"` is the typical default. Use `LOGGED` for atomic batches when
+  correctness outweighs throughput, or `COUNTER` for counter tables.
 
-## Examples
+## Task Example
 
 ### Write to Cassandra
 
@@ -152,6 +169,49 @@ sink {
   }
 }
 ```
+
+### Stream MySQL CDC Events Into Cassandra
+
+Pipe MySQL CDC events through a Cassandra sink by mapping the CDC row kinds to the table
+columns. Cassandra uses `INSERT` semantics per row, so a CDC `DELETE` is expressed by writing
+a tombstone column (`is_deleted`) and filtering it out downstream if needed:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    keyspace = "test"
+    table = "orders"
+    fields = ["id", "order_id", "customer", "amount", "is_deleted"]
+    consistency_level = "LOCAL_QUORUM"
+    batch_size = 2000
+    batch_type = "UNLOGGED"
+    async_write = true
+  }
+}
+```
+
+> **Note:** The `is_deleted` column shown above is not produced by MySQL-CDC and is not
+> derived from `RowKind` by the Cassandra sink. You must populate it yourself — either by
+> carrying an `is_deleted` column in the upstream MySQL table, or by adding a Transform-V2
+> (for example `sql` / `replace`) between the source and the sink that synthesizes it from
+> the CDC `RowKind`. Without that, `DELETE` events will be written back to Cassandra as a
+> regular upsert.
 
 ## Changelog
 

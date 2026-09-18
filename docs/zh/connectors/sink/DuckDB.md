@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 jdbc 写入数据。支持批处理模式和流处理模式，支持并发写入，支持精确一次语义（使用 XA 事务保证）。
+通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，支持并发写入，在底层 JDBC 驱动提供 XA 数据源时支持精确一次语义（设置 `is_exactly_once = true` 并配置 `xa_data_source_class_name`）。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。
 
 ## 需要的依赖项
 

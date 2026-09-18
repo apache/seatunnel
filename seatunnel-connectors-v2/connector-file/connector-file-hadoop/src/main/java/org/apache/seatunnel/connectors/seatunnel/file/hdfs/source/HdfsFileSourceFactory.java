@@ -110,6 +110,10 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.NULL_FORMAT)
                 .optional(HdfsFileSourceOptions.FILENAME_EXTENSION)
                 .optional(HdfsFileSourceOptions.READ_COLUMNS)
+                .optional(
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         HdfsFileSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.MARKDOWN,

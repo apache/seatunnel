@@ -45,6 +45,17 @@ public class DorisNodeResolverTest {
     }
 
     @Test
+    void testParseNodesRejectBlankInput() {
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class,
+                        () -> DorisNodeResolver.parseNodes("   ", "benodes"));
+
+        Assertions.assertTrue(exception.getMessage().contains("benodes"));
+        Assertions.assertTrue(exception.getMessage().contains("blank"));
+    }
+
+    @Test
     void testParseNodesRejectInvalidPort() {
         DorisConnectorException exception =
                 Assertions.assertThrows(
