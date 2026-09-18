@@ -163,6 +163,26 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
     }
 
     /**
+     * Pins what {@code cancelJob()} does when the job status entry has already been cleared.
+     *
+     * <p>{@code getJobStatus()} is a plain map read, so a cleared entry yields {@code null} and the
+     * {@code isEndState()} guard dereferences it. That NPE predates the single-snapshot change and
+     * is unchanged by it, but it is the one input the {@code NOT_STARTED_STATUSES} branch cannot
+     * answer, so it is asserted rather than left implicit.
+     */
+    @Test
+    void testCancelJobOnClearedJobStatusFailsAtTheEndStateGuard() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        planWithStateMaps.runningJobState.remove(jobId);
+
+        Assertions.assertThrows(
+                NullPointerException.class, () -> planWithStateMaps.physicalPlan.cancelJob());
+    }
+
+    /**
      * cancelJob() completes the job-end future and reports a state event, both of which need a job
      * master and an initialized future; PlanUtils alone does not wire those up.
      */
