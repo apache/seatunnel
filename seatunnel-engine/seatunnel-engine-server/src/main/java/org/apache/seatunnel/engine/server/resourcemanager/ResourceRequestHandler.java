@@ -263,6 +263,15 @@ public class ResourceRequestHandler {
         return TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos);
     }
 
+    /**
+     * Records resource shortage encountered while applying a resource request.
+     *
+     * <p>This covers cases where no eligible worker has sufficient resources or an eligible worker
+     * cannot provide the requested slot.
+     *
+     * <p>Tag-filter mismatches are excluded because adding workers
+     * does not necessarily resolve a tag constraint.
+     */
     private void recordShortage(ResourceProfile resourceProfile) {
         if (!resourceManager.getAutoscalerRuntimeConfig().isEnabled()) {
             return;

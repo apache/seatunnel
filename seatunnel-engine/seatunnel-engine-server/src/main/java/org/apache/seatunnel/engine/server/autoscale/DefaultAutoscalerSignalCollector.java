@@ -35,7 +35,9 @@ import java.util.function.LongSupplier;
  * Builds immutable autoscaler snapshots from ResourceManager state.
  *
  * <p>The collector normalizes worker samples, slot mode, pending jobs, and scheduler shortage
- * deltas; it does not evaluate policy.
+ * deltas; it does not evaluate policy. The slot mode is treated as a cluster-level deployment
+ * setting, so this collector assumes that all Worker nodes use the same {@code dynamic-slot}
+ * configuration as the Coordinator.
  */
 public final class DefaultAutoscalerSignalCollector implements AutoscalerSignalCollector {
 

@@ -95,7 +95,9 @@ public final class ScalingRecommendation implements Serializable {
      * Returns whether this recommendation publication is within its freshness window.
      *
      * <p>This method describes the freshness of the publication event; it does not indicate whether
-     * the autoscaler is still in the {@code FIRING} state.
+     * the autoscaler is still in the {@code FIRING} state. Callers should inspect the latest
+     * evaluation record from {@link AutoscalerView#getLatestEvaluationRecord()} for the current
+     * autoscaling lifecycle state.
      *
      * @param currentTimeMillis current wall-clock timestamp
      * @return whether the publication is still fresh

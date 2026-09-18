@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.resourcemanager;
 
 import org.apache.seatunnel.engine.common.config.server.AllocateStrategy;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
 import org.apache.seatunnel.engine.server.resourcemanager.allocation.strategy.RandomStrategy;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
@@ -37,6 +38,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -180,6 +182,43 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
             hasDifferentWorker |= addresses.size() > 1;
         }
         Assertions.assertTrue(hasDifferentWorker, "should have different worker for each slot");
+    }
+
+    @Test
+    public void testShortageEvidenceDistinguishesTagMismatchFromCapacityShortage()
+            throws ExecutionException, InterruptedException {
+        AutoscalerConfig enabledAutoscaler = AutoscalerConfig.builder().enabled(true).build();
+
+        FakeResourceManager tagMismatchResourceManager =
+                new FakeResourceManager(nodeEngine, enabledAutoscaler);
+        Map<String, String> tagFilter = Collections.singletonMap("env", "prod");
+        Assertions.assertThrows(
+                NoEnoughResourceException.class,
+                () ->
+                        tagMismatchResourceManager
+                                .applyResources(
+                                        jobId,
+                                        Collections.singletonList(new ResourceProfile()),
+                                        tagFilter)
+                                .get());
+        Assertions.assertEquals(
+                0,
+                tagMismatchResourceManager
+                        .getResourceShortageStats()
+                        .getIncrementalSnapshot(0L)
+                        .getShortageCount());
+
+        FakeResourceManagerForRequestSlotRetryTest capacityResourceManager =
+                new FakeResourceManagerForRequestSlotRetryTest(nodeEngine, 2, 1, enabledAutoscaler);
+        capacityResourceManager
+                .applyResources(jobId, Collections.singletonList(new ResourceProfile()), null)
+                .get();
+        Assertions.assertEquals(
+                1,
+                capacityResourceManager
+                        .getResourceShortageStats()
+                        .getIncrementalSnapshot(0L)
+                        .getShortageCount());
     }
 
     @Test
