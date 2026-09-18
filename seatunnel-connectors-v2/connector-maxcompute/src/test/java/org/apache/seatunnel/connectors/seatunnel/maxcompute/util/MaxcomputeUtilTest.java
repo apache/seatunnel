@@ -154,4 +154,171 @@ public class MaxcomputeUtilTest {
 
         Assertions.assertNull(odps.getCurrentSchema());
     }
+
+    // --- getOdps() / getTableTunnel() timeout & retry wiring tests ---
+    //
+    // The ODPS SDK exposes two independent HTTP clients:
+    //   * REST client   (Odps.getRestClient())     -> control plane: metadata / catalog calls
+    //   * Tunnel client (TableTunnel.getConfig())  -> data plane: bulk row read / write / upsert
+    // Each is configured from its own set of options, so the tests below cover per-option
+    // application, the option defaults that flow through when options are omitted, the
+    // milliseconds->seconds clamping guard, and that the two clients never cross-contaminate.
+
+    /** Minimal config that lets getOdps()/getTableTunnel() build a client without network calls. */
+    private static Map<String, Object> baseConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("accessId", "my-id");
+        config.put("accesskey", "my-key");
+        config.put("endpoint", "http://service.odps.aliyun.com/api");
+        config.put("project", "my_project");
+        return config;
+    }
+
+    /**
+     * A user-supplied connect_timeout_ms must be applied to the ODPS REST client (converted to
+     * seconds, since the SDK stores connect/read timeout in seconds internally). This verifies the
+     * control-plane client timeout override wiring in getOdps().
+     */
+    @Test
+    void testGetOdpsAppliesRestClientConnectTimeout() {
+        Map<String, Object> config = baseConfig();
+        config.put("connect_timeout_ms", 30000L);
+
+        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(30, odps.getRestClient().getConnectTimeout());
+    }
+
+    /** read_timeout_ms must be applied to the REST client's read timeout (seconds). */
+    @Test
+    void testGetOdpsAppliesRestClientReadTimeout() {
+        Map<String, Object> config = baseConfig();
+        config.put("read_timeout_ms", 60000L);
+
+        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(60, odps.getRestClient().getReadTimeout());
+    }
+
+    /** retry_times must be applied to the REST client's retry count. */
+    @Test
+    void testGetOdpsAppliesRestClientRetryTimes() {
+        Map<String, Object> config = baseConfig();
+        config.put("retry_times", 7);
+
+        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(7, odps.getRestClient().getRetryTimes());
+    }
+
+    /**
+     * When no REST timeout/retry options are supplied, the connector must fall back to the option
+     * defaults (connect 10s, read 120s, retry 4) — i.e. the original SDK behavior is preserved.
+     * This guards against accidental regressions in backward compatibility.
+     */
+    @Test
+    void testGetOdpsUsesRestClientDefaultsWhenTimeoutOptionsAbsent() {
+        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(baseConfig()));
+
+        Assertions.assertEquals(10, odps.getRestClient().getConnectTimeout());
+        Assertions.assertEquals(120, odps.getRestClient().getReadTimeout());
+        Assertions.assertEquals(4, odps.getRestClient().getRetryTimes());
+    }
+
+    /** tunnel_connect_timeout_ms must be applied to the Tunnel client's socket connect timeout. */
+    @Test
+    void testGetTableTunnelAppliesSocketConnectTimeout() {
+        Map<String, Object> config = baseConfig();
+        config.put("tunnel_connect_timeout_ms", 240000L);
+
+        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(240, tableTunnel.getConfig().getSocketConnectTimeout());
+    }
+
+    /**
+     * A user-supplied tunnel_read_timeout_ms must be applied to the Tunnel client's socket read
+     * timeout (converted to seconds), independent of the ODPS REST client. This verifies the
+     * data-plane client timeout override wiring in getTableTunnel().
+     */
+    @Test
+    void testGetTableTunnelAppliesSocketReadTimeout() {
+        Map<String, Object> config = baseConfig();
+        config.put("tunnel_read_timeout_ms", 600000L);
+
+        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(600, tableTunnel.getConfig().getSocketTimeout());
+    }
+
+    /** tunnel_retry_times must be applied to the Tunnel client's socket retry count. */
+    @Test
+    void testGetTableTunnelAppliesSocketRetryTimes() {
+        Map<String, Object> config = baseConfig();
+        config.put("tunnel_retry_times", 8);
+
+        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertEquals(8, tableTunnel.getConfig().getSocketRetryTimes());
+    }
+
+    /**
+     * When no Tunnel timeout/retry options are supplied, the connector must fall back to the option
+     * defaults (connect 180s, read 300s, retry 4) — i.e. the original SDK behavior is preserved.
+     */
+    @Test
+    void testGetTableTunnelUsesSocketDefaultsWhenTimeoutOptionsAbsent() {
+        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(baseConfig()));
+
+        Assertions.assertEquals(180, tableTunnel.getConfig().getSocketConnectTimeout());
+        Assertions.assertEquals(300, tableTunnel.getConfig().getSocketTimeout());
+        Assertions.assertEquals(4, tableTunnel.getConfig().getSocketRetryTimes());
+    }
+
+    /**
+     * REST client options must not leak onto the Tunnel client and vice versa: the two clients are
+     * configured from disjoint option sets. Setting connect_timeout_ms (REST) must not change the
+     * Tunnel socket connect timeout, and setting tunnel_read_timeout_ms must not change the REST
+     * read timeout.
+     */
+    @Test
+    void testRestClientAndTunnelClientTimeoutsAreIndependent() {
+        Map<String, Object> config = baseConfig();
+        config.put("connect_timeout_ms", 30000L); // REST-only option
+        config.put("tunnel_read_timeout_ms", 600000L); // Tunnel-only option
+
+        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+        com.aliyun.odps.Odps odps = tableTunnel.getConfig().getOdps();
+
+        // REST client picks up the REST option but is untouched by the Tunnel option.
+        Assertions.assertEquals(30, odps.getRestClient().getConnectTimeout());
+        Assertions.assertEquals(120, odps.getRestClient().getReadTimeout());
+        // Tunnel client picks up the Tunnel option but is untouched by the REST option.
+        Assertions.assertEquals(180, tableTunnel.getConfig().getSocketConnectTimeout());
+        Assertions.assertEquals(600, tableTunnel.getConfig().getSocketTimeout());
+    }
+
+    /**
+     * A sub-second timeout value (e.g. 500ms) must be clamped up to 1 second rather than truncating
+     * to 0, since RestClient/Configuration store timeouts in whole seconds internally. This guards
+     * the {@code Math.max(1, ms / 1000)} clamping logic in getOdps()/getTableTunnel().
+     */
+    @Test
+    void testSubSecondTimeoutClampsToOneSecond() {
+        Map<String, Object> config = baseConfig();
+        config.put("connect_timeout_ms", 500L);
+        config.put("tunnel_connect_timeout_ms", 999L);
+
+        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+        com.aliyun.odps.Odps odps = tableTunnel.getConfig().getOdps();
+
+        Assertions.assertEquals(1, odps.getRestClient().getConnectTimeout());
+        Assertions.assertEquals(1, tableTunnel.getConfig().getSocketConnectTimeout());
+    }
 }

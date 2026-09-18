@@ -33,6 +33,8 @@ import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AklessAccount;
 import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.account.StsAccount;
+import com.aliyun.odps.rest.RestClient;
+import com.aliyun.odps.tunnel.Configuration;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import lombok.extern.slf4j.Slf4j;
@@ -47,6 +49,16 @@ public class MaxcomputeUtil {
     public static TableTunnel getTableTunnel(ReadonlyConfig readonlyConfig) {
         Odps odps = getOdps(readonlyConfig);
         TableTunnel tableTunnel = new TableTunnel(odps);
+        // Tunnel client timeouts / retry (data plane). The tunnel RestClient is built
+        // lazily by Configuration.newRestClient() when a session is created, reading
+        // these socket fields, so setting them before any session is built takes effect.
+        Configuration tunnelConfig = tableTunnel.getConfig();
+        long tunnelConnectMs = readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_CONNECT_TIMEOUT_MS);
+        long tunnelReadMs = readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_READ_TIMEOUT_MS);
+        tunnelConfig.setSocketConnectTimeout((int) Math.max(1, tunnelConnectMs / 1000));
+        tunnelConfig.setSocketTimeout((int) Math.max(1, tunnelReadMs / 1000));
+        tunnelConfig.setSocketRetryTimes(
+                readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_RETRY_TIMES));
         if (StringUtils.isNotEmpty(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT))) {
             tableTunnel.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT));
         }
@@ -84,6 +96,17 @@ public class MaxcomputeUtil {
         odps.setDefaultProject(readonlyConfig.get(MaxcomputeBaseOptions.PROJECT));
         odps.setCurrentSchema(
                 readonlyConfig.getOptional(MaxcomputeBaseOptions.SCHEMA_NAME).orElse(null));
+        // REST client timeouts / retry (control plane). The Odps RestClient handles
+        // metadata/catalog calls; the Tunnel client is configured separately in
+        // getTableTunnel(). Values default to the SDK defaults, so omitting them
+        // preserves existing behavior.
+        RestClient restClient = odps.getRestClient();
+        long connectMs = readonlyConfig.get(MaxcomputeBaseOptions.CONNECT_TIMEOUT_MS);
+        long readMs = readonlyConfig.get(MaxcomputeBaseOptions.READ_TIMEOUT_MS);
+        // RestClient stores connect/read timeout in seconds internally.
+        restClient.setConnectTimeout((int) Math.max(1, connectMs / 1000));
+        restClient.setReadTimeout((int) Math.max(1, readMs / 1000));
+        restClient.setRetryTimes(readonlyConfig.get(MaxcomputeBaseOptions.RETRY_TIMES));
         return odps;
     }
 
