@@ -142,6 +142,11 @@ The restriction above applies to the top-level `primary_keys` option. The JDBC s
 mixing `${primary_key}` (and `${unique_key}`) with static column names inside
 `multi_table_config.primary_keys`; see the JDBC sink documentation for details.
 
+The two passes run in a fixed order. The engine-level replacement described above runs first and only
+rewrites top-level `String` values and single-element `String` lists, so the nested
+`multi_table_config.primary_keys` map reaches the sink untouched. The JDBC sink then expands
+`${primary_key}` / `${unique_key}` inside that map once per matched table, while the sink is created.
+
 The behavior is the same for both single-table and multi-table jobs.
 
 We will complete the placeholder replacement before the connector is started, ensuring that the sink options is ready before use.

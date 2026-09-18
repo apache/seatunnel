@@ -254,7 +254,9 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
     /**
      * Validates that each resolved primary key column is a non-empty plain identifier that does not
      * contain a comma, so it can be safely comma-joined into {@code PRIMARY_KEYS} and used in
-     * generated SQL.
+     * generated SQL. Generated statements quote identifiers through the dialect, so a blank name
+     * and a comma (the delimiter of the comma-joined {@code PRIMARY_KEYS} value) are the only
+     * inputs that cannot be represented safely.
      *
      * @param primaryKeys the resolved key columns
      * @param tableName the table being processed, used in the error message

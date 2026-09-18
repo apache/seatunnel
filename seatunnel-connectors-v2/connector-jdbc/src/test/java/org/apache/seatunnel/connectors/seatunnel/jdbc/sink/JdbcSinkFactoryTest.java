@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.TablePlaceholderProcessor;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -33,6 +34,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
@@ -468,5 +470,42 @@ class JdbcSinkFactoryTest {
         Assertions.assertEquals(
                 Collections.singletonList("id"),
                 writeTable.getTableSchema().getPrimaryKey().getColumnNames());
+    }
+
+    /**
+     * Pins the order between the engine-level TablePlaceholder pass and the connector-level
+     * expansion. The engine pass rewrites only top-level {@code String} values and single-element
+     * {@code String} lists, so a top-level {@code primary_keys = ["${primary_key}"]} is expanded
+     * there, while the nested {@code multi_table_config.primary_keys} map reaches the sink
+     * untouched and is expanded afterwards by {@link JdbcSinkFactory#resolveMultiTablePrimaryKeys}.
+     */
+    @Test
+    void testPlaceholderOrderBetweenEngineAndConnectorPasses() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Collections.singletonList("${primary_key}"));
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        CatalogTable upstream = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+        ReadonlyConfig afterEnginePass =
+                TablePlaceholderProcessor.replaceTablePlaceholder(
+                        ReadonlyConfig.fromMap(cfg), upstream);
+
+        // The engine pass expands the top-level single-element placeholder list ...
+        Assertions.assertEquals(
+                Collections.singletonList("id"), afterEnginePass.get(JdbcSinkOptions.PRIMARY_KEYS));
+        // ... leaves the nested multi_table_config map untouched ...
+        Map<?, ?> nestedPrimaryKeys =
+                (Map<?, ?>)
+                        afterEnginePass.get(JdbcSinkOptions.MULTI_TABLE_CONFIG).get("primary_keys");
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"), nestedPrimaryKeys.get("^TEST_.*$"));
+        // ... and the connector expands it afterwards, per matched table.
+        Assertions.assertEquals(
+                Arrays.asList("id", "DATA_SOURCE"),
+                factory.resolveMultiTablePrimaryKeys(afterEnginePass, upstream).get());
     }
 }
