@@ -12,8 +12,28 @@
 
 如果配置了有限的 `max-thread-num`，该值将不再约束生命周期线程池；生命周期线程池的最大
 线程数仍不设上限。这两个配置都不是运行作业数或主节点总线程数上限。升级前应复核主节点
-容量及线程监控。现有协调器线程池指标现在只覆盖作业接纳，监控主节点整体线程使用情况时
-应参考 JVM 或进程线程指标。
+容量及线程监控。现有 `job_thread_pool_*` 指标现在只覆盖作业接纳；新增的
+`job_lifecycle_thread_pool_*` 指标提供生命周期线程池的大小、活跃线程数、完成任务数、
+提交任务数、队列大小、配置大小及拒绝次数。应同时监控两个线程池，主节点整体线程使用
+情况仍可参考 JVM 或进程线程指标。
+
+### RabbitMQ Connector
+
+- **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
+  - **影响范围**：`seatunnel-connectors-v2/connector-rabbitmq`
+  - **变更说明**：此前使用 `amqps://` 的 `url`/`uri` 建立连接时，会隐式启用“信任所有证书”的
+    TrustManager 且不校验主机名。现在 `amqps://` 连接会强制校验证书，与 `ssl = true` 的
+    host/port 路径行为保持一致。
+  - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
+  - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
+    `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
+### Zeta REST 分页参数校验
+
+- **行为变更：分页接口开始校验 `page` 与 `rows`**
+  - **影响范围**：`seatunnel-engine-server`，REST 接口 `GET /finished-jobs/:state`、`GET /running-jobs` 与 `GET /running-jobs/summary`。后两者由同一个 `RunningJobsServlet` 实例提供服务，因此都会受到该校验。
+  - **变更说明**：这些接口现在会拒绝非整数或不大于 0 的 `page` 与 `rows`，并拒绝起始偏移量会超出 32 位整数范围的分页请求。此前 `rows=0` 会被接受并返回空页，负数 `rows` 会引发内部错误，而足够大的 `page` 与 `rows` 组合可能溢出为一个较小的正偏移量，从而静默返回错误的页。
+  - **影响**：依赖 `rows=0` 返回空页的请求现在会收到 `400`，错误信息中会指明具体参数。传入合法正整数的调用方不受影响。响应结构、`{"data": [...], "total": n}` 包装格式，以及起始位置恰好等于 `total` 时仍返回空页的行为，均保持不变。
 
 ### MySQL CDC Schema-Change 解析
 

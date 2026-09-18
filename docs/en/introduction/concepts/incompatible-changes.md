@@ -15,8 +15,39 @@ The configuration keys and defaults are unchanged.
 If you configured a finite `max-thread-num`, it no longer constrains lifecycle workers.
 The lifecycle executor still has an unbounded maximum; neither setting caps running jobs
 or total master threads. Review master capacity and thread monitoring before upgrading.
-Existing coordinator thread-pool metrics now cover admission only, so use JVM/process
-thread metrics when monitoring overall master thread usage.
+Existing `job_thread_pool_*` metrics now cover admission only. The new
+`job_lifecycle_thread_pool_*` metrics expose lifecycle pool size, active workers, completed
+tasks, submitted tasks, queue size, configured sizes, and rejections. Monitor both pools,
+and use JVM/process thread metrics for overall master thread usage.
+
+### RabbitMQ Connector
+
+- **Breaking Change: `amqps://` connections now verify broker certificates**
+  - **Affected component**: `seatunnel-connectors-v2/connector-rabbitmq`
+  - **Description**: Previously, connecting with an `amqps://` `url`/`uri` implicitly installed a
+    trust-all trust manager without hostname verification. Certificate verification is now
+    enforced for `amqps://` connections, consistent with the `ssl = true` host/port path.
+  - **Impact**: Jobs that connect with `amqps://` URLs to brokers using self-signed or private-CA
+    certificates will fail to connect after upgrading.
+  - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
+    trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
+    configuration with a properly configured trust store.
+
+### Zeta REST Pagination Parameter Validation
+
+- **Behavior change: `page` and `rows` are validated on paginated endpoints**
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`,
+    `GET /running-jobs` and `GET /running-jobs/summary`. The latter two are served by the same
+    `RunningJobsServlet` instance, so both receive the validation.
+  - **Description**: These endpoints now reject a `page` or `rows` value that is not an integer or
+    is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
+    Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
+    internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
+    positive offset and silently return the wrong page.
+  - **Impact**: Requests that relied on `rows=0` returning an empty page now receive `400` with a
+    message naming the offending parameter. Callers passing valid positive values are unaffected.
+    The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
+    starting exactly at `total`, which still returns an empty page, are all unchanged.
 
 ### MySQL CDC Schema-Change Parsing
 

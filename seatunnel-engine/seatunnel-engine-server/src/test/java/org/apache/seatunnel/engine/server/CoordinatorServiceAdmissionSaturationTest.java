@@ -28,9 +28,11 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -43,11 +45,20 @@ import static org.awaitility.Awaitility.await;
 
 /** Exercises real pipeline/checkpoint callbacks with every admission worker held by a latch. */
 class CoordinatorServiceAdmissionSaturationTest extends AbstractSeaTunnelServerTest {
+    @TempDir static Path checkpointDirectory;
+
     @Override
     public SeaTunnelConfig loadSeaTunnelConfig() {
         SeaTunnelConfig config = super.loadSeaTunnelConfig();
         config.getEngineConfig().getCoordinatorServiceConfig().setCoreThreadNum(1);
         config.getEngineConfig().getCoordinatorServiceConfig().setMaxThreadNum(1);
+        // Exercise real checkpoint persistence without Hadoop's Windows native dependencies.
+        config.getEngineConfig().getCheckpointConfig().getStorage().setStorage("localfile");
+        config.getEngineConfig()
+                .getCheckpointConfig()
+                .getStorage()
+                .setStoragePluginConfig(
+                        Collections.singletonMap("namespace", checkpointDirectory.toString()));
         return config;
     }
 

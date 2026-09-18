@@ -400,7 +400,8 @@ recovery use a separate lifecycle executor. The pending-job scheduler has its ow
 The lifecycle executor still has an unbounded maximum because it runs blocking waits alongside
 the callbacks needed to finish them. These settings do not limit running jobs or total master
 threads. Configuration keys and defaults are unchanged, including after master reactivation.
-Coordinator thread-pool metrics describe the admission executor.
+The existing `job_thread_pool_*` metrics describe admission.
+The `job_lifecycle_thread_pool_*` metrics separately report lifecycle and recovery workers.
 
 Example
 

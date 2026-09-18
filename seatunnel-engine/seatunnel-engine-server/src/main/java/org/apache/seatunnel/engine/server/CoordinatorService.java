@@ -306,10 +306,16 @@ public class CoordinatorService {
     }
 
     private ExecutorService createLifecycleExecutor() {
-        return Executors.newCachedThreadPool(
+        return new ThreadPoolExecutor(
+                0,
+                Integer.MAX_VALUE,
+                60L,
+                TimeUnit.SECONDS,
+                new SynchronousQueue<>(),
                 new ThreadFactoryBuilder()
                         .setNameFormat("seatunnel-coordinator-service-lifecycle-%d")
-                        .build());
+                        .build(),
+                new ThreadPoolStatus.RejectionCountingHandler());
     }
 
     private ExecutorService createPendingJobSchedulerExecutor() {
@@ -900,6 +906,9 @@ public class CoordinatorService {
             return;
         }
         if (!isCleanupDelayElapsed(record)) {
+            // The executor can run slightly before the wall-clock cleanup deadline.
+            // Preserve the record by scheduling the remaining delay instead of dropping it.
+            schedulePendingJobCleanup(jobId, record);
             return;
         }
 
@@ -1274,10 +1283,11 @@ public class CoordinatorService {
                 if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
                     this.executorService = createCoordinatorExecutor();
                 }
-                if (this.lifecycleExecutor.isShutdown()) {
+                if (this.lifecycleExecutor.isShutdown() || this.lifecycleExecutor.isTerminated()) {
                     this.lifecycleExecutor = createLifecycleExecutor();
                 }
-                if (this.pendingJobSchedulerExecutor.isShutdown()) {
+                if (this.pendingJobSchedulerExecutor.isShutdown()
+                        || this.pendingJobSchedulerExecutor.isTerminated()) {
                     this.pendingJobSchedulerExecutor = createPendingJobSchedulerExecutor();
                 }
                 initCoordinatorService();
@@ -2185,10 +2195,17 @@ public class CoordinatorService {
     }
 
     public void printExecutionInfo() {
-        ThreadPoolStatus threadPoolStatus = getThreadPoolStatusMetrics();
+        printThreadPoolStatus(
+                "CoordinatorService Admission Thread Pool Status", getThreadPoolStatusMetrics());
+        printThreadPoolStatus(
+                "CoordinatorService Lifecycle Thread Pool Status",
+                getLifecycleThreadPoolStatusMetrics());
+    }
+
+    private void printThreadPoolStatus(String title, ThreadPoolStatus threadPoolStatus) {
         logger.info(
                 StringFormatUtils.formatTable(
-                        "CoordinatorService Thread Pool Status",
+                        title,
                         "activeCount",
                         threadPoolStatus.getActiveCount(),
                         "corePoolSize",
@@ -2291,7 +2308,15 @@ public class CoordinatorService {
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+        return threadPoolStatus((ThreadPoolExecutor) executorService);
+    }
+
+    /** Reports lifecycle and recovery workers independently of new-job admission. */
+    public ThreadPoolStatus getLifecycleThreadPoolStatusMetrics() {
+        return threadPoolStatus((ThreadPoolExecutor) lifecycleExecutor);
+    }
+
+    private ThreadPoolStatus threadPoolStatus(ThreadPoolExecutor threadPoolExecutor) {
 
         long rejectionCount =
                 ((ThreadPoolStatus.RejectionCountingHandler)
