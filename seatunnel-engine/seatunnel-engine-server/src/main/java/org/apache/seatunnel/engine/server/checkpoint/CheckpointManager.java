@@ -107,6 +107,44 @@ public class CheckpointManager {
             IMap<Object, Object> runningJobStateIMap,
             SeaTunnelEngineContext engineContext,
             CheckpointMonitorService checkpointMonitorService) {
+        this(
+                jobId,
+                isRestoreJob,
+                restoreMode,
+                restoreSourceJobId,
+                false,
+                nodeEngine,
+                jobMaster,
+                checkpointPlanMap,
+                checkpointConfig,
+                checkpointStorage,
+                executorService,
+                runningJobStateIMap,
+                engineContext,
+                checkpointMonitorService);
+    }
+
+    /**
+     * @param masterFailoverRestore true when the job is being restored after a master node
+     *     switch/restart. The latest completed checkpoint of this job itself is preferred in that
+     *     case, falling back to {@code restoreSourceJobId}/{@code restoreMode} only when this job
+     *     has not completed any checkpoint yet.
+     */
+    public CheckpointManager(
+            long jobId,
+            boolean isRestoreJob,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            boolean masterFailoverRestore,
+            NodeEngine nodeEngine,
+            JobMaster jobMaster,
+            Map<Integer, CheckpointPlan> checkpointPlanMap,
+            CheckpointConfig checkpointConfig,
+            CheckpointStorage checkpointStorage,
+            ExecutorService executorService,
+            IMap<Object, Object> runningJobStateIMap,
+            SeaTunnelEngineContext engineContext,
+            CheckpointMonitorService checkpointMonitorService) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
         this.jobMaster = jobMaster;
@@ -128,14 +166,25 @@ public class CheckpointManager {
                                     try {
                                         idCounter.start();
                                         PipelineState pipelineState = null;
-                                        if (checkpointConfig.isCheckpointEnable()
-                                                && isRestoreJob
-                                                && restoreSourceJobId != null) {
-                                            pipelineState =
-                                                    getLatestCheckpointStateByType(
-                                                            String.valueOf(restoreSourceJobId),
-                                                            String.valueOf(plan.getPipelineId()),
-                                                            restoreMode);
+                                        if (checkpointConfig.isCheckpointEnable() && isRestoreJob) {
+                                            if (masterFailoverRestore) {
+                                                pipelineState =
+                                                        checkpointStorage
+                                                                .getLatestCheckpointByJobIdAndPipelineId(
+                                                                        String.valueOf(jobId),
+                                                                        String.valueOf(
+                                                                                plan
+                                                                                        .getPipelineId()));
+                                            }
+                                            if (pipelineState == null
+                                                    && restoreSourceJobId != null) {
+                                                pipelineState =
+                                                        getLatestCheckpointStateByType(
+                                                                String.valueOf(restoreSourceJobId),
+                                                                String.valueOf(
+                                                                        plan.getPipelineId()),
+                                                                restoreMode);
+                                            }
                                             if (pipelineState != null) {
                                                 long checkpointId = pipelineState.getCheckpointId();
                                                 idCounter.setCount(checkpointId + 1);
