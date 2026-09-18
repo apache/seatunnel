@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.dag.physical;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -99,11 +100,42 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(JobStatus.FAILED, planWithStateMaps.runningJobState.get(jobId));
     }
 
+    /**
+     * Pins the single-snapshot property of the {@code cancelJob()} decision: the status that
+     * decides the branch is the same one {@code isEndState()} validated, not a second read.
+     *
+     * <p>A quiescent test cannot tell the two apart, because both reads observe the same value.
+     * This one swaps in a map that answers {@code PENDING} on the first read and {@code RUNNING}
+     * afterwards, so the pre-fix double read picks up {@code RUNNING} and transitions to {@code
+     * CANCELING}, while branching on the validated local transitions to {@code CANCELED}. The
+     * divergence is what makes the assertion deterministic rather than dependent on a race.
+     */
+    @Test
+    void testCancelJobCommitsToTheJobStatusSnapshotItValidated() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        prepareForCancel(planWithStateMaps);
+
+        @SuppressWarnings("unchecked")
+        IMap<Object, Object> divergingStateMap = Mockito.mock(IMap.class);
+        Mockito.when(divergingStateMap.get(jobId)).thenReturn(JobStatus.PENDING, JobStatus.RUNNING);
+        // PhysicalPlan holds the map as a final field wired by PlanUtils; replacement is the only
+        // way to hand it a per-read divergence without rebuilding the plan.
+        ReflectionUtils.setField(
+                planWithStateMaps.physicalPlan, "runningJobStateIMap", divergingStateMap);
+
+        planWithStateMaps.physicalPlan.cancelJob();
+
+        // CANCELED is only reachable by consuming the first (PENDING) read; a second read of the
+        // same key would have seen RUNNING and landed on CANCELING.
+        Mockito.verify(divergingStateMap).set(jobId, JobStatus.CANCELED);
+        Mockito.verify(divergingStateMap, Mockito.never()).set(jobId, JobStatus.CANCELING);
+    }
+
     // These two pin the NOT_STARTED_STATUSES classification in PhysicalPlan: cancel on a
     // not-started job goes straight to CANCELED, cancel on a running job goes through
-    // CANCELING. They do not cover the single-snapshot property of the decision (both IMap
-    // reads observe the same value in a quiescent test), which would need a map returning
-    // divergent values per read.
+    // CANCELING. The single-snapshot property of the decision itself is covered separately by
+    // testCancelJobCommitsToTheJobStatusSnapshotItValidated above.
     @Test
     void testCancelOnNotStartedJobGoesStraightToCanceled() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
