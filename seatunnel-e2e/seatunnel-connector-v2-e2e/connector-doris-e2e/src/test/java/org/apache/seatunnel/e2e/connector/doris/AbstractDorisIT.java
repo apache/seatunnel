@@ -79,7 +79,14 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withExposedPorts(QUERY_PORT, HTTP_PORT, BE_HTTP_PORT)
-                        .withPrivilegedMode(true);
+                        .withPrivilegedMode(true)
+                        // The all-in-one image starts FE and BE from one entrypoint and only
+                        // opens the three exposed ports once FE is up. On loaded CI runners
+                        // that takes longer than the 60s default of the port wait strategy
+                        // (seen as "Timed out waiting for container port to open" while the
+                        // JDBC readiness loop below would still have had five minutes left),
+                        // so give the port wait the same budget as the readiness loop.
+                        .withStartupTimeout(Duration.ofMinutes(6));
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
         given().pollDelay(20, TimeUnit.SECONDS)
