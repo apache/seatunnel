@@ -40,6 +40,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 
 import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -65,8 +66,11 @@ import java.util.stream.Collectors;
  *
  * <p>Optimization: When multiple source tables resolve to the same destination table, only one
  * SinkWriter is created per replica instead of one per source table, avoiding hundreds of redundant
- * connections.
+ * connections. Sharing is visible to operators: each time a further alias joins an already-created
+ * shared writer, an INFO line records the connector, the physical destination identifier, and both
+ * table identifiers.
  */
+@Slf4j
 public class MultiTableSink
         implements SeaTunnelSink<
                         SeaTunnelRow,
@@ -212,6 +216,21 @@ public class MultiTableSink
                     if (writer == null) {
                         writer = sink.createWriter(proxy);
                         destinationWriters.put(destinationKey, writer);
+                    } else {
+                        // Opt-in sharing: a second alias joins the writer created by a previous
+                        // table. Surface this so operators can audit where rows of each alias go.
+                        log.info(
+                                "Reusing shared sink writer: connector '{}' now also routes "
+                                        + "table '{}' to physical destination '{}' "
+                                        + "(first table '{}')",
+                                sink.getClass().getName(),
+                                tablePath,
+                                sink.getPhysicalDestinationIdentifier().orElse(""),
+                                writers.entrySet().stream()
+                                        .filter(e -> e.getValue() == writer)
+                                        .map(e -> e.getKey().getTableIdentifier())
+                                        .findFirst()
+                                        .orElse(""));
                     }
                     writers.put(id, writer);
                     // Every alias must retain the shared proxy so listener and metric lookups stay
@@ -315,6 +334,20 @@ public class MultiTableSink
                                         ? sink.createWriter(proxy)
                                         : sink.restoreWriter(proxy, state);
                         destinationWriters.put(destinationKey, writer);
+                    } else {
+                        // Opt-in sharing on the restore path: surface it the same way as create.
+                        log.info(
+                                "Reusing restored shared sink writer: connector '{}' now also "
+                                        + "routes table '{}' to physical destination '{}' "
+                                        + "(first table '{}')",
+                                sink.getClass().getName(),
+                                tablePath,
+                                sink.getPhysicalDestinationIdentifier().orElse(""),
+                                writers.entrySet().stream()
+                                        .filter(e -> e.getValue() == writer)
+                                        .map(e -> e.getKey().getTableIdentifier())
+                                        .findFirst()
+                                        .orElse(""));
                     }
                     writers.put(sinkIdentifier, writer);
                     // The shared proxy is intentionally reachable through every alias, but its

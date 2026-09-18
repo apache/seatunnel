@@ -87,9 +87,12 @@ SeaTunnel 的 sink 设计支持多种复杂度层级：
 `SeaTunnelSink#getPhysicalDestinationIdentifier()` 显式选择加入该机制。
 
 只有在复用安全时才能返回标识。该标识必须包含会影响实际写入目标的全部坐标，例如 connector
-endpoint、warehouse、namespace、table 和 branch。返回同一标识的 sink 必须具有兼容的 schema、
-writer 配置和提交语义：协调器会从其中一个 alias 创建共享 writer，并把所有 alias 的数据都路由给它。
-协调器会额外使用 connector 实现类作为命名空间，因此不同 connector 类型之间不会共享。
+endpoint、warehouse、namespace、table 和 branch，以及任何凭证或连接级设置：使用不同用户或 token
+认证的实例必须返回不同的标识，否则某个 alias 的数据会以最先创建共享 writer 的那个 alias 的凭证
+被写入。返回同一标识的 sink 必须具有兼容的 schema、
+writer 配置和提交语义：协调器会从其中一个 alias 创建共享 writer，并把所有 alias 的数据都路由给它，
+并在新的 alias 加入共享 writer 时输出一条 INFO 日志。协调器会额外使用 connector 实现类作为命名空间，
+因此不同 connector 类型之间不会共享。
 
 对于共享目标，checkpoint 只保存一个 canonical writer state 和一个 canonical commit record。恢复时，
 `restoreWriter` 可能会收到来自所有 alias 的合并 state，因此实现必须能处理该 state 列表。当无法保证

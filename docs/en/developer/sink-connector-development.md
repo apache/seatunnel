@@ -90,10 +90,14 @@ write to the same physical destination. A connector opts in by overriding
 `SeaTunnelSink#getPhysicalDestinationIdentifier()`.
 
 Only return an identifier when sharing is safe. It must include all destination coordinates that
-affect writes, such as connector endpoint, warehouse, namespace, table, and branch. Sinks with the
-same identifier must use compatible schemas, writer settings, and commit semantics: the coordinator
-creates one shared writer from one alias and routes every alias to it. Connector implementation
-class is included by the coordinator, so identifiers are never shared across connector types.
+affect writes, such as connector endpoint, warehouse, namespace, table, and branch, and any
+credentials or connection-level settings: instances that authenticate with different users or
+tokens must return different identifiers, otherwise one alias's rows are written under the
+credentials of whichever alias created the shared writer first. Sinks with the same identifier
+must use compatible schemas, writer settings, and commit semantics: the coordinator creates one
+shared writer from one alias and routes every alias to it, and logs an INFO line whenever a
+further alias joins the shared writer. Connector implementation class is included by the
+coordinator, so identifiers are never shared across connector types.
 
 For a shared destination, a checkpoint writes one canonical writer state and one canonical commit
 record. During recovery, `restoreWriter` can receive state originating from every aliased source
