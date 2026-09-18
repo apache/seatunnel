@@ -58,6 +58,8 @@ public class IcebergRecordWriter implements RecordWriter {
     private volatile TaskWriter<Record> writer;
     private RowConverter recordConverter;
     private final IcebergWriterFactory writerFactory;
+    private long currentCount = 0;
+    private final long flushRowSize;
 
     public IcebergRecordWriter(
             Table table, IcebergWriterFactory writerFactory, IcebergSinkConfig config) {
@@ -66,6 +68,7 @@ public class IcebergRecordWriter implements RecordWriter {
         this.writerResults = Lists.newArrayList();
         this.recordConverter = new RowConverter(table, config);
         this.writerFactory = writerFactory;
+        this.flushRowSize = config.getFlushRowSize();
     }
 
     private TaskWriter<Record> createTaskWriter() {
@@ -75,6 +78,10 @@ public class IcebergRecordWriter implements RecordWriter {
     @Override
     public void write(SeaTunnelRow seaTunnelRow, SeaTunnelRowType rowType) {
         if (writer == null) {
+            resetWriter();
+        }
+        if (currentCount >= flushRowSize) {
+            flush();
             resetWriter();
         }
         SchemaChangeWrapper updates = new SchemaChangeWrapper();
@@ -88,6 +95,7 @@ public class IcebergRecordWriter implements RecordWriter {
         IcebergRecord icebergRecord = new IcebergRecord(record, seaTunnelRow.getRowKind());
         try {
             this.writer.write(icebergRecord);
+            currentCount++;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -191,5 +199,6 @@ public class IcebergRecordWriter implements RecordWriter {
                         Arrays.asList(writeResult.deleteFiles()),
                         table.spec().partitionType()));
         writer = null;
+        currentCount = 0;
     }
 }
