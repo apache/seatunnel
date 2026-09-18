@@ -17,16 +17,18 @@
 
 package org.apache.seatunnel.connectors.sensorsdata.sdk;
 
+import org.apache.seatunnel.shade.com.google.common.collect.ImmutableMap;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.sensorsdata.format.config.TargetColumnConfig;
 import org.apache.seatunnel.connectors.sensorsdata.sdk.sink.SensorsDataSDKSinkFactory;
-
-import com.google.common.collect.ImmutableMap;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,11 +41,22 @@ class SensorsDataSDKFactoryTest {
         map.put("entity_name", "users");
         map.put("record_type", "users");
         map.put("server_url", "http://127.0.0.1:8106/sa?project=default");
+        // Conditional on entity_name=users (also the option default) — see
+        // SensorsDataBaseOptionRules
+        map.put("schema", "users");
+        map.put("distinct_id_column", "name");
+        map.put(
+                "identity_fields",
+                Arrays.asList(new TargetColumnConfig("name", "String", "$identity_name")));
+        map.put(
+                "property_fields",
+                Arrays.asList(new TargetColumnConfig("name", "String", "name")));
         return map;
     }
 
     private void validate(Map<String, Object> map) {
-        ConfigValidator.of(ReadonlyConfig.fromMap(ImmutableMap.copyOf(map))).validate(factory.optionRule());
+        ConfigValidator.of(ReadonlyConfig.fromMap(ImmutableMap.copyOf(map)))
+                .validate(factory.optionRule());
     }
 
     @Test

@@ -50,8 +50,7 @@ public class SensorsDataSDKSinkFactory implements TableSinkFactory {
                         Conditions.greaterThan(SensorsDataSDKSinkOptions.BULK_SIZE, 0))
                 .optional(
                         SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE,
-                        Conditions.greaterOrEqual(
-                                SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE, 0))
+                        Conditions.greaterOrEqual(SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE, 0))
                 .optional(
                         SensorsDataOptions.SKIP_ERROR_RECORD,
                         SensorsDataSDKSinkOptions.CONSUMER,
