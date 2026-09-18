@@ -287,6 +287,8 @@
   - **影响范围**：SeaTunnel Zeta 健康检查输出、REST 集群健康接口响应，以及 Prometheus `cluster_info` 指标。
   - **变更说明**：在 master / worker 分离部署中，worker-only 节点可能暂时持有 Hazelcast master 身份，但它不能作为 SeaTunnel coordinator。遗留的 `isMaster` 健康检查字段和 Prometheus `cluster_info{master=...}` 标签现在表示激活中的 SeaTunnel coordinator，而不是原始 Hazelcast master。REST 集群健康接口同时暴露 `nodeRole`、`coordinator` 和 `worker` 字段，用于展示节点的静态配置能力。
   - **影响**：如果已有仪表盘、告警规则或脚本将 `isMaster` 或 `cluster_info{master=...}` 当作 Hazelcast master 身份使用，在 master / worker 分离集群升级后可能观察到取值变化。
+  - **CLI 成员列表**：`seatunnel-cluster.sh -m` 遵循相同规则。`ACTIVE MASTER` 现在标记的是激活中的 SeaTunnel coordinator，而不是 Hazelcast master，因此持有 Hazelcast master 身份的 worker-only 节点会显示为 `WORKER`。当 coordinator 是在 worker-only 的 Hazelcast master 之后推断得到时，命令会额外输出一行 `Active master: <address> (best effort)`，因为客户端的成员视图可能滞后于集群。当无法解析出 coordinator 时，命令会输出 `Active master: UNKNOWN`，此时 `MASTER` 行只表示节点的配置角色。
+  - **故障切换窗口**：在 coordinator 选举期间，或当前成员视图中没有具备 coordinator 能力的节点时，不会有任何节点上报 `isMaster=true`，`cluster_info` 也不会导出。告警规则需要容忍这一短暂窗口，不应将其视为集群丢失。
   - **迁移指南**：使用 `isMaster` 和 `cluster_info{master=...}` 判断激活中的 SeaTunnel coordinator 路由目标。如果需要区分节点配置能力与激活 coordinator，请使用集群健康接口中的 `nodeRole`、`coordinator` 和 `worker` 字段。
 
 ### 依赖升级

@@ -583,6 +583,9 @@ When we can't get the job info, the response will be:
 - `coordinator`: whether this node is configured with coordinator capability.
 - `worker`: whether this node is configured with worker capability.
 
+`nodeRole`, `coordinator`, and `worker` disclose the cluster topology. The REST API V1 has no
+authentication, so restrict network access to it when this information is sensitive.
+
 </details>
 
 ------------------------------------------------------------------------------------------

@@ -153,6 +153,11 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                         getRole(activeMasterAddress, member),
                         member.getVersion());
             }
+            String activeMasterNote =
+                    describeActiveMasterResolution(masterMember, activeMasterAddress);
+            if (activeMasterNote != null) {
+                System.out.println(activeMasterNote);
+            }
             return members;
         } catch (Exception e) {
             throw new SeaTunnelEngineException("Failed to get cluster members information", e);
@@ -186,6 +191,35 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
                 .map(Member::getAddress)
                 .findFirst()
                 .orElse(null);
+    }
+
+    /**
+     * Explains how far the {@code ACTIVE MASTER} label of the member list can be trusted.
+     *
+     * <p>The command only sees the client-side membership view. When Hazelcast mastership sits on a
+     * worker-only member, the active coordinator is inferred with the same rule the server applies
+     * (the first coordinator-capable member in membership order), so the label is best effort and
+     * can lag behind the cluster during failover. When nothing can be inferred, operators must be
+     * told explicitly, otherwise plain {@code MASTER} rows read as if no election were pending.
+     *
+     * @param masterMember Hazelcast master member, or {@code null} when it is unknown
+     * @param activeMasterAddress coordinator resolved for the member list, or {@code null} when no
+     *     coordinator is known
+     * @return note printed below the member list, or {@code null} when the label is authoritative
+     */
+    String describeActiveMasterResolution(Member masterMember, Address activeMasterAddress) {
+        if (activeMasterAddress == null) {
+            return "Active master: UNKNOWN. No coordinator-capable member can be resolved from the "
+                    + "current membership view, so MASTER rows only show the configured role.";
+        }
+        if (masterMember != null && masterMember.isLiteMember()) {
+            return String.format(
+                    "Active master: %s (best effort). Hazelcast master %s is a worker-only member, "
+                            + "so the coordinator is inferred on the client with the server rule "
+                            + "and can lag behind the cluster during failover.",
+                    activeMasterAddress, masterMember.getAddress());
+        }
+        return null;
     }
 
     private String getRole(Address masterAddress, Member member) {

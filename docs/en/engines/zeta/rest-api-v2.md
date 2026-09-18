@@ -903,6 +903,10 @@ starting beyond the end of the result set also returns `400`, while a page start
 - `coordinator`: whether this node is configured with coordinator capability.
 - `worker`: whether this node is configured with worker capability.
 
+`nodeRole`, `coordinator`, and `worker` disclose the cluster topology. The REST API is
+unauthenticated by default, so restrict network access to it or enable basic authentication (see
+[Security](security.md)) when this information is sensitive.
+
 </details>
 
 ------------------------------------------------------------------------------------------

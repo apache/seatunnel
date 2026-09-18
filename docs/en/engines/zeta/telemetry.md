@@ -194,7 +194,7 @@ The `result` label has the following meanings:
 - `failure`: the master-to-worker invocation failed or the operation completed exceptionally.
 
 During cancellation, SeaTunnel attempts a final best-effort `ReportMetricsOperation` flush with a
-bounded timeout. If the active coordinator is unavailable or the bounded flush does not complete in
+bounded timeout of 1 second. This value is fixed and not configurable. If the active coordinator is unavailable or the bounded flush does not complete in
 time, the final reported metrics can still lag behind the most recent task-local progress.
 
 ### Job info detail
