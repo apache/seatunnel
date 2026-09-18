@@ -231,6 +231,13 @@ public class IncrementalSplit extends SourceSplitBase {
                         : historyTableChanges.entrySet().stream()
                                 .filter(entry -> capturedTableSet.contains(entry.getKey()))
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        // Carry the per-table lower bounds across the prune. The shorter constructor defaults them
+        // to an empty map, which would drop them on every checkpoint restore and let the mixed
+        // startup gate treat tables as if they had no lower bound.
+        Map<TableId, Offset> filteredTableStartOffsets =
+                getTableStartOffsets().entrySet().stream()
+                        .filter(entry -> capturedTableSet.contains(entry.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
         IncrementalSplit prunedSplit =
                 new IncrementalSplit(
                         splitId(),
@@ -238,6 +245,7 @@ public class IncrementalSplit extends SourceSplitBase {
                         startupOffset,
                         stopOffset,
                         filteredCompletedSnapshotSplitInfos,
+                        filteredTableStartOffsets,
                         filteredCheckpointTables,
                         filteredHistoryTableChanges);
         // Keep compatibility with checkpoints created before table-level schema history.
