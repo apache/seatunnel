@@ -764,6 +764,10 @@ public class CheckpointCoordinatorFailoverIT {
 
         try {
             node = SeaTunnelServerStarter.createHazelcastInstance(config);
+            // node is reassigned above (declared null for finally-block cleanup), so it is not
+            // effectively final; capture a final copy for the lambda below, which needs to read
+            // it after this reassignment.
+            final HazelcastInstanceImpl finalNode = node;
 
             Common.setDeployMode(DeployMode.CLUSTER);
             ImmutablePair<String, String> testResources =
@@ -806,7 +810,8 @@ public class CheckpointCoordinatorFailoverIT {
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            getLatestCompletedCheckpointId(node, jobId, pipelineId)
+                                            getLatestCompletedCheckpointId(
+                                                            finalNode, jobId, pipelineId)
                                                     >= 1,
                                             "waiting for checkpoint id 1 to fully complete before"
                                                     + " injecting the fault"));
