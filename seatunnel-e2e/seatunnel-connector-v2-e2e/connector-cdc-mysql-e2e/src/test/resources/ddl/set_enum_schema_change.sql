@@ -26,22 +26,27 @@ CREATE TABLE products_with_set_enum (
   id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
   weight FLOAT,
-  c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,
-  c_enum enum('unsigned','signed') DEFAULT NULL
+  c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT') DEFAULT NULL,
+  c_enum enum('signed','sealed') DEFAULT NULL
 );
 
 insert into products_with_set_enum (id, name, weight, c_set, c_enum)
-values (101, 'scooter', 3.14, 'REAL_AS_FLOAT', 'unsigned'),
-       (102, 'car battery', 8.1, 'REAL_AS_FLOAT,NO_UNSIGNED_SUBTRACTION', 'signed');
+values (101, 'scooter', 3.14, 'REAL_AS_FLOAT', 'signed'),
+       (102, 'car battery', 8.1, 'REAL_AS_FLOAT,PIPES_AS_CONCAT', 'sealed');
 
 -- Kept in step with the source table: the other cases in this suite pre-create their sink tables
 -- so that the DESCRIBE comparison can cover the whole table, and an auto-created sink table is
 -- rendered without AUTO_INCREMENT.
+--
+-- The option lists deliberately avoid the word "unsigned": a literal such as
+-- 'NO_UNSIGNED_SUBTRACTION' trips the catalog-side substring check that #12333 fixes, which would
+-- make this case depend on a second, unrelated PR just to reach the snapshot. Catalog coverage for
+-- that shape belongs to connector-jdbc (see #12333).
 drop table if exists mysql_cdc_e2e_sink_table_with_set_enum;
 CREATE TABLE mysql_cdc_e2e_sink_table_with_set_enum (
   id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL DEFAULT 'SeaTunnel',
   weight FLOAT,
-  c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT','NO_UNSIGNED_SUBTRACTION') DEFAULT NULL,
-  c_enum enum('unsigned','signed') DEFAULT NULL
+  c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT') DEFAULT NULL,
+  c_enum enum('signed','sealed') DEFAULT NULL
 );

@@ -24,10 +24,14 @@ use shop;
 -- ADD / MODIFY of SET and ENUM columns reach the sink as the DDL the job builds from the column's
 -- source type expression, so these statements are only valid when that expression keeps the option
 -- list (SET('a','b')) instead of the Debezium bookkeeping length (SET(5)).
+--
+-- The option lists avoid the word "unsigned" for the same reason as the fixture: a literal such as
+-- 'NO_UNSIGNED_SUBTRACTION' is mis-read as the UNSIGNED attribute until #12333 lands, which would
+-- make this case depend on a second, unrelated PR.
 alter table products_with_set_enum
   add column c_set_added set('a','b') null,
   add column c_enum_added enum('x','y') null,
-  modify column c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT','NO_UNSIGNED_SUBTRACTION','ANSI_QUOTES') null;
+  modify column c_set set('REAL_AS_FLOAT','PIPES_AS_CONCAT','ANSI_QUOTES') null;
 
 insert into products_with_set_enum (id, name, weight, c_set, c_enum, c_set_added, c_enum_added)
 values (201, 'added after the schema change', 0.5, 'ANSI_QUOTES', 'signed', 'a,b', 'x');
