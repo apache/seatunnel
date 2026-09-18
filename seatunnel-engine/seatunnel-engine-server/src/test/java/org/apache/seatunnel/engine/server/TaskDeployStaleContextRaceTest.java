@@ -76,6 +76,13 @@ import static java.util.Collections.emptySet;
  * against it. It can therefore fail to <em>detect</em> a regression on an unlucky run, but it
  * cannot report a failure that is not real: the only way it fails is a deployment that never
  * returns.
+ *
+ * <p><b>Out of scope here:</b> the other half of the same family - a redeploy for this location
+ * racing an in-flight {@code taskDone()}, which can evict or tear down the newer deployment's
+ * cancellation future, async functions and timer flushes - lives in {@code deployLocalTask()} and
+ * the tracker teardown, neither of which this test nor the fix it covers touches. That path is the
+ * design of <a href="https://github.com/apache/seatunnel/pull/12238">#12238</a> and is tracked
+ * against it, so nothing here should be read as covering it.
  */
 public class TaskDeployStaleContextRaceTest extends AbstractSeaTunnelServerTest {
 
