@@ -18,65 +18,71 @@
 package org.apache.seatunnel.e2e.connector.rocketmq;
 
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.DockerImageName;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import lombok.SneakyThrows;
-
+import java.io.IOException;
 import java.net.Inet4Address;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
+import java.net.ServerSocket;
 import java.net.SocketException;
-import java.util.ArrayList;
 import java.util.Enumeration;
-import java.util.List;
 
-/** rocketmq container */
+/**
+ * RocketMQ container for the connector E2E suite.
+ *
+ * <p>The broker identity is fixed before startup. Updating the name, advertised address and port
+ * after the broker has registered leaves a stale identity in the name server, which makes direct
+ * sends to {@code broker-a} and consume-offset queries intermittently fail in CI.
+ */
 public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
 
     public static final int NAMESRV_PORT = 9876;
-    public static final int BROKER_PORT = 10911;
     public static final String BROKER_NAME = "broker-a";
     private static final int DEFAULT_BROKER_PERMISSION = 6;
     static final int DEFAULT_TOPIC_QUEUE_NUMS = 4;
+    private static final String BROKER_CONF_PATH = "/home/rocketmq/broker.conf";
+    private static final int FREE_PORT_ATTEMPTS = 20;
+
+    private final int brokerPort;
 
     public RocketMqContainer(DockerImageName image) {
         super(image);
-        withExposedPorts(NAMESRV_PORT, BROKER_PORT, BROKER_PORT - 2);
+        this.brokerPort = findFreeBrokerPort();
+        withExposedPorts(NAMESRV_PORT);
+        // RocketMQ advertises listenPort verbatim, so the host and container ports must match.
+        addFixedExposedPort(brokerPort, brokerPort);
+        addFixedExposedPort(brokerPort - 2, brokerPort - 2);
         this.withEnv("JAVA_OPT_EXT", "-Xms512m -Xmx512m");
     }
 
     @Override
     protected void configure() {
+        String brokerConf =
+                "brokerClusterName=DefaultCluster\n"
+                        + "brokerName="
+                        + BROKER_NAME
+                        + "\n"
+                        + "brokerId=0\n"
+                        + "brokerIP1="
+                        + getLinuxLocalIp()
+                        + "\n"
+                        + "listenPort="
+                        + brokerPort
+                        + "\n"
+                        + "autoCreateTopicEnable=true\n"
+                        + "defaultTopicQueueNums="
+                        + DEFAULT_TOPIC_QUEUE_NUMS
+                        + "\n"
+                        + "brokerPermission="
+                        + DEFAULT_BROKER_PERMISSION
+                        + "\n";
+        withCopyToContainer(Transferable.of(brokerConf), BROKER_CONF_PATH);
         String command = "#!/bin/bash\n";
         command += "./mqnamesrv &\n";
-        command += "./mqbroker -n localhost:" + NAMESRV_PORT;
+        command += "./mqbroker -n localhost:" + NAMESRV_PORT + " -c " + BROKER_CONF_PATH;
         withCommand("sh", "-c", command);
-    }
-
-    @Override
-    @SneakyThrows
-    protected void containerIsStarted(InspectContainerResponse containerInfo) {
-        List<String> updateBrokerConfigCommands = new ArrayList<>();
-        updateBrokerConfigCommands.add(updateBrokerConfig("autoCreateTopicEnable", true));
-        updateBrokerConfigCommands.add(
-                updateBrokerConfig("defaultTopicQueueNums", DEFAULT_TOPIC_QUEUE_NUMS));
-        updateBrokerConfigCommands.add(updateBrokerConfig("brokerName", BROKER_NAME));
-        updateBrokerConfigCommands.add(updateBrokerConfig("brokerIP1", getLinuxLocalIp()));
-        updateBrokerConfigCommands.add(
-                updateBrokerConfig("listenPort", getMappedPort(BROKER_PORT)));
-        updateBrokerConfigCommands.add(
-                updateBrokerConfig("brokerPermission", DEFAULT_BROKER_PERMISSION));
-        final String command = String.join(" && ", updateBrokerConfigCommands);
-        ExecResult result = execInContainer("/bin/sh", "-c", command);
-        if (result != null && result.getExitCode() != 0) {
-            throw new IllegalStateException(result.toString());
-        }
-    }
-
-    private String updateBrokerConfig(final String key, final Object val) {
-        final String brokerAddr = "localhost:" + BROKER_PORT;
-        return "./mqadmin updateBrokerConfig -b " + brokerAddr + " -k " + key + " -v " + val;
     }
 
     public String getNameSrvAddr() {
@@ -102,5 +108,36 @@ public class RocketMqContainer extends GenericContainer<RocketMqContainer> {
             ex.printStackTrace();
         }
         return ip;
+    }
+
+    private static int findFreeBrokerPort() {
+        // The probe cannot reserve both ports until Docker binds them, so a small TOCTOU race
+        // remains; retrying several candidate pairs keeps that window bounded in practice.
+        for (int i = 0; i < FREE_PORT_ATTEMPTS; i++) {
+            int port = findFreePort();
+            if (port > 2 && isPortFree(port - 2)) {
+                return port;
+            }
+        }
+        throw new IllegalStateException(
+                "Could not find a free host port pair for the RocketMQ broker");
+    }
+
+    private static int findFreePort() {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            socket.setReuseAddress(true);
+            return socket.getLocalPort();
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not allocate a free host port", e);
+        }
+    }
+
+    private static boolean isPortFree(int port) {
+        try (ServerSocket socket = new ServerSocket(port)) {
+            socket.setReuseAddress(true);
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 }

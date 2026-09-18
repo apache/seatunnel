@@ -44,8 +44,6 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.engine.common.Constant;
 
 import org.apache.rocketmq.client.consumer.DefaultLitePullConsumer;
-import org.apache.rocketmq.client.exception.MQBrokerException;
-import org.apache.rocketmq.client.exception.MQClientException;
 import org.apache.rocketmq.client.producer.DefaultMQProducer;
 import org.apache.rocketmq.common.admin.TopicOffset;
 import org.apache.rocketmq.common.message.Message;
@@ -54,7 +52,6 @@ import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.common.topic.TopicValidator;
-import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 
@@ -82,14 +79,13 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -168,7 +164,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), "test_topic_source", 0, 100);
-        waitForTopicRoute("test_topic_source");
     }
 
     @SneakyThrows
@@ -487,6 +482,13 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(
                                     producer.fetchPublishMessageQueues(topic).isEmpty(),
                                     "Topic route is not ready: " + topic);
+                            Assertions.assertFalse(
+                                    RocketMqAdminUtil.offsetTopics(
+                                                    newConfiguration(),
+                                                    Collections.singletonList(topic))
+                                            .get(0)
+                                            .isEmpty(),
+                                    "Topic route is not visible in the name server: " + topic);
                         });
     }
 
@@ -651,9 +653,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testSourceRocketMqRestore(TestContainer container)
-            throws IOException, InterruptedException, MQBrokerException, RemotingException,
-                    MQClientException, ExecutionException {
+    public void testSourceRocketMqRestore(TestContainer container) throws Exception {
 
         final String uniqueSuffix = uniqueTestSuffix();
         final String sourceTopic = "test_topic_restore_" + uniqueSuffix;
@@ -745,19 +745,23 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 "Source end offset should advance by at least 25, actual: "
                         + (srcEndAfterAll - srcEndBeforeStart));
 
-        // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        // The name server can briefly drop auto-created topic routes while the job is stopped for
+        // a savepoint. The restored job needs both routes immediately.
         waitForTopicRoute(sourceTopic);
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.restoreJob(
-                                "/rocketmq/rocketmq_source_restore.conf", jobId, restoreVariables);
-                    } catch (Exception e) {
-                        log.error("Restore job execution exception", e);
-                        throw new RuntimeException(e);
-                    }
-                });
+        waitForTopicRoute(sinkTopic);
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/rocketmq/rocketmq_source_restore.conf",
+                                        jobId,
+                                        restoreVariables);
+                            } catch (Exception e) {
+                                log.error("Restore job execution exception", e);
+                                throw new RuntimeException(e);
+                            }
+                        });
 
         Awaitility.await()
                 .pollDelay(3, TimeUnit.SECONDS)
@@ -766,29 +770,31 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .until(() -> getTopicMaxOffset(sinkTopic) >= expectedSinkAfterFirstRun + 15);
 
         long expectedTotal = expectedSinkAfterFirstRun + 15;
-        long finalSinkOffset = awaitTopicMaxOffset(sinkTopic, expectedTotal, Duration.ofMinutes(1));
-        Assertions.assertEquals(
-                expectedTotal,
-                finalSinkOffset,
-                "Sink offset mismatch after restore - possible duplicate consumption. "
-                        + "Expected: "
-                        + expectedTotal
-                        + ", actual: "
-                        + finalSinkOffset);
+        Awaitility.await()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        expectedTotal,
+                                        new HashSet<>(pollMessagesFromOffset(sinkTopic, 0))
+                                                .size()));
         List<String> allSinkMessages = pollMessagesFromOffset(sinkTopic, 0);
-        Assertions.assertEquals(
-                expectedTotal,
-                allSinkMessages.size(),
-                "Unexpected sink message count after restore. Expected: "
-                        + expectedTotal
-                        + ", actual: "
-                        + allSinkMessages.size());
+        // RocketMQSink is non-transactional, so a savepoint/restore boundary is at-least-once.
+        // Validate the complete logical data set while tolerating a replayed boundary record.
+        Set<String> uniqueSinkMessages = new HashSet<>(allSinkMessages);
+        Assertions.assertEquals(expectedTotal, uniqueSinkMessages.size());
+        if (allSinkMessages.size() > uniqueSinkMessages.size()) {
+            log.info(
+                    "Restore replayed {} RocketMQ record(s), consistent with at-least-once sink semantics",
+                    allSinkMessages.size() - uniqueSinkMessages.size());
+        }
         long initialCount =
-                allSinkMessages.stream().filter(body -> body.contains("_initial_")).count();
+                uniqueSinkMessages.stream().filter(body -> body.contains("_initial_")).count();
         long additionalCount =
-                allSinkMessages.stream().filter(body -> body.contains("_additional_")).count();
+                uniqueSinkMessages.stream().filter(body -> body.contains("_additional_")).count();
         long restoreCount =
-                allSinkMessages.stream().filter(body -> body.contains("_restore_")).count();
+                uniqueSinkMessages.stream().filter(body -> body.contains("_restore_")).count();
         Assertions.assertEquals(
                 20, initialCount, "Expected 20 '_initial_' messages, got: " + initialCount);
         Assertions.assertEquals(
@@ -797,6 +803,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 "Expected 10 '_additional_' messages, got: " + additionalCount);
         Assertions.assertEquals(
                 15, restoreCount, "Expected 15 '_restore_' messages, got: " + restoreCount);
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        Container.ExecResult restoredJobResult = restoredJobFuture.get(2, TimeUnit.MINUTES);
+        Assertions.assertEquals(0, restoredJobResult.getExitCode(), restoredJobResult.getStderr());
     }
 
     private List<String> pollMessagesFromOffset(String topicName, long fromOffset) {
@@ -837,25 +848,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             log.warn("Failed to poll messages from {}: {}", topicName, e.getMessage(), e);
         }
         return result;
-    }
-
-    /**
-     * Waits for RocketMQ admin offset visibility and returns the successful observed offset.
-     *
-     * <p>This keeps the final restore assertion from depending on a single broker metadata read.
-     */
-    private long awaitTopicMaxOffset(String topicName, long expectedOffset, Duration timeout) {
-        AtomicLong observedOffset = new AtomicLong();
-        Awaitility.await()
-                .pollInterval(2, TimeUnit.SECONDS)
-                .atMost(timeout)
-                .until(
-                        () -> {
-                            long current = getTopicMaxOffset(topicName);
-                            observedOffset.set(current);
-                            return current >= expectedOffset;
-                        });
-        return observedOffset.get();
     }
 
     /**

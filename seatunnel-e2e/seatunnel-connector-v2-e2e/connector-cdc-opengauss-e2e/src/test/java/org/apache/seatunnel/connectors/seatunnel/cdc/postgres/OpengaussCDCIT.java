@@ -418,21 +418,24 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
             disabledReason = "Currently SPARK and FLINK do not support restore")
-    public void testAddFieldWithRestore(TestContainer container)
-            throws IOException, InterruptedException {
+    public void testAddFieldWithRestore(TestContainer container) throws Exception {
         Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Container.ExecResult> initialJobFuture = null;
+        CompletableFuture<Container.ExecResult> restoredJobFuture = null;
+        boolean jobStopped = false;
         try {
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            return container.executeJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                    });
+            initialJobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.executeJob(
+                                            "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             // stream stage
             await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -450,26 +453,40 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                             OPENGAUSS_SCHEMA,
                                                                             SINK_TABLE_3)))));
 
-            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
-
-            // add field add insert source table data
+            // Make the running CDC job persist the evolved schema before taking the savepoint.
+            // Restoring an old schema is timing-sensitive because OpenGauss logical decoding does
+            // not emit a standalone DDL record.
             addFieldsForTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             addFieldsForTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
-            insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
+            insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3, 2);
+            await().atMost(60000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertIterableEquals(
+                                            query(getQuerySQL(OPENGAUSS_SCHEMA, SOURCE_TABLE_3)),
+                                            query(getQuerySQL(OPENGAUSS_SCHEMA, SINK_TABLE_3))));
+
+            Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
+            Container.ExecResult initialJobResult = initialJobFuture.get(2, TimeUnit.MINUTES);
+            Assertions.assertEquals(
+                    0, initialJobResult.getExitCode(), initialJobResult.getStderr());
+
+            // This row is newer than the savepoint and must be consumed with the restored schema.
+            insertSourceTableForAddFields(OPENGAUSS_SCHEMA, SOURCE_TABLE_3, 3);
 
             // Restore job
-            CompletableFuture.supplyAsync(
-                    () -> {
-                        try {
-                            container.restoreJob(
-                                    "/opengausscdc_to_opengauss_test_add_Filed.conf",
-                                    String.valueOf(jobId));
-                        } catch (Exception e) {
-                            log.error("Commit task exception :" + e.getMessage());
-                            throw new RuntimeException(e);
-                        }
-                        return null;
-                    });
+            restoredJobFuture =
+                    CompletableFuture.supplyAsync(
+                            () -> {
+                                try {
+                                    return container.restoreJob(
+                                            "/opengausscdc_to_opengauss_test_add_Filed.conf",
+                                            String.valueOf(jobId));
+                                } catch (Exception e) {
+                                    log.error("Commit task exception :" + e.getMessage());
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
             // stream stage
             await().atMost(60000, TimeUnit.MILLISECONDS)
@@ -486,7 +503,25 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
                                                                     getQuerySQL(
                                                                             OPENGAUSS_SCHEMA,
                                                                             SINK_TABLE_3)))));
+
+            Container.ExecResult cancelJobResult = container.cancelJob(String.valueOf(jobId));
+            Assertions.assertEquals(0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+            Container.ExecResult restoredJobResult = restoredJobFuture.get(2, TimeUnit.MINUTES);
+            Assertions.assertEquals(
+                    0, restoredJobResult.getExitCode(), restoredJobResult.getStderr());
+            jobStopped = true;
         } finally {
+            // A failed assertion must not leave the streaming job registered for later template
+            // invocations that share this engine container.
+            if (!jobStopped) {
+                try {
+                    container.cancelJob(String.valueOf(jobId));
+                } catch (Exception e) {
+                    log.warn("Failed to cancel OpenGauss restore test job {}", jobId, e);
+                }
+                waitForJobTermination(initialJobFuture, "initial", jobId);
+                waitForJobTermination(restoredJobFuture, "restored", jobId);
+            }
             // Clear related content to ensure that multiple operations are not affected
             clearTable(OPENGAUSS_SCHEMA, SOURCE_TABLE_3);
             clearTable(OPENGAUSS_SCHEMA, SINK_TABLE_3);
@@ -595,13 +630,27 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
         executeSql("ALTER TABLE " + database + "." + tableName + " ADD COLUMN f_big BIGINT");
     }
 
-    private void insertSourceTableForAddFields(String database, String tableName) {
+    private void insertSourceTableForAddFields(String database, String tableName, int id) {
         executeSql(
                 "INSERT INTO "
                         + database
                         + "."
                         + tableName
-                        + " VALUES (2, '2', 32767, 65535, 2147483647);");
+                        + " VALUES ("
+                        + id
+                        + ", '2', 32767, 65535, 2147483647);");
+    }
+
+    private void waitForJobTermination(
+            CompletableFuture<Container.ExecResult> jobFuture, String stage, Long jobId) {
+        if (jobFuture == null || jobFuture.isDone()) {
+            return;
+        }
+        try {
+            jobFuture.get(2, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("Failed waiting for {} OpenGauss job {} to terminate", stage, jobId, e);
+        }
     }
 
     private void clearTable(String database, String tableName) {
