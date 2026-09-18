@@ -139,4 +139,3 @@ connector-snmp
 connector-python
 connector-bigquery
 connector-nats-jetstream
-connector-file-adls
