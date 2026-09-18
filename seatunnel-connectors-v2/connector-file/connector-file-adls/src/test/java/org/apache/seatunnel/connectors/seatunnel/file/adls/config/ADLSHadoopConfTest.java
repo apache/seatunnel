@@ -86,12 +86,12 @@ class ADLSHadoopConfTest {
                 "abfss://files@testaccount.dfs.core.windows.net", conf.getHdfsNameKey());
         Assertions.assertEquals("abfss", conf.getSchema());
         Assertions.assertEquals(
-                "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem",
-                conf.getFsHdfsImpl());
+                "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem", conf.getFsHdfsImpl());
         Assertions.assertEquals("true", conf.getExtraOptions().get("fs.azure.test.emulator"));
         Assertions.assertEquals(
                 "secret-key",
-                conf.getExtraOptions().get("fs.azure.account.key.testaccount.dfs.core.windows.net"));
+                conf.getExtraOptions()
+                        .get("fs.azure.account.key.testaccount.dfs.core.windows.net"));
     }
 
     private static Map<String, Object> baseConfig() {

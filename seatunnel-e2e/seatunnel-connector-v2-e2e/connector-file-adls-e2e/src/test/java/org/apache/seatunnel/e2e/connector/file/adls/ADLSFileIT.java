@@ -64,8 +64,8 @@ import java.util.stream.Stream;
 /**
  * Exercises file read, write, rename, and delete behavior against Azurite in normal CI.
  *
- * <p>Azurite exposes Azure Blob Storage rather than the ADLS Gen2 DFS API. The default path therefore
- * uses the generic Hadoop file connector with a test-only WASB configuration. Set {@code
+ * <p>Azurite exposes Azure Blob Storage rather than the ADLS Gen2 DFS API. The default path
+ * therefore uses the generic Hadoop file connector with a test-only WASB configuration. Set {@code
  * SEATUNNEL_ADLS_IT=true} together with {@code SEATUNNEL_ADLS_ACCOUNT}, {@code
  * SEATUNNEL_ADLS_CONTAINER}, {@code SEATUNNEL_ADLS_ACCOUNT_KEY}, and an absolute container-relative
  * {@code SEATUNNEL_ADLS_TEST_PREFIX} to exercise the ADLSFile connector against real ADLS Gen2
@@ -117,9 +117,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 String pluginDirectory =
-                        isCloudTestEnabled()
-                                ? ADLS_PLUGIN_DIRECTORY
-                                : HADOOP_FILE_PLUGIN_DIRECTORY;
+                        isCloudTestEnabled() ? ADLS_PLUGIN_DIRECTORY : HADOOP_FILE_PLUGIN_DIRECTORY;
                 DependencyJar.staged(ADLS_RUNTIME_JAR).copyTo(container, pluginDirectory);
                 DependencyJar.staged(MavenJarUtil.getHadoop3UberJarName())
                         .copyTo(container, pluginDirectory);
@@ -178,8 +176,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
         writeTestFile(staleFile, "id,name\n99,stale\n");
 
         String writeJob = cloudTest ? ADLS_WRITE_JOB : AZURITE_WRITE_JOB;
-        Container.ExecResult writeResult =
-                container.executeJob(writeJob, variables);
+        Container.ExecResult writeResult = container.executeJob(writeJob, variables);
         Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
 
         Assertions.assertTrue(
@@ -195,8 +192,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
                         + temporaryPayloads);
 
         String readJob = cloudTest ? ADLS_READ_JOB : AZURITE_READ_JOB;
-        Container.ExecResult readResult =
-                container.executeJob(readJob, variables);
+        Container.ExecResult readResult = container.executeJob(readJob, variables);
         Assertions.assertEquals(
                 0,
                 readResult.getExitCode(),
@@ -414,8 +410,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
                         + "  </property>\n"
                         + "</configuration>\n";
 
-        java.nio.file.Path hadoopConfig =
-                Files.createTempFile("seatunnel-adls-azurite-", ".xml");
+        java.nio.file.Path hadoopConfig = Files.createTempFile("seatunnel-adls-azurite-", ".xml");
         try {
             Files.write(hadoopConfig, contents.getBytes(StandardCharsets.UTF_8));
             container.copyFileToContainer(
