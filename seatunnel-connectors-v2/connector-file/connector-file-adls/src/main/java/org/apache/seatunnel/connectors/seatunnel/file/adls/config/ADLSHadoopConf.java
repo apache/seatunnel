@@ -30,9 +30,6 @@ import java.util.Map;
  * constructing subtly different filesystem or authentication configurations.
  */
 public class ADLSHadoopConf extends HadoopConf {
-    private static final String HADOOP_AZURE_TEST_EMULATOR = "fs.azure.test.emulator";
-    private static final String AZURITE_ENDPOINT_SUFFIX = "blob.azurite.test";
-
     // ABFSS is the safe default because Hadoop must not send ADLS credentials over plain HTTP.
     private String schema = ADLSRuntimeCompatibility.SECURE_ABFS_SCHEME;
     private String fileSystemImplementation = ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION;
@@ -72,27 +69,9 @@ public class ADLSHadoopConf extends HadoopConf {
         // even if validation is relaxed or bypassed by a future caller.
         config.getOptional(ADLSFileBaseOptions.HADOOP_PROPERTIES)
                 .ifPresent(values -> values.forEach(options::put));
-        boolean useAzurite = Boolean.parseBoolean(options.remove(HADOOP_AZURE_TEST_EMULATOR));
-        ADLSHadoopConf result;
-        if (useAzurite) {
-            if (!AZURITE_ENDPOINT_SUFFIX.equals(suffix)) {
-                throw new IllegalArgumentException(
-                        HADOOP_AZURE_TEST_EMULATOR
-                                + " requires endpoint_suffix="
-                                + AZURITE_ENDPOINT_SUFFIX);
-            }
-            // Azurite has no ADLS Gen2 DFS endpoint. The CI-only path therefore uses Hadoop's
-            // Azure Blob filesystem to exercise the connector's read/write/rename/delete flow.
-            result =
-                    new ADLSHadoopConf(
-                            ADLSRuntimeCompatibility.azureBlobUri(account, container, suffix));
-            result.schema = ADLSRuntimeCompatibility.AZURE_BLOB_SCHEME;
-            result.fileSystemImplementation = ADLSRuntimeCompatibility.AZURE_BLOB_IMPLEMENTATION;
-        } else {
-            result =
-                    new ADLSHadoopConf(
-                            ADLSRuntimeCompatibility.secureAbfsUri(account, container, suffix));
-        }
+        ADLSHadoopConf result =
+                new ADLSHadoopConf(
+                        ADLSRuntimeCompatibility.secureAbfsUri(account, container, suffix));
         ADLSFileBaseOptions.AuthType auth = config.get(ADLSFileBaseOptions.AUTH_TYPE);
         if (auth == ADLSFileBaseOptions.AuthType.SHARED_KEY) {
             options.putAll(

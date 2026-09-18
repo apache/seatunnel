@@ -72,10 +72,9 @@ class ADLSHadoopConfTest {
     }
 
     @Test
-    void configuresAzuriteBlobFileSystemForIntegrationTests() {
+    void preservesAdvancedPropertiesWithoutChangingTheAdlsFileSystem() {
         Map<String, Object> values = baseConfig();
         values.put("account_key", "secret-key");
-        values.put("endpoint_suffix", "blob.azurite.test");
         Map<String, String> advanced = new HashMap<>();
         advanced.put("fs.azure.test.emulator", "true");
         values.put("hadoop_adls_properties", advanced);
@@ -84,14 +83,15 @@ class ADLSHadoopConfTest {
                 ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(values));
 
         Assertions.assertEquals(
-                "wasb://files@testaccount.blob.azurite.test", conf.getHdfsNameKey());
-        Assertions.assertEquals("wasb", conf.getSchema());
+                "abfss://files@testaccount.dfs.core.windows.net", conf.getHdfsNameKey());
+        Assertions.assertEquals("abfss", conf.getSchema());
         Assertions.assertEquals(
-                "org.apache.hadoop.fs.azure.NativeAzureFileSystem", conf.getFsHdfsImpl());
-        Assertions.assertFalse(conf.getExtraOptions().containsKey("fs.azure.test.emulator"));
+                "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem",
+                conf.getFsHdfsImpl());
+        Assertions.assertEquals("true", conf.getExtraOptions().get("fs.azure.test.emulator"));
         Assertions.assertEquals(
                 "secret-key",
-                conf.getExtraOptions().get("fs.azure.account.key.testaccount.blob.azurite.test"));
+                conf.getExtraOptions().get("fs.azure.account.key.testaccount.dfs.core.windows.net"));
     }
 
     private static Map<String, Object> baseConfig() {
