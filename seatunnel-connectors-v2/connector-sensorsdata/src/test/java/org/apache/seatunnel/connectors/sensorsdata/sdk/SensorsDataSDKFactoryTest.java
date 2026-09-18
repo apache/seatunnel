@@ -17,15 +17,80 @@
 
 package org.apache.seatunnel.connectors.sensorsdata.sdk;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.sensorsdata.sdk.sink.SensorsDataSDKSinkFactory;
+
+import com.google.common.collect.ImmutableMap;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 class SensorsDataSDKFactoryTest {
+
+    private final SensorsDataSDKSinkFactory factory = new SensorsDataSDKSinkFactory();
+
+    private static Map<String, Object> validBaseConfig() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("entity_name", "users");
+        map.put("record_type", "users");
+        map.put("server_url", "http://127.0.0.1:8106/sa?project=default");
+        return map;
+    }
+
+    private void validate(Map<String, Object> map) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(ImmutableMap.copyOf(map))).validate(factory.optionRule());
+    }
 
     @Test
     void optionRule() {
-        Assertions.assertNotNull((new SensorsDataSDKSinkFactory()).optionRule());
+        Assertions.assertNotNull(factory.optionRule());
+    }
+
+    @Test
+    void validConfigPassesValidation() {
+        validate(validBaseConfig());
+    }
+
+    @Test
+    void boundaryValuesPassValidation() {
+        Map<String, Object> map = validBaseConfig();
+        map.put("bulk_size", 1);
+        map.put("max_cache_row_size", 0);
+        validate(map);
+    }
+
+    @Test
+    void missingServerUrlIsRejected() {
+        Map<String, Object> map = validBaseConfig();
+        map.remove("server_url");
+        OptionValidationException ex =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(map));
+        Assertions.assertTrue(ex.getMessage().contains("server_url"));
+    }
+
+    @Test
+    void blankServerUrlIsRejected() {
+        Map<String, Object> map = validBaseConfig();
+        map.put("server_url", "   ");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(map));
+    }
+
+    @Test
+    void nonPositiveBulkSizeIsRejected() {
+        Map<String, Object> map = validBaseConfig();
+        map.put("bulk_size", 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(map));
+    }
+
+    @Test
+    void negativeMaxCacheRowSizeIsRejected() {
+        Map<String, Object> map = validBaseConfig();
+        map.put("max_cache_row_size", -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(map));
     }
 }
