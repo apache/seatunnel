@@ -49,9 +49,34 @@ Spark on YARN client mode:
 ./bin/start-seatunnel-spark-3-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
 ```
 
-## Minimal Example Job
+Spark 4.1 on YARN client mode (JDK 17+, from `-spark41-bin` tarball):
 
-The example below runs on Spark and prints generated records to the console.
+```shell
+./bin/start-seatunnel-spark-4.1-connector-v2.sh --master yarn --deploy-mode client --config config/example.conf
+```
+
+## Spark 4.1 Distribution
+
+Spark 4.1 requires **JDK 17 or later** and is shipped in a separate binary release:
+
+- `apache-seatunnel-${version}-bin.tar.gz` — Spark 2.4 / 3.3, Flink, and SeaTunnel Engine (JDK 8+)
+- `apache-seatunnel-${version}-spark41-bin.tar.gz` — Spark 4.1 starter and a minimal connector set (JDK 17+)
+
+The Spark 4.1 tarball currently bundles starter logging dependencies, `connector-fake`, `connector-console`, `connector-assert`, Scala 2.13 runtime libraries (`scala-library`, `scala-reflect`), and common JDBC/Hadoop optional libraries. Install additional connectors with `bin/install-plugin.sh` as needed.
+
+### Spark 4.1 support scope
+
+The first Spark 4.1 release slice focuses on a **minimal source → sink path**. It does **not** ship `seatunnel-transforms-v2` in the `-spark41-bin` tarball, because transform plugins are still built against Scala 2.12 and conflict with Spark 4.1's Scala 2.13 runtime.
+
+- Supported now: source and sink connectors on Spark 4.1 (for example `FakeSource` → `Console` / `Assert`)
+- Not supported yet in the Spark 4.1 tarball: transform stages such as `FieldMapper`, `Sql`, and other `seatunnel-transforms-v2` plugins
+- Follow-up work is tracked in [design issue #11184](https://github.com/apache/seatunnel/issues/11184)
+
+If your job includes a `transform { ... }` block, use the standard `-bin` tarball with Spark 2.4 / 3.3, or SeaTunnel Engine, until Spark 4.1 transform support lands.
+
+## Minimal Example Job (Spark 2.4 / 3.3)
+
+The example below runs on Spark 2.4 / 3.3 and prints generated records to the console. It includes a `FieldMapper` transform.
 
 ```hocon
 env {
@@ -97,6 +122,51 @@ sink {
 ```
 
 If you need more transform options, see [Transforms Catalog](../transforms) and [Transform Common Options](../transforms/common-options/common-options.md).
+
+## Minimal Spark 4.1 Example Job
+
+Use this transform-free job with the `-spark41-bin` tarball. It matches the current Spark 4.1 E2E smoke test (`FakeSource` → `Assert`):
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+
+  spark.app.name = "spark41-example"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "fake"
+    rules = {
+      field_rules = [
+        {
+          field_name = name
+          field_type = string
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+```
 
 ## Running From A Source Checkout
 
