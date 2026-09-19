@@ -533,12 +533,21 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                                     exception -> exception instanceof RocketMqConnectorException,
                                     Constant.OPERATION_RETRY_SLEEP));
             consumer.assign(queueOffsets.keySet());
-            // seek to offset
+            // seek to offset. Retry-wrapped on the same terms as the offsetTopics lookup above:
+            // both read broker metadata that can be briefly unavailable, and currentOffsets now
+            // surfaces such a failure as RocketMqConnectorException rather than an empty map.
             Map<MessageQueue, Long> currentOffsets =
-                    RocketMqAdminUtil.currentOffsets(
-                            newConfiguration(),
-                            Lists.newArrayList(topicName),
-                            queueOffsets.keySet());
+                    RetryUtils.retryWithException(
+                            () ->
+                                    RocketMqAdminUtil.currentOffsets(
+                                            newConfiguration(),
+                                            Lists.newArrayList(topicName),
+                                            queueOffsets.keySet()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    false,
+                                    exception -> exception instanceof RocketMqConnectorException,
+                                    Constant.OPERATION_RETRY_SLEEP));
             for (MessageQueue mq : queueOffsets.keySet()) {
                 long currentOffset =
                         currentOffsets.containsKey(mq)
@@ -623,6 +632,10 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     private void checkOffsetNoDiff(String topicName, String consumerGroup) {
         RocketMqBaseConfiguration config = newConfiguration();
         config.setGroupId(consumerGroup);
+        // Both reads below need a resolvable topic route. This assertion window is the tightest
+        // in the file at 30 seconds, and a route gap of 4m24s has been observed in CI, so confirm
+        // the route first rather than widening the window.
+        waitForTopicRoute(topicName);
         Awaitility.await()
                 .ignoreExceptions()
                 .atMost(30, TimeUnit.SECONDS)
