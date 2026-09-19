@@ -63,7 +63,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
     }
 
     @Override
-    public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
+    public synchronized void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
         long partIndex = (long) seaTunnelRow.getField(2);
         if (partIndex == -1) {
             return;
@@ -143,8 +143,11 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
         return fsDataOutputStream;
     }
 
+    // synchronized to stay on the strategy-instance lock declared by the overridden
+    // AbstractWriteStrategy#applySchemaChange contract; `synchronized` is not inherited by
+    // overrides in Java, so dropping it here would silently exit that lock.
     @Override
-    public void applySchemaChange(SchemaChangeEvent event) {
+    public synchronized void applySchemaChange(SchemaChangeEvent event) {
         throw new FileConnectorException(
                 FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
                 "BinaryWriteStrategy does not support schema evolution. "
@@ -152,7 +155,7 @@ public class BinaryWriteStrategy extends AbstractWriteStrategy<FSDataOutputStrea
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         beingWrittenOutputStream.forEach(
                 (key, value) -> {
                     try {
