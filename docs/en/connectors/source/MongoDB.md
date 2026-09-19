@@ -364,6 +364,55 @@ A sample document that flows through this configuration looks like the following
 }
 ```
 
+### Read With Partition Split Key
+
+To accelerate reads on large collections, MongoDB source lets you split the scan by a key (`partition.split-key`)
+and a target split size (`partition.split-size`). The connector reads documents ordered by the split key and
+hands each chunk to a parallel reader. `fetch.size` controls how many documents the server returns per round-trip
+and should be tuned together with the split size.
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### Read From Replica Set Or Sharded Cluster
+
+The connector accepts any standard MongoDB connection URI. Use `replicaSet=xxx` for replica sets and
+`authSource=admin` when credentials live in a non-default auth database.
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

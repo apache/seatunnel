@@ -353,6 +353,54 @@ sink {
 }
 ```
 
+### 基于分区键的并行读取
+
+要在大型集合上加速扫描，可以设置分区键 `partition.split-key` 和目标分片大小 `partition.split-size`，
+连接器会按分区键顺序读取文档，并将每个分片交给并行的读取任务。`fetch.size` 控制每次往返服务端返回的文档数，
+需要和分区大小一起调优。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@127.0.0.1:27017"
+    database = "test_db"
+    collection = "orders"
+    partition.split-key = "_id"
+    partition.split-size = 1024
+    fetch.size = 2048
+    max.time-min = 30
+    schema = {
+      fields {
+        _id = string
+        status = string
+        amount = double
+      }
+    }
+  }
+}
+```
+
+### 从副本集或分片集群读取
+
+连接器接受任意标准 MongoDB URI。副本集场景使用 `replicaSet=xxx`；如果凭据存储在非默认的 auth 数据库，
+追加 `authSource=admin`。
+
+```hocon
+source {
+  MongoDB {
+    uri = "mongodb://user:password@mongo1:27017,mongo2:27017,mongo3:27017/test_db?replicaSet=rs0&authSource=admin&readPreference=secondary"
+    database = "test_db"
+    collection = "orders"
+    schema = {
+      fields {
+        _id = string
+        status = string
+      }
+    }
+  }
+}
+```
+
 ## 修改日志
 
 <ChangeLog />

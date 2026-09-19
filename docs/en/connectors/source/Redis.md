@@ -564,6 +564,34 @@ sink {
   Console {}
 }
 ```
+### Read With Custom Key And Value Field Names
+
+Use `key_field_name`, `single_field_name`, and `read_key_enabled = true` to include the Redis key in the output and
+control how its value maps to a schema column. For primitive value types (`string`, `list`, `set`, `zset`) you
+must set `single_field_name` so the connector knows which schema column receives the value.
+
+```hocon
+source {
+  Redis {
+    host = "localhost"
+    port = 6379
+    keys = "string_test*"
+    data_type = string
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        { name = "custom_key",   type = "string" }
+        { name = "custom_value", type = "string" }
+      ]
+    }
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />
