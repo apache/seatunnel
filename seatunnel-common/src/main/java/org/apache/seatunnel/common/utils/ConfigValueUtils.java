@@ -105,37 +105,4 @@ public class ConfigValueUtils {
         }
         return -1;
     }
-
-    public static int findFirstColon(String input, int start, int end) {
-        int braceDepth = 0;
-        int bracketDepth = 0;
-        boolean insideQuotes = false;
-
-        for (int i = start; i < end; i++) {
-            char c = input.charAt(i);
-
-            if (c == '"') {
-                if (isEscapedQuote(input, i)) {
-                    continue;
-                }
-                insideQuotes = !insideQuotes;
-                continue;
-            }
-
-            if (!insideQuotes) {
-                if (c == '{') {
-                    braceDepth++;
-                } else if (c == '}') {
-                    braceDepth--;
-                } else if (c == '[') {
-                    bracketDepth++;
-                } else if (c == ']') {
-                    bracketDepth--;
-                } else if (c == ':' && braceDepth == 0 && bracketDepth == 0) {
-                    return i;
-                }
-            }
-        }
-        return -1;
-    }
 }
