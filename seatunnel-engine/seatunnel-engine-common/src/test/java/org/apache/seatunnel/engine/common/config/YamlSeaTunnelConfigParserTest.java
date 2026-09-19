@@ -81,6 +81,10 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
         Assertions.assertEquals(200, config.getEngineConfig().getHttpConfig().getPortRange());
         Assertions.assertEquals(8443, config.getEngineConfig().getHttpConfig().getHttpsPort());
+        // An http option without a matching branch in parseHttpConfig is silently dropped with an
+        // "Unrecognized element" warning, so parsing it is worth asserting explicitly.
+        Assertions.assertEquals(
+                32, config.getEngineConfig().getHttpConfig().getLogResponseMaxSizeMb());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(
