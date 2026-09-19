@@ -92,6 +92,29 @@ The "Finished Jobs" section displays jobs that have reached a terminal state, su
 
 The "Workers" section displays system monitoring information for worker nodes. Use it to inspect worker address, resource status, and runtime health signals exposed by the engine.
 
+The table shows process CPU, heap used/max, physical memory, GC counts, threads,
+and slots. **Details** opens all system monitoring fields and the worker's
+resource-manager snapshot: available/total CPU and heap resources, heartbeat
+CPU/memory usage, tags, and running job count.
+
+- Fixed-slot workers show used/total and free slots. Dynamic-slot workers show
+  only used slots and an explicit dynamic label: tracked slots are not capacity.
+- Missing values are shown as `—`, not zero. Monitoring-only and resource-only
+  workers remain visible; an unavailable endpoint displays a warning and clears
+  its old values. An unavailable resource snapshot is not an empty cluster.
+- The page refreshes 30 seconds after the previous requests finish, with at most
+  one refresh in flight. **Refresh** requests an immediate update. Leaving the
+  page stops polling. The table paginates locally; each refresh makes two
+  cluster-level requests, not one request per worker or job.
+- Monitoring and resource-manager values are separate samples. **Resource
+  response time** is when the master built the resource response, not when a
+  worker last sent a heartbeat. It cannot establish heartbeat freshness.
+
+This is a read-only view using the existing monitoring and
+[`/resource/workers`](./rest-api-v2.md) endpoints. Task-to-worker drill-down and
+historical metrics are not included. The Master page shows monitoring details
+only and does not request worker resource data.
+
 ![workers.png](../../../images/ui/workers.png)
 
 ## Master
