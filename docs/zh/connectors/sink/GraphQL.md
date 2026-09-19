@@ -59,6 +59,32 @@ mutation 一起发送。
 - Sink 会为每一行输入数据发送一次 mutation 请求。如果上游包含多张表，需要确认同一条 mutation 和变量名可以处理所有写入到该 Sink 的表。
 - `multi_table_sink_replica` 只影响多表 sink 运行时的副本数，不会按不同表自动选择不同的 GraphQL mutation。
 
+### 鉴权
+
+大多数 GraphQL 服务都要求鉴权请求头，可以把它写在 `headers` 里：
+
+```hocon
+sink {
+  GraphQL {
+    plugin_input = "fake"
+    url = "https://graphql.example.com/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+  }
+}
+```
+
+`password`、`token` 等敏感配置建议通过运行时占位符（例如 `${secret}`）注入，
+不要直接写在配置文件里。
+
 ## 任务示例
 
 ### 使用 GraphQL Mutation 写入数据
@@ -211,6 +237,55 @@ sink {
         }
       }
     """
+  }
+}
+```
+
+### 在流模式下持续写入
+
+流模式下 Sink 会持续接收上游行数据，并对每条行执行一次 mutation 请求。配合 `retry` 和
+指数退避参数可以吸收偶发的 HTTP 抖动。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "events"
+    schema = {
+      fields {
+        id = int
+        val_string = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "first"] }
+      { kind = INSERT, fields = [2, "second"] }
+    ]
+  }
+}
+
+sink {
+  GraphQL {
+    plugin_input = "events"
+    url = "http://graphql:8080/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
   }
 }
 ```
