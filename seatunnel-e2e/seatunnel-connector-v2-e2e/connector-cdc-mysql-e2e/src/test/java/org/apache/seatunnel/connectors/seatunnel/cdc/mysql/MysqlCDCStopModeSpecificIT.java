@@ -309,6 +309,151 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                         });
     }
 
+    @TestTemplate
+    public void testMysqlCdcInitialStartupWithLatestStop(TestContainer container) throws Exception {
+        runLatestStopStartupMode(container, "initial");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcEarliestStartupWithLatestStop(TestContainer container)
+            throws Exception {
+        runLatestStopStartupMode(container, "earliest");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcLatestStartupWithLatestStop(TestContainer container) throws Exception {
+        runLatestStopStartupMode(container, "latest");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcSpecificStartupWithLatestStop(TestContainer container)
+            throws Exception {
+        runLatestStopStartupMode(container, "specific");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcTimestampStartupWithLatestStop(TestContainer container)
+            throws Exception {
+        runLatestStopStartupMode(container, "timestamp");
+    }
+
+    private void runLatestStopStartupMode(TestContainer container, String startupMode)
+            throws Exception {
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        // Bulk-insert rows before starting the job.
+        // - initial: 2000 rows so the snapshot phase spans many splits deterministically
+        //   (snapshot.split.size=20 -> 100 splits, parallelism=1, consumed in ascending-key
+        //   order): the readiness gate below (first row visible in the sink) then fires while
+        //   ~99 splits are still unread, so the UPDATE is guaranteed to land inside the
+        //   snapshot window. A smaller table could be snapshotted entirely within one polling
+        //   interval and complete before the gate is observed (the flaky race SEZ9 flagged).
+        // - earliest: keep 200 rows — there is no snapshot phase (binlog replay from the
+        //   earliest position), and a larger bulk would only slow the replay.
+        // - latest/specific/timestamp: 200 rows, no snapshot window involved.
+        int bulkRowCount = "initial".equals(startupMode) ? 2000 : 200;
+        StringBuilder bulkInsert =
+                new StringBuilder(
+                        String.format(
+                                "INSERT INTO %s.%s (id, f_varchar) VALUES ",
+                                MYSQL_DATABASE, SOURCE_TABLE));
+        for (int i = 1; i <= bulkRowCount; i++) {
+            if (i > 1) {
+                bulkInsert.append(", ");
+            }
+            bulkInsert.append("(").append(i).append(", 'bulk')");
+        }
+        executeSql(bulkInsert.toString());
+
+        List<String> variables = new ArrayList<>();
+        variables.add("startup_mode=" + startupMode);
+        String jobConfigFile = "/mysqlcdc_stop_mode_latest.conf";
+        if ("specific".equals(startupMode)) {
+            BinlogOffset startOffset = getCurrentBinlogOffset();
+            jobConfigFile = "/mysqlcdc_stop_mode_latest_specific.conf";
+            variables.add("specific_offset_file=" + startOffset.getFilename());
+            variables.add("specific_offset_pos=" + startOffset.getPosition());
+        }
+        if ("timestamp".equals(startupMode)) {
+            jobConfigFile = "/mysqlcdc_stop_mode_latest_timestamp.conf";
+            variables.add("timestamp=" + (getCurrentBinlogTimestamp() - 1000L));
+        }
+        final String configFile = jobConfigFile;
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        configFile, jobId, variables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+
+        if ("initial".equals(startupMode)) {
+            // Structural readiness gate for snapshot-taking startups: wait until the first
+            // bulk row (id=1) has reached the sink. With 2000 rows across snapshot.split.size=20
+            // (100 splits, parallelism=1, ascending-key order), this signal fires while ~99
+            // splits are still unread — the UPDATE below is therefore guaranteed to land
+            // inside the snapshot window and be picked up by the binlog phase.
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "bulk",
+                                            queryVarcharById(1),
+                                            "snapshot phase must have started reading"));
+            // Defensive check for the residual race SEZ9 flagged: if the LAST-chunk row is
+            // already visible, the whole snapshot completed before the gate fired and the
+            // UPDATE below would land after the stop offset. Fail loudly instead of letting
+            // the post-UPDATE assertion mislead as data loss. (Row-lock stalls are not usable
+            // here: the snapshot reader issues a plain MVCC SELECT, so an open FOR UPDATE
+            // transaction on a trailing row does not block it.)
+            Assertions.assertNull(
+                    queryVarcharById(2000),
+                    "snapshot finished too early: last-chunk row already in sink; "
+                            + "increase the initial bulk row count");
+        }
+
+        // Issue a change while the job is running.
+        // - initial: the sink-readiness gate above guarantees the snapshot phase is still in
+        //   progress, so the update must be picked up by the binlog phase; with the stale
+        //   split-creation stop offset the binlog phase would terminate immediately past it
+        //   and this row would be silently dropped.
+        // - earliest: there is no snapshot phase (binlog replay starts from the earliest
+        //   position, completedSnapshotSplitInfos is empty), so whether the update is
+        //   captured depends on the enumerator's stop-offset resolution timing versus the
+        //   update — not a deterministic contract, therefore not asserted.
+        // - latest/specific/timestamp: no snapshot window, the update lands after the stop
+        //   offset is resolved and is not read — which is expected.
+        executeSql(
+                String.format(
+                        "UPDATE %s.%s SET f_varchar = 'latest-stop' WHERE id = 21",
+                        MYSQL_DATABASE, SOURCE_TABLE));
+
+        if ("initial".equals(startupMode)) {
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "latest-stop",
+                                            queryVarcharById(21),
+                                            "post-snapshot update must be synced"));
+        }
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get(30, TimeUnit.SECONDS).getExitCode());
+    }
+
     private long getCurrentBinlogTimestamp() {
         BinlogOffset binlogOffset = getCurrentBinlogOffset();
 
@@ -406,6 +551,23 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
     private void executeSql(String sql) {
         try (Connection connection = getJdbcConnection()) {
             connection.createStatement().execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String queryVarcharById(int id) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select f_varchar from %s.%s where id = %d",
+                                        MYSQL_DATABASE, SINK_TABLE, id))) {
+            if (resultSet.next()) {
+                return resultSet.getString(1);
+            }
+            return null;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }

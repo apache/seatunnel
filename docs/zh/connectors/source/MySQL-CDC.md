@@ -199,7 +199,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | startup.specific-offset.skip-events       | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的 binlog event 数量. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                         |
 | startup.specific-offset.skip-rows         | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的行数. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                                    |
 | startup.timestamp                         | Long     | 否    | -       | 从指定时间戳启动，单位为 Unix 纪元以来的毫秒数。**注意，当 `startup.mode` 为 `timestamp` 时，此选项必填。**                                                                                                                                                                    |
-| stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
+| stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止. 与需要执行快照的启动模式（`initial`/`earliest`）组合使用时, 停止偏移量在快照阶段完成后解析, 因此快照运行期间写入源表的变更仍会被 binlog 阶段捕获, 不会丢失.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
 | stop.specific-offset.file                 | String   | 否    | -       | 从指定的binlog日志文件名停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                         |
 | stop.specific-offset.pos                  | Long     | 否    | -       | 从指定的binlog日志文件位置停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                        |
 | snapshot.split.size                       | Integer  | 否    | 8096    | 表快照的分割大小（行数）,读取表的快照时,被捕获的表会被分割成多个分割块.                                                                                                                                                                                                        |
@@ -531,6 +531,25 @@ source {
 
 > **注意**：有界读取的终止行为目前仅在 **Zeta** 引擎上支持。
 > Flink 和 Spark 引擎暂不支持有界增量分片的终止。
+
+`stop.mode = "latest"` 同样会使作业变为有界读取：停止偏移量为快照阶段完成时的 binlog 位置
+（当 `startup.mode` 为 `initial`/`earliest` 时），或作业启动时的 binlog 位置（其他启动模式）。
+特别是与需要执行快照的启动模式组合使用时，**快照运行期间写入源表的变更不会丢失**——
+它们会在作业终止前被 binlog 阶段捕获。
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "initial"
+    stop.mode = "latest"
+  }
+}
+```
 
 ```hocon
 source {
