@@ -59,10 +59,18 @@ import java.util.stream.Stream;
 /** A Starter to generate spark-submit command for SeaTunnel job on spark. */
 public class SparkStarter implements Starter {
 
+    /** Selects the starter artifact; the Spark 3.5 launchers override the legacy Spark 3 name. */
     static final String STARTER_JAR_NAME_PROPERTY = "seatunnel.spark.starter.jar.name";
+
     static final String SPARK_35_STARTER_JAR_NAME = "seatunnel-spark-3.5-starter.jar";
+
+    /** Identifies the invoking launcher in help and argument-error output. */
+    static final String STARTER_SHELL_NAME_PROPERTY = "seatunnel.spark.starter.shell.name";
+
+    /** Spark 3.5's Unix launcher supplies a file for UTF-8, NUL-terminated argv items. */
     static final String ARGS_FILE_PROPERTY = "seatunnel.spark.starter.args-file";
 
+    /** File mode emits raw argv; legacy launchers still consume shell-quoted command text. */
     private final boolean rawArguments = System.getProperty(ARGS_FILE_PROPERTY) != null;
 
     /** original commandline args */
@@ -92,11 +100,14 @@ public class SparkStarter implements Starter {
         if (argsFile == null) {
             System.out.println(String.join(" ", command));
         } else {
-            // The launcher owns spark-submit; only its arguments cross this boundary.
+            // buildFinal() reserves index 0 for spark-submit, which the launcher invokes itself.
             writeArguments(Paths.get(argsFile), command.subList(1, command.size()));
         }
     }
 
+    /**
+     * Writes arguments without shell quoting, each terminated by NUL (including empty arguments).
+     */
     static void writeArguments(Path path, List<String> arguments) throws IOException {
         try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
             for (String argument : arguments) {
@@ -115,11 +126,7 @@ public class SparkStarter implements Starter {
      */
     static SparkStarter getInstance(String[] args) {
         SparkCommandArgs commandArgs =
-                CommandLineUtils.parse(
-                        args,
-                        new SparkCommandArgs(),
-                        EngineType.SPARK3.getStarterShellName(),
-                        true);
+                CommandLineUtils.parse(args, new SparkCommandArgs(), getStarterShellName(), true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -270,8 +277,15 @@ public class SparkStarter implements Starter {
         commands.add(Common.appStarterDir().resolve(getStarterJarName()).toString());
     }
 
+    /** Uses the launcher-selected artifact while preserving existing Spark 3 launcher defaults. */
     static String getStarterJarName() {
         return System.getProperty(STARTER_JAR_NAME_PROPERTY, EngineType.SPARK3.getStarterJarName());
+    }
+
+    /** Uses the invoking script's display name without changing legacy launchers' help text. */
+    static String getStarterShellName() {
+        return System.getProperty(
+                STARTER_SHELL_NAME_PROPERTY, EngineType.SPARK3.getStarterShellName());
     }
 
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {

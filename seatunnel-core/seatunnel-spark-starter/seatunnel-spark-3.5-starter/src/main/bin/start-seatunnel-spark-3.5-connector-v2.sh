@@ -56,6 +56,7 @@ case "$shell_flags" in
   *) set +f ;;
 esac
 java_opts+=("-Dseatunnel.spark.starter.jar.name=${APP_JAR_NAME}")
+java_opts+=("-Dseatunnel.spark.starter.shell.name=start-seatunnel-spark-3.5-connector-v2.sh")
 if [ -e "${CONF_DIR}/log4j2.properties" ]; then
   java_opts+=("-Dlog4j2.configurationFile=${CONF_DIR}/log4j2.properties")
   java_opts+=("-Dseatunnel.logs.path=${APP_DIR}/logs")

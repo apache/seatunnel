@@ -118,6 +118,7 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
         return Arrays.asList("--master local", "--deploy-mode client");
     }
 
+    /** Returns non-null container entrypoint arguments; an empty list keeps the image default. */
     protected List<String> getDockerCommand() {
         return Collections.emptyList();
     }

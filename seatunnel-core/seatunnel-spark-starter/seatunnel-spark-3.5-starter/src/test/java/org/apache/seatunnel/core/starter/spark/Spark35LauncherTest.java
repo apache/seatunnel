@@ -118,6 +118,9 @@ public class Spark35LauncherTest {
         Assertions.assertEquals("literal * job", javaArgs.get(javaArgs.indexOf("--name") + 1));
         Assertions.assertTrue(javaArgs.contains("-Dliteral=*"));
         Assertions.assertTrue(
+                javaArgs.contains(
+                        "-Dseatunnel.spark.starter.shell.name=start-seatunnel-spark-3.5-connector-v2.sh"));
+        Assertions.assertTrue(
                 javaArgs.get(javaArgs.indexOf("-cp") + 1)
                         .contains("seatunnel home/starter/logging/*:"));
         Assertions.assertTrue(

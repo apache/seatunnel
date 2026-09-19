@@ -40,6 +40,7 @@ if "%~1"=="" (
 )
 
 set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.spark.starter.jar.name=%APP_JAR_NAME%"
+set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.spark.starter.shell.name=start-seatunnel-spark-3.5-connector-v2.cmd"
 if exist "%CONF_DIR%\log4j2.properties" (
   set JAVA_OPTS=%JAVA_OPTS% "-Dlog4j2.configurationFile=%CONF_DIR%\log4j2.properties" "-Dseatunnel.logs.path=%APP_DIR%\logs" -Dseatunnel.logs.file_name=seatunnel-spark-3.5-starter
 )

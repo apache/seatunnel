@@ -27,7 +27,7 @@ incompatibilities may surface only when those paths execute on the target runtim
 Validate your connectors and deployment mode before upgrading; dedicated Spark 3.5
 micro-batch streaming coverage is still pending.
 
-The Windows `.cmd` launcher still passes a command string to `spark-submit.cmd`;
+The Spark 3.5 Windows `.cmd` launcher still passes a command string to `spark-submit.cmd`;
 it does not use the Unix launcher's argument-file protocol. Arbitrary arguments
 containing embedded quotes or Windows command-shell metacharacters are not
 supported, and native Windows launcher behavior has not been validated. Do not

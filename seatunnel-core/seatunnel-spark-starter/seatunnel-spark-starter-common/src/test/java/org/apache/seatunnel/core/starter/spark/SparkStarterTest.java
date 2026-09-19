@@ -40,6 +40,7 @@ class SparkStarterTest {
     @AfterEach
     void clearStarterJarName() {
         System.clearProperty(SparkStarter.STARTER_JAR_NAME_PROPERTY);
+        System.clearProperty(SparkStarter.STARTER_SHELL_NAME_PROPERTY);
         System.clearProperty(SparkStarter.ARGS_FILE_PROPERTY);
     }
 
@@ -47,6 +48,19 @@ class SparkStarterTest {
     void useSpark3StarterJarByDefault() {
         Assertions.assertEquals(
                 EngineType.SPARK3.getStarterJarName(), SparkStarter.getStarterJarName());
+    }
+
+    @Test
+    void preserveLegacyStarterShellNameByDefault() {
+        Assertions.assertEquals(
+                EngineType.SPARK3.getStarterShellName(), SparkStarter.getStarterShellName());
+    }
+
+    @Test
+    void useConfiguredStarterShellName() {
+        String shellName = "start-seatunnel-spark-3.5-connector-v2.sh";
+        System.setProperty(SparkStarter.STARTER_SHELL_NAME_PROPERTY, shellName);
+        Assertions.assertEquals(shellName, SparkStarter.getStarterShellName());
     }
 
     @Test
