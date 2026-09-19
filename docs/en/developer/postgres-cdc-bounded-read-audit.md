@@ -111,19 +111,31 @@ Do not use elapsed time, an empty queue, the server's WAL end alone, or another 
 acknowledgement as proof. A marker/write-based solution would introduce privileges, plugin
 compatibility and source-side effects; it requires explicit design agreement, not a hidden write.
 
-### END, queue drain and FINISHED: reusable infrastructure, missing producer contract
+### END, queue drain and FINISHED: completion signal and unproven drain guarantee
 
-`IncrementalSourceStreamFetcher` tracks the executing producer and drains its queue before
-returning null for a finite split. `IncrementalSourceReader.onSplitFinished()` handles incremental
-completion. The producer must first finish successfully, enqueue END after all eligible records,
-and expose `isRunning() == false`. Current `PostgresWalFetchTask` sets `taskRunning` true at entry
-and clears it only in `shutdown()`. Simply substituting #11556's wrapper would leave that flag true.
+For an assigned finite split, `IncrementalSourceStreamFetcher.isBoundedReadFinished()` requires
+`taskStarted`, `executing == false`, `streamFetchTask.isRunning() == false`, and a non-null,
+non-never stop offset. `pollSplitRecords()` returns null when that predicate is true and its
+record iterator has no next element. `IncrementalSourceReader.onSplitFinished()` handles incremental
+completion. END is not a completion condition in the stream fetcher: MySQL's bounded producer
+dispatches END, while `IncrementalSourceScanFetcher` consumes it to end snapshot backfill.
+Do not turn that producer convention into a stream-reader requirement.
 
-Producer failure and cancellation must not enqueue a successful END or be reported as successful
-bounded completion. `context.isRunning()` after a delegate returns is not by itself evidence of
-reaching the bound: Debezium can return early when streaming is disabled. Preserve error
-propagation and prove the last data batch, END, split exhaustion, and Zeta job FINISHED in order.
-Do not rewrite the shared fetcher to compensate for a PostgreSQL producer that cannot prove its end.
+The polling gate and the later completion check are separate observations, not an atomic final
+drain. Source inspection suggests a possible interleaving: `queue.poll()` returns empty while the
+producer is running, then the producer enqueues its final batch and finishes before the later
+completion check. The fetcher could then return null with records still queued. This is
+**source-level inference, not a reproduced failure**; scenario 5 must validate this window rather
+than assume the queue-drain guarantee is already established.
+
+The producer must prove successful boundary completion and expose `isRunning() == false`.
+Current `PostgresWalFetchTask` sets `taskRunning` true at entry and clears it only in `shutdown()`.
+Simply substituting #11556's wrapper would leave that flag true. Producer failure and cancellation
+must not be reported as successful bounded completion. `context.isRunning()` after a delegate
+returns is not by itself evidence of reaching the bound: Debezium can return early when streaming
+is disabled. Preserve error propagation and prove final eligible-row delivery, split exhaustion,
+and Zeta job FINISHED in order. Do not rewrite the shared fetcher to compensate for a PostgreSQL
+producer that cannot prove its end.
 
 ### Checkpoint and replication slot: needs terminal lifecycle proof
 
@@ -171,9 +183,13 @@ Reuse the MySQL bounded-read E2E completion pattern, not its binlog ordering ass
    silently returning snapshot rows newer than a strict historical cutoff. Require #11556's
    reconciliation and filter tests, including legal table names with regex metacharacters.
 5. **Queue drain:** hold a sink behind a deterministic gate, produce more than one queue batch,
-   then reach the bound. Release the gate and require every eligible row, one successful terminal
-   marker, no post-bound rows and actual FINISHED. Empty output after filtering is not a failure;
-   producer exceptions, cancellation and disabled streaming must not count as successful completion.
+   then reach the bound. Release the gate and require every eligible row, no post-bound rows,
+   split exhaustion and actual FINISHED, without requiring END as the stream completion signal.
+   Separately gate the final enqueue after an empty queue poll and producer completion before the
+   later completion check; require the final batch to be delivered before split exhaustion. This
+   targets the source-inferred, unreproduced window above. Empty output after filtering is not a
+   failure; producer exceptions, cancellation and disabled streaming must not count as successful
+   completion.
 6. **Restart:** checkpoint mid-transaction and after boundary consumption but before final drain;
    restore with the same bound, then also fail over after the terminal checkpoint. Require the
    approved replay guarantee, final exact sink state, no reopened unbounded stream and completion

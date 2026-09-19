@@ -101,17 +101,26 @@ Debezium 空轮询时从现有 offset 状态发出 heartbeat，不会推进
 消费者的槽确认位置，都不能单独作为证据。若使用标记写入，需要明确源端副作用、权限
 和插件兼容性，必须先讨论设计，不能隐藏写入。
 
-### END、队列排空与 FINISHED：可复用基础设施，但 producer 契约缺失
+### END、队列排空与 FINISHED：完成信号与尚未证明的排空保障
 
-`IncrementalSourceStreamFetcher` 跟踪 producer 的执行状态，并在有限分片返回 null 前
-排空队列。`IncrementalSourceReader.onSplitFinished()` 已支持增量分片完成。
-producer 必须先成功完成，在所有符合条件的记录之后入队 END，并使 `isRunning()` 为 false。
-目前 `PostgresWalFetchTask` 在入口将 `taskRunning` 置为 true，仅在 `shutdown()` 中清除。
-直接替换为 #11556 的包装类会使该标志仍为 true。
+对于已分配的有限分片，`IncrementalSourceStreamFetcher.isBoundedReadFinished()` 要求
+`taskStarted`、`executing == false`、`streamFetchTask.isRunning() == false`，以及非 null、
+非 never-stop 的停止 offset。`pollSplitRecords()` 在该条件成立且记录迭代器没有下一项时
+返回 null。`IncrementalSourceReader.onSplitFinished()` 处理增量分片完成。END 不是
+stream fetcher 的完成条件：MySQL 有界 producer 会发送 END，而
+`IncrementalSourceScanFetcher` 消费它以结束快照回填。不能把该 producer 约定当作
+stream reader 的必要条件。
 
-producer 异常和取消不能发送成功 END 或被报告为成功结束。委托返回后的
+允许轮询的条件与稍后的完成检查是分开的观测，不构成原子的最终排空。源码分析提示一种
+可能的交错：producer 仍在运行时 `queue.poll()` 返回空，随后 producer 在较晚的完成检查
+之前将最后一批数据入队并结束。fetcher 此时可能在队列仍有记录时返回 null。这是
+**源码层面的推断，并非已经复现的故障**；场景 5 必须验证该窗口，不能假定已有队列排空保障。
+
+producer 必须证明成功到达边界，并使 `isRunning() == false`。目前 `PostgresWalFetchTask`
+在入口将 `taskRunning` 置为 true，仅在 `shutdown()` 中清除。直接替换为 #11556 的包装类
+会使该标志仍为 true。producer 异常和取消不能被报告为成功的有界完成。委托返回后的
 `context.isRunning()` 本身也不证明到达终点：Debezium 在禁用 streaming 时可以提前返回。
-需保留异常传播，并证明最后一批数据、END、分片耗尽及 Zeta FINISHED 的顺序。
+需保留异常传播，并证明最后符合条件的行已交付、分片耗尽及 Zeta FINISHED 的顺序。
 不能为了补偿无法证明完成的 PostgreSQL producer 而改写共享 fetcher。
 
 ### Checkpoint 与复制槽：需要最终生命周期证据
@@ -153,8 +162,10 @@ OpenGauss 模块则提供自己的 PostgreSQL 连接及复制连接类。改变�
    内、后。不兼容组合应被拒绝，不能在严格历史截断语义下静默返回较新的快照数据。
    必须具备 #11556 的回填和过滤测试，包括含正则元字符的合法表名。
 5. **队列排空：** 使用确定性 gate 阻塞 sink，产生超过一批队列数据后到达终点。释放 gate，
-   验证所有符合条件的行、一个成功终止标记、没有越界行和真实 FINISHED。过滤后空输出不算
-   失败；producer 异常、取消或 streaming 禁用不能算作成功到达边界。
+   验证所有符合条件的行、没有越界行、分片耗尽和真实 FINISHED，不要求 END 作为 stream
+   完成信号。另用 gate 控制最后一次入队发生在空队列轮询之后，且 producer 在较晚的完成
+   检查之前结束；要求最后一批数据在分片耗尽之前交付。该场景针对上述源码推断、尚未复现
+   的窗口。过滤后空输出不算失败；producer 异常、取消或 streaming 禁用不能算作成功到达边界。
 6. **恢复：** 在事务中途、消费到终点但尚未排空队列时 checkpoint；使用同一终点恢复，
    另测最终 checkpoint 后的 failover。验证约定的重放保障、精确 sink 状态、不会重新开启
    无界流，且无需新写入即可完成。覆盖缺少 `lsn_commit` 的旧 offset，以及带/不带 `txId`
