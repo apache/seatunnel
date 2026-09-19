@@ -27,6 +27,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -59,7 +60,7 @@ public class ArrayFunction {
             return Arrays.stream(dataList)
                     .filter(Objects::nonNull)
                     .map(Number.class::cast)
-                    .max(Comparator.comparingDouble(Number::doubleValue))
+                    .max(numericComparator(dataList))
                     .orElse(null);
         }
         Map<String, String> params = new HashMap<>();
@@ -92,7 +93,7 @@ public class ArrayFunction {
             return Arrays.stream(dataList)
                     .filter(Objects::nonNull)
                     .map(Number.class::cast)
-                    .min(Comparator.comparingDouble(Number::doubleValue))
+                    .min(numericComparator(dataList))
                     .orElse(null);
         }
         Map<String, String> params = new HashMap<>();
@@ -100,6 +101,35 @@ public class ArrayFunction {
         params.put("dataType", firstNonNullValue.getClass().getName());
         params.put("field", "ARRAY_MIN");
         throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
+    }
+
+    /**
+     * Select one ordering for the whole array, ignoring nulls: exact long comparison for any mix of
+     * Byte, Short, Integer and Long, exact decimal comparison for all-BigDecimal values, and the
+     * existing double comparison otherwise, including floating-point and mixed numeric categories.
+     */
+    private static Comparator<Number> numericComparator(Object[] values) {
+        boolean integral = true;
+        boolean decimal = true;
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            integral &=
+                    value instanceof Byte
+                            || value instanceof Short
+                            || value instanceof Integer
+                            || value instanceof Long;
+            decimal &= value instanceof BigDecimal;
+            if (!integral && !decimal) {
+                // Keep one ordering for the whole array, including mixed numeric representations.
+                return Comparator.comparingDouble(Number::doubleValue);
+            }
+        }
+        if (integral) {
+            return Comparator.comparingLong(Number::longValue);
+        }
+        return (left, right) -> ((BigDecimal) left).compareTo((BigDecimal) right);
     }
 
     public static Object[] array(List<Object> args) {

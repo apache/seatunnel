@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### SQL ARRAY_MAX and ARRAY_MIN Precision
+
+- **Behavior correction**: The Zeta SQL engine compares integral and DECIMAL array
+  elements without converting them to `double`. For example, `ARRAY_MAX` over the
+  BIGINT values `[9007199254740992, 9007199254740993]` now returns `9007199254740993`
+  instead of the first, smaller value. DECIMAL extrema also retain distinctions
+  that were previously lost during comparison.
+- **Impact**: Jobs that relied on rounded comparisons may select different values.
+  Declared output types, null handling and floating-point array ordering are unchanged.
+  Selected DECIMAL elements are returned without rescaling; selecting a different
+  element may also select a different original scale. No configuration or state
+  migration is required; review downstream expectations that depended on the previous
+  incorrect results.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
