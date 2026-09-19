@@ -92,7 +92,9 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
-    protected static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
+    // Must stay a full JDK image: ContainerUtil inspects the running server with jps/jstack/jmap
+    // for the post-job thread-leak checks, and those tools are absent from JRE-only images.
+    protected static final String JDK_DOCKER_IMAGE = "eclipse-temurin:11-jdk";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     private static final String CONNECTOR_DIRECTORY = "/tmp/seatunnel/connectors";
     private static final String RUNTIME_LIBRARY_DIRECTORY = "/tmp/seatunnel/lib";
@@ -712,7 +714,14 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 || s.startsWith("seatunnel-error-sink-")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
                 // it may outlive the job and cause the E2E thread-leak check to fail.
-                || s.startsWith("qtp");
+                || s.startsWith("qtp")
+                // java.lang.ref.Cleaner's worker thread (JDK 9+ replacement for the old
+                // sun.misc.Cleaner/finalizer based native resource cleanup). Some JDBC drivers
+                // call Cleaner.create() to manage native buffers, and the resulting thread runs
+                // for the life of the JVM by design, so it only shows up as a false leak on the
+                // first job that lazily triggers it. Now that the e2e engine container runs on a
+                // Java 11 JDK image instead of Java 8, this thread is a normal presence.
+                || s.startsWith("Cleaner-");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {

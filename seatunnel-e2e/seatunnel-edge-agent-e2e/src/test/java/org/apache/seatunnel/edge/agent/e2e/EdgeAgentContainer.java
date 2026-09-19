@@ -34,7 +34,7 @@ import java.util.stream.Stream;
 public class EdgeAgentContainer extends GenericContainer<EdgeAgentContainer> {
 
     private static final String AGENT_LOGGER_NAME = "edge-agent-e2e";
-    private static final String JDK_IMAGE = "seatunnelhub/openjdk:8u342";
+    private static final String JDK_IMAGE = "eclipse-temurin:11-jre";
     private static final String AGENT_HOME = "/opt/edge-agent";
     private static final String APP_LOG_FILE = AGENT_HOME + "/log/edge-agent.log";
     private static final String STARTUP_LOG_FILE = AGENT_HOME + "/edge-agent.out";

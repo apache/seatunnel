@@ -46,13 +46,18 @@ jobs:
     env:
       OLD_SEATUNNEL_VERSION: ${{ github.event.inputs.old_version || '2.3.13' }}
       SCENARIO: ${{ github.event.inputs.scenario || 'all' }}
+      JAVA_TOOL_OPTIONS: --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "8"
+          # JDK 11, not 17: this job boots the OLD release (2.3.13), whose bundled
+          # config/jvm_*_options predate the JDK 9+ --add-opens flags, so running it under
+          # JDK 17's strong encapsulation could fail for reasons unrelated to upgrade
+          # compatibility. Java 11 is the minimum runtime both versions support.
+          java-version: "11"
 
       - name: Test upgrade compatibility tooling
         run: bash tools/upgrade_compatibility/run_upgrade_compatibility_test.sh

@@ -32,6 +32,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.security.GeneralSecurityException;
+import java.security.ProviderException;
 import java.util.Base64;
 
 public class EdgeSocketPacketRecordDeserializer implements EdgeSocketRecordDeserializer {
@@ -104,16 +105,24 @@ public class EdgeSocketPacketRecordDeserializer implements EdgeSocketRecordDeser
                     EdgeSocketConnectorErrorCode.PACKET_DECODE_ERROR,
                     "Missing iv in AES_GCM packet");
         }
+        byte[] iv;
         try {
-            byte[] iv = Base64.getDecoder().decode(packet.getIv());
+            iv = Base64.getDecoder().decode(packet.getIv());
+        } catch (IllegalArgumentException invalidIvException) {
+            throw new EdgeSocketConnectorException(
+                    EdgeSocketConnectorErrorCode.PACKET_DECODE_ERROR,
+                    "Decode AES_GCM iv failed",
+                    invalidIvException);
+        }
+        try {
             Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
             SecretKeySpec key = new SecretKeySpec(config.getSecretKeyBytes(), "AES");
             cipher.init(
                     Cipher.DECRYPT_MODE, key, new GCMParameterSpec(AES_GCM_TAG_LENGTH_BITS, iv));
             return cipher.doFinal(payloadBytes);
-        } catch (GeneralSecurityException securityException) {
+        } catch (GeneralSecurityException | ProviderException securityException) {
             throw new EdgeSocketConnectorException(
-                    EdgeSocketConnectorErrorCode.PACKET_DECODE_ERROR,
+                    EdgeSocketConnectorErrorCode.PACKET_DECRYPT_ERROR,
                     "AES_GCM decrypt failed",
                     securityException);
         }
