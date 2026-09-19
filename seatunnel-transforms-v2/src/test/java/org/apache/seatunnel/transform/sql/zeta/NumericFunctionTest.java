@@ -185,4 +185,34 @@ public class NumericFunctionTest {
                                 new BigDecimal("12345678901234567890.987654321"),
                                 new BigDecimal("1"))));
     }
+
+    /**
+     * ZetaSQLType derives the MOD result type from the divisor, so the planner and the runtime have
+     * to agree that a TINYINT or SMALLINT divisor yields that same type.
+     */
+    @Test
+    public void testModSupportsTinyIntAndSmallIntDivisors() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"int_v", "tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.BYTE_TYPE, BasicType.SHORT_TYPE
+                        });
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {17, (byte) 5, (short) 7});
+
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select MOD(int_v, tiny_v) as tiny_mod, MOD(int_v, small_v) as small_mod from test");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        Assertions.assertEquals(BasicType.BYTE_TYPE, outRowType.getFieldType(0));
+        Assertions.assertEquals(BasicType.SHORT_TYPE, outRowType.getFieldType(1));
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
+        Assertions.assertEquals((byte) 2, outRow.getField(0));
+        Assertions.assertEquals((short) 3, outRow.getField(1));
+    }
 }
