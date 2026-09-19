@@ -39,9 +39,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
     void open();
 
     /**
-     * Executes engine setup steps in a fixed, non‑concurrent sequence.
+     * Executes engine setup steps.
      *
-     * <p>Before the first {@link #run()} invocation, methods are called in this order:
+     * <p>Methods are typically called in this order before the first {@link #run()} invocation:
      *
      * <ol>
      *   <li>{@link #open()}
@@ -49,8 +49,10 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
      *   <li>{@link #registerReader(int)}
      * </ol>
      *
-     * <p>{@implNote The engine guarantees this invocation order and ensures there are no
-     * concurrency issues between these calls.}
+     * <p>{@implNote Implementations must not rely on a strict invocation order: restored splits may
+     * arrive via {@link #addSplitsBack(List, int)} after the reader has already sent its split
+     * request (e.g. after a checkpoint restore), so a waiting reader must be re-assigned when
+     * restored splits are added.}
      */
     void run() throws Exception;
 
