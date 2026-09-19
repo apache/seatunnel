@@ -29,6 +29,25 @@ public class ConfigValueUtils {
 
     private ConfigValueUtils() {}
 
+    /**
+     * Parses a raw string value into a {@link ConfigValue}.
+     *
+     * <p>The parsing rules are:
+     *
+     * <ul>
+     *   <li>{@code null} is converted to a {@code ConfigValue} holding {@code null}.
+     *   <li>A value wrapped in double quotes is unwrapped and treated as a plain string, e.g.
+     *       {@code "123"} becomes the string {@code 123} rather than a number.
+     *   <li>A value that starts with {@code "{"} and ends with {@code "}"}, or starts with {@code
+     *       "["} and ends with {@code "]"}, is parsed as a JSON object or array.
+     *   <li>Any other value is treated as a plain string.
+     * </ul>
+     *
+     * @param value the raw string value to parse
+     * @return the parsed {@link ConfigValue}
+     * @throws ConfigException.BadValue if the value looks like a JSON object or array but fails to
+     *     parse
+     */
     public static ConfigValue parseValue(String value) {
         if (value == null) {
             return ConfigValueFactory.fromAnyRef(null);
@@ -75,6 +94,14 @@ public class ConfigValueUtils {
         return backslashCount % 2 == 1;
     }
 
+    /**
+     * Finds the position of the closing character matching the opener at {@code start}.
+     *
+     * @param input the input string to scan
+     * @param start the index of the opening token: {@code '$'} for {@code "${"},
+     *              {@code '['} for square brackets, or {@code '{'} for braces
+     * @return the index of the matching closing character, or {@code -1} if not found
+     */
     public static int findClosePos(String input, int start) {
         int braceDepth = 1;
         int bracketDepth = 0;
