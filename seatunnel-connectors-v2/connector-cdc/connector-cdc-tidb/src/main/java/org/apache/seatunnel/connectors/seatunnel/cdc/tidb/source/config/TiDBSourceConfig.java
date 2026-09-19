@@ -28,6 +28,8 @@ import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.Collections;
+import java.util.List;
 
 @Data
 @Builder
@@ -39,7 +41,33 @@ public class TiDBSourceConfig implements Serializable {
 
     private String databaseName;
     private String tableName;
+    private List<String> tableNames;
     private StartupMode startupMode;
     private TiConfiguration tiConfiguration;
     private Integer batchSize;
+
+    /**
+     * Returns the captured tables in {@code database_name.table_name} format, falling back to the
+     * legacy single {@code databaseName}/{@code tableName} pair when {@code tableNames} is absent.
+     *
+     * @return list of table full names, never null
+     */
+    public List<String> getTableFullNames() {
+        if (tableNames != null && !tableNames.isEmpty()) {
+            return tableNames;
+        }
+        if (databaseName != null && tableName != null) {
+            return Collections.singletonList(
+                    TiDBSourceOptions.tableFullName(databaseName, tableName));
+        }
+        throw new IllegalStateException(
+                "TiDB source config has no table configured: neither tableNames nor"
+                        + " databaseName/tableName is set.");
+    }
+
+    /** @return true if at least one table is configured via either option style. */
+    public boolean hasConfiguredTables() {
+        return (tableNames != null && !tableNames.isEmpty())
+                || (databaseName != null && tableName != null);
+    }
 }

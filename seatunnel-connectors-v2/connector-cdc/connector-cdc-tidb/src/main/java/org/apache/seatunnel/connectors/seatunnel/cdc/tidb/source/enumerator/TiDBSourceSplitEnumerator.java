@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.enumerator;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.config.TiDBSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.split.TiDBSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.cdc.tidb.source.utils.TableKeyRangeUtils;
 
@@ -35,6 +36,8 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -53,7 +56,16 @@ public class TiDBSourceSplitEnumerator
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Context<TiDBSourceSplit> context;
     private TiSession tiSession;
-    private long tableId;
+    private final Map<String, Long> tableIds = new LinkedHashMap<>();
+    // Not final: reconstructed in run() when restoring a legacy checkpoint whose state lacks the
+    // ledger field. All cross-thread reads and the reassignment happen under stateLock.
+    private Set<String> enumeratedTables;
+    // Tables recovered from restored splits while reconstructing the missing ledger of a legacy
+    // checkpoint (one written before `enumeratedTables` existed). Seeded from the checkpoint
+    // state's own pending splits in the constructor, and extended by addSplitsBack: every engine
+    // routes the readers' restored splits through addSplitsBack before run(), so by the time run()
+    // executes this set covers all tables that had a split in flight at checkpoint time.
+    private final Set<String> legacyRestoredTables = new HashSet<>();
 
     private volatile boolean shouldEnumerate;
 
@@ -76,24 +88,81 @@ public class TiDBSourceSplitEnumerator
             this.shouldEnumerate = restoreState.isShouldEnumerate();
             this.pendingSplit.putAll(restoreState.getPendingSplit());
             this.assignCount.set(restoreState.getAssignCount());
+            this.enumeratedTables = restoreState.getEnumeratedTablesRef();
+            if (this.enumeratedTables == null) {
+                restoreState
+                        .getPendingSplit()
+                        .values()
+                        .forEach(
+                                splits ->
+                                        splits.forEach(
+                                                split ->
+                                                        legacyRestoredTables.add(
+                                                                split.tableFullName())));
+            }
+            discardRemovedTables();
+        } else {
+            this.enumeratedTables = new HashSet<>();
+        }
+    }
+
+    /**
+     * Drops restored state of tables that are no longer present in the job config. Their checkpoint
+     * positions are discarded; a table added back later runs a fresh snapshot.
+     */
+    private void discardRemovedTables() {
+        if (!sourceConfig.hasConfiguredTables()) {
+            return;
+        }
+        Set<String> configuredTableNames = new HashSet<>(sourceConfig.getTableFullNames());
+        pendingSplit
+                .values()
+                .forEach(
+                        splits ->
+                                splits.removeIf(
+                                        split -> {
+                                            boolean removed =
+                                                    !configuredTableNames.contains(
+                                                            split.tableFullName());
+                                            if (removed) {
+                                                log.warn(
+                                                        "{} Drop pending split {} of table {} which"
+                                                                + " is no longer configured on"
+                                                                + " restore; its checkpoint"
+                                                                + " position is discarded.",
+                                                        CDC_DIAG_PREFIX,
+                                                        split.splitId(),
+                                                        split.tableFullName());
+                                            }
+                                            return removed;
+                                        }));
+        pendingSplit.entrySet().removeIf(entry -> entry.getValue().isEmpty());
+        if (enumeratedTables != null && enumeratedTables.retainAll(configuredTableNames)) {
+            log.info(
+                    "{} Removed tables dropped from the enumerated-table state: they will run a"
+                            + " fresh snapshot if added back later.",
+                    CDC_DIAG_PREFIX);
         }
     }
 
     @Override
     public void open() {
         this.tiSession = TiSession.create(sourceConfig.getTiConfiguration());
-        this.tableId =
-                this.tiSession
-                        .getCatalog()
-                        .getTable(sourceConfig.getDatabaseName(), sourceConfig.getTableName())
-                        .getId();
+        for (String tableFullName : sourceConfig.getTableFullNames()) {
+            long tableId =
+                    this.tiSession
+                            .getCatalog()
+                            .getTable(
+                                    TiDBSourceOptions.parseDatabaseName(tableFullName),
+                                    TiDBSourceOptions.parseTableName(tableFullName))
+                            .getId();
+            tableIds.put(tableFullName, tableId);
+        }
         log.info(
-                "{} Enumerator opened, database={}, table={}, tableId={}, startupMode={},"
-                        + " parallelism={}.",
+                "{} Enumerator opened, tables={}, tableIds={}, startupMode={}, parallelism={}.",
                 CDC_DIAG_PREFIX,
-                sourceConfig.getDatabaseName(),
-                sourceConfig.getTableName(),
-                tableId,
+                tableIds.keySet(),
+                tableIds.values(),
                 sourceConfig.getStartupMode(),
                 context.currentParallelism());
     }
@@ -102,19 +171,60 @@ public class TiDBSourceSplitEnumerator
     @Override
     public void run() throws Exception {
         Set<Integer> readers = context.registeredReaders();
+        List<TiDBSourceSplit> sourceSplits = new ArrayList<>();
         if (shouldEnumerate) {
-            List<TiDBSourceSplit> sourceSplits = getTiDBSourceSplit();
+            sourceSplits = getTiDBSourceSplit(tableIds.keySet());
             log.info(
-                    "{} Enumerated TiDB CDC splits, database={}, table={}, splitCount={}.",
+                    "{} Enumerated TiDB CDC splits, tables={}, splitCount={}.",
                     CDC_DIAG_PREFIX,
-                    sourceConfig.getDatabaseName(),
-                    sourceConfig.getTableName(),
+                    tableIds.keySet(),
                     sourceSplits.size());
             synchronized (stateLock) {
+                enumeratedTables.addAll(tableIds.keySet());
                 addPendingSplit(sourceSplits);
                 shouldEnumerate = false;
-                assignSplit(readers);
             }
+        } else {
+            if (enumeratedTables == null) {
+                // Legacy checkpoint: the ledger field did not exist yet. Reconstruct it from
+                // every table that had a split in flight at checkpoint time (restored reader
+                // splits collected via addSplitsBack, plus this state's own pending remainder).
+                // An empty baseline means no table had splits in flight, so every configured
+                // table counts as newly added — the correct outcome in that state.
+                Set<String> baseline = new HashSet<>(legacyRestoredTables);
+                pendingSplit
+                        .values()
+                        .forEach(
+                                splits ->
+                                        splits.forEach(
+                                                split -> baseline.add(split.tableFullName())));
+                synchronized (stateLock) {
+                    enumeratedTables = baseline;
+                }
+                log.info(
+                        "{} Reconstructed enumerated-table state from restored splits for a"
+                                + " legacy checkpoint, tables={}.",
+                        CDC_DIAG_PREFIX,
+                        enumeratedTables);
+            }
+            Set<String> missingTables = new HashSet<>(tableIds.keySet());
+            missingTables.removeAll(enumeratedTables);
+            if (!missingTables.isEmpty()) {
+                sourceSplits = getTiDBSourceSplit(missingTables);
+                log.info(
+                        "{} Enumerated splits for tables added after checkpoint, tables={},"
+                                + " splitCount={}.",
+                        CDC_DIAG_PREFIX,
+                        missingTables,
+                        sourceSplits.size());
+                synchronized (stateLock) {
+                    enumeratedTables.addAll(missingTables);
+                    addPendingSplit(sourceSplits);
+                }
+            }
+        }
+        synchronized (stateLock) {
+            assignSplit(readers);
         }
         log.debug(
                 "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
@@ -158,19 +268,22 @@ public class TiDBSourceSplitEnumerator
         return assignCount % numReaders;
     }
 
-    private List<TiDBSourceSplit> getTiDBSourceSplit() {
+    private List<TiDBSourceSplit> getTiDBSourceSplit(Collection<String> tableFullNames) {
         List<TiDBSourceSplit> sourceSplits = new ArrayList<>();
-        List<Coprocessor.KeyRange> keyRanges =
-                TableKeyRangeUtils.getTableKeyRanges(this.tableId, context.currentParallelism());
-        for (Coprocessor.KeyRange keyRange : keyRanges) {
-            sourceSplits.add(
-                    new TiDBSourceSplit(
-                            sourceConfig.getDatabaseName(),
-                            sourceConfig.getTableName(),
-                            keyRange,
-                            sourceConfig.getStartupMode() == StartupMode.INITIAL ? -1 : 0,
-                            keyRange.getStart(),
-                            false));
+        for (String tableFullName : tableFullNames) {
+            long tableId = tableIds.get(tableFullName);
+            List<Coprocessor.KeyRange> keyRanges =
+                    TableKeyRangeUtils.getTableKeyRanges(tableId, context.currentParallelism());
+            for (Coprocessor.KeyRange keyRange : keyRanges) {
+                sourceSplits.add(
+                        new TiDBSourceSplit(
+                                TiDBSourceOptions.parseDatabaseName(tableFullName),
+                                TiDBSourceOptions.parseTableName(tableFullName),
+                                keyRange,
+                                sourceConfig.getStartupMode() == StartupMode.INITIAL ? -1 : 0,
+                                keyRange.getStart(),
+                                false));
+            }
         }
         return sourceSplits;
     }
@@ -201,6 +314,11 @@ public class TiDBSourceSplitEnumerator
     public void addSplitsBack(List<TiDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to TiDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
+            synchronized (stateLock) {
+                if (enumeratedTables == null) {
+                    splits.forEach(split -> legacyRestoredTables.add(split.tableFullName()));
+                }
+            }
             addPendingSplit(splits, subtaskId);
             if (context.registeredReaders().contains(subtaskId)) {
                 assignSplit(Collections.singletonList(subtaskId));
@@ -237,7 +355,8 @@ public class TiDBSourceSplitEnumerator
     @Override
     public TiDBSourceCheckpointState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new TiDBSourceCheckpointState(shouldEnumerate, pendingSplit, assignCount.get());
+            return new TiDBSourceCheckpointState(
+                    shouldEnumerate, pendingSplit, assignCount.get(), enumeratedTables);
         }
     }
 
