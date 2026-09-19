@@ -129,10 +129,11 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
             case SNOWFLAKE_VARCHAR:
             case SNOWFLAKE_STRING:
             case SNOWFLAKE_TEXT:
-            case SNOWFLAKE_VARIANT:
             case SNOWFLAKE_OBJECT:
             case SNOWFLAKE_GEOMETRY:
                 return BasicType.STRING_TYPE;
+            case SNOWFLAKE_VARIANT:
+                return BasicType.JSON_TYPE;
             case SNOWFLAKE_BINARY:
             case SNOWFLAKE_VARBINARY:
             case SNOWFLAKE_GEOGRAPHY:
@@ -180,6 +181,8 @@ public class SnowflakeDataTypeConvertor implements DataTypeConvertor<String> {
                 return SNOWFLAKE_BOOLEAN;
             case STRING:
                 return SNOWFLAKE_TEXT;
+            case JSON:
+                return SNOWFLAKE_VARIANT;
             case DATE:
                 return SNOWFLAKE_DATE;
             case BYTES:

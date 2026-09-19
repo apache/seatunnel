@@ -49,6 +49,19 @@ public class TestCalciteIT extends TestSuiteBase {
         Assertions.assertEquals(0, result.getExitCode());
     }
 
+    /**
+     * Verifies Calcite preserves JSON projections and supports the documented VARCHAR cast.
+     *
+     * <p>The same job validates both native JSON propagation and the compatibility migration.
+     */
+    @TestTemplate
+    public void testCalciteJsonType(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult result =
+                container.executeJob("/calcite_transform/calcite_json_type.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
     @TestTemplate
     public void testCalciteMaskUdf(TestContainer container)
             throws IOException, InterruptedException {

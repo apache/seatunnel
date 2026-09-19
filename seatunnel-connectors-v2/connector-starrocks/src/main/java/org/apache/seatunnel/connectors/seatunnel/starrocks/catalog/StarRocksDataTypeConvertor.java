@@ -126,9 +126,10 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
             case TEXT:
             case MEDIUMTEXT:
             case LONGTEXT:
-            case JSON:
             case ENUM:
                 return BasicType.STRING_TYPE;
+            case JSON:
+                return BasicType.JSON_TYPE;
             case BINARY:
             case VARBINARY:
             case TINYBLOB:
@@ -164,6 +165,8 @@ public class StarRocksDataTypeConvertor implements DataTypeConvertor<MysqlType> 
             case ROW:
             case STRING:
                 return MysqlType.VARCHAR;
+            case JSON:
+                return MysqlType.JSON;
             case BOOLEAN:
                 return MysqlType.BOOLEAN;
             case TINYINT:
