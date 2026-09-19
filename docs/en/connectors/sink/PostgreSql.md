@@ -12,8 +12,15 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+The PostgreSQL Sink connector writes rows to a PostgreSQL database through the JDBC driver.
+It supports both batch and streaming jobs, parallel writers split by an optional
+`partition_column`, and exactly-once semantics through XA transactions.
+
+Use this connector when the upstream data lands in a relational store and the target table
+follows the standard PostgreSQL type system described in the data type mapping section below.
+The connector can write to a fixed `database.table` pair, generate `INSERT` statements from
+the schema automatically, or apply a custom `query` template, so it covers both CDC and
+plain bulk-loading workloads.
 
 ## Using Dependency
 
@@ -27,13 +34,17 @@ semantics (using XA transaction guarantee).
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+Exactly-once is achieved through XA transactions and is only available when the target
+database supports them. Enable it by setting `is_exactly_once=true` and supplying the
+matching `xa_data_source_class_name`.
 
 ## Supported DataSource Info
 
@@ -140,7 +151,9 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> If `partition_column` is not set, the sink runs in single concurrency. When it is set,
+> the connector writes in parallel according to the configured parallelism, splitting rows
+> by the partition column's value range.
 
 ## Task Example
 
