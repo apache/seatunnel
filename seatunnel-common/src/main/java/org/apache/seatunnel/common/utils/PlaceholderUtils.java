@@ -33,9 +33,6 @@ public class PlaceholderUtils {
 
     public static final String PLACEHOLDER_STARTER = "${";
 
-    private static final Pattern PLACEHOLDER_PATTERN =
-            Pattern.compile("\\$\\{\\??" + "(?:\"([^\"]+)\"|([^{}:]+))" + "(?::(.+))?" + "\\}");
-
     public static String replacePlaceholders(String input, String placeholderName, String value) {
         return replacePlaceholders(input, placeholderName, value, null);
     }
@@ -77,6 +74,37 @@ public class PlaceholderUtils {
         return input;
     }
 
+    /**
+     * Processes placeholders in the given input string and replaces them with resolved values.
+     *
+     * <p>A placeholder is defined as {@code ${key}} or {@code ${key:default}}. The resolution
+     * priority is: user-provided value > default value > system property > original placeholder.
+     *
+     * <p>This method also collects placeholder default values into {@code defaultConfigMap} for
+     * consistency validation:
+     *
+     * <ul>
+     *   <li>The same placeholder key must not have conflicting default values across the
+     *       configuration.
+     *   <li>The same placeholder key must not be used with a default value in one place and without
+     *       a default value in another.
+     * </ul>
+     *
+     * <p>If the input does not contain any placeholder or no replacement is performed, the original
+     * string is returned as-is.
+     *
+     * @param input the input string potentially containing placeholders, may be null
+     * @param isSystemPlaceholder a predicate to determine whether a placeholder key is a system
+     *     placeholder (e.g., {@code TablePlaceholder::isSystemPlaceholder}), must not be null
+     * @param userConfigMap the user-provided configuration map (typically from {@code -i}
+     *     command-line arguments), must not be null
+     * @param defaultConfigMap a mutable map to collect and validate placeholder default values
+     *     across the entire configuration, must not be null
+     * @return the string with placeholders resolved, or the original string if no replacement
+     *     occurred
+     * @throws IllegalArgumentException if the same placeholder key has conflicting default values,
+     *     or if the same key is used inconsistently (with and without default value)
+     */
     public static String processPlaceholders(
             String input,
             Predicate<String> isSystemPlaceholder,
