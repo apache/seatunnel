@@ -26,6 +26,24 @@ import java.util.Map;
 
 class ADLSRuntimeCompatibilityTest {
     @Test
+    void initializesSecureAbfsDriverAndAuthenticationClasses() {
+        ClassLoader classLoader = ADLSRuntimeCompatibilityTest.class.getClassLoader();
+        String[] classNames = {
+            ADLSRuntimeCompatibility.SECURE_ABFS_IMPLEMENTATION,
+            "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem",
+            "org.apache.hadoop.fs.azurebfs.AbfsConfiguration",
+            "org.apache.hadoop.fs.azurebfs.services.AbfsClient",
+            "org.apache.hadoop.fs.azurebfs.services.SharedKeyCredentials",
+            "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider"
+        };
+
+        for (String className : classNames) {
+            Assertions.assertDoesNotThrow(
+                    () -> Class.forName(className, true, classLoader), className);
+        }
+    }
+
+    @Test
     void validatesSecureAbfsDriverAndBaseConfiguration() {
         ADLSRuntimeCompatibility.validateDriverAvailable();
         Configuration configuration =
