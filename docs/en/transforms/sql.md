@@ -32,6 +32,19 @@ or `select c_row.c_inner_row.column_b` to query the inline struct column that na
 
 The SQL engine used by this transform. Supported values are `ZETA` and `INTERNAL`. If this option is not configured, `ZETA` is used.
 
+## Numeric comparisons
+
+Comparisons between integral types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) and
+`DECIMAL` preserve their numeric precision. This applies to `=`, `!=`, `<>`, `<`,
+`<=`, `>` and `>=`, as well as numeric `IN` and `NOT IN` membership checks.
+For example, a `BIGINT` value of `9007199254740993` does not match
+`WHERE id = 9007199254740992`.
+
+If either operand is `FLOAT` or `DOUBLE`, comparisons continue to use
+floating-point conversion. To compare an exact value, use an integral or
+`DECIMAL` operand rather than a floating-point operand. This behavior applies
+to both SQL engine settings, `ZETA` and `INTERNAL`.
+
 ## Example
 
 The data read from source is a table like this:

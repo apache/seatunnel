@@ -18,6 +18,16 @@ You need to check this document before you upgrade to related version.
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
 
+### SQL Numeric Predicate Precision
+
+SQL comparisons and `IN`/`NOT IN` checks between integral and `DECIMAL` values
+no longer round operands through `double`. Filters involving large integers or
+high-precision decimals can therefore select different rows than before.
+Review affected predicates and reconcile previously written data if it relied
+on the rounded comparison results. No configuration, output schema or state
+format changes are required. Comparisons involving `FLOAT` or `DOUBLE` retain
+their existing behavior.
+
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
