@@ -50,6 +50,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipCompressorInputStream;
 import org.apache.commons.compress.compressors.gzip.GzipParameters;
 import org.apache.commons.io.ByteOrderMark;
+import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.BOMInputStream;
 import org.apache.commons.io.input.BoundedInputStream;
 import org.apache.hadoop.fs.FileChecksum;
@@ -1010,24 +1011,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             throws IOException {
         try (InputStream sourceIn = hadoopFileSystemProxy.getInputStream(sourceFilePath);
                 InputStream targetIn = targetHadoopFileSystemProxy.getInputStream(targetFilePath)) {
-            byte[] sourceBuffer = new byte[8 * 1024];
-            byte[] targetBuffer = new byte[8 * 1024];
-
-            while (true) {
-                int sourceRead = sourceIn.read(sourceBuffer);
-                int targetRead = targetIn.read(targetBuffer);
-                if (sourceRead != targetRead) {
-                    return false;
-                }
-                if (sourceRead == -1) {
-                    return true;
-                }
-                for (int i = 0; i < sourceRead; i++) {
-                    if (sourceBuffer[i] != targetBuffer[i]) {
-                        return false;
-                    }
-                }
-            }
+            return IOUtils.contentEquals(sourceIn, targetIn);
         }
     }
 

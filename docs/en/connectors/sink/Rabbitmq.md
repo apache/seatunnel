@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 > RabbitMQ sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Used to write data to RabbitMQ queues.
@@ -22,7 +28,12 @@ Used to write data to RabbitMQ queues.
 | username                   | string  | no       | -             |
 | password                   | string  | no       | -             |
 | queue_name                 | string  | yes      | -             |
+| format                     | string  | no       | json          |
+| protobuf_schema            | string  | no       | -             |
+| protobuf_message_name      | string  | no       | -             |
 | url                        | string  | no       | -             |
+| uri                        | string  | no       | -             |
+| ssl                        | boolean | no       | false         |
 | routing_key                | string  | no       | -             |
 | exchange                   | string  | no       | -             |
 | network_recovery_interval  | int     | no       | -             |
@@ -34,6 +45,7 @@ Used to write data to RabbitMQ queues.
 | durable                    | boolean | no       | true          |
 | exclusive                  | boolean | no       | false         |
 | auto_delete                | boolean | no       | false         |
+| passive                    | boolean | no       | false         |
 
 ### host [string]
 
@@ -61,9 +73,31 @@ the password to use when connecting to the broker
 
 convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
 
+### uri [string]
+
+Legacy alias for `url`. Configure only one of `url` and `uri`.
+
+### ssl [boolean]
+
+Enables SSL/TLS for host-and-port configuration. Use `url` with an `amqps://` URI when the URI itself supplies the connection settings.
+
+When `url` uses an `amqps://` URI, the broker certificate is verified against the JVM trust store with hostname verification enabled. Connections that previously relied on the implicit trust-all behavior with self-signed or private-CA certificates must import the broker certificate into the trust store, or they will fail to connect.
+
 ### queue_name [string]
 
 the queue to write the message to. If `routing_key` is not configured, the connector publishes messages to this queue through the default exchange.
+
+### format [string]
+
+The message payload format. Supported values are `json` and `protobuf`. The default value is `json`.
+
+### protobuf_schema [string]
+
+Effective when `format` is `protobuf`. Defines the Protobuf schema used to serialize rows into RabbitMQ message payloads.
+
+### protobuf_message_name [string]
+
+Effective when `format` is `protobuf`. Specifies the Protobuf message name to serialize.
 
 ### routing_key [string]
 
@@ -114,12 +148,20 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - true: The queue will be deleted automatically when the last consumer unsubscribes.
 - false: The queue will not be automatically deleted.
 
+### passive
+
+- false: Declare the queue with the configured durable, exclusive, and auto-delete settings.
+- true: Verify that the queue already exists without creating or modifying it. Use this for accounts that can publish but cannot declare queues.
+
 
 ## Configuration Notes
 
 - If you configure `username`, you must also configure `password`, and vice versa.
+- Configure only one of `url` and `uri`. `uri` is retained for existing configurations; use `url` in new configurations.
+- Set `ssl = true` when connecting to an AMQPS endpoint with `host` and `port` settings.
 - `host`, `port`, `virtual_host`, and `queue_name` are required connector options. `url` can additionally provide the AMQP URI used by the RabbitMQ client.
 - `durable`, `exclusive`, and `auto_delete` are used when the connector declares the target queue.
+- When `format` is `protobuf`, configure both `protobuf_schema` and `protobuf_message_name`.
 
 ## Example
 
@@ -199,6 +241,38 @@ sink {
       }
 }
 ```
+
+### Write Protobuf Messages to a Queue
+
+```hocon
+sink {
+      RabbitMQ {
+          host = "rabbitmq-e2e"
+          port = 5672
+          virtual_host = "/"
+          queue_name = "protobuf_queue"
+          format = protobuf
+          protobuf_message_name = Person
+          protobuf_schema = """
+              syntax = "proto3";
+              message Person {
+                int64 id = 1;
+                string name = 2;
+              }
+          """
+      }
+}
+```
+
+## FAQ
+
+### Does RabbitMQ sink support routing to specific exchanges and routing keys?
+
+Yes. The sink publishes messages to RabbitMQ by binding to the target queue or routing configuration specified by `queue_name` and optional routing parameters.
+
+### How does RabbitMQ sink handle network reconnects and timeouts?
+
+You can tune client connection resilience using the `rabbitmq.config` block (such as `connection-timeout`, `requested-heartbeat`, and retry intervals) to prevent premature disconnection during transient network blips.
 
 ## Changelog
 

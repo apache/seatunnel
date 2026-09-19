@@ -17,6 +17,10 @@
 name: publish-e2e-spark-images
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/publish-e2e-spark-images.yaml'
+      - 'seatunnel-e2e/seatunnel-e2e-common/src/test/docker/spark/**'
   workflow_dispatch:
 
 concurrency:
@@ -25,7 +29,23 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'apache/seatunnel'
+    if: github.event_name == 'pull_request' || github.repository != 'apache/seatunnel'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Spark E2E images
+        working-directory: seatunnel-e2e/seatunnel-e2e-common/src/test/docker/spark
+        run: docker buildx bake
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'apache/seatunnel'
     runs-on: ubuntu-latest
     permissions:
       contents: read
