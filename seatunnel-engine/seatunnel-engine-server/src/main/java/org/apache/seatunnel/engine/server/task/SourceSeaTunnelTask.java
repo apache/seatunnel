@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -160,6 +161,15 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     public void receivedSourceSplit(List<SplitT> splits) {
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
+    }
+
+    /**
+     * Returns whether this task belongs to an unbounded source. Idle reader closure is only valid
+     * for unbounded sources, so master-switch restore uses this distinction to preserve the
+     * checkpoint coordinator state.
+     */
+    public boolean isUnboundedSourceTask() {
+        return Boundedness.UNBOUNDED.equals(sourceFlow.getAction().getSource().getBoundedness());
     }
 
     @Override
