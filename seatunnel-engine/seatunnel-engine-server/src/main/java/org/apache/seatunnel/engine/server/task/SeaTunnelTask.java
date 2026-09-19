@@ -465,7 +465,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 log.error("Close FlowLifeCycle error.", t);
                                 if (closeException[0] == null) {
                                     closeException[0] = t;
-                                } else {
+                                } else if (t != closeException[0]) {
                                     closeException[0].addSuppressed(t);
                                 }
                             }
