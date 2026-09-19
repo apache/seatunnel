@@ -53,8 +53,7 @@ public class CheckpointSerializeTest {
         ProtoStuffSerializer protoStuffSerializer = new ProtoStuffSerializer();
         PipelineState pipelineState = protoStuffSerializer.deserialize(bFile, PipelineState.class);
         CompletedCheckpoint latestCompletedCheckpoint =
-                protoStuffSerializer.deserialize(
-                        pipelineState.getStates(), CompletedCheckpoint.class);
+                CompletedCheckpointCodec.decode(pipelineState.getStates(), protoStuffSerializer);
         ActionState actionState = latestCompletedCheckpoint.getTaskStates().get(1L);
         List<ActionSubtaskState> subtaskStates = actionState.getSubtaskStates();
         List<byte[]> coordinatorBytes = actionState.getCoordinatorState().getState();

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.DynamicLookupSourceCapability;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -88,7 +89,15 @@ import java.util.stream.Stream;
 @NoArgsConstructor
 @Slf4j
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>,
+                DynamicLookupSourceCapability {
+
+    private static final Set<String> DYNAMIC_LOOKUP_CAPABILITIES =
+            Collections.unmodifiableSet(
+                    Sets.newHashSet(
+                            DynamicLookupSourceCapability.ORDERED_BOOTSTRAP_V1,
+                            DynamicLookupSourceCapability.PK_UPDATE_REJECT_V1,
+                            DynamicLookupSourceCapability.ATOMIC_UPDATE_PAIR_V1));
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -256,6 +265,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         && startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY
                 ? Boundedness.UNBOUNDED
                 : Boundedness.BOUNDED;
+    }
+
+    @Override
+    public Set<String> dynamicLookupCapabilities() {
+        return DYNAMIC_LOOKUP_CAPABILITIES;
     }
 
     @SuppressWarnings("MagicNumber")
