@@ -111,6 +111,12 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     @Test
+    public void testFixtureStartsWithoutDiscovery() {
+        Assertions.assertEquals(1, instance.getCluster().getMembers().size());
+        Assertions.assertNull(instance.node.getJoiner());
+    }
+
+    @Test
     public void testSubmitJobWithHoconFormatDecryptsConfig() throws Exception {
         String requestUrl =
                 "http://localhost:"
@@ -357,6 +363,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
     }
 
     private static String getHazelcastConfig() {
+        // This single-member fixture must not scan nearby ports used by its REST service.
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -366,10 +373,12 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "        CLUSTER_WRITE:\n"
                 + "          enabled: true\n"
                 + "    join:\n"
+                + "      auto-detection:\n"
+                + "        enabled: false\n"
+                + "      multicast:\n"
+                + "        enabled: false\n"
                 + "      tcp-ip:\n"
-                + "        enabled: true\n"
-                + "        member-list:\n"
-                + "          - 127.0.0.1\n"
+                + "        enabled: false\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
@@ -379,7 +388,6 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"
-                + "    hazelcast.tcp.join.port.try.count: 30\n"
                 + "    hazelcast.invocation.retry.pause.millis: 2000\n"
                 + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
                 + "    hazelcast.logging.type: log4j2\n"
