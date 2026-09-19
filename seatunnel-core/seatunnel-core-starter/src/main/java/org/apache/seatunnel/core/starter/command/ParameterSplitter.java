@@ -16,32 +16,61 @@
  */
 package org.apache.seatunnel.core.starter.command;
 
+import org.apache.seatunnel.common.utils.ConfigValueUtils;
+
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ParameterSplitter implements IParameterSplitter {
 
+    private static final Set<Character> START_DELIMITERS =
+            new HashSet<>(Arrays.asList('=', ':', '{', '[', ','));
+    private static final Set<Character> END_DELIMITERS =
+            new HashSet<>(Arrays.asList(',', '}', ']', ':'));
+
     @Override
     public List<String> split(String value) {
-
         List<String> result = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
-        boolean insideBrackets = false;
         boolean insideQuotes = false;
+        int braceDepth = 0;
+        int bracketDepth = 0;
 
-        for (char c : value.toCharArray()) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
 
-            if (c == '[') {
-                insideBrackets = true;
-            } else if (c == ']') {
-                insideBrackets = false;
-            } else if (c == '"') {
-                insideQuotes = !insideQuotes;
+            if (c == '"') {
+                if (ConfigValueUtils.isEscapedQuote(value, i)) {
+                    currentToken.append(c);
+                    continue;
+                }
+                insideQuotes = updateQuoteState(value, i, insideQuotes);
+                currentToken.append(c);
+                continue;
             }
 
-            if (c == ',' && !insideQuotes && !insideBrackets) {
+            if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}' && braceDepth > 0) {
+                    braceDepth--;
+                } else if (c == '}' && braceDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
+                } else if (c == '[') {
+                    bracketDepth++;
+                } else if (c == ']' && bracketDepth > 0) {
+                    bracketDepth--;
+                } else if (c == ']' && bracketDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
+                }
+            }
+
+            if (c == ',' && !insideQuotes && braceDepth == 0 && bracketDepth == 0) {
                 result.add(currentToken.toString().trim());
                 currentToken = new StringBuilder();
             } else {
@@ -53,6 +82,49 @@ public class ParameterSplitter implements IParameterSplitter {
             result.add(currentToken.toString().trim());
         }
 
+        String trimmedValue = value.trim();
+        boolean isStructured = trimmedValue.startsWith("{") || trimmedValue.startsWith("[");
+
+        if (isStructured && (braceDepth != 0 || bracketDepth != 0 || insideQuotes)) {
+            throw new IllegalArgumentException(
+                    "Unbalanced braces/brackets or unclosed quotes in JSON/Array value: " + value);
+        }
+
         return result;
+    }
+
+    private boolean updateQuoteState(String value, int quoteIndex, boolean insideQuotes) {
+
+        boolean isStartWrapper = isStartWrapper(insideQuotes, value, quoteIndex);
+        boolean isEndWrapper = isEndWrapper(insideQuotes, value, quoteIndex);
+
+        if (isStartWrapper) {
+            insideQuotes = true;
+        } else if (isEndWrapper) {
+            insideQuotes = false;
+        } else {
+            insideQuotes = !insideQuotes;
+        }
+        return insideQuotes;
+    }
+
+    private boolean isStartWrapper(boolean insideQuotes, String value, int quoteIndex) {
+        char prev = (quoteIndex > 0) ? value.charAt(quoteIndex - 1) : 0;
+        char beforePrev = (quoteIndex > 1) ? value.charAt(quoteIndex - 2) : 0;
+
+        return !insideQuotes
+                && (quoteIndex == 0
+                        || START_DELIMITERS.contains(prev)
+                        || (prev == ' ' && START_DELIMITERS.contains(beforePrev)));
+    }
+
+    private boolean isEndWrapper(boolean insideQuotes, String value, int quoteIndex) {
+        char next = (quoteIndex + 1 < value.length()) ? value.charAt(quoteIndex + 1) : 0;
+        char afterNext = (quoteIndex + 2 < value.length()) ? value.charAt(quoteIndex + 2) : 0;
+
+        return insideQuotes
+                && (quoteIndex == value.length() - 1
+                        || END_DELIMITERS.contains(next)
+                        || (next == ' ' && END_DELIMITERS.contains(afterNext)));
     }
 }

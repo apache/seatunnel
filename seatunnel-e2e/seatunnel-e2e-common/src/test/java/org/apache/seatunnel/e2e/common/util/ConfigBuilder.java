@@ -45,11 +45,12 @@ public class ConfigBuilder {
     }
 
     private static Config ofInner(@NonNull Path filePath) {
-        return ConfigFactory.parseFile(filePath.toFile())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(
-                        ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config fileConfig = ConfigFactory.parseFile(filePath.toFile());
+        Config systemProps = ConfigFactory.systemProperties();
+
+        return fileConfig
+                .withFallback(systemProps)
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     public static Config of(@NonNull String filePath) {
@@ -72,10 +73,9 @@ public class ConfigBuilder {
         log.info("Loading config file from objectMap");
         Config config =
                 ConfigFactory.parseMap(objectMap)
-                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                        .resolveWith(
-                                ConfigFactory.systemProperties(),
-                                ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                        .withFallback(ConfigFactory.systemProperties())
+                        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+
         log.info("Parsed config file: \n{}", config.root().render(CONFIG_RENDER_OPTIONS));
         return config;
     }

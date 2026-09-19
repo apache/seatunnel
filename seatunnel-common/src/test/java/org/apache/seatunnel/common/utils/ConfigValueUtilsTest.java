@@ -1,0 +1,81 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.common.utils;
+
+import org.junit.jupiter.api.Test;
+
+import java.util.List;
+import java.util.Map;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+public class ConfigValueUtilsTest {
+
+    @Test
+    void testParseValueWithEmptyString() {
+        Object result = ConfigValueUtils.parseValue("");
+        assertNotNull(result);
+    }
+
+    @Test
+    void testParseValueWithNull() {
+        assertDoesNotThrow(
+                () -> {
+                    ConfigValueUtils.parseValue(null);
+                });
+    }
+
+    @Test
+    void testParseValueWithBlankString() {
+        Object result = ConfigValueUtils.parseValue(" ");
+        assertNotNull(result);
+    }
+
+    @Test
+    void testParseValueWithNormalString() {
+        Object result = ConfigValueUtils.parseValue("\"hello\"").unwrapped();
+        assertEquals("hello", result);
+    }
+
+    @Test
+    void testParseValueWithNumber() {
+        Object result = ConfigValueUtils.parseValue("235.65").unwrapped();
+        assertEquals("235.65", result);
+    }
+
+    @Test
+    void testParseValueWithBoolean() {
+        Object result = ConfigValueUtils.parseValue("true").unwrapped();
+        assertEquals("true", result);
+    }
+
+    @Test
+    void testParseValueWithJsonArray() {
+        Object result = ConfigValueUtils.parseValue("[\"a\",\"b\"]");
+        assertTrue(result instanceof List);
+    }
+
+    @Test
+    void testParseValueWithJsonObject() {
+        Object result = ConfigValueUtils.parseValue("{\"k1\":\"v1\",\"k2\":\"v2\"}");
+        assertTrue(result instanceof Map);
+    }
+}
