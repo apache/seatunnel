@@ -221,6 +221,9 @@ When an initial consistent snapshot is made for large databases, your establishe
 | schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | schema-changes.include                     | List     | No       | -       | Only the listed schema change event types are sent downstream (when `schema-changes.enabled = true`). Empty means all are eligible. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                              |
 | schema-changes.exclude                     | List     | No       | -       | Schema change event types listed here are NOT sent downstream. Applied after `schema-changes.include`; exclude wins on conflict. See [Schema change event filtering](#schema-change-event-filtering).                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| table-operations.enabled                   | Boolean  | No       | false   | Send table-operation events such as `TRUNCATE TABLE` downstream. Independent of `schema-changes.enabled`. Disabled by default. Currently only Zeta + JDBC sink apply these events. See [Table operation events](#table-operation-events).                                                                                                                                                                                                                                                                                                                                                                               |
+| table-operations.include                   | List     | No       | -       | Only the listed table-operation event types are sent downstream (when `table-operations.enabled = true`). Empty means all are eligible. Valid values: `truncate.table`.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| table-operations.exclude                   | List     | No       | -       | Table-operation event types listed here are NOT sent downstream. Applied after `table-operations.include`; exclude wins on conflict. Valid values: `truncate.table`.                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | debezium                                  | Config   | No       | -       | Pass-through [Debezium's properties](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/mysql.adoc#connector-properties) to Debezium Embedded Engine which is used to capture data changes from MySQL server.                                                                                                                                                                                                                                                                                                                                                        |
 | int_type_narrowing                        | Boolean  | No       | true    | Int type narrowing, if true, the tinyint(1) type will be narrowed to the boolean type if without loss of precision. Support for MySQL at now. Please refer to `int_type_narrowing` below                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | common-options                            |          | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
@@ -382,6 +385,41 @@ source {
 **Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
 by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
 will fail at the sink.
+
+### Table operation events
+
+`TRUNCATE TABLE` is **not** a schema change. The table object and column layout stay in place; only
+the data is removed. Enable it with a dedicated switch that defaults to `false`:
+
+```hocon
+source {
+  MySQL-CDC {
+    # ...
+    table-operations.enabled = true
+    # optional: table-operations.include = ["truncate.table"]
+    # optional: table-operations.exclude = []
+  }
+}
+```
+
+Do **not** put `truncate.table` under `schema-changes.include`. An empty schema-changes include list
+means "allow all schema changes", so existing jobs that already enabled schema evolution would start
+truncating sink tables after an upgrade.
+
+When `table-operations.enabled = true`:
+
+- SeaTunnel still opens Debezium schema-history capture so the `TRUNCATE` DDL is visible in binlog,
+  even if `schema-changes.enabled = false`. Structural `ALTER TABLE` events are sent downstream only
+  when `schema-changes.enabled = true`.
+- Currently only the **Zeta** engine and **JDBC** sink apply the event. The sink flushes in-flight
+  rows, then executes `TRUNCATE TABLE`. The JDBC sink must keep `exactly_once = false` (the default).
+  `is_exactly_once = true` (XA) fail-fasts: `TRUNCATE` is DDL and cannot join a prepared XA
+  transaction. Flink and Spark fail fast. A non-JDBC sink also fails fast
+  instead of silently dropping the truncate.
+- Restore is at-least-once: a replayed `TRUNCATE` is idempotent. After restore, later `INSERT`s
+  continue against the same table schema.
+
+`DROP TABLE` is out of scope for this version.
 
 ### Support table-pattern for multi-table reading
 
@@ -649,6 +687,10 @@ Yes, but only in a limited form. Enable `schema-changes.enabled = true`, then fo
 schema evolution contract already documented on this page and in the
 [Schema Evolution guide](../../introduction/configuration/schema-evolution.md). The current
 documented support covers `add column`, `drop column`, `rename column`, and `modify column`.
+
+`TRUNCATE TABLE` is a separate table-operation event. Enable `table-operations.enabled = true`
+(default `false`). It is not part of `schema-changes.*`. Currently only Zeta + JDBC sink apply it,
+and the JDBC sink must use `exactly_once = false`; see [Table operation events](#table-operation-events).
 
 ### How do I avoid `server-id` conflicts when running multiple CDC jobs?
 

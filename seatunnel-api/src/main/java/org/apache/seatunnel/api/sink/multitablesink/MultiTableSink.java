@@ -31,9 +31,11 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportTableOperationSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.operation.TableOperationType;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -66,7 +68,8 @@ public class MultiTableSink
                         MultiTableState,
                         MultiTableCommitInfo,
                         MultiTableAggregatedCommitInfo>,
-                SupportSchemaEvolutionSink {
+                SupportSchemaEvolutionSink,
+                SupportTableOperationSink {
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
@@ -419,6 +422,15 @@ public class MultiTableSink
         SeaTunnelSink firstSink = sinks.entrySet().iterator().next().getValue();
         if (firstSink instanceof SupportSchemaEvolutionSink) {
             return ((SupportSchemaEvolutionSink) firstSink).supports();
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<TableOperationType> supportedTableOperations() {
+        SeaTunnelSink firstSink = sinks.entrySet().iterator().next().getValue();
+        if (firstSink instanceof SupportTableOperationSink) {
+            return ((SupportTableOperationSink) firstSink).supportedTableOperations();
         }
         return Collections.emptyList();
     }

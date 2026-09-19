@@ -15,38 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.operation.TableOperationType;
 
-/**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
- *
- * @param <T> data type.
- */
-public interface Collector<T> {
+import java.util.List;
 
-    void collect(T record);
-
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void collect(TableOperationEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
+/** Sink connectors that can apply table-operation events such as {@code TRUNCATE TABLE}. */
+public interface SupportTableOperationSink {
 
     /**
-     * Returns the checkpoint lock.
+     * Table operations this sink can apply.
      *
-     * @return The object to use as the lock
+     * @return supported operation types
      */
-    Object getCheckpointLock();
-
-    default boolean isEmptyThisPollNext() {
-        return false;
-    }
-
-    default void resetEmptyThisPollNext() {}
+    List<TableOperationType> supportedTableOperations();
 }

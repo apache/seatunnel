@@ -26,6 +26,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportTableOperationSinkWriter;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -73,7 +75,8 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MultiTableSinkWriter
         implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
-                SupportSchemaEvolutionSinkWriter {
+                SupportSchemaEvolutionSinkWriter,
+                SupportTableOperationSinkWriter {
 
     private static final long EXECUTOR_CLOSE_TIMEOUT_SECONDS = 60L;
 
@@ -361,7 +364,7 @@ public class MultiTableSinkWriter
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
         subSinkErrorCheck();
-        if (!hasSourceMatchedWriter(event)) {
+        if (!hasSourceMatchedWriter(event.tablePath().getFullName())) {
             return;
         }
         ensureQueueWorkersSubmitted();
@@ -369,12 +372,22 @@ public class MultiTableSinkWriter
         enqueueSchemaChangeBarrier(event);
     }
 
+    @Override
+    public void applyTableOperation(TableOperationEvent event) throws IOException {
+        subSinkErrorCheck();
+        if (!hasSourceMatchedWriter(event.tablePath().getFullName())) {
+            return;
+        }
+        ensureQueueWorkersSubmitted();
+        subSinkErrorCheck();
+        enqueueTableOperationBarrier(event);
+    }
+
     /**
      * Keeps the schema-change path on the legacy source-table contract so unrelated table events
      * can still return immediately without waking queue workers.
      */
-    private boolean hasSourceMatchedWriter(SchemaChangeEvent event) {
-        String tableId = event.tablePath().getFullName();
+    private boolean hasSourceMatchedWriter(String tableId) {
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
                     sinkWritersWithIndex.get(i).entrySet()) {
@@ -393,7 +406,10 @@ public class MultiTableSinkWriter
      */
     private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(
             SchemaChangeEvent event) {
-        String tableId = event.tablePath().getFullName();
+        return collectSchemaChangeDispatchTargets(event.tablePath().getFullName());
+    }
+
+    private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(String tableId) {
         if (isTableFailed(tableId)) {
             log.warn("Skip schema change for failed table {}", tableId);
             return Collections.emptyList();
@@ -485,6 +501,36 @@ public class MultiTableSinkWriter
         subSinkErrorCheck();
     }
 
+    private void enqueueTableOperationBarrier(TableOperationEvent event) throws IOException {
+        List<SchemaChangeFailure> operationFailures =
+                Collections.synchronizedList(new ArrayList<>());
+        SchemaChangeBarrier barrier =
+                new SchemaChangeBarrier(
+                        event.tablePath().getFullName(),
+                        runnable.size(),
+                        () -> dispatchTableOperationToTargets(event, operationFailures));
+        try {
+            for (BlockingQueue<MultiTableWriterRunnable.QueueElement> blockingQueue :
+                    blockingQueues) {
+                offerQueueElement(
+                        blockingQueue, MultiTableWriterRunnable.schemaChangeRequest(barrier));
+            }
+            subSinkErrorCheck();
+        } catch (Throwable error) {
+            barrier.fail(error);
+            throwAsIOException(error);
+        }
+        barrier.awaitCompletion();
+        for (SchemaChangeFailure operationFailure : operationFailures) {
+            handleTableFailure(
+                    operationFailure.getTableId(),
+                    MultiTableFailurePhase.CHECKPOINT,
+                    operationFailure.getError());
+        }
+        waitRuntimeTableFailuresHandled();
+        subSinkErrorCheck();
+    }
+
     /**
      * Runs the final schema-change fan-out only after every queue worker has already drained older
      * rows and reached the shared barrier.
@@ -503,6 +549,34 @@ public class MultiTableSinkWriter
             } catch (Throwable error) {
                 if (failurePolicy.continueOtherTables()) {
                     schemaChangeFailures.add(
+                            new SchemaChangeFailure(
+                                    dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                                    error));
+                    continue;
+                }
+                throwAsIOException(error);
+            }
+        }
+    }
+
+    /**
+     * Runs the table-operation fan-out only after every queue worker has already drained older rows
+     * and reached the shared barrier.
+     */
+    private void dispatchTableOperationToTargets(
+            TableOperationEvent event, List<SchemaChangeFailure> operationFailures)
+            throws IOException {
+        List<SchemaChangeDispatchTarget> dispatchTargets =
+                collectSchemaChangeDispatchTargets(event.tablePath().getFullName());
+        for (SchemaChangeDispatchTarget dispatchTarget : dispatchTargets) {
+            try {
+                applyTableOperationToTarget(event, dispatchTarget);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throwAsIOException(error);
+            } catch (Throwable error) {
+                if (failurePolicy.continueOtherTables()) {
+                    operationFailures.add(
                             new SchemaChangeFailure(
                                     dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                                     error));
@@ -539,6 +613,38 @@ public class MultiTableSinkWriter
                 });
         log.info(
                 "Finish apply schema change for table {} sub-writer {} ({})",
+                dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                dispatchTarget.getSinkIdentifier().getIndex(),
+                dispatchTarget.getReason());
+    }
+
+    private void applyTableOperationToTarget(
+            TableOperationEvent event, SchemaChangeDispatchTarget dispatchTarget) throws Throwable {
+        log.info(
+                "Start apply table operation {} for table {} sub-writer {} ({})",
+                event.operationType(),
+                dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                dispatchTarget.getSinkIdentifier().getIndex(),
+                dispatchTarget.getReason());
+        executeWithTableRetry(
+                dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                MultiTableFailurePhase.CHECKPOINT,
+                () -> {
+                    if (!(dispatchTarget.getWriter() instanceof SupportTableOperationSinkWriter)) {
+                        throw new UnsupportedOperationException(
+                                "Received table operation "
+                                        + event.getEventType()
+                                        + " for table "
+                                        + event.tablePath()
+                                        + " but sub-writer does not implement SupportTableOperationSinkWriter.");
+                    }
+                    ((SupportTableOperationSinkWriter) dispatchTarget.getWriter())
+                            .applyTableOperation(event);
+                    return null;
+                });
+        log.info(
+                "Finish apply table operation {} for table {} sub-writer {} ({})",
+                event.operationType(),
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 dispatchTarget.getSinkIdentifier().getIndex(),
                 dispatchTarget.getReason());
