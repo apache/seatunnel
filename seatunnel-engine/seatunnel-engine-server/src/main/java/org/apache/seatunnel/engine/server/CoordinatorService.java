@@ -1386,6 +1386,8 @@ public class CoordinatorService {
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
 
+        // Keep this legacy argument for wire compatibility. Its value should be derived from
+        // jobImmutableInformation.isSavepointRestore().
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
         // This avoids potential issues like redundant job restores or other anomalies.
