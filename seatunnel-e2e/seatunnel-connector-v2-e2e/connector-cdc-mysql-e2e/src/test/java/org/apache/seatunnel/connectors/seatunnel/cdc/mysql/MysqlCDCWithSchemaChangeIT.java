@@ -94,6 +94,9 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
     /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
 
+    private static final String REPLACE_SOURCE_TABLE = "replace_schema_source";
+    private static final String REPLACE_SINK_TABLE = "replace_schema_sink";
+
     /** Stable projection used after add-column evolution to compare source and sink rows. */
     private static final String STABLE_QUERY =
             "select id,name,description,weight from %s.%s order by id";
@@ -247,6 +250,147 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
         // verify the final source table comment was applied (tests comment update idempotency)
         assertSourceTableComment(
                 MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
+    }
+
+    /** Verifies field binding after a live position shift and subsequent checkpoint restoration. */
+    @Order(5)
+    @TestTemplate
+    public void testReplaceFieldBindingAfterSchemaChangeAndRestore(TestContainer container)
+            throws Exception {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS shop." + REPLACE_SOURCE_TABLE);
+            statement.execute("DROP TABLE IF EXISTS shop." + REPLACE_SINK_TABLE);
+            statement.execute(
+                    "CREATE TABLE shop."
+                            + REPLACE_SOURCE_TABLE
+                            + " (guard_value VARCHAR(64), name VARCHAR(64), title VARCHAR(64), id INT PRIMARY KEY)");
+            statement.execute(
+                    "CREATE TABLE shop."
+                            + REPLACE_SINK_TABLE
+                            + " LIKE shop."
+                            + REPLACE_SOURCE_TABLE);
+            statement.execute(
+                    "INSERT INTO shop."
+                            + REPLACE_SOURCE_TABLE
+                            + " VALUES ('before guard', 'before name', 'before title', 1)");
+        }
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String config = "/mysqlcdc_to_mysql_with_replace_schema_change.conf";
+        CompletableFuture<?> execution =
+                CompletableFuture.runAsync(
+                        () -> {
+                            try {
+                                Assertions.assertEquals(
+                                        0, container.executeJob(config, jobId).getExitCode());
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+        Throwable testFailure = null;
+        try {
+            assertReplaceRow(execution, "'before prefix'", "after name", "after title");
+            waitForReplaceIncrementalRead(container, execution);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "ALTER TABLE shop."
+                                + REPLACE_SOURCE_TABLE
+                                + " ADD COLUMN prefix VARCHAR(64) DEFAULT 'before prefix' FIRST");
+                statement.execute(
+                        "UPDATE shop."
+                                + REPLACE_SOURCE_TABLE
+                                + " SET name='before live', title='before changed' WHERE id=1");
+            }
+            assertReplaceRow(execution, "prefix", "after live", "after changed");
+            Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+            execution.get(60, TimeUnit.SECONDS);
+            try (Connection connection = getJdbcConnection();
+                    Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "UPDATE shop."
+                                + REPLACE_SOURCE_TABLE
+                                + " SET name='before restored', title='before recovered' WHERE id=1");
+            }
+            execution =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    Assertions.assertEquals(
+                                            0, container.restoreJob(config, jobId).getExitCode());
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
+            assertReplaceRow(execution, "prefix", "after restored", "after recovered");
+        } catch (Exception | AssertionError failure) {
+            testFailure = failure;
+            throw failure;
+        } finally {
+            try {
+                try {
+                    container.cancelJob(jobId);
+                } finally {
+                    execution.get(60, TimeUnit.SECONDS);
+                }
+            } catch (Exception | AssertionError cleanupFailure) {
+                if (testFailure != null) {
+                    testFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            }
+        }
+    }
+
+    private void waitForReplaceIncrementalRead(
+            TestContainer container, CompletableFuture<?> execution) {
+        await().atMost(DEFAULT_TABLE_SYNC_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            if (execution.isCompletedExceptionally()) {
+                                execution.join();
+                            }
+                            Assertions.assertTrue(
+                                    Arrays.stream(container.getServerLogs().split("\\R"))
+                                            .anyMatch(
+                                                    line ->
+                                                            line.contains(INCREMENTAL_READ_MARKER)
+                                                                    && line.contains(
+                                                                            MYSQL_DATABASE
+                                                                                    + "."
+                                                                                    + REPLACE_SOURCE_TABLE)),
+                                    "The Replace source has not started incremental reading");
+                        });
+    }
+
+    private void assertReplaceRow(
+            CompletableFuture<?> execution, String prefixExpression, String name, String title) {
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .ignoreExceptionsMatching(
+                        error ->
+                                error.getCause() instanceof SQLException
+                                        && ((SQLException) error.getCause()).getErrorCode() == 1054)
+                .untilAsserted(
+                        () -> {
+                            if (execution.isCompletedExceptionally()) {
+                                execution.join();
+                            }
+                            Assertions.assertEquals(
+                                    Arrays.asList(
+                                            Arrays.asList(
+                                                    "before prefix",
+                                                    "before guard",
+                                                    name,
+                                                    title,
+                                                    1)),
+                                    query(
+                                            "SELECT "
+                                                    + prefixExpression
+                                                    + ",guard_value,name,title,id FROM shop."
+                                                    + REPLACE_SINK_TABLE
+                                                    + " ORDER BY id"));
+                        });
     }
 
     @Order(2)
