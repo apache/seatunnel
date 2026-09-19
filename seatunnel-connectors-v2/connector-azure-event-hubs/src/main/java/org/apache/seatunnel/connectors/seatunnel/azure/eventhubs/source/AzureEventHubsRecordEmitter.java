@@ -44,12 +44,12 @@ public class AzureEventHubsRecordEmitter
             long nextSequenceNumber = Math.addExact(element.getSequenceNumber(), 1L);
             deserializationSchema.deserialize(element.getBody(), collector);
             splitState.setCurrentSequenceNumber(nextSequenceNumber);
-        } catch (IOException | ArithmeticException e) {
+        } catch (IOException | RuntimeException e) {
+            // Parser and collector exceptions can contain private event data, including in causes.
             throw new AzureEventHubsConnectorException(
                     AzureEventHubsConnectorErrorCode.DESERIALIZATION_FAILED,
-                    "Could not deserialize Event Hubs event at sequence number "
-                            + element.getSequenceNumber(),
-                    e);
+                    "Could not deserialize or emit Event Hubs event at sequence number "
+                            + element.getSequenceNumber());
         }
     }
 }

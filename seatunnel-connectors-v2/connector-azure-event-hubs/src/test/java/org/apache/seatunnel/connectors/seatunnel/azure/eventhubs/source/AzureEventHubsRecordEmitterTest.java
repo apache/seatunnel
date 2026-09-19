@@ -22,7 +22,9 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.exception.AzureEventHubsConnectorException;
+import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 class AzureEventHubsRecordEmitterTest {
+
+    private static final String PRIVATE_PAYLOAD = "SYNTHETIC_PRIVATE_EVENT_123";
 
     @Test
     void emitsThenAdvancesCheckpointPosition() {
@@ -65,8 +69,78 @@ class AzureEventHubsRecordEmitterTest {
                                         state));
 
         Assertions.assertTrue(exception.getMessage().contains("sequence number 10"));
+        assertPayloadIsNotExposed(exception);
         Assertions.assertTrue(collector.rows.isEmpty());
         Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+    }
+
+    @Test
+    void malformedJsonDoesNotExposePayloadOrAdvancePosition() {
+        assertJsonFailureIsSafe("{\"count\":1,\"private\":\"" + PRIVATE_PAYLOAD + "\",broken}");
+    }
+
+    @Test
+    void jsonConversionFailureDoesNotExposePayloadOrAdvancePosition() {
+        assertJsonFailureIsSafe("{\"count\":\"" + PRIVATE_PAYLOAD + "\"}");
+    }
+
+    @Test
+    void collectorFailureDoesNotExposePayloadOrAdvancePosition() {
+        RecordingCollector collector =
+                new RecordingCollector() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        throw new IllegalStateException(PRIVATE_PAYLOAD);
+                    }
+                };
+        AzureEventHubsSourceSplitState state = stateAt(10L);
+        AzureEventHubsRecordEmitter emitter = new AzureEventHubsRecordEmitter(new StringSchema());
+
+        AzureEventHubsConnectorException exception =
+                Assertions.assertThrows(
+                        AzureEventHubsConnectorException.class,
+                        () ->
+                                emitter.emitRecord(
+                                        new EventHubsRecord(
+                                                PRIVATE_PAYLOAD.getBytes(StandardCharsets.UTF_8),
+                                                10L),
+                                        collector,
+                                        state));
+
+        assertPayloadIsNotExposed(exception);
+        Assertions.assertTrue(collector.rows.isEmpty());
+        Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+    }
+
+    private void assertJsonFailureIsSafe(String payload) {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"count"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        AzureEventHubsRecordEmitter emitter =
+                new AzureEventHubsRecordEmitter(
+                        new JsonDeserializationSchema(false, false, rowType));
+        RecordingCollector collector = new RecordingCollector();
+        AzureEventHubsSourceSplitState state = stateAt(10L);
+
+        AzureEventHubsConnectorException exception =
+                Assertions.assertThrows(
+                        AzureEventHubsConnectorException.class,
+                        () ->
+                                emitter.emitRecord(
+                                        new EventHubsRecord(
+                                                payload.getBytes(StandardCharsets.UTF_8), 10L),
+                                        collector,
+                                        state));
+
+        assertPayloadIsNotExposed(exception);
+        Assertions.assertTrue(collector.rows.isEmpty());
+        Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+    }
+
+    private void assertPayloadIsNotExposed(AzureEventHubsConnectorException exception) {
+        Assertions.assertTrue(exception.getMessage().contains("sequence number 10"));
+        Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains(PRIVATE_PAYLOAD));
+        Assertions.assertNull(exception.getCause());
     }
 
     @Test
@@ -123,7 +197,7 @@ class AzureEventHubsRecordEmitterTest {
     private static class FailingSchema extends StringSchema {
         @Override
         public SeaTunnelRow deserialize(byte[] message) throws IOException {
-            throw new IOException("invalid body");
+            throw new IOException("invalid body: " + PRIVATE_PAYLOAD);
         }
     }
 

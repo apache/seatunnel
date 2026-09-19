@@ -110,6 +110,8 @@ The connector can run without checkpointing, but a task or job restart then appl
 
 If Event Hubs retention removes a checkpointed sequence before restore, the source fails instead of silently resetting to `earliest` or `latest`. Invalid JSON or text payloads also fail the source task; the last completed checkpoint determines the replay position.
 
+Deserialization and row-emission errors report the event sequence number without retaining the original exception message or cause, which may contain private event data. The failed event does not advance the checkpointed position.
+
 ## Retry And Failure Behavior
 
 The Azure SDK applies its built-in AMQP retry policy. If the SDK exhausts those retries, the source task fails and SeaTunnel job recovery resumes each partition from its last completed checkpoint. This connector version does not expose Azure SDK retry or backoff settings.
