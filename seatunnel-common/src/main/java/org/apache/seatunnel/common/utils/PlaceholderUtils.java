@@ -20,6 +20,8 @@ package org.apache.seatunnel.common.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.util.Map;
 import java.util.Objects;
 import java.util.function.Predicate;
@@ -29,6 +31,7 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.common.utils.ConfigValueUtils.parseValue;
 
+@Slf4j
 public class PlaceholderUtils {
 
     public static final String PLACEHOLDER_STARTER = "${";
@@ -165,7 +168,7 @@ public class PlaceholderUtils {
                 boolean prevHasDefault = (existingDefault != null);
 
                 if (prevHasDefault != hasDefault) {
-                    throw new IllegalArgumentException(
+                    log.warn(
                             String.format(
                                     "Inconsistent placeholder usage for key '%s'. "
                                             + "It is used with a default value in one place and without a default value in another. "
@@ -179,7 +182,7 @@ public class PlaceholderUtils {
                         Object currObj = parseValue(defaultValue);
 
                         if (!existingObj.equals(currObj)) {
-                            throw new IllegalArgumentException(
+                            log.warn(
                                     String.format(
                                             "Duplicate placeholder key '%s' with conflicting default values. "
                                                     + "Existing: '%s', New: '%s'. Please ensure the exact same default value is used.",
