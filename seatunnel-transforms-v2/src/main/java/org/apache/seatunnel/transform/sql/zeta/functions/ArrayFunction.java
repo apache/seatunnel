@@ -103,6 +103,10 @@ public class ArrayFunction {
         throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
     }
 
+    /**
+     * Select one ordering for the whole array: exact long or decimal comparison for uniform
+     * representations, and the existing double comparison for floating-point or mixed values.
+     */
     private static Comparator<Number> numericComparator(Object[] values) {
         boolean integral = true;
         boolean decimal = true;
