@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.JdbcDataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.AbstractJdbcSourceChunkSplitter;
+import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkRange;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlTypeUtils;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlUtils;
 
@@ -33,6 +34,9 @@ import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /** The {@code ChunkSplitter} used to split table into a set of chunks for JDBC data source. */
 @Slf4j
@@ -91,5 +95,125 @@ public class MySqlChunkSplitter extends AbstractJdbcSourceChunkSplitter {
     @Override
     public SeaTunnelDataType<?> fromDbzColumn(Column splitColumn) {
         return MySqlTypeUtils.convertFromColumn(splitColumn, dbzConnectorConfig);
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Multi-column composite primary key overrides
+    // ------------------------------------------------------------------------------------------
+
+    @Override
+    protected List<Column> getSplitColumns(
+            JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
+            throws SQLException {
+        Table table = dialect.queryTableSchema(jdbc, tableId).getTable();
+        return MySqlUtils.getSplitColumns(table);
+    }
+
+    @Override
+    protected Object[] queryMinMaxMulti(
+            JdbcConnection jdbc, TableId tableId, List<Column> splitColumns) throws SQLException {
+        return MySqlUtils.queryMinMaxMulti(jdbc, tableId, splitColumns);
+    }
+
+    @Override
+    protected Object[] queryNextChunkMaxMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            int chunkSize,
+            Object[] includedLowerBound)
+            throws SQLException {
+        return MySqlUtils.queryNextChunkMaxMulti(
+                jdbc, tableId, splitColumns, chunkSize, includedLowerBound);
+    }
+
+    @Override
+    protected Object[] queryMinMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            Object[] excludedLowerBound)
+            throws SQLException {
+        return MySqlUtils.queryMinMulti(jdbc, tableId, splitColumns, excludedLowerBound);
+    }
+
+    @Override
+    protected SeaTunnelRowType getSplitType(List<Column> splitColumns) {
+        return MySqlUtils.getSplitType(splitColumns, dbzConnectorConfig);
+    }
+
+    @Override
+    protected List<ChunkRange> splitUnevenlySizedChunksMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            Object[] min,
+            Object[] max,
+            int chunkSize)
+            throws SQLException {
+        log.info(
+                "Use unevenly-sized chunks for table {} with composite key, the chunk size is {}",
+                tableId,
+                chunkSize);
+        final List<ChunkRange> splits = new ArrayList<>();
+        Object[] chunkStart = null;
+        Object[] chunkEnd =
+                nextChunkEndMulti(jdbc, min, tableId, splitColumns, max, chunkSize);
+        int count = 0;
+        while (chunkEnd != null && compareObjectArrays(chunkEnd, max) <= 0) {
+            splits.add(ChunkRange.of(chunkStart, chunkEnd));
+            maySleep(count++, tableId);
+            chunkStart = chunkEnd;
+            chunkEnd =
+                    nextChunkEndMulti(
+                            jdbc, chunkEnd, tableId, splitColumns, max, chunkSize);
+        }
+        splits.add(ChunkRange.of(chunkStart, null));
+        return splits;
+    }
+
+    private Object[] nextChunkEndMulti(
+            JdbcConnection jdbc,
+            Object[] previousChunkEnd,
+            TableId tableId,
+            List<Column> splitColumns,
+            Object[] max,
+            int chunkSize)
+            throws SQLException {
+        Object[] chunkEnd =
+                queryNextChunkMaxMulti(jdbc, tableId, splitColumns, chunkSize, previousChunkEnd);
+        if (chunkEnd != null && Arrays.equals(previousChunkEnd, chunkEnd)) {
+            chunkEnd = queryMinMulti(jdbc, tableId, splitColumns, chunkEnd);
+        }
+        if (chunkEnd == null || compareObjectArrays(chunkEnd, max) >= 0) {
+            return null;
+        }
+        return chunkEnd;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private static int compareObjectArrays(Object[] a, Object[] b) {
+        for (int i = 0; i < Math.min(a.length, b.length); i++) {
+            int cmp = ((Comparable) a[i]).compareTo(b[i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return Integer.compare(a.length, b.length);
+    }
+
+    @SuppressWarnings("MagicNumber")
+    private static void maySleep(int count, TableId tableId) {
+        if (count % 10 == 0) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                // nothing to do
+            }
+            log.info(
+                    "MySqlChunkSplitter has split {} chunks for table {}",
+                    count,
+                    tableId);
+        }
     }
 }
