@@ -42,6 +42,12 @@ for parallel reads.
 | table_list      | Array  | no                                | -             | List of tables to read. Use this instead of `table_name` to read multiple MaxCompute tables in one job.              |
 | tunnel_endpoint | string | no                                | -             | Custom endpoint URL for the MaxCompute Tunnel service. When not set, the endpoint is auto-inferred from the region. |
 | tunnel_name     | string | no                                | -             | Tunnel Quota name used for exclusive resource groups. Requires both `endpoint` and `tunnel_endpoint` to be VPC endpoints. |
+| connect_timeout_ms        | long | no | 10000  | HTTP connect timeout for the ODPS REST client (metadata/catalog calls) in ms. Default 10000 (10s).     |
+| read_timeout_ms           | long | no | 120000 | HTTP read timeout for the ODPS REST client (metadata/catalog calls) in ms. Default 120000 (120s).      |
+| retry_times               | int  | no | 4      | Max retry times for the ODPS REST client. Default 4.                                                  |
+| tunnel_connect_timeout_ms | long | no | 180000 | HTTP connect timeout for the Tunnel client (data download) in ms. Default 180000 (180s).               |
+| tunnel_read_timeout_ms    | long | no | 300000 | HTTP read timeout for the Tunnel client (data download) in ms. Default 300000 (300s).                  |
+| tunnel_retry_times        | int  | no | 4      | Max retry times for the Tunnel client. Default 4.                                                       |
 | schema          | config | no                                | -             | Schema of the source table. When `read_columns` is not set, all schema fields are read.                             |
 | common-options  |        | no                                | -             | Source plugin common parameters, such as `plugin_output`.                                                           |
 
@@ -137,6 +143,38 @@ Example values:
 - `your_tunnel_quota_name`
 
 Default: Not set (use default quota)
+
+> **Client timeout & retry**
+> MaxCompute has two HTTP clients. The **ODPS REST client** handles the control plane
+> (table/schema lookup, catalog listing); tune it with `connect_timeout_ms`,
+> `read_timeout_ms`, `retry_times`. The **Tunnel client** handles the data plane
+> (bulk row download); tune it with the `tunnel_*` options. Setting the REST options
+> alone does **not** change the Tunnel client's timeouts.
+> Millisecond timeout values are converted to whole seconds; the minimum is `1000`.
+
+### connect_timeout_ms [long]
+
+`connect_timeout_ms` HTTP connect timeout for the MaxCompute ODPS REST client, which handles metadata and catalog calls (table/schema lookup, table listing). In milliseconds. Default `10000` (10 seconds).
+
+### read_timeout_ms [long]
+
+`read_timeout_ms` HTTP read timeout for the ODPS REST client (metadata/catalog calls) in milliseconds. Default `120000` (120 seconds). Raise this if listing a project with many tables or fetching very wide schemas times out.
+
+### retry_times [int]
+
+`retry_times` Maximum retry times for the ODPS REST client on transient failures. Default `4`.
+
+### tunnel_connect_timeout_ms [long]
+
+`tunnel_connect_timeout_ms` HTTP connect timeout for the Tunnel client, which performs bulk data download. In milliseconds. Default `180000` (180 seconds).
+
+### tunnel_read_timeout_ms [long]
+
+`tunnel_read_timeout_ms` HTTP read timeout for the Tunnel client (bulk data download) in milliseconds. Default `300000` (300 seconds). Raise this when reading large tables or large partitions whose single read requests exceed 5 minutes.
+
+### tunnel_retry_times [int]
+
+`tunnel_retry_times` Maximum retry times for the Tunnel client on transient failures. Default `4`.
 
 ### common options
 
