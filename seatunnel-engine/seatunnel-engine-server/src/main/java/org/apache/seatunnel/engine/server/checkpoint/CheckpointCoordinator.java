@@ -1001,8 +1001,23 @@ public class CheckpointCoordinator {
                                             executorService)
                                     .thenApplyAsync(this::triggerCheckpoint, executorService);
 
+                    // completableFutureArray only resolves once every per-task barrier RPC has
+                    // been *sent* (triggerCheckpoint returns as soon as all
+                    // sendOperationToMemberNode calls have been issued); it does not wait for any
+                    // RPC to actually be acknowledged. Historically the per-task
+                    // InvocationFutures returned by triggerCheckpoint were never observed beyond
+                    // this point: allOf(completableFutureArray) wrapped the single
+                    // array-producing future as one varargs element (the type system accepts this
+                    // because InvocationFuture extends the JDK CompletableFuture), so it resolved
+                    // the instant the array existed and never inspected any inner RPC outcome. A
+                    // barrier RPC that later failed permanently (target member left, or a
+                    // non-retryable Hazelcast operation failure) was therefore a dead letter,
+                    // silently relying on the checkpoint.timeout backstop scheduled below to
+                    // eventually notice the stall and report a generic CHECKPOINT_EXPIRED.
+                    // Capture the real per-task array here so it can be observed below.
+                    InvocationFuture<?>[] barrierFutures;
                     try {
-                        CompletableFuture.allOf(completableFutureArray).get();
+                        barrierFutures = completableFutureArray.get();
                     } catch (InterruptedException e) {
                         handleCoordinatorError(
                                 "triggering checkpoint barrier has been interrupted",
@@ -1016,6 +1031,48 @@ public class CheckpointCoordinator {
                                 CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
                         return;
                     }
+                    // Observe the real per-task barrier dispatch futures asynchronously so a
+                    // dispatch failure is reported immediately with its real cause, instead of
+                    // being silently dropped until the checkpoint.timeout backstop below fires.
+                    // This must stay non-blocking: the checkpoint.timeout scheduled task is the
+                    // only backstop for a barrier RPC that never completes at all (member hang, or
+                    // a network partition before Hazelcast's own retries give up), so this method
+                    // must still return promptly and let that timeout get scheduled below.
+                    // Blocking here would also risk executor starvation: executorService is
+                    // ultimately the SynchronousQueue-backed pool created by
+                    // CoordinatorService#createCoordinatorExecutor, which rejects new work once
+                    // its threads are busy, so a blocking join on this thread could starve other
+                    // pipelines' checkpoint coordination sharing the same pool.
+                    CompletableFuture.allOf(barrierFutures)
+                            .whenCompleteAsync(
+                                    (ignored, throwable) -> {
+                                        if (throwable == null) {
+                                            return;
+                                        }
+                                        // Guard against a stale callback: by the time a slow RPC
+                                        // finally fails, this checkpoint may already have
+                                        // completed and been removed from pendingCheckpoints (see
+                                        // completePendingCheckpoint), or the whole coordinator may
+                                        // already be closed. handleCoordinatorError itself is a
+                                        // no-op once checkpointCoordinatorFuture is done, but
+                                        // pendingCheckpoints is keyed per checkpoint id, so check
+                                        // it explicitly to avoid failing the coordinator because
+                                        // of a late failure that belongs to an already completed
+                                        // checkpoint.
+                                        if (!pendingCheckpoints.containsKey(
+                                                pendingCheckpoint.getCheckpointId())) {
+                                            LOG.info(
+                                                    "checkpoint {} barrier dispatch failed after the checkpoint was already closed, ignore: {}",
+                                                    pendingCheckpoint.getCheckpointId(),
+                                                    ExceptionUtils.getMessage(throwable));
+                                            return;
+                                        }
+                                        handleCoordinatorError(
+                                                "checkpoint barrier dispatch failed",
+                                                throwable,
+                                                CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR);
+                                    },
+                                    executorService);
                     if (coordinatorConfig.isCheckpointEnable()) {
                         LOG.debug(
                                 "Start a scheduled task to prevent checkpoint timeouts for barrier {}",
