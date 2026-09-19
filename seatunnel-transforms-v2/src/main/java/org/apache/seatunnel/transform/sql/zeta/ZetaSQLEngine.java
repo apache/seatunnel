@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
+import org.apache.seatunnel.transform.sql.SQLOutputSlot;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -34,6 +35,12 @@ import org.slf4j.LoggerFactory;
 
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
+import net.sf.jsqlparser.expression.operators.relational.ComparisonOperator;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.MinorThan;
+import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
 import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
@@ -50,8 +57,10 @@ import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 public class ZetaSQLEngine implements SQLEngine {
@@ -75,6 +84,12 @@ public class ZetaSQLEngine implements SQLEngine {
     private Integer allColumnsCount = null;
     private boolean udfOpened;
 
+    /**
+     * Input columns referenced by the query text outside of star projections, resolved against the
+     * input row type at {@link #init}. Used by schema-change translation.
+     */
+    private Set<String> referencedInputColumns = Collections.emptySet();
+
     public ZetaSQLEngine() {}
 
     @Override
@@ -96,6 +111,7 @@ public class ZetaSQLEngine implements SQLEngine {
         this.zetaSQLFilter = new ZetaSQLFilter(zetaSQLFunction, zetaSQLType);
 
         parseSQL();
+        this.referencedInputColumns = collectReferencedInputColumns();
     }
 
     protected List<ZetaUDF> loadUDFs() {
@@ -378,6 +394,231 @@ public class ZetaSQLEngine implements SQLEngine {
                 udfList.get(i).close();
             } catch (Exception e) {
                 log.warn("Close udf {} failed", udfList.get(i).functionName(), e);
+            }
+        }
+    }
+
+    @Override
+    public Set<String> referencedInputColumns() {
+        return Collections.unmodifiableSet(new LinkedHashSet<>(referencedInputColumns));
+    }
+
+    /**
+     * Describes the output columns in the same order {@link #typeMapping(List)} produces them: one
+     * star slot per input column for every {@code *} item, a reference slot for a select item that
+     * is exactly an input column, an expression slot otherwise, and one lateral view slot for every
+     * lateral view alias that is not already a select column.
+     */
+    @Override
+    public List<SQLOutputSlot> describeOutputSlots() {
+        List<SelectItem<?>> selectItems = selectBody.getSelectItems();
+        List<String> inputColumnNames = Arrays.asList(inputRowType.getFieldNames());
+        List<SQLOutputSlot> slots = new ArrayList<>();
+        for (int itemIndex = 0; itemIndex < selectItems.size(); itemIndex++) {
+            SelectItem<?> selectItem = selectItems.get(itemIndex);
+            Expression expression = selectItem.getExpression();
+            if (expression instanceof AllColumns) {
+                for (String inputColumn : inputColumnNames) {
+                    slots.add(SQLOutputSlot.star(itemIndex, cleanEscape(inputColumn), inputColumn));
+                }
+                continue;
+            }
+            String name;
+            if (selectItem.getAlias() != null) {
+                name = cleanEscape(selectItem.getAlias().getName());
+            } else if (expression instanceof Column) {
+                name = cleanEscape(((Column) expression).getColumnName());
+            } else {
+                name = cleanEscape(expression.toString());
+            }
+            if (expression instanceof Column
+                    && inputColumnNames.contains(((Column) expression).getColumnName())) {
+                slots.add(
+                        SQLOutputSlot.reference(
+                                itemIndex, name, ((Column) expression).getColumnName()));
+            } else {
+                slots.add(
+                        SQLOutputSlot.expression(
+                                itemIndex, name, new ArrayList<>(referencedColumnsOf(expression))));
+            }
+        }
+        List<LateralView> lateralViews = selectBody.getLateralViews();
+        if (!CollectionUtils.isEmpty(lateralViews)) {
+            for (LateralView lateralView : lateralViews) {
+                String alias = lateralView.getColumnAlias().getName();
+                boolean present = false;
+                for (SQLOutputSlot slot : slots) {
+                    if (slot.getName().equals(alias)) {
+                        present = true;
+                        break;
+                    }
+                }
+                if (!present) {
+                    slots.add(
+                            SQLOutputSlot.lateralView(
+                                    alias,
+                                    new ArrayList<>(
+                                            referencedColumnsOf(
+                                                    lateralView.getGeneratorFunction()))));
+                }
+            }
+        }
+        return slots;
+    }
+
+    /**
+     * Rejects ordering comparisons in WHERE whose operands belong to different type families,
+     * because {@link ZetaSQLFilter} throws for them at row time. Equality, LIKE, IN and function
+     * calls are not checked here; they do not throw on family mismatches.
+     */
+    @Override
+    public void validateFilterTypes() {
+        Expression where = selectBody.getWhere();
+        if (where == null) {
+            return;
+        }
+        where.accept(
+                new ExpressionVisitorAdapter() {
+                    @Override
+                    public void visit(GreaterThan expr) {
+                        checkComparison(expr);
+                        super.visit(expr);
+                    }
+
+                    @Override
+                    public void visit(GreaterThanEquals expr) {
+                        checkComparison(expr);
+                        super.visit(expr);
+                    }
+
+                    @Override
+                    public void visit(MinorThan expr) {
+                        checkComparison(expr);
+                        super.visit(expr);
+                    }
+
+                    @Override
+                    public void visit(MinorThanEquals expr) {
+                        checkComparison(expr);
+                        super.visit(expr);
+                    }
+                });
+    }
+
+    /**
+     * Input columns an expression references, resolved with the rules of {@link ZetaSQLType}: a
+     * direct match against the input row type, with escape characters stripped, or the first
+     * segment of a nested struct path. Names that resolve to nothing, such as the {@code true} and
+     * {@code false} pseudo columns, are ignored.
+     */
+    Set<String> referencedColumnsOf(Expression expression) {
+        Set<String> referenced = new LinkedHashSet<>();
+        if (expression == null) {
+            return referenced;
+        }
+        expression.accept(
+                new ExpressionVisitorAdapter() {
+                    @Override
+                    public void visit(Column column) {
+                        String resolved = resolveInputColumn(column);
+                        if (resolved != null) {
+                            referenced.add(resolved);
+                        }
+                    }
+                });
+        return referenced;
+    }
+
+    private Set<String> collectReferencedInputColumns() {
+        Set<String> referenced = new LinkedHashSet<>();
+        for (SelectItem<?> selectItem : selectBody.getSelectItems()) {
+            if (!(selectItem.getExpression() instanceof AllColumns)) {
+                referenced.addAll(referencedColumnsOf(selectItem.getExpression()));
+            }
+        }
+        referenced.addAll(referencedColumnsOf(selectBody.getWhere()));
+        List<LateralView> lateralViews = selectBody.getLateralViews();
+        if (!CollectionUtils.isEmpty(lateralViews)) {
+            for (LateralView lateralView : lateralViews) {
+                referenced.addAll(referencedColumnsOf(lateralView.getGeneratorFunction()));
+            }
+        }
+        return referenced;
+    }
+
+    private void checkComparison(ComparisonOperator comparison) {
+        TypeFamily left = familyOf(comparison.getLeftExpression());
+        TypeFamily right = familyOf(comparison.getRightExpression());
+        if (left != null && right != null && left != right) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "comparison '%s' in WHERE is no longer type compatible: left is %s, right is %s",
+                            comparison, left, right));
+        }
+    }
+
+    private TypeFamily familyOf(Expression expression) {
+        try {
+            return TypeFamily.of(zetaSQLType.getExpressionType(expression));
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private String resolveInputColumn(Column column) {
+        int index = indexOfInputColumn(column.getColumnName());
+        if (index >= 0) {
+            return inputRowType.getFieldName(index);
+        }
+        String[] path = column.getFullyQualifiedName().split("\\.");
+        if (path.length > 1) {
+            int rootIndex = indexOfInputColumn(path[0]);
+            if (rootIndex >= 0) {
+                return inputRowType.getFieldName(rootIndex);
+            }
+        }
+        return null;
+    }
+
+    private int indexOfInputColumn(String name) {
+        int index = inputRowType.indexOf(name, false);
+        if (index == -1 && name.startsWith(ESCAPE_IDENTIFIER) && name.endsWith(ESCAPE_IDENTIFIER)) {
+            index = inputRowType.indexOf(name.substring(1, name.length() - 1), false);
+        }
+        return index;
+    }
+
+    /** Type families that {@link ZetaSQLFilter} can compare with each other at row time. */
+    private enum TypeFamily {
+        NUMERIC,
+        STRING,
+        TEMPORAL,
+        BOOLEAN;
+
+        private static TypeFamily of(SeaTunnelDataType<?> type) {
+            if (type == null || type.getSqlType() == null) {
+                return null;
+            }
+            switch (type.getSqlType()) {
+                case TINYINT:
+                case SMALLINT:
+                case INT:
+                case BIGINT:
+                case FLOAT:
+                case DOUBLE:
+                case DECIMAL:
+                    return NUMERIC;
+                case STRING:
+                    return STRING;
+                case DATE:
+                case TIME:
+                case TIMESTAMP:
+                case TIMESTAMP_TZ:
+                    return TEMPORAL;
+                case BOOLEAN:
+                    return BOOLEAN;
+                default:
+                    return null;
             }
         }
     }
