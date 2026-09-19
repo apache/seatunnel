@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 > Elasticsearch source 连接器
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 简介
 
 支持读取 Elasticsearch2.x 版本和 8.x 版本之间的数据
@@ -16,39 +22,40 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义的分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读](../../introduction/concepts/connector-v2-features.md)
 
 ## 配置参数选项
 
-| 参数名称                | 类型    | 是否必须 | 默认值或者描述                             |
-| ----------------------- | ------- | -------- |-------------------------------------|
-| hosts                   | 数组    | 是       | -                                   |
-| auth_type               | string  | 否       | basic                               |
-| username                | string  | 否       | -                                   |
-| password                | string  | 否       | -                                   |
-| auth.api_key_id         | string  | 否       | -                                   |
-| auth.api_key            | string  | 否       | -                                   |
-| auth.api_key_encoded    | string  | 否       | -                                   |
-| index                   | string  | 否       | 未配置 `index_list` 时必须配置              |
-| index_list              | array   | 否       | 用来定义多索引同步任务                         |
-| source                  | array   | 否       | -                                   |
-| query                   | json    | 否       | {"match_all": {}}                   |
-| search_type             | enum    | 否       | 查询类型，SQL 或 DSL，默认 DSL              |
-| search_api_type         | enum    | 否       | 分页 API 类型，SCROLL 或 PIT，默认 SCROLL    |
-| sql_query               | string  | 否       | SQL 查询语句，当 search_type 为 SQL 时必须    |
-| scroll_time             | string  | 否       | 1m                                  |
-| scroll_size             | int     | 否       | 100                                 |
-| tls_verify_certificate  | boolean | 否       | true                                |
-| tls_verify_hostname     | boolean | 否       | true                                |
-| array_column            | map     | 否       |                                     |
-| tls_keystore_path       | string  | 否       | -                                   |
-| tls_keystore_password   | string  | 否       | -                                   |
-| tls_truststore_path     | string  | 否       | -                                   |
-| tls_truststore_password | string  | 否       | -                                   |
-| pit_keep_alive          | long    | 否       | 60000 (1 minute)                    |
-| pit_batch_size          | int     | 否       | 100                                 |
-| slice_max               | int     | 否       | 1（SCROLL 需 ES >= 5.0，PIT 需 ES >= 7.10） |
-| runtime_fields          | array   | 否       | -                                   |
-| common-options          |         | 否       | -                                   |
+| 参数名称                | 类型    | 是否必须 | 默认值 | 描述 |
+| ----------------------- | ------- | -------- | ----- | ---- |
+| hosts                   | 数组    | 是       | -     | Elasticsearch 集群 HTTP 地址，格式 `host:port`，可配置多个，例如 `["host1:9200", "host2:9200"]`。 |
+| auth_type               | string  | 否       | basic | 认证方式。支持 `basic`、`api_key`、`api_key_encoded`。 |
+| username                | string  | 否       | -     | 基本认证的用户名（x-pack 用户名）。`auth_type=basic` 时必填。 |
+| password                | string  | 否       | -     | 基本认证的密码（x-pack 密码）。`auth_type=basic` 时必填。 |
+| auth.api_key_id         | string  | 否       | -     | Elasticsearch API Key ID。`auth_type=api_key` 时必填。 |
+| auth.api_key            | string  | 否       | -     | Elasticsearch API Key secret。`auth_type=api_key` 时必填。 |
+| auth.api_key_encoded    | string  | 否       | -     | Base64 编码的 API Key（格式 `base64(id:api_key)`）。`auth_type=api_key_encoded` 时必填。 |
+| index                   | string  | 否       | 未配置 `index_list` 时必须配置 | 单个 Elasticsearch 索引或索引模式，支持 `*` 模糊匹配。 |
+| index_list              | array   | 否       | 用来定义多索引同步任务 | 要读取的索引列表，每个条目可以独立覆盖 `query`、`source`、`schema`、`scroll_size`、`scroll_time`。 |
+| source                  | array   | 否       | -     | 要投影的文档字段。使用别名 `_id` 可以读取文档 id。未配置时自动从索引 mapping 中获取。 |
+| query                   | json    | 否       | `{"match_all": {}}` | Elasticsearch DSL 查询体，控制读取的文档范围。 |
+| search_type             | enum    | 否       | DSL   | 查询类型：`DSL`（默认）或 `SQL`。 |
+| search_api_type         | enum    | 否       | SCROLL | 分页 API：`SCROLL`（默认）或 `PIT`。 |
+| sql_query               | string  | 否       | `search_type=SQL` 时必填 | 当 `search_type=SQL` 时使用的 SQL 查询，不支持 map 和 array 类型。 |
+| scroll_time             | string  | 否       | 1m    | Elasticsearch scroll 上下文存活时间。 |
+| scroll_size             | int     | 否       | 100   | 每次 scroll 请求返回的最大命中数。 |
+| tls_verify_certificate  | boolean | 否       | true  | 是否校验 HTTPS 证书。 |
+| tls_verify_hostname     | boolean | 否       | true  | 是否校验 HTTPS 主机名。 |
+| array_column            | map     | 否       | -     | array 类型字段到元素类型的映射（如 `c_array = "array<tinyint>"`）。 |
+| tls_keystore_path       | string  | 否       | -     | PEM 或 JKS key store 的路径，运行 SeaTunnel 的用户必须可读。 |
+| tls_keystore_password   | string  | 否       | -     | `tls_keystore_path` 对应 key store 的密码。 |
+| tls_truststore_path     | string  | 否       | -     | PEM 或 JKS trust store 的路径，运行 SeaTunnel 的用户必须可读。 |
+| tls_truststore_password | string  | 否       | -     | `tls_truststore_path` 对应 trust store 的密码。 |
+| pit_keep_alive          | long    | 否       | 60000 (1 minute) | PIT 上下文保留时长（毫秒），仅当 `search_api_type=PIT` 时生效。 |
+| pit_batch_size          | int     | 否       | 100   | 每次 PIT 搜索请求返回的最大命中数。 |
+| slice_max               | int     | 否       | 1（SCROLL 需 ES >= 5.0，PIT 需 ES >= 7.10） | 用于将单个索引拆分为多个切片并行读取，仅对 SCROLL/PIT 生效。`search_type=SQL` 时被忽略。 |
+| runtime_fields          | array   | 否       | -     | 在查询时计算的运行时字段（Elasticsearch 7.11+），每个条目至少包含 `name`、`type`、`script`。 |
+| common-options          |         | 否       | -     | 源插件常用参数，详见 [源通用选项](../common-options/source-common-options.md)。 |
 
 ### hosts [array]
 
