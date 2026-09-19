@@ -65,6 +65,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1018,6 +1019,56 @@ public class CheckpointCoordinatorTest
             Mockito.verify(spy, Mockito.times(1))
                     .scheduleTriggerPendingCheckpoint(
                             Mockito.eq(CheckpointType.CHECKPOINT_TYPE), Mockito.anyLong());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCancelDoesNotRecreateScheduler() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            coordinator.cancelCheckpoint().join();
+
+            ScheduledExecutorService scheduler =
+                    (ScheduledExecutorService)
+                            ReflectionUtils.getField(coordinator, "scheduler")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "scheduler field not found"));
+            Assertions.assertTrue(
+                    scheduler.isShutdown(),
+                    "terminal cleanup must not replace the shutdown checkpoint scheduler");
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * The other half of the same invariant: a master-failover reset does need the scheduler back,
+     * so this pins that {@code CHECKPOINT_COORDINATOR_RESET} still leaves a live one rather than
+     * relying on unrelated tests tripping over it.
+     */
+    @Test
+    void testResetRecreatesLiveScheduler() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+
+            coordinator.restoreCoordinator(true);
+
+            ScheduledExecutorService scheduler =
+                    (ScheduledExecutorService)
+                            ReflectionUtils.getField(coordinator, "scheduler")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "scheduler field not found"));
+            Assertions.assertFalse(
+                    scheduler.isShutdown(),
+                    "a coordinator reset must leave a schedulable checkpoint scheduler behind");
         } finally {
             executorService.shutdownNow();
         }
