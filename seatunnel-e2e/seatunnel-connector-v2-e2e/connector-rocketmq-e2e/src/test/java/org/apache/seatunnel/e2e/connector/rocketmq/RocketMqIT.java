@@ -82,6 +82,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -494,6 +495,20 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(
                                     producer.fetchPublishMessageQueues(topic).isEmpty(),
                                     "Topic route is not ready: " + topic);
+                            // The producer above may answer from its own route cache, primed by
+                            // createTopic() against the broker, before the name server has
+                            // published the route. The connector resolves routes through a
+                            // fresh admin client (RocketMqAdminUtil#offsetTopics ->
+                            // examineTopicStats), which is exactly what failed with
+                            // "No topic route info in name server" in CI, so require the route
+                            // to be visible on that path too before returning.
+                            Assertions.assertFalse(
+                                    RocketMqAdminUtil.offsetTopics(
+                                                    newConfiguration(),
+                                                    Collections.singletonList(topic))
+                                            .get(0)
+                                            .isEmpty(),
+                                    "Topic route is not visible in the name server: " + topic);
                         });
     }
 
@@ -761,10 +776,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         + (srcEndAfterAll - srcEndBeforeStart));
 
         // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after both dynamic topics are visible again. The sink
-        // topic needs this as much as the source one: the post-restore poll below reads it
-        // through getTopicMaxOffset, and a lost route there stalls that poll rather than the
-        // restore itself.
+        // for a savepoint. Restore only after both dynamic topics are visible again: the restored
+        // job's sink publishes to sinkTopic first, and a dropped sink route fails every send with
+        // "No topic route info in name server" until the route is re-published.
         waitForTopicRoute(sourceTopic);
         waitForTopicRoute(sinkTopic);
         CompletableFuture.runAsync(
@@ -818,8 +832,26 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 15, restoreCount, "Expected 15 '_restore_' messages, got: " + restoreCount);
     }
 
+    /**
+     * Reads every message stored in the topic from {@code fromOffset}, counting each stored message
+     * exactly once.
+     *
+     * <p>Messages are keyed by their physical position (broker, queue id, queue offset) because
+     * {@code DefaultLitePullConsumer} in rocketmq-client 4.9.4 can hand the same stored message to
+     * {@code poll()} twice around {@code seek()}: the pull task started by {@code assign()} may
+     * already be past its cancellation check when {@code seek()} cancels it, and once the
+     * replacement task has consumed the seek offset the stale batch (up to {@code pullBatchSize}
+     * messages from the pre-seek position) is still put into the consumer's cache. That made the
+     * restore test report phantom duplicates while the sink topic's max offset proved it held
+     * exactly the expected number of messages. A duplicate really written by the connector occupies
+     * its own queue offset, so it is still counted here.
+     *
+     * @param topicName topic to read
+     * @param fromOffset lowest queue offset to read from, clamped to each queue's min offset
+     * @return message bodies in first-seen order, one entry per stored message
+     */
     private List<String> pollMessagesFromOffset(String topicName, long fromOffset) {
-        List<String> result = new ArrayList<>();
+        Map<String, String> bodyByPosition = new LinkedHashMap<>();
         try {
             DefaultLitePullConsumer consumer =
                     RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
@@ -848,14 +880,21 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     break;
                 }
                 for (MessageExt msg : messages) {
-                    result.add(new String(msg.getBody(), StandardCharsets.UTF_8));
+                    String position =
+                            msg.getBrokerName()
+                                    + "#"
+                                    + msg.getQueueId()
+                                    + "#"
+                                    + msg.getQueueOffset();
+                    bodyByPosition.putIfAbsent(
+                            position, new String(msg.getBody(), StandardCharsets.UTF_8));
                 }
             }
             consumer.shutdown();
         } catch (Exception e) {
             log.warn("Failed to poll messages from {}: {}", topicName, e.getMessage(), e);
         }
-        return result;
+        return new ArrayList<>(bodyByPosition.values());
     }
 
     /**
