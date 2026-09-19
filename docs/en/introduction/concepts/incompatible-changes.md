@@ -5,6 +5,21 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta Coordinator Executor Ownership
+
+The `coordinator-service.core-thread-num` and `max-thread-num` settings now apply to
+new-job admission. Job execution, lifecycle/control callbacks, and master-switch recovery
+use a separate cached executor, and pending-job scheduling uses a dedicated thread.
+The configuration keys and defaults are unchanged.
+
+If you configured a finite `max-thread-num`, it no longer constrains lifecycle workers.
+The lifecycle executor still has an unbounded maximum; neither setting caps running jobs
+or total master threads. Review master capacity and thread monitoring before upgrading.
+Existing `job_thread_pool_*` metrics now cover admission only. The new
+`job_lifecycle_thread_pool_*` metrics expose lifecycle pool size, active workers, completed
+tasks, submitted tasks, queue size, configured sizes, and rejections. Monitor both pools,
+and use JVM/process thread metrics for overall master thread usage.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**

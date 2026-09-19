@@ -51,84 +51,32 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Tier-3 scale/stress E2E for the Zeta engine master's shared {@code CoordinatorService} executor
- * (see {@code tasks/docs/design/zeta-engine-core-extreme-case-e2e-gap-analysis.md}, item L4).
- *
- * <p>{@code CoordinatorService#createCoordinatorExecutor()} builds one node-wide {@code
- * ThreadPoolExecutor} (default {@code core-thread-num=10}, {@code
- * max-thread-num=Integer.MAX_VALUE}, both configurable via {@code
- * ServerConfigOptions.MasterServerConfigOptions}, backed by a {@code SynchronousQueue} -- i.e. zero
- * queue capacity: a submitted task either hands off to an already-idle pool thread or a brand-new
- * thread is spawned immediately, there is no waiting in a buffer) that is shared across every job's
- * pipeline/task state-transition callbacks, checkpoint I/O, and the pending-job scheduler on that
- * node. One pool, no per-job or per-pipeline bound.
- *
- * <p>{@code CoordinatorService#restoreAllRunningJobFromMasterNodeSwitch()} is itself dispatched
- * onto this same executor when a node becomes the new active master, and it fans every job that
- * still needs restoring out onto it in a single unthrottled pass:
- *
- * <pre>
- * needRestoreFromMasterNodeSwitchJobs.stream()
- *     .map(entry -&gt; CompletableFuture.runAsync(() -&gt; restoreJobFromMasterActiveSwitch(...),
- *                                              executorService))
- *     .collect(Collectors.toList());
- * </pre>
- *
- * <p>With N jobs alive on the old master at the moment of failover, this submits N restore tasks to
- * the pool in one tight loop, with no batching or concurrency cap between them. Separately, a
- * systemic pattern across 20+ call sites (including {@code SubPlan#updatePipelineState}, {@code
- * SubPlan#resetPipelineState}, and {@code restoreAllRunningJobFromMasterNodeSwitch} itself) retries
- * IMap writes up to {@code Constant.OPERATION_RETRY_TIME} (30) times at {@code
- * Constant.OPERATION_RETRY_SLEEP} (2000ms) intervals via a blocking {@code Thread.sleep} inside
- * {@code RetryUtils.retryWithException} -- so a retrying callback occupies its executor thread for
- * the whole backoff -- specifically to ride out {@code HazelcastInstanceNotActiveException} /
- * {@code OperationTimeoutException} / {@code RetryableHazelcastException} turbulence during a
- * master switch (see {@code ExceptionUtil#isOperationNeedRetryException}). Because the queue is
- * synchronous and {@code max-thread-num} is unbounded, a mass-simultaneous restore has exactly two
- * possible outcomes: the pool grows to match the burst, or (only if {@code max-thread-num} were
- * ever configured finite) it starts silently dropping callbacks via {@code
- * RejectedExecutionException}. There is no third, graceful-queueing outcome available today.
- *
- * <p>This test builds a small-but-real "mass" event -- {@link #CONCURRENT_JOB_COUNT} concurrent
- * long-running streaming jobs kept alive on a 2-master/1-worker cluster -- kills the active master
- * (the same master-kill technique already used throughout this test family, e.g. {@link
- * SplitClusterPendingJobLifecycleFailoverIT}), and samples the promoted standby's {@code
- * CoordinatorService} executor via the already-public {@code
- * CoordinatorService#getThreadPoolStatusMetrics()} (used elsewhere by this engine for telemetry
- * export; not added by this test) immediately after it takes over. It is deliberately test-only:
- * the assertions document today's real, source-verified behavior -- the pool grows well past its
- * configured core size and is never observed to reject a task -- rather than proposing or requiring
- * a fix.
+ * Restores thirty streaming jobs after a master failover and verifies that lifecycle work
+ * progresses independently of admission. Lifecycle workers remain unbounded while nested blocking
+ * callbacks exist; the admission pool must remain idle on the promoted standby.
  */
 @Slf4j
 public class CoordinatorExecutorMassFailoverStormIT {
 
     private static final String JOB_CONFIG_FILE = "pending_jobs_streaming_lifecycle.conf";
 
-    /**
-     * Number of concurrent long-running streaming jobs kept alive across the master failover.
-     * "Dozens" scale: large enough that the restore fan-out described above clearly and repeatably
-     * pushes the pool past the default {@code core-thread-num=10}, small enough to stay safe on a
-     * shared CI runner. This is a JVM-embedded multi-{@code HazelcastInstance} test (no Docker, no
-     * separate processes), so every one of these jobs' tasks and every coordinator thread they
-     * provoke land in this one test JVM.
-     */
+    // Large enough to exercise restore fan-out while fitting in one CI test JVM.
     private static final int CONCURRENT_JOB_COUNT = 30;
 
     /**
      * Pure CI-runner safety backstop, not a claim that today's design bounds growth in general --
-     * it does not, since {@code max-thread-num} defaults to {@code Integer.MAX_VALUE}. This only
-     * guards against a pathological regression far beyond what {@link #CONCURRENT_JOB_COUNT}
-     * concurrent restores could plausibly need, so a future regression fails this test loudly
-     * instead of quietly spawning an unbounded number of threads on a shared runner.
+     * it does not, since the lifecycle executor has an unbounded maximum. This only guards against
+     * a pathological regression far beyond what {@link #CONCURRENT_JOB_COUNT} concurrent restores
+     * could plausibly need, so a future regression fails this test loudly instead of quietly
+     * spawning an unbounded number of threads on a shared runner.
      */
     private static final int POOL_SIZE_CI_SAFETY_CEILING = 500;
 
     @Test
-    public void testCoordinatorExecutorGrowsPastCoreDuringMassFailoverRestore() throws Exception {
+    public void testMassFailoverRestoreDoesNotOccupyAdmissionWorkers() throws Exception {
         String testClusterName =
                 "CoordinatorExecutorMassFailoverStormIT_"
-                        + "testCoordinatorExecutorGrowsPastCoreDuringMassFailoverRestore";
+                        + "testMassFailoverRestoreDoesNotOccupyAdmissionWorkers";
 
         HazelcastInstanceImpl masterNode1 = null;
         HazelcastInstanceImpl masterNode2 = null;
@@ -196,87 +144,37 @@ public class CoordinatorExecutorMassFailoverStormIT {
                                         "Standby master should become active after failover");
                             });
 
-            // Sample the promoted standby's coordinator executor in a tight loop right after it
-            // takes over. restoreAllRunningJobFromMasterNodeSwitch() fans every not-yet-restored
-            // job out onto this exact executor in one unthrottled
-            // stream().map(CompletableFuture.runAsync(...)) pass, so the burst begins within
-            // (well under) a second of isCoordinatorActive() turning true and is over long before
-            // the pool's 60-second keep-alive would reclaim any idle thread it spawned -- this
-            // loop has to run now, immediately, not after some other setup.
             CoordinatorService standbyCoordinatorService = getCoordinatorService(standbyMaster);
-            int corePoolSize =
-                    standbyCoordinatorService.getThreadPoolStatusMetrics().getCorePoolSize();
-            int peakPoolSize = 0;
-            int peakActiveCount = 0;
-            long peakRejectionCount = 0;
-
-            long samplingDeadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(20);
-            while (System.currentTimeMillis() < samplingDeadline) {
-                ThreadPoolStatus status;
-                try {
-                    status = standbyCoordinatorService.getThreadPoolStatusMetrics();
-                } catch (Exception e) {
-                    // Defensive only: getThreadPoolStatusMetrics() reads a field populated
-                    // unconditionally in the CoordinatorService constructor, so this should not
-                    // actually throw once isCoordinatorActive() has already been observed true;
-                    // skip the sample rather than fail the test on an unrelated transient race.
-                    Thread.sleep(20);
-                    continue;
-                }
-                peakPoolSize = Math.max(peakPoolSize, status.getPoolSize());
-                peakActiveCount = Math.max(peakActiveCount, status.getActiveCount());
-                peakRejectionCount = Math.max(peakRejectionCount, status.getRejectionCount());
-                Thread.sleep(20);
-            }
-
-            log.info(
-                    "CoordinatorExecutorMassFailoverStormIT observed: concurrentJobs={}, "
-                            + "corePoolSize={}, peakPoolSize={}, peakActiveCount={}, "
-                            + "peakRejectionCount={}",
-                    CONCURRENT_JOB_COUNT,
-                    corePoolSize,
-                    peakPoolSize,
-                    peakActiveCount,
-                    peakRejectionCount);
-
-            // This is the documented current behavior, not a bug fix: with CONCURRENT_JOB_COUNT
-            // restore tasks fanned out onto the shared executor in one unthrottled pass, and a
-            // SynchronousQueue backing it (no buffering -- a task either hands off to an
-            // already-idle thread or forces a brand-new one), the pool has no way to stay within
-            // its configured core-thread-num=10 under this load.
+            awaitAllJobsInStatus(engineClient, jobIds, JobStatus.RUNNING, 180);
+            ThreadPoolStatus lifecycle =
+                    standbyCoordinatorService.getLifecycleThreadPoolStatusMetrics();
+            ThreadPoolStatus admission = standbyCoordinatorService.getThreadPoolStatusMetrics();
+            int lifecyclePoolSize = lifecycle.getPoolSize();
             Assertions.assertTrue(
-                    peakPoolSize > corePoolSize,
-                    String.format(
-                            "Expected the mass-failover restore of %d concurrent jobs to push the "
-                                    + "shared coordinator executor past its configured core pool "
-                                    + "size (observed core=%d, peak=%d); if this does not hold, the "
-                                    + "restore fan-out is being throttled/queued in a way the "
-                                    + "current source does not show",
-                            CONCURRENT_JOB_COUNT, corePoolSize, peakPoolSize));
-
-            // max-thread-num defaults to Integer.MAX_VALUE, so RejectedExecutionException is not
-            // structurally reachable today; this executable-documentation assertion is what would
-            // catch it if that default, or this test's scale, ever changed.
+                    lifecycle.getActiveCount() >= CONCURRENT_JOB_COUNT,
+                    "Each restored job should have a lifecycle worker waiting for completion");
+            Assertions.assertEquals(
+                    0, admission.getActiveCount(), "Restore must not occupy admission workers");
             Assertions.assertEquals(
                     0,
-                    peakRejectionCount,
-                    "The shared coordinator executor has no bounded max-thread-num today, so it "
-                            + "should never reject a task; unbounded growth, not rejection, is the "
-                            + "current failure mode");
+                    admission.getTaskCount(),
+                    "Restore must not submit work to the standby admission pool");
+            Assertions.assertEquals(
+                    0, lifecycle.getRejectionCount(), "Lifecycle restore must not reject tasks");
+            Assertions.assertEquals(
+                    0, admission.getRejectionCount(), "Restore must not cause admission rejection");
 
             // Pure CI-runner safety backstop -- see the constant's Javadoc above.
             Assertions.assertTrue(
-                    peakPoolSize < POOL_SIZE_CI_SAFETY_CEILING,
+                    lifecyclePoolSize < POOL_SIZE_CI_SAFETY_CEILING,
                     String.format(
-                            "Observed peak coordinator pool size %d is far beyond what %d "
+                            "Observed lifecycle pool size %d is far beyond what %d "
                                     + "concurrent job restores should plausibly need; capping here "
                                     + "so a regression fails loudly instead of destabilizing the CI "
                                     + "runner",
-                            peakPoolSize, CONCURRENT_JOB_COUNT));
+                            lifecyclePoolSize, CONCURRENT_JOB_COUNT));
 
-            // Let the restore actually finish, then clean up every job so the cluster is not left
-            // with dozens of leaked running jobs once the test method returns.
-            awaitAllJobsInStatus(engineClient, jobIds, JobStatus.RUNNING, 180);
+            // Clean up every restored job before the test returns.
             cancelAllAndAwaitTerminal(engineClient, jobIds);
         } finally {
             if (engineClient != null) {
@@ -400,7 +298,7 @@ public class CoordinatorExecutorMassFailoverStormIT {
             JobStatus actual = jobResult.getStatus();
             terminalStatusCounts.merge(actual, 1, Integer::sum);
             // Accept every end state here (JobStatus#isEndState(): FAILED, CANCELED, FINISHED,
-            // SAVEPOINT_DONE or UNKNOWABLE), not only CANCELED/FINISHED: the executor-growth
+            // SAVEPOINT_DONE or UNKNOWABLE), not only CANCELED/FINISHED: the executor-isolation
             // assertions above are the actual property under test, and all this teardown has to
             // prove is that no job is left non-terminal (nothing leaks past the test). A job
             // cancelled during this mass-failover storm can legitimately end FAILED instead of

@@ -85,8 +85,11 @@ public class BackpressureSlowSinkIT {
     private static final String CONF_FILE =
             "stream_fast_fakesource_to_slow_inmemory_backpressure.conf";
 
-    /** How long to sustain the slow-sink backpressure condition before asserting and stopping. */
-    private static final long BACKPRESSURE_WINDOW_MS = TimeUnit.SECONDS.toMillis(90);
+    /** Minimum duration for which the slow sink must sustain backpressure. */
+    private static final long MIN_BACKPRESSURE_WINDOW_MS = TimeUnit.SECONDS.toMillis(90);
+
+    /** Fail if repeated checkpoint progress does not arrive within this bounded window. */
+    private static final long MAX_BACKPRESSURE_WINDOW_MS = TimeUnit.MINUTES.toMillis(3);
 
     /** Sampling cadence for checkpoint/queue observations during the sustained window. */
     private static final long POLL_INTERVAL_MS = TimeUnit.SECONDS.toMillis(10);
@@ -98,11 +101,9 @@ public class BackpressureSlowSinkIT {
     private static final long REALTIME_METRICS_WINDOW_MS = TimeUnit.SECONDS.toMillis(20);
 
     /**
-     * Conservative lower bound for how many additional checkpoints must complete during {@link
-     * #BACKPRESSURE_WINDOW_MS}. This is well below the nominal count implied by {@code
-     * checkpoint.interval = 15000} in {@link #CONF_FILE} (~6 over 90s) to absorb job startup
-     * ramp-up and CI scheduling slack while still proving checkpoints keep completing repeatedly,
-     * not just once.
+     * Require repeated completion, not just one healthy checkpoint. The trigger interval does not
+     * bound completion latency: a barrier can wait for a reader batch and a full sink queue to
+     * drain. Keep a minimum stress duration, but wait for progress within a separate deadline.
      */
     private static final long MIN_NEW_COMPLETED_CHECKPOINTS = 3;
 
@@ -197,8 +198,8 @@ public class BackpressureSlowSinkIT {
         List<Long> queueCapacitySamples = new ArrayList<>();
         List<Long> blockedNsSamples = new ArrayList<>();
 
-        long deadline = System.currentTimeMillis() + BACKPRESSURE_WINDOW_MS;
-        while (System.currentTimeMillis() < deadline) {
+        long samplingStarted = System.nanoTime();
+        while (true) {
             // The job must stay healthy throughout - no crash, no failure, no stuck state - while
             // the slow sink keeps the intermediate queue saturated.
             Assertions.assertEquals(
@@ -227,7 +228,16 @@ public class BackpressureSlowSinkIT {
                 }
             }
 
-            Thread.sleep(POLL_INTERVAL_MS);
+            long elapsedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - samplingStarted);
+            long progress =
+                    completedSamples.get(completedSamples.size() - 1) - completedSamples.get(0);
+            if ((elapsedMillis >= MIN_BACKPRESSURE_WINDOW_MS
+                            && progress >= MIN_NEW_COMPLETED_CHECKPOINTS)
+                    || elapsedMillis >= MAX_BACKPRESSURE_WINDOW_MS) {
+                break;
+            }
+            // Always sample after the final wait, so the full observation window is covered.
+            Thread.sleep(Math.min(POLL_INTERVAL_MS, MAX_BACKPRESSURE_WINDOW_MS - elapsedMillis));
         }
 
         // 1. Checkpoints kept completing throughout the window, not just once at the very start:
@@ -247,10 +257,10 @@ public class BackpressureSlowSinkIT {
         Assertions.assertTrue(
                 newlyCompleted >= MIN_NEW_COMPLETED_CHECKPOINTS,
                 String.format(
-                        "expected at least %d additional checkpoints to complete during the %ds "
-                                + "sustained backpressure window, only observed %d (samples=%s)",
+                        "expected at least %d additional checkpoints to complete within %ds "
+                                + "of sustained backpressure, only observed %d (samples=%s)",
                         MIN_NEW_COMPLETED_CHECKPOINTS,
-                        BACKPRESSURE_WINDOW_MS / 1000,
+                        MAX_BACKPRESSURE_WINDOW_MS / 1000,
                         newlyCompleted,
                         completedSamples));
 

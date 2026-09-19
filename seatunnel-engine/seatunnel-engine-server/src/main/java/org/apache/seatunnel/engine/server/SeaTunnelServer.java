@@ -421,4 +421,9 @@ public class SeaTunnelServer
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
         return coordinatorService.getThreadPoolStatusMetrics();
     }
+
+    /** Reads lifecycle worker statistics without waiting for coordinator activation. */
+    public ThreadPoolStatus getLifecycleThreadPoolStatusMetrics() {
+        return coordinatorService.getLifecycleThreadPoolStatusMetrics();
+    }
 }
