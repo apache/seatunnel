@@ -26,11 +26,15 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
+import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
@@ -91,6 +95,89 @@ public class ServerExecuteCommandTest {
                 }
             }
         }
+    }
+
+    /**
+     * Verifies that the member-list command does not invent an active coordinator while Hazelcast
+     * mastership is unknown.
+     */
+    @Test
+    void testUnknownMasterDoesNotSelectFallbackCoordinator() {
+        ServerExecuteCommand command =
+                new ServerExecuteCommand(Mockito.mock(ServerCommandArgs.class));
+        Member coordinatorMember = Mockito.mock(Member.class);
+        Mockito.when(coordinatorMember.isLiteMember()).thenReturn(false);
+        Mockito.when(coordinatorMember.getAddress())
+                .thenReturn(Address.createUnresolvedAddress("localhost", 5801));
+
+        Address activeMaster =
+                command.getActiveMasterAddress(Collections.singletonList(coordinatorMember), null);
+
+        Assertions.assertNull(activeMaster);
+    }
+
+    /**
+     * Verifies that the member list reports an unresolved coordinator explicitly instead of only
+     * showing configured roles.
+     */
+    @Test
+    void testUnknownCoordinatorIsReportedExplicitly() {
+        ServerExecuteCommand command =
+                new ServerExecuteCommand(Mockito.mock(ServerCommandArgs.class));
+
+        String note = command.describeActiveMasterResolution(null, null);
+
+        Assertions.assertNotNull(note);
+        Assertions.assertTrue(note.contains("UNKNOWN"));
+    }
+
+    /**
+     * Verifies that a coordinator inferred behind a worker-only Hazelcast master is marked as best
+     * effort, because the client membership view can lag behind the cluster during failover.
+     */
+    @Test
+    void testInferredCoordinatorIsMarkedBestEffort() {
+        ServerExecuteCommand command =
+                new ServerExecuteCommand(Mockito.mock(ServerCommandArgs.class));
+        Address coordinatorAddress = Address.createUnresolvedAddress("localhost", 5802);
+        Member liteMaster = Mockito.mock(Member.class);
+        Mockito.when(liteMaster.isLiteMember()).thenReturn(true);
+        Mockito.when(liteMaster.getAddress())
+                .thenReturn(Address.createUnresolvedAddress("localhost", 5801));
+        Member coordinatorMember = Mockito.mock(Member.class);
+        Mockito.when(coordinatorMember.isLiteMember()).thenReturn(false);
+        Mockito.when(coordinatorMember.getAddress()).thenReturn(coordinatorAddress);
+
+        Address activeMaster =
+                command.getActiveMasterAddress(
+                        Arrays.asList(liteMaster, coordinatorMember), liteMaster);
+        String note = command.describeActiveMasterResolution(liteMaster, activeMaster);
+
+        Assertions.assertEquals(coordinatorAddress, activeMaster);
+        Assertions.assertNotNull(note);
+        Assertions.assertTrue(note.contains("best effort"));
+        Assertions.assertTrue(note.contains(coordinatorAddress.toString()));
+    }
+
+    /**
+     * Verifies that no note is printed when Hazelcast mastership already sits on a
+     * coordinator-capable member, so the default output stays unchanged for mixed clusters.
+     */
+    @Test
+    void testCoordinatorCapableMasterNeedsNoNote() {
+        ServerExecuteCommand command =
+                new ServerExecuteCommand(Mockito.mock(ServerCommandArgs.class));
+        Member coordinatorMaster = Mockito.mock(Member.class);
+        Mockito.when(coordinatorMaster.isLiteMember()).thenReturn(false);
+        Mockito.when(coordinatorMaster.getAddress())
+                .thenReturn(Address.createUnresolvedAddress("localhost", 5801));
+
+        Address activeMaster =
+                command.getActiveMasterAddress(
+                        Collections.singletonList(coordinatorMaster), coordinatorMaster);
+
+        Assertions.assertNull(
+                command.describeActiveMasterResolution(coordinatorMaster, activeMaster));
     }
 
     public static String getClusterName(String testClassName) {

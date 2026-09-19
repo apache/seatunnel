@@ -65,12 +65,12 @@ public class EventService {
                             events.add(first);
 
                             eventBuffer.drainTo(events, 500);
-                            JobEventReportOperation operation = new JobEventReportOperation(events);
-
                             RetryUtils.retryWithException(
                                     () ->
                                             NodeEngineUtil.sendOperationToMasterNode(
-                                                            nodeEngine, operation)
+                                                            nodeEngine,
+                                                            new JobEventReportOperation(
+                                                                    new ArrayList<>(events)))
                                                     .join(),
                                     retryMaterial);
 
