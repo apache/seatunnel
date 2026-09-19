@@ -74,6 +74,13 @@ This option is used to specify the processing method when an error occurs in the
 - SKIP: When `SKIP` is selected, data format error will skip this column data.
 - SKIP_ROW: When `SKIP_ROW` is selected, data format error will skip this row data.
 
+These policies also apply when an extracted value cannot be converted to `dest_type`,
+such as an invalid date or number. `SKIP` sets the destination field to `null` and
+continues processing the other columns. If no column policy is configured,
+`row_error_handle_way` applies. An explicit column policy takes precedence over the
+row policy, so column `FAIL` still fails the row when the row policy is `SKIP`.
+JVM errors, including those wrapped by a converter, are not treated as skippable data errors.
+
 ## Read Json Example
 
 The data read from source is a table like this json:
