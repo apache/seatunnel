@@ -27,6 +27,13 @@ incompatibilities may surface only when those paths execute on the target runtim
 Validate your connectors and deployment mode before upgrading; dedicated Spark 3.5
 micro-batch streaming coverage is still pending.
 
+The Windows `.cmd` launcher still passes a command string to `spark-submit.cmd`;
+it does not use the Unix launcher's argument-file protocol. Arbitrary arguments
+containing embedded quotes or Windows command-shell metacharacters are not
+supported, and native Windows launcher behavior has not been validated. Do not
+pass untrusted values through this launcher; use the Unix launcher when exact
+argument preservation is required.
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:
