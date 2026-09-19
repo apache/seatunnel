@@ -41,8 +41,10 @@ import lombok.Data;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -589,19 +591,28 @@ public class SubPlan {
                                 }
                             });
 
+            // In a RUNNING pipeline a FINISHED task group can only be an idle reader that was
+            // already closed (see CheckpointCoordinator#readyToCloseIdleTask). It will never report
+            // READY_START again, so it must not block the restore, and the coordinator must know
+            // it is closed.
+            Set<TaskGroupLocation> closedIdleTaskGroups = new HashSet<>();
             getPhysicalVertexList()
                     .forEach(
                             task -> {
-                                if (!task.getExecutionState().equals(ExecutionState.RUNNING)) {
+                                if (task.getExecutionState().equals(ExecutionState.FINISHED)) {
+                                    closedIdleTaskGroups.add(task.getTaskGroupLocation());
+                                } else if (!task.getExecutionState()
+                                        .equals(ExecutionState.RUNNING)) {
                                     allTaskRunning.set(false);
-                                    return;
                                 }
                             });
 
             jobMaster
                     .getCheckpointManager()
                     .reportedPipelineRunning(
-                            this.getPipelineLocation().getPipelineId(), allTaskRunning.get());
+                            this.getPipelineLocation().getPipelineId(),
+                            allTaskRunning.get(),
+                            closedIdleTaskGroups);
         }
         startSubPlanStateProcess();
     }
