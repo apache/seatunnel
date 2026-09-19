@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.selectdb.config.SelectDBSinkOptions;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class SelectDBSinkFactory implements TableSinkFactory {
 
@@ -37,12 +39,15 @@ public class SelectDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(SelectDBSinkOptions.JDBC_URL, notBlank(SelectDBSinkOptions.JDBC_URL))
+                .required(SelectDBSinkOptions.LOAD_URL, notBlank(SelectDBSinkOptions.LOAD_URL))
                 .required(
-                        SelectDBSinkOptions.JDBC_URL,
-                        SelectDBSinkOptions.LOAD_URL,
                         SelectDBSinkOptions.CLUSTER_NAME,
-                        SelectDBSinkOptions.USERNAME,
-                        SelectDBSinkOptions.TABLE_IDENTIFIER)
+                        notBlank(SelectDBSinkOptions.CLUSTER_NAME))
+                .required(SelectDBSinkOptions.USERNAME, notBlank(SelectDBSinkOptions.USERNAME))
+                .required(
+                        SelectDBSinkOptions.TABLE_IDENTIFIER,
+                        notBlank(SelectDBSinkOptions.TABLE_IDENTIFIER))
                 .optional(
                         SelectDBSinkOptions.PASSWORD,
                         SelectDBSinkOptions.SINK_ENABLE_2PC,
