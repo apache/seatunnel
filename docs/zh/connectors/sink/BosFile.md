@@ -26,7 +26,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 ## 主要特性
 
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用 binary 格式读写任意类型文件，可将任意文件同步到目标位置。
 
@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | filename_time_format                  | string  | 否   | "yyyy.MM.dd"                               | custom_filename 为 true 时使用 |
 | file_format_type                      | string  | 否   | "csv"                                      | 支持 text、csv、parquet、orc、json、excel、xml、binary 等 |
 | filename_extension                    | string  | 否   | -                                          | 自定义文件扩展名 |
-| field_delimiter                       | string  | 否   | text 为 \001，csv 为 ,                     | text/csv 格式使用 |
+| field_delimiter                       | string  | 否   | '\001'                                           | text/csv 格式使用 |
 | row_delimiter                         | string  | 否   | "\n"                                       | text/csv/json 格式使用 |
 | have_partition                        | boolean | 否   | false                                      | 是否按分区写入 |
 | partition_by                          | array   | 否   | -                                          | have_partition 为 true 时使用 |
