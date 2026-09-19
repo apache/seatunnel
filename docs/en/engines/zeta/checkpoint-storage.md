@@ -43,6 +43,12 @@ seatunnel:
 
 Notice: namespace must end with "/".
 
+In the official binary package, SeaTunnel copies Zeta checkpoint and IMAP storage dependencies to
+`starter/zeta/`. During initialization, SeaTunnel always loads jars from `starter/zeta/common` and
+then loads the directory matching `plugin-config.storage.type` when it exists, such as `s3` or
+`oss`. If `storage.type` is empty, SeaTunnel falls back to scanning the whole `starter/zeta`
+directory. COS jars are still not bundled and must be added to `lib/` manually.
+
 #### OSS
 
 Aliyun OSS based hdfs-file you can refer [Hadoop OSS Docs](https://hadoop.apache.org/docs/stable/hadoop-aliyun/tools/hadoop-aliyun/index.html) to config oss.
