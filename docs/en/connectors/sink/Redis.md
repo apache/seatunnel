@@ -58,6 +58,18 @@ downloaded from Maven Central.
 | multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. |
 | common-options     | config  | No                          | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
+### Authentication
+
+In both `SINGLE` and `CLUSTER` mode, a nonblank `user` selects Redis ACL authentication
+(`AUTH user auth`, Redis 6 or later). The connector does not create or modify ACL users.
+Create the user and grant its required command and key permissions before starting the job, including
+`INFO` for connector initialization and `SELECT` in `SINGLE` mode.
+The password is passed unchanged, including whitespace; omitted or empty `auth` is sent as an empty
+password and only works if the ACL user accepts it (for example, a `nopass` user).
+
+If `user` is omitted, empty, or whitespace-only, nonblank `auth` uses password-only authentication
+as the default user. If both options are omitted or blank, no authentication command is sent.
+
 ## Write Rules
 
 ### key
