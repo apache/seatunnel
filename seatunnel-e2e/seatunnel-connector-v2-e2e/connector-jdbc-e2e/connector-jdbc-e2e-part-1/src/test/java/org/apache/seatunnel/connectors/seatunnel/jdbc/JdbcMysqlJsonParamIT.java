@@ -114,7 +114,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                         container,
                         "/jdbc_mysql_json_params.conf",
                         "seatunnel-connectors-v2",
-                        "connector-jdbc-",
+                        "connector-",
                         "seatunnel",
                         "/tmp/seatunnel");
 
