@@ -75,76 +75,9 @@ class MqttSourceConfigTest {
         Assertions.assertEquals(200, sourceConfig.getMaxQueueSize());
     }
 
-    @Test
-    void testInvalidQosFails() {
-        Map<String, Object> config = baseConfig();
-        config.put("qos", 2);
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
-
-    @Test
-    void testNegativeQosFails() {
-        Map<String, Object> config = baseConfig();
-        config.put("qos", -1);
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
-
-    @Test
-    void testNonPositiveReconnectTimeoutFails() {
-        Map<String, Object> config = baseConfig();
-        config.put("reconnect_timeout", 0);
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
-
-    @Test
-    void testNonPositiveMaxQueueSizeFails() {
-        Map<String, Object> config = baseConfig();
-        config.put("max_queue_size", 0);
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
-
-    @Test
-    void testUnsupportedFormatFails() {
-        Map<String, Object> config = baseConfig();
-        config.put("format", "avro");
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
-
-    @Test
-    void testPersistentSessionRequiresClientId() {
-        Map<String, Object> config = baseConfig();
-        config.put("clean_session", false);
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
-
-    @Test
-    void testPersistentSessionRequiresNonBlankClientId() {
-        Map<String, Object> config = baseConfig();
-        config.put("clean_session", false);
-        config.put("client_id", "   ");
-
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> new MqttSourceConfig(ReadonlyConfig.fromMap(config)));
-    }
+    // Invalid option values (qos range, format, reconnect_timeout, max_queue_size, missing or
+    // blank client_id for persistent sessions) are rejected declaratively by
+    // MqttSourceFactory#optionRule(); see MqttSourceFactoryTest.
 
     @Test
     void testDefaultClientIdIsGeneratedForCleanSession() {

@@ -71,22 +71,8 @@ public class MqttSinkWriterTest {
         validConfig = ReadonlyConfig.fromMap(configMap);
     }
 
-    @Test
-    void testInvalidQosThrowsException() {
-        Map<String, Object> configMap = new HashMap<>();
-        configMap.put("url", "tcp://localhost:1883");
-        configMap.put("topic", "test");
-        configMap.put("qos", 2); // Invalid value
-
-        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
-
-        IllegalArgumentException ex =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () -> new MqttSinkWriter(context, rowType, config));
-
-        Assertions.assertTrue(ex.getMessage().contains("MQTT QoS must be 0"));
-    }
+    // Invalid qos and batch_size values are rejected declaratively by
+    // MqttSinkFactory#optionRule() before the writer is created; see MqttSinkFactoryTest.
 
     @Test
     void testInvalidFormatThrowsException() {
