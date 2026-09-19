@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-facebook-ads.md';
+
 # FacebookAds
 
 > Facebook Ads 源连接器
@@ -160,3 +162,7 @@ source {
 ### next version
 
 - 新增 Facebook Ads 源连接器，支持游标分页和多表读取
+
+## Changelog
+
+<ChangeLog />

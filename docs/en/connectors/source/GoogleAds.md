@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-ads.md';
+
 # GoogleAds
 
 > Google Ads source connector
@@ -183,3 +185,7 @@ source {
 ### next version
 
 - Add Google Ads source connector with GAQL, automatic schema derivation and multi-table support
+
+## Changelog
+
+<ChangeLog />
