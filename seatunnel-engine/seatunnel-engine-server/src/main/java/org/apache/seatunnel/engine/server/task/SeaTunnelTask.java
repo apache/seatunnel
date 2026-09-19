@@ -439,36 +439,42 @@ public abstract class SeaTunnelTask extends AbstractTask {
     /**
      * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
      *
-     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
-     * remaining lifecycles from being closed.
+     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order with teardown
+     * order preserved. A failure in one lifecycle — checked ({@link IOException}) or unchecked
+     * ({@link RuntimeException}) or even an {@link Error} — is collected and does not prevent the
+     * remaining lifecycles from being closed. The first failure is preserved and re-thrown, with
+     * any subsequent failures attached to it as {@linkplain Throwable#addSuppressed suppressed}.
      *
-     * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
+     * @throws IOException if the parent {@link AbstractTask#close()} fails
+     * @throws RuntimeException if an unchecked lifecycle close failure is the first failure
      */
     @Override
     public void close() throws IOException {
-        IOException[] closeException = {null};
+        Throwable[] closeException = {null};
         try {
             super.close();
-        } catch (IOException e) {
-            closeException[0] = e;
+        } catch (Throwable t) {
+            closeException[0] = t;
         }
         MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
                             try {
                                 flowLifeCycle.close();
-                            } catch (IOException e) {
-                                log.error("Close FlowLifeCycle error.", e);
+                            } catch (Throwable t) {
+                                log.error("Close FlowLifeCycle error.", t);
                                 if (closeException[0] == null) {
-                                    closeException[0] = e;
+                                    closeException[0] = t;
                                 } else {
-                                    closeException[0].addSuppressed(e);
+                                    closeException[0].addSuppressed(t);
                                 }
                             }
                         });
         if (closeException[0] != null) {
-            throw closeException[0];
+            if (closeException[0] instanceof IOException) {
+                throw (IOException) closeException[0];
+            }
+            sneakyThrow(closeException[0]);
         }
     }
 
