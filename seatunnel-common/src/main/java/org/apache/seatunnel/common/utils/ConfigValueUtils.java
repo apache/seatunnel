@@ -47,11 +47,11 @@ public class ConfigValueUtils {
                 (value.startsWith("{") && value.endsWith("}"))
                         || (value.startsWith("[") && value.endsWith("]"));
 
-        try {
-            Config parsed = ConfigFactory.parseString("v = " + value);
-            return parsed.root().get("v");
-        } catch (ConfigException e) {
-            if (maybeJsonOrArray) {
+        if (maybeJsonOrArray) {
+            try {
+                Config parsed = ConfigFactory.parseString("v = " + value);
+                return parsed.root().get("v");
+            } catch (ConfigException e) {
                 throw new ConfigException.BadValue(
                         ConfigOriginFactory.newSimple(),
                         String.format(
@@ -61,9 +61,8 @@ public class ConfigValueUtils {
                                 value),
                         e.getMessage());
             }
-
-            return ConfigValueFactory.fromAnyRef(value);
         }
+        return ConfigValueFactory.fromAnyRef(value);
     }
 
     public static boolean isEscapedQuote(String value, int quoteIndex) {

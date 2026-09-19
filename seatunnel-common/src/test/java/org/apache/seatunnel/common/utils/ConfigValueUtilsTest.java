@@ -58,13 +58,13 @@ public class ConfigValueUtilsTest {
     @Test
     void testParseValueWithNumber() {
         Object result = ConfigValueUtils.parseValue("235.65").unwrapped();
-        assertTrue(result instanceof Number);
+        assertEquals("235.65", result);
     }
 
     @Test
     void testParseValueWithBoolean() {
         Object result = ConfigValueUtils.parseValue("true").unwrapped();
-        assertTrue(result instanceof Boolean);
+        assertEquals("true", result);
     }
 
     @Test
