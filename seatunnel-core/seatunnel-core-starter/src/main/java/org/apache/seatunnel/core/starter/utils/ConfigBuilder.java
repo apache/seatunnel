@@ -259,8 +259,14 @@ public class ConfigBuilder {
                                 .collect(
                                         Collectors.toMap(
                                                 Map.Entry::getKey,
-                                                entry ->
-                                                        parseValue(entry.getValue()).unwrapped())));
+                                                entry -> {
+                                                    Object parsedValue =
+                                                            parseValue(entry.getValue())
+                                                                    .unwrapped();
+                                                    return parsedValue != null
+                                                            ? parsedValue
+                                                            : "null";
+                                                })));
 
         Config systemConfig =
                 Parseable.newProperties(
