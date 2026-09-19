@@ -29,11 +29,111 @@ import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 
 public class VectorFunctionTest {
+
+    @ParameterizedTest
+    @ValueSource(
+            floats = {Float.MAX_VALUE, 1e20f, 1e-30f, Float.MIN_NORMAL, Float.MIN_VALUE, 3f, 0.1f})
+    public void testFiniteVectorArithmetic(float value) {
+        Float[] left = {value, -value};
+        Float[] right = {-value, value};
+        BigDecimal exact = new BigDecimal((double) value);
+        double squaredNorm = exact.multiply(exact).multiply(BigDecimal.valueOf(2)).doubleValue();
+        double norm = Math.hypot(value, value);
+        double distance = exact.multiply(BigDecimal.valueOf(4)).doubleValue();
+        Assertions.assertAll(
+                () ->
+                        Assertions.assertEquals(
+                                norm,
+                                (double) VectorFunction.vectorNorm(Collections.singletonList(left)),
+                                norm * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                -squaredNorm,
+                                (double) VectorFunction.innerProduct(Arrays.asList(left, right)),
+                                squaredNorm * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                2.0,
+                                (double) VectorFunction.cosineDistance(Arrays.asList(left, right)),
+                                1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                distance,
+                                (double) VectorFunction.l1Distance(Arrays.asList(left, right)),
+                                distance * 1e-14),
+                () ->
+                        Assertions.assertEquals(
+                                2 * norm,
+                                (double) VectorFunction.l2Distance(Arrays.asList(left, right)),
+                                norm * 1e-14),
+                () -> {
+                    Float[] normalized =
+                            VectorUtils.toFloatArray(
+                                    (ByteBuffer) VectorFunction.vectorNormalize(left));
+                    Assertions.assertEquals(1 / Math.sqrt(2), normalized[0], 1e-7);
+                    Assertions.assertEquals(-1 / Math.sqrt(2), normalized[1], 1e-7);
+                });
+    }
+
+    @Test
+    public void testLargeProductsCancelWithoutOverflow() {
+        Float[] left = {Float.MAX_VALUE, Float.MAX_VALUE};
+        Float[] right = {Float.MAX_VALUE, -Float.MAX_VALUE};
+        Assertions.assertEquals(0.0, VectorFunction.innerProduct(Arrays.asList(left, right)));
+        Assertions.assertEquals(1.0, VectorFunction.cosineDistance(Arrays.asList(left, right)));
+    }
+
+    @Test
+    public void testVectorArithmeticSpecialValues() {
+        Float[] zero = {0f, -0f};
+        Float[] empty = {};
+        Assertions.assertEquals(0.0, VectorFunction.vectorNorm(Collections.singletonList(zero)));
+        Assertions.assertEquals(1.0, VectorFunction.cosineDistance(Arrays.asList(zero, zero)));
+        Assertions.assertEquals(1.0, VectorFunction.cosineDistance(Arrays.asList(empty, empty)));
+        Assertions.assertSame(zero, VectorFunction.vectorNormalize(zero));
+        Assertions.assertSame(empty, VectorFunction.vectorNormalize(empty));
+        Assertions.assertTrue(
+                Double.isNaN(
+                        (double)
+                                VectorFunction.cosineDistance(
+                                        Arrays.asList(
+                                                new Float[] {Float.MIN_VALUE},
+                                                new Float[] {Float.POSITIVE_INFINITY}))));
+        Assertions.assertNull(VectorFunction.vectorNorm(Collections.singletonList(null)));
+        Assertions.assertNull(VectorFunction.cosineDistance(Arrays.asList(zero, null)));
+        Assertions.assertNull(VectorFunction.innerProduct(Arrays.asList(null, zero)));
+        Assertions.assertNull(VectorFunction.l1Distance(Arrays.asList(zero, null)));
+        Assertions.assertNull(VectorFunction.l2Distance(Arrays.asList(null, zero)));
+        for (float value :
+                new float[] {Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY}) {
+            Float[] vector = {value};
+            Assertions.assertTrue(
+                    Double.isNaN(
+                            (double) VectorFunction.cosineDistance(Arrays.asList(vector, vector))));
+            Assertions.assertTrue(
+                    Double.isNaN(
+                            (double) VectorFunction.l1Distance(Arrays.asList(vector, vector))));
+            Assertions.assertTrue(
+                    Double.isNaN(
+                            (double) VectorFunction.l2Distance(Arrays.asList(vector, vector))));
+            double norm = (double) VectorFunction.vectorNorm(Collections.singletonList(vector));
+            Assertions.assertTrue(
+                    Float.isNaN(value) ? Double.isNaN(norm) : norm == Double.POSITIVE_INFINITY);
+            Float[] normalized =
+                    VectorUtils.toFloatArray((ByteBuffer) VectorFunction.vectorNormalize(vector));
+            Assertions.assertTrue(Float.isNaN(normalized[0]));
+        }
+    }
 
     @Test
     public void testCosineDistanceFunction() {

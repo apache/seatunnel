@@ -4,6 +4,17 @@
 
 ## dev
 
+### SQL 和 Calcite 向量运算
+
+- **行为修正**：`VECTOR_NORM`、`INNER_PRODUCT`、`COSINE_DISTANCE`、`L1_DISTANCE`、
+  `L2_DISTANCE` 和 `VECTOR_NORMALIZE` 在中间乘法或减法之前将 float 元素提升为 double。
+  有限输入不再仅因中间 float 运算溢出或下溢而得到错误的无穷大、NaN 或零，
+  结果的低位数字也可能发生变化。
+- **迁移建议**：重放数据前，请检查阈值以及此前计算的向量指标或归一化向量。
+  配置项、类型、模式和状态格式均不变。空输入和实际零向量的处理方式不变。
+  未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
+  归一化输出元素仍为 float，随机投影运算不受影响。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
