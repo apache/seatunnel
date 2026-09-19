@@ -51,7 +51,7 @@ public class ConfigValueUtilsTest {
 
     @Test
     void testParseValueWithNormalString() {
-        Object result = ConfigValueUtils.parseValue("\"hello\"");
+        Object result = ConfigValueUtils.parseValue("\"hello\"").unwrapped();
         assertEquals("hello", result);
     }
 
@@ -75,7 +75,7 @@ public class ConfigValueUtilsTest {
 
     @Test
     void testParseValueWithJsonObject() {
-        Object result = ConfigValueUtils.parseValue("{\"key\":\"value\"}");
+        Object result = ConfigValueUtils.parseValue("{\"k1\":\"v1\",\"k2\":\"v2\"}");
         assertTrue(result instanceof Map);
     }
 }
