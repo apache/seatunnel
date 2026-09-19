@@ -45,6 +45,8 @@ public class WALDisruptor implements Closeable {
 
     private volatile Disruptor<FileWALEvent> disruptor;
 
+    private final WALWorkHandler workHandler;
+
     private static final int DEFAULT_RING_BUFFER_SIZE = 1024;
 
     private static final int DEFAULT_CLOSE_WAIT_TIME_SECONDS = 5;
@@ -74,10 +76,19 @@ public class WALDisruptor implements Closeable {
                         ProducerType.SINGLE,
                         new BlockingWaitStrategy());
 
-        disruptor.handleEventsWithWorkerPool(
-                new WALWorkHandler(fs, fileConfiguration, parentPath, serializer));
+        this.workHandler = new WALWorkHandler(fs, fileConfiguration, parentPath, serializer);
+        disruptor.handleEventsWithWorkerPool(workHandler);
 
         disruptor.start();
+    }
+
+    /**
+     * Whether the sole WAL consumer has permanently fail-closed APPEND after a write failure.
+     *
+     * @return true until process restart once fail-close has tripped
+     */
+    public boolean isAppendBlockedAfterWriteFailure() {
+        return workHandler.isAppendBlockedAfterWriteFailure();
     }
 
     public boolean tryPublish(IMapFileData message, WALEventType status, Long requestId) {

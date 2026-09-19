@@ -23,12 +23,21 @@ package org.apache.seatunnel.engine.imap.storage.file.future;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
+/**
+ * Completion handle for one WAL append published through the disruptor.
+ *
+ * <p>{@link #isDone()} reports completion, not success. Callers must read {@link #get()} (or the
+ * timed variant) to learn whether the durable write succeeded.
+ */
 public class RequestFuture implements Future<Boolean> {
 
-    private CountDownLatch latch = new CountDownLatch(1);
+    private final CountDownLatch latch = new CountDownLatch(1);
 
-    private boolean success = false;
+    // Written in done() before countDown(); get() already observes it via the latch
+    // happens-before. volatile keeps the result bit safely published across threads.
+    private volatile boolean success = false;
 
     @Override
     public boolean cancel(boolean mayInterruptIfRunning) {
@@ -42,27 +51,41 @@ public class RequestFuture implements Future<Boolean> {
 
     @Override
     public boolean isDone() {
-        return success;
+        return latch.getCount() == 0L;
     }
 
+    /**
+     * Blocks indefinitely until the WAL append completes.
+     *
+     * <p>Production call sites use {@link #get(long, TimeUnit)} with the configured write timeout.
+     * This untimed overload exists for {@link Future} contract compliance only and must not be used
+     * where an unbounded wait is unacceptable. No production caller currently invokes this method.
+     */
     @Override
     public Boolean get() throws InterruptedException {
-        if (success) {
-            return true;
-        }
-        latch.await(1, TimeUnit.SECONDS);
-        if (!success) {
-            return false;
-        }
+        latch.await();
         return success;
     }
 
+    /**
+     * Waits up to {@code timeout} for the WAL append to complete.
+     *
+     * <p>On expiry this throws {@link TimeoutException} instead of returning {@code false},
+     * matching {@link Future#get(long, TimeUnit)}. A timeout does not cancel the in-flight append;
+     * the future remains incomplete until {@link #done(boolean)} runs. Callers must treat timeout
+     * as failure for the waiting key.
+     *
+     * @param timeout the maximum time to wait
+     * @param unit the time unit of the timeout argument
+     * @return whether the durable write succeeded
+     * @throws TimeoutException if the wait times out before completion
+     * @throws InterruptedException if the waiting thread is interrupted
+     */
     @Override
-    public Boolean get(long timeout, TimeUnit unit) throws InterruptedException {
-        if (success) {
-            return true;
+    public Boolean get(long timeout, TimeUnit unit) throws InterruptedException, TimeoutException {
+        if (!latch.await(timeout, unit)) {
+            throw new TimeoutException("Timed out waiting for WAL append completion");
         }
-        latch.await(timeout, unit);
         return success;
     }
 
