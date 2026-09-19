@@ -31,12 +31,13 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.MountableFile;
 
-import com.squareup.okhttp.mockwebserver.MockResponse;
-import com.squareup.okhttp.mockwebserver.MockWebServer;
-import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 
 import java.io.IOException;
@@ -102,6 +103,48 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(eventReportConfig),
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
+        container.waitingFor(
+                new LogMessageWaitStrategy() {
+                    @Override
+                    protected void waitUntilReady() {
+                        try {
+                            super.waitUntilReady();
+                        } catch (RuntimeException startupFailure) {
+                            logStartupThreads(container);
+                            throw startupFailure;
+                        }
+                    }
+                }.withRegEx(".*received new worker register:.*"));
+    }
+
+    /** Capture the blocked startup before Testcontainers stops the failed container. */
+    private void logStartupThreads(GenericContainer<?> container) {
+        try {
+            Container.ExecResult processes = container.execInContainer("timeout", "10s", "jps");
+            if (processes.getExitCode() != 0) {
+                log.warn("Could not list startup JVMs: {}", processes.getStderr());
+                return;
+            }
+            for (String process : processes.getStdout().split("\\n")) {
+                if (process.contains("SeaTunnelServer")) {
+                    String pid = process.trim().split("\\s+")[0];
+                    Container.ExecResult dump =
+                            container.execInContainer("timeout", "10s", "jstack", pid);
+                    log.error(
+                            "Event-report startup thread dump (exit {}):\n{}\n{}",
+                            dump.getExitCode(),
+                            dump.getStdout(),
+                            dump.getStderr());
+                    return;
+                }
+            }
+            log.warn("No SeaTunnelServer JVM found during startup failure");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while capturing event-report startup threads", interrupted);
+        } catch (Exception diagnosticFailure) {
+            log.warn("Could not capture event-report startup threads", diagnosticFailure);
+        }
     }
 
     @Test
