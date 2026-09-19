@@ -24,6 +24,18 @@ import java.io.Serializable;
 @Data
 public class TelemetryLogsConfig implements Serializable {
 
+    private static final long serialVersionUID = 1L;
+
+    /** Default prune interval in minutes when no override is provided. */
+    public static final long DEFAULT_JOB_LOG_PRUNE_INTERVAL_MINUTES = 60L;
+
     private boolean enabled =
             ServerConfigOptions.TELEMETRY_LOGS_SCHEDULED_DELETION_ENABLE.defaultValue();
+
+    /**
+     * Interval, in minutes, at which the local job log pruner scans the log directory and removes
+     * rolled segments whose last-modified age exceeds {@code file_ttl}. Defaults to {@value
+     * #DEFAULT_JOB_LOG_PRUNE_INTERVAL_MINUTES}. Set to a non-positive value to disable pruning.
+     */
+    private long jobLogPruneIntervalMinutes = DEFAULT_JOB_LOG_PRUNE_INTERVAL_MINUTES;
 }
