@@ -16,7 +16,7 @@ Read this page when you are choosing among `generate_sink_sql`, `query`, `schema
 | Goal | Prefer | Notes |
 |------|--------|-------|
 | Let SeaTunnel generate INSERT / UPSERT / UPDATE / DELETE SQL for a JDBC target | `generate_sink_sql = true` with `database`, `table`, and usually `primary_keys` | This is a JDBC Sink feature. It also enables save mode handling for JDBC because SeaTunnel can resolve the target catalog table. |
-| Fully control the JDBC write statement | `query = "INSERT ... VALUES (?, ...)"` | Do not combine with `generate_sink_sql = true`. In this mode JDBC Sink does not execute `schema_save_mode`, `data_save_mode`, or `custom_sql`. |
+| Fully control the JDBC write statement | `query = "INSERT ... VALUES (?, ...)"` | Do not combine with `generate_sink_sql = true`. Catalog-based `schema_save_mode` / data modes such as `DROP_DATA` are skipped; `CUSTOM_PROCESSING` + `custom_sql` still runs once before writing. |
 | Create a missing target table or fail when it is missing | `schema_save_mode` | Only works for sinks that expose save mode options and can create or inspect the target through a catalog. |
 | Keep, clear, or reject existing target data before writing | `data_save_mode` | Supported values depend on the connector. File sinks usually support only `DROP_DATA`, `APPEND_DATA`, and `ERROR_WHEN_DATA_EXISTS`. |
 | Run a custom SQL statement before the job writes data | `data_save_mode = "CUSTOM_PROCESSING"` and `custom_sql` | Only for connectors that expose both options. This is a pre-write hook, not the per-row write SQL. |
@@ -30,7 +30,7 @@ JDBC Sink has two mutually exclusive write modes.
 | Mode | Required options | Save modes applied? | Typical use case |
 |------|------------------|---------------------|------------------|
 | Generated SQL | `generate_sink_sql = true`, `database`, and normally `table` | Yes, when the target catalog table can be resolved | Most database sink jobs, CDC writes, automatic table creation, upsert, update, and delete |
-| Custom SQL | `query = "INSERT ... VALUES (?, ...)"` | No | You must control the exact target SQL and accept that save mode handling is skipped |
+| Custom SQL | `query = "INSERT ... VALUES (?, ...)"` | Catalog-based schema/data modes: no. `CUSTOM_PROCESSING` + `custom_sql`: yes (once before write) | You must control the exact per-row SQL; use `custom_sql` for pre-write cleanup such as delete-by-day |
 
 Do not configure both `generate_sink_sql = true` and `query`.
 
@@ -73,7 +73,8 @@ The JDBC Sink and JDBC-based sink pages such as MySQL, PostgreSQL, Oracle, and S
 - `generate_sink_sql` is available.
 - `query` is available.
 - `schema_save_mode` and `data_save_mode` are available in generated SQL mode.
-- `custom_sql` is only executed when save mode handling runs.
+- In `query` mode, `CUSTOM_PROCESSING` + `custom_sql` is still executed once before writing; other catalog-based save modes are not.
+- `custom_sql` is only executed when save mode handling runs (generated SQL path, or query path with `CUSTOM_PROCESSING`).
 - `enable_upsert` only matters after SeaTunnel has a usable primary key or unique key.
 
 See [JDBC Sink](../sink/Jdbc.md) for the complete option reference and examples.
@@ -142,7 +143,7 @@ sink {
 }
 ```
 
-In this mode, JDBC Sink writes rows through `query`; it does not execute `schema_save_mode`, `data_save_mode`, or `custom_sql`.
+In this mode, JDBC Sink writes rows through `query`. Catalog-based `schema_save_mode` and data modes such as `DROP_DATA` are not applied. Configure `data_save_mode = CUSTOM_PROCESSING` with `custom_sql` if you need a pre-write SQL statement (for example, delete by day).
 
 ### S3File clear existing data before writing
 
@@ -171,7 +172,7 @@ Check whether SeaTunnel has a usable key. Configure `primary_keys` explicitly wh
 
 ### `custom_sql` did not run in JDBC Sink
 
-Check whether the sink uses `query`. JDBC custom query mode does not apply save mode handling, so `custom_sql` is skipped.
+Confirm `data_save_mode = CUSTOM_PROCESSING` and that `custom_sql` is set. Catalog-based modes such as `DROP_DATA` still require generated SQL mode (`generate_sink_sql = true` with `database`/`table`). In `query` mode, only `CUSTOM_PROCESSING` + `custom_sql` is executed.
 
 ### A file sink rejects `data_save_mode`
 
