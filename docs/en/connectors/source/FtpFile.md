@@ -59,7 +59,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | connection_mode             | string  | no       | active_local                |
 | remote_verification_enabled | boolean | no       | true                        |
 | control_encoding            | string  | no       | UTF-8                       |
-| delimiter/field_delimiter   | string  | no       | \001 for text and , for csv |
+| delimiter/field_delimiter   | string  | no       | \001                        |
 | row_delimiter               | string  | no       | \n                          |
 | read_columns                | list    | no       | -                           |
 | parse_partition_from_path   | boolean | no       | true                        |
@@ -73,7 +73,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | poi_excel_max_file_size     | long    | no       | 52428800                    |
 | xml_row_tag                 | string  | no       | -                           |
 | xml_use_attr_format         | boolean | no       | -                           |
-| csv_use_header_line         | boolean | no       | -                           |
+| csv_use_header_line         | boolean | no       | false                       |
 | file_filter_pattern         | string  | no       | -                           |
 | filename_extension          | string  | no       | -                           |
 | compress_codec              | string  | no       | none                        |
