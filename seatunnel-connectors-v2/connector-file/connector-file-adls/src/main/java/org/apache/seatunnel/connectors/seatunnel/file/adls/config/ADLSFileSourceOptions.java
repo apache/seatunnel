@@ -15,31 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
-import java.io.Serializable;
-
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    COS("CosFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File"),
-    OBS("ObsFile"),
-    BOS("BosFile"),
-    GCS("GcsFile"),
-    ADLS("ADLSFile");
-
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
-    }
-
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
-    }
-}
+public class ADLSFileSourceOptions extends ADLSFileBaseOptions {}
