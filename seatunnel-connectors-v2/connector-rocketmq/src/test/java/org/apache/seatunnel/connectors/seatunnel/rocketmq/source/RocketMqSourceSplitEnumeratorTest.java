@@ -144,6 +144,50 @@ class RocketMqSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testRun_propagatesExceptionWhenGroupOffsetsLookupFails() throws Exception {
+        ConsumerMetadata metadata = new ConsumerMetadata();
+        metadata.setTopics(Collections.singletonList("topic_group"));
+        metadata.setStartMode(StartMode.CONSUME_FROM_GROUP_OFFSETS);
+
+        MessageQueue messageQueue = new MessageQueue("topic_group", "broker-group", 0);
+
+        SourceSplitEnumerator.Context<RocketMqSourceSplit> context = mockContext();
+
+        try (MockedStatic<RocketMqAdminUtil> mockedAdmin =
+                Mockito.mockStatic(RocketMqAdminUtil.class)) {
+            mockedAdmin
+                    .when(() -> RocketMqAdminUtil.offsetTopics(any(), eq(metadata.getTopics())))
+                    .thenReturn(
+                            Collections.singletonList(
+                                    topicOffsets(queueOffset(messageQueue, 5L, 18L))));
+            mockedAdmin
+                    .when(
+                            () ->
+                                    RocketMqAdminUtil.currentOffsets(
+                                            any(),
+                                            eq(metadata.getTopics()),
+                                            eq(Collections.singleton(messageQueue))))
+                    .thenThrow(
+                            new org.apache.seatunnel.connectors.seatunnel.rocketmq.exception
+                                    .RocketMqConnectorException(
+                                    org.apache.seatunnel.connectors.seatunnel.rocketmq.exception
+                                            .RocketMqConnectorErrorCode
+                                            .GET_CONSUMER_GROUP_OFFSETS_ERROR,
+                                    "Simulated transient lookup failure"));
+
+            RocketMqSourceSplitEnumerator enumerator =
+                    new RocketMqSourceSplitEnumerator(
+                            metadata, Collections.emptyMap(), context, -1L);
+
+            // Assert that the exception propagates out of run() instead of being swallowed
+            Assertions.assertThrows(
+                    org.apache.seatunnel.connectors.seatunnel.rocketmq.exception
+                            .RocketMqConnectorException.class,
+                    enumerator::run);
+        }
+    }
+
+    @Test
     void testRun_matchesSpecificOffsetsByTopicAndQueueId() throws Exception {
         ConsumerMetadata metadata = new ConsumerMetadata();
         metadata.setTopics(Collections.singletonList("topic_specific"));

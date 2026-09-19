@@ -48,7 +48,6 @@ import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 import org.apache.rocketmq.tools.command.CommandUtil;
 
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -284,9 +283,43 @@ public class RocketMqAdminUtil {
             adminClient = RocketMqAdminUtil.startMQAdminTool(config);
             Map<MessageQueue, OffsetWrapper> consumerOffsets = Maps.newConcurrentMap();
             for (String topic : topics) {
-                ConsumeStats consumeStats =
-                        adminClient.examineConsumeStats(config.getGroupId(), topic);
-                consumerOffsets.putAll(consumeStats.getOffsetTable());
+                ConsumeStats consumeStats = null;
+                int maxRetries = 3;
+                int retryCount = 0;
+                while (true) {
+                    try {
+                        consumeStats = adminClient.examineConsumeStats(config.getGroupId(), topic);
+                        break;
+                    } catch (MQClientException e) {
+                        if (e.getResponseCode() == ResponseCode.TOPIC_NOT_EXIST) {
+                            if (retryCount < maxRetries) {
+                                retryCount++;
+                                try {
+                                    Thread.sleep(1000L * retryCount);
+                                } catch (InterruptedException ie) {
+                                    Thread.currentThread().interrupt();
+                                    throw new RocketMqConnectorException(
+                                            RocketMqConnectorErrorCode
+                                                    .GET_CONSUMER_GROUP_OFFSETS_ERROR,
+                                            "Interrupted while retrying consumer group offset lookup.",
+                                            ie);
+                                }
+                                continue;
+                            } else {
+                                throw new RocketMqConnectorException(
+                                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR,
+                                        String.format(
+                                                "Consumer group offset lookup failed for topic '%s' because route info for the group could not be resolved (transient name server delay or subscription group not provisioned).",
+                                                topic),
+                                        e);
+                            }
+                        }
+                        throw e;
+                    }
+                }
+                if (consumeStats != null) {
+                    consumerOffsets.putAll(consumeStats.getOffsetTable());
+                }
             }
             return consumerOffsets.keySet().stream()
                     .filter(messageQueue -> messageQueues.contains(messageQueue))
@@ -299,17 +332,8 @@ public class RocketMqAdminUtil {
                 | MQBrokerException
                 | RemotingException
                 | InterruptedException e) {
-            if (e instanceof MQClientException) {
-                if (((MQClientException) e).getResponseCode() == ResponseCode.TOPIC_NOT_EXIST) {
-                    return Collections.emptyMap();
-                } else {
-                    throw new RocketMqConnectorException(
-                            RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-                }
-            } else {
-                throw new RocketMqConnectorException(
-                        RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
-            }
+            throw new RocketMqConnectorException(
+                    RocketMqConnectorErrorCode.GET_CONSUMER_GROUP_OFFSETS_ERROR, e);
         } finally {
             if (adminClient != null) {
                 adminClient.shutdown();
