@@ -34,32 +34,36 @@ public class ConfigValueUtils {
             return ConfigValueFactory.fromAnyRef(null);
         }
 
+        if (value.isEmpty()) {
+            return ConfigValueFactory.fromAnyRef("");
+        }
+
         if (value.startsWith("\"") && value.endsWith("\"") && value.length() > 1) {
             value = StringUtils.unwrap(value, "\"");
             return ConfigValueFactory.fromAnyRef(value);
         }
 
+        boolean maybeJsonOrArray =
+                (value.startsWith("{") && value.endsWith("}"))
+                        || (value.startsWith("[") && value.endsWith("]"));
+
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
             return parsed.root().get("v");
         } catch (ConfigException e) {
-            String hint = buildParseHint(value);
-            throw new ConfigException.BadValue(
-                    ConfigOriginFactory.newSimple(),
-                    String.format("Value '%s' could not be parsed. %s", value, hint),
-                    e.getMessage());
-        }
-    }
+            if (maybeJsonOrArray) {
+                throw new ConfigException.BadValue(
+                        ConfigOriginFactory.newSimple(),
+                        String.format(
+                                "Value '%s' looks like JSON or Array but failed to parse. "
+                                        + "If you intended to pass a Map/List, please check the syntax. "
+                                        + "If you intended to pass a plain string with comma, wrap the entire value in double quotes (e.g., \"your_value\"). ",
+                                value),
+                        e.getMessage());
+            }
 
-    private static String buildParseHint(String value) {
-        if ((value.startsWith("{") && value.endsWith("}"))
-                || (value.startsWith("[") && value.endsWith("]"))) {
-            return "It looks like a JSON/Array but failed to parse. "
-                    + "If you intended to pass a Map/List, please check the syntax. ";
+            return ConfigValueFactory.fromAnyRef(value);
         }
-
-        return "If you intended a plain string with comma, wrap the entire value in double quotes "
-                + "(e.g., \"your_value\").";
     }
 
     public static boolean isEscapedQuote(String value, int quoteIndex) {
