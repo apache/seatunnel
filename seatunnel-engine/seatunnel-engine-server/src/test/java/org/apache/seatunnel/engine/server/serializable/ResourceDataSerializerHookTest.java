@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.serializable;
 
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetWorkerResourcesOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.opeartion.ReportAutoscalerMetricsOperation;
 
 import org.junit.jupiter.api.Test;
 
@@ -35,5 +36,15 @@ class ResourceDataSerializerHookTest {
                         .create(ResourceDataSerializerHook.GET_WORKER_RESOURCES_TYPE);
 
         assertInstanceOf(GetWorkerResourcesOperation.class, serializable);
+    }
+
+    @Test
+    void shouldRegisterReportAutoscalerMetricsOperation() {
+        IdentifiedDataSerializable serializable =
+                new ResourceDataSerializerHook()
+                        .createFactory()
+                        .create(ResourceDataSerializerHook.REPORT_AUTOSCALER_METRICS_TYPE);
+
+        assertInstanceOf(ReportAutoscalerMetricsOperation.class, serializable);
     }
 }
