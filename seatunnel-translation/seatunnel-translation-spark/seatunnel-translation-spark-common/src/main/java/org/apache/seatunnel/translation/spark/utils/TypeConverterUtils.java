@@ -180,7 +180,8 @@ public class TypeConverterUtils {
     }
 
     private static ArrayType<?, ?> convert(org.apache.spark.sql.types.ArrayType arrayType) {
-        switch (convert(arrayType.elementType()).getSqlType()) {
+        SeaTunnelDataType<?> elementType = convert(arrayType.elementType());
+        switch (elementType.getSqlType()) {
             case STRING:
                 return ArrayType.STRING_ARRAY_TYPE;
             case BOOLEAN:
@@ -198,8 +199,7 @@ public class TypeConverterUtils {
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
             default:
-                throw new UnsupportedOperationException(
-                        String.format("Unsupported Spark's array type: %s.", arrayType.sql()));
+                return ArrayType.of(elementType);
         }
     }
 

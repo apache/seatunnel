@@ -108,6 +108,12 @@ The example entry point is:
 
 - `org.apache.seatunnel.example.spark.v2.SeaTunnelApiExample`
 
+## Nested Arrays
+
+The Spark translation layer supports arrays containing arrays, maps, rows and decimals, in addition to primitive arrays. Its schema conversion utility can map Spark types such as `ARRAY<ARRAY<INT>>`, `ARRAY<MAP<STRING, INT>>` and `ARRAY<STRUCT<id: INT>>` to SeaTunnel types, and its row converters preserve the corresponding nested values.
+
+Nested arrays preserve empty arrays and null elements, including null maps and rows. Every array still has one element type; Spark's normal type compatibility rules apply. This does not change schema configuration syntax, the SeaTunnel Sql transform's supported SQL syntax, connector-specific type restrictions, or Flink translation.
+
 ## Next Steps
 
 - [Quick Start With Spark](../getting-started/locally/quick-start-spark.md)

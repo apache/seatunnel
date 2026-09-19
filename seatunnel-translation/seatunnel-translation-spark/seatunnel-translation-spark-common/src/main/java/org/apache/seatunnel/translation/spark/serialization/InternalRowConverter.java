@@ -18,7 +18,6 @@
 package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.table.type.ArrayType;
-import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -115,24 +114,6 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
                 return Decimal.apply((BigDecimal) field);
             case ARRAY:
                 SeaTunnelDataType<?> elementType = ((ArrayType<?, ?>) dataType).getElementType();
-                if (elementType instanceof MapType) {
-                    Object arrayMap =
-                            Array.newInstance(ArrayBasedMapData.class, ((Map[]) field).length);
-                    for (int i = 0; i < ((Map[]) field).length; i++) {
-                        Map<?, ?> value = (Map<?, ?>) ((Map[]) field)[i];
-                        Array.set(arrayMap, i, convertMap(value, (MapType<?, ?>) elementType));
-                    }
-                    return ArrayData.toArrayData(arrayMap);
-                }
-                if (elementType.equals(BasicType.STRING_TYPE)) {
-                    Object[] fields = (Object[]) field;
-                    UTF8String[] objects =
-                            Arrays.stream(fields)
-                                    .map(v -> UTF8String.fromString((String) v))
-                                    .toArray(UTF8String[]::new);
-                    return ArrayData.toArrayData(objects);
-                }
-
                 Object[] arrayData = (Object[]) field;
                 Object[] convertedArray = new Object[arrayData.length];
                 for (int i = 0; i < arrayData.length; i++) {
@@ -368,9 +349,6 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
 
     private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
         Class<?> elementTypeClass = arrayType.getElementType().getTypeClass();
-        if (arrayData == null || arrayData.numElements() == 0) {
-            return Collections.emptyList().toArray();
-        }
         Object[] newArray = (Object[]) Array.newInstance(elementTypeClass, arrayData.numElements());
         Object[] values =
                 arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
@@ -384,10 +362,10 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
 
     private static Object reconvertArray(
             WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
-        if (arrayData == null || arrayData.size() == 0) {
-            return Collections.emptyList().toArray();
-        }
-        Object[] newArray = new Object[arrayData.size()];
+        Object[] newArray =
+                (Object[])
+                        Array.newInstance(
+                                arrayType.getElementType().getTypeClass(), arrayData.size());
         for (int i = 0; i < arrayData.size(); i++) {
             newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
         }

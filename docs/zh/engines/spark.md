@@ -108,6 +108,12 @@ sink {
 
 - `org.apache.seatunnel.example.spark.v2.SeaTunnelApiExample`
 
+## 嵌套数组
+
+除基本类型数组外，Spark 转换层还支持元素为数组、映射、行和小数的数组。其模式转换工具可以将 Spark 的 `ARRAY<ARRAY<INT>>`、`ARRAY<MAP<STRING, INT>>` 和 `ARRAY<STRUCT<id: INT>>` 等类型映射为 SeaTunnel 类型，行转换器则保留对应的嵌套值。
+
+嵌套数组会保留空数组和 null 元素，包括 null 映射和行。每个数组仍然只有一种元素类型，并遵循 Spark 的类型兼容规则。此功能不会改变模式配置语法、SeaTunnel Sql 转换支持的 SQL 语法、连接器自身的类型限制或 Flink 转换层。
+
 ## 下一步
 
 - [Spark 引擎快速开始](../getting-started/locally/quick-start-spark.md)
