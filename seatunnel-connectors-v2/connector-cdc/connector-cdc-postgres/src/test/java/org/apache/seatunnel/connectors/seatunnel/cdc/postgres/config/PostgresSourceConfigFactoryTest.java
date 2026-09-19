@@ -40,5 +40,8 @@ public class PostgresSourceConfigFactoryTest {
 
         Assertions.assertEquals(
                 "never", configFactory.create(0).getDbzConfiguration().getString("snapshot.mode"));
+        Assertions.assertEquals(
+                "database",
+                configFactory.create(0).getDbzConfiguration().getString("database.include.list"));
     }
 }
