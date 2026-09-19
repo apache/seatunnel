@@ -102,7 +102,8 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .withDescription(
                             "HTTP connect timeout for the MaxCompute (ODPS) REST client "
                                     + "(metadata/catalog calls) in milliseconds. "
-                                    + "Default 10000 (10s).");
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 10000 (10s).");
     public static final Option<Long> READ_TIMEOUT_MS =
             Options.key("read_timeout_ms")
                     .longType()
@@ -110,7 +111,8 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .withDescription(
                             "HTTP read timeout for the MaxCompute (ODPS) REST client "
                                     + "(metadata/catalog calls) in milliseconds. "
-                                    + "Default 120000 (120s).");
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 120000 (120s).");
     public static final Option<Integer> RETRY_TIMES =
             Options.key("retry_times")
                     .intType()
@@ -126,7 +128,8 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .withDescription(
                             "HTTP connect timeout for the MaxCompute Tunnel client "
                                     + "(data upload/download) in milliseconds. "
-                                    + "Default 180000 (180s).");
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 180000 (180s).");
     public static final Option<Long> TUNNEL_READ_TIMEOUT_MS =
             Options.key("tunnel_read_timeout_ms")
                     .longType()
@@ -134,7 +137,8 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .withDescription(
                             "HTTP read timeout for the MaxCompute Tunnel client "
                                     + "(data upload/download) in milliseconds. "
-                                    + "Default 300000 (300s).");
+                                    + "Millisecond values are converted to whole seconds; "
+                                    + "minimum 1000. Default 300000 (300s).");
     public static final Option<Integer> TUNNEL_RETRY_TIMES =
             Options.key("tunnel_retry_times")
                     .intType()

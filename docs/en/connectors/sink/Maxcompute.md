@@ -218,6 +218,7 @@ Default: Not set (use default quota)
 > `read_timeout_ms`, `retry_times`. The **Tunnel client** handles the data plane
 > (bulk row upload/download); tune it with the `tunnel_*` options. Setting the REST
 > options alone does **not** change the Tunnel client's timeouts.
+> Millisecond timeout values are converted to whole seconds; the minimum is `1000`.
 
 ### connect_timeout_ms [long]
 

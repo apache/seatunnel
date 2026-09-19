@@ -210,6 +210,7 @@ Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据
 > MaxCompute 有两个 HTTP 客户端。**ODPS REST 客户端**负责控制面（表/schema 查询、catalog 列表），
 > 用 `connect_timeout_ms`、`read_timeout_ms`、`retry_times` 调整；**Tunnel 客户端**负责数据面（批量行上传/下载），
 > 用 `tunnel_*` 系列调整。单独设置 REST 参数**不会**改变 Tunnel 客户端的超时。
+> 毫秒值会被转换为整秒，最小值为 `1000`。
 
 ### connect_timeout_ms [long]
 
