@@ -196,13 +196,13 @@ public class PlaceholderUtils {
 
             String resolvedValue = null;
 
-            // Priority: input > default > system
+            // Priority: input > system > default
             if (!isSystemPlaceholder.test(key)) {
                 resolvedValue = userConfigMap.get(key);
             }
 
             String replacement =
-                    Stream.of(resolvedValue, defaultValue, System.getProperty(key))
+                    Stream.of(resolvedValue, System.getProperty(key), defaultValue)
                             .filter(Objects::nonNull)
                             .findFirst()
                             .orElse(optional ? "" : input.substring(start, closePos + 1));
