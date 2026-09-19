@@ -29,6 +29,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.connectors.seatunnel.config.Web3jSourceOptions.URL;
 
 @AutoService(Factory.class)
@@ -40,7 +41,7 @@ public class Web3jSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder().required(URL).build();
+        return OptionRule.builder().required(URL, notBlank(URL)).build();
     }
 
     @Override

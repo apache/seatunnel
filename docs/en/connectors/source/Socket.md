@@ -137,6 +137,21 @@ sink {
 }
 ```
 
+## FAQ
+
+### Does Socket source checkpoint its read position?
+
+No. The source does not record a server-side offset or message sequence; after a restart it starts the next read from whatever the socket returns. Use Kafka, Pulsar, or another offset-tracking source if the job needs replayable or exactly-once behavior. Socket source is intended for local debugging or one-shot text streams.
+
+### How are empty lines and partial trailing records handled?
+
+In batch mode the reader consumes whatever is currently buffered on the socket, splits on `\n`, emits each complete line as one STRING row, and then emits the trailing partial line (if any) as a final row before finishing. Empty lines are *not* skipped — they become a row whose payload is the empty string. In streaming mode empty lines are emitted in real time the same way.
+
+### Can I parallelize Socket source?
+
+No. The reader binds to a single client connection to the configured `host:port` and uses one split, so the job's `env.parallelism` is effectively capped at 1 for this source. To scale, run independent jobs — each with its own `host`/`port` pair — instead of increasing parallelism within a single Socket source.
+
 ## Changelog
 
 <ChangeLog />
+

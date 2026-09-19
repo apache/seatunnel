@@ -57,9 +57,12 @@ public class GcsFileIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         DockerImageName image = DockerImageName.parse(FAKE_GCS_IMAGE);
+        // Preserve the directory-marker objects required by Hadoop mkdirs and rename.
         fakeGcs =
                 new GenericContainer<>(image)
                         .withCommand(
+                                "-backend",
+                                "memory",
                                 "-scheme",
                                 "http",
                                 "-port",
@@ -100,5 +103,16 @@ public class GcsFileIT extends TestSuiteBase implements TestResource {
     public void testReadJsonFromGcs(TestContainer container) throws Exception {
         Container.ExecResult result = container.executeJob(JOB_CONFIG);
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    @TestTemplate
+    public void testWritePartitionedJsonAndReplaceExistingData(TestContainer container)
+            throws Exception {
+        for (int attempt = 0; attempt < 2; attempt++) {
+            Container.ExecResult write = container.executeJob("/gcs/gcs_file_to_gcs.conf");
+            Assertions.assertEquals(0, write.getExitCode(), write.getStderr());
+            Container.ExecResult read = container.executeJob("/gcs/gcs_sink_to_assert.conf");
+            Assertions.assertEquals(0, read.getExitCode(), read.getStderr());
+        }
     }
 }

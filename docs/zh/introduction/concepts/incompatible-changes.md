@@ -4,6 +4,24 @@
 
 ## dev
 
+### RabbitMQ Connector
+
+- **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
+  - **影响范围**：`seatunnel-connectors-v2/connector-rabbitmq`
+  - **变更说明**：此前使用 `amqps://` 的 `url`/`uri` 建立连接时，会隐式启用“信任所有证书”的
+    TrustManager 且不校验主机名。现在 `amqps://` 连接会强制校验证书，与 `ssl = true` 的
+    host/port 路径行为保持一致。
+  - **影响**：使用自签名或私有 CA 证书的 Broker，升级后通过 `amqps://` 建立的连接将失败。
+  - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
+    `host`/`port` + `ssl = true` 配置并正确设置信任库。
+
+### Zeta REST 分页参数校验
+
+- **行为变更：分页接口开始校验 `page` 与 `rows`**
+  - **影响范围**：`seatunnel-engine-server`，REST 接口 `GET /finished-jobs/:state`、`GET /running-jobs` 与 `GET /running-jobs/summary`。后两者由同一个 `RunningJobsServlet` 实例提供服务，因此都会受到该校验。
+  - **变更说明**：这些接口现在会拒绝非整数或不大于 0 的 `page` 与 `rows`，并拒绝起始偏移量会超出 32 位整数范围的分页请求。此前 `rows=0` 会被接受并返回空页，负数 `rows` 会引发内部错误，而足够大的 `page` 与 `rows` 组合可能溢出为一个较小的正偏移量，从而静默返回错误的页。
+  - **影响**：依赖 `rows=0` 返回空页的请求现在会收到 `400`，错误信息中会指明具体参数。传入合法正整数的调用方不受影响。响应结构、`{"data": [...], "total": n}` 包装格式，以及起始位置恰好等于 `total` 时仍返回空页的行为，均保持不变。
+
 ### MySQL CDC Schema-Change 解析
 
 - **行为变更：向上传播 DDL 解析监听器错误**
@@ -12,6 +30,12 @@
   - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
 
 ### JDBC Connector
+
+- **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
+  - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel 会把整个批次视为已经完成并跳过回放；只有在第一个 recovered checkpoint XID 之后又出现缺失 XID 时，restore 才会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。
+  - **影响**：以前依赖“XA 分支缺失即视为成功”的任务，在升级后如果 recovery scan 里仍然能看到后续 checkpoint XID、但中间出现缺口，可能会在恢复阶段收到明确的 XA restore 错误。另外，`max_commit_attempts` 现在会在一次 restore/commit 调用内耗尽，而不是分散到多次任务重启中。
+  - **迁移指南**：升级前请先检查资源管理器中是否还残留 prepared XA 事务，例如 MySQL 可使用 `XA RECOVER`，PostgreSQL 可检查 `pg_prepared_xacts`。如果升级后 restore 因为“后面仍有 checkpoint XID，但中间出现缺失 XID”而进入 fail-closed，请重点确认缺失 XID 是否被回滚、超时过期，或被外部清理，再决定后续恢复操作。XA recovery 无法区分 SeaTunnel 已提交的 XID 与被外部清理者回滚或删除的 XID。因此，位于 recovered 后缀之前的缺失 XID，或全部 XID 缺失的批次，会被推断为已经完成；在相关作业可能恢复时，不要对 SeaTunnel 所属的 prepared XA 分支执行外部清理，任何清理操作都应与作业恢复流程协调。
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`、`seatunnel-connectors-v2/connector-iceberg`、`seatunnel-connectors-v2/connector-cdc-base`、`seatunnel-connectors-v2/connector-cdc-tidb`、`seatunnel-connectors-v2/connector-starrocks`、`seatunnel-connectors-v2/connector-hudi`、`seatunnel-connectors-v2/connector-snowflake`（通过 JDBC 方言）
@@ -105,6 +129,12 @@
 
 ### 连接器变更
 
+- **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
+  - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **变更说明**：此前 `HttpSinkWriter.doHttpRequest` 对非 200 的 HTTP 响应和任何请求异常（网络错误、超时、序列化错误）都只记录 `error` 日志后正常返回，导致失败的行/批次被静默丢弃，而作业继续运行、checkpoint 正常完成。现在这两种情况都会抛出 `HttpConnectorException`（`REQUEST_FAILED`），失败会传播到引擎并使任务/作业失败。
+  - **影响**：下游 HTTP 端点偶发返回非 200 或偶发不可达的作业，此前会带着静默丢数据继续运行；升级后会在第一次写入失败时大声失败。该连接器仍没有内置重试或死信机制，重新提交失败的作业可能重复投递失败前已成功的行——请确保接收端能够容忍重试/重启时的重复投递。
+  - **迁移指南**：无需更改配置。如果您的端点在正常业务中就会返回非 200 响应，请在 Sink 之前的环节处理这些响应，或在升级前引入外部重试机制。
+
 - **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
   - **变更说明**：此前，`OrcWriteStrategy.buildFieldWithRowType(...)` 在构建 ORC Schema 时，会将每个嵌套 `ROW`（struct）字段名强制转为小写，因此声明为 `MD5` 的嵌套字段在文件 footer 中被持久化为 `md5`。下游消费者按原始大小写名称读取该列时会得到 null/缺失值。本次移除了递归嵌套字段分支上的 `.toLowerCase()` 调用，嵌套 struct 字段名将按原始大小写写入文件 Schema。
@@ -163,6 +193,11 @@
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
 ### 转换变更
+
+- **行为变更：AMAZON 向量化遵循重试选项**
+  - **影响范围**：配置 `model_provider = AMAZON` 的 `Embedding` 转换。
+  - **变更说明**：配置的 SeaTunnel 重试和退避选项现在会传递到 Bedrock 运行时。此前 Transform 忽略这些设置，只执行一次 SeaTunnel 尝试。
+  - **影响及迁移**：大于 1 的 `model_retry_max_attempts` 现在会启用 SeaTunnel 重试，可能产生额外模型费用；设置为 1 可保留单次 SeaTunnel 尝试，默认值仍为 1。SDK 自身的重试和超时行为保持不变；`model_request_timeout_ms` 目前不应用于 Bedrock 调用。
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
@@ -251,6 +286,13 @@
   升级后需要重新校准。如果舍入后的 `TINYINT` 超出自身类型范围，可以把参数转换为更宽的类型——例如
   `ROUND(CAST(tiny_col AS INT), -1)`——或者在上游过滤掉这些行。此前为绕开 `ABS` / `SIGN` 拒绝而使用的强制转换
   （`ABS(CAST(tiny_col AS INT))`）仍然可以正常工作，可以在方便时再简化。
+
+### 格式变更
+
+- **破坏性变更：JSON 数值字段的序列化改为按运行时实际类型处理**
+  - **影响范围**：`seatunnel-formats/seatunnel-format-json`（`RowToJsonConverters`）--影响所有以 JSON 格式序列化行的连接器（例如 Kafka、RabbitMQ、Pulsar 及文件 JSON Sink）。
+  - **变更说明**：以前，目录 Schema 中声明为数值类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`、`FLOAT`、`DOUBLE`、`DECIMAL`）的字段，序列化时会把运行时值强制转换为声明类型对应的 Java 类型（例如 `BIGINT` 直接 `(long) value`）。在多表作业（例如多表 CDC 作业写 JSON 到 RabbitMQ/Kafka）中，多张表共享同一份目录 Schema 但物理列类型不一致时，`String` 或 `BigDecimal` 运行时值会抛出原始 `ClassCastException` 并导致作业失败。现在数值字段按运行时实际类型序列化：任意数值包装类型（`Byte`、`Short`、`Integer`、`Long`、`Float`、`Double`、`BigInteger`、`BigDecimal`）输出为对应的 JSON 数字；可解析为数字的字符串会解析成 JSON 数字，无法解析的文本则输出为 JSON 字符串；声明为 `DECIMAL` 的字段遇到 `Float`/`Double` 运行时值时，通过 `BigDecimal.valueOf` 序列化以避免浮点表示误差。
+  - **影响**：以前因 `ClassCastException` 崩溃的异构数值现在可以正常序列化，输出的 JSON 数值形态跟随运行时值而非声明的列类型（`BIGINT` 列中的 `String` 或 `BigDecimal` 值会保留其精确数值）。既不能表示为数字、也无法从文本解析的运行时值（例如 `byte[]`、`Map`、`LocalDateTime`）将以类型化的 `SeaTunnelJsonFormatException`（`UNSUPPORTED_DATA_TYPE`）快速失败，替代原来的原始 `ClassCastException`。假定 JSON 数值形态始终与声明列类型一致的下游消费方需要重新评估。(#11415)
 
 ### 引擎行为变更
 

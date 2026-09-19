@@ -5,6 +5,35 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### RabbitMQ Connector
+
+- **Breaking Change: `amqps://` connections now verify broker certificates**
+  - **Affected component**: `seatunnel-connectors-v2/connector-rabbitmq`
+  - **Description**: Previously, connecting with an `amqps://` `url`/`uri` implicitly installed a
+    trust-all trust manager without hostname verification. Certificate verification is now
+    enforced for `amqps://` connections, consistent with the `ssl = true` host/port path.
+  - **Impact**: Jobs that connect with `amqps://` URLs to brokers using self-signed or private-CA
+    certificates will fail to connect after upgrading.
+  - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
+    trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
+    configuration with a properly configured trust store.
+
+### Zeta REST Pagination Parameter Validation
+
+- **Behavior change: `page` and `rows` are validated on paginated endpoints**
+  - **Affected component**: `seatunnel-engine-server`, REST endpoints `GET /finished-jobs/:state`,
+    `GET /running-jobs` and `GET /running-jobs/summary`. The latter two are served by the same
+    `RunningJobsServlet` instance, so both receive the validation.
+  - **Description**: These endpoints now reject a `page` or `rows` value that is not an integer or
+    is not greater than 0, and reject a page whose start offset would overflow a 32-bit integer.
+    Previously `rows=0` was accepted and returned an empty page, a negative `rows` produced an
+    internal error, and a sufficiently large `page` combined with `rows` could wrap to a small
+    positive offset and silently return the wrong page.
+  - **Impact**: Requests that relied on `rows=0` returning an empty page now receive `400` with a
+    message naming the offending parameter. Callers passing valid positive values are unaffected.
+    The response shape, the `{"data": [...], "total": n}` envelope, and the behaviour of a page
+    starting exactly at `total`, which still returns an empty page, are all unchanged.
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
@@ -18,6 +47,12 @@ You need to check this document before you upgrade to related version.
     formats.
 
 ### JDBC Connector
+
+- **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
+  - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.
+  - **Impact**: Jobs that previously relied on restore inferring success from a missing XA branch may now fail during recovery when the XA recovery scan still contains later checkpoint XIDs but shows a gap after them. Operators may also observe that `max_commit_attempts` is exhausted within one restore/commit invocation rather than across repeated task restarts.
+  - **Migration Guide**: Before upgrading, inspect the resource manager for dangling prepared XA transactions (for example `XA RECOVER` on MySQL or `pg_prepared_xacts` on PostgreSQL). If recovery fails closed because a later checkpoint XID still exists but a following one is missing, investigate whether the missing XID was rolled back, expired, or cleaned up externally before retrying the job. XA recovery cannot distinguish a SeaTunnel-committed XID from one rolled back or removed by an external cleanup actor. Therefore, a missing prefix or all-absent batch is inferred to be resolved; do not externally clean up SeaTunnel-owned prepared branches while their jobs may be restored, and coordinate any cleanup with job recovery.
 
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc`, `seatunnel-connectors-v2/connector-iceberg`, `seatunnel-connectors-v2/connector-cdc-base`, `seatunnel-connectors-v2/connector-cdc-tidb`, `seatunnel-connectors-v2/connector-starrocks`, `seatunnel-connectors-v2/connector-hudi`, `seatunnel-connectors-v2/connector-snowflake` (via JDBC dialect)
@@ -111,6 +146,12 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
+  - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **Description**: Previously, `HttpSinkWriter.doHttpRequest` handled both a non-200 HTTP response and any request exception (network error, timeout, serialization error) by logging at `error` level and returning normally, so the failed row/batch was silently dropped while the job kept running and checkpoints completed. The writer now throws `HttpConnectorException` (`REQUEST_FAILED`) for both cases, so the failure propagates to the engine and fails the task/job.
+  - **Impact**: Jobs whose downstream HTTP endpoint occasionally returns non-200 or is occasionally unreachable used to keep running with silent data loss; after this change they fail loudly at the first failed write. The connector still has no built-in retry or dead-letter mechanism, so re-submitting a failed job may deliver rows that succeeded before the failure again — make sure the receiver tolerates duplicate delivery on retry/restart.
+  - **Migration Guide**: No configuration change is required. If your endpoint is expected to return non-200 responses as part of normal operation, handle them upstream of the sink or add an external retry mechanism before upgrading.
+
 - **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
   - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
   - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
@@ -179,6 +220,11 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
 ### Transform Changes
+
+- **Behavior change: AMAZON embedding honors retry options**
+  - **Affected component**: `Embedding` transform with `model_provider = AMAZON`.
+  - **Description**: Configured SeaTunnel retry and backoff options now reach the Bedrock runtime. Previously, the transform ignored these settings and used one SeaTunnel attempt.
+  - **Impact and migration**: Configured `model_retry_max_attempts` values greater than 1 now enable SeaTunnel retries, which may incur additional model charges; use 1 to retain a single SeaTunnel attempt. The default remains 1. The SDK's own retry and timeout behavior is unchanged; `model_request_timeout_ms` is not currently applied to Bedrock calls.
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
@@ -278,6 +324,13 @@ You need to check this document before you upgrade to related version.
   rounded `TINYINT` no longer fits its own type, cast the argument to a wider type — `ROUND(CAST(tiny_col AS INT), -1)`
   — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
   (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
+
+### Format Changes
+
+- **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
+  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
+  - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
+  - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
 
 ### Engine Behavior Changes
 
