@@ -44,6 +44,8 @@ header:
     - '**/NOTICE'
     - '**/.gitkeep'
     - '**/com/typesafe/config/**'
+    # Archived serialization bytes; ASF license and provenance are in the adjacent README.md.
+    - 'seatunnel-transforms-v2/src/test/resources/llm/legacy-boolean-wrapper.base64'
     - 'seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/config/ConfigProvider.java'
     - 'seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/config/SeaTunnelConfigSections.java'
     - 'seatunnel-engine/seatunnel-engine-common/src/main/java/org/apache/seatunnel/engine/common/config/YamlSeaTunnelConfigBuilder.java'
