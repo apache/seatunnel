@@ -73,6 +73,10 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
                                 new LogMessageWaitStrategy()
                                         .withRegEx(".*Master: Starting Spark master at.*")
                                         .withStartupTimeout(Duration.ofMinutes(2)));
+        List<String> dockerCommand = getDockerCommand();
+        if (dockerCommand != null && !dockerCommand.isEmpty()) {
+            master.withCommand(dockerCommand.toArray(new String[0]));
+        }
         copySeaTunnelStarterToContainer(master);
         copySeaTunnelStarterLoggingToContainer(master);
 
@@ -112,6 +116,11 @@ public abstract class AbstractTestSparkContainer extends AbstractTestContainer {
     @Override
     protected List<String> getExtraStartShellCommands() {
         return Arrays.asList("--master local", "--deploy-mode client");
+    }
+
+    /** Returns non-null container entrypoint arguments; an empty list keeps the image default. */
+    protected List<String> getDockerCommand() {
+        return Collections.emptyList();
     }
 
     public void executeExtraCommands(ContainerExtendedFactory extendedFactory)

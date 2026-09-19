@@ -34,10 +34,12 @@ import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -56,6 +58,20 @@ import java.util.stream.Stream;
 
 /** A Starter to generate spark-submit command for SeaTunnel job on spark. */
 public class SparkStarter implements Starter {
+
+    /** Selects the starter artifact; the Spark 3.5 launchers override the legacy Spark 3 name. */
+    static final String STARTER_JAR_NAME_PROPERTY = "seatunnel.spark.starter.jar.name";
+
+    static final String SPARK_35_STARTER_JAR_NAME = "seatunnel-spark-3.5-starter.jar";
+
+    /** Identifies the invoking launcher in help and argument-error output. */
+    static final String STARTER_SHELL_NAME_PROPERTY = "seatunnel.spark.starter.shell.name";
+
+    /** Spark 3.5's Unix launcher supplies a file for UTF-8, NUL-terminated argv items. */
+    static final String ARGS_FILE_PROPERTY = "seatunnel.spark.starter.args-file";
+
+    /** File mode emits raw argv; legacy launchers still consume shell-quoted command text. */
+    private final boolean rawArguments = System.getProperty(ARGS_FILE_PROPERTY) != null;
 
     /** original commandline args */
     protected String[] args;
@@ -80,7 +96,28 @@ public class SparkStarter implements Starter {
     public static void main(String[] args) throws IOException {
         SparkStarter starter = getInstance(args);
         List<String> command = starter.buildCommands();
-        System.out.println(String.join(" ", command));
+        String argsFile = System.getProperty(ARGS_FILE_PROPERTY);
+        if (argsFile == null) {
+            System.out.println(String.join(" ", command));
+        } else {
+            // buildFinal() reserves index 0 for spark-submit, which the launcher invokes itself.
+            writeArguments(Paths.get(argsFile), command.subList(1, command.size()));
+        }
+    }
+
+    /**
+     * Writes arguments without shell quoting, each terminated by NUL (including empty arguments).
+     */
+    static void writeArguments(Path path, List<String> arguments) throws IOException {
+        try (BufferedWriter writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
+            for (String argument : arguments) {
+                if (argument.indexOf('\0') >= 0) {
+                    throw new IllegalArgumentException("Spark arguments must not contain NUL");
+                }
+                writer.write(argument);
+                writer.write('\0');
+            }
+        }
     }
 
     /**
@@ -89,11 +126,7 @@ public class SparkStarter implements Starter {
      */
     static SparkStarter getInstance(String[] args) {
         SparkCommandArgs commandArgs =
-                CommandLineUtils.parse(
-                        args,
-                        new SparkCommandArgs(),
-                        EngineType.SPARK3.getStarterShellName(),
-                        true);
+                CommandLineUtils.parse(args, new SparkCommandArgs(), getStarterShellName(), true);
         DeployMode deployMode = commandArgs.getDeployMode();
         switch (deployMode) {
             case CLUSTER:
@@ -194,14 +227,22 @@ public class SparkStarter implements Starter {
         this.commandArgs.getVariables().stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
-                .forEach(variable -> commands.add("-i " + variable));
+                .forEach(
+                        variable -> {
+                            if (rawArguments) {
+                                commands.add("-i");
+                                commands.add(variable);
+                            } else {
+                                commands.add("-i " + variable);
+                            }
+                        });
         return commands;
     }
 
     /** append option to StringBuilder */
     protected void appendOption(List<String> commands, String option, String value) {
-        commands.add(option);
-        commands.add("\"" + value.replace("\"", "\\\"") + "\"");
+        commands.add(rawArguments ? option.trim() : option);
+        commands.add(rawArguments ? value : "\"" + value.replace("\"", "\\\"") + "\"");
     }
 
     /** append jars option to StringBuilder */
@@ -233,8 +274,18 @@ public class SparkStarter implements Starter {
 
     /** append appJar to StringBuilder */
     protected void appendAppJar(List<String> commands) {
-        commands.add(
-                Common.appStarterDir().resolve(EngineType.SPARK3.getStarterJarName()).toString());
+        commands.add(Common.appStarterDir().resolve(getStarterJarName()).toString());
+    }
+
+    /** Uses the launcher-selected artifact while preserving existing Spark 3 launcher defaults. */
+    static String getStarterJarName() {
+        return System.getProperty(STARTER_JAR_NAME_PROPERTY, EngineType.SPARK3.getStarterJarName());
+    }
+
+    /** Uses the invoking script's display name without changing legacy launchers' help text. */
+    static String getStarterShellName() {
+        return System.getProperty(
+                STARTER_SHELL_NAME_PROPERTY, EngineType.SPARK3.getStarterShellName());
     }
 
     private List<PluginIdentifier> getPluginIdentifiers(Config config, PluginType... pluginTypes) {

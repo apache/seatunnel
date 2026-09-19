@@ -94,10 +94,18 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                DependencyJar.of(S3AFileSystem.class)
-                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
-                DependencyJar.of(AmazonS3.class)
-                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                boolean spark35 = container.getDockerImageName().startsWith("apache/spark:3.5");
+                if (spark35) {
+                    DependencyJar.staged("spark35-hadoop-aws.jar")
+                            .copyTo(container, "/opt/spark/jars");
+                    DependencyJar.staged("spark35-aws-java-sdk-bundle.jar")
+                            .copyTo(container, "/opt/spark/jars");
+                } else {
+                    DependencyJar.of(S3AFileSystem.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                    DependencyJar.of(AmazonS3.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                }
             };
 
     // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
