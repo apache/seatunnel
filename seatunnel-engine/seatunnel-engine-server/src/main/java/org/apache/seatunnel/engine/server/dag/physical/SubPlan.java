@@ -494,6 +494,7 @@ public class SubPlan {
                         String.format(
                                 "Restore time %s, pipeline %s",
                                 pipelineRestoreNum + "", pipelineFullName));
+                jobMaster.clearPipelineMetricsForRestore(getPipelineLocation());
                 reset();
                 jobMaster.getCheckpointManager().reportedPipelineRunning(pipelineId, false);
                 jobMaster.getPhysicalPlan().addPipelineEndCallback(this);
