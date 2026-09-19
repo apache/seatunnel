@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcInputFormat;
 
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +36,12 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * JDBC Source reader.
+ *
+ * <p>Keeps only a bounded local split queue. When the queue runs low and the enumerator has not
+ * signaled {@code NoMoreSplits}, the reader requests the next assignment batch.
+ */
 @Slf4j
 public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSplit> {
     private static final int SPLIT_PROGRESS_LOG_INTERVAL = 50;
@@ -42,7 +49,10 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     private final Context context;
     private final JdbcInputFormat inputFormat;
     private final Deque<JdbcSourceSplit> splits = new ConcurrentLinkedDeque<>();
+    private final int assignBatchSize;
+    private final int requestWatermark;
     private volatile boolean noMoreSplit;
+    private volatile boolean splitRequestPending;
     private final AtomicInteger assignedSplitCount = new AtomicInteger();
     private final AtomicInteger processedSplitCount = new AtomicInteger();
 
@@ -50,11 +60,19 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
             Context context, JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
         this.inputFormat = new JdbcInputFormat(config, tables);
         this.context = context;
+        int configuredBatchSize = config.getSplitAssignBatchSize();
+        this.assignBatchSize =
+                configuredBatchSize > 0
+                        ? configuredBatchSize
+                        : JdbcSourceOptions.SPLIT_ASSIGN_BATCH_SIZE.defaultValue();
+        // Request the next batch before the local queue is fully drained to reduce idle gaps.
+        this.requestWatermark = Math.max(1, assignBatchSize / 2);
     }
 
     @Override
     public void open() throws Exception {
         inputFormat.openInputFormat();
+        requestSplitsIfNeeded();
     }
 
     @Override
@@ -66,6 +84,7 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     @SuppressWarnings("magicnumber")
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         synchronized (output.getCheckpointLock()) {
+            requestSplitsIfNeeded();
             JdbcSourceSplit split = splits.poll();
             if (null != split) {
                 try {
@@ -84,12 +103,13 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
                             processedCount,
                             assignedSplitCount.get());
                 }
+                requestSplitsIfNeeded();
             } else if (noMoreSplit && splits.isEmpty()) {
                 // signal to the source that we have reached the end of the data.
                 log.info("Closed the bounded jdbc source");
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                Thread.sleep(100L);
             }
         }
     }
@@ -103,13 +123,35 @@ public class JdbcSourceReader implements SourceReader<SeaTunnelRow, JdbcSourceSp
     public void addSplits(List<JdbcSourceSplit> splits) {
         this.splits.addAll(splits);
         this.assignedSplitCount.addAndGet(splits.size());
+        splitRequestPending = false;
+        requestSplitsIfNeeded();
     }
 
     @Override
     public void handleNoMoreSplits() {
         noMoreSplit = true;
+        splitRequestPending = false;
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {}
+
+    /**
+     * Requests the next assignment batch when the local split queue is below the watermark.
+     *
+     * <p>Invariant: issues at most one in-flight {@code sendSplitRequest} until {@link #addSplits}
+     * or {@link #handleNoMoreSplits} clears {@code splitRequestPending}. Does nothing after {@code
+     * NoMoreSplits} has been received, or while the local queue size is still {@code >=
+     * requestWatermark}.
+     */
+    private void requestSplitsIfNeeded() {
+        if (noMoreSplit || splitRequestPending) {
+            return;
+        }
+        if (splits.size() >= requestWatermark) {
+            return;
+        }
+        splitRequestPending = true;
+        context.sendSplitRequest();
+    }
 }

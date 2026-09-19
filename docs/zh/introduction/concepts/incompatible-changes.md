@@ -31,6 +31,12 @@
 
 ### JDBC Connector
 
+- **行为变更：不均匀动态分片默认改为 Index Probing（不再自动全列客户端采样）**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` Source 动态分片
+  - **变更说明**：键分布不均匀时，SeaTunnel 不再在预估分片数超过 `split.sample-sharding.threshold` 时自动执行全列客户端采样（`sampleDataFromColumn`）。不均匀规划改为 Index Probing（`queryNextChunkMax`），并以惰性生成 + 有界 pending（`split.max-pending-splits`、`split.assign.batch-size`）控制内存。`split.allow-sampling`、`split.sample-sharding.threshold`、`split.inverse-sampling.rate` 仍保留以兼容旧配置，但不再选择旧的默认采样路径。
+  - **影响**：不均匀分片的**边界**可能与过去依赖客户端采样的作业不同，但键区间覆盖仍完整。规划/补货阶段可能对源库发出更多串行边界探测查询。
+  - **迁移指南**：无需改名配置项。若 Reader 在两次下发之间空闲，可增大 `split.assign.batch-size` 和/或 `split.max-pending-splits`。升级后请校验行数。(#12097)
+
 - **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
   - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel 会把整个批次视为已经完成并跳过回放；只有在第一个 recovered checkpoint XID 之后又出现缺失 XID 时，restore 才会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。
