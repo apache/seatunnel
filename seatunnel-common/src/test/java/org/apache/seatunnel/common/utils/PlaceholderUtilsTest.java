@@ -19,9 +19,12 @@ package org.apache.seatunnel.common.utils;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 public class PlaceholderUtilsTest {
 
@@ -36,5 +39,48 @@ public class PlaceholderUtilsTest {
                         new LinkedHashMap<String, String>(),
                         new LinkedHashMap<String, String>());
         assertEquals("select * from fake_test_table where name = '${nameValForEnv}'", result);
+    }
+
+    @Test
+    void testNestedJsonPlaceholdersWithDefault() {
+        String input =
+                "${table_filter:{\"plugin_input\":\"mysql_source\",\"plugin_output\":\"table_filter\",\"include_fields\":[movie_id,unix_time]}}";
+
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input,
+                        key -> false,
+                        new LinkedHashMap<String, String>(),
+                        new LinkedHashMap<String, String>());
+        assertEquals(
+                "{\"plugin_input\":\"mysql_source\",\"plugin_output\":\"table_filter\",\"include_fields\":[movie_id,unix_time]}",
+                result);
+    }
+
+    @Test
+    void testJsonWithPlaceholdersInsideNotSupported() {
+        String input =
+                "${table_list:[{\"table_path\":\"${mysql_db}.*_test\",\"use_regex\":\"${use_regex_flag}\"},{\"table_path\":\"${mysql_db}.tags_test2\"}]}";
+
+        Map<String, String> userConfigMap = new LinkedHashMap<>();
+        userConfigMap.put("mysql_db", "seatunnel_test");
+        userConfigMap.put("use_regex_flag", "true");
+
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input, key -> false, userConfigMap, new LinkedHashMap<String, String>());
+        System.out.println(result);
+        assertNotEquals(
+                "[{\"table_path\":\"seatunnel_test.*_test\",\"use_regex\":\"true\"},{\"table_path\":\"seatunnel_test.tags_test2\"}]",
+                result);
+    }
+
+    @Test
+    void testMixedPlaceholdersWithArrayDefault() {
+        String input = "${hosts:host}_${list:[a,b,c]}:${port:3306}";
+        String result =
+                PlaceholderUtils.processPlaceholders(
+                        input, key -> false, Collections.emptyMap(), new LinkedHashMap<>());
+        assertEquals("host_[a,b,c]:3306", result);
     }
 }
