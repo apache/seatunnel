@@ -25,6 +25,9 @@ import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
+import com.hazelcast.spi.impl.executionservice.ExecutionService;
+import com.hazelcast.spi.impl.operationservice.CallStatus;
+import com.hazelcast.spi.impl.operationservice.Offload;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -37,6 +40,45 @@ public class ReportMetricsOperation extends TracingOperation implements Identifi
 
     public ReportMetricsOperation(Map<TaskLocation, SeaTunnelMetricsContext> localMap) {
         this.localMap = localMap;
+    }
+
+    @Override
+    public CallStatus call() {
+        // Hazelcast 5.1 generic operations require an explicit Offload status.
+        return new Offload(this) {
+            @Override
+            public void start() {
+                executionService.execute(
+                        ExecutionService.OFFLOADABLE_EXECUTOR,
+                        () -> {
+                            try {
+                                ReportMetricsOperation.this.run();
+                            } catch (Throwable t) {
+                                ReportMetricsOperation.this.sendFailureResponse(t);
+                                return;
+                            }
+                            ReportMetricsOperation.this.sendResponse(null);
+                        });
+            }
+        };
+    }
+
+    private void sendFailureResponse(Throwable failure) {
+        try {
+            onExecutionFailure(failure);
+        } catch (Throwable hookFailure) {
+            safeLogError(hookFailure);
+        }
+        safeLogError(failure);
+        sendResponse(failure);
+    }
+
+    private void safeLogError(Throwable failure) {
+        try {
+            logError(failure);
+        } catch (Throwable ignored) {
+            // Response delivery must not depend on secondary failure logging.
+        }
     }
 
     @Override
