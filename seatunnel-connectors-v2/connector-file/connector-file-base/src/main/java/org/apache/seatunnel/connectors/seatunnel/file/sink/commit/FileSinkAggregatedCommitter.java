@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.apache.hadoop.fs.Path;
 
@@ -38,11 +40,30 @@ public class FileSinkAggregatedCommitter
         implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     private final HadoopConf hadoopConf;
+
+    /**
+     * True only for FTP sinks configured with APPEND_DATA. In this mode commits append staged bytes
+     * to an existing target and abort must not rename the target back to the transaction directory,
+     * because the target may already contain user data that predates this checkpoint.
+     */
+    private final boolean appendData;
+
     private final Set<String> pendingUuidDirectories = new LinkedHashSet<>();
     private final Set<String> pendingJobDirectories = new LinkedHashSet<>();
 
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf) {
+        this(hadoopConf, false);
+    }
+
+    public FileSinkAggregatedCommitter(HadoopConf hadoopConf, boolean appendData) {
         this.hadoopConf = hadoopConf;
+        this.appendData = appendData;
+    }
+
+    public static boolean shouldAppendData(HadoopConf hadoopConf, FileSinkConfig fileSinkConfig) {
+        return fileSinkConfig.isDataSaveModeExplicitlyConfigured()
+                && DataSaveMode.APPEND_DATA.equals(fileSinkConfig.getDataSaveMode())
+                && "ftp".equalsIgnoreCase(hadoopConf.getSchema());
     }
 
     @Override
@@ -61,9 +82,13 @@ public class FileSinkAggregatedCommitter
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
                             for (Map.Entry<String, String> mvFileEntry :
                                     entry.getValue().entrySet()) {
-                                // first rename temp file
-                                hadoopFileSystemProxy.renameFile(
-                                        mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                if (appendData) {
+                                    hadoopFileSystemProxy.appendFile(
+                                            mvFileEntry.getKey(), mvFileEntry.getValue());
+                                } else {
+                                    hadoopFileSystemProxy.renameFile(
+                                            mvFileEntry.getKey(), mvFileEntry.getValue(), true);
+                                }
                             }
                             String transactionDir = entry.getKey();
                             // Data files are already committed after rename; tmp cleanup is
@@ -135,13 +160,16 @@ public class FileSinkAggregatedCommitter
                     try {
                         for (Map.Entry<String, LinkedHashMap<String, String>> entry :
                                 aggregatedCommitInfo.getTransactionMap().entrySet()) {
-                            // rollback the file
-                            for (Map.Entry<String, String> mvFileEntry :
-                                    entry.getValue().entrySet()) {
-                                if (hadoopFileSystemProxy.fileExist(mvFileEntry.getValue())
-                                        && !hadoopFileSystemProxy.fileExist(mvFileEntry.getKey())) {
-                                    hadoopFileSystemProxy.renameFile(
-                                            mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                            if (!appendData) {
+                                // rollback the file
+                                for (Map.Entry<String, String> mvFileEntry :
+                                        entry.getValue().entrySet()) {
+                                    if (hadoopFileSystemProxy.fileExist(mvFileEntry.getValue())
+                                            && !hadoopFileSystemProxy.fileExist(
+                                                    mvFileEntry.getKey())) {
+                                        hadoopFileSystemProxy.renameFile(
+                                                mvFileEntry.getValue(), mvFileEntry.getKey(), true);
+                                    }
                                 }
                             }
                             // delete the transaction dir
