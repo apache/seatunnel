@@ -22,6 +22,16 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 将 Rows 内容发送到 Kafka topic
 
+## 连通性 Dry Run
+
+`--dry-run connect` 先校验上游 schema 和本地序列化配置，再通过 AdminClient 检查 Kafka 元数据。即使配置 `semantics = EXACTLY_ONCE`，也不会创建 producer、写入记录、创建主题或初始化事务。
+
+对于固定 `topic`，校验主题是否存在，以及显式 `partition` 是否在有效范围内。对于 `${field}` 主题，仅校验引用字段和 broker 连通性：运行时第一个匹配字段的值作为完整主题名，因此没有记录时无法检查目标主题是否存在或分区上界。此类主题的 `VALIDATED` 结果仅覆盖上述有限检查。显式负分区会被拒绝，但 `NATIVE` 忽略顶层 `partition`，使用记录中的分区。
+
+校验复用 writer 的本地序列化构造逻辑，包括字段和格式检查。它无法验证记录值、动态主题、记录中的分区、基于内容的 `assign_partitions` 路由、自定义 producer 行为、Produce 权限或事务权限。能够读取元数据不代表作业一定能成功写入。
+
+与 writer 一致，顶层 `bootstrap.servers` 优先于 `kafka.config` 中的同名配置。元数据操作共用最多 30 秒的截止时间，并遵守较小且有效的 Kafka API/请求超时。主题不存在时校验失败，不会自动创建主题；请在校验前创建目标主题。
+
 ## 支持的数据源信息
 
 为了使用 Kafka 连接器，需要以下依赖项

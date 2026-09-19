@@ -22,6 +22,16 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 Write Rows to a Kafka topic.
 
+## Connectivity Dry Run
+
+`--dry-run connect` validates the upstream schema and local serializer configuration, then checks Kafka metadata using an AdminClient. It does not create a producer, write records, create topics, or initialize transactions, including with `semantics = EXACTLY_ONCE`.
+
+For a fixed `topic`, validation checks that the topic exists and that an explicit `partition` is in range. For `${field}` topics, it validates the referenced field and broker connectivity only: the first matched field supplies the entire topic name at runtime, so target existence and partition bounds cannot be checked without records. A `VALIDATED` result for these topics covers only those limited checks. Negative explicit partitions are rejected except for `NATIVE`, which ignores the top-level `partition` and uses the record's partition.
+
+The check reuses the writer's local serializer construction, including field and format checks. It cannot validate record values, dynamically selected topics, record-derived partitions, content-based `assign_partitions` routing, custom producer behavior, Produce permissions, or transaction permissions. Metadata access alone does not prove the job can write successfully.
+
+The top-level `bootstrap.servers` overrides the same key in `kafka.config`, matching the writer. Metadata operations share a deadline capped at 30 seconds and honor smaller valid Kafka API/request timeouts. Missing topics fail without automatic creation; provision them before validation.
+
 ## Supported DataSource Info
 
 In order to use the Kafka connector, the following dependencies are required.
@@ -436,7 +446,7 @@ sink {
 }
 ```
 
-Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — `KafkaSinkWriter.getSerializer()` throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
+Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — the sink's serializer construction throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
 
 ## FAQ
 
