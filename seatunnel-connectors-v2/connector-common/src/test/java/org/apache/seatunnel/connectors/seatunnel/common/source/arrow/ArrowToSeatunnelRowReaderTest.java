@@ -47,6 +47,7 @@ import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionList
 import org.apache.seatunnel.shade.org.apache.arrow.vector.complex.impl.UnionMapWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.holders.TimeMilliHolder;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.holders.VarCharHolder;
+import org.apache.seatunnel.shade.org.apache.arrow.vector.ipc.ArrowStreamReader;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.ipc.ArrowStreamWriter;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.TimeUnit;
 import org.apache.seatunnel.shade.org.apache.arrow.vector.types.pojo.ArrowType;
@@ -62,10 +63,12 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
@@ -423,6 +426,40 @@ public class ArrowToSeatunnelRowReaderTest {
     }
 
     @Test
+    public void testReadArrowClosesOwnedResources() throws Exception {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ArrowStreamWriter writer =
+                        new ArrowStreamWriter(
+                                root, /*DictionaryProvider=*/ null, Channels.newChannel(out))) {
+            writer.writeBatch();
+            out.flush();
+
+            try (ArrowToSeatunnelRowReader reader =
+                    new ArrowToSeatunnelRowReader(out.toByteArray(), getSeatunnelRowType(true))
+                            .readArrow()) {
+                Assertions.assertEquals(10, reader.getReadRowCount());
+            }
+        }
+    }
+
+    @Test
+    public void testCloseClosesAllocatorWhenArrowReaderCloseFails() throws Exception {
+        ArrowToSeatunnelRowReader reader =
+                new ArrowToSeatunnelRowReader(new byte[0], getSeatunnelRowType(false));
+        ArrowStreamReader arrowStreamReader = Mockito.mock(ArrowStreamReader.class);
+        RootAllocator rootAllocator = Mockito.mock(RootAllocator.class);
+        IOException closeException = new IOException("arrow reader close failed");
+        Mockito.doThrow(closeException).when(arrowStreamReader).close();
+        setField(reader, "arrowStreamReader", arrowStreamReader);
+        setField(reader, "rootAllocator", rootAllocator);
+
+        RuntimeException exception = Assertions.assertThrows(RuntimeException.class, reader::close);
+
+        Assertions.assertSame(closeException, exception.getCause());
+        Mockito.verify(rootAllocator).close();
+    }
+
+    @Test
     public void testConvertArrowSpeed() throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
         int count = 1000000;
@@ -485,5 +522,11 @@ public class ArrowToSeatunnelRowReaderTest {
         } catch (Exception e) {
             throw new RuntimeException("failed to close arrow stream reader.", e);
         }
+    }
+
+    private static void setField(Object target, String fieldName, Object value) throws Exception {
+        java.lang.reflect.Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }
