@@ -91,6 +91,7 @@ public class StripeSourceParameter extends HttpParameter {
                 .filter(version -> !version.trim().isEmpty())
                 .ifPresent(version -> requestHeaders.put(STRIPE_VERSION, version.trim()));
         setHeaders(requestHeaders);
+        validateCredentialScheme();
 
         Map<String, String> requestParams = new LinkedHashMap<>();
         requestParams.put("limit", Integer.toString(pageSize));
