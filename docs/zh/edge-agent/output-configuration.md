@@ -175,4 +175,4 @@ output:
 
 ## output.id 与迁移
 
-output.id 用于出站侧日志与迁移标识（不写入线协议）。见 [身份文件](configuration.md#身份文件edge-agentid)。迁移时请一并拷贝 edge-agent.id、WAL 及 config/agent.yaml。
+output.id 用于出站侧日志与迁移标识（不写入线协议）。见 [身份文件](configuration.md#身份文件)。迁移时请一并拷贝 edge-agent.id、WAL 及 config/agent.yaml。
