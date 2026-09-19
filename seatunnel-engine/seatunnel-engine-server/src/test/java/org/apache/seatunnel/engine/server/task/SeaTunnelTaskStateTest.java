@@ -32,15 +32,19 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledFuture;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -431,6 +435,222 @@ public class SeaTunnelTaskStateTest {
         verify(secondCycle, times(1)).open();
         verify(sourceLifeCycle, times(1)).hook();
         verify(secondCycle, times(1)).hook();
+    }
+
+    // ==================== close() Lifecycle Teardown Tests ====================
+
+    @Test
+    void testCloseAttemptsEveryCycleWhenEarlierCycleThrowsUnchecked() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle failingCycle = mock(FlowLifeCycle.class);
+        FlowLifeCycle laterCycle = mock(FlowLifeCycle.class);
+        doThrow(new IllegalStateException("unchecked close failure")).when(failingCycle).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(failingCycle);
+        cycles.add(laterCycle);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, task::close);
+        Assertions.assertEquals("unchecked close failure", ex.getMessage());
+
+        verify(failingCycle, times(1)).close();
+        verify(laterCycle, times(1)).close();
+    }
+
+    @Test
+    void testCloseAttemptsEveryCycleWhenEarlierCycleThrowsIoException() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle failingCycle = mock(FlowLifeCycle.class);
+        FlowLifeCycle laterCycle = mock(FlowLifeCycle.class);
+        doThrow(new IOException("checked close failure")).when(failingCycle).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(failingCycle);
+        cycles.add(laterCycle);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IOException ex = assertThrows(IOException.class, task::close);
+        Assertions.assertEquals("checked close failure", ex.getMessage());
+
+        verify(failingCycle, times(1)).close();
+        verify(laterCycle, times(1)).close();
+    }
+
+    @Test
+    void testClosePreservesFirstFailureAndAttachesOthersAsSuppressed() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle second = mock(FlowLifeCycle.class);
+        FlowLifeCycle third = mock(FlowLifeCycle.class);
+        IOException primary = new IOException("first");
+        IllegalStateException secondary = new IllegalStateException("second");
+        IOException tertiary = new IOException("third");
+        doThrow(primary).when(first).close();
+        doThrow(secondary).when(second).close();
+        doThrow(tertiary).when(third).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(second);
+        cycles.add(third);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IOException ex = assertThrows(IOException.class, task::close);
+        Assertions.assertSame(primary, ex);
+        Throwable[] suppressed = ex.getSuppressed();
+        Assertions.assertEquals(2, suppressed.length);
+        Assertions.assertTrue(Arrays.asList(suppressed).contains(secondary));
+        Assertions.assertTrue(Arrays.asList(suppressed).contains(tertiary));
+
+        verify(first, times(1)).close();
+        verify(second, times(1)).close();
+        verify(third, times(1)).close();
+    }
+
+    @Test
+    void testCloseAttemptsEveryCycleWhenMiddleCycleThrowsUnchecked() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle middle = mock(FlowLifeCycle.class);
+        FlowLifeCycle last = mock(FlowLifeCycle.class);
+        doThrow(new IllegalStateException("middle-fails")).when(middle).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(middle);
+        cycles.add(last);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, task::close);
+        Assertions.assertEquals("middle-fails", ex.getMessage());
+
+        verify(first, times(1)).close();
+        verify(middle, times(1)).close();
+        verify(last, times(1)).close();
+    }
+
+    @Test
+    void testCloseAttemptsEveryCycleWhenLastCycleThrowsUnchecked() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle last = mock(FlowLifeCycle.class);
+        doThrow(new IllegalStateException("last-fails")).when(last).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(last);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, task::close);
+        Assertions.assertEquals("last-fails", ex.getMessage());
+
+        verify(first, times(1)).close();
+        verify(last, times(1)).close();
+    }
+
+    @Test
+    void testCloseCanBeCalledRepeatedlyClosingEachLifecycleEachTime() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle second = mock(FlowLifeCycle.class);
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(second);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        task.close();
+        task.close();
+
+        verify(first, times(2)).close();
+        verify(second, times(2)).close();
+    }
+
+    @Test
+    void testClosePreservesUncheckedPrimaryWithCheckedSuppressed() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle second = mock(FlowLifeCycle.class);
+        IllegalStateException primary = new IllegalStateException("unchecked-primary");
+        IOException suppressed = new IOException("checked-suppressed");
+        doThrow(primary).when(first).close();
+        doThrow(suppressed).when(second).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(second);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IllegalStateException ex = assertThrows(IllegalStateException.class, task::close);
+        Assertions.assertSame(primary, ex);
+        Assertions.assertEquals(1, ex.getSuppressed().length);
+        Assertions.assertSame(suppressed, ex.getSuppressed()[0]);
+
+        verify(first, times(1)).close();
+        verify(second, times(1)).close();
+    }
+
+    @Test
+    void testCloseAttemptsEveryCycleWhenCycleThrowsError() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle failing = mock(FlowLifeCycle.class);
+        FlowLifeCycle later = mock(FlowLifeCycle.class);
+        AssertionError error = new AssertionError("boom");
+        doThrow(error).when(failing).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(failing);
+        cycles.add(later);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        AssertionError ex = assertThrows(AssertionError.class, task::close);
+        Assertions.assertSame(error, ex);
+
+        verify(failing, times(1)).close();
+        verify(later, times(1)).close();
+    }
+
+    @Test
+    void testClosePreservesTeardownOrderAcrossLifecycles() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle second = mock(FlowLifeCycle.class);
+        FlowLifeCycle third = mock(FlowLifeCycle.class);
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(second);
+        cycles.add(third);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        InOrder ordered = inOrder(first, second, third);
+        task.close();
+        ordered.verify(first).close();
+        ordered.verify(second).close();
+        ordered.verify(third).close();
+    }
+
+    @Test
+    void testCloseDoesNotSelfSuppressSameFailureInstance() throws Exception {
+        doCallRealMethod().when(task).close();
+        FlowLifeCycle first = mock(FlowLifeCycle.class);
+        FlowLifeCycle second = mock(FlowLifeCycle.class);
+        IOException shared = new IOException("shared");
+        doThrow(shared).when(first).close();
+        doThrow(shared).when(second).close();
+
+        List<FlowLifeCycle> cycles = new ArrayList<>();
+        cycles.add(first);
+        cycles.add(second);
+        setField(SeaTunnelTask.class, "allCycles", task, cycles);
+
+        IOException ex = assertThrows(IOException.class, task::close);
+        Assertions.assertSame(shared, ex);
+        Assertions.assertEquals(0, ex.getSuppressed().length);
+
+        verify(first, times(1)).close();
+        verify(second, times(1)).close();
     }
 
     private void advanceTo(SeaTunnelTaskState target) throws Exception {

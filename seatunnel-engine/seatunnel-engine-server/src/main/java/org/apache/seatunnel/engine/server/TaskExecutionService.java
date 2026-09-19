@@ -73,7 +73,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1312,7 +1311,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 if (result == null || !result.isDone()) {
                     try {
                         tracker.task.close();
-                    } catch (IOException e) {
+                    } catch (Throwable e) {
                         logger.severe("Close task error", e);
                     }
                 }
