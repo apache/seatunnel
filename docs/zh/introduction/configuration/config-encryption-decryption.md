@@ -141,6 +141,37 @@ Base64编码默认支持加密以下参数：
    ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --decrypt
    ```
 
+## Azure Key Vault
+
+`azure-kv` 提供程序用于从 Azure Key Vault 解析敏感配置值。它是一个可选提供程序，不包含在 SeaTunnel 默认发行包中。
+
+1. 构建或获取 `seatunnel-config-shade-azure-kv` jar，并将其添加到 `${SEATUNNEL_HOME}/lib`。打包后的 jar 包含运行时所需的 Azure SDK 依赖。
+2. 配置 Azure `DefaultAzureCredential` 支持的身份验证方式，例如环境凭据或托管身份。
+3. 将 `shade.identifier` 设置为 `azure-kv`，并通过 `shade.properties.vault.url` 配置 Key Vault URL：
+
+   ```hocon
+   env {
+     shade.identifier = "azure-kv"
+     shade.properties = {
+       vault.url = "https://example.vault.azure.net"
+     }
+   }
+
+   source {
+     Jdbc {
+       url = "jdbc:mysql://localhost:3306/example"
+       driver = "com.mysql.cj.jdbc.Driver"
+       user = "seatunnel"
+       password = "${keyvault:azure:database-password}"
+       query = "select * from example"
+     }
+   }
+   ```
+
+`${keyvault:azure:` 后面的值必须是普通的 Key Vault 密钥名称。不支持完整的 Azure 密钥标识符或路径。只有 `shade.options` 指定的配置项或 SeaTunnel 默认的敏感配置项会被解析。
+
+`azure-kv` 提供程序只在解密时解析已有密钥。`--encrypt` 命令不会在 Azure Key Vault 中创建或更新密钥。
+
 ## 如何实现用户自定义的加密和解密
 
 如果您希望自定义加密方法和加密配置，本章节将帮助您解决问题。
