@@ -335,3 +335,7 @@ You need to check this document before you upgrade to related version.
 ### Engine Behavior Changes
 
 ### Dependency Upgrades
+
+### Flink Paimon fixed-bucket routing
+
+Fixed-bucket sinks now route each physical partition/bucket to one writer. Set `multi_table_sink_replica = 1`, separate fixed and non-fixed bucket sink definitions, and merge source streams before one sink when they target the same physical table. Previously accepted conflicting configurations now fail at initialization. The partitioner uses the initial source and target schemas; this change does not add full online DDL handling. Schema-control rows keep their destination subtask and are not converted as data rows. Checkpoint serialization is unchanged; this routing fix provides no additional global recovery or rescaling guarantees.

@@ -43,11 +43,14 @@ import org.apache.paimon.privilege.PrivilegeType;
 import org.apache.paimon.privilege.PrivilegedCatalog;
 import org.apache.paimon.reader.RecordReader;
 import org.apache.paimon.reader.RecordReaderIterator;
+import org.apache.paimon.schema.Schema;
+import org.apache.paimon.schema.TableSchema;
 import org.apache.paimon.table.FileStoreTable;
 import org.apache.paimon.table.Table;
 import org.apache.paimon.table.source.ReadBuilder;
 import org.apache.paimon.table.source.TableRead;
 import org.apache.paimon.table.source.TableScan;
+import org.apache.paimon.types.DataTypes;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -57,9 +60,13 @@ import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @DisabledOnContainer(
         value = {TestContainerId.FLINK_1_13, TestContainerId.SPARK_2_4},
@@ -99,8 +106,55 @@ public class PaimonIT extends TestSuiteBase implements TestResource {
                 container.copyFileToContainer(
                         MountableFile.forHostPath(schemaPath),
                         "/tmp/seatunnel_mnt/paimon/default.db/st_test_p1/schema/schema-0");
+                Path routingSchema = Files.createTempFile("fixed-bucket-routing-schema", ".json");
+                try {
+                    Schema schema =
+                            Schema.newBuilder()
+                                    .column("pk_id", DataTypes.BIGINT().notNull())
+                                    .column("name", DataTypes.STRING())
+                                    .primaryKey("pk_id")
+                                    .option("bucket", "1")
+                                    .option("write-only", "true")
+                                    .build();
+                    Files.write(
+                            routingSchema,
+                            TableSchema.create(0, schema)
+                                    .toString()
+                                    .getBytes(StandardCharsets.UTF_8));
+                    container.copyFileToContainer(
+                            MountableFile.forHostPath(routingSchema),
+                            "/tmp/seatunnel_mnt/paimon/default.db/routing_regression/schema/schema-0");
+                } finally {
+                    Files.deleteIfExists(routingSchema);
+                }
                 container.execInContainer("chmod", "777", "-R", "/tmp/seatunnel_mnt/");
             };
+
+    @TestTemplate
+    @DisabledOnContainer(
+            type = {EngineType.SPARK, EngineType.SEATUNNEL},
+            value = {},
+            disabledReason = "Regression for Flink's MultiTableSink routing path")
+    public void testFixedBucketRoutingWithTwoFlinkWriters(TestContainer container)
+            throws Exception {
+        Container.ExecResult result =
+                container.executeJob("/fake_cdc_to_paimon_fixed_bucket_routing.conf");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        FileStoreTable table = (FileStoreTable) getTable("default", "routing_regression");
+        ReadBuilder read = table.newReadBuilder();
+        Map<Long, String> actual = new HashMap<>();
+        try (RecordReader<InternalRow> reader = read.newRead().createReader(read.newScan().plan());
+                RecordReaderIterator<InternalRow> rows = new RecordReaderIterator<>(reader)) {
+            while (rows.hasNext()) {
+                InternalRow row = rows.next();
+                actual.put(row.getLong(0), row.getString(1).toString());
+            }
+        }
+        Map<Long, String> expected = new HashMap<>();
+        expected.put(1L, "after");
+        expected.put(3L, "keep");
+        Assertions.assertEquals(expected, actual);
+    }
 
     @TestTemplate
     public void testWriteAndReadPaimon(TestContainer container)

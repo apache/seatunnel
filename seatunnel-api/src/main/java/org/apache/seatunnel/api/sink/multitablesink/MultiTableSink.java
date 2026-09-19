@@ -29,8 +29,10 @@ import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
+import org.apache.seatunnel.api.sink.SinkDataPartitioner;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
+import org.apache.seatunnel.api.sink.SupportSinkDataPartition;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
@@ -45,11 +47,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -66,7 +70,8 @@ public class MultiTableSink
                         MultiTableState,
                         MultiTableCommitInfo,
                         MultiTableAggregatedCommitInfo>,
-                SupportSchemaEvolutionSink {
+                SupportSchemaEvolutionSink,
+                SupportSinkDataPartition<SeaTunnelRow> {
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
@@ -107,6 +112,77 @@ public class MultiTableSink
     @Override
     public String getPluginName() {
         return "MultiTableSink";
+    }
+
+    /**
+     * Combines the ownership policies of active tables. All active tables must participate in
+     * routing when any active table requires it, and independent writers cannot target the same
+     * physical table.
+     */
+    @Override
+    public Optional<SinkDataPartitioner<SeaTunnelRow>> getSinkDataPartitioner(int writerCount) {
+        Map<String, SinkDataPartitioner<SeaTunnelRow>> routes = new HashMap<>();
+        Set<String> skippedTables = new HashSet<>();
+        Set<String> targets = new HashSet<>();
+        Set<String> unroutedTables = new HashSet<>();
+        for (Map.Entry<TablePath, SeaTunnelSink> entry : sinks.entrySet()) {
+            if (shouldSkipFailedTable(initialFailedTables, entry.getKey())) {
+                skippedTables.add(entry.getKey().toString());
+                continue;
+            }
+            Optional<SinkDataPartitioner<SeaTunnelRow>> route =
+                    SupportSinkDataPartition.resolve(entry.getValue(), writerCount);
+            if (route.isPresent()) {
+                if (route.get().targetIdentifier().isPresent()
+                        && !targets.add(route.get().targetIdentifier().get())) {
+                    throw new IllegalArgumentException(
+                            "Multiple source tables cannot create independent routed writers for "
+                                    + "the same physical target; merge them before the sink");
+                }
+                routes.put(entry.getKey().toString(), route.get());
+            } else {
+                unroutedTables.add(entry.getKey().toString());
+            }
+        }
+        if (!routes.isEmpty() && !unroutedTables.isEmpty()) {
+            throw new UnsupportedOperationException(
+                    "Cannot mix routed and unrouted sinks in one multi-table sink; "
+                            + "use separate sinks for tables without routing: "
+                            + unroutedTables);
+        }
+        if (!routes.isEmpty() && replicaNum != 1) {
+            throw new UnsupportedOperationException(
+                    "Bucket-routed multi-table sinks require multi_table_sink_replica = 1");
+        }
+        return routes.isEmpty()
+                ? Optional.empty()
+                : Optional.of(new MultiTableWriteRouting(routes, skippedTables));
+    }
+
+    private static final class MultiTableWriteRouting implements SinkDataPartitioner<SeaTunnelRow> {
+        private static final long serialVersionUID = 1L;
+        private final Map<String, SinkDataPartitioner<SeaTunnelRow>> routes;
+        private final Set<String> skippedTables;
+
+        private MultiTableWriteRouting(
+                Map<String, SinkDataPartitioner<SeaTunnelRow>> routes, Set<String> skippedTables) {
+            this.routes = routes;
+            this.skippedTables = skippedTables;
+        }
+
+        @Override
+        public int select(SeaTunnelRow row) {
+            SinkDataPartitioner<SeaTunnelRow> route = routes.get(row.getTableId());
+            if (route == null) {
+                // Preserve the existing failed-table policy in MultiTableSinkWriter.
+                if (skippedTables.contains(row.getTableId())) {
+                    return 0;
+                }
+                throw new IllegalArgumentException(
+                        "Unknown table in bucket-routed multi-table sink: " + row.getTableId());
+            }
+            return route.select(row);
+        }
     }
 
     /**

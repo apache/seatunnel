@@ -30,12 +30,39 @@
     <name>SeaTunnel : Connectors V2 : Paimon</name>
 
     <properties>
+        <!-- Local MiniCluster regression for the production-compatible Flink 1.15 adapter. -->
+        <flink.routing-test.version>1.18.1</flink.routing-test.version>
         <paimon.version>1.1.1</paimon.version>
         <hive.version>2.3.9</hive.version>
         <connector.name>connector.paimon</connector.name>
     </properties>
 
     <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-flink-starter-common</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-translation-flink-15</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-clients</artifactId>
+            <version>${flink.routing-test.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.flink</groupId>
+            <artifactId>flink-streaming-java</artifactId>
+            <version>${flink.routing-test.version}</version>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
