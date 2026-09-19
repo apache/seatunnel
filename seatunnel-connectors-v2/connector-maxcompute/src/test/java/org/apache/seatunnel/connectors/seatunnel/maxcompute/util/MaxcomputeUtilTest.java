@@ -18,14 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.maxcompute.util;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.maxcompute.config.MaxcomputeBaseOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.aliyun.odps.Odps;
 import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AklessAccount;
 import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.account.StsAccount;
+import com.aliyun.odps.commons.GeneralConfiguration;
+import com.aliyun.odps.rest.RestClient;
+import com.aliyun.odps.tunnel.TableTunnel;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -133,7 +138,7 @@ public class MaxcomputeUtilTest {
         config.put("project", "my_project");
         config.put("schema_name", "my_schema");
 
-        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+        Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals("my_schema", odps.getCurrentSchema());
     }
@@ -150,7 +155,7 @@ public class MaxcomputeUtilTest {
         config.put("endpoint", "http://service.odps.aliyun.com/api");
         config.put("project", "my_project");
 
-        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+        Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
 
         Assertions.assertNull(odps.getCurrentSchema());
     }
@@ -162,7 +167,7 @@ public class MaxcomputeUtilTest {
     //   * Tunnel client (TableTunnel.getConfig())  -> data plane: bulk row read / write / upsert
     // Each is configured from its own set of options, so the tests below cover per-option
     // application, the option defaults that flow through when options are omitted, the
-    // milliseconds->seconds clamping guard, and that the two clients never cross-contaminate.
+    // milliseconds->seconds validation guard, and that the two clients never cross-contaminate.
 
     /** Minimal config that lets getOdps()/getTableTunnel() build a client without network calls. */
     private static Map<String, Object> baseConfig() {
@@ -184,7 +189,7 @@ public class MaxcomputeUtilTest {
         Map<String, Object> config = baseConfig();
         config.put("connect_timeout_ms", 30000L);
 
-        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+        Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals(30, odps.getRestClient().getConnectTimeout());
     }
@@ -195,7 +200,7 @@ public class MaxcomputeUtilTest {
         Map<String, Object> config = baseConfig();
         config.put("read_timeout_ms", 60000L);
 
-        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+        Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals(60, odps.getRestClient().getReadTimeout());
     }
@@ -206,7 +211,7 @@ public class MaxcomputeUtilTest {
         Map<String, Object> config = baseConfig();
         config.put("retry_times", 7);
 
-        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
+        Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals(7, odps.getRestClient().getRetryTimes());
     }
@@ -218,7 +223,7 @@ public class MaxcomputeUtilTest {
      */
     @Test
     void testGetOdpsUsesRestClientDefaultsWhenTimeoutOptionsAbsent() {
-        com.aliyun.odps.Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(baseConfig()));
+        Odps odps = MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(baseConfig()));
 
         Assertions.assertEquals(10, odps.getRestClient().getConnectTimeout());
         Assertions.assertEquals(120, odps.getRestClient().getReadTimeout());
@@ -231,8 +236,7 @@ public class MaxcomputeUtilTest {
         Map<String, Object> config = baseConfig();
         config.put("tunnel_connect_timeout_ms", 240000L);
 
-        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
-                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+        TableTunnel tableTunnel = MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals(240, tableTunnel.getConfig().getSocketConnectTimeout());
     }
@@ -247,8 +251,7 @@ public class MaxcomputeUtilTest {
         Map<String, Object> config = baseConfig();
         config.put("tunnel_read_timeout_ms", 600000L);
 
-        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
-                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+        TableTunnel tableTunnel = MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals(600, tableTunnel.getConfig().getSocketTimeout());
     }
@@ -259,8 +262,7 @@ public class MaxcomputeUtilTest {
         Map<String, Object> config = baseConfig();
         config.put("tunnel_retry_times", 8);
 
-        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
-                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+        TableTunnel tableTunnel = MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
 
         Assertions.assertEquals(8, tableTunnel.getConfig().getSocketRetryTimes());
     }
@@ -271,7 +273,7 @@ public class MaxcomputeUtilTest {
      */
     @Test
     void testGetTableTunnelUsesSocketDefaultsWhenTimeoutOptionsAbsent() {
-        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
+        TableTunnel tableTunnel =
                 MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(baseConfig()));
 
         Assertions.assertEquals(180, tableTunnel.getConfig().getSocketConnectTimeout());
@@ -291,9 +293,8 @@ public class MaxcomputeUtilTest {
         config.put("connect_timeout_ms", 30000L); // REST-only option
         config.put("tunnel_read_timeout_ms", 600000L); // Tunnel-only option
 
-        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
-                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
-        com.aliyun.odps.Odps odps = tableTunnel.getConfig().getOdps();
+        TableTunnel tableTunnel = MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
+        Odps odps = tableTunnel.getConfig().getOdps();
 
         // REST client picks up the REST option but is untouched by the Tunnel option.
         Assertions.assertEquals(30, odps.getRestClient().getConnectTimeout());
@@ -303,22 +304,81 @@ public class MaxcomputeUtilTest {
         Assertions.assertEquals(600, tableTunnel.getConfig().getSocketTimeout());
     }
 
+    // --- validation tests ---
+    //
+    // Sub-second / negative timeout values and negative retry counts must be rejected at
+    // config-application time rather than silently clamped or passed through to the SDK,
+    // because a 0 turning into a 1-second timeout is a nasty surprise that is hard to diagnose.
+
     /**
-     * A sub-second timeout value (e.g. 500ms) must be clamped up to 1 second rather than truncating
-     * to 0, since RestClient/Configuration store timeouts in whole seconds internally. This guards
-     * the {@code Math.max(1, ms / 1000)} clamping logic in getOdps()/getTableTunnel().
+     * A sub-second timeout value (e.g. 500ms) must be rejected with a clear error, not silently
+     * clamped to 1 second, because the SDK stores timeouts in whole seconds and the user almost
+     * certainly did not intend a 1-second timeout.
      */
     @Test
-    void testSubSecondTimeoutClampsToOneSecond() {
+    void testSubSecondTimeoutIsRejected() {
         Map<String, Object> config = baseConfig();
         config.put("connect_timeout_ms", 500L);
         config.put("tunnel_connect_timeout_ms", 999L);
 
-        com.aliyun.odps.tunnel.TableTunnel tableTunnel =
-                MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config));
-        com.aliyun.odps.Odps odps = tableTunnel.getConfig().getOdps();
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config)));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config)));
+    }
 
-        Assertions.assertEquals(1, odps.getRestClient().getConnectTimeout());
-        Assertions.assertEquals(1, tableTunnel.getConfig().getSocketConnectTimeout());
+    /** A negative retry_times must be rejected, not passed through to the SDK. */
+    @Test
+    void testNegativeRetryTimesIsRejected() {
+        Map<String, Object> config = baseConfig();
+        config.put("retry_times", -1);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MaxcomputeUtil.getOdps(ReadonlyConfig.fromMap(config)));
+    }
+
+    /** A negative tunnel_retry_times must be rejected, not passed through to the SDK. */
+    @Test
+    void testNegativeTunnelRetryTimesIsRejected() {
+        Map<String, Object> config = baseConfig();
+        config.put("tunnel_retry_times", -1);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MaxcomputeUtil.getTableTunnel(ReadonlyConfig.fromMap(config)));
+    }
+
+    // --- SDK defaults consistency test ---
+
+    /**
+     * The option defaults must match the pinned ODPS SDK (0.51.2) defaults so that omitting the
+     * options preserves the original SDK behavior. If a future SDK bump changes its defaults, this
+     * test fails loudly and the option defaults can be revisited.
+     */
+    @Test
+    void testOptionDefaultsMatchSdkDefaults() {
+        // REST client (control plane)
+        Assertions.assertEquals(
+                RestClient.DEFAULT_CONNECT_TIMEOUT,
+                MaxcomputeBaseOptions.CONNECT_TIMEOUT_MS.defaultValue() / 1000);
+        Assertions.assertEquals(
+                RestClient.DEFAULT_READ_TIMEOUT,
+                MaxcomputeBaseOptions.READ_TIMEOUT_MS.defaultValue() / 1000);
+        Assertions.assertEquals(
+                RestClient.DEFAULT_CONNECT_RETRYTIMES,
+                MaxcomputeBaseOptions.RETRY_TIMES.defaultValue());
+        // Tunnel client (data plane)
+        Assertions.assertEquals(
+                GeneralConfiguration.DEFAULT_SOCKET_CONNECT_TIMEOUT,
+                MaxcomputeBaseOptions.TUNNEL_CONNECT_TIMEOUT_MS.defaultValue() / 1000);
+        Assertions.assertEquals(
+                GeneralConfiguration.DEFAULT_SOCKET_TIMEOUT,
+                MaxcomputeBaseOptions.TUNNEL_READ_TIMEOUT_MS.defaultValue() / 1000);
+        Assertions.assertEquals(
+                GeneralConfiguration.DEFAULT_SOCKET_RETRY_TIMES,
+                MaxcomputeBaseOptions.TUNNEL_RETRY_TIMES.defaultValue());
     }
 }
