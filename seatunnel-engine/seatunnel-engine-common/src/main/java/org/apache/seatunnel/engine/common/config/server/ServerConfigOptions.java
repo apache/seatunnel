@@ -535,5 +535,22 @@ public class ServerConfigOptions {
                         .defaultValue(1)
                         .withDescription(
                                 "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
+
+        public static final Option<Integer> MAX_PROMOTED_COOPERATIVE_WORKERS =
+                Options.key("max-promoted-cooperative-workers")
+                        .intType()
+                        .defaultValue(0)
+                        .withDescription(
+                                "The maximum number of cooperative worker threads this worker node may hold exclusively for slow task calls. "
+                                        + "Every promotion adds one thread, so this bounds the thread growth caused by slow cooperative tasks. "
+                                        + "0 means unlimited, which is the historical behavior.");
+
+        public static final Option<Integer> MAX_PROMOTED_COOPERATIVE_WORKERS_PER_JOB =
+                Options.key("max-promoted-cooperative-workers-per-job")
+                        .intType()
+                        .defaultValue(0)
+                        .withDescription(
+                                "The maximum number of promoted cooperative worker threads a single job may hold on this worker node, "
+                                        + "so that one job cannot consume the whole promotion budget. 0 means unlimited.");
     }
 }
