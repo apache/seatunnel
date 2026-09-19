@@ -15,15 +15,22 @@
  * limitations under the License.
  */
 
-import { describe, test, expect, vi, beforeEach } from 'vitest'
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 // import { createTestingPinia } from '@pinia/testing'
 import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
+import { NPopconfirm } from 'naive-ui'
 import i18n from '@/locales'
 import type { Monitor } from '@/service/manager/types'
 import { managerService } from '@/service/manager'
 import managers from '@/views/managers'
+
+vi.mock('vue-router', () => ({
+  useRoute: () => ({
+    path: '/managers/workers'
+  })
+}))
 
 describe('managers', () => {
   const app = createApp({})
@@ -32,9 +39,13 @@ describe('managers', () => {
     app.use(pinia)
     setActivePinia(createPinia())
   })
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
   test('managers component', async () => {
     const mockData = [
       {
+        uuid: 'master-1',
         isMaster: 'true',
         host: 'localhost',
         port: '5801',
@@ -42,15 +53,24 @@ describe('managers', () => {
         'heap.memory.used': '229.6M'
       },
       {
+        uuid: 'worker-1',
+        localMember: true,
         isMaster: 'false',
         host: 'localhost',
         port: '5802',
+        tags: {
+          zone: 'old'
+        },
         'physical.memory.total': '3.6G',
         'heap.memory.used': '1002.6M'
       }
     ] as Monitor[]
 
     vi.spyOn(managerService, 'getMonitors').mockResolvedValue(mockData)
+    const updateTagsSpy = vi.spyOn(managerService, 'updateTags').mockResolvedValue({
+      status: 'success',
+      message: 'update node tags done.'
+    })
 
     const wrapper = mount(managers, {
       global: {
@@ -62,5 +82,28 @@ describe('managers', () => {
     expect(managerService.getMonitors).toHaveBeenCalledWith()
     await flushPromises()
     expect(wrapper.text()).toContain('localhost')
+    expect(wrapper.text()).toContain('zone=old')
+    const selectButton = wrapper.findAll('button').find((button) => button.text() === 'Select')
+    expect(selectButton).toBeTruthy()
+    await selectButton?.trigger('click')
+    await wrapper.find('textarea').setValue('zone=prod')
+    const updateButton = wrapper.findAll('button').find((button) => button.text() === 'Update Tags')
+    expect(updateButton).toBeTruthy()
+    await updateButton?.trigger('click')
+    const confirmations = wrapper.findAllComponents(NPopconfirm)
+    expect(confirmations).toHaveLength(2)
+    const onPositiveClick = confirmations[1].props('onPositiveClick') as (
+      event: MouseEvent
+    ) => Promise<void>
+    await onPositiveClick(new MouseEvent('click'))
+    await flushPromises()
+    expect(updateTagsSpy).toHaveBeenCalledWith({
+      uuid: 'worker-1',
+      tags: {
+        zone: 'prod'
+      }
+    })
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    wrapper.unmount()
   })
 })
