@@ -29,7 +29,13 @@ public class HttpConfig implements Serializable {
     private boolean enabled =
             ServerConfigOptions.MasterServerConfigOptions.ENABLE_HTTP.defaultValue();
 
-    private int port = ServerConfigOptions.MasterServerConfigOptions.PORT.defaultValue();
+    /**
+     * The REST port. Unlike every other field here this one is written after the config has been
+     * parsed - {@code JettyService} writes the port it actually bound back into it when dynamic
+     * ports are enabled - and it is read from the Hazelcast operation threads that answer {@code
+     * GetNodeHttpPortOperation}, so it is declared volatile to make that write visible to them.
+     */
+    private volatile int port = ServerConfigOptions.MasterServerConfigOptions.PORT.defaultValue();
 
     /** Whether to enable https. */
     private boolean enableHttps =
