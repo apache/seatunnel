@@ -82,11 +82,12 @@ public class ParameterSplitter implements IParameterSplitter {
             result.add(currentToken.toString().trim());
         }
 
-        if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
+        String trimmedValue = value.trim();
+        boolean isStructured = trimmedValue.startsWith("{") || trimmedValue.startsWith("[");
+
+        if (isStructured && (braceDepth != 0 || bracketDepth != 0 || insideQuotes)) {
             throw new IllegalArgumentException(
-                    "Invalid variable value '"
-                            + value
-                            + "': unmatched braces/brackets or unclosed quotes");
+                    "Unbalanced braces/brackets or unclosed quotes in JSON/Array value: " + value);
         }
 
         return result;
