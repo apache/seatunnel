@@ -104,8 +104,9 @@ public class ArrayFunction {
     }
 
     /**
-     * Select one ordering for the whole array: exact long or decimal comparison for uniform
-     * representations, and the existing double comparison for floating-point or mixed values.
+     * Select one ordering for the whole array, ignoring nulls: exact long comparison for any mix of
+     * Byte, Short, Integer and Long, exact decimal comparison for all-BigDecimal values, and the
+     * existing double comparison otherwise, including floating-point and mixed numeric categories.
      */
     private static Comparator<Number> numericComparator(Object[] values) {
         boolean integral = true;

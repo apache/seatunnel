@@ -438,8 +438,9 @@ element's type and, for DECIMAL, its scale. Null elements are ignored; a null,
 empty or all-null array returns null. Equal values retain the first element.
 FLOAT and DOUBLE arrays retain their existing ordering: NaN is greater than all
 other values, and positive zero is greater than negative zero.
-Arrays mixing integral, DECIMAL or floating-point representations retain the
-existing double-based comparison and can lose precision for large or close values.
+Arrays mixing only Byte, Short, Integer and Long values still use exact integral
+comparison. Arrays mixing across integral, DECIMAL and floating-point categories
+retain the existing double-based comparison and can lose precision for large or close values.
 
 Example:
 
