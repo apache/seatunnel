@@ -449,8 +449,7 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                     // Thread.sleep does not -- so a streaming job's
                     // checkpoint barrier could not acquire it and the
                     // checkpoint expired.
-                    output.getCheckpointLock()
-                            .wait(httpParameter.getPollIntervalMillis());
+                    output.getCheckpointLock().wait(httpParameter.getPollIntervalMillis());
                 }
             }
         }
