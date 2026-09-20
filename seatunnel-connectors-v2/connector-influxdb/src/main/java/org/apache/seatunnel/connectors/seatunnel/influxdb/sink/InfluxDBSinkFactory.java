@@ -47,9 +47,8 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
+                .required(InfluxDBSinkOptions.URL, Conditions.notBlank(InfluxDBSinkOptions.URL))
                 .required(
-                        InfluxDBSinkOptions.URL,
-                        Conditions.notBlank(InfluxDBSinkOptions.URL),
                         InfluxDBSinkOptions.DATABASES,
                         Conditions.notBlank(InfluxDBSinkOptions.DATABASES))
                 .bundled(InfluxDBSinkOptions.USERNAME, InfluxDBSinkOptions.PASSWORD)
