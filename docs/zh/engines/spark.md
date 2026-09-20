@@ -110,9 +110,11 @@ sink {
 
 ## 嵌套数组
 
-除基本类型数组外，Spark 转换层还支持元素为数组、映射、行和小数的数组。其模式转换工具可以将 Spark 的 `ARRAY<ARRAY<INT>>`、`ARRAY<MAP<STRING, INT>>` 和 `ARRAY<STRUCT<id: INT>>` 等类型映射为 SeaTunnel 类型，行转换器则保留对应的嵌套值。
+对于已声明 SeaTunnel 模式的字段，Spark 转换层会在 Source、Transform 和 Sink 转换边界保留数组值，包括元素为数组、映射、行和小数的数组。例如，`ARRAY<ARRAY<INT>>` 字段会保留其内部数组，包括空数组。
 
-嵌套数组会保留空数组和 null 元素，包括 null 映射和行。每个数组仍然只有一种元素类型，并遵循 Spark 的类型兼容规则。此功能不会改变模式配置语法、SeaTunnel Sql 转换支持的 SQL 语法、连接器自身的类型限制或 Flink 转换层。
+null 元素（包括 null 映射和行）保持为 null。此前，数组中的 null 映射在 Spark Source 转换路径上会变为空映射（`{}`）。现在，返回给 SeaTunnel Transform 的数组使用声明的元素类型（例如 `String[]` 或 `Integer[]`），而不是通用的 `Object[]`，并且空数组在 Transform 和 Sink 边界保留其类型。迁移指南请参阅 [Spark 数组转换](../introduction/concepts/incompatible-changes.md#spark-数组转换)。
+
+每个数组必须只有一种兼容的元素类型，不支持在同一数组中混合整数和数组等不同形状的元素。本次数组转换修复并不代表所有嵌套 SQL 表达式或多层映射流水线都已受支持。它不会新增从 Spark 数组模式自动推断 SeaTunnel 时间类型的能力，也不会改变模式配置或 SeaTunnel Sql 语法、扩展连接器自身的类型支持，或改变 Flink 转换层。
 
 ## 下一步
 

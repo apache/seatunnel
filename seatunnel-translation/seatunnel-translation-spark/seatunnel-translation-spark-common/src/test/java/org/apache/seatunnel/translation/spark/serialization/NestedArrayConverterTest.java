@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.translation.spark.serialization;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -27,24 +29,32 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.translation.spark.execution.MultiTableManager;
 import org.apache.seatunnel.translation.spark.utils.TypeConverterUtils;
 
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.catalyst.InternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.sql.catalyst.expressions.UnsafeProjection;
 import org.apache.spark.sql.types.DataTypes;
 import org.apache.spark.sql.types.StructType;
 
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import java.io.IOException;
+import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.Collections;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -56,6 +66,26 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class NestedArrayConverterTest {
 
+    private static SparkSession spark;
+
+    @BeforeAll
+    static void startSpark() {
+        spark =
+                SparkSession.builder()
+                        .master("local[1]")
+                        .appName("nested-array-conversion")
+                        .config("spark.ui.enabled", "false")
+                        .config("spark.driver.host", "127.0.0.1")
+                        .getOrCreate();
+    }
+
+    @AfterAll
+    static void stopSpark() {
+        if (spark != null) {
+            spark.stop();
+        }
+    }
+
     @Test
     void retainsUnsupportedElementTypeValidation() {
         assertThrows(
@@ -65,36 +95,50 @@ class NestedArrayConverterTest {
                                 DataTypes.createArrayType(DataTypes.CalendarIntervalType)));
     }
 
-    @Test
-    void roundTripsThroughSparkExecution() throws IOException {
-        SparkSession spark =
-                SparkSession.builder()
-                        .master("local[1]")
-                        .appName("nested-array-conversion")
-                        .config("spark.ui.enabled", "false")
-                        .config("spark.driver.host", "127.0.0.1")
-                        .getOrCreate();
-        try {
-            for (Arguments arguments : (Iterable<Arguments>) arrays()::iterator) {
-                ArrayType<?, ?> type = (ArrayType<?, ?>) arguments.get()[0];
-                Object value = arguments.get()[1];
-                SeaTunnelRowType rowType = rowType(type);
-                SeaTunnelRowConverter converter = new SeaTunnelRowConverter(rowType);
-                Dataset<Row> dataset =
-                        spark.createDataFrame(
-                                Collections.singletonList(converter.convert(row(value))),
-                                (StructType) TypeConverterUtils.parcel(rowType));
-                assertEquals(
-                        type, TypeConverterUtils.convert(dataset.schema().fields()[2].dataType()));
-                Row result = dataset.repartition(1).collectAsList().get(0);
-                assertValue(value, converter.reconvert((GenericRow) result).getField(0));
-            }
-        } finally {
-            spark.stop();
-        }
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("arrays")
+    void roundTripsThroughSparkExecution(ArrayType<?, ?> type, Object value) throws IOException {
+        SeaTunnelRowType rowType = rowType(type);
+        SeaTunnelRowConverter converter = new SeaTunnelRowConverter(rowType);
+        SeaTunnelRow input = row(value);
+        Dataset<Row> dataset =
+                spark.createDataFrame(
+                        Collections.singletonList(converter.convert(input)),
+                        (StructType) TypeConverterUtils.parcel(rowType));
+        assertEquals(TypeConverterUtils.convert(type), dataset.schema().fields()[2].dataType());
+        Row result = dataset.repartition(1).collectAsList().get(0);
+        SeaTunnelRow restored = converter.reconvert((GenericRow) result);
+        assertValue(value, restored.getField(0));
+        assertEquals(input.getRowKind(), restored.getRowKind());
+        assertEquals(input.getTableId(), restored.getTableId());
     }
 
     static Stream<Arguments> arrays() {
+        // Value conversion uses the declared SeaTunnel type; reverse schema inference is separate.
+        return Stream.concat(schemaArrays(), timeArrays());
+    }
+
+    static Stream<Arguments> timeArrays() {
+        // Existing representations retain TIME nanos, TIMESTAMP micros and TIMESTAMP_TZ millis.
+        return Stream.of(
+                Arguments.of(
+                        ArrayType.of(LocalTimeType.LOCAL_TIME_TYPE),
+                        new LocalTime[] {LocalTime.of(12, 34, 56, 123456789), null}),
+                Arguments.of(
+                        ArrayType.of(LocalTimeType.LOCAL_DATE_TIME_TYPE),
+                        new LocalDateTime[] {
+                            LocalDateTime.of(2026, 1, 1, 12, 34, 56, 123456000), null
+                        }),
+                Arguments.of(
+                        ArrayType.of(LocalTimeType.OFFSET_DATE_TIME_TYPE),
+                        new OffsetDateTime[] {
+                            OffsetDateTime.parse("2026-01-01T12:34:56.123+05:30"),
+                            OffsetDateTime.parse("2026-01-01T12:34:56.123-07:00"),
+                            null
+                        }));
+    }
+
+    static Stream<Arguments> schemaArrays() {
         SeaTunnelRowType nestedRow =
                 new SeaTunnelRowType(
                         new String[] {"values"},
@@ -142,22 +186,39 @@ class NestedArrayConverterTest {
                 Arguments.of(ArrayType.of(BasicType.VOID_TYPE), new Void[] {null}));
     }
 
-    @ParameterizedTest
-    @MethodSource("arrays")
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("schemaArrays")
     void convertsSchemaRecursively(ArrayType<?, ?> type, Object value) {
         assertEquals(type, TypeConverterUtils.convert(TypeConverterUtils.convert(type)));
     }
 
-    @ParameterizedTest
+    @Test
+    void retainsTimeArraySchemaInferenceLimits() {
+        assertEquals(
+                ArrayType.LONG_ARRAY_TYPE,
+                TypeConverterUtils.convert(
+                        TypeConverterUtils.convert(ArrayType.of(LocalTimeType.LOCAL_TIME_TYPE))));
+        assertEquals(
+                ArrayType.of(new DecimalType(20, 6)),
+                TypeConverterUtils.convert(
+                        TypeConverterUtils.convert(
+                                ArrayType.of(LocalTimeType.OFFSET_DATE_TIME_TYPE))));
+        assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        TypeConverterUtils.convert(
+                                TypeConverterUtils.convert(
+                                        ArrayType.of(LocalTimeType.LOCAL_DATE_TIME_TYPE))));
+    }
+
+    @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("arrays")
     void preservesCatalystValues(ArrayType<?, ?> type, Object value) throws IOException {
         SeaTunnelRowType rowType = rowType(type);
         InternalRowConverter converter = new InternalRowConverter(rowType);
         for (Object input :
                 new Object[] {
-                    value,
-                    java.lang.reflect.Array.newInstance(type.getElementType().getTypeClass(), 0),
-                    null
+                    value, Array.newInstance(type.getElementType().getTypeClass(), 0), null
                 }) {
             SeaTunnelRow row = row(input);
             assertValue(input, converter.reconvert(converter.convert(row)).getField(0));
@@ -170,15 +231,13 @@ class NestedArrayConverterTest {
         }
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("arrays")
     void preservesExternalValuesAndInput(ArrayType<?, ?> type, Object value) throws IOException {
         SeaTunnelRowConverter converter = new SeaTunnelRowConverter(rowType(type));
         for (Object input :
                 new Object[] {
-                    value,
-                    java.lang.reflect.Array.newInstance(type.getElementType().getTypeClass(), 0),
-                    null
+                    value, Array.newInstance(type.getElementType().getTypeClass(), 0), null
                 }) {
             SeaTunnelRow row = row(input);
             SeaTunnelRow restored = converter.reconvert(converter.convert(row));
@@ -187,6 +246,50 @@ class NestedArrayConverterTest {
             assertValue(input, converter.reconvert(converter.convert(row)).getField(0));
             assertEquals(row.getRowKind(), restored.getRowKind());
             assertEquals(row.getTableId(), restored.getTableId());
+        }
+    }
+
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("arrays")
+    void preservesArraysThroughMultiTableIndexes(ArrayType<?, ?> type, Object value)
+            throws IOException {
+        SeaTunnelRowType firstType =
+                new SeaTunnelRowType(
+                        new String[] {"label", "first", "second"},
+                        new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, type, type});
+        SeaTunnelRowType secondType =
+                new SeaTunnelRowType(
+                        new String[] {"second", "id", "first"},
+                        new SeaTunnelDataType<?>[] {type, BasicType.INT_TYPE, type});
+        CatalogTable firstTable =
+                CatalogTableUtil.getCatalogTable("spark", "catalog", "database", "a", firstType);
+        CatalogTable secondTable =
+                CatalogTableUtil.getCatalogTable("spark", "catalog", "database", "b", secondType);
+        MultiTableManager manager =
+                new MultiTableManager(new CatalogTable[] {secondTable, firstTable});
+        InternalMultiRowCollector collector =
+                (InternalMultiRowCollector) manager.getInternalRowCollector(null, null, null);
+        Object empty = Array.newInstance(type.getElementType().getTypeClass(), 0);
+        SeaTunnelRow first = new SeaTunnelRow(new Object[] {"first table", value, empty});
+        first.setTableId(firstTable.getTablePath().toString());
+        first.setRowKind(RowKind.UPDATE_BEFORE);
+        SeaTunnelRow second = new SeaTunnelRow(new Object[] {empty, 42, value});
+        second.setTableId(secondTable.getTablePath().toString());
+        second.setRowKind(RowKind.UPDATE_AFTER);
+        // The second table maps to [1, 3, 2], with two distinct slots of the same array type.
+        assertEquals(6, manager.getTableSchema().fields().length);
+        for (SeaTunnelRow input : new SeaTunnelRow[] {first, second}) {
+            SeaTunnelRow external = manager.reconvert(manager.convert(input));
+            assertValue(input.getFields(), external.getFields());
+            assertEquals(input.getTableId(), external.getTableId());
+            assertEquals(input.getRowKind(), external.getRowKind());
+            InternalRow internal =
+                    collector.getRowSerializationMap().get(input.getTableId()).convert(input);
+            UnsafeProjection projection = UnsafeProjection.create(manager.getTableSchema());
+            SeaTunnelRow restored = manager.reconvert(projection.apply(internal));
+            assertValue(input.getFields(), restored.getFields());
+            assertEquals(input.getTableId(), restored.getTableId());
+            assertEquals(input.getRowKind(), restored.getRowKind());
         }
     }
 

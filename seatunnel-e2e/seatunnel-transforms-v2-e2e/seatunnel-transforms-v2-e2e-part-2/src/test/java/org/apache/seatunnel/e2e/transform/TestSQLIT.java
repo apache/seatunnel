@@ -124,7 +124,9 @@ public class TestSQLIT extends TestSuiteBase {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "Spark and Flink translation has some issue on nested type")
+            disabledReason =
+                    "Mixed-shape nested SQL fixture is not validated on Spark or Flink; "
+                            + "Spark homogeneous arrays are covered by testSparkNestedArrays")
     public void testNestedType(TestContainer container) throws IOException, InterruptedException {
         Container.ExecResult nestedTypeSql =
                 container.executeJob("/sql_transform/nested_type.conf");

@@ -170,7 +170,7 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private static ArrayBasedMapData convertMap(Map<?, ?> mapData, MapType<?, ?> mapType) {
-        if (mapData == null || mapData.size() == 0) {
+        if (mapData.isEmpty()) {
             return ArrayBasedMapData.apply(new Object[] {}, new Object[] {});
         }
         SeaTunnelDataType<?> keyType = mapType.getKeyType();
