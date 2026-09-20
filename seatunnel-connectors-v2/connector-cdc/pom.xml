@@ -31,6 +31,7 @@
 
     <modules>
         <module>connector-cdc-base</module>
+        <module>connector-cdc-pg-base</module>
         <module>connector-cdc-db2</module>
         <module>connector-cdc-mysql</module>
         <module>connector-cdc-sqlserver</module>
