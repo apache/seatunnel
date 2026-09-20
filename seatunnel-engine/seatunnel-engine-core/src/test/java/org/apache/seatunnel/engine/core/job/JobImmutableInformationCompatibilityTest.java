@@ -30,6 +30,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.ByteOrder;
 import java.util.Collections;
+import java.util.EnumSet;
 
 class JobImmutableInformationCompatibilityTest {
 
@@ -102,6 +103,39 @@ class JobImmutableInformationCompatibilityTest {
         Assertions.assertTrue(jobImmutableInformation.isCheckpointRestore());
         Assertions.assertFalse(jobImmutableInformation.isSavepointRestore());
         Assertions.assertFalse(jobImmutableInformation.isStartWithSavePoint());
+    }
+
+    @Test
+    void restoreMode_shouldMatchLegacySavepointFlag() throws Exception {
+        for (RestoreMode restoreMode : EnumSet.allOf(RestoreMode.class)) {
+            JobImmutableInformation jobImmutableInformation = new JobImmutableInformation();
+            setField(jobImmutableInformation, "jobId", 123L);
+            setField(jobImmutableInformation, "jobName", "restore-job");
+            setField(jobImmutableInformation, "restoreMode", restoreMode);
+            setField(
+                    jobImmutableInformation,
+                    "restoreSourceJobId",
+                    restoreMode.isRestore() ? 456L : null);
+            setField(
+                    jobImmutableInformation,
+                    "isStartWithSavePoint",
+                    restoreMode == RestoreMode.SAVEPOINT);
+
+            BufferObjectDataOutput out = serializationService.createObjectDataOutput();
+            jobImmutableInformation.writeData(out);
+            JobImmutableInformation restoredJobInformation = new JobImmutableInformation();
+            restoredJobInformation.readData(
+                    serializationService.createObjectDataInput(out.toByteArray()));
+
+            Assertions.assertEquals(
+                    restoreMode,
+                    restoredJobInformation.getRestoreMode(),
+                    "Unexpected restore mode after round trip");
+            Assertions.assertEquals(
+                    restoreMode == RestoreMode.SAVEPOINT,
+                    restoredJobInformation.isStartWithSavePoint(),
+                    "Unexpected legacy savepoint flag for restore mode " + restoreMode);
+        }
     }
 
     @Test
