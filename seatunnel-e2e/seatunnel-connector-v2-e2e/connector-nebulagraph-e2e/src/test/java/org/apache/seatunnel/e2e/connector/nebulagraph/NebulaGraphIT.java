@@ -39,9 +39,7 @@ import com.vesoft.nebula.client.graph.net.Session;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -105,41 +103,34 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
         storaged.start();
         graphd.start();
 
-        // graphd answers its HTTP /status probe before the graph service on port 9669 accepts
-        // connections, so the first pool initialization can transiently fail right after
-        // startup, in particular on loaded shared CI runners. Retry until a session can
-        // actually be established instead of failing the whole suite on that race.
         NebulaPoolConfig poolConfig = new NebulaPoolConfig().setMaxConnSize(1).setTimeout(30000);
-        List<HostAddress> graphdAddress =
-                Arrays.asList(new HostAddress(graphd.getHost(), graphd.getMappedPort(9669)));
-        AtomicReference<NebulaPool> readyPool = new AtomicReference<>();
-        AtomicReference<Session> readySession = new AtomicReference<>();
+        HostAddress graphdAddress = new HostAddress(graphd.getHost(), graphd.getMappedPort(9669));
+        // graphd's "/status" HTTP endpoint (waited on above via the container's own wait
+        // strategy) can start answering slightly before its raw graph RPC port (9669) is ready
+        // to serve connections, so the very first NebulaPool#init call can transiently throw
+        // IOErrorException even though the container itself started successfully. Retry pool
+        // creation on a fresh NebulaPool instance instead of failing the whole suite on that
+        // narrow startup race; closing a pool that failed to initialize avoids leaking its
+        // connections across attempts.
         Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
-                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
                 .until(
                         () -> {
-                            NebulaPool pool = new NebulaPool();
+                            NebulaPool candidatePool = new NebulaPool();
                             try {
-                                if (!pool.init(graphdAddress, poolConfig)) {
-                                    pool.close();
+                                if (!candidatePool.init(Arrays.asList(graphdAddress), poolConfig)) {
+                                    candidatePool.close();
                                     return false;
                                 }
-                                Session session = pool.getSession("root", "nebula", false);
-                                if (session == null) {
-                                    pool.close();
-                                    return false;
-                                }
-                                readyPool.set(pool);
-                                readySession.set(session);
-                                return true;
                             } catch (Exception e) {
-                                pool.close();
+                                candidatePool.close();
                                 return false;
                             }
+                            adminPool = candidatePool;
+                            return true;
                         });
-        adminPool = readyPool.get();
-        adminSession = readySession.get();
+        adminSession = adminPool.getSession("root", "nebula", false);
         execute("ADD HOSTS \"storaged0\":9779");
 
         Awaitility.await()
