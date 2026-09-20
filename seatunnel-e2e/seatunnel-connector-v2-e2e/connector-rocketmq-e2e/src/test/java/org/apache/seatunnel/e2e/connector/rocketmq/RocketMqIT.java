@@ -217,7 +217,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceRocketMqTextTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = "test_topic_text_tag";
+        final String uniqueSuffix = uniqueTestSuffix();
+        final String topic = "test_topic_text_tag_" + uniqueSuffix;
+        final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueSuffix;
         String tag = "tag_test";
 
         DefaultSeaTunnelRowSerializer serializer =
@@ -225,14 +227,18 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
         generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-source_text_tag_to_console.conf");
+                container.executeJob(
+                        "/rocketmq-source_text_tag_to_console.conf",
+                        Arrays.asList("sourceTopic=" + topic, "consumerGroup=" + consumerGroup));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
     public void testSourceRocketMqTextErrorTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = "test_topic_text_error_tag";
+        final String uniqueSuffix = uniqueTestSuffix();
+        final String topic = "test_topic_text_error_tag_" + uniqueSuffix;
+        final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueSuffix;
         String tag = "test_error_tag";
 
         DefaultSeaTunnelRowSerializer serializer =
@@ -240,7 +246,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
         generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-source_text_error_tag_to_console.conf");
+                container.executeJob(
+                        "/rocketmq-source_text_error_tag_to_console.conf",
+                        Arrays.asList("sourceTopic=" + topic, "consumerGroup=" + consumerGroup));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
