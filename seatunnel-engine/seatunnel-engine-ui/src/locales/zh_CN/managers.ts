@@ -16,7 +16,7 @@
  */
 
 export default {
-  managers: '节点管理',
+  managers: '管理者',
   address: '地址',
   cpu: '进程 CPU',
   heap: '堆内存已用 / 上限',

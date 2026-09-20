@@ -103,9 +103,16 @@ CPU/memory usage, tags, and running job count.
   workers remain visible; an unavailable endpoint displays a warning and clears
   its old values. An unavailable resource snapshot is not an empty cluster.
 - The page refreshes 30 seconds after the previous requests finish, with at most
-  one refresh in flight. **Refresh** requests an immediate update. Leaving the
-  page stops polling. The table paginates locally; each refresh makes two
-  cluster-level requests, not one request per worker or job.
+  one refresh in flight. **Refresh** requests an immediate update. Polling pauses
+  while the browser tab is hidden and refreshes when it becomes visible again.
+  An already-running refresh is allowed to finish before a new one starts.
+  Leaving the page stops polling. The table paginates locally; each Workers
+  refresh sends two HTTP requests from the browser. On the server, the monitoring
+  endpoint performs one RPC per cluster member sequentially, so its fan-out is
+  O(n) for n members, not constant-cost. Each RPC waits without an explicit
+  timeout in this collection loop; a slow member can keep the server request
+  occupied beyond the browser's 6-second timeout. This UI change does not alter
+  backend RPC or timeout behavior.
 - Monitoring and resource-manager values are separate samples. **Resource
   response time** is when the master built the resource response, not when a
   worker last sent a heartbeat. It cannot establish heartbeat freshness.

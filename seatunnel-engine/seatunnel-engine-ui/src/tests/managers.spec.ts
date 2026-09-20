@@ -73,6 +73,17 @@ const deferred = <T>() => {
 }
 
 describe('manager resource helpers', () => {
+  test.each([
+    ['10.0.0.8', '[10.0.0.8]:5801', '10.0.0.8:5801'],
+    ['Worker.EXAMPLE', '[WORKER.example]:5801', 'worker.example:5801']
+  ])('joins Hazelcast bracketed addresses for %s', (host, address, key) => {
+    const monitoring = monitor(host, '5801')
+    const resource = worker(address)
+    expect(addressKey(address)).toBe(key)
+    expect(joinResources([monitoring], [resource], false)).toEqual([
+      { address: key, monitor: monitoring, resource }
+    ])
+  })
   test('joins bracketed, expanded and compressed IPv6 with host and port', () => {
     expect(addressKey('2001:0db8:0:0:0:0:0:1:5801')).toBe('[2001:db8::1]:5801')
     expect(
@@ -121,8 +132,15 @@ describe('manager resource helpers', () => {
 
 describe('managers', () => {
   const wrappers: ReturnType<typeof mount>[] = []
+  let visibility: DocumentVisibilityState
+  function setVisibility(state: DocumentVisibilityState) {
+    visibility = state
+    document.dispatchEvent(new Event('visibilitychange'))
+  }
   beforeEach(() => {
     vi.useFakeTimers()
+    visibility = 'visible'
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibility)
     vi.spyOn(managerService, 'getMonitors').mockResolvedValue([monitor()])
     vi.spyOn(managerService, 'getWorkerResources').mockResolvedValue(snapshot())
     i18n.global.locale.value = 'en_US'
@@ -226,6 +244,95 @@ describe('managers', () => {
     expect(wrapper.text()).toContain('new-master')
     expect(wrapper.text()).not.toContain('old-worker')
     expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    expect(managerService.getWorkerResources).toHaveBeenCalledTimes(1)
+  })
+  test.each(['workers', 'master'])('pauses hidden %s polling and resumes', async (role) => {
+    await setup(`/managers/${role}`)
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(10_000)
+    setVisibility('hidden')
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
+    setVisibility('visible')
+    await flushPromises()
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(29_999)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(3)
+    expect(managerService.getWorkerResources).toHaveBeenCalledTimes(role === 'workers' ? 3 : 0)
+  })
+  test('defers initial loading and hidden route changes until visible', async () => {
+    setVisibility('hidden')
+    const { wrapper, router } = await setup()
+    await router.push('/managers/master')
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(managerService.getMonitors).not.toHaveBeenCalled()
+    vi.mocked(managerService.getMonitors).mockResolvedValue([monitor('master', '5801', true)])
+    setVisibility('visible')
+    await flushPromises()
+    expect(wrapper.text()).toContain('master:5801')
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
+    expect(managerService.getWorkerResources).not.toHaveBeenCalled()
+  })
+  test('does not rearm polling when an in-flight request completes while hidden', async () => {
+    const pending = deferred<Monitor[]>()
+    vi.mocked(managerService.getMonitors).mockReturnValueOnce(pending.promise)
+    const { wrapper, router } = await setup()
+    setVisibility('hidden')
+    await router.push('/managers/master')
+    pending.resolve([monitor('old-worker')])
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
+    expect(wrapper.findComponent(NDataTable).props('data')).toEqual([])
+    vi.mocked(managerService.getMonitors).mockResolvedValue([monitor('master', '5801', true)])
+    setVisibility('visible')
+    await flushPromises()
+    expect(wrapper.text()).toContain('master:5801')
+    expect(wrapper.text()).not.toContain('old-worker')
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    expect(managerService.getWorkerResources).toHaveBeenCalledTimes(1)
+  })
+  test('queues one visible refresh behind an in-flight request without overlapping', async () => {
+    const pending = deferred<Monitor[]>()
+    const resumed = deferred<Monitor[]>()
+    vi.mocked(managerService.getMonitors)
+      .mockReturnValueOnce(pending.promise)
+      .mockReturnValueOnce(resumed.promise)
+    const { wrapper } = await setup()
+    setVisibility('hidden')
+    setVisibility('visible')
+    setVisibility('hidden')
+    setVisibility('visible')
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
+    pending.resolve([monitor('old-worker')])
+    await flushPromises()
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).not.toContain('old-worker')
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(2)
+    resumed.resolve([monitor()])
+    await flushPromises()
+    await vi.advanceTimersByTimeAsync(30_000)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(3)
+    expect(managerService.getWorkerResources).toHaveBeenCalledTimes(3)
+  })
+  test('unmount removes the visibility listener and prevents restarting', async () => {
+    const addListener = vi.spyOn(document, 'addEventListener')
+    const removeListener = vi.spyOn(document, 'removeEventListener')
+    const { wrapper } = await setup()
+    await flushPromises()
+    const listener = addListener.mock.calls.find(([event]) => event === 'visibilitychange')?.[1]
+    expect(listener).toBeTypeOf('function')
+    setVisibility('hidden')
+    wrapper.unmount()
+    wrappers.length = 0
+    expect(removeListener).toHaveBeenCalledWith('visibilitychange', listener)
+    setVisibility('visible')
+    await vi.advanceTimersByTimeAsync(90_000)
+    expect(managerService.getMonitors).toHaveBeenCalledTimes(1)
     expect(managerService.getWorkerResources).toHaveBeenCalledTimes(1)
   })
   test('unmount ignores in-flight completion and never schedules another poll', async () => {

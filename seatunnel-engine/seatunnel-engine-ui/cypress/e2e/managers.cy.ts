@@ -43,7 +43,7 @@ describe('Worker resources', () => {
       collectedAt: 1723017600000,
       workers: [
         {
-          address: 'fixed:5801',
+          address: '[fixed]:5801',
           dynamicSlot: false,
           totalSlots: 4,
           usedSlots: 3,
@@ -108,6 +108,27 @@ describe('Worker resources', () => {
     cy.wait('@recovered')
     cy.contains('0 / 4 used, 4 free')
     cy.contains('Worker resources are unavailable').should('not.exist')
+  })
+
+  it('pauses hidden-tab polling and refreshes when visible again', () => {
+    cy.clock(0, ['setTimeout', 'clearTimeout'])
+    cy.visit('/#/managers/workers')
+    cy.wait(['@monitoring', '@resources'])
+    cy.document().then((doc) => {
+      Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'hidden' })
+      doc.dispatchEvent(new Event('visibilitychange'))
+    })
+    cy.tick(90_000)
+    cy.get('@monitoring.all').should('have.length', 1)
+    cy.get('@resources.all').should('have.length', 1)
+    cy.document().then((doc) => {
+      Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'visible' })
+      doc.dispatchEvent(new Event('visibilitychange'))
+    })
+    cy.wait(['@monitoring', '@resources'])
+    cy.get('@monitoring.all').should('have.length', 2)
+    cy.get('@resources.all').should('have.length', 2)
+    cy.contains('3 / 4 used, 1 free')
   })
 
   it('does not fetch worker slots on the Master page', () => {

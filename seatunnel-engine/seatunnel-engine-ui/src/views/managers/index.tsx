@@ -51,9 +51,10 @@ export default defineComponent({
     let timer: ReturnType<typeof setTimeout> | undefined
     let generation = 0
     let disposed = false
+    const isHidden = () => document.visibilityState === 'hidden'
 
     const refresh = async () => {
-      if (disposed || loading.value) return
+      if (disposed || isHidden() || loading.value) return
       clearTimeout(timer)
       loading.value = true
       const requestGeneration = generation
@@ -83,12 +84,23 @@ export default defineComponent({
         }
       } finally {
         loading.value = false
-        if (!disposed) {
+        if (!disposed && !isHidden()) {
           if (requestGeneration !== generation) void refresh()
           else timer = setTimeout(refresh, 30_000)
         }
       }
     }
+
+    const onVisibilityChange = () => {
+      clearTimeout(timer)
+      if (isHidden()) {
+        // Discard the pending sample and refresh after it settles if visibility returns first.
+        generation++
+      } else {
+        void refresh()
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange)
 
     watch(
       isMaster,
@@ -107,6 +119,7 @@ export default defineComponent({
     onBeforeUnmount(() => {
       disposed = true
       clearTimeout(timer)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     })
 
     const monitorValue = (row: NodeResources, field: keyof Monitor) => row.monitor?.[field] ?? '—'
