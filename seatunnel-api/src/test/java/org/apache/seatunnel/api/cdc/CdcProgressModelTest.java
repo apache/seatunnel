@@ -180,6 +180,35 @@ class CdcProgressModelTest {
     }
 
     @Test
+    void testEnumeratorReportRejectsEachNegativeCountIndependently() {
+        String[] countNames = {
+            "assignedSplitCount",
+            "completedSplitCount",
+            "runningSplitCount",
+            "preparedRemainingSplitCount",
+            "remainingUnchunkedTableCount"
+        };
+        for (int i = 0; i < countNames.length; i++) {
+            int[] counts = new int[countNames.length];
+            counts[i] = -1;
+            IllegalArgumentException error =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    new CdcEnumeratorProgressReport(
+                                            "MySQL-CDC",
+                                            CdcSnapshotAssignmentStatus.ASSIGNING,
+                                            CdcProgressValue.exact(counts[0]),
+                                            CdcProgressValue.exact(counts[1]),
+                                            CdcProgressValue.exact(counts[2]),
+                                            CdcProgressValue.exact(counts[3]),
+                                            CdcProgressValue.exact(counts[4]),
+                                            Collections.emptyList()));
+            Assertions.assertEquals(countNames[i] + " must not be negative", error.getMessage());
+        }
+    }
+
+    @Test
     void testUnsupportedAndUnavailableValuesCarryNoPayload() {
         CdcProgressValue<Integer> unsupported = CdcProgressValue.unsupported();
         CdcProgressValue<Integer> unavailable = CdcProgressValue.unavailable();
