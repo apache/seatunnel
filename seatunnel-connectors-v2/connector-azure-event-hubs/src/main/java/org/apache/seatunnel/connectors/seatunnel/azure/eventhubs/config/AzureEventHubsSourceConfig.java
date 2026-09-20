@@ -29,6 +29,7 @@ import java.io.Serializable;
 public class AzureEventHubsSourceConfig implements Serializable {
 
     public static final long MAX_POLL_TIMEOUT_MS = 5_000L;
+    // Mirrors EventHubClientBuilder.prefetchCount's inclusive SDK 5.21.3 bound; recheck on upgrade.
     public static final int MAX_PREFETCH_COUNT = 8_000;
 
     private static final long serialVersionUID = 1L;

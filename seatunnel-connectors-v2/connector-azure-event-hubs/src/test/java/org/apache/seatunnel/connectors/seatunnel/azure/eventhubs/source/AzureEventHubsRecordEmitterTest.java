@@ -37,11 +37,21 @@ import java.util.List;
 class AzureEventHubsRecordEmitterTest {
 
     private static final String PRIVATE_PAYLOAD = "SYNTHETIC_PRIVATE_EVENT_123";
+    private static final String PRIVATE_CONNECTION_STRING =
+            "Endpoint=sb://example.servicebus.windows.net/;SharedAccessKeyName=listen;"
+                    + "SharedAccessKey=c3ludGhldGljLXNlY3JldA==";
 
     @Test
     void emitsThenAdvancesCheckpointPosition() {
-        RecordingCollector collector = new RecordingCollector();
         AzureEventHubsSourceSplitState state = stateAt(10L);
+        RecordingCollector collector =
+                new RecordingCollector() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+                        super.collect(record);
+                    }
+                };
         AzureEventHubsRecordEmitter emitter = new AzureEventHubsRecordEmitter(new StringSchema());
 
         emitter.emitRecord(
@@ -68,8 +78,7 @@ class AzureEventHubsRecordEmitterTest {
                                         collector,
                                         state));
 
-        Assertions.assertTrue(exception.getMessage().contains("sequence number 10"));
-        assertPayloadIsNotExposed(exception);
+        assertPayloadIsNotExposed(exception, "I/O failure");
         Assertions.assertTrue(collector.rows.isEmpty());
         Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
     }
@@ -90,7 +99,12 @@ class AzureEventHubsRecordEmitterTest {
                 new RecordingCollector() {
                     @Override
                     public void collect(SeaTunnelRow record) {
-                        throw new IllegalStateException(PRIVATE_PAYLOAD);
+                        IllegalStateException failure =
+                                new IllegalStateException(
+                                        PRIVATE_PAYLOAD,
+                                        new InterruptedException(PRIVATE_CONNECTION_STRING));
+                        failure.addSuppressed(new IllegalArgumentException(PRIVATE_PAYLOAD));
+                        throw failure;
                     }
                 };
         AzureEventHubsSourceSplitState state = stateAt(10L);
@@ -107,7 +121,7 @@ class AzureEventHubsRecordEmitterTest {
                                         collector,
                                         state));
 
-        assertPayloadIsNotExposed(exception);
+        assertPayloadIsNotExposed(exception, "runtime failure");
         Assertions.assertTrue(collector.rows.isEmpty());
         Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
     }
@@ -132,15 +146,27 @@ class AzureEventHubsRecordEmitterTest {
                                         collector,
                                         state));
 
-        assertPayloadIsNotExposed(exception);
+        assertPayloadIsNotExposed(exception, "runtime failure");
         Assertions.assertTrue(collector.rows.isEmpty());
         Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
     }
 
-    private void assertPayloadIsNotExposed(AzureEventHubsConnectorException exception) {
-        Assertions.assertTrue(exception.getMessage().contains("sequence number 10"));
-        Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains(PRIVATE_PAYLOAD));
+    private void assertPayloadIsNotExposed(
+            AzureEventHubsConnectorException exception, String category) {
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(
+                                "Could not deserialize or emit Event Hubs event in partition '3'"
+                                        + " at sequence number 10 ("
+                                        + category
+                                        + ")"));
+        String trace = ExceptionUtils.getMessage(exception);
+        Assertions.assertFalse(trace.contains(PRIVATE_PAYLOAD));
+        Assertions.assertFalse(trace.contains(PRIVATE_CONNECTION_STRING));
+        Assertions.assertFalse(trace.contains("c3ludGhldGljLXNlY3JldA=="));
         Assertions.assertNull(exception.getCause());
+        Assertions.assertEquals(0, exception.getSuppressed().length);
     }
 
     @Test
@@ -159,10 +185,17 @@ class AzureEventHubsRecordEmitterTest {
     void sequenceOverflowIsRejectedBeforeOutput() {
         RecordingCollector collector = new RecordingCollector();
         AzureEventHubsSourceSplitState state = stateAt(Long.MAX_VALUE);
-        AzureEventHubsRecordEmitter emitter = new AzureEventHubsRecordEmitter(new StringSchema());
+        AzureEventHubsRecordEmitter emitter =
+                new AzureEventHubsRecordEmitter(
+                        new StringSchema() {
+                            @Override
+                            public SeaTunnelRow deserialize(byte[] message) {
+                                throw new AssertionError("Overflow must be checked before parsing");
+                            }
+                        });
 
         Assertions.assertThrows(
-                AzureEventHubsConnectorException.class,
+                ArithmeticException.class,
                 () ->
                         emitter.emitRecord(
                                 new EventHubsRecord(new byte[] {1}, Long.MAX_VALUE),
@@ -173,9 +206,38 @@ class AzureEventHubsRecordEmitterTest {
         Assertions.assertEquals(Long.MAX_VALUE, state.toSourceSplit().getNextSequenceNumber());
     }
 
+    @Test
+    void stateUpdateFailureIsNotRelabeledAsDeserializationFailure() {
+        IllegalStateException failure = new IllegalStateException("state update failed");
+        AzureEventHubsSourceSplitState state =
+                new AzureEventHubsSourceSplitState(
+                        new AzureEventHubsSourceSplit("events", "3", 10L)) {
+                    @Override
+                    public void setCurrentSequenceNumber(long sequenceNumber) {
+                        throw failure;
+                    }
+                };
+        RecordingCollector collector = new RecordingCollector();
+        AzureEventHubsRecordEmitter emitter = new AzureEventHubsRecordEmitter(new StringSchema());
+
+        Assertions.assertSame(
+                failure,
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                emitter.emitRecord(
+                                        new EventHubsRecord(
+                                                "value".getBytes(StandardCharsets.UTF_8), 10L),
+                                        collector,
+                                        state)));
+
+        Assertions.assertEquals(1, collector.rows.size());
+        Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+    }
+
     private AzureEventHubsSourceSplitState stateAt(long sequenceNumber) {
         return new AzureEventHubsSourceSplitState(
-                new AzureEventHubsSourceSplit("events", "0", sequenceNumber));
+                new AzureEventHubsSourceSplit("events", "3", sequenceNumber));
     }
 
     private static class StringSchema implements DeserializationSchema<SeaTunnelRow> {
@@ -197,7 +259,12 @@ class AzureEventHubsRecordEmitterTest {
     private static class FailingSchema extends StringSchema {
         @Override
         public SeaTunnelRow deserialize(byte[] message) throws IOException {
-            throw new IOException("invalid body: " + PRIVATE_PAYLOAD);
+            IOException failure =
+                    new IOException(
+                            "invalid body: " + PRIVATE_PAYLOAD,
+                            new IllegalArgumentException(PRIVATE_CONNECTION_STRING));
+            failure.addSuppressed(new IllegalStateException(PRIVATE_CONNECTION_STRING));
+            throw failure;
         }
     }
 

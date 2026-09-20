@@ -40,16 +40,21 @@ public class AzureEventHubsRecordEmitter
             EventHubsRecord element,
             Collector<SeaTunnelRow> collector,
             AzureEventHubsSourceSplitState splitState) {
+        long nextSequenceNumber = Math.addExact(element.getSequenceNumber(), 1L);
         try {
-            long nextSequenceNumber = Math.addExact(element.getSequenceNumber(), 1L);
             deserializationSchema.deserialize(element.getBody(), collector);
-            splitState.setCurrentSequenceNumber(nextSequenceNumber);
         } catch (IOException | RuntimeException e) {
             // Parser and collector exceptions can contain private event data, including in causes.
             throw new AzureEventHubsConnectorException(
                     AzureEventHubsConnectorErrorCode.DESERIALIZATION_FAILED,
-                    "Could not deserialize or emit Event Hubs event at sequence number "
-                            + element.getSequenceNumber());
+                    "Could not deserialize or emit Event Hubs event in partition '"
+                            + splitState.getPartitionId()
+                            + "' at sequence number "
+                            + element.getSequenceNumber()
+                            + " ("
+                            + (e instanceof IOException ? "I/O failure" : "runtime failure")
+                            + ")");
         }
+        splitState.setCurrentSequenceNumber(nextSequenceNumber);
     }
 }

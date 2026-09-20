@@ -110,7 +110,7 @@ The connector can run without checkpointing, but a task or job restart then appl
 
 If Event Hubs retention removes a checkpointed sequence before restore, the source fails instead of silently resetting to `earliest` or `latest`. Invalid JSON or text payloads also fail the source task; the last completed checkpoint determines the replay position.
 
-Deserialization and row-emission errors report the event sequence number without retaining the original exception message or cause, which may contain private event data. The failed event does not advance the checkpointed position.
+Deserialization and row-emission errors report the partition ID, event sequence number and a safe failure category (I/O or runtime failure) without retaining the original exception message or cause, which may contain private event data. The failed event does not advance the checkpointed position.
 
 ## Retry And Failure Behavior
 

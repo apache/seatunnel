@@ -23,7 +23,8 @@ public enum AzureEventHubsConnectorErrorCode implements SeaTunnelErrorCode {
     CONNECTION_FAILED("AzureEventHubs-02", "Create Azure Event Hubs client failed"),
     PARTITION_DISCOVERY_FAILED("AzureEventHubs-03", "Discover Event Hubs partitions failed"),
     READ_FAILED("AzureEventHubs-04", "Read Azure Event Hubs event failed"),
-    DESERIALIZATION_FAILED("AzureEventHubs-05", "Deserialize Azure Event Hubs event failed"),
+    DESERIALIZATION_FAILED(
+            "AzureEventHubs-05", "Deserialize or emit Azure Event Hubs event failed"),
     CLOSE_FAILED("AzureEventHubs-06", "Close Azure Event Hubs client failed");
 
     private final String code;
