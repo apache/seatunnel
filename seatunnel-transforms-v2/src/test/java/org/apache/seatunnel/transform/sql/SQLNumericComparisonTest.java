@@ -38,6 +38,10 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+/**
+ * Exercises SQLTransform deliberately: parsing and operand evaluation determine numeric types, and
+ * both searched and simple CASE expressions route back through the comparison filter.
+ */
 class SQLNumericComparisonTest {
     private static final String[] OPERATORS = {
         "=", "!=", "<>", ">", ">=", "<", "<=", "IN", "NOT IN"
@@ -151,6 +155,95 @@ class SQLNumericComparisonTest {
         assertEquals(true, matches("a IN (0, 9007199254740993)", 9007199254740993L, 0L));
         assertEquals(false, matches("a IN (0, 9007199254740992)", 9007199254740993L, 0L));
         assertEquals(true, matches("a NOT IN (0, 9007199254740992)", 9007199254740993L, 0L));
+    }
+
+    @Test
+    void preservesFloatingComparisonForFractionalLiterals() {
+        BigDecimal value = new BigDecimal("123456789012345678.99");
+        assertEquals(true, matches("a = 123456789012345678.98", value, 0L));
+        assertEquals(false, matches("a <> 123456789012345678.98", value, 0L));
+        assertEquals(false, matches("a > 123456789012345678.98", value, 0L));
+    }
+
+    @Test
+    void comparesExplicitDecimalCastsExactly() {
+        BigDecimal value = new BigDecimal("123456789012345678.99");
+        SQLTransform transform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap(
+                                        "query",
+                                        "select CAST('123456789012345678.99' AS DECIMAL(38, 2)) as exact_value, "
+                                                + "CAST('123456789012345678.99' AS DECIMAL(38, 4)) as scaled_value from dual")),
+                        CatalogTableUtil.getCatalogTable(
+                                "test",
+                                new SeaTunnelRowType(
+                                        new String[] {"a"},
+                                        new SeaTunnelDataType<?>[] {new DecimalType(38, 2)})));
+        List<SeaTunnelRow> output = transform.transformRow(new SeaTunnelRow(new Object[] {value}));
+        assertEquals(1, output.size());
+        assertEquals(value, output.get(0).getField(0));
+        assertEquals(new BigDecimal("123456789012345678.9900"), output.get(0).getField(1));
+        assertEquals(
+                true, matches("a = CAST('123456789012345678.99' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                false, matches("a = CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                true, matches("a > CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                true,
+                matches("a = CAST('9007199254740993' AS DECIMAL(38, 0))", 9007199254740993L, 0L));
+        assertEquals(
+                false,
+                matches("a = CAST('9007199254740992' AS DECIMAL(38, 0))", 9007199254740993L, 0L));
+    }
+
+    @Test
+    void comparesNegativeIntegerLiteralsExactly() {
+        assertEquals(true, matches("a = -9007199254740993", -9007199254740993L, 0L));
+        assertEquals(false, matches("a = -9007199254740992", -9007199254740993L, 0L));
+        assertEquals(true, matches("a < -9007199254740992", -9007199254740993L, 0L));
+    }
+
+    @Test
+    void preservesPerElementComparisonForMixedInLists() {
+        assertEquals(false, matches("a = 9007199254740992", 9007199254740993L, 0L));
+        assertEquals(true, matches("a = 9007199254740992.0", 9007199254740993L, 0L));
+        assertEquals(false, matches("a IN (9007199254740992)", 9007199254740993L, 0L));
+        assertEquals(
+                true,
+                matches("a IN (9007199254740992, 9007199254740992.0)", 9007199254740993L, 0L));
+        assertEquals(
+                true,
+                matches("a IN (9007199254740992.0, 9007199254740992)", 9007199254740993L, 0L));
+        assertEquals(
+                false,
+                matches("a NOT IN (9007199254740992, 9007199254740992.0)", 9007199254740993L, 0L));
+    }
+
+    @Test
+    void preservesFloatingComparisonForNegatedDecimalOperands() {
+        BigDecimal value = new BigDecimal("-123456789012345678.99");
+        assertEquals(
+                true, matches("a = -CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                true, matches("-a = CAST('123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                false, matches("a = CAST('-123456789012345678.98' AS DECIMAL(38, 2))", value, 0L));
+        assertEquals(
+                true, matches("a = CAST('-123456789012345678.99' AS DECIMAL(38, 2))", value, 0L));
+    }
+
+    @Test
+    void preservesDecimalCastScaleRounding() {
+        assertEquals(
+                true, matches("a = CAST('1.231' AS DECIMAL(10, 2))", new BigDecimal("1.24"), 0L));
+        assertEquals(
+                true, matches("a = CAST('-1.239' AS DECIMAL(10, 2))", new BigDecimal("-1.23"), 0L));
+        assertEquals(
+                true, matches("a = CAST(1.231 AS DECIMAL(10, 2))", new BigDecimal("1.23"), 0L));
+        assertEquals(
+                true, matches("a = CAST(-1.239 AS DECIMAL(10, 2))", new BigDecimal("-1.24"), 0L));
     }
 
     @Test

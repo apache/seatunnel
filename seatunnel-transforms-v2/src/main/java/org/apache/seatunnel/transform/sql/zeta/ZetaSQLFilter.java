@@ -454,6 +454,11 @@ public class ZetaSQLFilter {
         return isExactNumber(left) && isExactNumber(right);
     }
 
+    /**
+     * Recognizes integral wrappers and BigDecimal. Float/Double and other Number subtypes
+     * (including BigInteger) retain the legacy double path. Callers use native floating operators,
+     * not Double.compare, to preserve NaN, infinity and signed-zero behavior.
+     */
     private static boolean isExactNumber(Object value) {
         return value instanceof Byte
                 || value instanceof Short
@@ -462,8 +467,10 @@ public class ZetaSQLFilter {
                 || value instanceof BigDecimal;
     }
 
+    /** Compares exact operands; callers must first establish {@link #areExactNumbers}. */
     private static int compareExactNumbers(Number left, Number right) {
-        // Integral comparisons need no allocation; decimal operands must not pass through double.
+        // Integral pairs need no allocation. Mixed decimal/integral pairs may allocate a BigDecimal
+        // per comparison (including each IN item) to preserve precision instead of using double.
         if (left instanceof BigDecimal || right instanceof BigDecimal) {
             return NumericFunction.toBigDecimal(left)
                     .compareTo(NumericFunction.toBigDecimal(right));

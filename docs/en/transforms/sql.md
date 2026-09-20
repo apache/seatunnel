@@ -34,16 +34,41 @@ The SQL engine used by this transform. Supported values are `ZETA` and `INTERNAL
 
 ## Numeric comparisons
 
-Comparisons between integral types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) and
-`DECIMAL` preserve their numeric precision. This applies to `=`, `!=`, `<>`, `<`,
-`<=`, `>` and `>=`, as well as numeric `IN` and `NOT IN` membership checks.
+Comparisons preserve numeric precision when both evaluated operands are integral
+types (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`) or `DECIMAL`. This applies to `=`,
+`!=`, `<>`, `<`, `<=`, `>` and `>=`, numeric `IN` and `NOT IN` membership checks,
+and comparisons in searched and simple `CASE` expressions.
 For example, a `BIGINT` value of `9007199254740993` does not match
 `WHERE id = 9007199254740992`.
 
 If either operand is `FLOAT` or `DOUBLE`, comparisons continue to use
-floating-point conversion. To compare an exact value, use an integral or
-`DECIMAL` operand rather than a floating-point operand. This behavior applies
-to both SQL engine settings, `ZETA` and `INTERNAL`.
+floating-point conversion, retaining the existing behavior for NaN, infinity
+and signed zero. Numeric literals containing a decimal point are evaluated as
+`DOUBLE`, not `DECIMAL`: comparing a `DECIMAL` column to
+`123456789012345678.98` can still match `123456789012345678.99`. Integer literals
+evaluated as integral values, such as `-9007199254740993`, use the exact path
+when the other operand is also exact. Unary minus applied to a `DECIMAL` expression currently produces a
+`DOUBLE`, so `-decimal_col` and `-CAST('...' AS DECIMAL(p, s))` do not retain
+exact decimal comparison semantics.
+
+For an exact decimal constant, use a quoted string with sufficient scale, for
+example `amount = CAST('123456789012345678.99' AS DECIMAL(38, 2))`.
+For a negative constant, put the sign inside the string:
+`CAST('-123456789012345678.99' AS DECIMAL(38, 2))`.
+Existing CAST rounding is unchanged: converting a string or `DECIMAL` to
+`DECIMAL(p, s)` uses `CEILING` (toward positive infinity) if scale is reduced,
+so `CAST('1.231' AS DECIMAL(10, 2))` is `1.24` and
+`CAST('-1.239' AS DECIMAL(10, 2))` is `-1.23`. Converting `FLOAT` or `DOUBLE`
+uses `HALF_UP`; casting a fractional numeric literal cannot recover precision
+already lost during its evaluation as `DOUBLE`.
+
+The exact-or-floating choice is made for each operand pair, including each
+element of an `IN` list. For `id = 9007199254740993`,
+`id IN (9007199254740992)` is false, but
+`id IN (9007199254740992, 9007199254740992.0)` is true because the second
+comparison uses `DOUBLE`. Equality is therefore not necessarily transitive
+across mixed exact and floating types; use exact operands consistently when
+precision matters. These rules apply to both `ZETA` and `INTERNAL`.
 
 ## Example
 
