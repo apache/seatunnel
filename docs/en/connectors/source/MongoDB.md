@@ -44,6 +44,9 @@ It can be downloaded via `install-plugin.sh` or from the Maven central repositor
 |------------|--------------------|---------------------------------------------------------------------------------------|
 | MongoDB    | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb) |
 
+The optional [connectivity dry-run](#connectivity-dry-run) requires MongoDB 4.0 or later.
+This requirement does not change the versions supported by normal source execution.
+
 ## Data Type Mapping
 
 The following table lists the field data type mapping from MongoDB BSON type to SeaTunnel data type.

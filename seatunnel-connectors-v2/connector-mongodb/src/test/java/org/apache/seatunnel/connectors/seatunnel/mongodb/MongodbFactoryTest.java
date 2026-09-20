@@ -116,7 +116,7 @@ class MongodbFactoryTest {
                                     .append("authorizedCollections", true)
                                     .append("cursor", new Document("batchSize", 2))
                                     .append("maxTimeMS", 30000),
-                            com.mongodb.ReadPreference.primary());
+                            ReadPreference.primary());
             verify(client).getDatabase("test_database");
             verify(client).close();
             verifyNoMoreInteractions(client, database);
@@ -142,7 +142,7 @@ class MongodbFactoryTest {
                                         "admin", settings.getCredential().getSource());
                                 Assertions.assertTrue(settings.getSslSettings().isEnabled());
                                 Assertions.assertEquals(
-                                        com.mongodb.ReadPreference.secondaryPreferred(),
+                                        ReadPreference.secondaryPreferred(),
                                         settings.getReadPreference());
                                 Assertions.assertEquals(
                                         500,
@@ -185,9 +185,45 @@ class MongodbFactoryTest {
         try (MockedStatic<MongoClients> clients = mockStatic(MongoClients.class)) {
             clients.when(() -> MongoClients.create(any(MongoClientSettings.class)))
                     .thenReturn(client);
-            Assertions.assertThrows(
-                    IllegalStateException.class, () -> validate(validSourceConfig()));
+            IllegalStateException error =
+                    Assertions.assertThrows(
+                            IllegalStateException.class, () -> validate(validSourceConfig()));
+            Assertions.assertEquals(
+                    "Configured MongoDB collection does not exist or is not visible to the configured user",
+                    error.getMessage());
+            Assertions.assertNull(error.getCause());
+            Assertions.assertEquals(0, error.getSuppressed().length);
             verify(client).close();
+        }
+    }
+
+    @Test
+    void testMissingCollectionCleanupFailuresRemainSanitized() {
+        for (boolean cursorFailure : new boolean[] {false, true}) {
+            MongoClient client = mock(MongoClient.class);
+            MongoDatabase database = mock(MongoDatabase.class);
+            when(client.getDatabase(any())).thenReturn(database);
+            when(database.runCommand(any(Document.class), any(ReadPreference.class)))
+                    .thenReturn(
+                            new Document(
+                                    "cursor",
+                                    new Document("id", cursorFailure ? 123L : 0L)
+                                            .append("firstBatch", Collections.emptyList())))
+                    .thenThrow(new IllegalStateException("cursor secret"));
+            doThrow(new IllegalStateException("close secret")).when(client).close();
+            try (MockedStatic<MongoClients> clients = mockStatic(MongoClients.class)) {
+                clients.when(() -> MongoClients.create(any(MongoClientSettings.class)))
+                        .thenReturn(client);
+                IllegalStateException error =
+                        Assertions.assertThrows(
+                                IllegalStateException.class, () -> validate(validSourceConfig()));
+                Assertions.assertEquals(
+                        "MongoDB connect dry-run could not validate the configured collection. Check the URI, database, collection, metadata permissions and MongoDB 4.0+ support.",
+                        error.getMessage());
+                Assertions.assertNull(error.getCause());
+                Assertions.assertEquals(0, error.getSuppressed().length);
+                verify(client).close();
+            }
         }
     }
 

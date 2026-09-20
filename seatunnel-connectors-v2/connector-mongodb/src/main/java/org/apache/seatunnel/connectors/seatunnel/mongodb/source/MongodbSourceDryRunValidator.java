@@ -41,10 +41,12 @@ final class MongodbSourceDryRunValidator {
 
     private MongodbSourceDryRunValidator() {}
 
+    /** Checks namespace visibility without reading documents or constructing a source reader. */
     static void validate(ReadonlyConfig options) throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("MongoDB connect dry-run interrupted");
         }
+        boolean collectionVisible;
         try {
             MongoClientSettings settings = settings(options.get(MongodbSourceOptions.URI));
             try (MongoClient client = MongoClients.create(settings)) {
@@ -65,10 +67,9 @@ final class MongodbSourceDryRunValidator {
                                 .get("cursor", Document.class);
                 try {
                     List<Document> batch = cursor.getList("firstBatch", Document.class);
-                    if (batch.stream().noneMatch(row -> collection.equals(row.getString("name")))) {
-                        throw new IllegalStateException(
-                                "Configured MongoDB collection does not exist or is not visible to the configured user");
-                    }
+                    collectionVisible =
+                            batch.stream()
+                                    .anyMatch(row -> collection.equals(row.getString("name")));
                 } finally {
                     // The exact-name filter returns at most one result. Defensively release any
                     // cursor left open by the server instead of fetching additional metadata.
@@ -92,10 +93,16 @@ final class MongodbSourceDryRunValidator {
             // Driver exceptions can contain URI credentials, database names or server responses.
             // Do not retain their message, cause or suppressed exceptions in the CLI failure.
             throw new IllegalStateException(
-                    "MongoDB connect dry-run could not validate the configured collection. Check the URI, database, collection and metadata permissions.");
+                    "MongoDB connect dry-run could not validate the configured collection. Check the URI, database, collection, metadata permissions and MongoDB 4.0+ support.");
+        }
+        // Only driver operations are sanitized; this fixed validation result contains no secrets.
+        if (!collectionVisible) {
+            throw new IllegalStateException(
+                    "Configured MongoDB collection does not exist or is not visible to the configured user");
         }
     }
 
+    /** Preserves URI settings while bounding each metadata operation, not total wall-clock time. */
     private static MongoClientSettings settings(String uri) {
         MongoClientSettings original =
                 MongoClientSettings.builder()

@@ -42,6 +42,9 @@ split，实现并行读取。
 |--------|------------|-----------------------------------------------------------------------------------------|
 | MongoDB | 通用版本    | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-mongodb)   |
 
+可选的[连通性预检查](#连通性预检查)要求 MongoDB 4.0 或更高版本。
+该要求不改变正常源作业支持的 MongoDB 版本。
+
 ## 数据类型映射
 
 下表列出了从 MongoDB BSON 类型到 SeaTunnel 数据类型的字段映射。

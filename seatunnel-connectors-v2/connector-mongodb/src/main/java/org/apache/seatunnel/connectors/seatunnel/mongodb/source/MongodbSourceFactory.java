@@ -41,15 +41,13 @@ import java.util.List;
 
 @AutoService(Factory.class)
 public class MongodbSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
+    /** Uses the same configured schema as runtime without opening a MongoDB connection. */
     @Override
     public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
-        ReadonlyConfig options = context.getOptions();
-        return Collections.singletonList(
-                options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()
-                        ? CatalogTableUtil.buildWithConfig(options)
-                        : CatalogTableUtil.buildSimpleTextTable());
+        return Collections.singletonList(sourceTable(context.getOptions()));
     }
 
+    /** Checks metadata visibility only; document-read permissions are not exercised. */
     @Override
     public void validateConnectionForDryRun(
             TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
@@ -93,13 +91,13 @@ public class MongodbSourceFactory implements TableSourceFactory, SupportSourceDr
             TableSourceFactoryContext context) {
         return () -> {
             ReadonlyConfig options = context.getOptions();
-            CatalogTable table;
-            if (options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
-                table = CatalogTableUtil.buildWithConfig(options);
-            } else {
-                table = CatalogTableUtil.buildSimpleTextTable();
-            }
-            return new MongodbSource(table, options);
+            return new MongodbSource(sourceTable(options), options);
         };
+    }
+
+    private static CatalogTable sourceTable(ReadonlyConfig options) {
+        return options.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()
+                ? CatalogTableUtil.buildWithConfig(options)
+                : CatalogTableUtil.buildSimpleTextTable();
     }
 }

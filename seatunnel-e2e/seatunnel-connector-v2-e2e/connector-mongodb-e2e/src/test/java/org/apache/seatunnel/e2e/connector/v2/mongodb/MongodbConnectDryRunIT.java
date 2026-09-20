@@ -188,8 +188,17 @@ public class MongodbConnectDryRunIT extends TestSuiteBase implements TestResourc
 
     @Test
     void shouldRejectInvisibleAndMissingCollections() {
-        assertThrows(IllegalStateException.class, () -> validate(uri("reader-password"), "hidden"));
-        assertThrows(IllegalStateException.class, () -> validate(uri("reader-password"), "absent"));
+        for (String collection : new String[] {"hidden", "absent"}) {
+            IllegalStateException error =
+                    assertThrows(
+                            IllegalStateException.class,
+                            () -> validate(uri("reader-password"), collection));
+            assertEquals(
+                    "Configured MongoDB collection does not exist or is not visible to the configured user",
+                    error.getMessage());
+            assertNull(error.getCause());
+            assertEquals(0, error.getSuppressed().length);
+        }
     }
 
     @Test
