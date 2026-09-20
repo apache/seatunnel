@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
 
 import org.junit.jupiter.api.Assertions;
@@ -32,8 +33,18 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Collections;
+import java.util.Locale;
 
 public class PostgresSourceConfigFactoryTest {
+
+    @Test
+    public void shouldDeclareStopModeInRuntimeFactoryRule() {
+        Assertions.assertTrue(
+                new PostgresIncrementalSourceFactory()
+                        .optionRule()
+                        .getOptionalOptions()
+                        .contains(PostgresSourceOptions.STOP_MODE));
+    }
 
     @Test
     public void shouldKeepNeverAsDefaultStopMode() {
@@ -61,8 +72,7 @@ public class PostgresSourceConfigFactoryTest {
                         OptionValidationException.class,
                         () -> ConfigValidator.of(config).validate(stopModeRule()));
         Assertions.assertTrue(error.getMessage().contains("stop.mode"));
-        Assertions.assertTrue(
-                error.getMessage().contains(config.get(PostgresSourceOptions.STOP_MODE).name()));
+        Assertions.assertTrue(error.getMessage().contains(mode.toUpperCase(Locale.ROOT)));
     }
 
     private static OptionRule stopModeRule() {

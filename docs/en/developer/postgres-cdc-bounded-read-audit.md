@@ -25,6 +25,8 @@ claim that the other connectors have been audited. PostgreSQL `stop.mode` remain
 default and as its only supported value. `startup.mode = snapshot-only` is a separate existing
 capability, not an implementation of an incremental stop boundary.
 
+## Status snapshot (2026-09-16)
+
 Source baseline: `b37af3a9bf634735cabe4908014c2d390b288558`; Debezium `1.9.8.Final`.
 The issue body and both comments were read on September 16, 2026. The follow-up asks for offset
 ordering, enforcement points, and actual job completion evidence before connector-specific PRs.
@@ -32,7 +34,7 @@ There was no PostgreSQL stop-mode ownership claim in that conversation. Targeted
 searches for `11739` and `"stop.mode" postgres` found no separate PostgreSQL stop-mode implementation;
 that is a dated search result, not a reservation or proof against unpublished work.
 
-## Overlapping work
+### Overlapping work at this snapshot
 
 [PR #11556](https://github.com/apache/seatunnel/pull/11556), by davidzollo, is open at
 `ba7c8bd743c8a97cd308bf322e3cbde58b58c552` in this audit. It owns bounded snapshot WAL backfill,
@@ -46,7 +48,7 @@ reader. Snapshot reconciliation and public incremental termination need distinct
 if they eventually share the bounded reader. At this head the outer incremental `execute()` still
 constructs the unbounded source. Therefore #11556 does not itself implement `stop.mode`.
 
-The September 12 review still requests a dev sync, per-split table-filter escaping, and validation
+At this snapshot, the September 12 review requests a dev sync, per-split table-filter escaping, and validation
 of the effective slot name after Debezium property overrides, with tests. Earlier discussion also
 identifies a cleanup documentation mismatch and crash-orphaned backfill slots. These are open-PR
 findings, not new fixes or independently reproduced database incidents in this audit.
@@ -136,6 +138,8 @@ returns is not by itself evidence of reaching the bound: Debezium can return ear
 is disabled. Preserve error propagation and prove final eligible-row delivery, split exhaustion,
 and Zeta job FINISHED in order. Do not rewrite the shared fetcher to compensate for a PostgreSQL
 producer that cannot prove its end.
+If the separate queue-drain window is reproduced in the shared fetcher, fix and regression-test
+that shared base-module defect independently rather than adding a PostgreSQL-only workaround.
 
 ### Checkpoint and replication slot: needs terminal lifecycle proof
 
@@ -185,8 +189,8 @@ Reuse the MySQL bounded-read E2E completion pattern, not its binlog ordering ass
 5. **Queue drain:** hold a sink behind a deterministic gate, produce more than one queue batch,
    then reach the bound. Release the gate and require every eligible row, no post-bound rows,
    split exhaustion and actual FINISHED, without requiring END as the stream completion signal.
-   Separately gate the final enqueue after an empty queue poll and producer completion before the
-   later completion check; require the final batch to be delivered before split exhaustion. This
+   Separately gate this order: empty queue poll, final enqueue, producer completion, then the
+   later completion check. Require the final batch to be delivered before split exhaustion. This
    targets the source-inferred, unreproduced window above. Empty output after filtering is not a
    failure; producer exceptions, cancellation and disabled streaming must not count as successful
    completion.

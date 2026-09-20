@@ -24,13 +24,15 @@ limitations under the License.
 不表示已经审计其他连接器。PostgreSQL 的 `stop.mode` 默认值和唯一支持值仍为 `never`。
 已有的 `startup.mode = snapshot-only` 是独立能力，不代表增量读取支持停止边界。
 
+## 状态快照（2026-09-16）
+
 源码基线为 `b37af3a9bf634735cabe4908014c2d390b288558`，Debezium 版本为 `1.9.8.Final`。
 2026 年 9 月 16 日重新阅读了 issue 正文及全部两条评论。后续讨论要求先确认偏移量排序、
 边界执行位置和真正的任务结束证据，再按连接器提交实现。该讨论中没有 PostgreSQL stop-mode
 认领记录。针对 `11739` 和 `"stop.mode" postgres` 的开放 issue/PR 搜索没有发现单独的
 PostgreSQL stop-mode 实现；这只是当日搜索结果，不代表保留工作所有权或排除未公开工作。
 
-## 重叠工作
+### 此快照中的重叠工作
 
 davidzollo 的 [PR #11556](https://github.com/apache/seatunnel/pull/11556) 在审计时仍开放，
 head 为 `ba7c8bd743c8a97cd308bf322e3cbde58b58c552`。它负责快照期间的有界 WAL 回填，
@@ -43,7 +45,7 @@ head 为 `ba7c8bd743c8a97cd308bf322e3cbde58b58c552`。它负责快照期间的�
 即使最终共用 reader，也需要不同的边界策略。该 head 的外层增量 `execute()` 仍创建
 无界流式读取器，因此 #11556 本身没有实现 `stop.mode`。
 
-9 月 12 日的评审仍要求同步 dev、转义分片表名过滤表达式、在合并 Debezium 属性后校验
+在此快照中，9 月 12 日的评审要求同步 dev、转义分片表名过滤表达式、在合并 Debezium 属性后校验
 实际生效的复制槽名称，并添加测试。此前讨论还指出清理行为文档不符及 reader 崩溃后
 遗留回填槽的问题。这些是开放 PR 的评审发现，不是本次审计修复或独立复现的数据库事故。
 
@@ -122,6 +124,8 @@ producer 必须证明成功到达边界，并使 `isRunning() == false`。目前
 `context.isRunning()` 本身也不证明到达终点：Debezium 在禁用 streaming 时可以提前返回。
 需保留异常传播，并证明最后符合条件的行已交付、分片耗尽及 Zeta FINISHED 的顺序。
 不能为了补偿无法证明完成的 PostgreSQL producer 而改写共享 fetcher。
+如果单独复现了共享 fetcher 的队列排空窗口，应独立修复并回归测试该基础模块问题，
+而不是添加仅针对 PostgreSQL 的规避逻辑。
 
 ### Checkpoint 与复制槽：需要最终生命周期证据
 
@@ -163,8 +167,8 @@ OpenGauss 模块则提供自己的 PostgreSQL 连接及复制连接类。改变�
    必须具备 #11556 的回填和过滤测试，包括含正则元字符的合法表名。
 5. **队列排空：** 使用确定性 gate 阻塞 sink，产生超过一批队列数据后到达终点。释放 gate，
    验证所有符合条件的行、没有越界行、分片耗尽和真实 FINISHED，不要求 END 作为 stream
-   完成信号。另用 gate 控制最后一次入队发生在空队列轮询之后，且 producer 在较晚的完成
-   检查之前结束；要求最后一批数据在分片耗尽之前交付。该场景针对上述源码推断、尚未复现
+   完成信号。另用 gate 控制以下顺序：空队列轮询、最后一次入队、producer 结束、较晚的完成
+   检查；要求最后一批数据在分片耗尽之前交付。该场景针对上述源码推断、尚未复现
    的窗口。过滤后空输出不算失败；producer 异常、取消或 streaming 禁用不能算作成功到达边界。
 6. **恢复：** 在事务中途、消费到终点但尚未排空队列时 checkpoint；使用同一终点恢复，
    另测最终 checkpoint 后的 failover。验证约定的重放保障、精确 sink 状态、不会重新开启
