@@ -1100,6 +1100,43 @@ local_date_time AT TIME ZONE '+09:00'
 
 offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
+## Crypto Functions
+
+### AES_ENCRYPT
+
+```AES_ENCRYPT(value, key[, iv]) -> STRING```
+
+Encrypts `value` with AES/CBC/PKCS5Padding and returns a Base64-encoded ciphertext. Returns **NULL** if `value` is **NULL**.
+
+- `value`: the plaintext to encrypt. Any non-null value is converted to a string.
+- `key`: the secret key. If it starts with `base64:`, the remainder is decoded as a raw AES key and must be 16, 24, or 32 bytes (AES-128/192/256). Otherwise it is treated as a passphrase and hashed with SHA-256; the first 16 bytes are used as an AES-128 key, so arbitrary-length passphrases are supported.
+- `iv`: optional initialization vector. If provided, its UTF-8 bytes are used as the IV and must be exactly 16 bytes; the returned ciphertext contains only the encrypted bytes. If omitted, a random 16-byte IV is generated and prepended to the ciphertext, so it can be recovered by `AES_DECRYPT` without an explicit IV.
+
+Example:
+
+CALL AES_ENCRYPT(name, 'mySecretPass')
+CALL AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+CALL AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+NOTE:
+When `iv` is omitted the ciphertext is non-deterministic (a fresh random IV is generated for each call). To get a deterministic ciphertext, provide an explicit `iv`.
+
+### AES_DECRYPT
+
+```AES_DECRYPT(value, key[, iv]) -> STRING```
+
+Decrypts a Base64 AES/CBC/PKCS5Padding ciphertext. Returns **NULL** if `value` is **NULL**.
+
+- `value`: the Base64-encoded ciphertext produced by `AES_ENCRYPT`.
+- `key`: the secret key, with the same conventions as `AES_ENCRYPT`. It must match the key used for encryption.
+- `iv`: optional initialization vector. When omitted, the first 16 bytes of the decoded payload are treated as the IV (the format produced by `AES_ENCRYPT` without an IV). When provided, its UTF-8 bytes are used as the IV (must be 16 bytes) and the whole decoded payload is treated as the ciphertext.
+
+Example:
+
+CALL AES_DECRYPT(cipher, 'mySecretPass')
+CALL AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+CALL AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+
 ## System Functions
 
 ### CAST

@@ -1105,6 +1105,43 @@ local_date_time AT TIME ZONE '+09:00'
 
 offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
+## 加密函数
+
+### AES_ENCRYPT
+
+```AES_ENCRYPT(value, key[, iv]) -> STRING```
+
+使用 AES/CBC/PKCS5Padding 加密 `value`，返回 Base64 编码的密文。如果 `value` 为 **NULL**，返回 **NULL**。
+
+- `value`：待加密的明文。任何非空值都会被转换为字符串。
+- `key`：密钥。如果以 `base64:` 开头，则剩余部分按 Base64 解码为原始 AES 密钥，长度必须为 16、24 或 32 字节（对应 AES-128/192/256）。否则作为口令处理：对其 UTF-8 字节做 SHA-256，取前 16 字节作为 AES-128 密钥，因此支持任意长度的口令。
+- `iv`：可选的初始化向量。提供时，其 UTF-8 字节作为 IV 使用，必须恰好为 16 字节；返回的密文仅包含加密后的字节。省略时，将生成 16 字节随机 IV 并拼接到密文头部，这样 `AES_DECRYPT` 无需显式 IV 即可恢复。
+
+示例:
+
+CALL AES_ENCRYPT(name, 'mySecretPass')
+CALL AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+CALL AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+注意:
+省略 `iv` 时密文是非确定性的（每次调用都会生成新的随机 IV）。如需确定性密文，请显式提供 `iv`。
+
+### AES_DECRYPT
+
+```AES_DECRYPT(value, key[, iv]) -> STRING```
+
+解密 Base64 编码的 AES/CBC/PKCS5Padding 密文。如果 `value` 为 **NULL**，返回 **NULL**。
+
+- `value`：由 `AES_ENCRYPT` 生成的 Base64 密文。
+- `key`：密钥，约定与 `AES_ENCRYPT` 相同，必须与加密时使用的密钥一致。
+- `iv`：可选的初始化向量。省略时，取解码后前 16 字节作为 IV（即 `AES_ENCRYPT` 未提供 IV 时生成的格式）。提供时，其 UTF-8 字节作为 IV（必须为 16 字节），整个解码负载视为密文。
+
+示例:
+
+CALL AES_DECRYPT(cipher, 'mySecretPass')
+CALL AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+CALL AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+
 ## System Functions
 
 ### CAST
