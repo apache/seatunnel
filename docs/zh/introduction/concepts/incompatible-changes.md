@@ -4,6 +4,17 @@
 
 ## dev
 
+### JsonPath 转换
+
+- 已识别的目标类型转换失败现在遵循现有的列级和行级错误策略。列级 `SKIP` 产生 null
+  字段；列级 `SKIP_ROW` 或未被列级策略覆盖的行级 `SKIP` 丢弃整行。显式列级 `FAIL`
+  仍优先，默认策略仍为 `FAIL`。
+- 在 `FAIL` 策略下，已识别的转换错误现在以 `ErrorDataTransformException` 和
+  `JSONPATH_ERROR_CODE-07` 报告，不再直接报告原始转换器异常或其 `COMMON-*` 错误码。
+  这些诊断及跳过日志会有意省略源记录、提取值和原始异常原因。请更新依赖旧异常文本或错误码
+  的告警和运维手册。路径错误、不支持的转换和意外失败保留现有行为；本变更不增加
+  `ROUTE_TO_TABLE` 支持，也不改变检查点格式。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**

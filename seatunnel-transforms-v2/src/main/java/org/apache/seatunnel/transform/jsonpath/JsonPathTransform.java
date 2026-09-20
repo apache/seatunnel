@@ -16,7 +16,9 @@
  */
 package org.apache.seatunnel.transform.jsonpath;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.exception.ExceptionUtils;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -26,7 +28,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.format.json.JsonToRowConverters;
 import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
@@ -37,6 +41,7 @@ import com.jayway.jsonpath.JsonPath;
 import com.jayway.jsonpath.JsonPathException;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.DateTimeException;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -170,14 +175,61 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
             return converter.convert(jsonNode, columnConfig.getDestField());
         } catch (RuntimeException e) {
             // Nested row converters can wrap Errors; these are not skippable data failures.
-            for (Throwable cause : ExceptionUtils.getThrowableList(e)) {
+            List<Throwable> causes = ExceptionUtils.getThrowableList(e);
+            for (Throwable cause : causes) {
                 if (cause instanceof Error) {
                     throw (Error) cause;
                 }
             }
-            // Conversion failures are not JsonPathException, but use the same data error policy.
-            return handleError(columnConfig, jsonString, JSON_PATH_CONVERSION_ERROR, e);
+            if (!isDataConversionFailure(causes)) {
+                throw e;
+            }
+            return handleConversionError(columnConfig);
         }
+    }
+
+    private static boolean isDataConversionFailure(List<Throwable> causes) {
+        boolean jsonOperation = false;
+        for (Throwable cause : causes) {
+            if (cause instanceof SeaTunnelRuntimeException) {
+                SeaTunnelErrorCode code =
+                        ((SeaTunnelRuntimeException) cause).getSeaTunnelErrorCode();
+                if (code == CommonErrorCode.JSON_OPERATION_FAILED && cause.getCause() != null) {
+                    // This wrapper also carries programming failures; inspect the rest of the
+                    // chain.
+                    jsonOperation = true;
+                    continue;
+                }
+                if (code == CommonErrorCode.FORMAT_DATE_ERROR
+                        || code == CommonErrorCode.FORMAT_DATETIME_ERROR) {
+                    continue;
+                }
+            }
+            if (cause instanceof NumberFormatException
+                    || cause instanceof DateTimeException
+                    || (jsonOperation && cause instanceof JsonProcessingException)) {
+                continue;
+            }
+            return false;
+        }
+        // A cyclic cause chain has no recognized terminal data failure.
+        return causes.get(causes.size() - 1).getCause() == null;
+    }
+
+    private Object handleConversionError(ColumnConfig columnConfig) {
+        // Values, paths and original exceptions can contain private data, even in nested causes.
+        String message =
+                String.format(
+                        "JsonPath data conversion failure, src_field=%s, dest_field=%s, dest_type=%s",
+                        StringUtils.abbreviate(columnConfig.getSrcField(), 128),
+                        StringUtils.abbreviate(columnConfig.getDestField(), 128),
+                        columnConfig.getDestType().getSqlType());
+        if (columnConfig.errorHandleWay() != null && columnConfig.errorHandleWay().allowSkip()) {
+            log.debug("Skipping column: {}", message);
+            return null;
+        }
+        throw new ErrorDataTransformException(
+                columnConfig.errorHandleWay(), JSON_PATH_CONVERSION_ERROR, message);
     }
 
     /**

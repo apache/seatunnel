@@ -24,6 +24,10 @@ JsonPath 转换插件支持使用 JSONPath 选择数据。
 - FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
 - SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
 
+未配置列级策略时，此选项适用于路径读取错误和已识别的数据转换失败。
+JsonPath 不支持 `ROUTE_TO_TABLE`：不会路由错误，为失败值选择此策略时会抛出异常。
+策略优先级和示例见[配置异常数据处理策略](#配置异常数据处理策略)。
+
 ### columns [array]
 
 #### 属性
@@ -74,11 +78,9 @@ JsonPath 转换插件支持使用 JSONPath 选择数据。
 - SKIP：选择`SKIP`时，数据格式错误会跳过此列数据。
 - SKIP_ROW：选择`SKIP_ROW`时，数据格式错误会跳过此行数据。
 
-这些策略也适用于提取的值无法转换为 `dest_type` 的情况，例如无效的日期或数字。
-`SKIP` 会将目标字段设为 `null`，并继续处理其他列。如果未配置列级策略，
-则使用 `row_error_handle_way`。显式配置的列级策略优先于行级策略，
-因此即使行级策略为 `SKIP`，列级 `FAIL` 仍会抛出异常。
-JVM 错误（包括被转换器包装的错误）不会被视为可跳过的数据错误。
+这些策略也适用于已识别的数据转换失败，例如无效的日期或数字。
+列级 `SKIP` 将目标字段设为 `null`，不会丢弃整行。不支持 `ROUTE_TO_TABLE`。
+策略优先级和限制见[配置异常数据处理策略](#配置异常数据处理策略)。
 
 ## 读取 JSON 示例
 
@@ -248,7 +250,33 @@ transform {
 
 您可以配置 `row_error_handle_way` 与 `column_error_handle_way` 来处理异常数据，两者都是非必填项。
 
-`row_error_handle_way` 配置对行数据内所有数据异常进行处理，`column_error_handle_way` 配置对某列数据异常进行处理，优先级高于 `row_error_handle_way`。
+这些策略适用于路径读取错误和已识别的值转换失败（数字、日期/时间、二进制数据及其嵌套转换）。
+列级 `SKIP` 将失败的目标字段设为 `null` 并继续处理其他列；列级 `SKIP_ROW` 丢弃整行。
+未配置列级策略时，使用行级 `FAIL` 或 `SKIP`。显式列级策略优先，因此即使行级策略为
+`SKIP`，列级 `FAIL` 仍会失败。此转换不支持 `ROUTE_TO_TABLE`，为失败值选择该策略时
+会传播异常，而不是路由记录。
+
+不支持的转换、意外的程序/配置错误和致命 JVM 错误会使任务失败，不会被跳过。
+已识别的转换失败使用 `JSONPATH_ERROR_CODE-07`，诊断包含源/目标字段名、目标 SQL 类型
+及固定的失败类别。相关异常和跳过日志不包含源记录、提取值、路径表达式或可能携带隐私数据
+的原始异常。此限制不改变原有路径错误诊断或意外失败的传播方式。
+
+### 跳过无法转换的值
+
+当 `json_data` 中的输入为 `{"amount":"invalid","description":"retained"}` 时，
+以下配置将 `amount` 设为 null，并保留 `description`：
+
+```hocon
+transform {
+  JsonPath {
+    row_error_handle_way = FAIL
+    columns = [
+      { src_field = "json_data", path = "$.amount", dest_field = "amount", dest_type = "int", column_error_handle_way = SKIP },
+      { src_field = "json_data", path = "$.description", dest_field = "description", dest_type = "string" }
+    ]
+  }
+}
+```
 
 ### 跳过异常数据行
 

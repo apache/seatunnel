@@ -5,6 +5,20 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JsonPath Transform
+
+- Recognized destination-type conversion failures now honor the existing column
+  and row error policies. Column `SKIP` yields a null field; column `SKIP_ROW` or
+  row `SKIP` (without a column override) drops the row. Explicit column `FAIL`
+  still takes precedence; the default remains `FAIL`.
+- Under `FAIL`, recognized conversion errors now surface as
+  `ErrorDataTransformException` with `JSONPATH_ERROR_CODE-07`, rather than the raw
+  converter exception or its `COMMON-*` code. Source records, extracted values
+  and raw causes are intentionally omitted from these diagnostics and skip logs.
+  Update alerts/runbooks keyed on the old exception text or code. Path errors,
+  unsupported conversions and unexpected failures retain their existing behavior;
+  this does not add `ROUTE_TO_TABLE` support or change checkpoint formats.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**

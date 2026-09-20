@@ -24,6 +24,11 @@ This option is used to specify the processing method when an error occurs in the
 - FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
 - SKIP: When `SKIP` is selected, data format error will skip this row data.
 
+This applies to path-reading errors and recognized data-conversion failures when no
+column policy is configured. `ROUTE_TO_TABLE` is not supported by JsonPath: it does
+not route errors and fails when selected for a failing value. See
+[Configure error data handle way](#configure-error-data-handle-way) for precedence and examples.
+
 ### columns [array]
 
 #### option
@@ -74,12 +79,10 @@ This option is used to specify the processing method when an error occurs in the
 - SKIP: When `SKIP` is selected, data format error will skip this column data.
 - SKIP_ROW: When `SKIP_ROW` is selected, data format error will skip this row data.
 
-These policies also apply when an extracted value cannot be converted to `dest_type`,
-such as an invalid date or number. `SKIP` sets the destination field to `null` and
-continues processing the other columns. If no column policy is configured,
-`row_error_handle_way` applies. An explicit column policy takes precedence over the
-row policy, so column `FAIL` still fails the row when the row policy is `SKIP`.
-JVM errors, including those wrapped by a converter, are not treated as skippable data errors.
+These policies also apply to recognized data-conversion failures, such as an invalid
+date or number. Column `SKIP` sets the destination field to `null`, not the whole row.
+`ROUTE_TO_TABLE` is not supported. See
+[Configure error data handle way](#configure-error-data-handle-way) for policy precedence and limits.
 
 ## Read Json Example
 
@@ -249,7 +252,38 @@ Then the data result table `fake1` will like this
 
 You can configure `row_error_handle_way` and `column_error_handle_way` to handle abnormal data. Both are optional.
 
-`row_error_handle_way` is used to handle all data anomalies in the row data, while `column_error_handle_way` is used to handle data anomalies in a column. It has a higher priority than `row_error_handle_way`.
+The policies apply to path-reading errors and recognized value-conversion failures
+(numbers, dates/times, binary data and their nested conversions). Column `SKIP`
+sets the failed destination field to `null` and continues processing other columns;
+column `SKIP_ROW` discards the row. Without a column policy, row `FAIL` or `SKIP`
+applies. An explicit column policy takes precedence, so column `FAIL` still fails
+when row `SKIP` is configured. `ROUTE_TO_TABLE` does not route records in this
+transform and propagates the failure when selected for the failing value.
+
+Unsupported conversions, unexpected programming/configuration failures and fatal
+JVM errors fail the task instead of being skipped. Recognized conversion failures
+use `JSONPATH_ERROR_CODE-07` with source/destination field names, destination SQL
+type and a fixed failure category. Their diagnostics and skip logs omit source
+records, extracted values, path expressions and original exceptions, which can
+contain private data. This does not change legacy path-error diagnostics or the
+propagation of unexpected failures.
+
+### Skip an invalid converted value
+
+For input `{"amount":"invalid","description":"retained"}` in `json_data`, this
+configuration produces a null `amount` and preserves `description`:
+
+```hocon
+transform {
+  JsonPath {
+    row_error_handle_way = FAIL
+    columns = [
+      { src_field = "json_data", path = "$.amount", dest_field = "amount", dest_type = "int", column_error_handle_way = SKIP },
+      { src_field = "json_data", path = "$.description", dest_field = "description", dest_type = "string" }
+    ]
+  }
+}
+```
 
 ### Skip error data rows
 
