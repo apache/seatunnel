@@ -219,6 +219,7 @@ public class MultiTableSink
                     } else {
                         // Opt-in sharing: a second alias joins the writer created by a previous
                         // table. Surface this so operators can audit where rows of each alias go.
+                        final SinkWriter<SeaTunnelRow, ?, ?> sharedWriter = writer;
                         log.info(
                                 "Reusing shared sink writer: connector '{}' now also routes "
                                         + "table '{}' to physical destination '{}' "
@@ -227,7 +228,7 @@ public class MultiTableSink
                                 tablePath,
                                 sink.getPhysicalDestinationIdentifier().orElse(""),
                                 writers.entrySet().stream()
-                                        .filter(e -> e.getValue() == writer)
+                                        .filter(e -> e.getValue() == sharedWriter)
                                         .map(e -> e.getKey().getTableIdentifier())
                                         .findFirst()
                                         .orElse(""));
@@ -336,6 +337,7 @@ public class MultiTableSink
                         destinationWriters.put(destinationKey, writer);
                     } else {
                         // Opt-in sharing on the restore path: surface it the same way as create.
+                        final SinkWriter<SeaTunnelRow, ?, ?> sharedWriter = writer;
                         log.info(
                                 "Reusing restored shared sink writer: connector '{}' now also "
                                         + "routes table '{}' to physical destination '{}' "
@@ -344,7 +346,7 @@ public class MultiTableSink
                                 tablePath,
                                 sink.getPhysicalDestinationIdentifier().orElse(""),
                                 writers.entrySet().stream()
-                                        .filter(e -> e.getValue() == writer)
+                                        .filter(e -> e.getValue() == sharedWriter)
                                         .map(e -> e.getKey().getTableIdentifier())
                                         .findFirst()
                                         .orElse(""));
