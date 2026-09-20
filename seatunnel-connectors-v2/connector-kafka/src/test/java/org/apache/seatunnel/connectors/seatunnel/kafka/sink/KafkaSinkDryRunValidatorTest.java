@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.DescribeClusterOptions;
@@ -39,8 +41,11 @@ import org.apache.kafka.clients.admin.TopicDescription;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.errors.AuthenticationException;
+import org.apache.kafka.common.errors.InvalidTopicException;
+import org.apache.kafka.common.errors.NetworkException;
 import org.apache.kafka.common.errors.TopicAuthorizationException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import org.apache.kafka.common.errors.UnsupportedVersionException;
 import org.apache.kafka.common.internals.KafkaFutureImpl;
 
 import org.junit.jupiter.api.Test;
@@ -81,8 +86,7 @@ class KafkaSinkDryRunValidatorTest {
     @Test
     void testCompatibleFormatUsesUpstreamSchemaAndConfiguredPartition() throws Exception {
         SeaTunnelRowType compatibleType =
-                org.apache.seatunnel.format.compatible.debezium.json
-                        .CompatibleDebeziumJsonDeserializationSchema.DEBEZIUM_DATA_ROW_TYPE;
+                CompatibleDebeziumJsonDeserializationSchema.DEBEZIUM_DATA_ROW_TYPE;
         Map<String, Object> options = options("orders");
         options.put("format", "COMPATIBLE_DEBEZIUM_JSON");
         options.put("partition", 1);
@@ -167,7 +171,9 @@ class KafkaSinkDryRunValidatorTest {
                 IllegalArgumentException failure =
                         assertThrows(
                                 IllegalArgumentException.class, () -> validate(options, rowType));
-                assertTrue(failure.getMessage().contains("partition"));
+                assertEquals(
+                        "Kafka sink connect dry-run: partition is outside the target topic's range",
+                        failure.getMessage());
                 verify(admin).close(Duration.ofMillis(1));
             }
         }
@@ -260,6 +266,81 @@ class KafkaSinkDryRunValidatorTest {
     }
 
     @Test
+    void testRuntimeValidationPreservesErrorCodeAndResolvesMessageParameters() {
+        KafkaSinkSerializer.LocalValidationException failure =
+                assertThrows(
+                        KafkaSinkSerializer.LocalValidationException.class,
+                        () ->
+                                KafkaSinkSerializer.create(
+                                        ReadonlyConfig.fromMap(
+                                                withOption(
+                                                        "kafka_headers_fields",
+                                                        Collections.singletonList("unknown"))),
+                                        rowType));
+        assertSame(CommonErrorCode.ILLEGAL_ARGUMENT, failure.getSeaTunnelErrorCode());
+        assertEquals("Kafka sink serialization", failure.getParams().get("operation"));
+        assertTrue(failure.getMessage().contains("Header field not found: unknown"));
+        assertFalse(failure.getMessage().contains("<argument>"));
+        assertFalse(failure.getMessage().contains("<operation>"));
+    }
+
+    @Test
+    void testLocalFieldDiagnosticsIdentifyOptionWithoutExposingItsValue() {
+        for (String option :
+                Arrays.asList(
+                        "partition_key_fields",
+                        "kafka_headers_fields",
+                        "kafka_message_value_fields")) {
+            Map<String, Object> options =
+                    withOption(option, Collections.singletonList("synthetic-secret"));
+            try (MockedStatic<AdminClient> clients = mockStatic(AdminClient.class)) {
+                IllegalArgumentException failure =
+                        assertThrows(
+                                IllegalArgumentException.class, () -> validate(options, rowType));
+                assertEquals(
+                        "Kafka sink connect dry-run: "
+                                + option
+                                + " contains a field absent from the upstream schema",
+                        failure.getMessage());
+                assertNull(failure.getCause());
+                assertEquals(0, failure.getSuppressed().length);
+                clients.verifyNoInteractions();
+            }
+        }
+    }
+
+    @Test
+    void testIncompatibleOptionDiagnostics() {
+        Map<String, Object> options =
+                withOption("partition_key_fields", Collections.singletonList("route"));
+        options.put("partition", 0);
+        assertLocalFailure(options, "partition and partition_key_fields cannot both be configured");
+        options.remove("partition");
+        options.put("kafka_headers_fields", Collections.singletonList("route"));
+        assertLocalFailure(
+                options, "partition_key_fields and kafka_headers_fields must not overlap");
+        options.remove("partition_key_fields");
+        options.put("kafka_message_value_fields", Collections.singletonList("route"));
+        assertLocalFailure(
+                options, "kafka_message_value_fields and kafka_headers_fields must not overlap");
+        options.put("format", "NATIVE");
+        assertLocalFailure(options, "kafka_message_value_fields is incompatible with format");
+        options.remove("kafka_message_value_fields");
+        assertLocalFailure(options, "kafka_headers_fields is incompatible with NATIVE format");
+    }
+
+    private void assertLocalFailure(Map<String, Object> options, String reason) {
+        try (MockedStatic<AdminClient> clients = mockStatic(AdminClient.class)) {
+            IllegalArgumentException failure =
+                    assertThrows(IllegalArgumentException.class, () -> validate(options, rowType));
+            assertEquals("Kafka sink connect dry-run: " + reason, failure.getMessage());
+            assertNull(failure.getCause());
+            assertEquals(0, failure.getSuppressed().length);
+            clients.verifyNoInteractions();
+        }
+    }
+
+    @Test
     void testRemoteFailuresAreSanitizedAndCloseClient() {
         for (RuntimeException cause :
                 Arrays.asList(
@@ -276,6 +357,36 @@ class KafkaSinkDryRunValidatorTest {
                                 IllegalArgumentException.class,
                                 () -> validate(options("orders"), rowType));
                 assertFalse(failure.getMessage().contains("synthetic-secret"));
+                assertNull(failure.getCause());
+                assertEquals(0, failure.getSuppressed().length);
+                verify(admin).close(Duration.ofMillis(1));
+            }
+        }
+    }
+
+    @Test
+    void testRemoteFailureCategoriesRemainActionableWithoutDriverMessages() {
+        RuntimeException[] causes = {
+            new InvalidTopicException("synthetic-secret"),
+            new NetworkException("synthetic-secret"),
+            new UnsupportedVersionException("synthetic-secret")
+        };
+        String[] reasons = {
+            "invalid target topic name",
+            "broker network connection failed",
+            "broker does not support the requested metadata API version"
+        };
+        for (int i = 0; i < causes.length; i++) {
+            AdminClient admin = mock(AdminClient.class);
+            KafkaFutureImpl<Map<String, TopicDescription>> future = new KafkaFutureImpl<>();
+            future.completeExceptionally(causes[i]);
+            describe(admin, future);
+            try (MockedStatic<AdminClient> clients = client(admin, new Properties())) {
+                IllegalArgumentException failure =
+                        assertThrows(
+                                IllegalArgumentException.class,
+                                () -> validate(options("orders"), rowType));
+                assertEquals("Kafka sink connect dry-run: " + reasons[i], failure.getMessage());
                 assertNull(failure.getCause());
                 assertEquals(0, failure.getSuppressed().length);
                 verify(admin).close(Duration.ofMillis(1));

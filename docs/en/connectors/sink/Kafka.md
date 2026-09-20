@@ -32,6 +32,10 @@ The check reuses the writer's local serializer construction, including field and
 
 The top-level `bootstrap.servers` overrides the same key in `kafka.config`, matching the writer. Metadata operations share a deadline capped at 30 seconds and honor smaller valid Kafka API/request timeouts. Missing topics fail without automatic creation; provision them before validation.
 
+This also applies when the broker enables runtime topic auto-creation: dry-run never creates a missing topic.
+Each upstream table is validated separately, including its metadata request and client cleanup;
+the timeout is per table, not a deadline for the entire multi-table job.
+
 ## Supported DataSource Info
 
 In order to use the Kafka connector, the following dependencies are required.

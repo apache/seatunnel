@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.exception.KafkaConnectorErrorCode;
@@ -36,7 +37,9 @@ import org.apache.seatunnel.connectors.seatunnel.kafka.serialize.SeaTunnelRowSer
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.HEADERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.KEY;
@@ -51,6 +54,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.PARTITION_KEY_FIELDS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.TOPIC;
 
+/** Shared local schema validation and serializer construction; never opens a Kafka client. */
 final class KafkaSinkSerializer {
 
     private KafkaSinkSerializer() {}
@@ -64,8 +68,9 @@ final class KafkaSinkSerializer {
             if (MessageFormat.NATIVE.equals(messageFormat)
                     || MessageFormat.COMPATIBLE_DEBEZIUM_JSON.equals(messageFormat)
                     || MessageFormat.COMPATIBLE_KAFKA_CONNECT_JSON.equals(messageFormat)) {
-                throw new KafkaConnectorException(
+                throw new LocalValidationException(
                         CommonErrorCode.OPERATION_NOT_SUPPORTED,
+                        "kafka_message_value_fields is incompatible with format",
                         String.format(
                                 "kafka_message_value_fields is not supported for %s format",
                                 messageFormat));
@@ -75,8 +80,9 @@ final class KafkaSinkSerializer {
         if (MessageFormat.NATIVE.equals(messageFormat)) {
             // Validate that kafka_headers_fields is not configured for NATIVE format
             if (pluginConfig.get(KAFKA_HEADERS_FIELDS) != null) {
-                throw new KafkaConnectorException(
+                throw new LocalValidationException(
                         CommonErrorCode.OPERATION_NOT_SUPPORTED,
+                        "kafka_headers_fields is incompatible with NATIVE format",
                         "kafka_headers_fields is not supported with NATIVE format. Please use JSON, TEXT, or other formats.");
             }
             checkNativeSeaTunnelType(seaTunnelRowType);
@@ -89,8 +95,9 @@ final class KafkaSinkSerializer {
             delimiter = pluginConfig.get(FIELD_DELIMITER);
         }
         if (pluginConfig.get(PARTITION_KEY_FIELDS) != null && pluginConfig.get(PARTITION) != null) {
-            throw new KafkaConnectorException(
+            throw new LocalValidationException(
                     KafkaConnectorErrorCode.GET_TRANSACTIONMANAGER_FAILED,
+                    "partition and partition_key_fields cannot both be configured",
                     "Cannot select both `partiton` and `partition_key_fields`. You can configure only one of them");
         }
 
@@ -101,8 +108,9 @@ final class KafkaSinkSerializer {
         if (!partitionKeyFields.isEmpty() && !headerFields.isEmpty()) {
             for (String headerField : headerFields) {
                 if (partitionKeyFields.contains(headerField)) {
-                    throw new KafkaConnectorException(
+                    throw new LocalValidationException(
                             CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "partition_key_fields and kafka_headers_fields must not overlap",
                             String.format(
                                     "Field '%s' cannot be in both partition_key_fields and kafka_headers_fields",
                                     headerField));
@@ -113,8 +121,9 @@ final class KafkaSinkSerializer {
         if (!messageValueFields.isEmpty() && !headerFields.isEmpty()) {
             for (String headerField : headerFields) {
                 if (messageValueFields.contains(headerField)) {
-                    throw new KafkaConnectorException(
+                    throw new LocalValidationException(
                             CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "kafka_message_value_fields and kafka_headers_fields must not overlap",
                             String.format(
                                     "Field '%s' cannot be in both kafka_message_value_fields and kafka_headers_fields",
                                     headerField));
@@ -164,8 +173,9 @@ final class KafkaSinkSerializer {
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
             for (String partitionKeyField : partitionKeyFields) {
                 if (!rowTypeFieldNames.contains(partitionKeyField)) {
-                    throw new KafkaConnectorException(
+                    throw new LocalValidationException(
                             CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                            "partition_key_fields contains a field absent from the upstream schema",
                             String.format(
                                     "Partition key field not found: %s, rowType: %s",
                                     partitionKeyField, rowTypeFieldNames));
@@ -184,8 +194,9 @@ final class KafkaSinkSerializer {
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
             for (String headerField : headerFields) {
                 if (!rowTypeFieldNames.contains(headerField)) {
-                    throw new KafkaConnectorException(
+                    throw new LocalValidationException(
                             CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "kafka_headers_fields contains a field absent from the upstream schema",
                             String.format(
                                     "Header field not found: %s, rowType: %s",
                                     headerField, rowTypeFieldNames));
@@ -203,8 +214,9 @@ final class KafkaSinkSerializer {
             List<String> rowTypeFieldNames = Arrays.asList(seaTunnelRowType.getFieldNames());
             for (String messageValueField : messageValueFields) {
                 if (!rowTypeFieldNames.contains(messageValueField)) {
-                    throw new KafkaConnectorException(
+                    throw new LocalValidationException(
                             CommonErrorCode.ILLEGAL_ARGUMENT,
+                            "kafka_message_value_fields contains a field absent from the upstream schema",
                             String.format(
                                     "Message value field not found: %s, rowType: %s",
                                     messageValueField, rowTypeFieldNames));
@@ -222,18 +234,59 @@ final class KafkaSinkSerializer {
             SeaTunnelDataType<?> exceptFieldType = exceptRowType.getFieldTypes()[i];
             int fieldIndex = seaTunnelRowType.indexOf(exceptField, false);
             if (fieldIndex < 0) {
-                throw new KafkaConnectorException(
+                throw new LocalValidationException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "NATIVE format requires its standard fields in the upstream schema",
                         String.format("Field name { %s } is not found!", exceptField));
             }
             SeaTunnelDataType<?> fieldType = seaTunnelRowType.getFieldType(fieldIndex);
             if (exceptFieldType.getSqlType() != fieldType.getSqlType()) {
-                throw new KafkaConnectorException(
+                throw new LocalValidationException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE,
+                        "NATIVE format field types do not match the upstream schema",
                         String.format(
                                 "Field name { %s } unsupported sql type { %s } !",
                                 exceptField, fieldType.getSqlType()));
             }
+        }
+    }
+
+    /** Keeps runtime diagnostics intact while exposing only connector-owned text to dry-run. */
+    static final class LocalValidationException extends KafkaConnectorException {
+        private final String dryRunReason;
+        private final String runtimeMessage;
+
+        private LocalValidationException(
+                SeaTunnelErrorCode errorCode, String dryRunReason, String runtimeMessage) {
+            super(errorCode, errorParameters(errorCode, runtimeMessage));
+            this.dryRunReason = dryRunReason;
+            this.runtimeMessage = runtimeMessage;
+        }
+
+        String getDryRunReason() {
+            return dryRunReason;
+        }
+
+        @Override
+        public String getMessage() {
+            return super.getMessage() + " - " + runtimeMessage;
+        }
+
+        private static Map<String, String> errorParameters(
+                SeaTunnelErrorCode code, String message) {
+            Map<String, String> params = new HashMap<>();
+            if (code == CommonErrorCode.ILLEGAL_ARGUMENT) {
+                params.put("argument", message);
+                params.put("operation", "Kafka sink serialization");
+            } else if (code == CommonErrorCode.OPERATION_NOT_SUPPORTED) {
+                params.put("identifier", "Kafka");
+                params.put("operation", message);
+            } else if (code == CommonErrorCode.UNSUPPORTED_DATA_TYPE) {
+                params.put("identifier", "Kafka");
+                params.put("dataType", "upstream schema");
+                params.put("field", message);
+            }
+            return params;
         }
     }
 

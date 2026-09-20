@@ -60,6 +60,9 @@ public class KafkaSinkFactory implements TableSinkFactory, SupportSinkDryRunVali
         try {
             KafkaSinkSerializer.create(
                     context.getOptions(), context.getCatalogTable().getSeaTunnelRowType());
+        } catch (KafkaSinkSerializer.LocalValidationException e) {
+            throw new IllegalArgumentException(
+                    "Kafka sink connect dry-run: " + e.getDryRunReason());
         } catch (RuntimeException e) {
             throw new IllegalArgumentException(
                     "Kafka sink connect dry-run: invalid serialization or routing configuration for the upstream schema");

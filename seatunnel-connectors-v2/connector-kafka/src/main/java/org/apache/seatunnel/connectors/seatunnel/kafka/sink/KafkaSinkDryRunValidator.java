@@ -30,7 +30,10 @@ import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.errors.AuthenticationException;
 import org.apache.kafka.common.errors.AuthorizationException;
+import org.apache.kafka.common.errors.InvalidTopicException;
+import org.apache.kafka.common.errors.NetworkException;
 import org.apache.kafka.common.errors.UnknownTopicOrPartitionException;
+import org.apache.kafka.common.errors.UnsupportedVersionException;
 
 import java.time.Duration;
 import java.util.Collections;
@@ -64,6 +67,7 @@ final class KafkaSinkDryRunValidator {
             throw new IllegalArgumentException(
                     "Kafka sink connect dry-run: partition must not be negative");
         }
+        boolean partitionExists = true;
         try (TemporaryClassLoaderContext ignored =
                 TemporaryClassLoaderContext.of(KafkaSinkDryRunValidator.class.getClassLoader())) {
             Properties properties = new Properties();
@@ -113,12 +117,10 @@ final class KafkaSinkDryRunValidator {
                             config.get(FORMAT) == MessageFormat.NATIVE
                                     ? null
                                     : config.get(PARTITION);
-                    if (partition != null
-                            && description.partitions().stream()
-                                    .noneMatch(info -> info.partition() == partition)) {
-                        throw new IllegalArgumentException(
-                                "Kafka sink connect dry-run: partition is outside the target topic's range");
-                    }
+                    partitionExists =
+                            partition == null
+                                    || description.partitions().stream()
+                                            .anyMatch(info -> info.partition() == partition);
                 }
             } finally {
                 // Kafka uses Thread.join(timeout); zero could wait indefinitely.
@@ -131,7 +133,7 @@ final class KafkaSinkDryRunValidator {
             Throwable failure =
                     e instanceof ExecutionException && e.getCause() != null ? e.getCause() : e;
             String reason =
-                    "metadata validation failed; check topic, partition and Kafka client configuration";
+                    "unexpected metadata failure; check broker connectivity and Kafka client configuration";
             if (failure instanceof AuthenticationException) {
                 reason = "authentication failed";
             } else if (failure instanceof AuthorizationException) {
@@ -143,9 +145,19 @@ final class KafkaSinkDryRunValidator {
                 reason = "metadata request timed out";
             } else if (failure instanceof ConfigException) {
                 reason = "invalid Kafka client configuration";
+            } else if (failure instanceof InvalidTopicException) {
+                reason = "invalid target topic name";
+            } else if (failure instanceof NetworkException) {
+                reason = "broker network connection failed";
+            } else if (failure instanceof UnsupportedVersionException) {
+                reason = "broker does not support the requested metadata API version";
             }
             // Client exceptions can embed JAAS options, passwords and endpoint credentials.
             throw new IllegalArgumentException("Kafka sink connect dry-run: " + reason);
+        }
+        if (!partitionExists) {
+            throw new IllegalArgumentException(
+                    "Kafka sink connect dry-run: partition is outside the target topic's range");
         }
     }
 

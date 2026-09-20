@@ -32,6 +32,9 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 与 writer 一致，顶层 `bootstrap.servers` 优先于 `kafka.config` 中的同名配置。元数据操作共用最多 30 秒的截止时间，并遵守较小且有效的 Kafka API/请求超时。主题不存在时校验失败，不会自动创建主题；请在校验前创建目标主题。
 
+即使 broker 启用了运行时自动创建主题，dry-run 也不会创建缺失的主题。
+每个上游表分别执行校验、元数据请求和客户端清理；超时按表计算，并非整个多表作业的总时限。
+
 ## 支持的数据源信息
 
 为了使用 Kafka 连接器，需要以下依赖项
