@@ -443,7 +443,14 @@ public class HttpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
                 context.signalNoMoreElement();
             } else {
                 if (httpParameter.getPollIntervalMillis() > 0) {
-                    Thread.sleep(httpParameter.getPollIntervalMillis());
+                    // Wait rather than sleep: this runs while holding the
+                    // checkpoint lock taken in pollNext, and Object.wait
+                    // releases the monitor for the duration while
+                    // Thread.sleep does not -- so a streaming job's
+                    // checkpoint barrier could not acquire it and the
+                    // checkpoint expired.
+                    output.getCheckpointLock()
+                            .wait(httpParameter.getPollIntervalMillis());
                 }
             }
         }
