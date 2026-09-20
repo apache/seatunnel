@@ -235,7 +235,8 @@ redis data types, support `key` `string` `hash` `list` `set` `zset`
 Redis ACL username (Redis 6 or later), supported in both `SINGLE` and `CLUSTER` mode.
 When nonblank, the connector authenticates with `AUTH user auth`; it does not create or modify ACL users.
 Create the user and grant the required command and key permissions before starting the job, including
-`INFO` for connector initialization and `SELECT` in `SINGLE` mode.
+`INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for topology
+discovery in `CLUSTER` mode.
 If `user` is omitted, empty, or whitespace-only, a nonblank `auth` uses password-only authentication
 as the default user; otherwise no authentication command is sent.
 

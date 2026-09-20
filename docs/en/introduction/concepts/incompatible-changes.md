@@ -11,8 +11,9 @@ You need to check this document before you upgrade to related version.
   `CLUSTER` mode. Previously, `SINGLE` used password-only authentication followed by `ACL SETUSER`,
   and `CLUSTER` ignored `user`. Connection setup no longer creates or modifies ACL users.
 - Before upgrading, create the intended ACL user and grant its required command and key permissions,
-  including `INFO` and, in `SINGLE` mode, `SELECT`. Set `auth` to that user's password. An omitted or
-  empty password is sent as an empty string when `user` is nonblank.
+  including `INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for
+  topology discovery in `CLUSTER` mode. Set `auth` to that user's password. An omitted or empty password
+  is sent as an empty string when `user` is nonblank.
 - To keep using the default user, remove `user` and retain `auth` when a password is required.
   Named users require Redis 6 or later. Legacy configurations without a username remain unchanged.
 

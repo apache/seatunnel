@@ -63,7 +63,8 @@ downloaded from Maven Central.
 In both `SINGLE` and `CLUSTER` mode, a nonblank `user` selects Redis ACL authentication
 (`AUTH user auth`, Redis 6 or later). The connector does not create or modify ACL users.
 Create the user and grant its required command and key permissions before starting the job, including
-`INFO` for connector initialization and `SELECT` in `SINGLE` mode.
+`INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for topology
+discovery in `CLUSTER` mode.
 The password is passed unchanged, including whitespace; omitted or empty `auth` is sent as an empty
 password and only works if the ACL user accepts it (for example, a `nopass` user).
 

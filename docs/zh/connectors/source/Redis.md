@@ -227,7 +227,7 @@ redis 数据类型, 支持 `key` `string` `hash` `list` `set` `zset`。
 Redis ACL 用户名（需要 Redis 6 或更新版本），支持 `SINGLE` 和 `CLUSTER` 模式。
 当用户名非空白时，连接器通过 `AUTH user auth` 认证，不会创建或修改 ACL 用户。
 启动作业前，请创建用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
-以及 `SINGLE` 模式所需的 `SELECT`。
+`SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
 若省略 `user`，或其值为空字符串、仅包含空白字符，则非空白的 `auth` 将用于默认用户的密码认证；
 否则不发送认证命令。
 

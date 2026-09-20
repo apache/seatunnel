@@ -186,6 +186,11 @@ public class RedisParameters implements Serializable {
                 "Did not get the expected redis_version from the jedis.info() method");
     }
 
+    /**
+     * Uses named-user AUTH when user is nonblank; otherwise preserves password-only or no-auth
+     * behavior. Authentication selects an existing identity, never administers users via ACL
+     * SETUSER.
+     */
     public Jedis buildJedis() {
         switch (mode) {
             case SINGLE:
@@ -245,6 +250,10 @@ public class RedisParameters implements Serializable {
         }
     }
 
+    /**
+     * Releases a connection after failed initialization, including an Error, before the caller
+     * rethrows the original failure. Cleanup failures are suppressed to preserve that failure.
+     */
     private void closeAfterFailure(Jedis jedis, Throwable failure) {
         try {
             jedis.close();
