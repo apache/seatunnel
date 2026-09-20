@@ -168,7 +168,8 @@ public class JobEventHttpReportHandlerTest {
 
         List<TestEvent> events = new ArrayList<>();
         for (int i = 0; i < mockWebServer.getRequestCount(); i++) {
-            RecordedRequest request = mockWebServer.takeRequest();
+            RecordedRequest request = mockWebServer.takeRequest(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(request, "The event report should reach the HTTP server");
             Assertions.assertEquals("POST", request.getMethod());
             Assertions.assertEquals(headerValue, request.getHeader(headerName));
             Assertions.assertEquals(

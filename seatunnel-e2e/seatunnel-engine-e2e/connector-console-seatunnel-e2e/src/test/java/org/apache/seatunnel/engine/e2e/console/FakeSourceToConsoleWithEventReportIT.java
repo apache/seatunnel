@@ -103,6 +103,7 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(eventReportConfig),
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
+        // This hook runs before container.start(), replacing the base fixture's readiness gate.
         container.waitingFor(
                 new LogMessageWaitStrategy() {
                     @Override
@@ -159,8 +160,10 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
                 .until(() -> mockWebServer.getRequestCount(), count -> count > 0);
 
         List<JsonNode> events = new ArrayList<>();
-        for (int i = 0; i < mockWebServer.getRequestCount(); i++) {
-            RecordedRequest request = mockWebServer.takeRequest();
+        int requestCount = mockWebServer.getRequestCount();
+        for (int i = 0; i < requestCount; i++) {
+            RecordedRequest request = mockWebServer.takeRequest(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(request, "A counted event report should be available");
             try (Buffer buffer = request.getBody()) {
                 String body = buffer.readUtf8();
                 ArrayNode arrayNode =
