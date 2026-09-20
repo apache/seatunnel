@@ -1,8 +1,4 @@
-*.sh text=auto eol=lf
-mvnw text=auto eol=lf
-jvm*_options text eol=lf
-plugin_config text eol=lf
-*.properties text eol=lf
+* text=auto eol=lf
 
 *.cmd text eol=crlf
 *.bat text eol=crlf
