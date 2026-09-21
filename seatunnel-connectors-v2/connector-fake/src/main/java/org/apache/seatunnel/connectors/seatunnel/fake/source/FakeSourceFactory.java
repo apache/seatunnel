@@ -94,7 +94,8 @@ public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRu
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .exclusive(ConnectorCommonOptions.TABLE_CONFIGS, ConnectorCommonOptions.SCHEMA)
-                .optional(ROW_NUM, Conditions.greaterThan(ROW_NUM, 0))
+                // row.num=0 stays valid (empty source); split.num must be positive
+                .optional(ROW_NUM, Conditions.greaterOrEqual(ROW_NUM, 0))
                 .optional(SPLIT_NUM, Conditions.greaterThan(SPLIT_NUM, 0))
                 .optional(SPLIT_READ_INTERVAL, Conditions.greaterOrEqual(SPLIT_READ_INTERVAL, 0))
                 .optional(MAP_SIZE, Conditions.greaterOrEqual(MAP_SIZE, 0))
@@ -115,11 +116,17 @@ public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         Conditions.lessOrEqualField(SMALLINT_MIN, SMALLINT_MAX))
                 .optional(INT_MIN, INT_MAX, Conditions.lessOrEqualField(INT_MIN, INT_MAX))
                 .optional(
-                        BIGINT_MIN, BIGINT_MAX, Conditions.lessOrEqualField(BIGINT_MIN, BIGINT_MAX))
+                        BIGINT_MIN,
+                        BIGINT_MAX,
+                        Conditions.lessOrEqualField(BIGINT_MIN, BIGINT_MAX))
                 .optional(
-                        FLOAT_MIN, FLOAT_MAX, Conditions.lessOrEqualField(FLOAT_MIN, FLOAT_MAX))
+                        FLOAT_MIN,
+                        FLOAT_MAX,
+                        Conditions.lessOrEqualField(FLOAT_MIN, FLOAT_MAX))
                 .optional(
-                        DOUBLE_MIN, DOUBLE_MAX, Conditions.lessOrEqualField(DOUBLE_MIN, DOUBLE_MAX))
+                        DOUBLE_MIN,
+                        DOUBLE_MAX,
+                        Conditions.lessOrEqualField(DOUBLE_MIN, DOUBLE_MAX))
                 .optional(
                         VECTOR_FLOAT_MIN,
                         VECTOR_FLOAT_MAX,
