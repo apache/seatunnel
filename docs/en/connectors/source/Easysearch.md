@@ -26,6 +26,7 @@ Used to read data from INFINI Easysearch.
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
