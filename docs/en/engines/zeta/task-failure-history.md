@@ -60,7 +60,6 @@ The proposed REST representation is:
   "taskGroupId": 4,
   "taskId": null,
   "taskName": "mysql-source -> transform",
-  "worker": "10.0.0.12:5801",
   "exceptionType": "java.sql.SQLException",
   "message": "Connection reset",
   "messageTruncated": false,
@@ -74,7 +73,7 @@ Field rules:
 - `sequence` is monotonically increasing within one job and provides deterministic ordering when timestamps are equal.
 - `timestamp`, `jobId`, `pipelineId`, `attempt`, and `taskGroupId` are required.
 - `attemptStartedAt` is the start time stored with the durable diagnostic attempt metadata. Attempt `0` is initialized when the pipeline execution is created for deployment, and a restored attempt is initialized when its diagnostic attempt identity is advanced before restore scheduling. The field is optional for legacy or synthetic paths that cannot resolve this metadata. It has the same value for every record with the same `pipelineId` and `attempt` and is distinct from `timestamp`, which records when the individual failure was captured.
-- `taskId`, `taskName`, `worker`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them.
+- `taskId`, `taskName`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them. Worker addresses are internal attribution metadata and are omitted from the default REST representation.
 - `messageTruncated` and `stackTraceTruncated` are required booleans. They indicate whether the corresponding value was shortened before storage.
 - `exceptionType` must come from structured failure transport. It must not be inferred by parsing the formatted stack trace.
 - `stackTrace` remains the diagnostic detail; `message` is the concise display value.
@@ -137,21 +136,21 @@ The current `/job-info/{jobId}` behavior and its `errorMsg` field remain unchang
 
 ## Security and Input Validation
 
-The endpoint uses the same `BasicAuthFilter` boundary as the existing engine REST API. It must not introduce an endpoint-specific authentication mechanism. Deployments that leave REST authentication disabled expose this diagnostic data under the same policy as the other job-detail endpoints, and the documentation must call out that exception text and worker addresses can contain operationally sensitive information.
+The endpoint uses the same `BasicAuthFilter` boundary as the existing engine REST API. It must not introduce an endpoint-specific authentication mechanism. This is an operator-facing endpoint: the existing boundary does not provide per-job or per-tenant authorization, and authenticated REST users can access job diagnostics. Deployments requiring narrower access must enforce it at their existing gateway or network boundary. With REST authentication disabled, callers reaching the endpoint can read the diagnostics; operators must restrict access rather than assume the new route supplies authorization. Exception text can contain operationally sensitive information even after credential redaction.
 
-Redaction is applied before HA persistence, not only while serializing a REST response. This ensures that Hazelcast state, dedicated finished-history entries, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
+Redaction and UTF-8-safe truncation are applied at capture, before every HA IMap or finished-history write, not only while serializing a REST response. This includes worker-reported, deployment, node-loss, and terminal-snapshot paths. This ensures that Hazelcast state, dedicated finished-history entries, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
 
 The route handler owns validation of `jobId` and `limit`:
 
-- malformed job identifiers and non-numeric or non-positive limits return a controlled `400` response;
-- values above the retained maximum are capped at that maximum; and
+- malformed or overflowing signed-64-bit job identifiers and non-numeric, overflowing signed-32-bit, or non-positive limits return a controlled `400` response;
+- an absent limit defaults to 100; valid positive limits above 100 are capped at 100; and
 - validation failures must not include a stack trace or echo untrusted input through the shared exception handler.
 
-Worker addresses remain optional and follow the same authorization boundary as the rest of the failure record. A later API version may replace them with logical worker identifiers, but the first version is limited to the same worker metadata already exposed by `/pending-jobs`: the `address` value in `host:port` form.
+The first version omits the worker `host:port` field from all default failure-history responses, even when internal capture metadata contains it. Existing `/pending-jobs` behavior is unchanged. An operator-only opt-in or logical worker identifier requires a separate agreed contract; this design does not introduce a new role system or address-exposure option.
 
 ## Web UI Follow-up
 
-The Exception tab can consume the REST endpoint in a separate change. The first UI version should group records by attempt and show timestamp, pipeline, task group, task name, worker, exception type, and message. Stack traces should be collapsed by default.
+The Exception tab can consume the REST endpoint in a separate change. The first UI version should group records by attempt and show timestamp, pipeline, task group, task name, exception type, and message. It must not infer or expose worker addresses omitted by the API. Stack traces should be collapsed by default.
 
 Missing optional fields should be displayed as unavailable. The UI must not claim task-level precision when the engine only supplied a task-group failure.
 
@@ -192,6 +191,8 @@ The feature is additive:
 21. Persisting diagnostic attempt identity does not change `job.retry.times`, restore eligibility, or retry behavior after active-master failover.
 22. Every record that exposes `attemptStartedAt` reads it from the durable metadata created for that pipeline attempt.
 23. A restored execution cannot report a failure before its attempt advance is atomically committed in the shared job-scoped entry; an advance failure does not start execution with the previous attempt identity.
+24. Default REST responses omit worker addresses; enabling or disabling REST authentication does not accidentally add per-job authorization or expose an opt-in address field.
+25. Tests cover absent, zero, negative, non-numeric, overflowing, and above-maximum limits, plus overflowing job IDs and extra path segments.
 
 ## Delivery Plan
 

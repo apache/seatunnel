@@ -60,7 +60,6 @@ attempt 递增与失败记录更新使用同一个作业级 `EntryProcessor` 串
   "taskGroupId": 4,
   "taskId": null,
   "taskName": "mysql-source -> transform",
-  "worker": "10.0.0.12:5801",
   "exceptionType": "java.sql.SQLException",
   "message": "Connection reset",
   "messageTruncated": false,
@@ -74,7 +73,7 @@ attempt 递增与失败记录更新使用同一个作业级 `EntryProcessor` 串
 - `sequence` 在单个作业内单调递增，在时间戳相同时提供确定顺序；
 - `timestamp`、`jobId`、`pipelineId`、`attempt` 和 `taskGroupId` 为必填；
 - `attemptStartedAt` 来自持久化的诊断 attempt 元数据。attempt `0` 在 pipeline 执行创建并准备部署时初始化；恢复 attempt 在调度恢复前递增诊断标识时初始化。对于无法解析该元数据的旧路径或合成路径，该字段可以为空。相同 `pipelineId` 和 `attempt` 的所有记录使用同一个值。它不同于 `timestamp`，后者表示单条失败被捕获的时间；
-- `taskId`、`taskName`、`worker`、`exceptionType`、`message` 和 `stackTrace` 为可选，因为旧路径或合成失败路径可能无法提供；
+- `taskId`、`taskName`、`exceptionType`、`message` 和 `stackTrace` 为可选，因为旧路径或合成失败路径可能无法提供。Worker 地址仅作为内部归因元数据，默认 REST 响应不包含该字段；
 - `messageTruncated` 和 `stackTraceTruncated` 为必填布尔值，用于说明对应内容是否在存储前被截断；
 - `exceptionType` 必须来自结构化失败传输，不能通过解析格式化堆栈推断；
 - `stackTrace` 保留诊断细节，`message` 用于简短展示。
@@ -137,21 +136,21 @@ GET /job-info/{jobId}/failures?limit=100
 
 ## 安全与输入校验
 
-该端点沿用现有引擎 REST API 的 `BasicAuthFilter` 边界，不新增端点专用的认证机制。如果部署未启用 REST 认证，该诊断数据与其他 job-detail 端点遵循相同的暴露策略。文档必须说明异常文本和 worker 地址可能包含敏感的运行信息。
+该端点沿用现有引擎 REST API 的 `BasicAuthFilter` 边界，不新增端点专用的认证机制。这是面向运维人员的端点：现有边界不提供按作业或租户的授权，已认证的 REST 用户可以读取作业诊断信息。需要更细粒度访问控制的部署必须在现有网关或网络边界实施限制。未启用 REST 认证时，能够访问该端点的调用方可以读取诊断信息；运维人员不能假定新路由会提供额外授权。即使凭据已脱敏，异常文本仍可能包含敏感的运行信息。
 
-脱敏必须在写入 HA 前完成，而不能只在 REST 响应序列化时处理。这样 Hazelcast 状态、独立的 finished-history 条目和 API 响应都会保存同一份有界内容，也不能通过其他存储路径读取未经脱敏的数据。
+脱敏和保持有效 UTF-8 的截断必须在捕获时完成，早于每一次 HA IMap 或 finished-history 写入，而不能只在 REST 响应序列化时处理。该要求覆盖 worker 上报、部署失败、节点丢失和终态快照路径。这样 Hazelcast 状态、独立的 finished-history 条目和 API 响应都会保存同一份有界内容，也不能通过其他存储路径读取未经脱敏的数据。
 
 路由处理器负责校验 `jobId` 和 `limit`：
 
-- 非法 job 标识、非数字或非正数的 limit 返回受控的 `400` 响应；
-- 超过保留上限的值限制为该上限；
+- 非法或超出有符号 64 位范围的 job 标识，以及非数字、超出有符号 32 位范围或非正数的 limit 返回受控的 `400` 响应；
+- 未提供 limit 时默认为 100；有效的正整数 limit 超过 100 时限制为 100；
 - 校验失败不能包含堆栈，也不能通过共享异常处理器回显不可信输入。
 
-Worker 地址保持可选，并与失败记录的其他字段使用同一认证边界。后续 API 版本可以改用逻辑 worker 标识，但第一版仅允许使用 `/pending-jobs` 已经暴露的 worker 元数据，即 `host:port` 格式的 `address` 值。
+第一版的所有默认失败历史响应都省略 worker 的 `host:port` 字段，即使内部捕获元数据包含该值。现有 `/pending-jobs` 行为保持不变。仅限运维人员的显式开关或逻辑 worker 标识需要单独商定契约；本设计不新增角色体系或地址暴露选项。
 
 ## Web UI 后续工作
 
-Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 attempt 分组，并展示时间、pipeline、task group、task 名称、worker、异常类型和消息。堆栈默认折叠。
+Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 attempt 分组，并展示时间、pipeline、task group、task 名称、异常类型和消息。不得推断或暴露 API 已省略的 worker 地址。堆栈默认折叠。
 
 缺失的可选字段应显示为不可用。当引擎只提供 task group 级失败时，UI 不应宣称具有 task 级精度。
 
@@ -192,6 +191,8 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 21. 持久化诊断 attempt 标识不会改变 `job.retry.times`、恢复资格或 active master 切换后的重试行为。
 22. 任何包含 `attemptStartedAt` 的记录都从该 pipeline attempt 创建时的持久化元数据读取该值。
 23. 恢复后的执行只有在共享作业级条目中原子提交 attempt 递增后才能上报失败；递增写入失败时，不能使用上一个 attempt 标识启动执行。
+24. 默认 REST 响应省略 worker 地址；启用或禁用 REST 认证不会额外提供按作业授权，也不会暴露地址开关字段。
+25. 测试覆盖未提供、零、负数、非数字、溢出和超过上限的 limit，以及溢出的 job ID 和额外路径段。
 
 ## 交付计划
 
