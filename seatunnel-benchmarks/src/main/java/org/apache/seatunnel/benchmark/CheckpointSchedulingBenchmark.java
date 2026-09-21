@@ -59,8 +59,8 @@ import java.util.concurrent.TimeUnit;
 @Fork(
         value = 3,
         jvmArgsAppend = {
-            "-Xms2g",
-            "-Xmx2g",
+            "-Xms4g",
+            "-Xmx4g",
             "-XX:+UseG1GC",
             "-XX:+AlwaysPreTouch",
             "-XX:+DisableExplicitGC",
