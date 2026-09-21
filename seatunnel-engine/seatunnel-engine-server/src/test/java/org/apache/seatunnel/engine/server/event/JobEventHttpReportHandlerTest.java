@@ -24,6 +24,12 @@ import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.core.Appender;
+import org.apache.logging.log4j.core.LogEvent;
+import org.apache.logging.log4j.core.Logger;
+
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,6 +40,7 @@ import com.hazelcast.config.RingbufferConfig;
 import com.hazelcast.config.RingbufferStoreConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
 import com.hazelcast.ringbuffer.ReadResultSet;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import lombok.AllArgsConstructor;
@@ -42,7 +49,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.Call;
+import okhttp3.ConnectionSpec;
 import okhttp3.OkHttpClient;
+import okhttp3.TlsVersion;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -52,12 +61,16 @@ import okio.Buffer;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
@@ -66,6 +79,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -330,7 +344,7 @@ public class JobEventHttpReportHandlerTest {
     }
 
     @Test
-    public void testCloseWhenHazelcastNotActive() {
+    public void testCloseWhenHazelcastNotActive() throws Exception {
         String closeTestRingBufferName = "close-test";
         Config config = new Config();
         config.setRingbufferConfigs(
@@ -346,20 +360,154 @@ public class JobEventHttpReportHandlerTest {
 
         HazelcastInstance localHazelcast = Hazelcast.newHazelcastInstance(config);
         JobEventHttpReportHandler handler = null;
-        try {
+        try (MockWebServer closeServer = new MockWebServer()) {
+            closeServer.enqueue(new MockResponse().setResponseCode(200));
+            closeServer.start();
             Ringbuffer ringbuffer = localHazelcast.getRingbuffer(closeTestRingBufferName);
             handler =
                     new JobEventHttpReportHandler(
-                            mockWebServer.url("/api").toString(),
-                            Duration.ofSeconds(1),
-                            ringbuffer);
+                            closeServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
+            // Leave the event buffered until close, not delivered by the initial scheduler tick.
+            stopScheduler(handler);
+            handler.handle(new TestEvent(1));
+            localHazelcast.shutdown();
+
+            JobEventHttpReportHandler finalHandler = handler;
+            Assertions.assertDoesNotThrow(finalHandler::close);
+            assertBufferedEventDelivered(closeServer);
         } finally {
             localHazelcast.shutdown();
+            if (handler != null) {
+                handler.close();
+            }
         }
+    }
 
-        Assertions.assertNotNull(handler);
-        JobEventHttpReportHandler finalHandler = handler;
-        Assertions.assertDoesNotThrow(finalHandler::close);
+    @Test
+    public void testCloseLogsInactiveHazelcastWithoutStackTrace() throws Exception {
+        assertCloseAfterRingbufferFailure(new HazelcastInstanceNotActiveException(), Level.INFO);
+    }
+
+    @Test
+    public void testCloseLogsWrappedInactiveHazelcastWithoutStackTrace() throws Exception {
+        assertCloseAfterRingbufferFailure(
+                new CompletionException(new HazelcastInstanceNotActiveException()), Level.INFO);
+    }
+
+    @Test
+    public void testCloseLogsUnexpectedRingbufferFailure() throws Exception {
+        assertCloseAfterRingbufferFailure(
+                new IllegalStateException("Unexpected failure"), Level.ERROR);
+    }
+
+    @Test
+    public void testClientKeepsModernTlsDefaults() throws Exception {
+        Ringbuffer ringbuffer = mock(Ringbuffer.class);
+        ReadResultSet<Event> emptyResultSet = mock(ReadResultSet.class);
+        when(ringbuffer.readManyAsync(anyLong(), anyInt(), anyInt(), any()))
+                .thenReturn(CompletableFuture.completedFuture(emptyResultSet));
+        JobEventHttpReportHandler handler =
+                new JobEventHttpReportHandler(
+                        mockWebServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
+        try {
+            OkHttpClient client =
+                    (OkHttpClient) ReflectionUtils.getField(handler, "httpClient").get();
+            Assertions.assertEquals(
+                    Arrays.asList(ConnectionSpec.MODERN_TLS, ConnectionSpec.CLEARTEXT),
+                    client.connectionSpecs());
+            Assertions.assertEquals(
+                    Arrays.asList(TlsVersion.TLS_1_3, TlsVersion.TLS_1_2),
+                    client.connectionSpecs().get(0).tlsVersions());
+            Assertions.assertEquals(30000, client.connectTimeoutMillis());
+            Assertions.assertEquals(10000, client.readTimeoutMillis());
+            Assertions.assertEquals(10000, client.writeTimeoutMillis());
+            Assertions.assertEquals(0, client.callTimeoutMillis());
+        } finally {
+            handler.close();
+        }
+    }
+
+    private void assertCloseAfterRingbufferFailure(RuntimeException failure, Level expectedLevel)
+            throws Exception {
+        Ringbuffer ringbuffer = mock(Ringbuffer.class);
+        ReadResultSet<Event> emptyResultSet = mock(ReadResultSet.class);
+        when(ringbuffer.readManyAsync(anyLong(), anyInt(), anyInt(), any()))
+                .thenReturn(CompletableFuture.completedFuture(emptyResultSet));
+        Logger logger = (Logger) LogManager.getLogger(JobEventHttpReportHandler.class);
+        Appender appender = mock(Appender.class);
+        when(appender.getName()).thenReturn("event-close-test");
+        when(appender.isStarted()).thenReturn(true);
+        List<LogEvent> logEvents = new CopyOnWriteArrayList<>();
+        doAnswer(
+                        invocation -> {
+                            logEvents.add(((LogEvent) invocation.getArgument(0)).toImmutable());
+                            return null;
+                        })
+                .when(appender)
+                .append(any(LogEvent.class));
+        Level previousLevel = logger.getLevel();
+        JobEventHttpReportHandler handler = null;
+        try (MockWebServer closeServer = new MockWebServer()) {
+            closeServer.enqueue(new MockResponse().setResponseCode(200));
+            closeServer.start();
+            handler =
+                    new JobEventHttpReportHandler(
+                            closeServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
+            stopScheduler(handler);
+            handler.handle(new TestEvent(1));
+            when(ringbuffer.headSequence()).thenThrow(failure);
+            logger.setLevel(Level.INFO);
+            logger.addAppender(appender);
+
+            JobEventHttpReportHandler finalHandler = handler;
+            Assertions.assertDoesNotThrow(finalHandler::close);
+            assertBufferedEventDelivered(closeServer);
+            LogEvent flushLog =
+                    logEvents.stream()
+                            .filter(
+                                    event ->
+                                            event.getMessage()
+                                                    .getFormattedMessage()
+                                                    .contains("ringbuffer"))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new AssertionError(
+                                                    "Missing ringbuffer shutdown diagnostic"));
+            Assertions.assertEquals(expectedLevel, flushLog.getLevel());
+            if (expectedLevel == Level.INFO) {
+                Assertions.assertNull(flushLog.getThrown());
+            } else {
+                Assertions.assertSame(failure, flushLog.getThrown());
+            }
+        } finally {
+            logger.removeAppender(appender);
+            logger.setLevel(previousLevel);
+            if (handler != null) {
+                handler.close();
+            }
+        }
+    }
+
+    private void stopScheduler(JobEventHttpReportHandler handler) throws Exception {
+        ScheduledExecutorService scheduler =
+                (ScheduledExecutorService)
+                        ReflectionUtils.getField(handler, "scheduledExecutorService").get();
+        scheduler.shutdown();
+        Assertions.assertTrue(scheduler.awaitTermination(5, TimeUnit.SECONDS));
+    }
+
+    private void assertBufferedEventDelivered(MockWebServer server) throws Exception {
+        RecordedRequest request = server.takeRequest(10, TimeUnit.SECONDS);
+        Assertions.assertNotNull(request, "Close must deliver the buffered event");
+        try (Buffer body = request.getBody()) {
+            List<TestEvent> events =
+                    JobEventHttpReportHandler.JSON_MAPPER.readValue(
+                            body.readUtf8(), new TypeReference<List<TestEvent>>() {});
+            Assertions.assertEquals(1, events.size());
+            Assertions.assertEquals("1", events.get(0).getJobId());
+        }
+        Assertions.assertEquals(1, server.getRequestCount());
     }
 
     @Getter

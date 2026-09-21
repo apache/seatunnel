@@ -45,6 +45,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -239,7 +240,17 @@ public class JobEventHttpReportHandler implements EventHandler {
                     // Flush all remaining events before closing.
                     reportFromRingbuffer();
                 } catch (Exception e) {
-                    log.error("Failed to flush events from ringbuffer on close", e);
+                    Throwable cause = e;
+                    while (cause instanceof CompletionException && cause.getCause() != null) {
+                        cause = cause.getCause();
+                    }
+                    if (cause instanceof HazelcastInstanceNotActiveException) {
+                        log.info(
+                                "Skip flushing ringbuffer because Hazelcast instance is not active; "
+                                        + "flush events from local buffer");
+                    } else {
+                        log.error("Failed to flush events from ringbuffer on close", e);
+                    }
                 }
                 try {
                     reportFromLocalBuffer();

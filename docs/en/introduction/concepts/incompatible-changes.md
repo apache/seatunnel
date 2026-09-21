@@ -15,6 +15,16 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Configure the final event-report URL directly, using an endpoint that
     accepts the POST and returns a successful 2xx response. Configuration keys are unchanged.
 
+- **Behavior change: HTTPS event reporting requires TLS 1.2 or newer**
+  - **Affected component**: Zeta job event HTTP reporting (`JobEventHttpReportHandler`).
+  - **Description**: The upgraded HTTP client keeps its stronger default TLS policy, offering
+    TLS 1.2 and TLS 1.3 instead of the previous client's TLS 1.0/1.1 compatibility. Endpoints
+    that only support TLS 1.0 or TLS 1.1 can no longer receive HTTPS event reports. Plain HTTP
+    endpoints are unaffected by this TLS change.
+  - **Migration Guide**: Upgrade the HTTPS collector or gateway to support TLS 1.2 or TLS 1.3
+    with a protocol and cipher suite supported by the SeaTunnel JVM. Do not rely on legacy
+    TLS fallback; configuration keys are unchanged.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
