@@ -263,10 +263,14 @@ transform and propagates the failure when selected for the failing value.
 Unsupported conversions, unexpected programming/configuration failures and fatal
 JVM errors fail the task instead of being skipped. Recognized conversion failures
 use `JSONPATH_ERROR_CODE-07` with source/destination field names, destination SQL
-type and a fixed failure category. Their diagnostics and skip logs omit source
+type and the generic `data conversion failure` category, not a typed cause category.
+Invalid `float_vector` shapes and non-numeric vector elements currently use the
+shared converter's unsupported-type error and are not skippable by these policies.
+Conversion diagnostics and skip logs omit source
 records, extracted values, path expressions and original exceptions, which can
-contain private data. This does not change legacy path-error diagnostics or the
-propagation of unexpected failures.
+contain private data, including literals in configured paths. Legacy path-reading
+diagnostics still include source data and retain their cause; they are outside
+this conversion-diagnostic privacy boundary. Unexpected failures still propagate.
 
 ### Skip an invalid converted value
 

@@ -188,6 +188,10 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         }
     }
 
+    /**
+     * Accepts only numeric, date/time and wrapped JSON data failures. Every cause must be
+     * recognized; unknown failures, unsupported conversions and cyclic chains fail closed.
+     */
     private static boolean isDataConversionFailure(List<Throwable> causes) {
         boolean jsonOperation = false;
         for (Throwable cause : causes) {
@@ -216,20 +220,29 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
         return causes.get(causes.size() - 1).getCause() == null;
     }
 
+    /**
+     * Applies column SKIP locally and delegates other policies to the row handler. Diagnostics
+     * identify a generic conversion failure, never values, paths or original exceptions.
+     */
     private Object handleConversionError(ColumnConfig columnConfig) {
-        // Values, paths and original exceptions can contain private data, even in nested causes.
-        String message =
-                String.format(
-                        "JsonPath data conversion failure, src_field=%s, dest_field=%s, dest_type=%s",
-                        StringUtils.abbreviate(columnConfig.getSrcField(), 128),
-                        StringUtils.abbreviate(columnConfig.getDestField(), 128),
-                        columnConfig.getDestType().getSqlType());
         if (columnConfig.errorHandleWay() != null && columnConfig.errorHandleWay().allowSkip()) {
-            log.debug("Skipping column: {}", message);
+            if (log.isDebugEnabled()) {
+                log.debug("Skipping column: {}", conversionFailureMessage(columnConfig));
+            }
             return null;
         }
         throw new ErrorDataTransformException(
-                columnConfig.errorHandleWay(), JSON_PATH_CONVERSION_ERROR, message);
+                columnConfig.errorHandleWay(),
+                JSON_PATH_CONVERSION_ERROR,
+                conversionFailureMessage(columnConfig));
+    }
+
+    private static String conversionFailureMessage(ColumnConfig columnConfig) {
+        return String.format(
+                "JsonPath data conversion failure, src_field=%s, dest_field=%s, dest_type=%s",
+                StringUtils.abbreviate(columnConfig.getSrcField(), 128),
+                StringUtils.abbreviate(columnConfig.getDestField(), 128),
+                columnConfig.getDestType().getSqlType());
     }
 
     /**

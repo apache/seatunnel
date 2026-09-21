@@ -172,6 +172,19 @@ class JsonPathErrorHandlingTest {
     }
 
     @Test
+    void testConfiguredPathLiteralIsNotExposedByConversionFailure() {
+        JsonPathTransform transform =
+                createTransform("int", null, null, "$['" + PRIVATE_VALUE + "']");
+        SeaTunnelRow input =
+                new SeaTunnelRow(new Object[] {"{\"" + PRIVATE_VALUE + "\":\"invalid\"}"});
+        ErrorDataTransformException failure =
+                Assertions.assertThrows(
+                        ErrorDataTransformException.class, () -> transform.map(input));
+        assertNoPayload(failure);
+        Assertions.assertTrue(failure.getMessage().contains("JsonPath data conversion failure"));
+    }
+
+    @Test
     void testKnownConversionFailureDropsCausesAndSuppressedData() throws Exception {
         RuntimeException cause =
                 CommonError.jsonOperationError(
@@ -437,9 +450,14 @@ class JsonPathErrorHandlingTest {
 
     private static JsonPathTransform createTransform(
             String type, ErrorHandleWay columnPolicy, ErrorHandleWay rowPolicy) {
+        return createTransform(type, columnPolicy, rowPolicy, "$.amount");
+    }
+
+    private static JsonPathTransform createTransform(
+            String type, ErrorHandleWay columnPolicy, ErrorHandleWay rowPolicy, String path) {
         Map<String, Object> column = new HashMap<>();
         column.put("src_field", "content");
-        column.put("path", "$.amount");
+        column.put("path", path);
         column.put("dest_field", "amount");
         column.put("dest_type", "row".equals(type) ? "string" : type);
         if (columnPolicy != null) {
