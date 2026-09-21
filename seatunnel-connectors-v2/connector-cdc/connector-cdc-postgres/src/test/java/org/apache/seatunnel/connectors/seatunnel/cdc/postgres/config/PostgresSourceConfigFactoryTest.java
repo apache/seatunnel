@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
@@ -39,11 +41,18 @@ public class PostgresSourceConfigFactoryTest {
 
     @Test
     public void shouldDeclareStopModeInRuntimeFactoryRule() {
-        Assertions.assertTrue(
+        Option<?> stopMode =
                 new PostgresIncrementalSourceFactory()
-                        .optionRule()
-                        .getOptionalOptions()
-                        .contains(PostgresSourceOptions.STOP_MODE));
+                        .optionRule().getOptionalOptions().stream()
+                                .filter(option -> "stop.mode".equals(option.key()))
+                                .findFirst()
+                                .orElseThrow(
+                                        () -> new AssertionError("Factory must declare stop.mode"));
+        Assertions.assertEquals(PostgresSourceOptions.STOP_MODE, stopMode);
+        Assertions.assertTrue(stopMode instanceof SingleChoiceOption);
+        Assertions.assertEquals(
+                Collections.singletonList(StopMode.NEVER),
+                ((SingleChoiceOption<?>) stopMode).getOptionValues());
     }
 
     @Test

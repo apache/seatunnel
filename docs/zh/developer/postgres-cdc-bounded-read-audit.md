@@ -45,7 +45,7 @@ head 为 `ba7c8bd743c8a97cd308bf322e3cbde58b58c552`。它负责快照期间的�
 即使最终共用 reader，也需要不同的边界策略。该 head 的外层增量 `execute()` 仍创建
 无界流式读取器，因此 #11556 本身没有实现 `stop.mode`。
 
-在此快照中，9 月 12 日的评审要求同步 dev、转义分片表名过滤表达式、在合并 Debezium 属性后校验
+在此快照中，9 月 12 日的 issue 评论要求同步 dev、转义分片表名过滤表达式、在合并 Debezium 属性后校验
 实际生效的复制槽名称，并添加测试。此前讨论还指出清理行为文档不符及 reader 崩溃后
 遗留回填槽的问题。这些是开放 PR 的评审发现，不是本次审计修复或独立复现的数据库事故。
 
@@ -94,7 +94,7 @@ Debezium 空轮询时从现有 offset 状态发出 heartbeat，不会推进
 目标之后的新消息也可能在下一次循环条件检查前就被发送。这两种行为都不能建立严格的
 面向用户的停止契约。
 
-#11556 从 `PostgresUtils.currentLsn()` 中移除 `currentTransactionId()`，避免采集水位线
+在快照记录的 head 上，#11556 从 `PostgresUtils.currentLsn()` 中移除 `currentTransactionId()`，避免采集水位线
 时额外产生 WAL。这仅消除空边界的一种来源，不证明任意用户 LSN 可解码或空闲任务可结束。
 设置停止 LSN 还会启用 Debezium 的快照前追赶事务处理行为，应用到普通增量任务前也需
 验证其生命周期。
@@ -187,6 +187,9 @@ OpenGauss 模块则提供自己的 PostgreSQL 连接及复制连接类。改变�
 `PostgresSourceConfigFactoryTest` 新增的行为描述测试使用实际 PostgreSQL STOP_MODE
 选项调用 `ConfigValidator`：省略选项或 `never` 验证成功，`specific`、`latest` 和
 `timestamp` 验证失败。这是独立选项契约复现，不是完整任务提交。
+PostgreSQL 工厂接线测试还断言实际 `stop.mode` 选项的可选值仅为 `NEVER`。
+OpenGauss 工厂复用该选项仅经过源码核对，本次未执行测试；启用任何有界模式前，场景 1
+必须固定其行为。
 `LsnOffsetTest` 增加事件/提交位置区分、相同事件 LSN 和无符号排序场景。
 这些测试应在未修改的生产基线上通过；后续实现只能替换真正获得验证的模式的拒绝断言。
 

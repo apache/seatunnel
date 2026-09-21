@@ -48,10 +48,11 @@ reader. Snapshot reconciliation and public incremental termination need distinct
 if they eventually share the bounded reader. At this head the outer incremental `execute()` still
 constructs the unbounded source. Therefore #11556 does not itself implement `stop.mode`.
 
-At this snapshot, the September 12 review requests a dev sync, per-split table-filter escaping, and validation
-of the effective slot name after Debezium property overrides, with tests. Earlier discussion also
-identifies a cleanup documentation mismatch and crash-orphaned backfill slots. These are open-PR
-findings, not new fixes or independently reproduced database incidents in this audit.
+At this snapshot, the September 12 issue comment requests a dev sync, per-split table-filter
+escaping, and validation of the effective slot name after Debezium property overrides, with tests.
+Earlier discussion also identifies a cleanup documentation mismatch and crash-orphaned backfill
+slots. These are open-PR findings, not new fixes or independently reproduced database incidents
+in this audit.
 
 [PR #11029](https://github.com/apache/seatunnel/pull/11029) also changes PostgreSQL/OpenGauss source
 ownership and option isolation. Coordinate its eventual entry points; a PostgreSQL-only option
@@ -102,9 +103,9 @@ Debezium's empty-poll path emits a heartbeat from existing offset state; it does
 at that location. A future message beyond the target can also be dispatched before the next
 loop-condition check. Neither case establishes a strict public stop contract.
 
-#11556 removes `currentTransactionId()` from `PostgresUtils.currentLsn()` to avoid generating
-additional WAL while sampling a watermark. That removes one cause of empty boundary gaps;
-it is not proof that every arbitrary user LSN is decodable or that an idle job terminates.
+At the snapshot head, #11556 removes `currentTransactionId()` from `PostgresUtils.currentLsn()`
+to avoid generating additional WAL while sampling a watermark. That removes one cause of empty
+boundary gaps; it is not proof that every arbitrary user LSN is decodable or that an idle job terminates.
 Its offset-context stopping flag also selects Debezium's pre-snapshot catch-up transaction
 behavior, so setting it for a normal incremental job requires a separate lifecycle check.
 
@@ -214,6 +215,9 @@ Reuse the MySQL bounded-read E2E completion pattern, not its binlog ordering ass
 The characterization tests added to `PostgresSourceConfigFactoryTest` run `ConfigValidator` with
 the actual PostgreSQL STOP_MODE option: omitted/`never` succeeds, while `specific`, `latest` and
 `timestamp` fail validation. This is an isolated option-contract reproduction, not job submission.
+The PostgreSQL factory wiring test also pins the actual `stop.mode` choice list to `NEVER` only.
+OpenGauss factory reuse of this option is source-verified only, not tested here; scenario 1 must
+pin its behavior before any bounded mode is enabled.
 `LsnOffsetTest` adds the event/commit distinction, equal-event-LSN case and unsigned-order case.
 These tests should pass against the unchanged production baseline. A later implementation must
 replace rejection assertions only for the modes it actually qualifies.
