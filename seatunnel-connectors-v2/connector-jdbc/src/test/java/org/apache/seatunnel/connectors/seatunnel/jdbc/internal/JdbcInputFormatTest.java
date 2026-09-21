@@ -36,8 +36,14 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -210,6 +216,64 @@ class JdbcInputFormatTest {
         context.inputFormat.closeInputFormat();
 
         verify(context.chunkSplitter).close();
+    }
+
+    @Test
+    void shouldCancelActiveStatementAndConnection() throws Exception {
+        TestContext context = createContext(true);
+        context.openEmptySplit();
+
+        context.inputFormat.cancel();
+        context.inputFormat.cancel();
+
+        verify(context.statement).cancel();
+        verify(context.statement).close();
+        verify(context.connection).close();
+        verify(context.statement, times(1)).cancel();
+    }
+
+    @Test
+    void shouldCancelStatementWhileExecuteQueryIsInFlight() throws Exception {
+        TestContext context = createContext(true);
+        CountDownLatch executeStarted = new CountDownLatch(1);
+        CountDownLatch cancelObserved = new CountDownLatch(1);
+        when(context.chunkSplitter.generateSplitStatement(SPLIT, TABLE_SCHEMA))
+                .thenReturn(context.statement);
+        when(context.statement.getConnection()).thenReturn(context.connection);
+        when(context.resultSet.next()).thenReturn(false);
+        doAnswer(
+                        invocation -> {
+                            executeStarted.countDown();
+                            assertTrue(cancelObserved.await(5, TimeUnit.SECONDS));
+                            return context.resultSet;
+                        })
+                .when(context.statement)
+                .executeQuery();
+        doAnswer(
+                        invocation -> {
+                            cancelObserved.countDown();
+                            return null;
+                        })
+                .when(context.statement)
+                .cancel();
+
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        try {
+            java.util.concurrent.Future<?> openFuture =
+                    executor.submit(
+                            (java.util.concurrent.Callable<Void>)
+                                    () -> {
+                                        context.inputFormat.open(SPLIT);
+                                        return null;
+                                    });
+            assertTrue(executeStarted.await(5, TimeUnit.SECONDS));
+            context.inputFormat.cancel();
+            assertTrue(cancelObserved.await(5, TimeUnit.SECONDS));
+            openFuture.get(5, TimeUnit.SECONDS);
+            verify(context.statement).cancel();
+        } finally {
+            executor.shutdownNow();
+        }
     }
 
     @Test

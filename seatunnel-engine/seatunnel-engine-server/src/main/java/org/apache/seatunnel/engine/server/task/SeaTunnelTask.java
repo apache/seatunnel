@@ -404,6 +404,13 @@ public abstract class SeaTunnelTask extends AbstractTask {
     protected abstract void collect() throws Exception;
 
     @Override
+    public void cancel() {
+        if (allCycles != null) {
+            allCycles.forEach(FlowLifeCycle::cancel);
+        }
+    }
+
+    @Override
     public Set<URL> getJarsUrl() {
         return getFlowInfo((action, set) -> set.addAll(action.getJarUrls()));
     }

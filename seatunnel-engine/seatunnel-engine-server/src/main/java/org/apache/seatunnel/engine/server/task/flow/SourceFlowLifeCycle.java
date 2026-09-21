@@ -185,6 +185,13 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         register();
     }
 
+    @Override
+    public void cancel() {
+        if (reader != null) {
+            reader.cancel();
+        }
+    }
+
     /**
      * Timer callback invoked by the {@code timerFlushWorker} thread pool.
      *

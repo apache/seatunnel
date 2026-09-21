@@ -37,6 +37,15 @@ public interface SourceReader<T, SplitT extends SourceSplit>
     void open() throws Exception;
 
     /**
+     * Request cancellation of an in-flight source operation.
+     *
+     * <p>The default implementation keeps existing source connectors source-compatible. Sources
+     * that can block in an external client should override this method to interrupt the external
+     * operation before the engine interrupts the task thread.
+     */
+    default void cancel() {}
+
+    /**
      * Called to close the reader, in case it holds on to any resources, like threads or network
      * connections.
      */

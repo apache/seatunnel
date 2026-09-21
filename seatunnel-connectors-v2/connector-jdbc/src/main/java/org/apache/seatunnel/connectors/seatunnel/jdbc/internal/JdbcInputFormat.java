@@ -43,6 +43,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * InputFormat to read data from a database and generate Rows. The InputFormat has to be configured
@@ -62,8 +63,10 @@ public class JdbcInputFormat implements Serializable {
 
     private transient String splitTableId;
     private transient TableSchema splitTableSchema;
-    private transient PreparedStatement statement;
+    private transient volatile PreparedStatement statement;
     private transient ResultSet resultSet;
+    private transient volatile Connection activeConnection;
+    private final AtomicBoolean cancelled = new AtomicBoolean();
     private volatile boolean hasNext;
 
     public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
@@ -91,6 +94,49 @@ public class JdbcInputFormat implements Serializable {
 
     public void openInputFormat() {}
 
+    /**
+     * Cancels the JDBC operation currently owned by this input format.
+     *
+     * <p>This method is intentionally independent from {@link #close()}: the engine may call it
+     * while the source task is blocked inside {@code executeQuery()} or {@code ResultSet.next()}.
+     * Closing the statement and connection is the fallback for drivers that do not implement {@link
+     * PreparedStatement#cancel()} correctly.
+     */
+    public void cancel() {
+        if (!cancelled.compareAndSet(false, true)) {
+            return;
+        }
+
+        PreparedStatement currentStatement = statement;
+        Connection currentConnection = activeConnection;
+        if (currentStatement != null) {
+            if (currentConnection == null) {
+                try {
+                    currentConnection = currentStatement.getConnection();
+                } catch (SQLException e) {
+                    LOG.warn("Get JDBC connection for cancelled statement failed", e);
+                }
+            }
+            try {
+                currentStatement.cancel();
+            } catch (SQLException e) {
+                LOG.warn("Cancel JDBC statement failed", e);
+            }
+            try {
+                currentStatement.close();
+            } catch (SQLException e) {
+                LOG.warn("Close cancelled JDBC statement failed", e);
+            }
+        }
+        if (currentConnection != null) {
+            try {
+                currentConnection.close();
+            } catch (SQLException e) {
+                LOG.warn("Close cancelled JDBC connection failed", e);
+            }
+        }
+    }
+
     public void closeInputFormat() throws IOException {
         try {
             close();
@@ -114,6 +160,11 @@ public class JdbcInputFormat implements Serializable {
             splitTableId = inputSplit.getTablePath().toString();
 
             statement = chunkSplitter.generateSplitStatement(inputSplit, splitTableSchema);
+            try {
+                activeConnection = statement.getConnection();
+            } catch (SQLException e) {
+                LOG.debug("JDBC statement did not expose its connection before execution", e);
+            }
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
         } catch (SQLException se) {
@@ -152,6 +203,9 @@ public class JdbcInputFormat implements Serializable {
      */
     public void close() throws IOException {
         Connection connection = getStatementConnection();
+        if (connection == null) {
+            connection = activeConnection;
+        }
         if (resultSet != null) {
             try {
                 resultSet.close();
@@ -174,6 +228,7 @@ public class JdbcInputFormat implements Serializable {
         hasNext = false;
         splitTableSchema = null;
         splitTableId = null;
+        activeConnection = null;
         finishReadTransaction(connection);
     }
 
@@ -183,6 +238,7 @@ public class JdbcInputFormat implements Serializable {
         }
         try {
             Connection connection = statement.getConnection();
+            activeConnection = connection;
             if (connection == null) {
                 LOG.warn(
                         "The JDBC source statement returned no connection. "

@@ -1562,6 +1562,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * Cancels tasks and background work owned by this tracker, regardless of active generation.
          */
         private void cancelAllTask() {
+            taskGroup
+                    .getTasks()
+                    .forEach(
+                            task ->
+                                    executorService.submit(
+                                            () -> {
+                                                try {
+                                                    task.cancel();
+                                                } catch (Throwable t) {
+                                                    logger.warning(
+                                                            String.format(
+                                                                    "Cancel task %s external resources failed: %s",
+                                                                    task.getTaskID(),
+                                                                    ExceptionUtils.getMessage(t)));
+                                                }
+                                            }));
             try {
                 blockingFutures.forEach(f -> f.cancel(true));
                 currRunningTaskFuture.values().forEach(f -> f.cancel(true));

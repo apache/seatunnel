@@ -52,6 +52,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MySQLContainer;
@@ -63,8 +64,12 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -76,6 +81,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 public class JdbcMysqlIT extends AbstractJdbcIT {
 
@@ -103,6 +114,8 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "/jdbc_mysql_source_and_sink_parallel_upper_lower.conf",
                     "/jdbc_mysql_source_and_sink.sql",
                     "/jdbc_mysql_source_and_sink_parallel.sql");
+    private static final String CANCEL_CONFIG_FILE = "/jdbc_mysql_source_cancel.conf";
+    private static final String CANCEL_QUERY_MARKER = "seatunnel-jdbc-cancel-e2e";
     private static final String CREATE_SQL =
             "CREATE TABLE IF NOT EXISTS %s\n"
                     + "(\n"
@@ -460,6 +473,66 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     public void testTinyInt1AsBooleanOrTINYINT() throws SQLException {
         testTinyInt1AsBooleanOrTINYINT(true, BasicType.BOOLEAN_TYPE);
         testTinyInt1AsBooleanOrTINYINT(false, BasicType.BYTE_TYPE);
+    }
+
+    @TestTemplate
+    public void testCancelJdbcSourceQuery(TestContainer container) throws Exception {
+        String jobId = "jdbc-source-cancel-" + System.nanoTime();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        Future<Container.ExecResult> jobFuture =
+                executor.submit(() -> container.executeJob(CANCEL_CONFIG_FILE, jobId));
+
+        try {
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "RUNNING", container.getJobStatus(jobId)));
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(hasRunningCancelQuery()));
+
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertFalse(hasRunningCancelQuery()));
+
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "CANCELED", container.getJobStatus(jobId)));
+            jobFuture.get(30, TimeUnit.SECONDS);
+        } finally {
+            if (!jobFuture.isDone()) {
+                container.cancelJob(jobId);
+            }
+            executor.shutdownNow();
+        }
+    }
+
+    private boolean hasRunningCancelQuery() throws SQLException {
+        String processListQuery =
+                "SELECT INFO FROM information_schema.PROCESSLIST WHERE INFO LIKE '%"
+                        + CANCEL_QUERY_MARKER
+                        + "%'";
+        try (Connection controlConnection =
+                        DriverManager.getConnection(
+                                jdbcCase.getJdbcUrl(),
+                                jdbcCase.getUserName(),
+                                jdbcCase.getPassword());
+                Statement statement = controlConnection.createStatement();
+                ResultSet resultSet = statement.executeQuery(processListQuery)) {
+            return resultSet.next();
+        }
     }
 
     private void testTinyInt1AsBooleanOrTINYINT(boolean intTypeNarrowing, BasicType<?> exceptType)
