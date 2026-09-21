@@ -35,6 +35,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -195,6 +199,24 @@ class MqttSourceTest {
                 () -> reader.messageArrived("users", mqttMessage("{\"id\":2}")));
         Assertions.assertThrows(
                 MqttConnectorException.class, () -> reader.pollNext(new RecordingCollector()));
+    }
+
+    @Test
+    void testSourceIsJavaSerializable() throws Exception {
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+
+        byte[] serialized;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(source);
+            out.flush();
+            serialized = bytes.toByteArray();
+        }
+
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            MqttSource restored = (MqttSource) in.readObject();
+            Assertions.assertEquals(source.getPluginName(), restored.getPluginName());
+        }
     }
 
     private static Map<String, Object> baseConfig() {
