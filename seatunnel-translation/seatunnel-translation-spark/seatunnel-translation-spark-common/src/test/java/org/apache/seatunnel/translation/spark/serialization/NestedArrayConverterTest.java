@@ -19,6 +19,7 @@ package org.apache.seatunnel.translation.spark.serialization;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.SeaTunnelDataTypeConvertorUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -36,6 +37,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.catalyst.InternalRow;
+import org.apache.spark.sql.catalyst.expressions.GenericInternalRow;
 import org.apache.spark.sql.catalyst.expressions.GenericRow;
 import org.apache.spark.sql.catalyst.expressions.UnsafeProjection;
 import org.apache.spark.sql.types.DataTypes;
@@ -47,6 +49,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -115,7 +119,53 @@ class NestedArrayConverterTest {
 
     static Stream<Arguments> arrays() {
         // Value conversion uses the declared SeaTunnel type; reverse schema inference is separate.
-        return Stream.concat(schemaArrays(), timeArrays());
+        return Stream.concat(Stream.concat(schemaArrays(), timeArrays()), parsedArrays());
+    }
+
+    static Stream<Arguments> parsedArrays() {
+        Map[] maps = {
+            Collections.singletonMap("values", new Integer[] {1, null}),
+            Collections.singletonMap("null", null),
+            Collections.emptyMap(),
+            null
+        };
+        return Stream.of(
+                Arguments.of(
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "items", "array<array<map<string,array<int>>>>"),
+                        new Map[][] {maps, new Map[0], null}),
+                Arguments.of(
+                        SeaTunnelDataTypeConvertorUtil.deserializeSeaTunnelDataType(
+                                "items", "array<array<array<map<string,array<int>>>>>"),
+                        new Map[][][] {{maps, new Map[0], null}, new Map[0][], null}));
+    }
+
+    @ParameterizedTest(name = "{index}: {0}")
+    @MethodSource("parsedArrays")
+    void preservesInternalWrappedArrayValues(ArrayType<?, ?> type, Object value)
+            throws IOException {
+        SeaTunnelRowType rowType = rowType(type);
+        InternalRowConverter internalConverter = new InternalRowConverter(rowType);
+        for (Object input :
+                new Object[] {
+                    value, Array.newInstance(value.getClass().getComponentType(), 0), null
+                }) {
+            SeaTunnelRow row = row(input);
+            InternalRow converted = internalConverter.convert(row);
+            InternalRow internal =
+                    new GenericInternalRow(
+                            new Object[] {
+                                converted.getByte(0),
+                                converted.getUTF8String(1),
+                                input == null
+                                        ? null
+                                        : new WrappedArray.ofRef<>(converted.getArray(2).array())
+                            });
+            SeaTunnelRow restored = internalConverter.reconvert(internal);
+            assertValue(input, restored.getField(0));
+            assertEquals(row.getRowKind(), restored.getRowKind());
+            assertEquals(row.getTableId(), restored.getTableId());
+        }
     }
 
     static Stream<Arguments> timeArrays() {
@@ -218,7 +268,7 @@ class NestedArrayConverterTest {
         InternalRowConverter converter = new InternalRowConverter(rowType);
         for (Object input :
                 new Object[] {
-                    value, Array.newInstance(type.getElementType().getTypeClass(), 0), null
+                    value, Array.newInstance(value.getClass().getComponentType(), 0), null
                 }) {
             SeaTunnelRow row = row(input);
             assertValue(input, converter.reconvert(converter.convert(row)).getField(0));
@@ -237,7 +287,7 @@ class NestedArrayConverterTest {
         SeaTunnelRowConverter converter = new SeaTunnelRowConverter(rowType(type));
         for (Object input :
                 new Object[] {
-                    value, Array.newInstance(type.getElementType().getTypeClass(), 0), null
+                    value, Array.newInstance(value.getClass().getComponentType(), 0), null
                 }) {
             SeaTunnelRow row = row(input);
             SeaTunnelRow restored = converter.reconvert(converter.convert(row));
@@ -269,7 +319,7 @@ class NestedArrayConverterTest {
                 new MultiTableManager(new CatalogTable[] {secondTable, firstTable});
         InternalMultiRowCollector collector =
                 (InternalMultiRowCollector) manager.getInternalRowCollector(null, null, null);
-        Object empty = Array.newInstance(type.getElementType().getTypeClass(), 0);
+        Object empty = Array.newInstance(value.getClass().getComponentType(), 0);
         SeaTunnelRow first = new SeaTunnelRow(new Object[] {"first table", value, empty});
         first.setTableId(firstTable.getTablePath().toString());
         first.setRowKind(RowKind.UPDATE_BEFORE);

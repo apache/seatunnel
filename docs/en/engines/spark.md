@@ -110,7 +110,11 @@ The example entry point is:
 
 ## Nested Arrays
 
-For fields with a declared SeaTunnel schema, the Spark translation layer preserves array values across source, transform and sink conversion boundaries, including arrays containing arrays, maps, rows and decimals. For example, an `ARRAY<ARRAY<INT>>` field retains its inner arrays, including empty arrays.
+For fields whose SeaTunnel type is an array, including types provided by connectors or catalogs, the Spark translation layer preserves array values across source, transform and sink conversion boundaries, including arrays containing arrays, maps, rows and decimals. For example, an `ARRAY<ARRAY<INT>>` field retains its inner arrays, including empty arrays.
+
+Configuration `schema` strings accept array elements of string, boolean, numeric, map and array types, including `array<array<map<string,array<int>>>>`. Arrays of rows or decimals require types supplied by a connector or catalog; this conversion support does not extend the configuration schema parser.
+
+Connector materialization remains separate from Spark conversion. JSON-based sources such as FakeSource cannot currently materialize parser-declared arrays of arrays of maps, even though the schema string parses successfully.
 
 Null elements, including null maps and rows, remain null. Previously, a null map inside an array became an empty map (`{}`) on the Spark source conversion path. Arrays returned to SeaTunnel transforms now use the declared element class (for example, `String[]` or `Integer[]`) instead of generic `Object[]`, and empty arrays retain their type at transform and sink boundaries. See [Spark Array Conversion](../introduction/concepts/incompatible-changes.md#spark-array-conversion) for migration guidance.
 

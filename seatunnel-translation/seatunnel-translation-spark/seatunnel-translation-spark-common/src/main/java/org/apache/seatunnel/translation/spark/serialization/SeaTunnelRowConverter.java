@@ -33,7 +33,6 @@ import scala.collection.immutable.AbstractMap;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -271,10 +270,7 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
      * @see WrappedArray.ofRef
      */
     private Object reconvertArray(WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
-        Object[] newArray =
-                (Object[])
-                        Array.newInstance(
-                                arrayType.getElementType().getTypeClass(), arrayData.size());
+        Object[] newArray = SeaTunnelArrayType.newArray(arrayType, arrayData.size());
         for (int i = 0; i < arrayData.size(); i++) {
             newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
         }

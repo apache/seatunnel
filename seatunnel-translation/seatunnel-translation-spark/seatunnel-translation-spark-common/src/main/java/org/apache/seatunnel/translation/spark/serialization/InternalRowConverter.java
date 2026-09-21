@@ -55,7 +55,6 @@ import scala.collection.immutable.List;
 import scala.collection.mutable.WrappedArray;
 
 import java.io.IOException;
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Timestamp;
@@ -348,24 +347,18 @@ public final class InternalRowConverter extends RowConverter<InternalRow> {
     }
 
     private static Object reconvertArray(ArrayData arrayData, ArrayType<?, ?> arrayType) {
-        Class<?> elementTypeClass = arrayType.getElementType().getTypeClass();
-        Object[] newArray = (Object[]) Array.newInstance(elementTypeClass, arrayData.numElements());
+        Object[] newArray = SeaTunnelArrayType.newArray(arrayType, arrayData.numElements());
         Object[] values =
                 arrayData.toObjectArray(TypeConverterUtils.convert(arrayType.getElementType()));
         for (int i = 0; i < arrayData.numElements(); i++) {
-            Object reconvert =
-                    elementTypeClass.cast(reconvert(values[i], arrayType.getElementType()));
-            newArray[i] = reconvert;
+            newArray[i] = reconvert(values[i], arrayType.getElementType());
         }
         return newArray;
     }
 
     private static Object reconvertArray(
             WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
-        Object[] newArray =
-                (Object[])
-                        Array.newInstance(
-                                arrayType.getElementType().getTypeClass(), arrayData.size());
+        Object[] newArray = SeaTunnelArrayType.newArray(arrayType, arrayData.size());
         for (int i = 0; i < arrayData.size(); i++) {
             newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
         }
