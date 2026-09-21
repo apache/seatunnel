@@ -187,19 +187,19 @@ public class NumericFunctionTest {
     }
 
     /**
-     * ZetaSQLType derives the MOD result type from the divisor, so the planner and the runtime have
-     * to agree that a TINYINT or SMALLINT divisor yields that same type.
+     * ZetaSQLType derives the MOD result type from the divisor, so the row type the planner
+     * declares has to agree with what the runtime actually produces. Only the declared type is
+     * asserted here: the projected values for the same query shape are already covered by {@code
+     * SQLNumericFunctionsTest#testModWithTinyIntAndSmallIntDivisors}, which landed with #12215.
      */
     @Test
-    public void testModSupportsTinyIntAndSmallIntDivisors() {
+    public void testModDeclaresTheDivisorTypeForTinyIntAndSmallInt() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"int_v", "tiny_v", "small_v"},
                         new SeaTunnelDataType[] {
                             BasicType.INT_TYPE, BasicType.BYTE_TYPE, BasicType.SHORT_TYPE
                         });
-        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {17, (byte) 5, (short) 7});
-
         SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
         sqlEngine.init(
                 "test",
@@ -210,9 +210,5 @@ public class NumericFunctionTest {
         SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
         Assertions.assertEquals(BasicType.BYTE_TYPE, outRowType.getFieldType(0));
         Assertions.assertEquals(BasicType.SHORT_TYPE, outRowType.getFieldType(1));
-
-        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, outRowType).get(0);
-        Assertions.assertEquals((byte) 2, outRow.getField(0));
-        Assertions.assertEquals((short) 3, outRow.getField(1));
     }
 }

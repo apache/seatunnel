@@ -155,12 +155,23 @@ public class NumericFunctionTest {
         Assertions.assertEquals(Short.class, shortResult.getClass());
         Assertions.assertEquals((short) 1, shortResult);
 
-        // The remainder is always smaller in magnitude than the divisor, so even the widest
-        // possible divisor of each type cannot overflow the result. These are the inputs that
-        // would fail first if that reasoning were wrong.
-        Assertions.assertEquals((byte) 44, NumericFunction.mod(Arrays.asList(300, Byte.MIN_VALUE)));
+        // What bounds the result is the remainder, not the divisor: divideAndRemainder gives
+        // |remainder| <= |divisor| - 1, so the extreme outputs are the ones below. A dividend
+        // merely larger than the divisor does not reach them, so these are the inputs that
+        // would fail first if a range guard were ever added or the narrowing became lossy.
+        // The sign follows the dividend, which the negative cases pin.
         Assertions.assertEquals(
-                (short) 1696, NumericFunction.mod(Arrays.asList(100000, Short.MIN_VALUE)));
+                (byte) 127, NumericFunction.mod(Arrays.asList(127, Byte.MIN_VALUE)));
+        Assertions.assertEquals(
+                (byte) -127, NumericFunction.mod(Arrays.asList(-127, Byte.MIN_VALUE)));
+        Assertions.assertEquals(
+                (short) 32767, NumericFunction.mod(Arrays.asList(32767, Short.MIN_VALUE)));
+        Assertions.assertEquals(
+                (short) -32767, NumericFunction.mod(Arrays.asList(-32767, Short.MIN_VALUE)));
+
+        // A fractional remainder is truncated to the divisor's integral type rather than
+        // rounded, which is what ZetaSQLType declares the result to be.
+        Assertions.assertEquals((byte) 1, NumericFunction.mod(Arrays.asList(5.5d, (byte) 2)));
 
         Float floatResult = (Float) NumericFunction.mod(Arrays.asList(5.5f, 2.0f));
         Assertions.assertEquals(1.5f, floatResult);
