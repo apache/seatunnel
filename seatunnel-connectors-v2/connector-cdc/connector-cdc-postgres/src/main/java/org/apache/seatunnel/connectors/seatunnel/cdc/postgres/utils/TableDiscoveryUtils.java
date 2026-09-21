@@ -26,9 +26,7 @@ import io.debezium.relational.TableId;
 
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 public class TableDiscoveryUtils {
     private static final Logger LOG = LoggerFactory.getLogger(TableDiscoveryUtils.class);
@@ -36,7 +34,7 @@ public class TableDiscoveryUtils {
     @SuppressWarnings("MagicNumber")
     public static List<TableId> listTables(JdbcConnection jdbc, RelationalTableFilters tableFilters)
             throws SQLException {
-        final Set<TableId> capturedTableIds = new LinkedHashSet<>();
+        final List<TableId> capturedTableIds = new ArrayList<>();
         // -------------------
         // READ DATABASE NAMES
         // -------------------
@@ -88,6 +86,6 @@ public class TableDiscoveryUtils {
                         e.getMessage());
             }
         }
-        return new ArrayList<>(capturedTableIds);
+        return capturedTableIds;
     }
 }
