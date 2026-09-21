@@ -15,6 +15,14 @@
 - 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
   命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
 
+### Zeta SQL Transform：内置 AES_ENCRYPT / AES_DECRYPT
+
+- **行为变更：AES_ENCRYPT / AES_DECRYPT 现为内置函数**
+  - **影响范围**：`seatunnel-transforms-v2`（Zeta SQL transform）。
+  - **变更说明**：`AES_ENCRYPT(value, key[, iv])` 与 `AES_DECRYPT(value, key[, iv])` 现为内置 Zeta SQL 函数，且分发顺序在用户注册的 `ZetaUDF` 之前。使用 `AES/CBC/PKCS5Padding`，输出 Base64；未显式提供 IV 时生成随机 IV 并拼接到密文头部，故 `AES_DECRYPT` 无需显式 IV 即可恢复。
+  - **影响**：若作业此前注册了名为 `AES_ENCRYPT` 或 `AES_DECRYPT` 的自定义 `ZetaUDF`（此前缺少内置函数时的变通做法），升级后将静默改用此内置实现而非 UDF。若该 UDF 使用了不同的密钥派生、IV 处理或输出编码，则已由 UDF 写入的密文可能无法解密（或在 CBC 填充校验以约 1/256 概率碰巧通过时解出垃圾）。
+  - **迁移指南**：重命名已有 UDF，或迁移到内置函数。如需与 `FieldEncrypt` 的 `AesCbcEncryptor` 保持线兼容，请使用带 `base64:` 前缀的密钥（裸密钥会按口令经 SHA-256 派生，**不**与 `FieldEncrypt` 互通）。完整契约见 [SQL 函数](transforms/sql-functions.md)。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
@@ -139,12 +147,6 @@
 
 
 ### 连接器变更
-
-- **破坏性变更：Doris Source 选项 `doris.request.retriesdoris.deserialize.queue.size` 更名为 `doris.deserialize.queue.size`**
-  - **影响范围**：`seatunnel-connectors-v2/connector-doris`（`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`）
-  - **变更说明**：异步 Arrow 反序列化队列大小选项的 key 自 #7895 引入时就带有笔误：key 被意外拼接成了 `doris.request.retriesdoris.deserialize.queue.size`，把前一个选项的名称（`doris.request.retries`）粘到了本意使用的 key（`doris.deserialize.queue.size`）上。现在该选项 key 修正为 `doris.deserialize.queue.size`。默认值（`64`）和选项行为均无变化。
-  - **影响**：显式配置了旧的错误 key `doris.request.retriesdoris.deserialize.queue.size` 的作业将不再读取到该配置，连接器会回退为默认队列大小 `64`。旧 key 是拼接笔误，基本只能从文档复制得到，因此绝大多数用户不受影响。
-  - **迁移指南**：如果您曾显式调优过该选项，请把 source 配置中的 key 重命名为 `doris.deserialize.queue.size`。
 
 - **行为变更：HTTP Sink 写入失败现在会使任务失败，而不再被静默丢弃**
   - **影响范围**：`seatunnel-connectors-v2/connector-http/connector-http-base`

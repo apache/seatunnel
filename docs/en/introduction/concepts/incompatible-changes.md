@@ -39,6 +39,24 @@ You need to check this document before you upgrade to related version.
 - To keep using the default user, remove `user` and retain `auth` when a password is required.
   Named users require Redis 6 or later. Legacy configurations without a username remain unchanged.
 
+### Zeta SQL Transform: built-in AES_ENCRYPT / AES_DECRYPT
+
+- **Behavior change: AES_ENCRYPT / AES_DECRYPT are now built-in functions**
+  - **Affected component**: `seatunnel-transforms-v2` (Zeta SQL transform).
+  - **Description**: `AES_ENCRYPT(value, key[, iv])` and `AES_DECRYPT(value, key[, iv])` are now
+    built-in Zeta SQL functions and are dispatched before user-registered `ZetaUDF`s. They use
+    `AES/CBC/PKCS5Padding` with Base64 output; without an explicit IV a random IV is generated and
+    prepended to the ciphertext so `AES_DECRYPT` can recover it without an explicit IV.
+  - **Impact**: A job that registered a custom `ZetaUDF` named `AES_ENCRYPT` or `AES_DECRYPT` (the
+    previous workaround for the missing built-in) will, after upgrading, silently start using this
+    built-in implementation instead of the UDF. If the UDF used a different key derivation, IV
+    handling or output encoding, ciphertext already written by the UDF may fail to decrypt (or,
+    roughly once in 256 for CBC padding, decrypt to garbage).
+  - **Migration Guide**: Rename the existing UDF, or switch to the built-in functions. To stay
+    wire-compatible with the `FieldEncrypt` `AesCbcEncryptor`, supply the key with the `base64:`
+    prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
+    `FieldEncrypt`). See [SQL Functions](transforms/sql-functions.md) for the full contract.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
@@ -179,12 +197,6 @@ You need to check this document before you upgrade to related version.
 
 
 ### Connector Changes
-
-- **Breaking Change: Doris Source option key `doris.request.retriesdoris.deserialize.queue.size` renamed to `doris.deserialize.queue.size`**
-  - **Affected component**: `seatunnel-connectors-v2/connector-doris` (`DorisSourceOptions.DORIS_DESERIALIZE_QUEUE_SIZE`)
-  - **Description**: The option key for the asynchronous Arrow deserialization queue size has been a typo since it was introduced in #7895: the key was accidentally concatenated as `doris.request.retriesdoris.deserialize.queue.size`, gluing the preceding option's name (`doris.request.retries`) onto the intended key (`doris.deserialize.queue.size`). The option key is now the intended `doris.deserialize.queue.size`. The default value (`64`) and the option behavior are unchanged.
-  - **Impact**: Configurations that explicitly set the old malformed key `doris.request.retriesdoris.deserialize.queue.size` will no longer be picked up; the connector will fall back to the default queue size of `64`. The old key was a concatenation artifact and could only be discovered by copying it from the docs, so most users are unaffected.
-  - **Migration Guide**: If you explicitly tuned this option, rename the key to `doris.deserialize.queue.size` in your source configuration.
 
 - **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
   - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`

@@ -1113,18 +1113,23 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 使用 AES/CBC/PKCS5Padding 加密 `value`，返回 Base64 编码的密文。如果 `value` 为 **NULL**，返回 **NULL**。
 
-- `value`：待加密的明文。任何非空值都会被转换为字符串。
-- `key`：密钥。如果以 `base64:` 开头，则剩余部分按 Base64 解码为原始 AES 密钥，长度必须为 16、24 或 32 字节（对应 AES-128/192/256）。否则作为口令处理：对其 UTF-8 字节做 SHA-256，取前 16 字节作为 AES-128 密钥，因此支持任意长度的口令。
-- `iv`：可选的初始化向量。提供时，其 UTF-8 字节作为 IV 使用，必须恰好为 16 字节；返回的密文仅包含加密后的字节。省略时，将生成 16 字节随机 IV 并拼接到密文头部，这样 `AES_DECRYPT` 无需显式 IV 即可恢复。
+- `value`：待加密的明文。任何非空标量值都会被转换为字符串；数组与 Map 输入会被拒绝。
+- `key`：密钥。如果以 `base64:` 开头，则剩余部分按 Base64 解码为原始 AES 密钥，长度必须为 16、24 或 32 字节（对应 AES-128/192/256）；只有 `base64:` 形式才与 `FieldEncryptTransform` 使用的 `AesCbcEncryptor` 线兼容。其他值按口令处理：对其 UTF-8 字节做一次 SHA-256，取前 16 字节作为 AES-128 密钥，因此支持任意长度的口令。口令模式是无盐的快速 KDF，安全性较低；生产环境请使用随机的 `base64:` 密钥并作为机密保管。`base64:` 密钥与口令不可互换。
+- `iv`：可选的初始化向量。提供时，其 UTF-8 字节作为 IV 使用，必须恰好为 16 字节；返回的密文仅包含加密后的字节，调用方需自行保存 IV。省略时，每次调用生成 16 字节随机 IV 并拼接到密文头部，`AES_DECRYPT` 无需显式 IV 即可恢复。显式传入 `NULL` 的 IV 会被拒绝（请改为省略该参数）。
 
 示例:
 
-CALL AES_ENCRYPT(name, 'mySecretPass')
-CALL AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
-CALL AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+AES_ENCRYPT(name, 'mySecretPass')
+
+AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+
+AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+SELECT AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass') AS name_enc FROM dual
 
 注意:
-省略 `iv` 时密文是非确定性的（每次调用都会生成新的随机 IV）。如需确定性密文，请显式提供 `iv`。
+- CBC 是无认证模式：密钥错误或密文损坏时，约 1/256 的概率会解出垃圾串而非报错，切勿依赖解密报错来判断密钥是否正确。
+- 省略 `iv` 时密文是非确定性的（每次调用都会生成新的随机 IV）。如需确定性密文，请显式提供 `iv`。
 
 ### AES_DECRYPT
 
@@ -1134,13 +1139,15 @@ CALL AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
 
 - `value`：由 `AES_ENCRYPT` 生成的 Base64 密文。
 - `key`：密钥，约定与 `AES_ENCRYPT` 相同，必须与加密时使用的密钥一致。
-- `iv`：可选的初始化向量。省略时，取解码后前 16 字节作为 IV（即 `AES_ENCRYPT` 未提供 IV 时生成的格式）。提供时，其 UTF-8 字节作为 IV（必须为 16 字节），整个解码负载视为密文。
+- `iv`：可选的初始化向量。省略时，取解码后前 16 字节作为 IV（即 `AES_ENCRYPT` 未提供 IV 时生成的格式）。提供时，其 UTF-8 字节作为 IV（必须为 16 字节），整个解码负载视为密文。显式传入 `NULL` 的 IV 会被拒绝。
 
 示例:
 
-CALL AES_DECRYPT(cipher, 'mySecretPass')
-CALL AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
-CALL AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+AES_DECRYPT(cipher, 'mySecretPass')
+
+AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+
+AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
 
 ## System Functions
 

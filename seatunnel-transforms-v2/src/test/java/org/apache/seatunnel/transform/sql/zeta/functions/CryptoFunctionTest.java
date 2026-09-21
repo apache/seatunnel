@@ -18,14 +18,23 @@
 package org.apache.seatunnel.transform.sql.zeta.functions;
 
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.transform.encrypt.encryptor.AesCbcEncryptor;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.crypto.Cipher;
+import javax.crypto.spec.IvParameterSpec;
+import javax.crypto.spec.SecretKeySpec;
+
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 public class CryptoFunctionTest {
 
@@ -183,12 +192,12 @@ public class CryptoFunctionTest {
         String cipher = CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE));
         // CBC/PKCS5Padding decryption with a wrong key usually fails the padding check, but a
         // random block can pass it (~1/256). Both outcomes are acceptable: throwing, or returning
-        // garbage, as long as the real plaintext is never recovered.
+        // garbage, as long as the real plaintext is never recovered and no secret is leaked.
         try {
             String result = CryptoFunction.aesDecrypt(args(cipher, "wrongPassphrase"));
             Assertions.assertNotEquals(PLAINTEXT, result);
         } catch (SeaTunnelRuntimeException e) {
-            // expected: padding/auth check rejected the wrong key
+            assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT, cipher);
         }
     }
 
@@ -241,7 +250,7 @@ public class CryptoFunctionTest {
             String result = CryptoFunction.aesDecrypt(args(cipher, PASSPHRASE));
             Assertions.assertNotEquals(PLAINTEXT, result);
         } catch (SeaTunnelRuntimeException e) {
-            // expected
+            assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT, cipher);
         }
     }
 
@@ -254,14 +263,12 @@ public class CryptoFunctionTest {
     }
 
     @Test
-    public void testPassphraseKeyDerivationIsDeterministic() {
+    public void testExplicitIvEncryptionIsDeterministic() {
         // Two encryptions with the same passphrase and explicit IV must produce the same
         // ciphertext, proving the SHA-256 key derivation is deterministic.
         String cipher1 = CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, EXPLICIT_IV));
         String cipher2 = CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, EXPLICIT_IV));
         Assertions.assertEquals(cipher1, cipher2);
-        Assertions.assertNotNull(
-                Base64.getDecoder().decode(cipher1.getBytes(StandardCharsets.UTF_8)));
     }
 
     @Test
@@ -286,11 +293,133 @@ public class CryptoFunctionTest {
     }
 
     @Test
-    public void testNullIvArgFallsBackToRandomIv() {
-        // A null third argument is treated as "no IV provided": a random IV is generated and
-        // embedded in the ciphertext, so decrypting with a null IV argument must still round-trip.
-        String cipher = CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, null));
+    public void testExplicitNullIvThrows() {
+        // An explicit null IV is rejected (consistent with a null key) so a column of mixed
+        // null/non-null IVs cannot silently produce two different ciphertext layouts. Omit the
+        // argument entirely to use a random IV.
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, null)));
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> CryptoFunction.aesDecrypt(args("ciphertext", PASSPHRASE, null)));
+    }
+
+    @Test
+    public void testErrorMessageDoesNotContainSecrets() {
+        // None of the error paths may echo the key, the plaintext, the ciphertext or the arg list
+        // into the exception message (which surfaces in engine logs).
+        String secretKey = "superSecretKeyValue";
+        String sensitive = "sensitiveDataValue";
+
+        SeaTunnelRuntimeException e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () ->
+                                CryptoFunction.aesEncrypt(
+                                        args(sensitive, secretKey, EXPLICIT_IV, "extra")));
+        assertMessageHasNoSecrets(e, secretKey, sensitive, EXPLICIT_IV);
+
+        e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesEncrypt(args(sensitive, null)));
+        assertMessageHasNoSecrets(e, secretKey, sensitive);
+
+        e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesEncrypt(args(sensitive, "")));
+        assertMessageHasNoSecrets(e, secretKey, sensitive);
+
+        String badBase64Key = "base64:" + Base64.getEncoder().encodeToString(new byte[10]);
+        e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesEncrypt(args(sensitive, badBase64Key)));
+        assertMessageHasNoSecrets(e, secretKey, sensitive, badBase64Key);
+
+        e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesDecrypt(args("@@invalid@@", secretKey)));
+        assertMessageHasNoSecrets(e, secretKey, sensitive);
+    }
+
+    @Test
+    public void testEncryptByteArrayInputThrows() {
+        // A byte[] column would otherwise be encrypted as "[B@...", which can never be recovered.
+        byte[] bytes = PLAINTEXT.getBytes(StandardCharsets.UTF_8);
+        SeaTunnelRuntimeException e =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> CryptoFunction.aesEncrypt(args(bytes, PASSPHRASE)));
+        assertMessageHasNoSecrets(e, PASSPHRASE, PLAINTEXT);
+    }
+
+    @Test
+    public void testEncryptArrayAndMapInputThrows() {
+        String[] array = new String[] {"a", "b"};
+        Map<String, String> map = new HashMap<>();
+        map.put("k", "v");
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> CryptoFunction.aesEncrypt(args(array, PASSPHRASE)));
+        Assertions.assertThrows(
+                SeaTunnelRuntimeException.class,
+                () -> CryptoFunction.aesEncrypt(args(map, PASSPHRASE)));
+    }
+
+    @Test
+    public void testInteropWithAesCbcEncryptor() {
+        // The base64: key form must be wire-compatible with FieldEncrypt's AesCbcEncryptor:
+        // same algorithm, same Base64(IV || ciphertext) layout.
+        byte[] rawKey = new byte[16];
+        for (int i = 0; i < rawKey.length; i++) {
+            rawKey[i] = (byte) (i + 1);
+        }
+        String base64Key = "base64:" + Base64.getEncoder().encodeToString(rawKey);
+        String plain = "interop data";
+
+        AesCbcEncryptor encryptor = new AesCbcEncryptor();
+        encryptor.init(base64Key);
+
+        // AesCbcEncryptor encrypts, CryptoFunction decrypts.
+        String cipher = encryptor.encrypt(plain);
+        Assertions.assertEquals(plain, CryptoFunction.aesDecrypt(args(cipher, base64Key)));
+
+        // CryptoFunction encrypts, AesCbcEncryptor decrypts.
+        String cipher2 = CryptoFunction.aesEncrypt(args(plain, base64Key));
+        Assertions.assertEquals(plain, encryptor.decrypt(cipher2));
+    }
+
+    @Test
+    public void testPassphraseKeyDerivationKnownAnswer() throws Exception {
+        // Known-answer: independently derive the passphrase key (SHA-256, first 16 bytes) and the
+        // ciphertext with raw javax.crypto, then assert CryptoFunction produces the exact same
+        // output. This pins both the key derivation and the explicit-IV wire format.
+        MessageDigest sha256 = MessageDigest.getInstance("SHA-256");
+        byte[] digest = sha256.digest(PASSPHRASE.getBytes(StandardCharsets.UTF_8));
+        byte[] keyBytes = Arrays.copyOf(digest, 16);
+
+        Cipher cipher = Cipher.getInstance("AES/CBC/PKCS5Padding");
+        cipher.init(
+                Cipher.ENCRYPT_MODE,
+                new SecretKeySpec(keyBytes, "AES"),
+                new IvParameterSpec(EXPLICIT_IV.getBytes(StandardCharsets.UTF_8)));
+        byte[] encrypted = cipher.doFinal(PLAINTEXT.getBytes(StandardCharsets.UTF_8));
+        String expected = Base64.getEncoder().encodeToString(encrypted);
+
         Assertions.assertEquals(
-                PLAINTEXT, CryptoFunction.aesDecrypt(args(cipher, PASSPHRASE, null)));
+                expected, CryptoFunction.aesEncrypt(args(PLAINTEXT, PASSPHRASE, EXPLICIT_IV)));
+    }
+
+    private static void assertMessageHasNoSecrets(SeaTunnelRuntimeException e, String... secrets) {
+        String message = e.getMessage();
+        for (String secret : secrets) {
+            Assertions.assertFalse(
+                    message.contains(secret),
+                    "Exception message must not contain secret material: " + secret);
+        }
     }
 }

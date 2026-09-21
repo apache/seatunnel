@@ -1108,18 +1108,23 @@ offset_date_time AT TIME ZONE 'Pacific/Honolulu'
 
 Encrypts `value` with AES/CBC/PKCS5Padding and returns a Base64-encoded ciphertext. Returns **NULL** if `value` is **NULL**.
 
-- `value`: the plaintext to encrypt. Any non-null value is converted to a string.
-- `key`: the secret key. If it starts with `base64:`, the remainder is decoded as a raw AES key and must be 16, 24, or 32 bytes (AES-128/192/256). Otherwise it is treated as a passphrase and hashed with SHA-256; the first 16 bytes are used as an AES-128 key, so arbitrary-length passphrases are supported.
-- `iv`: optional initialization vector. If provided, its UTF-8 bytes are used as the IV and must be exactly 16 bytes; the returned ciphertext contains only the encrypted bytes. If omitted, a random 16-byte IV is generated and prepended to the ciphertext, so it can be recovered by `AES_DECRYPT` without an explicit IV.
+- `value`: the plaintext to encrypt. Any non-null scalar value is converted to a string; array and map inputs are rejected.
+- `key`: the secret key. If it starts with `base64:`, the remainder is decoded as a raw AES key and must be 16, 24, or 32 bytes (AES-128/192/256); only this `base64:` form is wire-compatible with the `AesCbcEncryptor` used by the `FieldEncryptTransform`. Any other value is treated as a passphrase: it is hashed once with SHA-256 and the first 16 bytes are used as an AES-128 key, so arbitrary-length passphrases are supported. Passphrase mode is an unsalted fast KDF; for strong protection use a random `base64:` key and treat it as a secret. A `base64:` key and a passphrase are not interchangeable.
+- `iv`: optional initialization vector. If provided, its UTF-8 bytes are used as the IV and must be exactly 16 bytes; the returned ciphertext contains only the encrypted bytes and the caller is responsible for storing the IV. If omitted, a random 16-byte IV is generated per call and prepended to the ciphertext, so `AES_DECRYPT` can recover it without an explicit IV. An explicit `NULL` IV is rejected (omit the argument instead).
 
 Example:
 
-CALL AES_ENCRYPT(name, 'mySecretPass')
-CALL AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
-CALL AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+AES_ENCRYPT(name, 'mySecretPass')
+
+AES_ENCRYPT(name, 'mySecretPass', '1234567890123456')
+
+AES_ENCRYPT(name, 'base64:MTIzNDU2Nzg5MDEyMzQ1Ng==')
+
+SELECT AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass') AS name_enc FROM dual
 
 NOTE:
-When `iv` is omitted the ciphertext is non-deterministic (a fresh random IV is generated for each call). To get a deterministic ciphertext, provide an explicit `iv`.
+- CBC is an unauthenticated mode: a wrong key or a corrupted ciphertext may (about once in 256) decrypt to garbage instead of throwing. Do not rely on a decryption error to detect a wrong key.
+- When `iv` is omitted the ciphertext is non-deterministic (a fresh random IV is generated for each call). To get a deterministic ciphertext, provide an explicit `iv`.
 
 ### AES_DECRYPT
 
@@ -1129,13 +1134,15 @@ Decrypts a Base64 AES/CBC/PKCS5Padding ciphertext. Returns **NULL** if `value` i
 
 - `value`: the Base64-encoded ciphertext produced by `AES_ENCRYPT`.
 - `key`: the secret key, with the same conventions as `AES_ENCRYPT`. It must match the key used for encryption.
-- `iv`: optional initialization vector. When omitted, the first 16 bytes of the decoded payload are treated as the IV (the format produced by `AES_ENCRYPT` without an IV). When provided, its UTF-8 bytes are used as the IV (must be 16 bytes) and the whole decoded payload is treated as the ciphertext.
+- `iv`: optional initialization vector. When omitted, the first 16 bytes of the decoded payload are treated as the IV (the format produced by `AES_ENCRYPT` without an IV). When provided, its UTF-8 bytes are used as the IV (must be 16 bytes) and the whole decoded payload is treated as the ciphertext. An explicit `NULL` IV is rejected.
 
 Example:
 
-CALL AES_DECRYPT(cipher, 'mySecretPass')
-CALL AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
-CALL AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
+AES_DECRYPT(cipher, 'mySecretPass')
+
+AES_DECRYPT(AES_ENCRYPT(name, 'mySecretPass'), 'mySecretPass')
+
+AES_DECRYPT(cipher, 'mySecretPass', '1234567890123456')
 
 ## System Functions
 
