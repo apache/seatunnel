@@ -31,8 +31,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 
 /**
@@ -50,6 +52,7 @@ class RocketMqAdminUtilTest {
 
     private static final String GROUP = "test-group";
     private static final String TOPIC = "test-topic";
+    private static final String OTHER_TOPIC = "other-test-topic";
 
     /**
      * A group that has never registered has no retry topic, so the lookup fails with
@@ -192,5 +195,45 @@ class RocketMqAdminUtilTest {
                         Collections.singleton(messageQueue));
 
         Assertions.assertEquals(Collections.singletonMap(messageQueue, 42L), offsets);
+    }
+
+    /**
+     * RocketMqSourceOptions.TOPICS accepts a comma separated list, so the lookup loops over several
+     * topics and merges their consume stats. Pinning that here keeps the loop from being rewritten
+     * into one that returns the first topic's offsets and drops the rest.
+     */
+    @Test
+    void testCurrentOffsets_multipleTopicsAreMergedAcrossTheLoop() throws Exception {
+        MessageQueue firstQueue = new MessageQueue(TOPIC, "broker-a", 0);
+        MessageQueue secondQueue = new MessageQueue(OTHER_TOPIC, "broker-a", 0);
+
+        DefaultMQAdminExt adminClient = Mockito.mock(DefaultMQAdminExt.class);
+        Mockito.when(adminClient.examineConsumeStats(GROUP, TOPIC))
+                .thenReturn(consumeStatsFor(firstQueue, 42L));
+        Mockito.when(adminClient.examineConsumeStats(GROUP, OTHER_TOPIC))
+                .thenReturn(consumeStatsFor(secondQueue, 7L));
+
+        Map<MessageQueue, Long> offsets =
+                RocketMqAdminUtil.currentOffsets(
+                        adminClient,
+                        GROUP,
+                        Arrays.asList(TOPIC, OTHER_TOPIC),
+                        new HashSet<>(Arrays.asList(firstQueue, secondQueue)));
+
+        Map<MessageQueue, Long> expected = new HashMap<>();
+        expected.put(firstQueue, 42L);
+        expected.put(secondQueue, 7L);
+        Assertions.assertEquals(expected, offsets);
+    }
+
+    private static ConsumeStats consumeStatsFor(MessageQueue messageQueue, long committedOffset) {
+        OffsetWrapper offsetWrapper = new OffsetWrapper();
+        offsetWrapper.setConsumerOffset(committedOffset);
+        HashMap<MessageQueue, OffsetWrapper> offsetTable = new HashMap<>();
+        offsetTable.put(messageQueue, offsetWrapper);
+
+        ConsumeStats consumeStats = new ConsumeStats();
+        consumeStats.setOffsetTable(offsetTable);
+        return consumeStats;
     }
 }
