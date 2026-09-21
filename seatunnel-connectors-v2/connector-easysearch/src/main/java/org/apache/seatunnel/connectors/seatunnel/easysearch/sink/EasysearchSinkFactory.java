@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.easysearch.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,14 +37,23 @@ public class EasysearchSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(EasysearchSinkOptions.HOSTS, EasysearchSinkOptions.INDEX)
+                .required(
+                        EasysearchSinkOptions.HOSTS,
+                        Conditions.notEmpty(EasysearchSinkOptions.HOSTS))
+                .required(
+                        EasysearchSinkOptions.INDEX,
+                        Conditions.notBlank(EasysearchSinkOptions.INDEX))
+                .optional(
+                        EasysearchSinkOptions.MAX_BATCH_SIZE,
+                        Conditions.greaterThan(EasysearchSinkOptions.MAX_BATCH_SIZE, 0))
+                .optional(
+                        EasysearchSinkOptions.MAX_RETRY_COUNT,
+                        Conditions.greaterOrEqual(EasysearchSinkOptions.MAX_RETRY_COUNT, 0))
                 .optional(
                         EasysearchSinkOptions.USERNAME,
                         EasysearchSinkOptions.PASSWORD,
                         EasysearchSinkOptions.PRIMARY_KEYS,
                         EasysearchSinkOptions.KEY_DELIMITER,
-                        EasysearchSinkOptions.MAX_RETRY_COUNT,
-                        EasysearchSinkOptions.MAX_BATCH_SIZE,
                         EasysearchSinkOptions.TLS_VERIFY_CERTIFICATE,
                         EasysearchSinkOptions.TLS_VERIFY_HOSTNAME,
                         EasysearchSinkOptions.TLS_KEY_STORE_PATH,
