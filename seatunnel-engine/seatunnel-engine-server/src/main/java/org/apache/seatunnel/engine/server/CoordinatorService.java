@@ -1303,7 +1303,7 @@ public class CoordinatorService {
                 pendingJobScheduleEpoch.incrementAndGet();
                 isActive = true;
                 startPendingJobScheduleThread();
-                startAutoscaler();
+                startAutoscalerSafely();
                 seaTunnelServer.startRealtimeMetricsService(this);
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
@@ -1482,6 +1482,26 @@ public class CoordinatorService {
                 0,
                 autoscalerRuntimeConfig.getEvaluationIntervalSeconds(),
                 TimeUnit.SECONDS);
+    }
+
+    /**
+     * Starts the autoscaler without allowing a service startup failure to roll back active-master
+     * activation.
+     */
+    private void startAutoscalerSafely() {
+        try {
+            startAutoscaler();
+        } catch (Exception e) {
+            logger.warning(
+                    "Failed to start autoscaler; continue active-master activation with autoscaling disabled.",
+                    e);
+            try {
+                stopAutoscaler();
+            } catch (Exception cleanupException) {
+                logger.warning(
+                        "Failed to clean up partially started autoscaler.", cleanupException);
+            }
+        }
     }
 
     /**
