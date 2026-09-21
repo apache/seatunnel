@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 - [x] 多表 Source
 - [x] 文件格式：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`xml`、`binary`、`markdown` 和 `pdf`
 

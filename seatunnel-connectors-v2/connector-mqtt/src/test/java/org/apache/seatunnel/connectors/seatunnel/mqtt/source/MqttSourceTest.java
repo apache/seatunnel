@@ -35,6 +35,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.HashMap;
@@ -195,6 +199,36 @@ class MqttSourceTest {
                 () -> reader.messageArrived("users", mqttMessage("{\"id\":2}")));
         Assertions.assertThrows(
                 MqttConnectorException.class, () -> reader.pollNext(new RecordingCollector()));
+    }
+
+    @Test
+    void testSourceIsJavaSerializable() throws Exception {
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+        // The engine sets the job context before it serializes the logical DAG, so mirror that
+        // ordering rather than serializing a source that has never had one.
+        source.setJobContext(new JobContext().setJobMode(JobMode.STREAMING));
+
+        byte[] serialized;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(source);
+            out.flush();
+            serialized = bytes.toByteArray();
+        }
+
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            MqttSource restored = (MqttSource) in.readObject();
+            // Assert restored state, not a constant: getPluginName() alone would still pass if
+            // every field were lost. The catalog table and the job context are the state the
+            // engine relies on after deserializing the vertex.
+            Assertions.assertEquals(
+                    source.getProducedCatalogTables().get(0).getTableId(),
+                    restored.getProducedCatalogTables().get(0).getTableId());
+            Assertions.assertEquals(
+                    source.getProducedCatalogTables().get(0).getTableSchema(),
+                    restored.getProducedCatalogTables().get(0).getTableSchema());
+            Assertions.assertEquals(Boundedness.UNBOUNDED, restored.getBoundedness());
+        }
     }
 
     private static Map<String, Object> baseConfig() {
