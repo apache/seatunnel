@@ -29,6 +29,8 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.beust.jcommander.internal.Lists;
@@ -113,6 +115,62 @@ public class ConfigShadeTest {
                 USERNAME, config.getConfigList("source").get(0).getString("username"));
         Assertions.assertEquals(
                 jaasConfig, config.getConfigList("source").get(0).getString("sasl.jaas.config"));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+        "AzureEventHubs,false",
+        "AzureQueueStorage,false",
+        "AzureEventHubs,true",
+        "AzureQueueStorage,true"
+    })
+    public void testAzureConnectionStringsRemainPlaintextUnlessExplicitlyShaded(
+            String plugin, boolean explicitShade) {
+        Map<String, String> connections = new LinkedHashMap<>();
+        connections.put(
+                "AzureEventHubs",
+                "Endpoint=sb://example.servicebus.windows.net/;SharedAccessKeyName=listen;"
+                        + "SharedAccessKey=c3ludGhldGljLXNlY3JldA==");
+        connections.put(
+                "AzureQueueStorage",
+                "DefaultEndpointsProtocol=https;AccountName=example;"
+                        + "AccountKey=c3ludGhldGljLXNlY3JldA==;EndpointSuffix=core.windows.net");
+        String connectionString = connections.get(plugin);
+        Map<String, Object> env = new LinkedHashMap<>();
+        env.put("shade.identifier", "base64");
+        if (explicitShade) {
+            env.put("shade.options", Arrays.asList("connection_string"));
+        }
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("plugin_name", plugin);
+        connector.put("connection_string", connectionString);
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("env", env);
+        configMap.put("source", Arrays.asList(connector));
+        configMap.put("sink", Arrays.asList(connector));
+        Config plaintext = ConfigFactory.parseMap(configMap);
+
+        Config encrypted = ConfigShadeUtils.encryptConfig(plaintext);
+        Config decrypted = ConfigShadeUtils.decryptConfig(explicitShade ? encrypted : plaintext);
+        for (String role : Arrays.asList("source", "sink")) {
+            Assertions.assertEquals(
+                    connectionString,
+                    decrypted.getConfigList(role).get(0).getString("connection_string"));
+            Assertions.assertEquals(
+                    explicitShade
+                            ? Base64.getEncoder()
+                                    .encodeToString(
+                                            connectionString.getBytes(StandardCharsets.UTF_8))
+                            : connectionString,
+                    encrypted.getConfigList(role).get(0).getString("connection_string"));
+        }
+        String logConfig =
+                ConfigBuilder.mapToString(
+                        ConfigBuilder.configDesensitization(
+                                decrypted.root().unwrapped(),
+                                ConfigShadeUtils.getLogDesensitizationOptions(decrypted)));
+        Assertions.assertFalse(logConfig.contains(connectionString));
+        Assertions.assertFalse(logConfig.contains("c3ludGhldGljLXNlY3JldA=="));
     }
 
     @Test

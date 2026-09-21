@@ -120,6 +120,8 @@ public class ConfigBuilderTest {
 
         Assertions.assertEquals("******", desensitizedSource.get("connection_string"));
         Assertions.assertEquals("events", desensitizedSource.get("event_hub_name"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("connection_string"));
     }
 
     @Test

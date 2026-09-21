@@ -24,6 +24,9 @@ import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.exception.Azure
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
 
 import java.io.IOException;
+import java.util.Collections;
+import java.util.IdentityHashMap;
+import java.util.Set;
 
 /** Deserializes an event before advancing the checkpointed partition position. */
 public class AzureEventHubsRecordEmitter
@@ -40,6 +43,8 @@ public class AzureEventHubsRecordEmitter
             EventHubsRecord element,
             Collector<SeaTunnelRow> collector,
             AzureEventHubsSourceSplitState splitState) {
+        // The split reader already rejects sequence overflow with partition context before
+        // emission.
         long nextSequenceNumber = Math.addExact(element.getSequenceNumber(), 1L);
         try {
             deserializationSchema.deserialize(element.getBody(), collector);
@@ -53,8 +58,29 @@ public class AzureEventHubsRecordEmitter
                             + element.getSequenceNumber()
                             + " ("
                             + (e instanceof IOException ? "I/O failure" : "runtime failure")
+                            + ": "
+                            + failureTypes(e)
                             + ")");
         }
         splitState.setCurrentSequenceNumber(nextSequenceNumber);
+    }
+
+    private static String failureTypes(Throwable failure) {
+        Set<Throwable> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        StringBuilder types = new StringBuilder();
+        // Only class names are safe; never render exception text or suppressed exceptions.
+        while (failure != null && visited.size() < 8 && visited.add(failure)) {
+            if (types.length() > 0) {
+                types.append(" <- ");
+            }
+            String type = failure.getClass().getSimpleName();
+            types.append(
+                    type.isEmpty() ? "Throwable" : type.substring(0, Math.min(type.length(), 80)));
+            failure = failure.getCause();
+        }
+        if (failure != null) {
+            types.append(" <- ...");
+        }
+        return types.toString();
     }
 }

@@ -52,18 +52,16 @@ public final class ConfigShadeUtils {
     private static final String SHADE_OPTIONS_OPTION = "shade.options";
 
     public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
-            new String[] {
-                "password",
-                "username",
-                "auth",
-                "token",
-                "access_key",
-                "secret_key",
-                "connection_string"
-            };
+            new String[] {"password", "username", "auth", "token", "access_key", "secret_key"};
 
     private static final String[] DEFAULT_LOG_MASK_ONLY_KEYWORDS =
-            new String[] {"sasl.jaas.config", "community", "client_secret", "security_token"};
+            new String[] {
+                "sasl.jaas.config",
+                "community",
+                "client_secret",
+                "security_token",
+                "connection_string"
+            };
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 

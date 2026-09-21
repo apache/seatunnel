@@ -20,6 +20,7 @@ Use the native connector when the job needs Event Hubs partition discovery and S
 
 - [ ] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
@@ -42,13 +43,13 @@ Use the native connector when the job needs Event Hubs partition discovery and S
 
 ### connection_string [string]
 
-Azure Event Hubs namespace connection string. Configure `event_hub_name` separately; connection strings containing an `EntityPath` segment are rejected so there is one unambiguous event hub selection path. The option is masked as sensitive configuration and is not written to connector logs.
+Azure Event Hubs namespace connection string. Configure `event_hub_name` separately; connection strings containing an `EntityPath` segment are rejected so there is one unambiguous event hub selection path. The option is masked in parsed-config logs, but is not encrypted or decrypted by default. To opt into configuration encryption, include `connection_string` in `env.shade.options` and use the configured shade to encrypt its value.
 
 This first version supports namespace connection-string authentication. Microsoft Entra ID, managed identity and custom endpoint authentication are not yet supported.
 
 Use a dedicated SAS policy with only the `Listen` right; do not use `RootManageSharedAccessKey` for a source job. A namespace-scoped policy grants access across that namespace, while an Event Hub-scoped policy limits access to that hub. See [Azure SAS authorization](https://learn.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature).
 
-Hub-scoped connection strings containing `EntityPath` cannot be used unchanged. Keep the policy name and key, remove the `EntityPath` segment, and set `event_hub_name` to that same hub. This only changes how the hub name is supplied; it does not broaden the SAS policy's permissions. The emulator tests do not verify Azure service-side SAS authorization, so validate a hub-scoped policy against the target Azure deployment before use.
+Hub-scoped connection strings containing `EntityPath` cannot be used unchanged. Manually keep the policy name and key, remove the `EntityPath` segment, and set `event_hub_name` to that same hub. The connector does not automatically convert or normalize `EntityPath`, even when it matches `event_hub_name`. This only changes how the hub name is supplied; it does not broaden the SAS policy's permissions. The emulator tests do not verify Azure service-side SAS authorization, so validate a hub-scoped policy against the target Azure deployment before use.
 
 ### event_hub_name [string]
 
@@ -110,11 +111,13 @@ The connector can run without checkpointing, but a task or job restart then appl
 
 If Event Hubs retention removes a checkpointed sequence before restore, the source fails instead of silently resetting to `earliest` or `latest`. Invalid JSON or text payloads also fail the source task; the last completed checkpoint determines the replay position.
 
-Deserialization and row-emission errors report the partition ID, event sequence number and a safe failure category (I/O or runtime failure) without retaining the original exception message or cause, which may contain private event data. The failed event does not advance the checkpointed position.
+To recover from a trimmed checkpoint position, stop the failing job and start a new job without restoring the old source state. Choose `start_mode` explicitly: `earliest` replays all still-retained events, including events already processed, while `latest` skips the existing backlog. This choice applies to every partition, not just the affected one. Events already removed by retention cannot be recovered from Event Hubs; reconcile missing data from another source if needed. Restarting with the same checkpoint or changing only `start_mode` does not reset the saved position.
+
+Deserialization and row-emission errors report the partition ID, event sequence number, a safe failure category (I/O or runtime failure), and a bounded chain of exception class names, including wrapped interruption. They do not retain original exception messages, causes or suppressed exceptions, which may contain private event data. The failed event does not advance the checkpointed position. There is no malformed-event skip or dead-letter option in this version; restoring the same checkpoint can encounter the same invalid event again.
 
 ## Retry And Failure Behavior
 
-The Azure SDK applies its built-in AMQP retry policy. If the SDK exhausts those retries, the source task fails and SeaTunnel job recovery resumes each partition from its last completed checkpoint. This connector version does not expose Azure SDK retry or backoff settings.
+The Azure SDK applies its built-in AMQP retry policy. Outages that outlast that retry budget surface as source task failures. When checkpointing and job recovery are configured, SeaTunnel resumes each partition from its last completed checkpoint. This connector version does not expose Azure SDK retry or backoff settings. Live Azure authorization and outage recovery have not been verified by the local unit tests or emulator coverage.
 
 ## Task Example
 

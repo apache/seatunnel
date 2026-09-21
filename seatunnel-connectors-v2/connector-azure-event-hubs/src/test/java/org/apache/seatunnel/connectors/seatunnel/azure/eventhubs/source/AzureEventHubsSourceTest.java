@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsMessageFormat;
@@ -33,6 +34,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 class AzureEventHubsSourceTest {
 
@@ -68,6 +71,34 @@ class AzureEventHubsSourceTest {
         Assertions.assertEquals("AzureEventHubs", factory.factoryIdentifier());
         Assertions.assertEquals(AzureEventHubsSource.class, factory.getSourceClass());
         Assertions.assertNotNull(factory.optionRule());
+    }
+
+    @Test
+    void factoryRejectsPrefetchSmallerThanBatchBeforeSourceCreation() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(
+                "connection_string",
+                "Endpoint=sb://example/;SharedAccessKeyName=listen;"
+                        + "SharedAccessKey=c3ludGhldGljLXNlY3JldA==");
+        options.put("event_hub_name", "events");
+        options.put("max_batch_size", 101);
+        options.put("prefetch_count", 100);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(
+                        ReadonlyConfig.fromMap(options), getClass().getClassLoader());
+
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> new AzureEventHubsSourceFactory().createSource(context));
+
+        Assertions.assertEquals(
+                "Option 'prefetch_count' must be greater than or equal to max_batch_size",
+                exception.getMessage());
+        Assertions.assertNull(exception.getCause());
     }
 
     @Test

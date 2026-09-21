@@ -20,6 +20,7 @@ import ChangeLog from '../changelog/connector-azure-event-hubs.md';
 
 - [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
@@ -42,13 +43,13 @@ import ChangeLog from '../changelog/connector-azure-event-hubs.md';
 
 ### connection_string [string]
 
-Azure Event Hubs 命名空间连接字符串。必须单独配置 `event_hub_name`；包含 `EntityPath` 段的连接字符串会被拒绝，从而保证只有一种明确的 Event Hub 选择方式。该选项会按敏感配置进行遮蔽，也不会写入连接器日志。
+Azure Event Hubs 命名空间连接字符串。必须单独配置 `event_hub_name`；包含 `EntityPath` 段的连接字符串会被拒绝，从而保证只有一种明确的 Event Hub 选择方式。该选项会在解析后的配置日志中遮蔽，但默认不参与配置加密或解密。若需启用配置加密，请将 `connection_string` 加入 `env.shade.options`，并使用配置的加密方式加密其值。
 
 首个版本仅支持命名空间连接字符串认证，暂不支持 Microsoft Entra ID、托管身份和自定义端点认证。
 
 请为源作业使用仅具有 `Listen` 权限的专用 SAS 策略，不要使用 `RootManageSharedAccessKey`。命名空间级策略可访问该命名空间内的资源，而 Event Hub 级策略仅允许访问对应的 Hub。参见 [Azure SAS 授权](https://learn.microsoft.com/en-us/azure/event-hubs/authorize-access-shared-access-signature)。
 
-包含 `EntityPath` 的 Hub 级连接字符串不能直接使用。请保留策略名称和密钥，移除 `EntityPath` 段，并将 `event_hub_name` 设置为同一个 Hub。这只改变 Hub 名称的传入方式，不会扩大 SAS 策略的权限。模拟器测试不验证 Azure 服务端的 SAS 授权，因此使用 Hub 级策略前，应在目标 Azure 部署中验证。
+包含 `EntityPath` 的 Hub 级连接字符串不能直接使用。请手动保留策略名称和密钥，移除 `EntityPath` 段，并将 `event_hub_name` 设置为同一个 Hub。连接器不会自动转换或规范化 `EntityPath`，即使它与 `event_hub_name` 相同也会拒绝。这只改变 Hub 名称的传入方式，不会扩大 SAS 策略的权限。模拟器测试不验证 Azure 服务端的 SAS 授权，因此使用 Hub 级策略前，应在目标 Azure 部署中验证。
 
 ### event_hub_name [string]
 
@@ -110,11 +111,13 @@ SeaTunnel 检查点状态是唯一的恢复依据。连接器不使用 Azure Blo
 
 如果 Event Hubs 保留策略在恢复前删除了检查点对应的序列位置，源会失败，而不会静默重置为 `earliest` 或 `latest`。无效的 JSON 或文本负载也会使源任务失败；最后完成的检查点决定重放位置。
 
-反序列化和行发送错误会报告分区 ID、事件序列号和安全的失败类别（I/O 或运行时失败），但不会保留可能包含事件隐私数据的原始异常消息或原因。失败事件不会推进检查点位置。
+从已被删除的检查点位置恢复时，请停止持续失败的作业，并启动一个不恢复旧源状态的新作业。请明确选择 `start_mode`：`earliest` 会重放所有仍保留的事件，包括已经处理过的事件；`latest` 会跳过现有积压数据。该选择适用于所有分区，而不仅是受影响的分区。已被保留策略删除的事件无法从 Event Hubs 恢复，必要时需从其他数据源补齐。使用同一检查点重启或仅修改 `start_mode` 不会重置保存的位置。
+
+反序列化和行发送错误会报告分区 ID、事件序列号、安全的失败类别（I/O 或运行时失败）以及长度受限的异常类名链，包括被包装的中断异常。诊断不会保留可能包含事件隐私数据的原始异常消息、原因或被抑制异常。失败事件不会推进检查点位置。当前版本不支持跳过格式错误的事件，也没有死信选项；从同一检查点恢复时可能再次遇到同一无效事件。
 
 ## 重试与失败行为
 
-Azure SDK 会应用其内置的 AMQP 重试策略。如果 SDK 耗尽重试次数，源任务将失败，SeaTunnel 作业恢复会从最后完成的检查点继续读取每个分区。当前连接器版本不提供 Azure SDK 重试或退避配置。
+Azure SDK 会应用其内置的 AMQP 重试策略。故障持续时间超过重试预算时，源任务会失败。如果已配置检查点和作业恢复，SeaTunnel 会从最后完成的检查点继续读取每个分区。当前连接器版本不提供 Azure SDK 重试或退避配置。本地单元测试和模拟器覆盖尚未验证真实 Azure 服务的授权和故障恢复行为。
 
 ## 作业示例
 

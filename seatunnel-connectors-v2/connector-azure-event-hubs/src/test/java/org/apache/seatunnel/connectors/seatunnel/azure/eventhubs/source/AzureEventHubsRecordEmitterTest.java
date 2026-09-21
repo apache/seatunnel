@@ -122,8 +122,66 @@ class AzureEventHubsRecordEmitterTest {
                                         state));
 
         assertPayloadIsNotExposed(exception, "runtime failure");
+        Assertions.assertTrue(
+                exception.getMessage().contains("IllegalStateException <- InterruptedException"));
         Assertions.assertTrue(collector.rows.isEmpty());
         Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+    }
+
+    @Test
+    void cyclicCollectorCauseChainIsReportedOnceWithoutPayload() {
+        IllegalStateException first = new IllegalStateException(PRIVATE_PAYLOAD);
+        IllegalArgumentException second = new IllegalArgumentException(PRIVATE_CONNECTION_STRING);
+        first.initCause(second);
+        second.initCause(first);
+
+        AzureEventHubsConnectorException exception = collectorFailure(first);
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .endsWith(
+                                "(runtime failure: IllegalStateException <- IllegalArgumentException <- ...)"));
+    }
+
+    @Test
+    void deepCollectorCauseChainIsBoundedWithoutPayload() {
+        RuntimeException failure = new RuntimeException(PRIVATE_PAYLOAD);
+        for (int i = 0; i < 20; i++) {
+            failure = new RuntimeException(PRIVATE_CONNECTION_STRING, failure);
+        }
+
+        AzureEventHubsConnectorException exception = collectorFailure(failure);
+
+        Assertions.assertEquals(8, exception.getMessage().split("RuntimeException", -1).length - 1);
+        Assertions.assertTrue(exception.getMessage().endsWith(" <- ...)"));
+    }
+
+    private AzureEventHubsConnectorException collectorFailure(RuntimeException failure) {
+        AzureEventHubsSourceSplitState state = stateAt(10L);
+        RecordingCollector collector =
+                new RecordingCollector() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        throw failure;
+                    }
+                };
+        AzureEventHubsConnectorException exception =
+                Assertions.assertThrows(
+                        AzureEventHubsConnectorException.class,
+                        () ->
+                                new AzureEventHubsRecordEmitter(new StringSchema())
+                                        .emitRecord(
+                                                new EventHubsRecord(
+                                                        PRIVATE_PAYLOAD.getBytes(
+                                                                StandardCharsets.UTF_8),
+                                                        10L),
+                                                collector,
+                                                state));
+        assertPayloadIsNotExposed(exception, "runtime failure");
+        Assertions.assertTrue(collector.rows.isEmpty());
+        Assertions.assertEquals(10L, state.toSourceSplit().getNextSequenceNumber());
+        return exception;
     }
 
     private void assertJsonFailureIsSafe(String payload) {
@@ -159,8 +217,7 @@ class AzureEventHubsRecordEmitterTest {
                         .contains(
                                 "Could not deserialize or emit Event Hubs event in partition '3'"
                                         + " at sequence number 10 ("
-                                        + category
-                                        + ")"));
+                                        + category));
         String trace = ExceptionUtils.getMessage(exception);
         Assertions.assertFalse(trace.contains(PRIVATE_PAYLOAD));
         Assertions.assertFalse(trace.contains(PRIVATE_CONNECTION_STRING));

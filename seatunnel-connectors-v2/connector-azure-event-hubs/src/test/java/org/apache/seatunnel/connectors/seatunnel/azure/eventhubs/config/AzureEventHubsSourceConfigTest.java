@@ -17,6 +17,8 @@
 package org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.source.AzureEventHubsSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -25,6 +27,34 @@ import java.util.HashMap;
 import java.util.Map;
 
 class AzureEventHubsSourceConfigTest {
+
+    private static final String SAS_KEY = "c3ludGhldGljLXNlY3JldA==";
+    private static final String CONNECTION_STRING =
+            "Endpoint=sb://example.servicebus.windows.net/;SharedAccessKeyName=listen;SharedAccessKey="
+                    + SAS_KEY;
+
+    @Test
+    void entityPathRejectionAndStringRepresentationsDoNotExposeCredentials() {
+        Map<String, Object> options = validOptions();
+        options.put("connection_string", CONNECTION_STRING);
+        AzureEventHubsSourceConfig config = config(options);
+        Assertions.assertEquals(CONNECTION_STRING, config.getConnectionString());
+        Assertions.assertFalse(config.toString().contains(SAS_KEY));
+        Assertions.assertFalse(
+                new AzureEventHubsSourceSplit(config.getEventHubName(), "0", 10L)
+                        .toString()
+                        .contains(SAS_KEY));
+        for (String hub : new String[] {"events", "different-hub"}) {
+            options.put("connection_string", CONNECTION_STRING + ";EnTiTyPaTh=" + hub);
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+            Assertions.assertTrue(exception.getMessage().contains("must not include EntityPath"));
+            Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains(SAS_KEY));
+            Assertions.assertFalse(
+                    ExceptionUtils.getMessage(exception).contains(CONNECTION_STRING));
+            Assertions.assertNull(exception.getCause());
+        }
+    }
 
     @Test
     void defaultsAreBoundedAndStartFromEarliest() {
