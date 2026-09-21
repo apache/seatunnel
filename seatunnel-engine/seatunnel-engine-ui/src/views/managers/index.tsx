@@ -164,14 +164,19 @@ export default defineComponent({
             {
               title: t('managers.slots'),
               key: 'slots',
-              render: (row: NodeResources) => slots(row.resource)
+              width: 240,
+              render: (row: NodeResources) => (
+                <span style={{ display: 'block', whiteSpace: 'normal', overflowWrap: 'anywhere' }}>
+                  {slots(row.resource)}
+                </span>
+              )
             }
           ]
         : []),
       {
         title: t('managers.details'),
         key: 'details',
-        fixed: 'right',
+        fixed: isMaster.value ? 'right' : undefined,
         width: 95,
         render: (row) => (
           <NButton
@@ -238,6 +243,7 @@ export default defineComponent({
               loading={loading.value}
               rowKey={(row: NodeResources) => row.address}
               pagination={{ pageSize: 20 }}
+              tableLayout={isMaster.value ? 'auto' : 'fixed'}
               scrollX={1200}
               bordered={false}
             />

@@ -97,6 +97,10 @@ and slots. **Details** opens all system monitoring fields and the worker's
 resource-manager snapshot: available/total CPU and heap resources, heartbeat
 CPU/memory usage, tags, and running job count.
 
+The worker table scrolls horizontally on narrow screens. The Details column
+scrolls with the data instead of covering it, and long slot descriptions wrap
+within their column. The existing sidebar collapse control remains available.
+
 - Fixed-slot workers show used/total and free slots. Dynamic-slot workers show
   only used slots and an explicit dynamic label: tracked slots are not capacity.
 - Missing values are shown as `—`, not zero. Monitoring-only and resource-only

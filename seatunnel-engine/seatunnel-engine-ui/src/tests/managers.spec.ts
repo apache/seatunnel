@@ -201,6 +201,22 @@ describe('managers', () => {
     expect(wrapper.text()).not.toContain('localhost')
     expect(wrapper.text()).not.toContain('Slots')
     expect(managerService.getWorkerResources).not.toHaveBeenCalled()
+    expect(wrapper.findComponent(NDataTable).props('columns')).toEqual(
+      expect.arrayContaining([expect.objectContaining({ key: 'details', fixed: 'right' })])
+    )
+  })
+  test('worker table scrolls its action column with bounded slot summaries', async () => {
+    const { wrapper } = await setup()
+    await flushPromises()
+    const table = wrapper.findComponent(NDataTable)
+    expect(table.props('tableLayout')).toBe('fixed')
+    expect(table.props('scrollX')).toBe(1200)
+    expect(table.props('columns')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ key: 'details', fixed: undefined }),
+        expect.objectContaining({ key: 'slots', width: 240 })
+      ])
+    )
   })
   test('clears failed resource snapshots and recovers on the next refresh', async () => {
     const { wrapper } = await setup()

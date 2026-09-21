@@ -112,22 +112,52 @@ describe('Worker resources', () => {
 
   it('pauses hidden-tab polling and refreshes when visible again', () => {
     cy.clock(0, ['setTimeout', 'clearTimeout'])
-    cy.visit('/#/managers/workers')
+    cy.visit('/#/managers/workers', {
+      onBeforeLoad(win) {
+        const requests = cy.spy(win.XMLHttpRequest.prototype, 'open')
+        requests
+          .withArgs('GET', Cypress.sinon.match(/\/system-monitoring-information$/))
+          .as('monitoringStarts')
+        requests.withArgs('GET', Cypress.sinon.match(/\/resource\/workers$/)).as('resourceStarts')
+      }
+    })
     cy.wait(['@monitoring', '@resources'])
+    cy.contains('button', 'Refresh').should('not.be.disabled')
+    // Prove the real page's polling timer is armed before exercising the pause.
+    cy.tick(30_000)
+    cy.wait(['@monitoring', '@resources'])
+    cy.contains('button', 'Refresh').should('not.be.disabled')
+    cy.get('@monitoringStarts').should('have.been.calledTwice')
+    cy.get('@resourceStarts').should('have.been.calledTwice')
     cy.document().then((doc) => {
       Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'hidden' })
       doc.dispatchEvent(new Event('visibilitychange'))
     })
     cy.tick(90_000)
-    cy.get('@monitoring.all').should('have.length', 1)
-    cy.get('@resources.all').should('have.length', 1)
+    // Let timer-triggered Axios promise chains drain before reading page-side calls.
+    // Unlike proxy alias counts, these observe request starts without network latency.
+    cy.window().then(
+      (win) =>
+        new Cypress.Promise<void>((resolve) => {
+          const channel = new win.MessageChannel()
+          channel.port1.onmessage = () => {
+            channel.port1.close()
+            channel.port2.close()
+            resolve()
+          }
+          channel.port2.postMessage(null)
+        })
+    )
+    cy.get('@monitoringStarts').should('have.been.calledTwice')
+    cy.get('@resourceStarts').should('have.been.calledTwice')
     cy.document().then((doc) => {
       Object.defineProperty(doc, 'visibilityState', { configurable: true, get: () => 'visible' })
       doc.dispatchEvent(new Event('visibilitychange'))
     })
     cy.wait(['@monitoring', '@resources'])
-    cy.get('@monitoring.all').should('have.length', 2)
-    cy.get('@resources.all').should('have.length', 2)
+    cy.contains('button', 'Refresh').should('not.be.disabled')
+    cy.get('@monitoringStarts').should('have.been.calledThrice')
+    cy.get('@resourceStarts').should('have.been.calledThrice')
     cy.contains('3 / 4 used, 1 free')
   })
 
@@ -138,4 +168,76 @@ describe('Worker resources', () => {
     cy.contains('th', 'Slots').should('not.exist')
     cy.get('@resources.all').should('have.length', 0)
   })
+
+  for (const width of [1440, 768, 390]) {
+    it(`keeps worker cells readable while scrolling at ${width}px`, () => {
+      cy.viewport(width, 900)
+      cy.visit('/#/managers/workers')
+      cy.wait(['@monitoring', '@resources'])
+      cy.get('.n-data-table .n-scrollbar-container').as('tableViewport')
+      cy.get('@tableViewport').should(($viewport) => {
+        expect($viewport[0].scrollWidth).to.be.greaterThan($viewport[0].clientWidth)
+      })
+      // At the left edge an off-screen action must not cover the address column.
+      cy.get('@tableViewport').scrollTo('left')
+      cy.contains('td', 'fixed:5801').should('be.visible')
+      cy.get('.n-data-table tbody tr')
+        .first()
+        .find('td')
+        .last()
+        .should(($action) => {
+          const action = $action[0]
+          const viewport = action.closest('.n-scrollbar-container')!
+          expect(action.getBoundingClientRect().right).to.be.greaterThan(
+            viewport.getBoundingClientRect().right
+          )
+        })
+      cy.get('@tableViewport').scrollTo('right')
+      cy.contains('td', 'Dynamic — 2 used (no fixed capacity)').should(($cell) => {
+        const cell = $cell[0]
+        const action = cell.nextElementSibling!
+        const bounds = cell.getBoundingClientRect()
+        const range = cell.ownerDocument.createRange()
+        range.selectNodeContents(cell.firstElementChild || cell)
+        const lines = Array.from(range.getClientRects()).filter((rect) => rect.width > 0)
+        expect(lines.length, 'wrapped slot text').to.be.greaterThan(1)
+        for (const line of lines) {
+          expect(line.left, 'text stays inside its cell').to.be.at.least(bounds.left)
+          expect(line.right, 'text stays before the next cell').to.be.at.most(bounds.right)
+        }
+        expect(
+          action.getBoundingClientRect().left,
+          'action does not overlap slot cell'
+        ).to.be.at.least(bounds.right - 1)
+      })
+      cy.get('.n-data-table tbody tr').first().contains('button', 'Details').click()
+      cy.get('.n-drawer').should('be.visible').and('contain', 'fixed:5801')
+      if (width === 390) {
+        cy.get('.n-drawer-header__close').click()
+        cy.get('.n-drawer').should('not.exist')
+        cy.get('.n-layout-toggle-bar').click()
+        cy.get('.n-layout-sider').should(($sidebar) => {
+          expect($sidebar[0].getBoundingClientRect().width).to.be.at.most(65)
+        })
+        cy.contains('td', 'Dynamic — 2 used (no fixed capacity)').scrollIntoView()
+        cy.contains('td', 'Dynamic — 2 used (no fixed capacity)').then(($cell) => {
+          cy.get('@tableViewport').scrollTo($cell[0].offsetLeft, 0)
+        })
+        cy.contains('td', 'Dynamic — 2 used (no fixed capacity)').should(($cell) => {
+          const cell = $cell[0]
+          const viewport = cell.closest('.n-scrollbar-container')!.getBoundingClientRect()
+          const range = cell.ownerDocument.createRange()
+          range.selectNodeContents(cell.firstElementChild || cell)
+          for (const line of Array.from(range.getClientRects())) {
+            expect(line.left, 'slot text visible after sidebar collapse').to.be.at.least(
+              viewport.left
+            )
+            expect(line.right, 'slot text visible after sidebar collapse').to.be.at.most(
+              viewport.right
+            )
+          }
+        })
+      }
+    })
+  }
 })
