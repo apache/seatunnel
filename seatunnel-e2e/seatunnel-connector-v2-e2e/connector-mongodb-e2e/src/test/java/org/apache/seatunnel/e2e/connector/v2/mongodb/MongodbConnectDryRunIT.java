@@ -207,8 +207,10 @@ public class MongodbConnectDryRunIT extends TestSuiteBase implements TestResourc
                 assertThrows(
                         IllegalStateException.class,
                         () -> validate(uri("invalid-secret"), "events"));
+        assertEquals("MongoDB connect dry-run authentication failed", error.getMessage());
         assertFalse(error.toString().contains("invalid-secret"));
         assertNull(error.getCause());
+        assertEquals(0, error.getSuppressed().length);
     }
 
     @Test

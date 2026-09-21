@@ -49,6 +49,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
@@ -203,12 +204,23 @@ class MongodbFactoryTest {
             MongoClient client = mock(MongoClient.class);
             MongoDatabase database = mock(MongoDatabase.class);
             when(client.getDatabase(any())).thenReturn(database);
-            when(database.runCommand(any(Document.class), any(ReadPreference.class)))
+            Document listCollections =
+                    new Document("listCollections", 1)
+                            .append("filter", new Document("name", "test_collection"))
+                            .append("nameOnly", true)
+                            .append("authorizedCollections", true)
+                            .append("cursor", new Document("batchSize", 2))
+                            .append("maxTimeMS", 30_000);
+            Document killCursors =
+                    new Document("killCursors", "$cmd.listCollections")
+                            .append("cursors", Collections.singletonList(123L));
+            when(database.runCommand(eq(listCollections), eq(ReadPreference.primary())))
                     .thenReturn(
                             new Document(
                                     "cursor",
                                     new Document("id", cursorFailure ? 123L : 0L)
-                                            .append("firstBatch", Collections.emptyList())))
+                                            .append("firstBatch", Collections.emptyList())));
+            when(database.runCommand(eq(killCursors), eq(ReadPreference.primary())))
                     .thenThrow(new IllegalStateException("cursor secret"));
             doThrow(new IllegalStateException("close secret")).when(client).close();
             try (MockedStatic<MongoClients> clients = mockStatic(MongoClients.class)) {
@@ -222,6 +234,11 @@ class MongodbFactoryTest {
                         error.getMessage());
                 Assertions.assertNull(error.getCause());
                 Assertions.assertEquals(0, error.getSuppressed().length);
+                verify(database).runCommand(listCollections, ReadPreference.primary());
+                if (cursorFailure) {
+                    verify(database).runCommand(killCursors, ReadPreference.primary());
+                }
+                verifyNoMoreInteractions(database);
                 verify(client).close();
             }
         }
