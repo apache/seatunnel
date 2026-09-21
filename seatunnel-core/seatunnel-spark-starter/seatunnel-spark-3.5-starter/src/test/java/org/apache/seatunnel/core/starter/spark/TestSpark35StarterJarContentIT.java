@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.spark;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -28,7 +29,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.JarFile;
 import java.util.stream.Stream;
@@ -36,6 +39,8 @@ import java.util.stream.Stream;
 import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
 class TestSpark35StarterJarContentIT {
+
+    private static final String WINDOWS_LAUNCHER = "start-seatunnel-spark-3.5-connector-v2.cmd";
 
     @TempDir Path tempDir;
 
@@ -69,6 +74,177 @@ class TestSpark35StarterJarContentIT {
         assertUsage(
                 "start-seatunnel-spark-3.5-connector-v2.cmd",
                 "start-seatunnel-spark-3.5-connector-v2.cmd");
+    }
+
+    @Test
+    void windowsLauncherPrintsHelpFromPathWithSpacesAndMetacharacters() throws Exception {
+        Path home = prepareWindowsDistribution();
+        for (String[] arguments : new String[][] {{"-h"}, {}}) {
+            ProcessResult result = runWindowsLauncher(home, "-Xmx128m", arguments);
+            Assertions.assertEquals(0, result.exitCode, result.diagnostic());
+            Assertions.assertTrue(
+                    result.stdout.contains("Usage: " + WINDOWS_LAUNCHER), result.diagnostic());
+            assertNoSubmissionOrTemporaryOutput();
+        }
+    }
+
+    @Test
+    void windowsLauncherPreservesJavaFailureWithEmptyStdout() throws Exception {
+        Path home = prepareWindowsDistribution();
+        // Fail the real JVM before main(), without replacing java with a batch-file stub.
+        String invalidOption = "-XX:SeaTunnelInvalidOption";
+        ProcessResult javaFailure =
+                runProcess(
+                        new ProcessBuilder(
+                                javaExecutable().toString(),
+                                "-Xmx128m",
+                                invalidOption,
+                                "-version"));
+        Assertions.assertNotEquals(0, javaFailure.exitCode, javaFailure.diagnostic());
+        Assertions.assertEquals("", javaFailure.stdout, javaFailure.diagnostic());
+        Assertions.assertTrue(
+                javaFailure.stderr.contains("SeaTunnelInvalidOption"), javaFailure.diagnostic());
+
+        ProcessResult result = runWindowsLauncher(home, "-Xmx128m " + invalidOption, "-h");
+        Assertions.assertEquals(javaFailure.exitCode, result.exitCode, result.diagnostic());
+        Assertions.assertEquals("", result.stdout, result.diagnostic());
+        Assertions.assertTrue(
+                result.stderr.contains("SeaTunnelInvalidOption"), result.diagnostic());
+        assertNoSubmissionOrTemporaryOutput();
+    }
+
+    @Test
+    void windowsLauncherPassesQuotedConfigPathWithSpaces() throws Exception {
+        assertWindowsConfigPath("job with spaces.conf");
+    }
+
+    @Test
+    void windowsLauncherPassesQuotedConfigPathWithMetacharacters() throws Exception {
+        assertWindowsConfigPath("job !seatunnel_missing! & spaces.conf");
+    }
+
+    private void assertWindowsConfigPath(String fileName) throws Exception {
+        Path home = prepareWindowsDistribution();
+        Path config = home.resolve("config").resolve(fileName);
+        // A parse error proves the real starter opened this file, not a split or expanded path.
+        // This intentionally stops before the legacy command-string handoff to spark-submit.
+        Files.write(config, "env {\n".getBytes(StandardCharsets.UTF_8));
+        ProcessResult result = runWindowsLauncher(home, "-Xmx128m", "--config", config.toString());
+        Assertions.assertNotEquals(0, result.exitCode, result.diagnostic());
+        Assertions.assertTrue(result.stderr.contains("ConfigException$Parse"), result.diagnostic());
+        Assertions.assertTrue(result.stderr.contains(fileName), result.diagnostic());
+        assertNoSubmissionOrTemporaryOutput();
+    }
+
+    private Path prepareWindowsDistribution() throws IOException {
+        Assumptions.assumeTrue(
+                System.getProperty("os.name").startsWith("Windows"),
+                "Requires native Windows cmd.exe; not exercised by non-Windows builds");
+        Path home =
+                Files.createDirectories(
+                        tempDir.resolve("distribution !seatunnel_missing! & spaces"));
+        Path bin = Files.createDirectories(home.resolve("bin"));
+        Files.createDirectories(home.resolve("config"));
+        Path logging = Files.createDirectories(home.resolve("starter/logging"));
+        Files.copy(Paths.get("src/main/bin", WINDOWS_LAUNCHER), bin.resolve(WINDOWS_LAUNCHER));
+        Files.copy(findStarterJar(), home.resolve("starter/seatunnel-spark-3.5-starter.jar"));
+        try (Stream<Path> jars = Files.list(Paths.get("target/logging-e2e"))) {
+            for (Path jar :
+                    (Iterable<Path>)
+                            jars.filter(path -> path.toString().endsWith(".jar"))::iterator) {
+                Files.copy(jar, logging.resolve(jar.getFileName()));
+            }
+        }
+        Files.createDirectories(tempDir.resolve("cmd-temp !seatunnel_missing! & spaces"));
+        Path sparkBin = Files.createDirectories(tempDir.resolve("spark/bin"));
+        // Only a sentinel: none of these help/failure cases should reach Spark submission.
+        Files.write(
+                sparkBin.resolve("spark-submit.cmd"),
+                ("@echo off\r\n> \"%SEATUNNEL_SUBMIT_MARKER%\" echo unexpected\r\nexit /b 97\r\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        return home;
+    }
+
+    private ProcessResult runWindowsLauncher(Path home, String javaOptions, String... arguments)
+            throws Exception {
+        List<String> command = new ArrayList<>();
+        command.add(Paths.get(System.getenv("SystemRoot"), "System32", "cmd.exe").toString());
+        command.addAll(Arrays.asList("/d", "/v:off", "/c", WINDOWS_LAUNCHER));
+        command.addAll(Arrays.asList(arguments));
+        ProcessBuilder builder =
+                new ProcessBuilder(command).directory(home.resolve("bin").toFile());
+        builder.environment().put("JAVA_OPTS", javaOptions);
+        builder.environment().put("SPARK_HOME", tempDir.resolve("spark").toString());
+        builder.environment()
+                .put("SEATUNNEL_SUBMIT_MARKER", tempDir.resolve("submitted.txt").toString());
+        builder.environment()
+                .put("TEMP", tempDir.resolve("cmd-temp !seatunnel_missing! & spaces").toString());
+        builder.environment().put("TMP", builder.environment().get("TEMP"));
+        builder.environment()
+                .put(
+                        "PATH",
+                        javaExecutable().getParent() + File.pathSeparator + System.getenv("PATH"));
+        return runProcess(builder);
+    }
+
+    private ProcessResult runProcess(ProcessBuilder builder) throws Exception {
+        Map<String, String> environment = builder.environment();
+        environment
+                .keySet()
+                .removeIf(
+                        name ->
+                                name.equalsIgnoreCase("JAVA_TOOL_OPTIONS")
+                                        || name.equalsIgnoreCase("JDK_JAVA_OPTIONS")
+                                        || name.equalsIgnoreCase("_JAVA_OPTIONS")
+                                        || name.equalsIgnoreCase("seatunnel_missing"));
+        Path stdout = Files.createTempFile(tempDir, "stdout-", ".log");
+        Path stderr = Files.createTempFile(tempDir, "stderr-", ".log");
+        Process process =
+                builder.redirectOutput(stdout.toFile()).redirectError(stderr.toFile()).start();
+        try {
+            Assertions.assertTrue(
+                    process.waitFor(30, TimeUnit.SECONDS), "Launcher process timed out");
+            return new ProcessResult(
+                    process.exitValue(),
+                    new String(Files.readAllBytes(stdout), StandardCharsets.UTF_8),
+                    new String(Files.readAllBytes(stderr), StandardCharsets.UTF_8));
+        } finally {
+            if (process.isAlive()) {
+                process.destroyForcibly();
+                Assertions.assertTrue(
+                        process.waitFor(10, TimeUnit.SECONDS), "Launcher did not exit");
+            }
+        }
+    }
+
+    private void assertNoSubmissionOrTemporaryOutput() throws IOException {
+        Assertions.assertFalse(
+                Files.exists(tempDir.resolve("submitted.txt")), "Unexpected Spark submission");
+        try (Stream<Path> files =
+                Files.list(tempDir.resolve("cmd-temp !seatunnel_missing! & spaces"))) {
+            Assertions.assertEquals(
+                    0, files.count(), "Launcher did not clean its temporary output");
+        }
+    }
+
+    private static Path javaExecutable() {
+        return Paths.get(System.getProperty("java.home"), "bin", "java.exe");
+    }
+
+    private static class ProcessResult {
+        private final int exitCode;
+        private final String stdout;
+        private final String stderr;
+
+        private ProcessResult(int exitCode, String stdout, String stderr) {
+            this.exitCode = exitCode;
+            this.stdout = stdout;
+            this.stderr = stderr;
+        }
+
+        private String diagnostic() {
+            return "exit=" + exitCode + "\nstdout:\n" + stdout + "\nstderr:\n" + stderr;
+        }
     }
 
     private void assertUsage(String configuredName, String expectedName) throws Exception {
