@@ -204,6 +204,9 @@ class MqttSourceTest {
     @Test
     void testSourceIsJavaSerializable() throws Exception {
         MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+        // The engine sets the job context before it serializes the logical DAG, so mirror that
+        // ordering rather than serializing a source that has never had one.
+        source.setJobContext(new JobContext().setJobMode(JobMode.STREAMING));
 
         byte[] serialized;
         try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
@@ -215,7 +218,16 @@ class MqttSourceTest {
 
         try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
             MqttSource restored = (MqttSource) in.readObject();
-            Assertions.assertEquals(source.getPluginName(), restored.getPluginName());
+            // Assert restored state, not a constant: getPluginName() alone would still pass if
+            // every field were lost. The catalog table and the job context are the state the
+            // engine relies on after deserializing the vertex.
+            Assertions.assertEquals(
+                    source.getProducedCatalogTables().get(0).getTableId(),
+                    restored.getProducedCatalogTables().get(0).getTableId());
+            Assertions.assertEquals(
+                    source.getProducedCatalogTables().get(0).getTableSchema(),
+                    restored.getProducedCatalogTables().get(0).getTableSchema());
+            Assertions.assertEquals(Boundedness.UNBOUNDED, restored.getBoundedness());
         }
     }
 
