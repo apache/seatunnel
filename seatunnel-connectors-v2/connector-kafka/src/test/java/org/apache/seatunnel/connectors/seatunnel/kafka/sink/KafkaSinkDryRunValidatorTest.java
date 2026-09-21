@@ -38,6 +38,7 @@ import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.DescribeTopicsOptions;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartitionInfo;
 import org.apache.kafka.common.errors.AuthenticationException;
@@ -253,6 +254,13 @@ class KafkaSinkDryRunValidatorTest {
     }
 
     @Test
+    void testMissingTopicFieldIdentifiesOptionWithoutExposingItsValue() {
+        assertLocalFailure(
+                options("prefix-${synthetic-secret}-${route}"),
+                "topic references a field absent from the upstream schema");
+    }
+
+    @Test
     void testSerializerPreservesFirstFieldTopicAndExplicitPartition() {
         Map<String, Object> options = options("prefix-${route}-${unknown}");
         options.put("partition", 1);
@@ -369,12 +377,20 @@ class KafkaSinkDryRunValidatorTest {
         RuntimeException[] causes = {
             new InvalidTopicException("synthetic-secret"),
             new NetworkException("synthetic-secret"),
-            new UnsupportedVersionException("synthetic-secret")
+            new UnsupportedVersionException("synthetic-secret"),
+            new KafkaException("synthetic-secret"),
+            new IllegalArgumentException("synthetic-secret"),
+            new IllegalStateException("synthetic-secret"),
+            new RuntimeException("synthetic-secret")
         };
         String[] reasons = {
             "invalid target topic name",
             "broker network connection failed",
-            "broker does not support the requested metadata API version"
+            "broker does not support the requested metadata API version",
+            "unexpected Kafka client metadata failure",
+            "invalid metadata client argument",
+            "invalid metadata client state",
+            "unexpected metadata failure; check broker connectivity and Kafka client configuration"
         };
         for (int i = 0; i < causes.length; i++) {
             AdminClient admin = mock(AdminClient.class);
@@ -405,6 +421,9 @@ class KafkaSinkDryRunValidatorTest {
                             IllegalArgumentException.class,
                             () -> validate(options("orders"), rowType));
             assertFalse(failure.getMessage().contains("synthetic-secret"));
+            assertEquals(
+                    "Kafka sink connect dry-run: invalid metadata client argument",
+                    failure.getMessage());
             assertNull(failure.getCause());
             assertSame(original, Thread.currentThread().getContextClassLoader());
         }

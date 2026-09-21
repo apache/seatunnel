@@ -36,6 +36,10 @@ This also applies when the broker enables runtime topic auto-creation: dry-run n
 Each upstream table is validated separately, including its metadata request and client cleanup;
 the timeout is per table, not a deadline for the entire multi-table job.
 
+Dry-run diagnostics identify invalid options (including missing `${field}` references in `topic`)
+and known metadata failure categories without echoing configured values or raw client exceptions.
+Unknown failures retain a generic metadata diagnosis.
+
 ## Supported DataSource Info
 
 In order to use the Kafka connector, the following dependencies are required.

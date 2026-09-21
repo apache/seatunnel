@@ -40,6 +40,8 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.HEADERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseConstants.KEY;
@@ -57,12 +59,26 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 /** Shared local schema validation and serializer construction; never opens a Kafka client. */
 final class KafkaSinkSerializer {
 
+    private static final Pattern TOPIC_FIELD = Pattern.compile("\\$\\{(.*?)\\}", Pattern.DOTALL);
+
     private KafkaSinkSerializer() {}
 
     static SeaTunnelRowSerializer<byte[], byte[]> create(
             ReadonlyConfig pluginConfig, SeaTunnelRowType seaTunnelRowType) {
         MessageFormat messageFormat = pluginConfig.get(FORMAT);
         String topic = pluginConfig.get(TOPIC);
+        if (topic != null) {
+            // Match topicExtractor: only the first template field supplies the runtime topic.
+            Matcher matcher = TOPIC_FIELD.matcher(topic);
+            if (matcher.find()
+                    && !Arrays.asList(seaTunnelRowType.getFieldNames())
+                            .contains(matcher.group(1))) {
+                throw new LocalValidationException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "topic references a field absent from the upstream schema",
+                        String.format("Field name { %s } is not found!", topic));
+            }
+        }
 
         if (pluginConfig.get(KAFKA_MESSAGE_VALUE_FIELDS) != null) {
             if (MessageFormat.NATIVE.equals(messageFormat)

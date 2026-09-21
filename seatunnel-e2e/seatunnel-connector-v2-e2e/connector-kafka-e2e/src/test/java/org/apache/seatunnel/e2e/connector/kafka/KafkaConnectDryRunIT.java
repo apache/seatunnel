@@ -212,8 +212,18 @@ public class KafkaConnectDryRunIT extends TestSuiteBase implements TestResource 
                         IllegalArgumentException.class,
                         () -> validateSink("sink-dry-run-missing", null, PASSWORD));
         assertTrue(missing.getMessage().contains("target topic does not exist"));
-        assertThrows(IllegalArgumentException.class, () -> validateSink(TOPIC, 1, PASSWORD));
-        assertThrows(IllegalArgumentException.class, () -> validateSink(TOPIC, -1, PASSWORD));
+        IllegalArgumentException outOfRange =
+                assertThrows(
+                        IllegalArgumentException.class, () -> validateSink(TOPIC, 1, PASSWORD));
+        assertEquals(
+                "Kafka sink connect dry-run: partition is outside the target topic's range",
+                outOfRange.getMessage());
+        IllegalArgumentException negative =
+                assertThrows(
+                        IllegalArgumentException.class, () -> validateSink(TOPIC, -1, PASSWORD));
+        assertEquals(
+                "Kafka sink connect dry-run: partition must not be negative",
+                negative.getMessage());
         assertEquals(topicsBefore, allTopics());
     }
 

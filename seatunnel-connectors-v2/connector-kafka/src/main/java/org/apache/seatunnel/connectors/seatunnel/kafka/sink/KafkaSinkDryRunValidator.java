@@ -26,6 +26,7 @@ import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.DescribeClusterOptions;
 import org.apache.kafka.clients.admin.DescribeTopicsOptions;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.errors.AuthenticationException;
@@ -67,6 +68,7 @@ final class KafkaSinkDryRunValidator {
             throw new IllegalArgumentException(
                     "Kafka sink connect dry-run: partition must not be negative");
         }
+        // Report local partition bounds outside the catch that sanitizes driver failures.
         boolean partitionExists = true;
         try (TemporaryClassLoaderContext ignored =
                 TemporaryClassLoaderContext.of(KafkaSinkDryRunValidator.class.getClassLoader())) {
@@ -151,6 +153,12 @@ final class KafkaSinkDryRunValidator {
                 reason = "broker network connection failed";
             } else if (failure instanceof UnsupportedVersionException) {
                 reason = "broker does not support the requested metadata API version";
+            } else if (failure instanceof KafkaException) {
+                reason = "unexpected Kafka client metadata failure";
+            } else if (failure instanceof IllegalArgumentException) {
+                reason = "invalid metadata client argument";
+            } else if (failure instanceof IllegalStateException) {
+                reason = "invalid metadata client state";
             }
             // Client exceptions can embed JAAS options, passwords and endpoint credentials.
             throw new IllegalArgumentException("Kafka sink connect dry-run: " + reason);
