@@ -23,33 +23,33 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 ## 选项
 
-|           名称           | 类型      | 是否必须 |             默认值              |
-|------------------------|---------|------|------------------------------|
-| hosts                  | array   | 是    | -                            |
-| index                  | string  | 是    | -                            |
-| schema_save_mode       | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode         | string  | 否    | APPEND_DATA                  |
-| index_type             | string  | 否    |                              |
-| primary_keys           | list    | 否    |                              |
-| key_delimiter          | string  | 否    | `_`                          |
-| auth_type              | string  | 否    | basic                        |
-| username               | string  | 否    |                              |
-| password               | string  | 否    |                              |
-| auth.api_key_id        | string  | 否    | -                            |
-| auth.api_key           | string  | 否    | -                            |
-| auth.api_key_encoded   | string  | 否    | -                            |
-| max_retry_count        | int     | 否    | 3                            |
-| max_batch_size         | int     | 否    | 10                           |
-| tls_verify_certificate | boolean | 否    | true                         |
-| tls_verify_hostname    | boolean | 否    | true                         |
-| tls_keystore_path      | string  | 否    | -                            |
-| tls_keystore_password  | string  | 否    | -                            |
-| tls_truststore_path    | string  | 否    | -                            |
-| tls_truststore_password | string  | 否    | -                            |
-| common-options         |         | 否    | -                            |
-| vectorization_fields   | array   | 否    | -                            |
-| vector_dimensions      | int     | 否    | 0                            |
-| multi_table_sink_replica | int   | 否    | 1                            |
+|           名称           | 类型      | 是否必须 |             默认值              | 描述 |
+|------------------------|---------|------|------------------------------|------|
+| hosts                  | array   | 是    | -                            | Elasticsearch 集群 HTTP 地址，格式 `host:port`，可配置多个，例如 `["host1:9200", "host2:9200"]`。 |
+| index                  | string  | 是    | -                            | 目标 Elasticsearch 索引，支持字段名变量（如 `seatunnel_${age}`，需配置 `schema_save_mode="IGNORE"`）。多表写入时使用 `${table_name}` 把每张上游表路由到独立索引。 |
+| schema_save_mode       | string  | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST | 任务启动时如何处理目标索引，详见 [schema_save_mode](#schema_save_mode)。 |
+| data_save_mode         | string  | 是    | APPEND_DATA                  | 任务启动时如何处理已有文档，详见 [data_save_mode](#data_save_mode)。 |
+| index_type             | string  | 否    | -                            | Elasticsearch 索引类型，Elasticsearch 6 及以上不建议指定。 |
+| primary_keys           | list    | 否    | -                            | 用于组成文档 `_id` 的主键字段。CDC 场景下必填以保证 upsert 语义。 |
+| key_delimiter          | string  | 否    | `_`                          | 组合主键拼接为文档 `_id` 时的分隔符，默认 `_`。 |
+| auth_type              | string  | 否    | basic                        | 认证方式：`basic`、`api_key`、`api_key_encoded`。 |
+| username               | string  | 否    | -                            | 基本认证的用户名（x-pack 用户名）。 |
+| password               | string  | 否    | -                            | 基本认证的密码（x-pack 密码）。 |
+| auth.api_key_id        | string  | 否    | -                            | Elasticsearch API Key ID，`auth_type=api_key` 时使用。 |
+| auth.api_key           | string  | 否    | -                            | Elasticsearch API Key secret，`auth_type=api_key` 时使用。 |
+| auth.api_key_encoded   | string  | 否    | -                            | Base64 编码的 API Key，`auth_type=api_key_encoded` 时使用。 |
+| max_retry_count        | int     | 否    | 3                            | 单次 bulk 请求的最大重试次数。 |
+| max_batch_size         | int     | 否    | 10                           | 每个 bulk 请求包含的最大文档数。 |
+| tls_verify_certificate | boolean | 否    | true                         | 是否校验 HTTPS 证书。 |
+| tls_verify_hostname    | boolean | 否    | true                         | 是否校验 HTTPS 主机名。 |
+| tls_keystore_path      | string  | 否    | -                            | PEM 或 JKS key store 的路径。 |
+| tls_keystore_password  | string  | 否    | -                            | `tls_keystore_path` 对应 key store 的密码。 |
+| tls_truststore_path    | string  | 否    | -                            | PEM 或 JKS trust store 的路径。 |
+| tls_truststore_password | string  | 否    | -                            | `tls_truststore_path` 对应 trust store 的密码。 |
+| common-options         |         | 否    | -                            | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
+| vectorization_fields   | array   | 否    | -                            | 需要向量化的字段名（Elasticsearch 7.3+）。 |
+| vector_dimensions      | int     | 否    | 0                            | 向量维度（Elasticsearch 7.3+）。 |
+| multi_table_sink_replica | int   | 否    | 1                            | 多表写入时每张表对应的 sink writer 副本数。 |
 
 
 ### hosts [array]
