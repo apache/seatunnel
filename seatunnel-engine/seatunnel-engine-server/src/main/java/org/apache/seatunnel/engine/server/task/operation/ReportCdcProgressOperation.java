@@ -50,6 +50,8 @@ public class ReportCdcProgressOperation extends TracingOperation
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
+        CdcProgressReportSerializer.validateSize(
+                reports.size(), "report", CdcProgressReportSerializer.MAX_BATCH_ENTRIES);
         out.writeInt(reports.size());
         for (CdcProgressEnvelope<?> report : reports) {
             CdcProgressReportSerializer.writeEnvelope(out, report);

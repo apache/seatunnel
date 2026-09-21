@@ -80,10 +80,8 @@ public class IncrementalSourceEnumerator
         if (!(splitAssigner instanceof CdcEnumeratorProgressSource)) {
             return null;
         }
-        synchronized (context) {
-            return ((CdcEnumeratorProgressSource) splitAssigner)
-                    .getCdcEnumeratorProgress(connectorType, positionType);
-        }
+        return ((CdcEnumeratorProgressSource) splitAssigner)
+                .getCdcEnumeratorProgress(connectorType, positionType);
     }
 
     @Override

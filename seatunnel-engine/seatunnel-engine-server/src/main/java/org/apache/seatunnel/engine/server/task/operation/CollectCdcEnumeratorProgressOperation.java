@@ -48,6 +48,7 @@ public class CollectCdcEnumeratorProgressOperation extends Operation
     public void run() throws Exception {
         Address callerAddress = getCallerAddress();
         Address masterAddress = getNodeEngine().getMasterAddress();
+        // Coordinator ownership survives remote enumerator placement and master failover.
         if (callerAddress == null || !callerAddress.equals(masterAddress)) {
             throw new IllegalStateException(
                     "Only the active coordinator can collect CDC enumerator progress");
@@ -68,6 +69,10 @@ public class CollectCdcEnumeratorProgressOperation extends Operation
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
+        CdcProgressReportSerializer.validateSize(
+                taskGroupLocations.size(),
+                "task group",
+                CdcProgressReportSerializer.MAX_BATCH_ENTRIES);
         out.writeInt(taskGroupLocations.size());
         for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
             out.writeObject(taskGroupLocation);

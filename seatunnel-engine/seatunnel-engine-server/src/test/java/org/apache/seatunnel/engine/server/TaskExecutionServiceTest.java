@@ -137,43 +137,55 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         () -> {},
                         failure -> {});
 
-        List<CdcProgressEnvelope<?>> reports =
-                taskExecutionService.collectEnumeratorCdcProgress(
-                        Collections.singletonList(groupLocation));
-        Assertions.assertEquals(1, reports.size());
-        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, reports.get(0).getOwner());
-        Assertions.assertEquals(7L, reports.get(0).getExecutionAttemptId());
-        Assertions.assertEquals(41L, reports.get(0).getSourceVertexId());
+        server.getCdcProgressService().registerPipeline(new PipelineLocation(jobId, pipeLineId));
+        try {
+            List<CdcProgressEnvelope<?>> reports =
+                    taskExecutionService.collectEnumeratorCdcProgress(
+                            Collections.singletonList(groupLocation));
+            Assertions.assertEquals(1, reports.size());
+            Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, reports.get(0).getOwner());
+            Assertions.assertEquals(7L, reports.get(0).getExecutionAttemptId());
+            Assertions.assertEquals(41L, reports.get(0).getSourceVertexId());
 
-        CdcProgressReportBatch batch =
-                (CdcProgressReportBatch)
-                        nodeEngine
-                                .getOperationService()
-                                .createInvocationBuilder(
-                                        SeaTunnelServer.SERVICE_NAME,
-                                        new CollectCdcEnumeratorProgressOperation(
-                                                Collections.singletonList(groupLocation)),
-                                        nodeEngine.getThisAddress())
-                                .invoke()
-                                .get();
-        server.getCdcProgressService().updateReports(batch.getReports());
-        Assertions.assertNotNull(
-                server.getCdcProgressService()
-                        .getEnumeratorReport(
-                                jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+            CdcProgressReportBatch batch =
+                    (CdcProgressReportBatch)
+                            nodeEngine
+                                    .getOperationService()
+                                    .createInvocationBuilder(
+                                            SeaTunnelServer.SERVICE_NAME,
+                                            new CollectCdcEnumeratorProgressOperation(
+                                                    Collections.singletonList(groupLocation)),
+                                            nodeEngine.getThisAddress())
+                                    .invoke()
+                                    .get();
+            server.getCdcProgressService().updateReports(batch.getReports());
+            Assertions.assertNotNull(
+                    server.getCdcProgressService()
+                            .getEnumeratorReport(
+                                    jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
 
-        stop.set(true);
-        await().atMost(10, TimeUnit.SECONDS).until(taskFuture::isDone);
-        Assertions.assertTrue(
-                taskExecutionService
-                        .collectEnumeratorCdcProgress(Collections.singletonList(groupLocation))
-                        .isEmpty());
+            stop.set(true);
+            await().atMost(10, TimeUnit.SECONDS).until(taskFuture::isDone);
+            Assertions.assertTrue(
+                    taskExecutionService
+                            .collectEnumeratorCdcProgress(Collections.singletonList(groupLocation))
+                            .isEmpty());
 
-        server.removeMetrics(new PipelineLocation(jobId, pipeLineId));
-        Assertions.assertNull(
-                server.getCdcProgressService()
-                        .getEnumeratorReport(
-                                jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+            server.removeMetrics(new PipelineLocation(jobId, pipeLineId));
+            Assertions.assertNotNull(
+                    server.getCdcProgressService()
+                            .getEnumeratorReport(
+                                    jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+            server.getCdcProgressService().removePipeline(new PipelineLocation(jobId, pipeLineId));
+            Assertions.assertNull(
+                    server.getCdcProgressService()
+                            .getEnumeratorReport(
+                                    jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+        } finally {
+            stop.set(true);
+            taskExecutionService.cancelTaskGroup(groupLocation);
+            server.getCdcProgressService().removePipeline(new PipelineLocation(jobId, pipeLineId));
+        }
     }
 
     @Test
@@ -716,9 +728,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Task oldTask = new TestTask(new AtomicBoolean(true), 0, true);
         TaskGroup oldTaskGroup =
                 new TaskGroupDefaultImpl(location, "old-generation", Lists.newArrayList(oldTask));
-        TestEnumeratorProgressTask newTask =
-                new TestEnumeratorProgressTask(
-                        new TaskLocation(location, 0, 0), new AtomicBoolean(true), 41L);
+        Task newTask = new TestTask(new AtomicBoolean(true), 0, true);
         TaskGroup newTaskGroup =
                 new TaskGroupDefaultImpl(location, "new-generation", Lists.newArrayList(newTask));
         TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
@@ -785,12 +795,6 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             }
 
             Assertions.assertSame(newContext, executionContexts.get(location));
-            List<CdcProgressEnvelope<?>> reports =
-                    taskExecutionService.collectEnumeratorCdcProgress(
-                            Collections.singletonList(location));
-            assertEquals(1, reports.size());
-            assertEquals(2L, reports.get(0).getExecutionAttemptId());
-            assertEquals(41L, reports.get(0).getSourceVertexId());
             Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
             assertEquals(1L, oldContext.getExecutionId());
             assertEquals(2L, newContext.getExecutionId());

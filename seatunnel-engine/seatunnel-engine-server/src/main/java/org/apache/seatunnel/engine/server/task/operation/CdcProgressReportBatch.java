@@ -46,6 +46,8 @@ public class CdcProgressReportBatch implements IdentifiedDataSerializable {
 
     @Override
     public void writeData(ObjectDataOutput out) throws IOException {
+        CdcProgressReportSerializer.validateSize(
+                reports.size(), "report", CdcProgressReportSerializer.MAX_BATCH_ENTRIES);
         out.writeInt(reports.size());
         for (CdcProgressEnvelope<?> report : reports) {
             CdcProgressReportSerializer.writeEnvelope(out, report);

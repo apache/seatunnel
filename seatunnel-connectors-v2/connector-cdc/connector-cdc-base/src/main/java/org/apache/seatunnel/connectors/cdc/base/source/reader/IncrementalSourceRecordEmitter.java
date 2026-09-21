@@ -93,6 +93,9 @@ public class IncrementalSourceRecordEmitter<T>
         this.eventListener = context.getEventListener();
     }
 
+    /**
+     * Attaches the reader's tracker before emission begins; failed processing is never reported.
+     */
     public void setCdcProgressTracker(CdcReaderProgressTracker cdcProgressTracker) {
         this.cdcProgressTracker = cdcProgressTracker;
     }

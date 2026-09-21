@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to you under the Apache License, Version 2.0
+ * The ASF licenses this file to You under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -29,10 +29,15 @@ public final class CdcProgressEnvelope<R extends CdcProgressReport> {
 
     private final CdcProgressOwner owner;
     private final TaskLocation taskLocation;
+    /** Logical source identity, shared by its enumerator and parallel readers. */
     private final long sourceVertexId;
+    /** Engine task-group execution identity; a newer deployment supersedes older reports. */
     private final long executionAttemptId;
+    /** Monotonic only within this task's execution attempt. */
     private final long reportSequence;
+    /** Sampling wall-clock time for diagnostics, never an ordering or source-event timestamp. */
     private final long observedAt;
+
     private final R report;
 
     public CdcProgressEnvelope(

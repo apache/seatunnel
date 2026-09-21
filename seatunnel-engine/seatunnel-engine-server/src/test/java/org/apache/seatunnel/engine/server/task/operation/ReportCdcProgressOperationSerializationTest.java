@@ -271,7 +271,84 @@ class ReportCdcProgressOperationSerializationTest {
                 Assertions.assertThrows(
                         IOException.class, () -> CdcProgressReportSerializer.readEnvelope(input));
 
-        Assertions.assertEquals("Unknown CDC progress owner: UNKNOWN", exception.getMessage());
+        Assertions.assertEquals("Invalid CDC progress CdcProgressOwner", exception.getMessage());
+    }
+
+    @Test
+    void testRejectsUnknownAndNullPayloadEnums() throws IOException {
+        for (String invalid : new String[] {"untrusted-value", null}) {
+            for (int field = 0; field < 3; field++) {
+                BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+                writeEnvelopeHeader(
+                        output, field == 2 ? CdcProgressOwner.ENUMERATOR : CdcProgressOwner.READER);
+                output.writeString("test");
+                if (field == 1) {
+                    output.writeString("INCREMENTAL");
+                    output.writeString("split");
+                }
+                output.writeString(invalid);
+                BufferObjectDataInput input =
+                        serializationService.createObjectDataInput(output.toByteArray());
+                IOException error =
+                        Assertions.assertThrows(
+                                IOException.class,
+                                () -> CdcProgressReportSerializer.readEnvelope(input));
+                Assertions.assertTrue(error.getMessage().startsWith("Invalid CDC progress Cdc"));
+                Assertions.assertFalse(error.getMessage().contains("untrusted-value"));
+            }
+        }
+    }
+
+    @Test
+    void testRejectsOversizedCountsBeforeAllocatingPayloads() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(Integer.MAX_VALUE);
+        BufferObjectDataInput batch =
+                serializationService.createObjectDataInput(output.toByteArray());
+        Assertions.assertThrows(
+                IOException.class, () -> new CdcProgressReportBatch().readData(batch));
+
+        output = serializationService.createObjectDataOutput();
+        writeEnvelopeHeader(output, CdcProgressOwner.ENUMERATOR);
+        output.writeString("test");
+        output.writeString("ASSIGNING");
+        for (int i = 0; i < 5; i++) {
+            output.writeString("UNSUPPORTED");
+        }
+        output.writeBoolean(false);
+        output.writeInt(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS + 1);
+        BufferObjectDataInput splits =
+                serializationService.createObjectDataInput(output.toByteArray());
+        IOException splitError =
+                Assertions.assertThrows(
+                        IOException.class, () -> CdcProgressReportSerializer.readEnvelope(splits));
+        Assertions.assertTrue(splitError.getMessage().contains("active split count"));
+
+        output = serializationService.createObjectDataOutput();
+        writeEnvelopeHeader(output, CdcProgressOwner.READER);
+        output.writeString("test");
+        output.writeString("INCREMENTAL");
+        output.writeString("split");
+        output.writeString("EXACT");
+        output.writeString("offset");
+        output.writeInt(1);
+        output.writeInt(CdcProgressReportSerializer.MAX_POSITION_FIELDS + 1);
+        BufferObjectDataInput position =
+                serializationService.createObjectDataInput(output.toByteArray());
+        IOException positionError =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> CdcProgressReportSerializer.readEnvelope(position));
+        Assertions.assertTrue(positionError.getMessage().contains("position field count"));
+    }
+
+    private void writeEnvelopeHeader(BufferObjectDataOutput output, CdcProgressOwner owner)
+            throws IOException {
+        output.writeString(owner.name());
+        output.writeObject(taskLocation());
+        for (int i = 0; i < 4; i++) {
+            output.writeLong(1L);
+        }
     }
 
     private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(

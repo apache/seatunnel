@@ -1079,17 +1079,39 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             CdcProgressOwner owner,
             long observedAt,
             List<CdcProgressEnvelope<?>> reports) {
-        for (Task task : context.getTaskGroup().getTasks()) {
-            if (task instanceof CdcProgressReportSource) {
-                CdcProgressReportSource<?> source = (CdcProgressReportSource<?>) task;
-                if (source.getCdcProgressOwner() == owner) {
-                    collectCdcProgress(source, context.getExecutionId(), observedAt, reports);
+        collectCdcProgress(
+                context.getTaskGroup().getTasks(),
+                owner,
+                context.getExecutionId(),
+                observedAt,
+                reports,
+                error ->
+                        logger.warning(
+                                "CDC progress provider failed: " + error.getClass().getName()));
+    }
+
+    static void collectCdcProgress(
+            Iterable<Task> tasks,
+            CdcProgressOwner owner,
+            long executionAttemptId,
+            long observedAt,
+            List<CdcProgressEnvelope<?>> reports,
+            Consumer<Exception> onFailure) {
+        for (Task task : tasks) {
+            try {
+                if (task instanceof CdcProgressReportSource) {
+                    CdcProgressReportSource<?> source = (CdcProgressReportSource<?>) task;
+                    if (source.getCdcProgressOwner() == owner) {
+                        collectCdcProgress(source, executionAttemptId, observedAt, reports);
+                    }
                 }
+            } catch (Exception error) {
+                onFailure.accept(error);
             }
         }
     }
 
-    private void collectCdcProgress(
+    private static void collectCdcProgress(
             CdcProgressReportSource<?> source,
             long executionAttemptId,
             long observedAt,

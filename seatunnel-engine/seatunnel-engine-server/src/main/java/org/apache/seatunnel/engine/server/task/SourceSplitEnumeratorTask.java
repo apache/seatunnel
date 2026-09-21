@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.SupportCdcProgress;
 import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
 import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -103,6 +104,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private volatile boolean prepareCloseTriggered;
 
     private transient AtomicLong cdcProgressSequence;
+    private transient volatile CdcProgressProvider<?> cdcProgressProvider;
 
     @Override
     public void init() throws Exception {
@@ -211,6 +213,9 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
         }
         enumerator.open();
+        if (enumerator instanceof CdcProgressProvider) {
+            cdcProgressProvider = (CdcProgressProvider<?>) enumerator;
+        }
         enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
         restoreComplete.complete(null);
         log.debug("restoreState split enumerator [{}] finished", actionStateList);
@@ -225,15 +230,18 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public CdcEnumeratorProgressReport getCdcProgressReport() {
-        synchronized (enumeratorContext) {
-            if (enumerator instanceof CdcProgressProvider) {
-                CdcProgressReport report = ((CdcProgressProvider<?>) enumerator).getCdcProgress();
-                return report instanceof CdcEnumeratorProgressReport
-                        ? (CdcEnumeratorProgressReport) report
-                        : null;
-            }
+        CdcProgressProvider<?> provider = cdcProgressProvider;
+        if (provider == null) {
             return null;
         }
+        CdcProgressReport report = provider.getCdcProgress();
+        return report instanceof CdcEnumeratorProgressReport
+                ? (CdcEnumeratorProgressReport) report
+                : null;
+    }
+
+    public boolean supportsCdcProgress() {
+        return source.getSource() instanceof SupportCdcProgress;
     }
 
     @Override

@@ -45,15 +45,24 @@ enumerator task group locations from running job plans and coordinator-owned slo
 requests reports from the assigned members, including itself when applicable, and writes accepted
 reports to the coordinator-side latest-only store.
 
+Sources opt in through `SupportCdcProgress`. The coordinator filters for this capability before
+reading slot assignments, so non-CDC enumerators are not polled. Collection follows the existing
+`print-execution-info-interval` monitor cadence and allows at most one outstanding request per
+worker. A failed provider is isolated from other tasks and a failed collection does not stop later
+monitor ticks. Providers publish immutable snapshots; polling does not acquire the chunk-generation
+monitor or initiate source I/O.
+
 Enumerator tasks can be placed on a member other than the active coordinator. This transport detail
 does not transfer ownership to the worker sampler: the coordinator selects the enumerators to poll,
 initiates collection, and owns ordering and storage. After master failover, recovered job masters and
 slot assignments rebuild the collection set.
 
 Every accepted report carries task identity, source vertex identity, execution attempt, an
-attempt-local sequence, and observation time. Reports from older attempts or older sequences are
-ignored. Reader task details remain separate; reports from parallel readers are not treated as one
-atomic distributed snapshot.
+attempt-local sequence, and observation time. Relative to the stored report for the same owner and
+task, lower attempts and non-increasing sequences within an attempt are ignored. This ordering is
+not a check against an authoritative deployment identity: an empty, reopened scope can receive an
+older reader observation before its first newer report. Reader task details remain separate;
+reports from parallel readers are not treated as one atomic distributed snapshot.
 
 ## Lifecycle and cleanup
 
@@ -61,9 +70,19 @@ Reader lifecycle is one of `SNAPSHOT`, `CATCH_UP`, `INCREMENTAL`, or `UNKNOWN`. 
 assignment is reported separately as `NOT_APPLICABLE`, `DISCOVERING`, `ASSIGNING`, or `COMPLETED`.
 
 The latest report store keeps no history. Reports are removed when the owning pipeline is cleaned
-up. A position must remain `UNSUPPORTED` until the corresponding lifecycle proves it. For example,
-the current consumed position is not a completed-checkpoint position, and normal split assignment
-does not prove restore origin.
+up, including savepoint completion. Only registered live pipelines accept reports; late reports
+cannot reopen a removed scope. Master cleanup invalidates the coordinator generation as well as
+clearing its scopes; registrations and enumerator callbacks captured by the old generation cannot
+publish into the new one. Failed initialization rolls back only scopes owned by that JobMaster.
+Scopes are rebuilt before pipeline deployment. Completed-checkpoint and restored-position facts
+remain `UNSUPPORTED` until their corresponding lifecycle callbacks prove them. The current consumed
+position is not a completed-checkpoint position, and normal split assignment does not prove restore
+origin.
+
+Reader progress captures detached offset coordinates after successful emission. Polling never reads
+a connector's mutable offset object, so a later in-place update or failed emission cannot advance
+an already published consumed position. This adds coordinate-copying work to successful incremental
+emissions; the provider does not claim zero per-record overhead.
 
 ## Current limitations
 
@@ -71,8 +90,14 @@ does not prove restore origin.
 - CDC sources based on `connector-cdc-base` currently provide reports. MySQL uses an explicit
   `MYSQL_BINLOG` position family; other base connectors use their plugin name until a more specific
   position family is defined. CDC sources without this provider wiring return no report.
+- Snapshot-only, initial snapshot followed by incremental, and incremental-only modes use the same
+  provider contract. A configured or restored starting position is `BEST_EFFORT` until a successful
+  emission establishes consumption evidence; it is not a restored-position lifecycle report.
 - Enumerator reports retain at most 100 active-split details. `activeSplitsTruncated` indicates that
   additional active splits were omitted; aggregate split counts still describe the complete state.
+- Internal diagnostic frames allow at most 100,000 report/task-group entries and 1,024 fields in a
+  native position. Oversized or malformed frames are rejected; these bounds do not change source,
+  checkpoint, or savepoint state.
 - This slice does not expose progress through REST, the CLI, or metrics.
 - Completed-checkpoint and restored positions remain unsupported until their engine lifecycle
   callbacks are connected.

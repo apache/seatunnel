@@ -39,8 +39,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Serializes CDC progress reports without falling back to Java object deserialization. */
+/** Explicit codec for CDC report payloads; task identities retain the engine's existing codec. */
 final class CdcProgressReportSerializer {
+
+    // Transport bounds apply to optional diagnostics, not to source/checkpoint state.
+    static final int MAX_BATCH_ENTRIES = 100_000;
+    static final int MAX_POSITION_FIELDS = 1_024;
 
     private CdcProgressReportSerializer() {}
 
@@ -126,14 +130,15 @@ final class CdcProgressReportSerializer {
             throws IOException {
         String connectorType = in.readString();
         CdcSnapshotAssignmentStatus assignmentStatus =
-                CdcSnapshotAssignmentStatus.valueOf(in.readString());
+                readEnum(in, CdcSnapshotAssignmentStatus.class);
         CdcProgressValue<Integer> assignedSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> completedSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> runningSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> preparedRemainingSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> remainingUnchunkedTableCount = readIntegerValue(in);
         boolean activeSplitsTruncated = in.readBoolean();
-        int activeSplitCount = readSize(in, "active split");
+        int activeSplitCount =
+                readSize(in, "active split", CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS);
         List<CdcSnapshotSplitProgress> activeSplits = new ArrayList<>(activeSplitCount);
         for (int i = 0; i < activeSplitCount; i++) {
             activeSplits.add(
@@ -161,6 +166,7 @@ final class CdcProgressReportSerializer {
         writeAccuracy(out, progressValue.getAccuracy());
         if (isSupported(progressValue.getAccuracy())) {
             CdcProgressPosition position = progressValue.getValue();
+            validateSize(position.getValues().size(), "position field", MAX_POSITION_FIELDS);
             out.writeString(position.getType());
             out.writeInt(position.getSchemaVersion());
             out.writeInt(position.getValues().size());
@@ -179,7 +185,7 @@ final class CdcProgressReportSerializer {
         }
         String type = in.readString();
         int schemaVersion = in.readInt();
-        int valueCount = readSize(in, "position field");
+        int valueCount = readSize(in, "position field", MAX_POSITION_FIELDS);
         Map<String, String> values = new LinkedHashMap<>(valueCount);
         for (int i = 0; i < valueCount; i++) {
             values.put(in.readString(), in.readString());
@@ -210,7 +216,7 @@ final class CdcProgressReportSerializer {
     }
 
     private static CdcProgressLifecycle readLifecycle(ObjectDataInput in) throws IOException {
-        return CdcProgressLifecycle.valueOf(in.readString());
+        return readEnum(in, CdcProgressLifecycle.class);
     }
 
     private static void writeAccuracy(ObjectDataOutput out, CdcProgressAccuracy accuracy)
@@ -219,7 +225,7 @@ final class CdcProgressReportSerializer {
     }
 
     private static CdcProgressAccuracy readAccuracy(ObjectDataInput in) throws IOException {
-        return CdcProgressAccuracy.valueOf(in.readString());
+        return readEnum(in, CdcProgressAccuracy.class);
     }
 
     private static boolean isSupported(CdcProgressAccuracy accuracy) {
@@ -252,19 +258,32 @@ final class CdcProgressReportSerializer {
     }
 
     private static CdcProgressOwner readOwner(ObjectDataInput in) throws IOException {
-        String owner = in.readString();
+        return readEnum(in, CdcProgressOwner.class);
+    }
+
+    private static <E extends Enum<E>> E readEnum(ObjectDataInput in, Class<E> type)
+            throws IOException {
+        String value = in.readString();
         try {
-            return CdcProgressOwner.valueOf(owner);
-        } catch (IllegalArgumentException e) {
-            throw new IOException("Unknown CDC progress owner: " + owner, e);
+            return Enum.valueOf(type, value);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new IOException("Invalid CDC progress " + type.getSimpleName());
         }
     }
 
     static int readSize(ObjectDataInput in, String valueName) throws IOException {
+        return readSize(in, valueName, MAX_BATCH_ENTRIES);
+    }
+
+    static int readSize(ObjectDataInput in, String valueName, int maximum) throws IOException {
         int size = in.readInt();
-        if (size < 0) {
+        validateSize(size, valueName, maximum);
+        return size;
+    }
+
+    static void validateSize(int size, String valueName, int maximum) throws IOException {
+        if (size < 0 || size > maximum) {
             throw new IOException("Invalid CDC progress " + valueName + " count: " + size);
         }
-        return size;
     }
 }

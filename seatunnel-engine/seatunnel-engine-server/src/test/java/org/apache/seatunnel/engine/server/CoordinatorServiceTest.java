@@ -42,12 +42,14 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
+import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -56,10 +58,13 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
@@ -69,6 +74,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.MockedConstruction;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
@@ -778,6 +784,7 @@ public class CoordinatorServiceTest {
         Mockito.when(hazelcastInstance.getMap(Mockito.anyString())).thenReturn(map);
         SeaTunnelEngineContext engineContext = Mockito.mock(SeaTunnelEngineContext.class);
         Mockito.when(server.getEngineContext()).thenReturn(engineContext);
+        Mockito.when(server.getCdcProgressService()).thenReturn(new CdcProgressService());
 
         CoordinatorService coordinatorService =
                 new CoordinatorService(nodeEngine, server, server.getEngineContext(), engineConfig);
@@ -1114,6 +1121,7 @@ public class CoordinatorServiceTest {
 
         CoordinatorService.collectCdcEnumeratorProgress(
                 taskGroupsByWorker,
+                new java.util.concurrent.ConcurrentHashMap<>(),
                 (worker, ignored) -> {
                     requestedWorkers.add(worker);
                     if (worker.equals(failedWorker)) {
@@ -1136,6 +1144,198 @@ public class CoordinatorServiceTest {
         requests.get(slowWorker).completeExceptionally(new TimeoutException("worker timeout"));
         Assertions.assertEquals(Arrays.asList(failedWorker, slowWorker), failedWorkers);
         Assertions.assertEquals(1, collectedReports.size());
+    }
+
+    @Test
+    void testNonCdcPlanSkipsSlotLookup() {
+        SubPlan plan = Mockito.mock(SubPlan.class);
+        PhysicalVertex vertex = Mockito.mock(PhysicalVertex.class);
+        TaskGroup group = Mockito.mock(TaskGroup.class);
+        SourceSplitEnumeratorTask task = Mockito.mock(SourceSplitEnumeratorTask.class);
+        Mockito.when(plan.getCurrPipelineStatus()).thenReturn(PipelineStatus.RUNNING);
+        Mockito.when(plan.getCoordinatorVertexList()).thenReturn(Collections.singletonList(vertex));
+        Mockito.when(vertex.getTaskGroup()).thenReturn(group);
+        Mockito.when(group.getTasks()).thenReturn(Collections.singletonList(task));
+        Map<Address, List<TaskGroupLocation>> workers = new HashMap<>();
+        CoordinatorService.addCdcEnumeratorTaskGroups(
+                workers,
+                plan,
+                ignored -> {
+                    throw new AssertionError(
+                            "Non-CDC plan must not look up distributed slot state");
+                });
+        Assertions.assertTrue(workers.isEmpty());
+    }
+
+    @Test
+    void testPendingEnumeratorRequestIsBoundedAndOldCallbackCannotReleaseReplacement()
+            throws Exception {
+        Address worker = new Address("127.0.0.1", 5801);
+        Map<Address, List<TaskGroupLocation>> groups =
+                Collections.singletonMap(
+                        worker, Collections.singletonList(new TaskGroupLocation(1L, 1, 1L)));
+        java.util.concurrent.ConcurrentMap<Address, Object> inFlight =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        List<CompletableFuture<CdcProgressReportBatch>> requests = new ArrayList<>();
+        List<CdcProgressEnvelope<?>> reports = new ArrayList<>();
+        Runnable tick =
+                () ->
+                        CoordinatorService.collectCdcEnumeratorProgress(
+                                groups,
+                                inFlight,
+                                (address, tasks) -> {
+                                    CompletableFuture<CdcProgressReportBatch> future =
+                                            new CompletableFuture<>();
+                                    requests.add(future);
+                                    return future;
+                                },
+                                reports::addAll,
+                                (address, error) -> Assertions.fail(error));
+        tick.run();
+        tick.run();
+        Assertions.assertEquals(1, requests.size());
+        inFlight.clear(); // coordinator generation changes
+        tick.run();
+        Assertions.assertEquals(2, requests.size());
+        requests.get(0).complete(createEnumeratorProgressBatch());
+        Assertions.assertTrue(reports.isEmpty());
+        Assertions.assertEquals(1, inFlight.size());
+        requests.get(1).complete(createEnumeratorProgressBatch());
+        Assertions.assertEquals(1, reports.size());
+        Assertions.assertTrue(inFlight.isEmpty());
+        tick.run();
+        Assertions.assertEquals(3, requests.size());
+        requests.get(2).complete(null);
+    }
+
+    @Test
+    void testTerminalRestorePrefilterKeepsCapturedCdcGeneration() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = newMockCoordinatorService(server);
+        CdcProgressService progress = server.getCdcProgressService();
+        CdcProgressService.Generation originalGeneration = progress.getGeneration();
+        PipelineLocation pipeline = new PipelineLocation(1L, 1);
+        CdcProgressService.Owner replacement = progress.newOwner();
+        JobInfo jobInfo = Mockito.mock(JobInfo.class);
+        IMap<Long, JobInfo> jobInfos = Mockito.mock(IMap.class);
+        IMap<Object, Object> states = Mockito.mock(IMap.class);
+        Mockito.when(jobInfos.entrySet())
+                .thenReturn(
+                        Collections.singleton(
+                                new java.util.AbstractMap.SimpleEntry<>(1L, jobInfo)));
+        AtomicInteger stateReads = new AtomicInteger();
+        Mockito.when(states.get(1L))
+                .thenAnswer(
+                        invocation -> {
+                            if (stateReads.getAndIncrement() == 0) {
+                                progress.clear();
+                                progress.activate();
+                                progress.registerPipeline(
+                                        progress.getGeneration(), pipeline, replacement);
+                                progress.updateReports(
+                                        createEnumeratorProgressBatch().getReports());
+                                return JobStatus.FINISHED;
+                            }
+                            return JobStatus.RUNNING;
+                        });
+        ReflectionUtils.setField(coordinator, "runningJobInfoIMap", jobInfos);
+        ReflectionUtils.setField(coordinator, "runningJobStateIMap", states);
+        ReflectionUtils.setField(
+                coordinator, "resourceManager", Mockito.mock(ResourceManager.class));
+        List<CdcProgressService.Generation> captured = new ArrayList<>();
+        List<CdcProgressService.Owner> owners = new ArrayList<>();
+        try (MockedConstruction<JobMaster> masters =
+                Mockito.mockConstruction(
+                        JobMaster.class,
+                        (master, context) -> {
+                            CdcProgressService.Generation generation =
+                                    (CdcProgressService.Generation) context.arguments().get(12);
+                            CdcProgressService.Owner owner =
+                                    (CdcProgressService.Owner) context.arguments().get(13);
+                            captured.add(generation);
+                            owners.add(owner);
+                            Mockito.when(master.getJobId()).thenReturn(1L);
+                            Mockito.when(master.getPhysicalPlan())
+                                    .thenReturn(Mockito.mock(PhysicalPlan.class));
+                            Mockito.doAnswer(
+                                            invocation -> {
+                                                progress.registerPipeline(
+                                                        generation, pipeline, owner);
+                                                return null;
+                                            })
+                                    .when(master)
+                                    .init(Mockito.anyLong(), Mockito.anyBoolean());
+                        })) {
+            ReflectionUtils.invoke(
+                    coordinator, "restoreAllRunningJobFromMasterNodeSwitch", originalGeneration);
+            Assertions.assertEquals(2, stateReads.get());
+            Assertions.assertEquals(1, masters.constructed().size());
+            Assertions.assertNotNull(
+                    progress.getEnumeratorReport(1L, 1, 3L),
+                    "stale pre-filter restore must not replace the new generation's scope");
+            Assertions.assertSame(originalGeneration, captured.get(0));
+            progress.removePipelines(captured.get(0), owners.get(0));
+            Assertions.assertNotNull(progress.getEnumeratorReport(1L, 1, 3L));
+        } finally {
+            coordinator.shutdown();
+        }
+    }
+
+    @Test
+    void testAdmittedCdcCallbackCannotPublishAfterClear() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinator = newMockCoordinatorService(server);
+        CdcProgressService progress = server.getCdcProgressService();
+        CdcProgressService.Generation generation = progress.getGeneration();
+        PipelineLocation pipeline = new PipelineLocation(1L, 1);
+        progress.registerPipeline(pipeline);
+        Address worker = new Address("127.0.0.1", 5801);
+        CompletableFuture<CdcProgressReportBatch> request = new CompletableFuture<>();
+        CountDownLatch admitted = new CountDownLatch(1);
+        CountDownLatch release = new CountDownLatch(1);
+        CompletableFuture<Void> publication = new CompletableFuture<>();
+        ExecutorService callback = Executors.newSingleThreadExecutor();
+        java.util.concurrent.ConcurrentMap<Address, Object> inFlight =
+                new java.util.concurrent.ConcurrentHashMap<>();
+        try {
+            CoordinatorService.collectCdcEnumeratorProgress(
+                    Collections.singletonMap(
+                            worker, Collections.singletonList(new TaskGroupLocation(1L, 1, 2L))),
+                    inFlight,
+                    (address, tasks) -> request,
+                    reports -> {
+                        admitted.countDown();
+                        try {
+                            Assertions.assertTrue(release.await(10, TimeUnit.SECONDS));
+                            progress.updateReports(generation, reports);
+                            publication.complete(null);
+                        } catch (Throwable failure) {
+                            publication.completeExceptionally(failure);
+                        }
+                    },
+                    (address, error) -> Assertions.fail(error));
+            java.util.concurrent.Future<?> completion =
+                    callback.submit(() -> request.complete(createEnumeratorProgressBatch()));
+            Assertions.assertTrue(admitted.await(10, TimeUnit.SECONDS));
+            Assertions.assertTrue(
+                    inFlight.isEmpty(), "callback has already passed token admission");
+            coordinator.clearCoordinatorService();
+            progress.activate();
+            progress.registerPipeline(pipeline);
+            release.countDown();
+            completion.get(10, TimeUnit.SECONDS);
+            publication.get(10, TimeUnit.SECONDS);
+            CdcProgressEnvelope<?> report = createEnumeratorProgressBatch().getReports().get(0);
+            Assertions.assertNull(progress.getEnumeratorReport(1L, 1, report.getSourceVertexId()));
+            progress.updateReports(
+                    progress.getGeneration(), createEnumeratorProgressBatch().getReports());
+            Assertions.assertNotNull(
+                    progress.getEnumeratorReport(1L, 1, report.getSourceVertexId()));
+        } finally {
+            release.countDown();
+            callback.shutdownNow();
+            coordinator.shutdown();
+        }
     }
 
     private CdcProgressReportBatch createEnumeratorProgressBatch() {

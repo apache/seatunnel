@@ -15,10 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.cdc;
+package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-/** Marker for immutable connector-owned CDC progress facts. */
+/**
+ * Marks sources whose readers or enumerators can provide optional CDC progress snapshots.
+ *
+ * <p>Engines may use this capability when planning observation, without constructing readers or
+ * enumerators. Runtime providers implement {@link
+ * org.apache.seatunnel.api.cdc.CdcProgressProvider}.
+ */
 @Experimental
-public interface CdcProgressReport {}
+public interface SupportCdcProgress {}

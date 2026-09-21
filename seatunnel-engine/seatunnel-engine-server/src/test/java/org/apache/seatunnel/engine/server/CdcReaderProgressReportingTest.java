@@ -16,13 +16,25 @@
  */
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -39,6 +51,86 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CdcReaderProgressReportingTest {
+
+    @Test
+    void uninitializedTasksDoNotExposeProgress() {
+        SourceSeaTunnelTask reader =
+                Mockito.mock(SourceSeaTunnelTask.class, Mockito.CALLS_REAL_METHODS);
+        SourceSplitEnumeratorTask enumerator =
+                Mockito.mock(SourceSplitEnumeratorTask.class, Mockito.CALLS_REAL_METHODS);
+        assertNull(reader.getCdcProgressReport());
+        assertNull(enumerator.getCdcProgressReport());
+    }
+
+    @Test
+    void failingProviderDoesNotDiscardHealthyTaskReports() {
+        SourceSeaTunnelTask uninitialized =
+                Mockito.mock(SourceSeaTunnelTask.class, Mockito.CALLS_REAL_METHODS);
+        SourceSeaTunnelTask failing = Mockito.mock(SourceSeaTunnelTask.class);
+        SourceSeaTunnelTask healthy = Mockito.mock(SourceSeaTunnelTask.class);
+        Mockito.when(failing.getCdcProgressOwner()).thenReturn(CdcProgressOwner.READER);
+        Mockito.when(failing.getCdcProgressReport())
+                .thenThrow(new IllegalStateException("provider unavailable"));
+        Mockito.when(healthy.getCdcProgressOwner()).thenReturn(CdcProgressOwner.READER);
+        Mockito.when(healthy.getTaskLocation())
+                .thenReturn(new TaskLocation(new TaskGroupLocation(1L, 2, 3L), 4L, 0));
+        Mockito.when(healthy.getCdcProgressSourceVertexId()).thenReturn(5L);
+        Mockito.when(healthy.nextCdcProgressSequence()).thenReturn(1L);
+        CdcReaderProgressReport report =
+                new CdcReaderProgressReport(
+                        "test",
+                        CdcProgressLifecycle.INCREMENTAL,
+                        "split",
+                        CdcProgressValue.unavailable(),
+                        CdcProgressValue.unsupported(),
+                        CdcProgressValue.unsupported(),
+                        0L,
+                        null);
+        Mockito.when(healthy.getCdcProgressReport()).thenReturn(report);
+        List<CdcProgressEnvelope<?>> reports = new ArrayList<>();
+        List<Exception> failures = new ArrayList<>();
+        TaskExecutionService.collectCdcProgress(
+                Arrays.asList(uninitialized, failing, healthy),
+                CdcProgressOwner.READER,
+                7L,
+                8L,
+                reports,
+                failures::add);
+        assertEquals(1, failures.size());
+        assertEquals(1, reports.size());
+        assertSame(report, reports.get(0).getReport());
+        assertEquals(7L, reports.get(0).getExecutionAttemptId());
+    }
+
+    @Test
+    void collectionFailureDoesNotKillSubsequentMonitorTicks() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        AtomicInteger failures = new AtomicInteger();
+        java.util.concurrent.ScheduledExecutorService monitor =
+                Executors.newSingleThreadScheduledExecutor();
+        java.util.concurrent.CountDownLatch recovered = new java.util.concurrent.CountDownLatch(1);
+        try {
+            monitor.scheduleAtFixedRate(
+                    () ->
+                            SeaTunnelServer.collectCdcProgressSafely(
+                                    () -> {
+                                        if (attempts.incrementAndGet() == 1) {
+                                            throw new IllegalStateException(
+                                                    "transient plan failure");
+                                        }
+                                        recovered.countDown();
+                                    },
+                                    ignored -> failures.incrementAndGet()),
+                    0,
+                    1,
+                    TimeUnit.MILLISECONDS);
+            assertTrue(recovered.await(5, TimeUnit.SECONDS));
+            assertEquals(1, failures.get());
+        } finally {
+            monitor.shutdownNow();
+            assertTrue(monitor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
 
     @Test
     void slowMasterDoesNotBlockMetricsOrQueueReports() throws Exception {

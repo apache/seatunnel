@@ -51,25 +51,30 @@ public final class CdcReaderProgressTracker {
                         null);
     }
 
+    /** Records a configured/restored start, not evidence that this reader consumed a record. */
     public void recordSplitState(SourceSplitStateBase splitState) {
         recordState(splitState, null, false, 0L);
     }
 
+    /** Publishes position and lifecycle together, only after successful record processing. */
     public void recordEmission(
             SourceSplitStateBase splitState, Long sourceEventTime, long observedAt) {
         recordState(splitState, sourceEventTime, true, observedAt);
     }
 
+    /** Samples one immutable state; an unconsumed starting position is only best effort. */
     public CdcReaderProgressReport current() {
         ReaderState state = latestState.get();
         if (state == null) {
             return initialReport;
         }
-        CdcProgressPosition position = CdcProgressPositions.fromOffset(positionType, state.offset);
+        CdcProgressPosition position = state.position;
         CdcProgressValue<CdcProgressPosition> consumedPosition =
                 position == null
                         ? CdcProgressValue.unavailable()
-                        : CdcProgressValue.exact(position);
+                        : state.emissionObserved
+                                ? CdcProgressValue.exact(position)
+                                : CdcProgressValue.bestEffort(position);
         return new CdcReaderProgressReport(
                 connectorType,
                 state.lifecycle,
@@ -99,14 +104,16 @@ public final class CdcReaderProgressTracker {
                             : CdcProgressLifecycle.CATCH_UP;
             offset = incrementalState.getStartupOffset();
         }
-        Offset currentOffset = offset;
+        // Offsets can be mutated in place before processing succeeds. Detach coordinates at
+        // publication so polling never observes that live state or advances failed emissions.
+        CdcProgressPosition position = CdcProgressPositions.fromOffset(positionType, offset);
         latestState.updateAndGet(
                 previous ->
                         nextState(
                                 previous,
                                 splitId,
                                 lifecycle,
-                                currentOffset,
+                                position,
                                 sourceEventTime,
                                 emissionObserved,
                                 observedAt));
@@ -116,16 +123,20 @@ public final class CdcReaderProgressTracker {
             ReaderState previous,
             String splitId,
             CdcProgressLifecycle lifecycle,
-            Offset offset,
+            CdcProgressPosition position,
             Long sourceEventTime,
             boolean emissionObserved,
             long observedAt) {
+        if (!emissionObserved || (previous != null && !Objects.equals(previous.splitId, splitId))) {
+            previous = null;
+        }
         boolean emittedPositionChanged =
                 emissionObserved
-                        && offset != null
+                        && position != null
                         && (previous == null
                                 || !previous.emissionObserved
-                                || !Objects.equals(previous.offset, offset));
+                                || previous.position == null
+                                || !previous.position.getValues().equals(position.getValues()));
         long lastPositionChangeAt =
                 emittedPositionChanged
                         ? observedAt
@@ -137,7 +148,7 @@ public final class CdcReaderProgressTracker {
         return new ReaderState(
                 splitId,
                 lifecycle,
-                offset,
+                position,
                 lastPositionChangeAt,
                 latestSourceEventAt,
                 emissionObserved || (previous != null && previous.emissionObserved));
@@ -146,7 +157,7 @@ public final class CdcReaderProgressTracker {
     private static final class ReaderState {
         private final String splitId;
         private final CdcProgressLifecycle lifecycle;
-        private final Offset offset;
+        private final CdcProgressPosition position;
         private final long lastPositionChangeAt;
         private final Long latestSourceEventAt;
         private final boolean emissionObserved;
@@ -154,13 +165,13 @@ public final class CdcReaderProgressTracker {
         private ReaderState(
                 String splitId,
                 CdcProgressLifecycle lifecycle,
-                Offset offset,
+                CdcProgressPosition position,
                 long lastPositionChangeAt,
                 Long latestSourceEventAt,
                 boolean emissionObserved) {
             this.splitId = splitId;
             this.lifecycle = lifecycle;
-            this.offset = offset;
+            this.position = position;
             this.lastPositionChangeAt = lastPositionChangeAt;
             this.latestSourceEventAt = latestSourceEventAt;
             this.emissionObserved = emissionObserved;

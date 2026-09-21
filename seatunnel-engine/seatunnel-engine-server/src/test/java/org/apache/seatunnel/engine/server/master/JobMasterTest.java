@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -44,6 +49,9 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
@@ -55,6 +63,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
+import org.mockito.Mockito;
 
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
@@ -251,6 +260,16 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         assertCloseIdleTask(jobMaster);
 
+        PipelineLocation pipeline = getRunningPipelineLocation(jobMaster);
+        CdcProgressService progress = server.getCdcProgressService();
+        CdcProgressEnvelope<CdcReaderProgressReport> reader = cdcReaderReport(pipeline);
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> enumerator = cdcEnumeratorReport(pipeline);
+        progress.updateReports(Arrays.asList(reader, enumerator));
+        Assertions.assertEquals(
+                1, progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).size());
+        Assertions.assertNotNull(
+                progress.getEnumeratorReport(jobId, pipeline.getPipelineId(), 10L));
+        upsertMetricsForPipeline(pipeline);
         server.getCoordinatorService().savePoint(jobId);
         server.getCoordinatorService().getJobStatus(jobId);
         await().atMost(60, TimeUnit.SECONDS)
@@ -260,8 +279,22 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                                     server.getCoordinatorService().getJobStatus(jobId);
                             Assertions.assertEquals(JobStatus.SAVEPOINT_DONE, jobStatus);
                         });
+        Assertions.assertTrue(jobMaster.getCheckpointManager().isPipelineSavePointEnd(pipeline));
+        Assertions.assertTrue(
+                hasMetricsForPipeline(pipeline), "savepoint metrics must be retained");
+        progress.updateReports(Arrays.asList(reader, enumerator));
+        Assertions.assertTrue(
+                progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).isEmpty());
+        Assertions.assertNull(progress.getEnumeratorReport(jobId, pipeline.getPipelineId(), 10L));
         jobMaster = newJobInstanceWithRunningState(jobId, true);
         Assertions.assertEquals(JobStatus.RUNNING, jobMaster.getJobStatus());
+        progress.updateReports(Arrays.asList(reader, enumerator));
+        Assertions.assertEquals(
+                1,
+                progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).size(),
+                "restored SubPlan must reopen its scope");
+        Assertions.assertNotNull(
+                progress.getEnumeratorReport(jobId, pipeline.getPipelineId(), 10L));
 
         assertCloseIdleTask(jobMaster);
     }
@@ -277,6 +310,211 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Assertions.assertThrows(
                 UnknownPhysicalPlanException.class,
                 () -> jobMaster.init(System.currentTimeMillis(), false));
+    }
+
+    @Test
+    void testFailedInitializationClosesCdcScopes() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                Mockito.spy(
+                        newJobMaster(
+                                jobId, "batch_fake_to_console.conf", "cdc_init_failure", false));
+        IllegalStateException failure =
+                new IllegalStateException("checkpoint initialization failed");
+        Mockito.doThrow(failure).when(jobMaster).initCheckPointManager(false);
+        Mockito.doAnswer(
+                        invocation -> {
+                            invocation.callRealMethod();
+                            PipelineLocation pipeline = getRunningPipelineLocation(jobMaster);
+                            server.getCdcProgressService()
+                                    .updateReports(
+                                            Collections.singletonList(cdcReaderReport(pipeline)));
+                            Assertions.assertEquals(
+                                    1,
+                                    server.getCdcProgressService()
+                                            .getReaderReports(jobId, pipeline.getPipelineId(), 10L)
+                                            .size(),
+                                    "initialization really opened a scope before rollback");
+                            return null;
+                        })
+                .when(jobMaster)
+                .initStateFuture();
+        Assertions.assertSame(
+                failure,
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () -> jobMaster.init(System.currentTimeMillis(), false)));
+        PipelineLocation pipeline = getRunningPipelineLocation(jobMaster);
+        CdcProgressService progress = server.getCdcProgressService();
+        progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+        Assertions.assertTrue(
+                progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).isEmpty(),
+                "failed initialization must close its observation scope");
+        Map<?, ?> scopes = (Map<?, ?>) ReflectionUtils.getField(progress, "pipelines").get();
+        Assertions.assertFalse(
+                scopes.containsKey(pipeline), "rollback must also remove empty scopes");
+    }
+
+    @Test
+    void testOldJobMasterCannotRegisterAfterCdcClear() {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_old_master", false);
+        PipelineLocation pipeline = new PipelineLocation(jobId, 1);
+        CdcProgressService progress = server.getCdcProgressService();
+        progress.clear();
+        try {
+            jobMaster.registerCdcProgressContext(pipeline);
+            progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+            Assertions.assertTrue(
+                    progress.getReaderReports(jobId, 1, 10L).isEmpty(),
+                    "old initialization must not reopen a cleared scope");
+            progress.activate();
+            jobMaster.registerCdcProgressContext(pipeline);
+            progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+            Assertions.assertTrue(
+                    progress.getReaderReports(jobId, 1, 10L).isEmpty(),
+                    "reactivation must not revive the old owner's generation");
+            JobMaster replacement =
+                    newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_new_master", false);
+            replacement.registerCdcProgressContext(pipeline);
+            progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+            jobMaster.closeCdcProgressContexts();
+            Assertions.assertEquals(1, progress.getReaderReports(jobId, 1, 10L).size());
+            replacement.closeCdcProgressContexts();
+        } finally {
+            progress.activate();
+        }
+    }
+
+    @Test
+    void testInitializationRollbackPreservesReplacementOwner() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster original =
+                Mockito.spy(
+                        newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_original", false));
+        JobMaster replacement =
+                newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_replacement", false);
+        CdcProgressService progress = server.getCdcProgressService();
+        Mockito.doAnswer(
+                        invocation -> {
+                            invocation.callRealMethod();
+                            PipelineLocation pipeline = getRunningPipelineLocation(original);
+                            replacement.registerCdcProgressContext(pipeline);
+                            progress.updateReports(
+                                    Collections.singletonList(cdcReaderReport(pipeline)));
+                            throw new IllegalStateException(
+                                    "initialization failed after replacement registered");
+                        })
+                .when(original)
+                .initStateFuture();
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> original.init(System.currentTimeMillis(), false));
+        PipelineLocation pipeline = getRunningPipelineLocation(original);
+        original.registerCdcProgressContext(pipeline);
+        Assertions.assertEquals(
+                1, progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).size());
+        replacement.closeCdcProgressContexts();
+        progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+        Assertions.assertTrue(
+                progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).isEmpty());
+    }
+
+    @Test
+    void testLateOldOwnerRegistrationPreservesReplacement() {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster original =
+                newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_old_registration", false);
+        JobMaster replacement =
+                newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_new_registration", false);
+        PipelineLocation pipeline = new PipelineLocation(jobId, 1);
+        CdcProgressService progress = server.getCdcProgressService();
+        try {
+            replacement.registerCdcProgressContext(pipeline);
+            progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+            original.registerCdcProgressContext(pipeline);
+            original.closeCdcProgressContexts();
+            Assertions.assertEquals(
+                    1,
+                    progress.getReaderReports(jobId, 1, 10L).size(),
+                    "late older registration and rollback must preserve the replacement scope");
+        } finally {
+            original.closeCdcProgressContexts();
+            replacement.closeCdcProgressContexts();
+        }
+    }
+
+    @Test
+    void testTerminalCleanupClosesCdcBeforeMetricHistoryFailure() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                Mockito.spy(
+                        newJobMaster(
+                                jobId, "batch_fake_to_console.conf", "cdc_history_failure", false));
+        jobMaster.init(System.currentTimeMillis(), false);
+        SubPlan plan = jobMaster.getPhysicalPlan().getPipelineList().get(0);
+        PipelineLocation pipeline = plan.getPipelineLocation();
+        CdcProgressService progress = server.getCdcProgressService();
+        progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+        Assertions.assertEquals(
+                1, progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).size());
+        Mockito.doNothing()
+                .when(jobMaster)
+                .enqueuePipelineCleanupIfNeeded(pipeline, PipelineStatus.FINISHED);
+        Mockito.doThrow(new IllegalStateException("history unavailable"))
+                .when(jobMaster)
+                .savePipelineMetricsToHistory(pipeline);
+        ReflectionUtils.invoke(plan, "subPlanDone", PipelineStatus.FINISHED);
+        progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
+        Assertions.assertTrue(
+                progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).isEmpty());
+    }
+
+    private CdcProgressEnvelope<CdcEnumeratorProgressReport> cdcEnumeratorReport(
+            PipelineLocation pipeline) {
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.ENUMERATOR,
+                new TaskLocation(
+                        new TaskGroupLocation(pipeline.getJobId(), pipeline.getPipelineId(), 1L),
+                        0,
+                        0),
+                10L,
+                100L,
+                1L,
+                1000L,
+                new CdcEnumeratorProgressReport(
+                        "test",
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        Collections.emptyList()));
+    }
+
+    private CdcProgressEnvelope<CdcReaderProgressReport> cdcReaderReport(
+            PipelineLocation pipeline) {
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.READER,
+                new TaskLocation(
+                        new TaskGroupLocation(pipeline.getJobId(), pipeline.getPipelineId(), 1L),
+                        0,
+                        0),
+                10L,
+                100L,
+                1L,
+                1000L,
+                new CdcReaderProgressReport(
+                        "test",
+                        CdcProgressLifecycle.INCREMENTAL,
+                        "split",
+                        CdcProgressValue.unavailable(),
+                        CdcProgressValue.unsupported(),
+                        CdcProgressValue.unsupported(),
+                        0L,
+                        null));
     }
 
     @Test

@@ -28,13 +28,178 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSp
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 
 import io.debezium.relational.TableId;
 
+import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 
 class CdcReaderProgressTrackerTest {
+
+    @Test
+    void mutableOffsetDoesNotChangePublishedPositionUntilSuccessfulEmission() {
+        CdcReaderProgressTracker tracker = new CdcReaderProgressTracker("Test-CDC", "TEST");
+        TestOffset offset = new TestOffset(10L);
+        IncrementalSplitState state = createIncrementalSplitState(offset);
+        tracker.recordEmission(state, 90L, 100L);
+        CdcReaderProgressReport first = tracker.current();
+
+        offset.getOffset().put("pos", "11");
+        CdcReaderProgressReport pending = tracker.current();
+        Assertions.assertEquals(
+                "10", pending.getCurrentConsumedPosition().getValue().getValues().get("pos"));
+        Assertions.assertEquals(100L, pending.getLastPositionChangeAt());
+        Assertions.assertEquals(90L, pending.getLastSourceEventAt());
+
+        tracker.recordEmission(state, 190L, 200L);
+        CdcReaderProgressReport second = tracker.current();
+        Assertions.assertEquals(
+                "11", second.getCurrentConsumedPosition().getValue().getValues().get("pos"));
+        Assertions.assertEquals(200L, second.getLastPositionChangeAt());
+        Assertions.assertEquals(190L, second.getLastSourceEventAt());
+        Assertions.assertEquals(
+                "10", first.getCurrentConsumedPosition().getValue().getValues().get("pos"));
+
+        offset.getOffset().clear();
+        Assertions.assertEquals(
+                second.getCurrentConsumedPosition().getValue().getValues(),
+                tracker.current().getCurrentConsumedPosition().getValue().getValues());
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> second.getCurrentConsumedPosition().getValue().getValues().put("pos", "99"));
+    }
+
+    @Test
+    void configuredMutableOffsetIsDetachedWithoutClaimingEmission() {
+        CdcReaderProgressTracker tracker = new CdcReaderProgressTracker("Test-CDC", "TEST");
+        TestOffset offset = new TestOffset(10L);
+        IncrementalSplitState state = createIncrementalSplitState(offset);
+        tracker.recordSplitState(state);
+        offset.getOffset().put("pos", "11");
+
+        CdcReaderProgressReport report = tracker.current();
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getCurrentConsumedPosition().getAccuracy());
+        Assertions.assertEquals(
+                "10", report.getCurrentConsumedPosition().getValue().getValues().get("pos"));
+        Assertions.assertEquals(0L, report.getLastPositionChangeAt());
+        tracker.recordEmission(state, null, 100L);
+        Assertions.assertEquals(
+                "11",
+                tracker.current().getCurrentConsumedPosition().getValue().getValues().get("pos"));
+        Assertions.assertEquals(100L, tracker.current().getLastPositionChangeAt());
+    }
+
+    @Test
+    void equalCoordinatesDoNotAdvancePositionChangeTime() {
+        CdcReaderProgressTracker tracker = new CdcReaderProgressTracker("Test-CDC", "TEST");
+        IncrementalSplitState state = createIncrementalSplitState(new TestOffset(10L));
+        tracker.recordEmission(state, 90L, 100L);
+        state.setStartupOffset(new TestOffset(10L));
+        tracker.recordEmission(state, 190L, 200L);
+        Assertions.assertEquals(100L, tracker.current().getLastPositionChangeAt());
+        Assertions.assertEquals(190L, tracker.current().getLastSourceEventAt());
+    }
+
+    @Test
+    void sameMutableOffsetAdvancesPositionChangeTimeAfterEmission() {
+        CdcReaderProgressTracker tracker = new CdcReaderProgressTracker("Test-CDC", "TEST");
+        TestOffset offset = new TestOffset(10L);
+        IncrementalSplitState state = createIncrementalSplitState(offset);
+        tracker.recordEmission(state, 90L, 100L);
+        offset.getOffset().put("pos", "11");
+        tracker.recordEmission(state, 190L, 200L);
+        Assertions.assertEquals(200L, tracker.current().getLastPositionChangeAt());
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "cdc.progress.benchmark", matches = "true")
+    void measureMutableCoordinatePublicationCost() {
+        for (int fields : new int[] {1, 8, 64}) {
+            for (boolean changing : new boolean[] {false, true}) {
+                measureMutableCoordinates(fields, changing);
+            }
+        }
+    }
+
+    private void measureMutableCoordinates(int fields, boolean changing) {
+        TestOffset offset = new TestOffset(10L);
+        for (int field = 1; field < fields; field++) {
+            offset.getOffset().put("coordinate-" + field, "fixture-coordinate-value");
+        }
+        IncrementalSplitState state = createIncrementalSplitState(offset);
+        CdcReaderProgressTracker tracker = new CdcReaderProgressTracker("Test-CDC", "TEST");
+        Long sourceTime = Long.valueOf(1000L);
+        for (int i = 0; i < 200_000; i++) {
+            offset.getOffset().put("pos", changing && (i & 1) == 0 ? "11" : "10");
+            tracker.recordEmission(state, sourceTime, System.currentTimeMillis());
+        }
+        com.sun.management.ThreadMXBean bean =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(bean.isThreadAllocatedMemorySupported());
+        bean.setThreadAllocatedMemoryEnabled(true);
+        long thread = Thread.currentThread().getId();
+        long bytes = bean.getThreadAllocatedBytes(thread);
+        long start = System.nanoTime();
+        int iterations = 1_000_000;
+        for (int i = 0; i < iterations; i++) {
+            offset.getOffset().put("pos", changing && (i & 1) == 0 ? "11" : "10");
+            tracker.recordEmission(state, sourceTime, System.currentTimeMillis());
+        }
+        long nanos = System.nanoTime() - start;
+        long allocated = bean.getThreadAllocatedBytes(thread) - bytes;
+        System.out.printf(
+                "CDC_TRACKER mutable-coordinates fields=%d changing=%s iterations=%d ns/op=%.2f bytes/op=%.2f java=%s%n",
+                fields,
+                changing,
+                iterations,
+                (double) nanos / iterations,
+                (double) allocated / iterations,
+                System.getProperty("java.version"));
+        Assertions.assertEquals(
+                fields,
+                tracker.current().getCurrentConsumedPosition().getValue().getValues().size());
+        Assertions.assertEquals(
+                "10",
+                tracker.current().getCurrentConsumedPosition().getValue().getValues().get("pos"));
+    }
+
+    @Test
+    @EnabledIfSystemProperty(named = "cdc.progress.benchmark", matches = "true")
+    void measureRepeatedPositionEmissionCost() {
+        CdcReaderProgressTracker tracker =
+                new CdcReaderProgressTracker("MySQL-CDC", "MYSQL_BINLOG");
+        IncrementalSplitState state = createIncrementalSplitState(new TestOffset(10));
+        Long sourceTime = Long.valueOf(1000);
+        for (int i = 0; i < 200_000; i++) {
+            tracker.recordEmission(state, sourceTime, System.currentTimeMillis());
+        }
+        com.sun.management.ThreadMXBean bean =
+                (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
+        org.junit.jupiter.api.Assumptions.assumeTrue(bean.isThreadAllocatedMemorySupported());
+        bean.setThreadAllocatedMemoryEnabled(true);
+        long thread = Thread.currentThread().getId();
+        long bytes = bean.getThreadAllocatedBytes(thread);
+        long start = System.nanoTime();
+        int iterations = 1_000_000;
+        for (int i = 0; i < iterations; i++) {
+            tracker.recordEmission(state, sourceTime, System.currentTimeMillis());
+        }
+        long nanos = System.nanoTime() - start;
+        long allocated = bean.getThreadAllocatedBytes(thread) - bytes;
+        System.out.printf(
+                "CDC_TRACKER repeated-position iterations=%d ns/op=%.2f bytes/op=%.2f java=%s%n",
+                iterations,
+                (double) nanos / iterations,
+                (double) allocated / iterations,
+                System.getProperty("java.version"));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT,
+                tracker.current().getCurrentConsumedPosition().getAccuracy());
+    }
 
     @Test
     void testTracksCurrentOffsetWithoutClaimingCheckpointOrRestoreProgress() {
@@ -44,9 +209,14 @@ class CdcReaderProgressTrackerTest {
 
         tracker.recordSplitState(splitState);
         Assertions.assertEquals(0L, tracker.current().getLastPositionChangeAt());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT,
+                tracker.current().getCurrentConsumedPosition().getAccuracy());
 
         tracker.recordEmission(splitState, 90L, 100L);
         CdcReaderProgressReport first = tracker.current();
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT, first.getCurrentConsumedPosition().getAccuracy());
 
         Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, first.getLifecycle());
         Assertions.assertEquals("incremental-split", first.getActiveSplitId());
@@ -120,7 +290,7 @@ class CdcReaderProgressTrackerTest {
         private static final long serialVersionUID = 1L;
 
         private TestOffset(long value) {
-            this.offset = Collections.singletonMap("pos", String.valueOf(value));
+            this.offset = new HashMap<>(Collections.singletonMap("pos", String.valueOf(value)));
         }
 
         @Override

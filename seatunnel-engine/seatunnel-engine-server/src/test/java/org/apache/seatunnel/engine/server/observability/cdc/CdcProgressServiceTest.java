@@ -40,6 +40,19 @@ import java.util.stream.Stream;
 class CdcProgressServiceTest {
 
     @Test
+    void removedPipelineCannotBeResurrectedByLateReports() {
+        CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
+        CdcProgressEnvelope<CdcReaderProgressReport> report =
+                readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "late");
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertEquals(1, service.getReaderReports(1L, 2, 10L).size());
+        service.removePipeline(new PipelineLocation(1L, 2));
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertTrue(service.getReaderReports(1L, 2, 10L).isEmpty());
+    }
+
+    @Test
     void testEnvelopeRejectsMismatchedOwnerAndPayload() {
         Assertions.assertThrows(
                 IllegalArgumentException.class,
@@ -57,6 +70,7 @@ class CdcProgressServiceTest {
     @Test
     void testRejectsStaleSequenceAndPreviousExecutionAttempt() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
 
         service.updateReports(
@@ -102,6 +116,7 @@ class CdcProgressServiceTest {
     @Test
     void testKeepsSourceVerticesAndReaderIndexesSeparate() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
 
         service.updateReports(
                 Arrays.asList(
@@ -116,6 +131,7 @@ class CdcProgressServiceTest {
     @Test
     void testRejectsStaleEnumeratorReports() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
 
         service.updateReports(
@@ -157,6 +173,8 @@ class CdcProgressServiceTest {
     @Test
     void testPipelineCleanupRemovesOnlyMatchingReports() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
+        service.registerPipeline(new PipelineLocation(1L, 3));
         service.updateReports(
                 Arrays.asList(
                         readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "removed"),
@@ -179,6 +197,7 @@ class CdcProgressServiceTest {
     void testReportOrderingDoesNotPreferExactValues(
             long executionAttemptId, long sequence, CdcProgressValue<Integer> value) {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
         CdcProgressEnvelope<CdcEnumeratorProgressReport> older =
                 enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 1_000L, CdcProgressValue.exact(9));
@@ -222,6 +241,30 @@ class CdcProgressServiceTest {
         Assertions.assertEquals(
                 CdcProgressAccuracy.EXACT,
                 older.getReport().getRemainingUnchunkedTableCount().getAccuracy());
+    }
+
+    @Test
+    void masterCleanupRejectsLateReportsUntilPipelineIsRegisteredAgain() {
+        CdcProgressService service = new CdcProgressService();
+        PipelineLocation pipeline = new PipelineLocation(1L, 2);
+        CdcProgressEnvelope<CdcReaderProgressReport> report =
+                readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "old");
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertTrue(service.getReaderReports(1L, 2, 10L).isEmpty());
+        service.registerPipeline(pipeline);
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertEquals(1, service.getReaderReports(1L, 2, 10L).size());
+        service.clear();
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertTrue(service.getReaderReports(1L, 2, 10L).isEmpty());
+        service.activate();
+        service.registerPipeline(pipeline);
+        service.updateReports(
+                Collections.singletonList(
+                        readerEnvelope(taskLocation(1L, 2, 0), 10L, 101L, 1L, "restored")));
+        Assertions.assertEquals(
+                "restored",
+                service.getReaderReports(1L, 2, 10L).get(0).getReport().getActiveSplitId());
     }
 
     private static Stream<Arguments> newerNonExactReports() {

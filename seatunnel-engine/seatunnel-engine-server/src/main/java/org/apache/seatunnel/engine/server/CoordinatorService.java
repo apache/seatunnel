@@ -77,6 +77,7 @@ import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressService;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -117,6 +118,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -131,6 +133,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
@@ -190,6 +193,8 @@ public class CoordinatorService {
      * value: job master;
      */
     private final Map<Long, JobMaster> runningJobMasterMap = new ConcurrentHashMap<>();
+
+    private final ConcurrentMap<Address, Object> cdcCollectionsInFlight = new ConcurrentHashMap<>();
 
     private final PeekBlockingQueue<PendingJobInfo> pendingJobQueue =
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
@@ -618,6 +623,9 @@ public class CoordinatorService {
 
     private void initCoordinatorService() {
         coordinatorServiceCleared.set(false);
+        seaTunnelServer.getCdcProgressService().activate();
+        CdcProgressService.Generation cdcGeneration =
+                seaTunnelServer.getCdcProgressService().getGeneration();
         runningJobInfoIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
         runningJobStateIMap =
@@ -666,7 +674,8 @@ public class CoordinatorService {
         restoreAllJobFromMasterNodeSwitchFuture =
                 new PassiveCompletableFuture(
                         CompletableFuture.runAsync(
-                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+                                () -> restoreAllRunningJobFromMasterNodeSwitch(cdcGeneration),
+                                executorService));
     }
 
     private void reschedulePendingJobCleanup() {
@@ -997,7 +1006,8 @@ public class CoordinatorService {
      * JobMaster}. Each restored job is re-enqueued as a pending job so it can re-enter the normal
      * scheduling path on the new master.
      */
-    private void restoreAllRunningJobFromMasterNodeSwitch() {
+    private void restoreAllRunningJobFromMasterNodeSwitch(
+            CdcProgressService.Generation cdcGeneration) {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
         try {
             needRestoreFromMasterNodeSwitchJobs =
@@ -1047,7 +1057,11 @@ public class CoordinatorService {
                 continue;
             }
             if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
-                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                restoreJobFromMasterActiveSwitch(
+                        entry.getKey(),
+                        entry.getValue(),
+                        cdcGeneration,
+                        seaTunnelServer.getCdcProgressService().newOwner());
                 zombieIterator.remove();
             }
         }
@@ -1067,30 +1081,35 @@ public class CoordinatorService {
         List<CompletableFuture<Void>> collect =
                 needRestoreFromMasterNodeSwitchJobs.stream()
                         .map(
-                                entry ->
-                                        CompletableFuture.runAsync(
-                                                () -> {
-                                                    logger.info(
-                                                            String.format(
-                                                                    "begin restore job (%s) from master active switch",
-                                                                    entry.getKey()));
-                                                    try {
-                                                        // skip the job new submit
-                                                        if (!runningJobMasterMap.containsKey(
-                                                                entry.getKey())) {
-                                                            restoreJobFromMasterActiveSwitch(
-                                                                    entry.getKey(),
-                                                                    entry.getValue());
-                                                        }
-                                                    } catch (Exception e) {
-                                                        logger.severe(e);
+                                entry -> {
+                                    CdcProgressService.Owner cdcOwner =
+                                            seaTunnelServer.getCdcProgressService().newOwner();
+                                    return CompletableFuture.runAsync(
+                                            () -> {
+                                                logger.info(
+                                                        String.format(
+                                                                "begin restore job (%s) from master active switch",
+                                                                entry.getKey()));
+                                                try {
+                                                    // skip the job new submit
+                                                    if (!runningJobMasterMap.containsKey(
+                                                            entry.getKey())) {
+                                                        restoreJobFromMasterActiveSwitch(
+                                                                entry.getKey(),
+                                                                entry.getValue(),
+                                                                cdcGeneration,
+                                                                cdcOwner);
                                                     }
-                                                    logger.info(
-                                                            String.format(
-                                                                    "restore job (%s) from master active switch finished",
-                                                                    entry.getKey()));
-                                                },
-                                                MDCTracer.tracing(entry.getKey(), executorService)))
+                                                } catch (Exception e) {
+                                                    logger.severe(e);
+                                                }
+                                                logger.info(
+                                                        String.format(
+                                                                "restore job (%s) from master active switch finished",
+                                                                entry.getKey()));
+                                            },
+                                            MDCTracer.tracing(entry.getKey(), executorService));
+                                })
                         .collect(Collectors.toList());
 
         try {
@@ -1114,7 +1133,20 @@ public class CoordinatorService {
      * @param jobId restored job identifier
      * @param jobInfo distributed immutable job metadata captured before the master switch
      */
+    @VisibleForTesting
     private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
+        restoreJobFromMasterActiveSwitch(
+                jobId,
+                jobInfo,
+                seaTunnelServer.getCdcProgressService().getGeneration(),
+                seaTunnelServer.getCdcProgressService().newOwner());
+    }
+
+    private void restoreJobFromMasterActiveSwitch(
+            @NonNull Long jobId,
+            @NonNull JobInfo jobInfo,
+            CdcProgressService.Generation cdcGeneration,
+            CdcProgressService.Owner cdcOwner) {
         Object jobState;
         try {
             jobState =
@@ -1157,7 +1189,9 @@ public class CoordinatorService {
                         ownedSlotProfilesIMap,
                         runningJobInfoIMap,
                         engineConfig,
-                        seaTunnelServer);
+                        seaTunnelServer,
+                        cdcGeneration,
+                        cdcOwner);
 
         try {
             jobMaster.init(jobInfo.getInitializationTimestamp(), true);
@@ -1169,6 +1203,7 @@ public class CoordinatorService {
         try {
             pendingJobQueue.put(pendingJobInfo);
         } catch (InterruptedException e) {
+            jobMaster.closeCdcProgressContexts();
             Thread.currentThread().interrupt();
             throw new SeaTunnelEngineException(
                     String.format(
@@ -1303,6 +1338,7 @@ public class CoordinatorService {
             return;
         }
         pendingJobScheduleEpoch.incrementAndGet();
+        seaTunnelServer.getCdcProgressService().clear();
         schedulingJobMasters.forEach(JobMaster::interrupt);
         schedulingJobMasters.clear();
         schedulingPendingJobIds.clear();
@@ -1330,6 +1366,7 @@ public class CoordinatorService {
         pendingJobQueue.clear();
         executorService.shutdownNow();
         runningJobMasterMap.clear();
+        cdcCollectionsInFlight.clear();
 
         try {
             boolean terminated = executorService.awaitTermination(20, TimeUnit.SECONDS);
@@ -1393,6 +1430,9 @@ public class CoordinatorService {
     public PassiveCompletableFuture<Void> submitJob(
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
         CompletableFuture<Void> jobSubmitFuture = new CompletableFuture<>();
+        CdcProgressService.Generation cdcGeneration =
+                seaTunnelServer.getCdcProgressService().getGeneration();
+        CdcProgressService.Owner cdcOwner = seaTunnelServer.getCdcProgressService().newOwner();
 
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
@@ -1447,7 +1487,9 @@ public class CoordinatorService {
                                         ownedSlotProfilesIMap,
                                         runningJobInfoIMap,
                                         engineConfig,
-                                        seaTunnelServer);
+                                        seaTunnelServer,
+                                        cdcGeneration,
+                                        cdcOwner);
                         if (!isStartWithSavePoint
                                 && getJobHistoryService().getJobMetrics(jobId)
                                         != JobMetrics.empty()) {
@@ -1470,6 +1512,9 @@ public class CoordinatorService {
                         // We specify that when init is complete, the submitJob is complete.
                         jobSubmitFuture.complete(null);
                     } catch (Throwable e) {
+                        if (jobMaster != null) {
+                            jobMaster.closeCdcProgressContexts();
+                        }
                         String errorMsg = ExceptionUtils.getMessage(e);
                         logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
                         jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
@@ -2196,58 +2241,67 @@ public class CoordinatorService {
         }
 
         Map<Address, List<TaskGroupLocation>> taskGroupsByWorker = new HashMap<>();
-        runningJobMasterMap
-                .values()
-                .forEach(
-                        jobMaster ->
-                                jobMaster
-                                        .getPhysicalPlan()
-                                        .getPipelineList()
-                                        .forEach(
-                                                subPlan -> {
-                                                    Map<TaskGroupLocation, SlotProfile>
-                                                            pipelineSlots =
-                                                                    ownedSlotProfilesIMap.get(
-                                                                            subPlan
-                                                                                    .getPipelineLocation());
-                                                    if (pipelineSlots == null) {
-                                                        return;
-                                                    }
-                                                    subPlan.getCoordinatorVertexList().stream()
-                                                            .filter(
-                                                                    vertex ->
-                                                                            vertex.getTaskGroup()
-                                                                                    .getTasks()
-                                                                                    .stream()
-                                                                                    .anyMatch(
-                                                                                            SourceSplitEnumeratorTask
-                                                                                                            .class
-                                                                                                    ::isInstance))
-                                                            .forEach(
-                                                                    vertex -> {
-                                                                        addEnumeratorTaskGroup(
-                                                                                taskGroupsByWorker,
-                                                                                vertex
-                                                                                        .getTaskGroupLocation(),
-                                                                                pipelineSlots.get(
-                                                                                        vertex
-                                                                                                .getTaskGroupLocation()));
-                                                                    });
-                                                }));
+        long collectionEpoch = pendingJobScheduleEpoch.get();
+        CdcProgressService.Generation cdcGeneration =
+                seaTunnelServer.getCdcProgressService().getGeneration();
+        for (JobMaster jobMaster : runningJobMasterMap.values()) {
+            for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+                addCdcEnumeratorTaskGroups(taskGroupsByWorker, subPlan, ownedSlotProfilesIMap::get);
+            }
+        }
 
         collectCdcEnumeratorProgress(
                 taskGroupsByWorker,
+                cdcCollectionsInFlight,
                 (worker, taskGroupLocations) ->
                         NodeEngineUtil.sendOperationToMemberNode(
                                 nodeEngine,
                                 new CollectCdcEnumeratorProgressOperation(taskGroupLocations),
                                 worker),
-                reports -> seaTunnelServer.getCdcProgressService().updateReports(reports),
+                reports -> {
+                    if (isCoordinatorActive() && pendingJobScheduleEpoch.get() == collectionEpoch) {
+                        seaTunnelServer
+                                .getCdcProgressService()
+                                .updateReports(cdcGeneration, reports);
+                    }
+                },
                 (worker, error) ->
                         logger.warning(
                                 String.format(
                                         "Collect CDC enumerator progress from %s failed: %s",
-                                        worker, ExceptionUtils.getMessage(error))));
+                                        worker, error.getClass().getName())));
+    }
+
+    static void addCdcEnumeratorTaskGroups(
+            Map<Address, List<TaskGroupLocation>> taskGroupsByWorker,
+            SubPlan subPlan,
+            Function<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> slots) {
+        if (subPlan.getCurrPipelineStatus().isEndState()) {
+            return;
+        }
+        List<TaskGroupLocation> cdcGroups =
+                subPlan.getCoordinatorVertexList().stream()
+                        .filter(
+                                vertex ->
+                                        vertex.getTaskGroup().getTasks().stream()
+                                                .filter(SourceSplitEnumeratorTask.class::isInstance)
+                                                .map(SourceSplitEnumeratorTask.class::cast)
+                                                .anyMatch(
+                                                        SourceSplitEnumeratorTask
+                                                                ::supportsCdcProgress))
+                        .map(vertex -> vertex.getTaskGroupLocation())
+                        .collect(Collectors.toList());
+        if (cdcGroups.isEmpty()) {
+            return;
+        }
+        Map<TaskGroupLocation, SlotProfile> pipelineSlots =
+                slots.apply(subPlan.getPipelineLocation());
+        if (pipelineSlots != null) {
+            cdcGroups.forEach(
+                    group ->
+                            addEnumeratorTaskGroup(
+                                    taskGroupsByWorker, group, pipelineSlots.get(group)));
+        }
     }
 
     /**
@@ -2257,29 +2311,51 @@ public class CoordinatorService {
      */
     static void collectCdcEnumeratorProgress(
             Map<Address, List<TaskGroupLocation>> taskGroupsByWorker,
+            ConcurrentMap<Address, Object> inFlight,
             BiFunction<Address, List<TaskGroupLocation>, CompletionStage<CdcProgressReportBatch>>
                     collect,
             Consumer<List<CdcProgressEnvelope<?>>> update,
             BiConsumer<Address, Throwable> onFailure) {
         Map<Address, CompletionStage<CdcProgressReportBatch>> requests = new HashMap<>();
-        taskGroupsByWorker.forEach(
-                (worker, taskGroupLocations) -> {
-                    try {
-                        requests.put(worker, collect.apply(worker, taskGroupLocations));
-                    } catch (Exception e) {
-                        onFailure.accept(worker, e);
-                    }
-                });
-        requests.forEach(
-                (worker, request) ->
-                        request.whenComplete(
-                                (batch, error) -> {
-                                    if (error != null) {
-                                        onFailure.accept(worker, error);
-                                    } else if (batch != null && !batch.getReports().isEmpty()) {
-                                        update.accept(batch.getReports());
-                                    }
-                                }));
+        Map<Address, Object> tokens = new HashMap<>();
+        try {
+            taskGroupsByWorker.forEach(
+                    (worker, taskGroupLocations) -> {
+                        Object token = new Object();
+                        if (inFlight.putIfAbsent(worker, token) != null) {
+                            return;
+                        }
+                        tokens.put(worker, token);
+                        try {
+                            requests.put(worker, collect.apply(worker, taskGroupLocations));
+                        } catch (Exception e) {
+                            inFlight.remove(worker, token);
+                            onFailure.accept(worker, e);
+                        }
+                    });
+            requests.forEach(
+                    (worker, request) -> {
+                        try {
+                            request.whenComplete(
+                                    (batch, error) -> {
+                                        if (!inFlight.remove(worker, tokens.get(worker))) {
+                                            return;
+                                        }
+                                        if (error != null) {
+                                            onFailure.accept(worker, error);
+                                        } else if (batch != null && !batch.getReports().isEmpty()) {
+                                            update.accept(batch.getReports());
+                                        }
+                                    });
+                        } catch (Exception error) {
+                            inFlight.remove(worker, tokens.get(worker));
+                            onFailure.accept(worker, error);
+                        }
+                    });
+        } catch (Error error) {
+            tokens.forEach((worker, token) -> inFlight.remove(worker, token));
+            throw error;
+        }
     }
 
     static void addEnumeratorTaskGroup(
