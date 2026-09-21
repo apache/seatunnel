@@ -70,36 +70,6 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar IMapDagStorageBenchmark
 java -jar seatunnel-benchmarks/target/benchmarks.jar IMapWalStorageBenchmark
 ```
 
-## Run the checkpoint scheduling benchmark
-
-```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointSchedulingBenchmark
-```
-
-`CheckpointSchedulingBenchmark` measures how long a due checkpoint trigger waits before its
-scheduling thread runs it, as a distribution. This is separate from
-`CheckpointingTimeBenchmark`, which measures checkpoint completion time: completion time is
-dominated by the barrier round-trip and is close to blind to how the trigger was scheduled.
-
-Parameters:
-
-- `pipelineNum`: pipelines scheduling checkpoints on the member. Each `CheckpointCoordinator`
-  builds its own two-thread pool, so this also sets the scheduler thread count.
-- `checkpointIntervalMillis`: interval of the background trigger load. The default is far below
-  the production default of 300000 so that a short iteration sees a realistic number of triggers.
-- `triggerBodyMicros`: how long a trigger occupies its scheduling thread. It is a parameter, not a
-  fixed cost, because the answer differs per deployment and it is what decides whether a fixed
-  pool width is wide enough.
-
-Sweep the pipeline count to see the axis that separates scheduling models:
-
-```bash
-java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointSchedulingBenchmark \
-  -p pipelineNum=1,10,100,500 \
-  -rf json \
-  -rff seatunnel-benchmarks/target/checkpoint-scheduling-result.json
-```
-
 ## Install async-profiler
 
 CPU, wall-clock, and lock profiling require async-profiler's library and bundled `jfrconv`.
