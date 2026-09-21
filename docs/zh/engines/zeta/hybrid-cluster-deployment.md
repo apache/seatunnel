@@ -177,14 +177,16 @@ CoordinatorService 提供了每个作业从 LogicalDag 到 ExecutionDag，再到
 
 **max-thread-num**
 
-同时可执行的最大作业数量
+配置 CoordinatorService 线程池的最大线程数量
 
 Example
 
 ```yaml
-coordinator-service:
-   core-thread-num: 30
-   max-thread-num: 1000
+seatunnel:
+  engine:
+    coordinator-service:
+      core-thread-num: 30
+      max-thread-num: 1000
 ```
 
 ### 4.8 作业指标分区数量（此参数在 Worker 节点上无效）
