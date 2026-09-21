@@ -945,9 +945,19 @@ public class CheckpointCoordinator {
         return new PassiveCompletableFuture<>(future);
     }
 
+    /**
+     * Registers the body that triggers the checkpoint barrier and waits for every task to ACK.
+     *
+     * <p>The continuation is registered asynchronously on {@link #executorService} rather than with
+     * {@code thenAccept}. A non-async continuation runs inline on whichever thread completes the
+     * future, or on the caller when the future is already complete, and this body blocks on {@code
+     * allOf(...).get()} for a whole barrier round-trip while {@code tryTriggerPendingCheckpoint}
+     * holds {@link #lock}. The caller is a shared checkpoint dispatch thread, so running inline
+     * would hold a member-wide thread, and the coordinator lock, for the length of a checkpoint.
+     */
     private void startTriggerPendingCheckpoint(
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
-        pendingCompletableFuture.thenAccept(
+        pendingCompletableFuture.thenAcceptAsync(
                 pendingCheckpoint -> {
                     LOG.info(
                             "wait checkpoint id: {} completed.",
@@ -1037,7 +1047,8 @@ public class CheckpointCoordinator {
                                         checkpointTimeout,
                                         TimeUnit.MILLISECONDS));
                     }
-                });
+                },
+                executorService);
         pendingCounter.incrementAndGet();
     }
 
