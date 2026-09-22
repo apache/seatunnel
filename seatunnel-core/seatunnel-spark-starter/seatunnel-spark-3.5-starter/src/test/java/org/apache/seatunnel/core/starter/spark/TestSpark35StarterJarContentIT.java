@@ -29,11 +29,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.jar.JarFile;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
@@ -115,34 +115,53 @@ class TestSpark35StarterJarContentIT {
 
     @Test
     void windowsLauncherPassesQuotedConfigPathWithSpaces() throws Exception {
-        assertWindowsConfigPath("job with spaces.conf");
+        assertWindowsConfigPath("distribution with spaces", "job with spaces.conf");
     }
 
     @Test
     void windowsLauncherPassesQuotedConfigPathWithMetacharacters() throws Exception {
-        assertWindowsConfigPath("job !seatunnel_missing! & spaces.conf");
+        assertWindowsConfigPath(
+                "distribution !seatunnel_missing! & spaces",
+                "job !seatunnel_missing! & spaces.conf");
     }
 
-    private void assertWindowsConfigPath(String fileName) throws Exception {
-        Path home = prepareWindowsDistribution();
+    private void assertWindowsConfigPath(String directoryName, String fileName) throws Exception {
+        Path home = prepareWindowsDistribution(directoryName);
         Path config = home.resolve("config").resolve(fileName);
         // A parse error proves the real starter opened this file, not a split or expanded path.
         // This intentionally stops before the legacy command-string handoff to spark-submit.
         Files.write(config, "env {\n".getBytes(StandardCharsets.UTF_8));
+        // First prove the fixture's cmd-to-Java boundary without the production launcher.
+        ProcessResult direct =
+                runWindowsCommand(
+                        home,
+                        "-Xmx128m",
+                        "java %JAVA_OPTS% -cp \"%SEATUNNEL_TEST_CLASSPATH%\" "
+                                + "org.apache.seatunnel.core.starter.spark.SparkStarter",
+                        "--config",
+                        config.toString());
+        assertConfigParseFailure(direct, fileName, "Direct cmd-to-Java control");
         ProcessResult result = runWindowsLauncher(home, "-Xmx128m", "--config", config.toString());
-        Assertions.assertNotEquals(0, result.exitCode, result.diagnostic());
-        Assertions.assertTrue(result.stderr.contains("ConfigException$Parse"), result.diagnostic());
-        Assertions.assertTrue(result.stderr.contains(fileName), result.diagnostic());
+        assertConfigParseFailure(result, fileName, "Production launcher");
         assertNoSubmissionOrTemporaryOutput();
     }
 
+    private void assertConfigParseFailure(ProcessResult result, String fileName, String boundary) {
+        String diagnostic = boundary + "\n" + result.diagnostic();
+        Assertions.assertNotEquals(0, result.exitCode, diagnostic);
+        Assertions.assertTrue(result.stderr.contains("ConfigException$Parse"), diagnostic);
+        Assertions.assertTrue(result.stderr.contains(fileName), diagnostic);
+    }
+
     private Path prepareWindowsDistribution() throws IOException {
+        return prepareWindowsDistribution("distribution !seatunnel_missing! & spaces");
+    }
+
+    private Path prepareWindowsDistribution(String directoryName) throws IOException {
         Assumptions.assumeTrue(
                 System.getProperty("os.name").startsWith("Windows"),
                 "Requires native Windows cmd.exe; not exercised by non-Windows builds");
-        Path home =
-                Files.createDirectories(
-                        tempDir.resolve("distribution !seatunnel_missing! & spaces"));
+        Path home = Files.createDirectories(tempDir.resolve(directoryName));
         Path bin = Files.createDirectories(home.resolve("bin"));
         Files.createDirectories(home.resolve("config"));
         Path logging = Files.createDirectories(home.resolve("starter/logging"));
@@ -167,12 +186,42 @@ class TestSpark35StarterJarContentIT {
 
     private ProcessResult runWindowsLauncher(Path home, String javaOptions, String... arguments)
             throws Exception {
-        List<String> command = new ArrayList<>();
-        command.add(Paths.get(System.getenv("SystemRoot"), "System32", "cmd.exe").toString());
-        command.addAll(Arrays.asList("/d", "/v:off", "/c", WINDOWS_LAUNCHER));
-        command.addAll(Arrays.asList(arguments));
+        return runWindowsCommand(home, javaOptions, WINDOWS_LAUNCHER, arguments);
+    }
+
+    private ProcessResult runWindowsCommand(
+            Path home, String javaOptions, String command, String... arguments) throws Exception {
+        // ProcessBuilder receives only a simple batch filename, not a cmd command string with
+        // Java-quoted paths. The driver quotes each fixture argument at the cmd boundary.
         ProcessBuilder builder =
-                new ProcessBuilder(command).directory(home.resolve("bin").toFile());
+                new ProcessBuilder(
+                                Paths.get(System.getenv("SystemRoot"), "System32", "cmd.exe")
+                                        .toString(),
+                                "/d",
+                                "/v:off",
+                                "/c",
+                                "launcher-test.cmd")
+                        .directory(home.resolve("bin").toFile());
+        StringBuilder driver =
+                new StringBuilder("@echo off\r\nsetlocal disabledelayedexpansion\r\n")
+                        .append(command);
+        for (int i = 0; i < arguments.length; i++) {
+            String name = "SEATUNNEL_TEST_ARG_" + i;
+            builder.environment().put(name, arguments[i]);
+            driver.append(" \"%").append(name).append("%\"");
+        }
+        driver.append("\r\n");
+        Files.write(
+                home.resolve("bin/launcher-test.cmd"),
+                driver.toString().getBytes(StandardCharsets.UTF_8));
+        builder.environment()
+                .put(
+                        "SEATUNNEL_TEST_CLASSPATH",
+                        home.resolve("starter/logging")
+                                + File.separator
+                                + "*"
+                                + File.pathSeparator
+                                + home.resolve("starter/seatunnel-spark-3.5-starter.jar"));
         builder.environment().put("JAVA_OPTS", javaOptions);
         builder.environment().put("SPARK_HOME", tempDir.resolve("spark").toString());
         builder.environment()
@@ -222,9 +271,34 @@ class TestSpark35StarterJarContentIT {
                 Files.exists(tempDir.resolve("submitted.txt")), "Unexpected Spark submission");
         try (Stream<Path> files =
                 Files.list(tempDir.resolve("cmd-temp !seatunnel_missing! & spaces"))) {
-            Assertions.assertEquals(
-                    0, files.count(), "Launcher did not clean its temporary output");
+            List<Path> leftovers =
+                    files.filter(
+                                    path ->
+                                            path.getFileName()
+                                                    .toString()
+                                                    .startsWith("seatunnel-spark-"))
+                            .collect(Collectors.toList());
+            Assertions.assertTrue(
+                    leftovers.isEmpty(),
+                    "Launcher did not clean its temporary output: " + leftovers);
         }
+    }
+
+    @Test
+    void temporaryOutputCheckIgnoresOtherOwners() throws IOException {
+        Path directory =
+                Files.createDirectories(tempDir.resolve("cmd-temp !seatunnel_missing! & spaces"));
+        Files.createDirectory(directory.resolve("hsperfdata-test"));
+        Files.createFile(directory.resolve("unrelated.tmp"));
+        assertNoSubmissionOrTemporaryOutput();
+    }
+
+    @Test
+    void temporaryOutputCheckDetectsLauncherOutput() throws IOException {
+        Path directory =
+                Files.createDirectories(tempDir.resolve("cmd-temp !seatunnel_missing! & spaces"));
+        Files.createDirectory(directory.resolve("seatunnel-spark-123-456"));
+        Assertions.assertThrows(AssertionError.class, this::assertNoSubmissionOrTemporaryOutput);
     }
 
     private static Path javaExecutable() {
@@ -261,7 +335,12 @@ class TestSpark35StarterJarContentIT {
             command.add("-Dseatunnel.spark.starter.shell.name=" + configuredName);
         }
         command.add("-cp");
-        command.add(Paths.get("target/logging-e2e", "*") + File.pathSeparator + findStarterJar());
+        command.add(
+                Paths.get("target/logging-e2e")
+                        + File.separator
+                        + "*"
+                        + File.pathSeparator
+                        + findStarterJar());
         command.add("org.apache.seatunnel.core.starter.spark.SparkStarter");
         command.add("-h");
         Path outputFile = Files.createTempFile(tempDir, "usage-", ".log");

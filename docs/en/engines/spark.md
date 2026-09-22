@@ -34,6 +34,12 @@ supported, and native Windows launcher behavior has not been validated. Do not
 pass untrusted values through this launcher; use the Unix launcher when exact
 argument preservation is required.
 
+The packaged Windows tests exercise help, JVM startup failure, and opening quoted
+configuration paths containing spaces, `!`, and `&`. The path tests stop at a
+configuration parse error, before Spark submission; they do not establish exact
+argument preservation by `spark-submit.cmd`. Native Windows CI must pass on the
+revision being validated before treating these launcher cases as verified.
+
 ## When To Choose Spark
 
 Spark is usually the right engine when:

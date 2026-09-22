@@ -62,6 +62,7 @@ public class SparkStarter implements Starter {
     /** Selects the starter artifact; the Spark 3.5 launchers override the legacy Spark 3 name. */
     static final String STARTER_JAR_NAME_PROPERTY = "seatunnel.spark.starter.jar.name";
 
+    /** Documents the launcher-selected name for tests; runtime selection uses the property. */
     static final String SPARK_35_STARTER_JAR_NAME = "seatunnel-spark-3.5-starter.jar";
 
     /** Identifies the invoking launcher in help and argument-error output. */

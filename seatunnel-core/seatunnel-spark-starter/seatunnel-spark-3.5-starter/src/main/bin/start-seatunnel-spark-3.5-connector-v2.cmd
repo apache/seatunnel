@@ -33,10 +33,11 @@ if exist "%CONF_DIR%\seatunnel-env.cmd" (
   call "%CONF_DIR%\seatunnel-env.cmd"
 )
 
+rem Preserve argument quotes without adding an outer quote pair around the complete argument list.
 if "%~1"=="" (
   set "args=-h"
 ) else (
-  set "args=%*"
+  set args=%*
 )
 
 set "JAVA_OPTS=%JAVA_OPTS% -Dseatunnel.spark.starter.jar.name=%APP_JAR_NAME%"
