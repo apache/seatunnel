@@ -183,6 +183,43 @@ public class MysqlCreateTableSqlBuilderTest {
     }
 
     @Test
+    public void testNullablePrimaryKeyColumnIsNotNullWhenCreateIndex() {
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0, true, null, null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "description", BasicType.STRING_TYPE, 32, true, null, null))
+                        .primaryKey(PrimaryKey.of("id", Lists.newArrayList("id")))
+                        .build();
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("test_catalog", "test_db", "test_table"),
+                        tableSchema,
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "test table");
+
+        String createTableSql =
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, true)
+                        .build(DatabaseIdentifier.MYSQL);
+
+        Assertions.assertTrue(createTableSql.contains("`id` INT NOT NULL"));
+        Assertions.assertTrue(createTableSql.contains("`description` VARCHAR(32) NULL"));
+        Assertions.assertTrue(createTableSql.contains("PRIMARY KEY (`id`)"));
+
+        String createTableSqlWithoutIndex =
+                MysqlCreateTableSqlBuilder.builder(
+                                tablePath, catalogTable, MySqlTypeConverter.DEFAULT_INSTANCE, false)
+                        .build(DatabaseIdentifier.MYSQL);
+
+        Assertions.assertTrue(createTableSqlWithoutIndex.contains("`id` INT NULL"));
+        Assertions.assertFalse(createTableSqlWithoutIndex.contains("PRIMARY KEY"));
+    }
+
+    @Test
     public void testColumnSinkType() {
         MysqlCreateTableSqlBuilder sqlBuilder = mock(MysqlCreateTableSqlBuilder.class);
 
