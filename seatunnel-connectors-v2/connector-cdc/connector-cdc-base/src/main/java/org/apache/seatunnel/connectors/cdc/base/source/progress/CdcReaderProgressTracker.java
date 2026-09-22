@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.progress;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressPosition;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
@@ -26,19 +28,30 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSp
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
 
 import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.LongSupplier;
 
 /** Maintains the latest immutable report without performing I/O from the record-emission path. */
 public final class CdcReaderProgressTracker {
 
+    private static final long PUBLICATION_INTERVAL_NANOS = TimeUnit.SECONDS.toNanos(1);
     private final String connectorType;
     private final String positionType;
     private final CdcReaderProgressReport initialReport;
     private final AtomicReference<ReaderState> latestState = new AtomicReference<>();
+    private final LongSupplier nanoClock;
 
     public CdcReaderProgressTracker(String connectorType, String positionType) {
+        this(connectorType, positionType, System::nanoTime);
+    }
+
+    @VisibleForTesting
+    public CdcReaderProgressTracker(
+            String connectorType, String positionType, LongSupplier nanoClock) {
         this.connectorType = connectorType;
         this.positionType = positionType;
+        this.nanoClock = nanoClock;
         this.initialReport =
                 new CdcReaderProgressReport(
                         connectorType,
@@ -56,7 +69,20 @@ public final class CdcReaderProgressTracker {
         recordState(splitState, null, false, 0L);
     }
 
-    /** Publishes position and lifecycle together, only after successful record processing. */
+    /**
+     * Tests the publication budget without reading offset coordinates. Call only after successful
+     * processing; first consumption and split/lifecycle changes bypass the sampling interval.
+     */
+    public boolean shouldRecordEmission(SourceSplitStateBase splitState) {
+        ReaderState previous = latestState.get();
+        return previous == null
+                || !previous.emissionObserved
+                || !Objects.equals(previous.splitId, splitState.splitId())
+                || previous.lifecycle != lifecycle(splitState)
+                || nanoClock.getAsLong() - previous.publishedAtNanos >= PUBLICATION_INTERVAL_NANOS;
+    }
+
+    /** Publishes a selected successful observation as one detached position/lifecycle tuple. */
     public void recordEmission(
             SourceSplitStateBase splitState, Long sourceEventTime, long observedAt) {
         recordState(splitState, sourceEventTime, true, observedAt);
@@ -92,21 +118,16 @@ public final class CdcReaderProgressTracker {
             boolean emissionObserved,
             long observedAt) {
         String splitId = splitState.splitId();
-        CdcProgressLifecycle lifecycle;
+        CdcProgressLifecycle lifecycle = lifecycle(splitState);
         Offset offset = null;
-        if (splitState.isSnapshotSplitState()) {
-            lifecycle = CdcProgressLifecycle.SNAPSHOT;
-        } else {
+        if (!splitState.isSnapshotSplitState()) {
             IncrementalSplitState incrementalState = splitState.asIncrementalSplitState();
-            lifecycle =
-                    incrementalState.isEnterPureIncrementPhase()
-                            ? CdcProgressLifecycle.INCREMENTAL
-                            : CdcProgressLifecycle.CATCH_UP;
             offset = incrementalState.getStartupOffset();
         }
         // Offsets can be mutated in place before processing succeeds. Detach coordinates at
         // publication so polling never observes that live state or advances failed emissions.
         CdcProgressPosition position = CdcProgressPositions.fromOffset(positionType, offset);
+        long publishedAtNanos = nanoClock.getAsLong();
         latestState.updateAndGet(
                 previous ->
                         nextState(
@@ -116,7 +137,17 @@ public final class CdcReaderProgressTracker {
                                 position,
                                 sourceEventTime,
                                 emissionObserved,
-                                observedAt));
+                                observedAt,
+                                publishedAtNanos));
+    }
+
+    private static CdcProgressLifecycle lifecycle(SourceSplitStateBase splitState) {
+        if (splitState.isSnapshotSplitState()) {
+            return CdcProgressLifecycle.SNAPSHOT;
+        }
+        return splitState.asIncrementalSplitState().isEnterPureIncrementPhase()
+                ? CdcProgressLifecycle.INCREMENTAL
+                : CdcProgressLifecycle.CATCH_UP;
     }
 
     private ReaderState nextState(
@@ -126,7 +157,8 @@ public final class CdcReaderProgressTracker {
             CdcProgressPosition position,
             Long sourceEventTime,
             boolean emissionObserved,
-            long observedAt) {
+            long observedAt,
+            long publishedAtNanos) {
         if (!emissionObserved || (previous != null && !Objects.equals(previous.splitId, splitId))) {
             previous = null;
         }
@@ -151,7 +183,8 @@ public final class CdcReaderProgressTracker {
                 position,
                 lastPositionChangeAt,
                 latestSourceEventAt,
-                emissionObserved || (previous != null && previous.emissionObserved));
+                emissionObserved || (previous != null && previous.emissionObserved),
+                publishedAtNanos);
     }
 
     private static final class ReaderState {
@@ -161,6 +194,7 @@ public final class CdcReaderProgressTracker {
         private final long lastPositionChangeAt;
         private final Long latestSourceEventAt;
         private final boolean emissionObserved;
+        private final long publishedAtNanos;
 
         private ReaderState(
                 String splitId,
@@ -168,13 +202,15 @@ public final class CdcReaderProgressTracker {
                 CdcProgressPosition position,
                 long lastPositionChangeAt,
                 Long latestSourceEventAt,
-                boolean emissionObserved) {
+                boolean emissionObserved,
+                long publishedAtNanos) {
             this.splitId = splitId;
             this.lifecycle = lifecycle;
             this.position = position;
             this.lastPositionChangeAt = lastPositionChangeAt;
             this.latestSourceEventAt = latestSourceEventAt;
             this.emissionObserved = emissionObserved;
+            this.publishedAtNanos = publishedAtNanos;
         }
     }
 }

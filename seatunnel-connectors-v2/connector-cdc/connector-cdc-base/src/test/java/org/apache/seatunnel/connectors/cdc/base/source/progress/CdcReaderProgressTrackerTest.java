@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSp
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
+import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
@@ -36,8 +37,63 @@ import java.lang.management.ManagementFactory;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 class CdcReaderProgressTrackerTest {
+
+    @Test
+    void publicationBudgetDoesNotReadCoordinatesBetweenSuccessfulSamples() {
+        AtomicLong nanos = new AtomicLong();
+        CdcReaderProgressTracker tracker =
+                new CdcReaderProgressTracker("Test-CDC", "TEST", nanos::get);
+        Offset offset = Mockito.mock(Offset.class);
+        Map<String, String> values = new HashMap<>(Collections.singletonMap("pos", "10"));
+        Mockito.when(offset.getOffset()).thenReturn(values);
+        IncrementalSplitState state = createIncrementalSplitState(offset);
+        tracker.recordSplitState(state);
+        Assertions.assertTrue(tracker.shouldRecordEmission(state));
+        tracker.recordEmission(state, 90L, 100L);
+        int initializedCopies = 2;
+        values.put("pos", "11");
+        for (int i = 0; i < 1000; i++) {
+            Assertions.assertFalse(tracker.shouldRecordEmission(state));
+        }
+        Mockito.verify(offset, Mockito.times(initializedCopies)).getOffset();
+        Assertions.assertEquals(
+                "10",
+                tracker.current().getCurrentConsumedPosition().getValue().getValues().get("pos"));
+        nanos.set(TimeUnit.SECONDS.toNanos(1) - 1);
+        Assertions.assertFalse(tracker.shouldRecordEmission(state));
+        nanos.incrementAndGet();
+        Assertions.assertTrue(tracker.shouldRecordEmission(state));
+        tracker.recordEmission(state, 80L, 50L); // Wall-clock rollback does not defer a due sample.
+        Mockito.verify(offset, Mockito.times(initializedCopies + 1)).getOffset();
+        Assertions.assertEquals(
+                "11",
+                tracker.current().getCurrentConsumedPosition().getValue().getValues().get("pos"));
+        Assertions.assertEquals(50L, tracker.current().getLastPositionChangeAt());
+        Assertions.assertEquals(80L, tracker.current().getLastSourceEventAt());
+        IncrementalSplitState other =
+                new IncrementalSplitState(
+                        new IncrementalSplit(
+                                "other",
+                                Collections.emptyList(),
+                                new TestOffset(20),
+                                null,
+                                Collections.emptyList()));
+        Assertions.assertTrue(tracker.shouldRecordEmission(other));
+    }
+
+    @Test
+    void nullCoordinatesStayUnavailable() {
+        Offset offset = Mockito.mock(Offset.class);
+        Mockito.when(offset.getOffset()).thenReturn(Collections.singletonMap("optional", null));
+        Assertions.assertNull(CdcProgressPositions.fromOffset("TEST", offset));
+        Mockito.when(offset.getOffset()).thenReturn(Collections.emptyMap());
+        Assertions.assertNull(CdcProgressPositions.fromOffset("TEST", offset));
+    }
 
     @Test
     void mutableOffsetDoesNotChangePublishedPositionUntilSuccessfulEmission() {
@@ -245,7 +301,7 @@ class CdcReaderProgressTrackerTest {
     @Test
     void testTracksCatchUpToIncrementalTransition() {
         CdcReaderProgressTracker tracker =
-                new CdcReaderProgressTracker("MySQL-CDC", "MYSQL_BINLOG");
+                new CdcReaderProgressTracker("MySQL-CDC", "MYSQL_BINLOG", () -> 0L);
         TableId tableId = TableId.parse("inventory.orders");
         CompletedSnapshotSplitInfo completedSplit =
                 new CompletedSnapshotSplitInfo(
@@ -267,9 +323,12 @@ class CdcReaderProgressTrackerTest {
 
         tracker.recordSplitState(splitState);
         Assertions.assertEquals(CdcProgressLifecycle.CATCH_UP, tracker.current().getLifecycle());
+        tracker.recordEmission(splitState, null, 90L);
+        Assertions.assertFalse(tracker.shouldRecordEmission(splitState));
 
         Assertions.assertTrue(splitState.markEnterPureIncrementPhaseIfNeed(new TestOffset(15L)));
         splitState.setStartupOffset(new TestOffset(15L));
+        Assertions.assertTrue(tracker.shouldRecordEmission(splitState));
         tracker.recordEmission(splitState, null, 100L);
 
         Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, tracker.current().getLifecycle());

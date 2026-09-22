@@ -79,10 +79,22 @@ remain `UNSUPPORTED` until their corresponding lifecycle callbacks prove them. T
 position is not a completed-checkpoint position, and normal split assignment does not prove restore
 origin.
 
-Reader progress captures detached offset coordinates after successful emission. Polling never reads
-a connector's mutable offset object, so a later in-place update or failed emission cannot advance
-an already published consumed position. This adds coordinate-copying work to successful incremental
-emissions; the provider does not claim zero per-record overhead.
+Reader progress samples detached offset coordinates after successful processing, at most once per
+second unless the split or reader lifecycle changes or this is its first successful emission.
+The sampling budget uses a monotonic clock; report timestamps remain epoch timestamps. Polling never
+reads a connector's mutable offset object. A later in-place update or failed emission cannot advance
+an already published consumed position. On a partially failed batch, the last verified sample is
+retained; it need not include every successful record before the failure. An exact coordinate is
+evidence of that sampled successful observation, not a freshness or checkpoint guarantee. If no later
+record succeeds, the sample can remain stale indefinitely. `lastPositionChangeAt` records when a
+sampled position change was observed. Coordinate copying is limited to selected samples, while a
+small sampling check remains on the record path.
+
+Enumerator count mismatches are reported as `BEST_EFFORT` rather than changing assignment or
+checkpoint behavior. Ordinary diagnostic-conversion failures publish unavailable counts instead of
+presenting an older exact assignment snapshot as fresh; they do not fail assignment or restore.
+The remaining-unchunked-table count includes a table currently being chunked, without retaining it
+in the assigner's production queue.
 
 ## Current limitations
 

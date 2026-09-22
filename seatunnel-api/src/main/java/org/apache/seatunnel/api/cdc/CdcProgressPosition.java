@@ -45,15 +45,31 @@ public final class CdcProgressPosition {
     private final Map<String, String> values;
 
     public CdcProgressPosition(String type, int schemaVersion, Map<String, String> values) {
+        this(type, schemaVersion, values, false);
+    }
+
+    /** Copies non-null coordinates once, without retaining the connector's mutable map. */
+    public static CdcProgressPosition copyOfNonNullValues(
+            String type, int schemaVersion, Map<String, String> values) {
+        return new CdcProgressPosition(type, schemaVersion, values, true);
+    }
+
+    private CdcProgressPosition(
+            String type, int schemaVersion, Map<String, String> values, boolean omitNullValues) {
         this.type = Objects.requireNonNull(type, "type must not be null");
         if (schemaVersion < 1) {
             throw new IllegalArgumentException("schemaVersion must be positive");
         }
         this.schemaVersion = schemaVersion;
-        this.values =
-                Collections.unmodifiableMap(
-                        new LinkedHashMap<>(
-                                Objects.requireNonNull(values, "values must not be null")));
+        Map<String, String> copy = new LinkedHashMap<>();
+        Objects.requireNonNull(values, "values must not be null")
+                .forEach(
+                        (key, value) -> {
+                            if (!omitNullValues || value != null) {
+                                copy.put(key, value);
+                            }
+                        });
+        this.values = Collections.unmodifiableMap(copy);
     }
 
     public String getType() {

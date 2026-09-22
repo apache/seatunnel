@@ -44,17 +44,139 @@ import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.RESUME_TOKEN_FIELD;
 
 class MongoDBRecordEmitterProgressTest {
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void partialBatchFailureRetainsOnlyVerifiedSamples(boolean collectorFailure) throws Exception {
+        for (boolean sampleFirstRow : new boolean[] {false, true}) {
+            Fixture fixture = new Fixture();
+            fixture.emit(1);
+            CdcReaderProgressReport first = fixture.tracker.current();
+            if (sampleFirstRow) {
+                fixture.nanos.addAndGet(TimeUnit.SECONDS.toNanos(1));
+            }
+            AtomicInteger deserialized = new AtomicInteger();
+            AtomicInteger collected = new AtomicInteger();
+            AtomicReference<CdcReaderProgressReport> beforeFailure = new AtomicReference<>();
+            IllegalStateException failure = new IllegalStateException("partial batch failure");
+            Mockito.doAnswer(
+                            invocation -> {
+                                int row = deserialized.incrementAndGet();
+                                if (row == 2) {
+                                    beforeFailure.set(fixture.tracker.current());
+                                    if (!collectorFailure) {
+                                        throw failure;
+                                    }
+                                }
+                                invocation.<Collector<String>>getArgument(1).collect("row");
+                                return null;
+                            })
+                    .when(fixture.schema)
+                    .deserialize(Mockito.any(), Mockito.any());
+            Mockito.doAnswer(
+                            invocation -> {
+                                if (collected.incrementAndGet() == 2 && collectorFailure) {
+                                    throw failure;
+                                }
+                                return null;
+                            })
+                    .when(fixture.collector)
+                    .collect(Mockito.anyString());
+            Assertions.assertSame(
+                    failure,
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () ->
+                                    fixture.emitter.emitRecord(
+                                            new SourceRecords(
+                                                    Arrays.asList(
+                                                            fixture.record(2),
+                                                            fixture.record(3),
+                                                            fixture.record(4))),
+                                            fixture.collector,
+                                            fixture.state)));
+            Assertions.assertEquals(2, deserialized.get());
+            Assertions.assertEquals(token(3), fixture.offset.getResumeToken());
+            Assertions.assertSame(fixture.offset, fixture.state.getStartupOffset());
+            CdcReaderProgressReport actual = fixture.tracker.current();
+            Assertions.assertEquals(
+                    token(sampleFirstRow ? 2 : 1).toJson(),
+                    actual.getCurrentConsumedPosition()
+                            .getValue()
+                            .getValues()
+                            .get(RESUME_TOKEN_FIELD));
+            Assertions.assertEquals(
+                    (sampleFirstRow ? 2 : 1) * 1000L, actual.getLastSourceEventAt());
+            assertPositionUnchanged(beforeFailure.get(), actual);
+            Assertions.assertEquals(beforeFailure.get().getLifecycle(), actual.getLifecycle());
+            Assertions.assertEquals(
+                    token(1).toJson(),
+                    first.getCurrentConsumedPosition()
+                            .getValue()
+                            .getValues()
+                            .get(RESUME_TOKEN_FIELD));
+        }
+    }
+
+    @Test
+    void singletonBatchesDoNotBypassPublicationBudget() throws Exception {
+        Fixture fixture = new Fixture();
+        fixture.emit(1);
+        for (int i = 2; i <= 100; i++) {
+            fixture.emitter.emitRecord(
+                    SourceRecords.fromSingleRecord(fixture.record(i)),
+                    fixture.collector,
+                    fixture.state);
+        }
+        Assertions.assertEquals(token(100), fixture.offset.getResumeToken());
+        Assertions.assertEquals(
+                token(1).toJson(),
+                fixture.tracker
+                        .current()
+                        .getCurrentConsumedPosition()
+                        .getValue()
+                        .getValues()
+                        .get(RESUME_TOKEN_FIELD));
+        fixture.nanos.addAndGet(TimeUnit.SECONDS.toNanos(1));
+        fixture.emitter.emitRecord(
+                new SourceRecords(Arrays.asList(fixture.record(101), fixture.record(102))),
+                fixture.collector,
+                fixture.state);
+        Assertions.assertEquals(
+                token(101).toJson(),
+                fixture.tracker
+                        .current()
+                        .getCurrentConsumedPosition()
+                        .getValue()
+                        .getValues()
+                        .get(RESUME_TOKEN_FIELD));
+        fixture.emitter.emitRecord(
+                new SourceRecords(Collections.emptyList()), fixture.collector, fixture.state);
+        Assertions.assertEquals(
+                token(101).toJson(),
+                fixture.tracker
+                        .current()
+                        .getCurrentConsumedPosition()
+                        .getValue()
+                        .getValues()
+                        .get(RESUME_TOKEN_FIELD));
+        Mockito.verify(fixture.collector, Mockito.times(102)).collect("row");
+    }
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
@@ -149,8 +271,9 @@ class MongoDBRecordEmitterProgressTest {
     }
 
     private static final class Fixture {
+        private final AtomicLong nanos = new AtomicLong();
         private final CdcReaderProgressTracker tracker =
-                new CdcReaderProgressTracker("MongoDB-CDC", "MONGODB_RESUME_TOKEN");
+                new CdcReaderProgressTracker("MongoDB-CDC", "MONGODB_RESUME_TOKEN", nanos::get);
         private final ChangeStreamOffset offset = new ChangeStreamOffset(token(1));
         private final IncrementalSplitState state =
                 new IncrementalSplitState(
@@ -182,17 +305,29 @@ class MongoDBRecordEmitterProgressTest {
         }
 
         private void emit(int increment) throws Exception {
-            Schema valueSchema = SchemaBuilder.struct().name("fixture.mongodb").build();
-            SourceRecord record =
-                    new SourceRecord(
-                            Collections.emptyMap(),
-                            Collections.singletonMap(ID_FIELD, token(increment).toJson()),
-                            "inventory.orders",
-                            null,
-                            null,
-                            valueSchema,
-                            new Struct(valueSchema));
-            emitter.emitRecord(SourceRecords.fromSingleRecord(record), collector, state);
+            nanos.addAndGet(TimeUnit.SECONDS.toNanos(1));
+            emitter.emitRecord(SourceRecords.fromSingleRecord(record(increment)), collector, state);
+        }
+
+        private SourceRecord record(int increment) {
+            Schema sourceSchema =
+                    SchemaBuilder.struct().field("ts_ms", Schema.INT64_SCHEMA).build();
+            Schema valueSchema =
+                    SchemaBuilder.struct()
+                            .name("fixture.mongodb")
+                            .field("source", sourceSchema)
+                            .build();
+            return new SourceRecord(
+                    Collections.emptyMap(),
+                    Collections.singletonMap(ID_FIELD, token(increment).toJson()),
+                    "inventory.orders",
+                    null,
+                    null,
+                    valueSchema,
+                    new Struct(valueSchema)
+                            .put(
+                                    "source",
+                                    new Struct(sourceSchema).put("ts_ms", increment * 1000L)));
         }
     }
 }

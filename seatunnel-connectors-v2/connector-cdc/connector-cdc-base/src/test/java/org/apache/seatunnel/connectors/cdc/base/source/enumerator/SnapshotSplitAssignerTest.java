@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressAccuracy;
 import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -56,6 +57,60 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class SnapshotSplitAssignerTest {
+
+    @Test
+    void inconsistentRestoredCountsDoNotFailAssignment() {
+        SnapshotSplit split = createFinishedSnapshotSplit("late");
+        SnapshotSplitAssigner<?> assigner =
+                createRestoredSnapshotSplitAssigner(
+                        new HashMap<>(), Collections.singletonMap("late", createWatermark(split)));
+        CdcEnumeratorProgressReport report =
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+        Assertions.assertEquals(0, report.getAssignedSplitCount().getValue());
+        Assertions.assertEquals(1, report.getCompletedSplitCount().getValue());
+        Assertions.assertEquals(0, report.getRunningSplitCount().getValue());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getAssignedSplitCount().getAccuracy());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getCompletedSplitCount().getAccuracy());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getRunningSplitCount().getAccuracy());
+        Assertions.assertFalse(assigner.isCompleted());
+        Assertions.assertTrue(assigner.waitingForCompletedSplits());
+    }
+
+    @Test
+    void addBackPreservesCompletedAssignerState() {
+        SnapshotSplit split =
+                new SnapshotSplit("returned", TableId.parse("db1.table1"), null, null, null);
+        SnapshotSplitAssigner<?> assigner =
+                createRestoredSnapshotSplitAssigner(
+                        Collections.singletonMap(split.splitId(), split), new HashMap<>(), 1);
+        assigner.onCompletedSplits(Collections.singletonList(createWatermark(split)));
+        Assertions.assertTrue(assigner.isCompleted());
+        assigner.addSplits(Collections.singletonList(split));
+        Assertions.assertTrue(assigner.isCompleted());
+        Assertions.assertFalse(assigner.noMoreSplits());
+        Assertions.assertTrue(assigner.snapshotState(2).isAssignerCompleted());
+    }
+
+    @Test
+    void lateCompletionIsRetainedAfterAddBack() {
+        SnapshotSplit split =
+                new SnapshotSplit("returned", TableId.parse("db1.table1"), null, null, null);
+        SnapshotSplitAssigner<?> assigner =
+                createRestoredSnapshotSplitAssigner(
+                        Collections.singletonMap(split.splitId(), split), new HashMap<>());
+        assigner.addSplits(Collections.singletonList(split));
+        SnapshotSplitWatermark watermark = createWatermark(split);
+        assigner.onCompletedSplits(Collections.singletonList(watermark));
+        Assertions.assertSame(watermark, assigner.getSplitCompletedOffsets().get(split.splitId()));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT,
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getCompletedSplitCount()
+                        .getAccuracy());
+    }
 
     @Test
     @SuppressWarnings("unchecked")
@@ -144,7 +199,7 @@ public class SnapshotSplitAssignerTest {
     }
 
     @RepeatedTest(3)
-    void testAddBackPublishesAtomicallyAndIgnoresLateCompletion() throws Exception {
+    void testAddBackPublishesAtomicallyAndRetainsLateCompletion() throws Exception {
         SnapshotSplit first =
                 new SnapshotSplit(
                         "first", TableId.parse("db1.table1"), null, null, null, null, null);
@@ -212,10 +267,15 @@ public class SnapshotSplitAssignerTest {
             Assertions.assertEquals(2, after.getPreparedRemainingSplitCount().getValue());
             assigner.onCompletedSplits(Collections.singletonList(createWatermark(first)));
             Assertions.assertEquals(
-                    0,
+                    1,
                     assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
                             .getCompletedSplitCount()
                             .getValue());
+            Assertions.assertEquals(
+                    CdcProgressAccuracy.BEST_EFFORT,
+                    assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                            .getCompletedSplitCount()
+                            .getAccuracy());
         } finally {
             release.countDown();
             executor.shutdownNow();
@@ -646,6 +706,167 @@ public class SnapshotSplitAssignerTest {
 
         splitAssigner.notifyCheckpointComplete(21L);
         Assertions.assertTrue(splitAssigner.isCompleted());
+    }
+
+    @Test
+    void invalidDiagnosticOffsetDoesNotFailRestoreOrAddBack() {
+        Offset invalid = Mockito.mock(Offset.class);
+        Mockito.when(invalid.getOffset())
+                .thenThrow(new IllegalStateException("private fixture details"));
+        SnapshotSplit split =
+                new SnapshotSplit(
+                        "invalid", TableId.parse("db1.table1"), null, null, null, invalid, null);
+        SnapshotSplitAssigner<?> assigner =
+                createRestoredSnapshotSplitAssigner(
+                        Collections.singletonMap(split.splitId(), split), new HashMap<>());
+        CdcEnumeratorProgressReport report =
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, report.getAssignedSplitCount().getAccuracy());
+        Assertions.assertTrue(report.isActiveSplitsTruncated());
+        Assertions.assertTrue(report.getActiveSplits().isEmpty());
+        Assertions.assertDoesNotThrow(() -> assigner.addSplits(Collections.singletonList(split)));
+        Assertions.assertEquals(
+                1,
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getPreparedRemainingSplitCount()
+                        .getValue());
+    }
+
+    @Test
+    void failedDiagnosticConversionInvalidatesPreviousExactCounts() {
+        Offset offset = Mockito.mock(Offset.class);
+        Mockito.when(offset.getOffset()).thenReturn(Collections.singletonMap("pos", "1"));
+        SnapshotSplit active =
+                new SnapshotSplit(
+                        "active", TableId.parse("db1.table1"), null, null, null, offset, null);
+        SnapshotSplit completed =
+                new SnapshotSplit("completed", TableId.parse("db1.table1"), null, null, null);
+        Map<String, SnapshotSplit> assigned = new HashMap<>();
+        assigned.put(active.splitId(), active);
+        assigned.put(completed.splitId(), completed);
+        SnapshotSplitAssigner<?> assigner =
+                createRestoredSnapshotSplitAssigner(assigned, new HashMap<>());
+        CdcEnumeratorProgressReport previous =
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+        Assertions.assertEquals(2, previous.getRunningSplitCount().getValue());
+        Mockito.when(offset.getOffset()).thenThrow(new IllegalStateException("diagnostic failure"));
+        Assertions.assertDoesNotThrow(
+                () ->
+                        assigner.onCompletedSplits(
+                                Collections.singletonList(createWatermark(completed))));
+        CdcEnumeratorProgressReport failed =
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, failed.getAssignedSplitCount().getAccuracy());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, failed.getCompletedSplitCount().getAccuracy());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, failed.getRunningSplitCount().getAccuracy());
+        Assertions.assertTrue(failed.getActiveSplits().isEmpty());
+        Assertions.assertTrue(failed.isActiveSplitsTruncated());
+        Assertions.assertEquals(1, assigner.getSplitCompletedOffsets().size());
+        Assertions.assertEquals(2, previous.getRunningSplitCount().getValue());
+        Mockito.doReturn(Collections.singletonMap("pos", "1")).when(offset).getOffset();
+        assigner.onCompletedSplits(Collections.emptyList());
+        Assertions.assertEquals(
+                1,
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getRunningSplitCount()
+                        .getValue());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void addBackRetainsPendingFinishCheckpointAndLateCompletionOnReassignment() {
+        SnapshotSplit split =
+                new SnapshotSplit("returned", TableId.parse("db1.table1"), null, null, null);
+        SnapshotPhaseState state =
+                createRestoredSnapshotSplitAssigner(
+                                Collections.singletonMap(split.splitId(), split), new HashMap<>())
+                        .snapshotState(1);
+        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        Mockito.when(dialect.createChunkSplitter(Mockito.any()))
+                .thenReturn(Mockito.mock(ChunkSplitter.class));
+        SnapshotSplitAssigner<SourceConfig> assigner =
+                new SnapshotSplitAssigner<>(
+                        new SplitAssigner.Context<>(
+                                Mockito.mock(SourceConfig.class),
+                                Collections.emptySet(),
+                                new HashMap<>(),
+                                new HashMap<>()),
+                        10,
+                        state,
+                        dialect);
+        assigner.open();
+        SnapshotSplitWatermark watermark = createWatermark(split);
+        assigner.onCompletedSplits(Collections.singletonList(watermark));
+        assigner.snapshotState(5);
+        assigner.addSplits(Collections.singletonList(split));
+        assigner.onCompletedSplits(Collections.singletonList(watermark));
+        Assertions.assertSame(split, assigner.getNext().get());
+        CdcEnumeratorProgressReport report =
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+        Assertions.assertEquals(1, report.getCompletedSplitCount().getValue());
+        Assertions.assertEquals(0, report.getRunningSplitCount().getValue());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT, report.getAssignedSplitCount().getAccuracy());
+        assigner.notifyCheckpointComplete(5);
+        Assertions.assertTrue(assigner.isCompleted());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void chunkFailurePreservesBusinessExceptionAndBaselineQueueSemantics() {
+        SourceConfig config = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        ChunkSplitter splitter = Mockito.mock(ChunkSplitter.class);
+        TableId table = TableId.parse("db1.table1");
+        IllegalStateException failure = new IllegalStateException("chunk failure");
+        Mockito.when(dialect.createChunkSplitter(config)).thenReturn(splitter);
+        Mockito.when(splitter.generateSplits(table)).thenThrow(failure);
+        SnapshotSplitAssigner<SourceConfig> assigner =
+                new SnapshotSplitAssigner<>(
+                        new SplitAssigner.Context<>(
+                                config,
+                                Collections.singleton(table),
+                                new HashMap<>(),
+                                new HashMap<>()),
+                        1,
+                        Collections.singletonList(table),
+                        false,
+                        dialect);
+        assigner.open();
+        Assertions.assertSame(
+                failure, Assertions.assertThrows(IllegalStateException.class, assigner::getNext));
+        Assertions.assertTrue(assigner.noMoreSplits());
+        Assertions.assertTrue(assigner.snapshotState(1).getRemainingTables().isEmpty());
+    }
+
+    @Test
+    void discoveryReportingDoesNotChangeNoMoreSplits() {
+        SnapshotPhaseState state =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        new HashMap<>(),
+                        new HashMap<>(),
+                        false,
+                        Collections.emptyList(),
+                        false,
+                        false);
+        SnapshotSplitAssigner<?> assigner =
+                new SnapshotSplitAssigner<>(
+                        new SplitAssigner.Context<>(
+                                null, Collections.emptySet(), new HashMap<>(), new HashMap<>()),
+                        1,
+                        state,
+                        null);
+        Assertions.assertTrue(assigner.noMoreSplits());
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.DISCOVERING,
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getSnapshotAssignmentStatus());
     }
 
     private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(

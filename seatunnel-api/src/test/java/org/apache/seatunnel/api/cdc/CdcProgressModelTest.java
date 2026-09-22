@@ -29,6 +29,25 @@ import java.util.Map;
 class CdcProgressModelTest {
 
     @Test
+    void filteredPositionCopiesOnceAndPreservesConstructorNullSemantics() {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("pos", "10");
+        values.put("optional", null);
+        CdcProgressPosition filtered = CdcProgressPosition.copyOfNonNullValues("TEST", 1, values);
+        CdcProgressPosition ordinary = new CdcProgressPosition("TEST", 1, values);
+        values.put("pos", "20");
+        Assertions.assertEquals(Collections.singletonMap("pos", "10"), filtered.getValues());
+        Assertions.assertTrue(ordinary.getValues().containsKey("optional"));
+        Assertions.assertThrows(
+                UnsupportedOperationException.class, () -> filtered.getValues().clear());
+        Assertions.assertTrue(
+                CdcProgressPosition.copyOfNonNullValues(
+                                "TEST", 1, Collections.singletonMap("optional", null))
+                        .getValues()
+                        .isEmpty());
+    }
+
+    @Test
     void testPositionDefensivelyCopiesValues() {
         Map<String, String> values = new LinkedHashMap<>();
         values.put("file", "mysql-bin.000001");
