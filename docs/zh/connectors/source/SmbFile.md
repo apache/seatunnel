@@ -93,6 +93,28 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | skip_header_row_number     | Long    | 否   | 0                             | 跳过前几行，仅适用于 txt 和 csv                                                           |
 | schema                     | Config  | 否   | -                             | 上游数据的 schema                                                                       |
 | read_columns               | List    | 否   | -                             | 数据源的读取列列表，用户可以用它实现字段投影                                                  |
+| null_format                | String  | 否   | -                             | 仅在 file_format_type 为 text 时使用。定义哪些字符串可以表示为 null，例如 `\N`                  |
+| filename_extension         | String  | 否   | -                             | 文件扩展名过滤，用于过滤特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`                      |
+| excel_engine               | String  | 否   | POI                           | 仅在 file_format 为 excel 时使用。支持的引擎为 `POI` 和 `EasyExcel`                          |
+| poi_excel_max_file_size    | Long    | 否   | 52428800                      | 仅在 file_format 为 excel 且 excel_engine 为 POI 时使用。POI 引擎可读取的最大 Excel 文件大小（默认 50 MB） |
+| quote_char                 | String  | 否   | "                             | 用于包围 CSV 字段的单个字符，使包含逗号、换行或引号的字段能被正确读取                               |
+| escape_char                | String  | 否   | -                             | 用于在 CSV 字段内转义引号或其他特殊字符的单个字符                                               |
+| metalake_type              | String  | 否   | gravitino                     | metalake 服务类型，目前支持 `gravitino`                                                     |
+| discovery_mode             | String  | 否   | once                          | 文件发现模式。支持的值：`once`（默认）、`continuous`。`continuous` 时源端持续扫描路径             |
+| scan_interval              | String  | 否   | 10S                           | 仅在 `discovery_mode=continuous` 时使用。定期发现的扫描间隔                                   |
+| start_mode                 | String  | 否   | earliest                      | 仅在 `discovery_mode=continuous` 时使用。支持的值：`earliest`（默认）、`latest`                |
+| sync_mode                  | String  | 否   | full                          | 文件同步模式。支持的值：`full`、`update`。`update` 时仅读取新增/变更的文件（目前仅支持 binary 格式） |
+| target_path                | String  | 否   | -                             | 仅在 `sync_mode=update` 时使用。用于比较的目标基本路径                                        |
+| target_hadoop_conf         | Map     | 否   | -                             | 仅在 `sync_mode=update` 时使用。目标文件系统的额外 Hadoop 配置                                |
+| update_strategy            | String  | 否   | distcp                        | 仅在 `sync_mode=update` 时使用。支持的值：`distcp`（默认）、`strict`                          |
+| compare_mode               | String  | 否   | len_mtime                     | 仅在 `sync_mode=update` 时使用。支持的值：`len_mtime`（默认）、`checksum`                     |
+| update_compare_parallelism | Int     | 否   | 8                             | 稀疏目标元数据查找的最大并行度。有效范围：1-64                                                 |
+| update_compare_bulk_threshold | Int  | 否   | 0                             | 当候选计数达到阈值时切换为目录列表比较。`0` 表示禁用                                            |
+| post_sync_action           | String  | 否   | none                          | `discovery_mode=continuous` 时的同步后操作。支持的值：`none`（默认）、`delete`、`backup`          |
+| backup_path                | String  | 否   | -                             | `post_sync_action=backup` 时的备份目标基本路径。不能与 `path` 重叠                             |
+| retention_max_age          | String  | 否   | -                             | 备份文件的可选保留期限，仅在 `post_sync_action=backup` 时有效                                  |
+| retention_check_interval   | String  | 否   | 1H                            | 保留扫描间隔，仅在配置了 `post_sync_action=backup` 和 `retention_max_age` 时生效               |
+| recursive_file_scan        | Boolean | 否   | true                          | 是否递归扫描子目录。如果为 `false`，将忽略子目录                                               |
 | common-options             |         | 否   | -                             | 源插件通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md)    |
 
 ## 如何创建 SMB 数据同步作业
@@ -135,6 +157,47 @@ sink {
   Console {
     parallelism = 1
   }
+}
+```
+
+### 多表模式
+
+```hocon
+SmbFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/data/student"
+      host = "192.168.1.100"
+      port = 445
+      user = seatunnel
+      password = pass
+      share = "data"
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/data/teacher"
+      host = "192.168.1.100"
+      port = 445
+      user = seatunnel
+      password = pass
+      share = "data"
+      file_format_type = "parquet"
+    }
+  ]
 }
 ```
 

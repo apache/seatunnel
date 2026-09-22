@@ -21,6 +21,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileStatusListingSe
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.StreamingFileSystem;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.BufferedFSInputStream;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileStatus;
@@ -29,17 +30,23 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.util.Progressable;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.hierynomus.msdtyp.AccessMask;
+import com.hierynomus.mserref.NtStatus;
 import com.hierynomus.msfscc.FileAttributes;
 import com.hierynomus.msfscc.fileinformation.FileAllInformation;
 import com.hierynomus.msfscc.fileinformation.FileIdBothDirectoryInformation;
 import com.hierynomus.mssmb2.SMB2CreateDisposition;
 import com.hierynomus.mssmb2.SMB2ShareAccess;
+import com.hierynomus.mssmb2.SMBApiException;
 import com.hierynomus.smbj.SMBClient;
 import com.hierynomus.smbj.SmbConfig;
 import com.hierynomus.smbj.auth.AuthenticationContext;
 import com.hierynomus.smbj.connection.Connection;
 import com.hierynomus.smbj.session.Session;
+import com.hierynomus.smbj.share.Directory;
 import com.hierynomus.smbj.share.DiskShare;
 import com.hierynomus.smbj.share.File;
 
@@ -60,6 +67,8 @@ import java.util.Set;
  * sessions) own their connection and close it on {@code close()}.
  */
 public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SmbFileSystem.class);
 
     public static final String FS_SMB_HOST = "fs.smb.host";
     public static final String FS_SMB_PORT = "fs.smb.port";
@@ -161,7 +170,9 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
                                     SMB2ShareAccess.ALL,
                                     SMB2CreateDisposition.FILE_OPEN,
                                     null);
-            return new FSDataInputStream(new SmbInputStream(smbFile, conn, statistics));
+            return new FSDataInputStream(
+                    new BufferedFSInputStream(
+                            new SmbInputStream(smbFile, conn, statistics), bufferSize));
         } catch (Exception e) {
             closeQuietly(conn);
             throw new IOException("Failed to open file: " + f, e);
@@ -256,10 +267,10 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
                             != 0;
 
             if (isDir) {
-                try (com.hierynomus.smbj.share.Directory dir =
+                try (Directory dir =
                         diskShare.openDirectory(
                                 srcPath,
-                                EnumSet.of(AccessMask.GENERIC_ALL, AccessMask.DELETE),
+                                EnumSet.of(AccessMask.DELETE, AccessMask.FILE_READ_ATTRIBUTES),
                                 null,
                                 SMB2ShareAccess.ALL,
                                 SMB2CreateDisposition.FILE_OPEN,
@@ -270,7 +281,7 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
                 try (File file =
                         diskShare.openFile(
                                 srcPath,
-                                EnumSet.of(AccessMask.GENERIC_ALL, AccessMask.DELETE),
+                                EnumSet.of(AccessMask.DELETE, AccessMask.FILE_READ_ATTRIBUTES),
                                 null,
                                 SMB2ShareAccess.ALL,
                                 SMB2CreateDisposition.FILE_OPEN,
@@ -306,8 +317,11 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
         FileAllInformation info;
         try {
             info = diskShare.getFileInformation(smbPath);
-        } catch (Exception e) {
-            return false;
+        } catch (SMBApiException e) {
+            if (isNotFoundStatus(e.getStatus())) {
+                return false;
+            }
+            throw new IOException("Failed to get file information: " + smbPath, e);
         }
         boolean isDir =
                 (info.getBasicInformation().getFileAttributes()
@@ -483,13 +497,22 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
         }
     }
 
-    private boolean fileExists(DiskShare diskShare, String smbPath) {
+    private boolean fileExists(DiskShare diskShare, String smbPath) throws IOException {
         try {
             diskShare.getFileInformation(smbPath);
             return true;
-        } catch (Exception e) {
-            return false;
+        } catch (SMBApiException e) {
+            if (isNotFoundStatus(e.getStatus())) {
+                return false;
+            }
+            throw new IOException("Failed to check file existence: " + smbPath, e);
         }
+    }
+
+    private static boolean isNotFoundStatus(NtStatus status) {
+        return status == NtStatus.STATUS_OBJECT_NAME_NOT_FOUND
+                || status == NtStatus.STATUS_OBJECT_PATH_NOT_FOUND
+                || status == NtStatus.STATUS_NO_SUCH_FILE;
     }
 
     private FileStatus toFileStatus(FileAllInformation info, Path path) {
@@ -548,7 +571,8 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
         if (conn != null) {
             try {
                 conn.close();
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                LOG.debug("Failed to close SMB connection", e);
             }
         }
     }

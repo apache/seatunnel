@@ -121,15 +121,23 @@ class SmbFileSystemTest {
     @Test
     void toSmbPathShouldConvertSlashes() throws Exception {
         SmbFileSystem fs = initFs();
-        String result = fs.toSmbPath(new Path("/data/subdir/file.txt"));
-        Assertions.assertEquals("data\\subdir\\file.txt", result);
+        try {
+            String result = fs.toSmbPath(new Path("/data/subdir/file.txt"));
+            Assertions.assertEquals("data\\subdir\\file.txt", result);
+        } finally {
+            fs.close();
+        }
     }
 
     @Test
     void toSmbPathShouldHandleRootPath() throws Exception {
         SmbFileSystem fs = initFs();
-        String result = fs.toSmbPath(new Path("/"));
-        Assertions.assertEquals("", result);
+        try {
+            String result = fs.toSmbPath(new Path("/"));
+            Assertions.assertEquals("", result);
+        } finally {
+            fs.close();
+        }
     }
 
     @Test
@@ -138,7 +146,7 @@ class SmbFileSystemTest {
         Assertions.assertDoesNotThrow(conn::close);
     }
 
-    // -- SmbInputStream seek + read tests (Issue 1 regression coverage) --
+    // -- SmbInputStream seek + read tests --
 
     @Test
     void seekThenReadPassesOffsetToSmbFile() throws Exception {
@@ -221,7 +229,7 @@ class SmbFileSystemTest {
         verify(mockFile).read(any(byte[].class), eq(50L));
     }
 
-    // -- SmbInputStream close lifecycle tests (Issue 2 regression coverage) --
+    // -- SmbInputStream close lifecycle tests --
 
     @Test
     void closeStreamClosesBothFileAndConnection() throws Exception {

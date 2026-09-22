@@ -33,7 +33,9 @@ import org.apache.seatunnel.connectors.seatunnel.file.smb.system.SmbFileSystem;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 class SmbFileFactoryTest {
@@ -90,8 +92,16 @@ class SmbFileFactoryTest {
     @Test
     void tablesConfigsModeValidation() {
         OptionRule optionRule = (new SmbFileSourceFactory()).optionRule();
+        Map<String, Object> tableEntry = new HashMap<>();
+        tableEntry.put("host", "192.168.1.100");
+        tableEntry.put("user", "seatunnel");
+        tableEntry.put("share", "data");
+        tableEntry.put(FileBaseOptions.FILE_PATH.key(), "/data");
+        tableEntry.put("file_format_type", "json");
+        List<Map<String, Object>> tableConfigs = new ArrayList<>();
+        tableConfigs.add(tableEntry);
         Map<String, Object> config = new HashMap<>();
-        config.put("tables_configs", new java.util.ArrayList<>());
+        config.put("tables_configs", tableConfigs);
         Assertions.assertDoesNotThrow(() -> validate(config, optionRule));
     }
 

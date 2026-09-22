@@ -63,6 +63,11 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | compress_codec                        | string  | 否   | none                                      |                                                                                        |
 | common-options                        | object  | 否   | -                                         |                                                                                        |
 | encoding                              | string  | 否   | UTF-8                                     | 仅在 file_format_type 为 text, json, csv, xml 时使用                                     |
+| schema_save_mode                      | string  | 否   | CREATE_SCHEMA_WHEN_NOT_EXIST              | 已有目录处理方式                                                                          |
+| data_save_mode                        | string  | 否   | APPEND_DATA                               | 已有数据处理方式                                                                          |
+| enable_header_write                   | boolean | 否   | false                                     | 仅在 file_format_type 为 text, csv 时使用。false：不写表头，true：写表头                      |
+| parquet_avro_write_timestamp_as_int96 | boolean | 否   | false                                     | 仅在 file_format 为 parquet 时使用                                                        |
+| parquet_avro_write_fixed_as_int96     | array   | 否   | -                                         | 仅在 file_format 为 parquet 时使用                                                        |
 
 ## 示例
 
