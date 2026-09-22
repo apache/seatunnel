@@ -358,7 +358,9 @@ selectdb-cloud:
 sentry:
   - all:
       - changed-files:
-          - any-glob-to-any-file: seatunnel-connectors-v2/connector-sentry/**
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-sentry/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-sentry-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(sentry)/**'
 socket:
   - all:
