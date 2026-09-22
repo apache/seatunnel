@@ -41,6 +41,7 @@
         <module>connector-kafka</module>
         <module>connector-pulsar</module>
         <module>connector-socket</module>
+        <module>connector-syslog</module>
         <module>connector-hive</module>
         <module>connector-file</module>
         <module>connector-hudi</module>
@@ -75,6 +76,7 @@
         <module>connector-google-pubsub</module>
         <module>connector-azure-event-hubs</module>
         <module>connector-google-ads</module>
+        <module>connector-google-analytics4</module>
         <module>connector-facebook-ads</module>
         <module>connector-tiktok-ads</module>
         <module>connector-azure-queue-storage</module>
