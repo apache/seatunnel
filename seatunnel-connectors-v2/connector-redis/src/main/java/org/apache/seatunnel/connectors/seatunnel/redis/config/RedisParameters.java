@@ -29,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorE
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.ConnectionPoolConfig;
+import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
@@ -144,11 +145,16 @@ public class RedisParameters implements Serializable {
 
     public RedisClient buildRedisClient() {
         Jedis jedis = this.buildJedis();
-        this.redisVersion = extractRedisVersion(jedis);
-        if (mode.equals(RedisBaseOptions.RedisMode.SINGLE)) {
-            return new RedisSingleClient(this, jedis, redisVersion);
-        } else {
-            return new RedisClusterClient(this, jedis, redisVersion);
+        try {
+            this.redisVersion = extractRedisVersion(jedis);
+            if (mode.equals(RedisBaseOptions.RedisMode.SINGLE)) {
+                return new RedisSingleClient(this, jedis, redisVersion);
+            } else {
+                return new RedisClusterClient(this, jedis, redisVersion);
+            }
+        } catch (RuntimeException | Error failure) {
+            closeAfterFailure(jedis, failure);
+            throw failure;
         }
     }
 
@@ -180,18 +186,27 @@ public class RedisParameters implements Serializable {
                 "Did not get the expected redis_version from the jedis.info() method");
     }
 
+    /**
+     * Uses named-user AUTH when user is nonblank; otherwise preserves password-only or no-auth
+     * behavior. Authentication selects an existing identity, never administers users via ACL
+     * SETUSER.
+     */
     public Jedis buildJedis() {
         switch (mode) {
             case SINGLE:
                 Jedis jedis = new Jedis(host, port);
-                if (StringUtils.isNotBlank(auth)) {
-                    jedis.auth(auth);
+                try {
+                    if (StringUtils.isNotBlank(user)) {
+                        jedis.auth(user, StringUtils.defaultString(auth));
+                    } else if (StringUtils.isNotBlank(auth)) {
+                        jedis.auth(auth);
+                    }
+                    jedis.select(dbNum);
+                    return jedis;
+                } catch (RuntimeException | Error failure) {
+                    closeAfterFailure(jedis, failure);
+                    throw failure;
                 }
-                if (StringUtils.isNotBlank(user)) {
-                    jedis.aclSetUser(user);
-                }
-                jedis.select(dbNum);
-                return jedis;
             case CLUSTER:
                 HashSet<HostAndPort> nodes = new HashSet<>();
                 for (String redisNode : redisNodes) {
@@ -202,7 +217,19 @@ public class RedisParameters implements Serializable {
                 }
                 ConnectionPoolConfig connectionPoolConfig = new ConnectionPoolConfig();
                 JedisCluster jedisCluster;
-                if (StringUtils.isNotBlank(auth)) {
+                if (StringUtils.isNotBlank(user)) {
+                    jedisCluster =
+                            new JedisCluster(
+                                    nodes,
+                                    DefaultJedisClientConfig.builder()
+                                            .user(user)
+                                            .password(StringUtils.defaultString(auth))
+                                            .connectionTimeoutMillis(JedisCluster.DEFAULT_TIMEOUT)
+                                            .socketTimeoutMillis(JedisCluster.DEFAULT_TIMEOUT)
+                                            .build(),
+                                    JedisCluster.DEFAULT_MAX_ATTEMPTS,
+                                    connectionPoolConfig);
+                } else if (StringUtils.isNotBlank(auth)) {
                     jedisCluster =
                             new JedisCluster(
                                     nodes,
@@ -220,6 +247,18 @@ public class RedisParameters implements Serializable {
                 // do nothing
                 throw new RedisConnectorException(
                         CommonErrorCode.OPERATION_NOT_SUPPORTED, "Not support this redis mode");
+        }
+    }
+
+    /**
+     * Releases a connection after failed initialization, including an Error, before the caller
+     * rethrows the original failure. Cleanup failures are suppressed to preserve that failure.
+     */
+    private void closeAfterFailure(Jedis jedis, Throwable failure) {
+        try {
+            jedis.close();
+        } catch (RuntimeException | Error closeFailure) {
+            failure.addSuppressed(closeFailure);
         }
     }
 }

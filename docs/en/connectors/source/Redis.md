@@ -232,11 +232,19 @@ redis data types, support `key` `string` `hash` `list` `set` `zset`
 
 ### user [string]
 
-redis authentication user, you need it when you connect to an encrypted cluster
+Redis ACL username (Redis 6 or later), supported in both `SINGLE` and `CLUSTER` mode.
+When nonblank, the connector authenticates with `AUTH user auth`; it does not create or modify ACL users.
+Create the user and grant the required command and key permissions before starting the job, including
+`INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for topology
+discovery in `CLUSTER` mode.
+If `user` is omitted, empty, or whitespace-only, a nonblank `auth` uses password-only authentication
+as the default user; otherwise no authentication command is sent.
 
 ### auth [string]
 
-redis authentication password, you need it when you connect to an encrypted cluster
+Redis authentication password. With a nonblank `user`, the password is passed unchanged, including
+whitespace. An omitted or empty password is sent as an empty string and works only if that ACL user
+accepts it (for example, a user configured with `nopass`).
 
 ### db_num [int]
 
