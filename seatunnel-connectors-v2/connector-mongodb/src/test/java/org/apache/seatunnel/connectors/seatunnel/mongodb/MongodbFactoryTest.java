@@ -201,6 +201,7 @@ class MongodbFactoryTest {
     @Test
     void testMissingCollectionCleanupFailuresRemainSanitized() {
         for (boolean cursorFailure : new boolean[] {false, true}) {
+            String scenario = "cursorFailure=" + cursorFailure;
             MongoClient client = mock(MongoClient.class);
             MongoDatabase database = mock(MongoDatabase.class);
             when(client.getDatabase(any())).thenReturn(database);
@@ -228,12 +229,15 @@ class MongodbFactoryTest {
                         .thenReturn(client);
                 IllegalStateException error =
                         Assertions.assertThrows(
-                                IllegalStateException.class, () -> validate(validSourceConfig()));
+                                IllegalStateException.class,
+                                () -> validate(validSourceConfig()),
+                                scenario);
                 Assertions.assertEquals(
                         "MongoDB connect dry-run could not validate the configured collection. Check the URI, database, collection, metadata permissions and MongoDB 4.0+ support.",
-                        error.getMessage());
-                Assertions.assertNull(error.getCause());
-                Assertions.assertEquals(0, error.getSuppressed().length);
+                        error.getMessage(),
+                        scenario);
+                Assertions.assertNull(error.getCause(), scenario);
+                Assertions.assertEquals(0, error.getSuppressed().length, scenario);
                 verify(database).runCommand(listCollections, ReadPreference.primary());
                 if (cursorFailure) {
                     verify(database).runCommand(killCursors, ReadPreference.primary());
