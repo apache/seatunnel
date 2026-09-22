@@ -119,7 +119,16 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 暂不包含任务与 Worker 的关联下钻或历史指标。管理节点页面仅展示系统监控
 详情，不请求 Worker 资源数据。
 
-![workers.png](../../../images/ui/workers.png)
+以下截图展示实际 UI，使用确定性的 Cypress REST 测试数据，并非真实集群。
+表格包含固定槽位和动态槽位 Worker；缺失的监控值显示为不可用，而不是零。
+
+![使用测试数据的 Worker 表格](../../../images/ui/workers.png)
+
+![使用测试数据的 Worker 详情](../../../images/ui/workers-details.png)
+
+在窄屏上，可以收起侧边栏并水平滚动表格，查看槽位信息或访问详情按钮。
+
+![使用测试数据的窄屏 Worker 表格](../../../images/ui/workers-narrow.png)
 
 ## 管理节点
 

@@ -126,7 +126,18 @@ This is a read-only view using the existing monitoring and
 historical metrics are not included. The Master page shows monitoring details
 only and does not request worker resource data.
 
-![workers.png](../../../images/ui/workers.png)
+The screenshots below show the actual UI with deterministic Cypress REST fixtures,
+not a live cluster. The table includes a fixed-slot worker and a dynamic-slot worker;
+missing measurements remain unavailable rather than appearing as zero.
+
+![Workers table with fixture data](../../../images/ui/workers.png)
+
+![Worker details with fixture data](../../../images/ui/workers-details.png)
+
+On a narrow screen, collapse the sidebar and scroll the table horizontally to
+inspect the slot summary or reach Details.
+
+![Narrow Workers table with fixture data](../../../images/ui/workers-narrow.png)
 
 ## Master
 
