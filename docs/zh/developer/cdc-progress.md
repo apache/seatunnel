@@ -87,9 +87,11 @@ Enumerator 计数不一致时报告 `BEST_EFFORT`，不改变分配或 checkpoin
 ## 当前限制
 
 - 该契约和报告类型仍为实验性。
-- 当前基于 `connector-cdc-base` 的 CDC Source 会提供报告。MySQL 使用明确的 `MYSQL_BINLOG`
-  位置类型；其他 base Connector 在定义更具体的位置类型前使用 Plugin 名称。未接入该 Provider 的
-  CDC Source 不会返回报告。
+- MySQL CDC、PostgreSQL CDC、Oracle CDC、SQL Server CDC、DB2 CDC 和 MongoDB CDC
+  当前通过 `connector-cdc-base` 继承进度 Provider。MySQL 使用明确的 `MYSQL_BINLOG`
+  位置类型；其他 base Connector 在定义更具体的位置类型前使用 Plugin 名称。
+  此列表仅说明 Provider 接入情况，不表示各连接器具有相同的位置精度或均已完成端到端验证。
+  未接入该 Provider 的 CDC Source（包括 TiDB CDC 和 Vitess CDC）不会返回报告。
 - 仅快照、快照后增量和仅增量模式使用同一个 Provider 契约。配置或恢复的起始位置在成功发送记录前
   为 `BEST_EFFORT`；成功发送才证明消费进度。这不等同于恢复位置生命周期报告。
 - Enumerator 报告最多保留 100 条活动 split 明细。`activeSplitsTruncated` 表示还有活动 split 被

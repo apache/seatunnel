@@ -105,9 +105,12 @@ in the assigner's production queue.
 ## Current limitations
 
 - The contract and report types are experimental.
-- CDC sources based on `connector-cdc-base` currently provide reports. MySQL uses an explicit
-  `MYSQL_BINLOG` position family; other base connectors use their plugin name until a more specific
-  position family is defined. CDC sources without this provider wiring return no report.
+- MySQL CDC, PostgreSQL CDC, Oracle CDC, SQL Server CDC, DB2 CDC and MongoDB CDC
+  currently inherit the progress-provider wiring from `connector-cdc-base`. MySQL uses an explicit
+  `MYSQL_BINLOG` position family; the other base connectors use their plugin name until a more specific
+  position family is defined. This list describes provider wiring, not equal coordinate precision or
+  completed end-to-end validation for every connector. CDC sources without this provider wiring,
+  including TiDB CDC and Vitess CDC, return no report.
 - Snapshot-only, initial snapshot followed by incremental, and incremental-only modes use the same
   provider contract. A configured or restored starting position is `BEST_EFFORT` until a successful
   emission establishes consumption evidence; it is not a restored-position lifecycle report.
