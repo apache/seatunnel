@@ -357,6 +357,8 @@ public class ZetaSQLType {
             case ZetaSQLFunction.FROM_UNIXTIME:
             case ZetaSQLFunction.UUID:
             case ZetaSQLFunction.TRIM_SCALE:
+            case ZetaSQLFunction.AES_ENCRYPT:
+            case ZetaSQLFunction.AES_DECRYPT:
                 return BasicType.STRING_TYPE;
             case ZetaSQLFunction.ASCII:
             case ZetaSQLFunction.LOCATE:
