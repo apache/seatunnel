@@ -433,12 +433,16 @@ ACOS(D)
 
 MAX 函数返回表达式的最大值。
 
-在 Zeta SQL 引擎中，整数数组（包括 BIGINT）和 DECIMAL 数组在比较时不会转换为浮点数。
+`Sql` 转换使用 `engine = ZETA`（默认值）或 `INTERNAL` 时，整数数组（包括 BIGINT）、
+DECIMAL 数组及这两类值混合的数组在比较时不会转换为浮点数。这适用于 Zeta、Flink 和
+Spark 执行引擎；SQL 引擎选项与执行引擎是不同的概念。
 结果保留所选元素的类型，以及 DECIMAL 元素的小数位数。忽略 null 元素；数组为 null、
 空数组或所有元素均为 null 时返回 null。值相等时保留第一个元素。
 FLOAT 和 DOUBLE 数组保持现有排序规则：NaN 大于其他所有值，正零大于负零。
-仅混合 Byte、Short、Integer 和 Long 值的数组仍使用精确整数比较。
-跨整数、DECIMAL 和浮点类别混合的数组仍使用原有的 double 比较，较大或相近的值可能损失精度。
+仅包含 Byte、Short、Integer 和 Long 值的数组使用精确整数比较。
+同时包含 BigDecimal 时，这些整数值按精确十进制数进行比较。
+只要包含 Float、Double 或其他 Number 子类型（包括 BigInteger），整个数组仍使用原有的
+double 比较，较大或相近的值可能损失精度。此行为不改变数组构造、声明的元素类型或输入类型转换。
 
 示例:
 
@@ -450,7 +454,8 @@ ARRAY_MAX(I)
 
 MIN 函数返回表达式的最小值。
 
-Zeta SQL 引擎采用与 `ARRAY_MAX` 相同的精度、null 处理和排序规则，但选择最小元素。
+`Sql` 转换使用 `engine = ZETA` 或 `INTERNAL` 时，采用与 `ARRAY_MAX` 相同的精度、null
+处理和排序规则，但选择最小元素。
 
 示例:
 

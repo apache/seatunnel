@@ -36,6 +36,7 @@ import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
 import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -117,10 +118,36 @@ class ArrayFunctionTest {
     }
 
     @Test
+    void testArrayExtremaPreserveMixedIntegralDecimalPrecision() {
+        Assertions.assertAll(
+                () -> assertExtremaInBothOrders(1L, new BigDecimal("1.00000000000000000001")),
+                () -> assertExtremaInBothOrders(new BigDecimal("-1.00000000000000000001"), -1L),
+                () ->
+                        assertExtremaInBothOrders(
+                                Long.MAX_VALUE, new BigDecimal("9223372036854775807.1")),
+                () ->
+                        assertExtremaInBothOrders(
+                                new BigDecimal("-9223372036854775808.1"), Long.MIN_VALUE),
+                () -> assertExtremaInBothOrders(0L, new BigDecimal("1E-400")),
+                () -> assertExtremaInBothOrders((byte) 1, new BigDecimal("1.00000000000000000001")),
+                () ->
+                        assertExtremaInBothOrders(
+                                (short) 1, new BigDecimal("1.00000000000000000001")),
+                () -> assertExtremaInBothOrders(1, new BigDecimal("1.00000000000000000001")));
+    }
+
+    @Test
     void testArrayExtremaKeepFirstEqualElement() {
         BigDecimal first = new BigDecimal("1.00");
         BigDecimal second = new BigDecimal("1.0");
-        for (Object[] values : new Object[][] {{null, first, second}, {second, first, null}}) {
+        for (Object[] values :
+                new Object[][] {
+                    {null, first, second},
+                    {second, first, null},
+                    {null, 1L, first, 1},
+                    {first, 1, 1L, null},
+                    {null, (byte) 1, (short) 1, 1, 1L}
+                }) {
             Object expected = values[0] == null ? values[1] : values[0];
             Assertions.assertSame(
                     expected, ArrayFunction.arrayMax(Collections.singletonList(values)));
@@ -162,7 +189,28 @@ class ArrayFunctionTest {
                     values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
         }
         BigDecimal decimal = new BigDecimal("1.00000000000000000001");
-        for (Object[] values : new Object[][] {{decimal, 1d}, {1d, decimal}, {1L, decimal}}) {
+        for (Object[] values :
+                new Object[][] {
+                    {decimal, 1d}, {1d, decimal}, {1L, decimal, 1d}, {decimal, 1L, 1d}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    @Test
+    void testArrayExtremaPreserveUnknownNumberComparison() {
+        BigInteger integer = new BigInteger("9007199254740993");
+        BigDecimal decimal = new BigDecimal("9007199254740992");
+        Long integral = 9007199254740992L;
+        for (Object[] values :
+                new Object[][] {
+                    {integer, decimal, integral},
+                    {decimal, integral, integer},
+                    {integral, integer, decimal}
+                }) {
             Assertions.assertSame(
                     values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
             Assertions.assertSame(

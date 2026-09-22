@@ -7,17 +7,23 @@ You need to check this document before you upgrade to related version.
 
 ### SQL ARRAY_MAX and ARRAY_MIN Precision
 
-- **Behavior correction**: The Zeta SQL engine compares integral and DECIMAL array
-  elements without converting them to `double`. For example, `ARRAY_MAX` over the
-  BIGINT values `[9007199254740992, 9007199254740993]` now returns `9007199254740993`
-  instead of the first, smaller value. DECIMAL extrema also retain distinctions
-  that were previously lost during comparison.
-- **Impact**: Jobs that relied on rounded comparisons may select different values.
-  Declared output types, null handling and floating-point array ordering are unchanged.
-  Selected DECIMAL elements are returned without rescaling; selecting a different
-  element may also select a different original scale. No configuration or state
-  migration is required; review downstream expectations that depended on the previous
-  incorrect results.
+- **Behavior correction: exact integral and DECIMAL array extrema**
+  - **Affected component**: `seatunnel-transforms-v2`, `Sql` transform with
+    `engine = ZETA` (default) or `INTERNAL`, on Zeta, Flink and Spark execution engines.
+  - **Description**: Arrays containing only Byte, Short, Integer, Long and BigDecimal
+    values are compared exactly, including mixtures of integral and DECIMAL values.
+    For example, `ARRAY_MAX` over BIGINT values `[9007199254740992, 9007199254740993]`
+    now selects `9007199254740993`. A Long `1` and BigDecimal
+    `1.00000000000000000001` no longer compare equal. If any Float, Double or other
+    Number subtype (including BigInteger) is present, the whole array retains
+    legacy double-based ordering and its possible precision loss.
+  - **Impact**: Jobs relying on rounded comparisons may select different values.
+    The selected original element retains its type and DECIMAL scale, so a different
+    result may also have a different original scale. Equal values retain the first
+    element. Declared output types, input coercion, null handling and floating-point
+    ordering are unchanged.
+  - **Migration Guide**: No configuration or state migration is required. Review
+    downstream expectations that depended on the previous rounded results.
 
 ### RabbitMQ Connector
 

@@ -432,15 +432,21 @@ ACOS(D)
 
 The MAX function returns the maximum value of the expression.
 
-For the Zeta SQL engine, integral arrays (including BIGINT) and DECIMAL arrays are
-compared without conversion to floating point. The result retains the selected
+For the `Sql` transform with `engine = ZETA` (the default) or `INTERNAL`, integral
+arrays (including BIGINT), DECIMAL arrays and mixtures of those values are
+compared without conversion to floating point. This applies on Zeta, Flink and
+Spark execution engines; the SQL engine option is separate from the execution
+engine. The result retains the selected
 element's type and, for DECIMAL, its scale. Null elements are ignored; a null,
 empty or all-null array returns null. Equal values retain the first element.
 FLOAT and DOUBLE arrays retain their existing ordering: NaN is greater than all
 other values, and positive zero is greater than negative zero.
-Arrays mixing only Byte, Short, Integer and Long values still use exact integral
-comparison. Arrays mixing across integral, DECIMAL and floating-point categories
-retain the existing double-based comparison and can lose precision for large or close values.
+Arrays containing only Byte, Short, Integer and Long values use exact integral
+comparison. If BigDecimal is also present, those integral values are compared as
+exact decimals. If any Float, Double or other Number subtype (including
+BigInteger) is present, the whole array retains the existing double-based
+comparison and can lose precision for large or close values. This does not change
+array construction, declared element types or input coercion.
 
 Example:
 
@@ -452,7 +458,8 @@ ARRAY_MAX(I)
 
 The MIN function returns the minimum value of the expression.
 
-The Zeta SQL engine uses the same precision, null handling and ordering rules as
+The `Sql` transform with `engine = ZETA` or `INTERNAL` uses the same precision,
+null handling and ordering rules as
 `ARRAY_MAX`, selecting the minimum element instead.
 
 Example:
