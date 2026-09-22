@@ -69,6 +69,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -340,6 +341,36 @@ public class CheckpointCoordinator {
     public void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
         handleCoordinatorError(reason, e);
+    }
+
+    /**
+     * Fails this coordinator for an expired checkpoint, off the checkpoint timeout watchdog's
+     * thread.
+     *
+     * <p>The watchdog fires on a dispatch thread that the whole member shares, so only its cheap
+     * "is this checkpoint still pending" lookup may run there. Expiry handling itself is not cheap:
+     * {@link #updateStatus(CheckpointCoordinatorStatus)} drives distributed IMap reads and writes
+     * with retries, and {@link #cleanPendingCheckpoint(CheckpointCloseReason)} takes {@link #lock},
+     * which {@code startSavepoint} can hold across its sleep-poll for the length of an in-flight
+     * checkpoint. Running that on the dispatch thread would let one expiring pipeline hold capacity
+     * that unrelated pipelines need for their own triggers and watchdogs.
+     *
+     * <p>The coordinator executor is bounded over a {@code SynchronousQueue} and aborts once
+     * saturated. A dropped expiry would leave the checkpoint pending with nothing left to fail it,
+     * so a rejection falls back to running inline: that restores the coupling for this one
+     * checkpoint, which is the lesser cost.
+     */
+    private void expireCheckpoint() {
+        try {
+            executorService.execute(
+                    () -> handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED, null));
+        } catch (RejectedExecutionException e) {
+            LOG.warn(
+                    "Coordinator executor rejected the expiry of a checkpoint of pipeline {}, handling it on the checkpoint dispatch thread",
+                    pipelineId,
+                    e);
+            handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
+        }
     }
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
@@ -1039,9 +1070,7 @@ public class CheckpointCoordinator {
                                                 LOG.info(
                                                         "timeout checkpoint: {}",
                                                         pendingCheckpoint.getInfo());
-                                                handleCoordinatorError(
-                                                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
-                                                        null);
+                                                expireCheckpoint();
                                             }
                                         },
                                         checkpointTimeout,

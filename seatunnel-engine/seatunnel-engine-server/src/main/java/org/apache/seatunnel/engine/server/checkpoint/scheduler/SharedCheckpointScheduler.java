@@ -74,9 +74,21 @@ public class SharedCheckpointScheduler implements AutoCloseable {
      * trades an unbounded thread count for delay, and that delay is reachable only when every
      * dispatch thread is blocked at the same moment.
      *
-     * <p>Running out of dispatch threads is not expected in normal operation: the heavy barrier
-     * work already runs on the coordinator's own executor via {@code thenApplyAsync}, so a
-     * dispatched body is short-lived.
+     * <p>A dispatched body is short-lived in steady state: the barrier work runs on the
+     * coordinator's own executor via {@code thenApplyAsync}, and the timeout watchdog hands the
+     * expiry of a checkpoint, which drives IMap retries, to the same executor. What is left on a
+     * dispatch thread is atomics, timestamp comparisons, logging and a map put.
+     *
+     * <p>One path can still hold a dispatch thread far longer than that. {@code
+     * CheckpointCoordinator.startSavepoint} holds the coordinator lock across a sleep-poll until
+     * the in-flight checkpoint completes, and {@code tryTriggerPendingCheckpoint} takes that same
+     * lock on a dispatch thread. A periodic trigger that fires inside a savepoint window therefore
+     * blocks for as long as that savepoint takes, and {@code CheckpointManager.triggerSavePoints}
+     * fans out over every coordinator of a job at once. With per-pipeline pools such a pipeline
+     * could only block its own two threads; here enough concurrently savepointing pipelines can
+     * delay unrelated pipelines' timers. Moving that wait off the lock is tracked separately; until
+     * then this is a known cost of sharing the pool, bounded by how long a savepoint takes rather
+     * than by the queue.
      */
     private static final int MAX_DISPATCH_THREAD_NUM =
             Math.max(
