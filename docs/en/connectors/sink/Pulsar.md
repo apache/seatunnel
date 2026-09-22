@@ -263,6 +263,20 @@ sink {
 }
 ```
 
+## FAQ
+
+### How does Pulsar sink achieve exactly-once vs at-least-once delivery?
+
+Configure the `semantics` option: `EXACTLY_ONCE` utilizes Pulsar transaction coordinators to commit messages alongside engine checkpoint barriers, whereas `AT_LEAST_ONCE` relies on producer acknowledgments for higher write throughput.
+
+### Can the Pulsar sink route data to multiple topics dynamically?
+
+Yes. In multi-table synchronization pipelines, omitting a fixed `topic` parameter allows SeaTunnel to dynamically route rows to corresponding Pulsar topics based on the table identifiers carried in each record.
+
+### What serialization formats are supported by Pulsar sink?
+
+The sink supports `json`, `text`, and `avro` serialization formats via the `format` option, enabling seamless integration with downstream systems and schema registries.
+
 ## Changelog
 
 <ChangeLog />
