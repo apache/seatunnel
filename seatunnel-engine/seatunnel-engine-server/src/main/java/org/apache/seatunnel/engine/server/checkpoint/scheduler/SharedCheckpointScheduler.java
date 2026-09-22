@@ -86,9 +86,9 @@ public class SharedCheckpointScheduler implements AutoCloseable {
      * blocks for as long as that savepoint takes, and {@code CheckpointManager.triggerSavePoints}
      * fans out over every coordinator of a job at once. With per-pipeline pools such a pipeline
      * could only block its own two threads; here enough concurrently savepointing pipelines can
-     * delay unrelated pipelines' timers. Moving that wait off the lock is tracked separately; until
-     * then this is a known cost of sharing the pool, bounded by how long a savepoint takes rather
-     * than by the queue.
+     * delay unrelated pipelines' timers. Moving that wait off the lock is tracked in SeaTunnel
+     * issue 12441; until then this is a known cost of sharing the pool, bounded by how long a
+     * savepoint takes rather than by the queue.
      */
     private static final int MAX_DISPATCH_THREAD_NUM =
             Math.max(
