@@ -22,6 +22,10 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -151,6 +155,36 @@ class MqttSourceConfigTest {
         MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(baseConfig()));
 
         Assertions.assertTrue(sourceConfig.getClientId().startsWith("seatunnel_mqtt_source_"));
+    }
+
+    @Test
+    void testConfigSurvivesJavaSerialization() throws Exception {
+        Map<String, Object> config = baseConfig();
+        config.put("username", "admin");
+        // Deliberately non-default values, so the assertions below prove the values round
+        // tripped rather than that defaults were rebuilt. The default qos is 1 and validate()
+        // limits it to 0 or 1, so 0 is the only non-default that is legal; the default format
+        // is json.
+        config.put("qos", 0);
+        config.put("format", "text");
+        MqttSourceConfig sourceConfig = new MqttSourceConfig(ReadonlyConfig.fromMap(config));
+
+        byte[] serialized;
+        try (ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+                ObjectOutputStream out = new ObjectOutputStream(bytes)) {
+            out.writeObject(sourceConfig);
+            out.flush();
+            serialized = bytes.toByteArray();
+        }
+
+        try (ObjectInputStream in = new ObjectInputStream(new ByteArrayInputStream(serialized))) {
+            MqttSourceConfig restored = (MqttSourceConfig) in.readObject();
+            Assertions.assertEquals(sourceConfig.getUrl(), restored.getUrl());
+            Assertions.assertEquals(sourceConfig.getTopic(), restored.getTopic());
+            Assertions.assertEquals(sourceConfig.getUsername(), restored.getUsername());
+            Assertions.assertEquals(sourceConfig.getQos(), restored.getQos());
+            Assertions.assertEquals(sourceConfig.getClientId(), restored.getClientId());
+        }
     }
 
     private static Map<String, Object> baseConfig() {

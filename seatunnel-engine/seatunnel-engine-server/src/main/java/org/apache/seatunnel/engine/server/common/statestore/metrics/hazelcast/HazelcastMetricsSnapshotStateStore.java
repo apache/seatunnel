@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.common.statestore.metrics.hazelcast;
 
 import org.apache.seatunnel.common.utils.HashUtils;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -36,11 +37,16 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.UnaryOperator;
 
 /** Implementation backed by a partitioned Hazelcast metrics {@link IMap}. */
 public class HazelcastMetricsSnapshotStateStore
         implements MetricsSnapshotStateStore, AutoCloseable {
+
+    // Metrics contention must not keep task completion or pipeline cleanup retrying indefinitely.
+    private static final int MAX_UPDATE_ATTEMPTS = 10;
 
     private final IMap<Long, Map<TaskLocation, SeaTunnelMetricsContext>> metricsImap;
     private final int partitionCount;
@@ -78,12 +84,12 @@ public class HazelcastMetricsSnapshotStateStore
                 .parallelStream()
                 .forEach(
                         entry -> {
-                            metricsImap.compute(
+                            updatePartition(
                                     entry.getKey(),
-                                    (k, oldVal) -> {
-                                        if (oldVal == null) oldVal = new HashMap<>();
-                                        oldVal.putAll(entry.getValue());
-                                        return oldVal;
+                                    current -> {
+                                        if (current == null) current = new HashMap<>();
+                                        current.putAll(entry.getValue());
+                                        return current;
                                     });
                         });
     }
@@ -100,9 +106,9 @@ public class HazelcastMetricsSnapshotStateStore
 
     @Override
     public void remove(final TaskLocation taskLocation) {
-        metricsImap.compute(
+        updatePartition(
                 partition(taskLocation),
-                (ignored, current) -> {
+                current -> {
                     if (current == null) {
                         return null;
                     }
@@ -115,9 +121,9 @@ public class HazelcastMetricsSnapshotStateStore
     @Override
     public void removePipeline(final PipelineLocation pipelineLocation) {
         for (long partition = 0; partition < partitionCount; partition++) {
-            metricsImap.compute(
+            updatePartition(
                     partition,
-                    (ignored, current) -> {
+                    current -> {
                         if (current == null || current.isEmpty()) {
                             return current;
                         }
@@ -165,6 +171,38 @@ public class HazelcastMetricsSnapshotStateStore
     @Override
     public int activePartitionKeyCount() {
         return Math.toIntExact(activePartitionKeyCount.get());
+    }
+
+    /**
+     * Bounds Hazelcast 5.1's local compute retry loop so contention cannot indefinitely hold up a
+     * final worker metrics report or pending pipeline cleanup. Each retry invokes this lambda again
+     * with the latest bucket; exhaustion propagates to the existing report or cleanup failure path.
+     *
+     * <p>Keep the non-serializable lambda local: no new execution class needs to exist on an older
+     * partition owner. Delegating the compare-and-set to Hazelcast also preserves its original
+     * serialized expected value instead of reserializing a deserialized metrics map. Individual
+     * Hazelcast invocations still use their configured timeouts.
+     */
+    private void updatePartition(
+            long partition, UnaryOperator<Map<TaskLocation, SeaTunnelMetricsContext>> mutation) {
+        AtomicInteger attempts = new AtomicInteger();
+        metricsImap.compute(
+                partition,
+                (ignored, current) -> {
+                    if (Thread.currentThread().isInterrupted()) {
+                        throw new SeaTunnelEngineException(
+                                "Interrupted while updating metrics partition " + partition);
+                    }
+                    if (attempts.getAndIncrement() >= MAX_UPDATE_ATTEMPTS) {
+                        throw new SeaTunnelEngineException(
+                                "Failed to update metrics partition "
+                                        + partition
+                                        + " after "
+                                        + MAX_UPDATE_ATTEMPTS
+                                        + " concurrent modifications");
+                    }
+                    return mutation.apply(current);
+                });
     }
 
     private long partition(TaskLocation taskLocation) {
