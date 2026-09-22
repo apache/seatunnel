@@ -169,6 +169,9 @@ class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
      * {@code isEndState()} guard dereferences it. That NPE predates the single-snapshot change and
      * is unchanged by it, but it is the one input the {@code NOT_STARTED_STATUSES} branch cannot
      * answer, so it is asserted rather than left implicit.
+     *
+     * <p>Note: this test pins pre-existing behaviour rather than a desired design contract; it
+     * serves as a regression tripwire so any future change to cleared-state handling is deliberate.
      */
     @Test
     void testCancelJobOnClearedJobStatusFailsAtTheEndStateGuard() throws Exception {
