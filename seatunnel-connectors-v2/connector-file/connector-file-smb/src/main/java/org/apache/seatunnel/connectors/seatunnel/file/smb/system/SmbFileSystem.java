@@ -41,6 +41,7 @@ import com.hierynomus.msfscc.fileinformation.FileIdBothDirectoryInformation;
 import com.hierynomus.mssmb2.SMB2CreateDisposition;
 import com.hierynomus.mssmb2.SMB2ShareAccess;
 import com.hierynomus.mssmb2.SMBApiException;
+import com.hierynomus.security.jce.JceSecurityProvider;
 import com.hierynomus.smbj.SMBClient;
 import com.hierynomus.smbj.SmbConfig;
 import com.hierynomus.smbj.auth.AuthenticationContext;
@@ -112,7 +113,8 @@ public class SmbFileSystem extends FileSystem implements StreamingFileSystem {
             throw new IOException("SMB share is not specified");
         }
 
-        SmbConfig smbConfig = SmbConfig.builder().build();
+        SmbConfig smbConfig =
+                SmbConfig.builder().withSecurityProvider(new JceSecurityProvider()).build();
         this.client = new SMBClient(smbConfig);
         setConf(conf);
     }

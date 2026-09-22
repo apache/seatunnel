@@ -44,7 +44,38 @@
             <groupId>com.hierynomus</groupId>
             <artifactId>smbj</artifactId>
             <version>0.13.0</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.bouncycastle</groupId>
+                    <artifactId>bcprov-jdk18on</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <configuration>
+                            <relocations combine.children="append">
+                                <relocation>
+                                    <pattern>com.hierynomus</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.com.hierynomus</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.engio</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.net.engio</shadedPattern>
+                                </relocation>
+                            </relocations>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>
