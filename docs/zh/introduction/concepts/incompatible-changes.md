@@ -15,6 +15,17 @@
   未增加非有限输入的校验或清理策略；修正有限中间结果也可能影响与非有限元素混合时的结果。
   归一化输出元素仍为 float，随机投影运算不受影响。
 
+### Redis 认证
+
+- Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
+  此前，`SINGLE` 模式先使用仅密码认证，再执行 `ACL SETUSER`；`CLUSTER` 模式忽略 `user`。
+  连接初始化不再创建或修改 ACL 用户。
+- 升级前，请创建目标 ACL 用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+  `SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+  将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
+- 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
+  命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
