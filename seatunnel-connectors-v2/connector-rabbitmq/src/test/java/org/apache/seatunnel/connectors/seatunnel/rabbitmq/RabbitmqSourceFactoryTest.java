@@ -23,19 +23,66 @@ import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.api.options.table.TableSchemaOptions;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSource;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 public class RabbitmqSourceFactoryTest {
+
+    @Test
+    void dryRunSchemaMatchesRuntimeForAllFormatsAndTableModes() throws Exception {
+        RabbitmqSourceFactory factory = new RabbitmqSourceFactory();
+        for (RabbitmqMessageFormat format : RabbitmqMessageFormat.values()) {
+            for (Map<String, Object> options :
+                    Arrays.asList(createValidSingleTableConfig(), createValidMultiTableConfig())) {
+                Map<String, Object> table =
+                        options.containsKey("tables_configs")
+                                ? getFirstTableConfig(options)
+                                : options;
+                table.put("format", format);
+                if (format == RabbitmqMessageFormat.PROTOBUF) {
+                    table.put(
+                            "protobuf_schema",
+                            "syntax = \"proto3\"; message Record { int32 id = 1; }");
+                    table.put("protobuf_message_name", "Record");
+                }
+                TableSourceFactoryContext context =
+                        new TableSourceFactoryContext(
+                                ReadonlyConfig.fromMap(options), getClass().getClassLoader());
+                List<CatalogTable> expected =
+                        new RabbitmqSource(context.getOptions()).getProducedCatalogTables();
+                List<CatalogTable> actual = factory.inferSchemaForDryRun(context);
+                Assertions.assertEquals(expected.size(), actual.size());
+                for (int i = 0; i < expected.size(); i++) {
+                    Assertions.assertEquals(
+                            expected.get(i).getTableId(), actual.get(i).getTableId());
+                    Assertions.assertEquals(
+                            expected.get(i).getSeaTunnelRowType(),
+                            actual.get(i).getSeaTunnelRowType());
+                    Assertions.assertEquals(
+                            expected.get(i).getOptions(), actual.get(i).getOptions());
+                }
+            }
+        }
+    }
+
+    @Test
+    void supportsConnectivityDryRun() {
+        Assertions.assertTrue(new RabbitmqSourceFactory() instanceof SupportSourceDryRunValidation);
+    }
 
     @Test
     public void testFactoryIdentifier() {

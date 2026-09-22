@@ -18,14 +18,19 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.source;
 
 import org.apache.seatunnel.api.configuration.util.Conditions;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqSourceDryRunValidator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSingleTableValidator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
@@ -34,10 +39,43 @@ import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqTableCo
 
 import com.google.auto.service.AutoService;
 
+import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 
 @AutoService(Factory.class)
-public class RabbitmqSourceFactory implements TableSourceFactory {
+public class RabbitmqSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
+
+    /** Reuses runtime catalog construction without opening a reader or a network connection. */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context)
+            throws IOException {
+        try {
+            ConfigValidator.of(context.getOptions()).validate(optionRule());
+            List<CatalogTable> tables = new ArrayList<>();
+            RabbitmqSourceSchema.initializeCatalogTables(
+                    context.getOptions(),
+                    new RabbitmqConfig(context.getOptions()),
+                    tables,
+                    new HashMap<>());
+            return tables;
+        } catch (RuntimeException e) {
+            throw new IOException(
+                    "RabbitMQ connect dry-run source configuration or schema is invalid");
+        }
+    }
+
+    /** Checks connectivity only, without starting the source's data-reading lifecycle. */
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) throws Exception {
+        // The connection hook can be called directly, without the preceding schema hook.
+        inferSchemaForDryRun(context);
+        RabbitmqSourceDryRunValidator.validate(context.getOptions());
+    }
+
     @Override
     public String factoryIdentifier() {
         return "RabbitMQ";
