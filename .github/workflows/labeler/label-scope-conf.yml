@@ -242,6 +242,7 @@ http:
           - any-glob-to-any-file:
               - seatunnel-connectors-v2/connector-http/**
               - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-paypal-e2e/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-woocommerce-e2e/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(http)/**'
 prometheus:
   - all:

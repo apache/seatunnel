@@ -145,6 +145,29 @@ public class ConfigBuilderTest {
     }
 
     @Test
+    public void testConfigDesensitizationMasksWooCommerceCredentialsWithoutAddingEncryptionKeys() {
+        Map<String, Object> connector = new LinkedHashMap<>();
+        connector.put("consumer_key", "test-consumer-key");
+        connector.put("consumer_secret", "test-consumer-secret");
+        connector.put("url", "https://store.example.com");
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(connector));
+
+        Map<String, Object> masked =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getLogDesensitizationOptions(null));
+        Map<?, ?> source = (Map<?, ?>) ((List<?>) masked.get("source")).get(0);
+        Assertions.assertEquals("******", source.get("consumer_key"));
+        Assertions.assertEquals("******", source.get("consumer_secret"));
+        Assertions.assertEquals("https://store.example.com", source.get("url"));
+        Assertions.assertEquals("test-consumer-key", connector.get("consumer_key"));
+        Assertions.assertEquals("test-consumer-secret", connector.get("consumer_secret"));
+        Assertions.assertFalse(ConfigShadeUtils.getSensitiveOptions(null).contains("consumer_key"));
+        Assertions.assertFalse(
+                ConfigShadeUtils.getSensitiveOptions(null).contains("consumer_secret"));
+    }
+
+    @Test
     public void testConfigDesensitizationMasksS3CredentialOptions() {
         Map<String, Object> accessKeyConfig = new LinkedHashMap<>();
         accessKeyConfig.put("key", "access-key");
