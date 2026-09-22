@@ -36,6 +36,11 @@ public class TableDiscoveryUtils {
     @SuppressWarnings("MagicNumber")
     public static List<TableId> listTables(JdbcConnection jdbc, RelationalTableFilters tableFilters)
             throws SQLException {
+        // Use a LinkedHashSet to deduplicate table ids. Some PostgreSQL-compatible databases
+        // (e.g. HighGo) return the same physical table several times from
+        // INFORMATION_SCHEMA.TABLES, and duplicated TableId would break the downstream
+        // Collectors.toMap() in PostgresIncrementalSource#tableChanges().
+        // LinkedHashSet keeps the discovery order stable for standard PostgreSQL.
         final Set<TableId> capturedTableIds = new LinkedHashSet<>();
         // -------------------
         // READ DATABASE NAMES
