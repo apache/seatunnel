@@ -63,6 +63,10 @@ public class CoordinatorExecutorMassFailoverStormIT {
     // Large enough to exercise restore fan-out while fitting in one CI test JVM.
     private static final int CONCURRENT_JOB_COUNT = 30;
 
+    private static final int POST_RESTORE_STABILITY_SECONDS = 5;
+
+    private static final int TEARDOWN_TIMEOUT_SECONDS = 150;
+
     /**
      * Pure CI-runner safety backstop, not a claim that today's design bounds growth in general --
      * it does not, since the lifecycle executor has an unbounded maximum. This only guards against
@@ -145,7 +149,7 @@ public class CoordinatorExecutorMassFailoverStormIT {
                             });
 
             CoordinatorService standbyCoordinatorService = getCoordinatorService(standbyMaster);
-            awaitAllJobsInStatus(engineClient, jobIds, JobStatus.RUNNING, 180);
+            awaitAllJobsStableInStatus(engineClient, jobIds, JobStatus.RUNNING, 180);
             ThreadPoolStatus lifecycle =
                     standbyCoordinatorService.getLifecycleThreadPoolStatusMetrics();
             ThreadPoolStatus admission = standbyCoordinatorService.getThreadPoolStatusMetrics();
@@ -250,6 +254,38 @@ public class CoordinatorExecutorMassFailoverStormIT {
     }
 
     /**
+     * Requires the restored jobs to stay running for a short settle window. A one-off RUNNING
+     * sample can race a pipeline re-deploy; cancelling during that transition can leave a task in a
+     * worker-side invocation wait and make teardown depend on its heartbeat timeout.
+     */
+    private static void awaitAllJobsStableInStatus(
+            SeaTunnelClient engineClient,
+            List<Long> jobIds,
+            JobStatus expectedStatus,
+            long timeoutSeconds) {
+        Awaitility.await()
+                .during(POST_RESTORE_STABILITY_SECONDS, TimeUnit.SECONDS)
+                .atMost(timeoutSeconds, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            for (Long jobId : jobIds) {
+                                JobStatus actual =
+                                        engineClient
+                                                .createJobClient()
+                                                .getJobProxy(jobId)
+                                                .getJobStatus();
+                                Assertions.assertEquals(
+                                        expectedStatus,
+                                        actual,
+                                        "Job "
+                                                + jobId
+                                                + " should remain stable in "
+                                                + expectedStatus);
+                            }
+                        });
+    }
+
+    /**
      * Cancels every job and waits for each one's own terminal result.
      *
      * <p>The cancel request and the wait for that same job's completion future are issued
@@ -285,14 +321,24 @@ public class CoordinatorExecutorMassFailoverStormIT {
         }
 
         Map<JobStatus, Integer> terminalStatusCounts = new EnumMap<>(JobStatus.class);
+        long teardownDeadlineNanos =
+                System.nanoTime() + TimeUnit.SECONDS.toNanos(TEARDOWN_TIMEOUT_SECONDS);
         for (Map.Entry<Long, PassiveCompletableFuture<JobResult>> entry :
                 completeFutures.entrySet()) {
             JobResult jobResult;
             try {
-                jobResult = entry.getValue().get(150, TimeUnit.SECONDS);
+                long remainingNanos = teardownDeadlineNanos - System.nanoTime();
+                Assertions.assertTrue(
+                        remainingNanos > 0,
+                        "Jobs did not reach terminal statuses within the shared teardown deadline");
+                jobResult = entry.getValue().get(remainingNanos, TimeUnit.NANOSECONDS);
             } catch (Exception e) {
                 Assertions.fail(
-                        "Job " + entry.getKey() + " did not reach a terminal status in time", e);
+                        "Job "
+                                + entry.getKey()
+                                + " did not reach a terminal status within the shared teardown "
+                                + "deadline",
+                        e);
                 return;
             }
             JobStatus actual = jobResult.getStatus();
