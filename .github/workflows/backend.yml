@@ -506,7 +506,10 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
-    timeout-minutes: 90
+    # The all-modules unit test build now takes 70-88 minutes on ubuntu-latest and keeps growing
+    # with every new connector; a 90 minute budget left so little headroom that ordinary runner
+    # variance cancelled jobs whose Maven build had already printed BUILD SUCCESS.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
