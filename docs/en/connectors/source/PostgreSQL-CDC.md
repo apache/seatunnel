@@ -23,6 +23,11 @@ import ChangeLog from '../changelog/connector-cdc-postgres.md';
 The PostgreSQL CDC connector allows for reading snapshot data and incremental data from PostgreSQL databases. This document
 describes how to set up the PostgreSQL CDC connector.
 
+Some PostgreSQL-compatible databases (for example HighGo) return the same physical table more than
+once from `information_schema.tables`. The connector deduplicates discovered tables by their fully
+qualified `catalog.schema.table` id, so these repeated rows are ignored and the job starts normally.
+
+
 ## Supported DataSource Info
 
 | Datasource |                     Supported versions                     |        Driver         |                  Url                  |                                  Maven                                   |
