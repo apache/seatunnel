@@ -85,7 +85,8 @@ public class CollectCdcEnumeratorProgressOperation extends Operation
         int size = CdcProgressReportSerializer.readSize(in, "task group");
         taskGroupLocations = new ArrayList<>(size);
         for (int i = 0; i < size; i++) {
-            taskGroupLocations.add(in.readObject());
+            // TaskGroupLocation uses Java serialization, which does not support readObject(Class).
+            taskGroupLocations.add(TaskGroupLocation.class.cast(in.readObject()));
         }
     }
 

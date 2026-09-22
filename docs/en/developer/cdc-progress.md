@@ -52,6 +52,12 @@ worker. A failed provider is isolated from other tasks and a failed collection d
 monitor ticks. Providers publish immutable snapshots; polling does not acquire the chunk-generation
 monitor or initiate source I/O.
 
+During a mixed-version deployment, a member that does not recognize the CDC progress operation can
+reject collection requests. A failed worker request logs a warning; later monitor ticks can retry
+after the in-flight request finishes. Task groups are batched by worker, so these warnings are per
+failed worker request, not per pipeline. This describes progress-collection failure handling only,
+not a general guarantee of rolling-upgrade compatibility.
+
 Enumerator tasks can be placed on a member other than the active coordinator. This transport detail
 does not transfer ownership to the worker sampler: the coordinator selects the enumerators to poll,
 initiates collection, and owns ordering and storage. After master failover, recovered job masters and

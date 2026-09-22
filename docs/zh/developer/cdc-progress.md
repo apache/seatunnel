@@ -46,6 +46,11 @@ Source 通过 `SupportCdcProgress` 声明能力。Coordinator 在读取 slot 分
 每个 Worker 最多存在一个未完成请求。单个 Provider 失败不会丢弃其他 Task 的报告，
 单次采集失败也不会停止后续监控。Provider 发布不可变快照；轮询不会获取 chunk 生成锁或访问数据源。
 
+混合版本部署期间，不识别 CDC 进度操作的成员可能拒绝采集请求。每个失败的 Worker 请求会记录
+WARN 日志；进行中的请求结束后，后续监控周期可以重试。Task Group 按 Worker 合并请求，
+因此告警按失败的 Worker 请求产生，而非按 Pipeline 产生。这仅说明进度采集的失败处理，
+不代表对滚动升级兼容性的通用保证。
+
 Enumerator Task 可能运行在活动 Coordinator 之外的节点上。这一传输细节不会把所有权交给 Worker
 采样器：由 Coordinator 选择要轮询的 Enumerator、发起采集并负责排序和存储。Master 故障转移后，
 恢复的 JobMaster 和 slot 分配会重新构建采集集合。

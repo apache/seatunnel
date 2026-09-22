@@ -42,6 +42,7 @@ import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -102,7 +103,7 @@ class ReportCdcProgressOperationSerializationTest {
                                                 CdcProgressValue.unavailable())),
                                 true));
         ReportCdcProgressOperation original =
-                new ReportCdcProgressOperation(java.util.Arrays.asList(reader, enumerator));
+                new ReportCdcProgressOperation(Arrays.asList(reader, enumerator));
 
         Data data = serializationService.toData(original);
         ReportCdcProgressOperation restored = serializationService.toObject(data);
@@ -148,7 +149,7 @@ class ReportCdcProgressOperationSerializationTest {
                         .isActiveSplitsTruncated());
 
         CdcProgressReportBatch batch =
-                new CdcProgressReportBatch(java.util.Arrays.asList(reader, enumerator));
+                new CdcProgressReportBatch(Arrays.asList(reader, enumerator));
         CdcProgressReportBatch restoredBatch =
                 serializationService.toObject(serializationService.toData(batch));
         Assertions.assertEquals(2, restoredBatch.getReports().size());
@@ -231,9 +232,10 @@ class ReportCdcProgressOperationSerializationTest {
 
     @Test
     void testEnumeratorCollectionRequestIsPreservedAfterSerialization() {
-        TaskGroupLocation location = new TaskGroupLocation(1L, 2, 3L);
+        List<TaskGroupLocation> locations =
+                Arrays.asList(new TaskGroupLocation(1L, 2, 3L), new TaskGroupLocation(4L, 5, 6L));
         CollectCdcEnumeratorProgressOperation original =
-                new CollectCdcEnumeratorProgressOperation(Collections.singletonList(location));
+                new CollectCdcEnumeratorProgressOperation(locations);
 
         Data data = serializationService.toData(original);
         CollectCdcEnumeratorProgressOperation restored = serializationService.toObject(data);
@@ -242,7 +244,33 @@ class ReportCdcProgressOperationSerializationTest {
                 ReflectionUtils.getField(restored, "taskGroupLocations")
                         .map(field -> (List<?>) field)
                         .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field"));
-        Assertions.assertEquals(Collections.singletonList(location), taskGroupLocations);
+        Assertions.assertEquals(locations, taskGroupLocations);
+    }
+
+    @Test
+    void testEmptyEnumeratorCollectionRequestIsPreservedAfterSerialization() {
+        CollectCdcEnumeratorProgressOperation original =
+                new CollectCdcEnumeratorProgressOperation(Collections.emptyList());
+        CollectCdcEnumeratorProgressOperation restored =
+                serializationService.toObject(serializationService.toData(original));
+
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                ReflectionUtils.getField(restored, "taskGroupLocations")
+                        .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field")));
+    }
+
+    @Test
+    void testEnumeratorCollectionRequestRejectsWrongLocationType() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(1);
+        output.writeObject("not a task group location");
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(output.toByteArray());
+
+        Assertions.assertThrows(
+                ClassCastException.class,
+                () -> new CollectCdcEnumeratorProgressOperation().readInternal(input));
     }
 
     @Test

@@ -296,6 +296,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
 
     @Override
     public synchronized SnapshotPhaseState snapshotState(long checkpointId) {
+        // Engine serialization holds enumeratorContext, but add-back uses task/assigner monitors.
+        // Detach collections so later add-back cannot mutate the state being serialized.
         SnapshotPhaseState state =
                 new SnapshotPhaseState(
                         new ArrayList<>(alreadyProcessedTables),
