@@ -59,7 +59,7 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 /** Shared local schema validation and serializer construction; never opens a Kafka client. */
 final class KafkaSinkSerializer {
 
-    private static final Pattern TOPIC_FIELD = Pattern.compile("\\$\\{(.*?)\\}", Pattern.DOTALL);
+    static final Pattern TOPIC_FIELD = Pattern.compile("\\$\\{(.*?)\\}", Pattern.DOTALL);
 
     private KafkaSinkSerializer() {}
 

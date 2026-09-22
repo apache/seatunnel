@@ -196,6 +196,7 @@ public class KafkaConnectDryRunIT extends TestSuiteBase implements TestResource 
 
         validateSink(TOPIC, 0, PASSWORD);
         validateSink("prefix-${route}", null, PASSWORD);
+        validateSink("prefix-${route}-${unused}", null, PASSWORD);
 
         assertEquals(topicsBefore, allTopics());
         assertEquals(transactionsBefore, transactions());

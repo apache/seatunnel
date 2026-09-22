@@ -38,6 +38,7 @@ import org.apache.kafka.clients.admin.DescribeClusterResult;
 import org.apache.kafka.clients.admin.DescribeTopicsOptions;
 import org.apache.kafka.clients.admin.DescribeTopicsResult;
 import org.apache.kafka.clients.admin.TopicDescription;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.KafkaFuture;
 import org.apache.kafka.common.TopicPartitionInfo;
@@ -53,6 +54,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
@@ -95,7 +97,7 @@ class KafkaSinkDryRunValidatorTest {
         describe(admin, KafkaFuture.completedFuture(Collections.singletonMap("orders", topic())));
         try (MockedStatic<AdminClient> clients = client(admin, new Properties())) {
             validate(options, compatibleType);
-            org.apache.kafka.clients.producer.ProducerRecord<byte[], byte[]> record =
+            ProducerRecord<byte[], byte[]> record =
                     KafkaSinkSerializer.create(ReadonlyConfig.fromMap(options), compatibleType)
                             .serializeRow(
                                     new SeaTunnelRow(
@@ -264,13 +266,12 @@ class KafkaSinkDryRunValidatorTest {
     void testSerializerPreservesFirstFieldTopicAndExplicitPartition() {
         Map<String, Object> options = options("prefix-${route}-${unknown}");
         options.put("partition", 1);
-        org.apache.kafka.clients.producer.ProducerRecord<byte[], byte[]> record =
+        ProducerRecord<byte[], byte[]> record =
                 KafkaSinkSerializer.create(ReadonlyConfig.fromMap(options), rowType)
                         .serializeRow(new SeaTunnelRow(new Object[] {7, "actual-target"}));
         assertEquals("actual-target", record.topic());
         assertEquals(Integer.valueOf(1), record.partition());
-        assertTrue(
-                new String(record.value(), java.nio.charset.StandardCharsets.UTF_8).contains("7"));
+        assertTrue(new String(record.value(), StandardCharsets.UTF_8).contains("7"));
     }
 
     @Test
@@ -387,9 +388,9 @@ class KafkaSinkDryRunValidatorTest {
             "invalid target topic name",
             "broker network connection failed",
             "broker does not support the requested metadata API version",
-            "unexpected Kafka client metadata failure",
-            "invalid metadata client argument",
-            "invalid metadata client state",
+            "unexpected Kafka client metadata failure; check broker connectivity and Kafka client configuration",
+            "invalid metadata client argument; check broker connectivity and Kafka client configuration",
+            "invalid metadata client state; check broker connectivity and Kafka client configuration",
             "unexpected metadata failure; check broker connectivity and Kafka client configuration"
         };
         for (int i = 0; i < causes.length; i++) {
@@ -422,7 +423,7 @@ class KafkaSinkDryRunValidatorTest {
                             () -> validate(options("orders"), rowType));
             assertFalse(failure.getMessage().contains("synthetic-secret"));
             assertEquals(
-                    "Kafka sink connect dry-run: invalid metadata client argument",
+                    "Kafka sink connect dry-run: invalid metadata client argument; check broker connectivity and Kafka client configuration",
                     failure.getMessage());
             assertNull(failure.getCause());
             assertSame(original, Thread.currentThread().getContextClassLoader());

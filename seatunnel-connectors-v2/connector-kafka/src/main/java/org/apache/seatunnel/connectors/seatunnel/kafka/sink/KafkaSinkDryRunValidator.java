@@ -42,7 +42,6 @@ import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.regex.Pattern;
 
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.BOOTSTRAP_SERVERS;
 import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOptions.FORMAT;
@@ -54,7 +53,6 @@ import static org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSinkOp
 final class KafkaSinkDryRunValidator {
 
     private static final int MAX_TIMEOUT_MS = 30_000;
-    private static final Pattern TOPIC_FIELD = Pattern.compile("\\$\\{(.*?)\\}", Pattern.DOTALL);
 
     private KafkaSinkDryRunValidator() {}
 
@@ -94,7 +92,7 @@ final class KafkaSinkDryRunValidator {
             AdminClient admin = AdminClient.create(properties);
             try {
                 String topic = config.get(TOPIC);
-                if (TOPIC_FIELD.matcher(topic).find()) {
+                if (KafkaSinkSerializer.TOPIC_FIELD.matcher(topic).find()) {
                     // The actual topic is a record value, not an interpolated config string.
                     await(
                             admin.describeCluster(
@@ -144,6 +142,7 @@ final class KafkaSinkDryRunValidator {
                 reason = "target topic does not exist";
             } else if (failure instanceof TimeoutException
                     || failure instanceof org.apache.kafka.common.errors.TimeoutException) {
+                // Kafka client timeouts and JDK future timeouts have different exception types.
                 reason = "metadata request timed out";
             } else if (failure instanceof ConfigException) {
                 reason = "invalid Kafka client configuration";
@@ -154,11 +153,14 @@ final class KafkaSinkDryRunValidator {
             } else if (failure instanceof UnsupportedVersionException) {
                 reason = "broker does not support the requested metadata API version";
             } else if (failure instanceof KafkaException) {
-                reason = "unexpected Kafka client metadata failure";
+                reason =
+                        "unexpected Kafka client metadata failure; check broker connectivity and Kafka client configuration";
             } else if (failure instanceof IllegalArgumentException) {
-                reason = "invalid metadata client argument";
+                reason =
+                        "invalid metadata client argument; check broker connectivity and Kafka client configuration";
             } else if (failure instanceof IllegalStateException) {
-                reason = "invalid metadata client state";
+                reason =
+                        "invalid metadata client state; check broker connectivity and Kafka client configuration";
             }
             // Client exceptions can embed JAAS options, passwords and endpoint credentials.
             throw new IllegalArgumentException("Kafka sink connect dry-run: " + reason);
