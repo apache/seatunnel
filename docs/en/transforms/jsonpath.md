@@ -269,8 +269,9 @@ shared converter's unsupported-type error and are not skippable by these policie
 Conversion diagnostics and skip logs omit source
 records, extracted values, path expressions and original exceptions, which can
 contain private data, including literals in configured paths. Legacy path-reading
-diagnostics still include source data and retain their cause; they are outside
-this conversion-diagnostic privacy boundary. Unexpected failures still propagate.
+diagnostics still include source data; this change newly attaches the path-reading
+exception as the cause of `ErrorDataTransformException`. They are outside this
+conversion-diagnostic privacy boundary. Unexpected failures still propagate.
 
 ### Skip an invalid converted value
 

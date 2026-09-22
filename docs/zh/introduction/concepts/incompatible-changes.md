@@ -12,8 +12,11 @@
 - 在 `FAIL` 策略下，已识别的转换错误现在以 `ErrorDataTransformException` 和
   `JSONPATH_ERROR_CODE-07` 报告，不再直接报告原始转换器异常或其 `COMMON-*` 错误码。
   这些诊断及跳过日志会有意省略源记录、提取值和原始异常原因。请更新依赖旧异常文本或错误码
-  的告警和运维手册。路径错误、不支持的转换和意外失败保留现有行为；本变更不增加
+  的告警和运维手册。不支持的转换和意外失败保留现有行为；本变更不增加
   `ROUTE_TO_TABLE` 支持，也不改变检查点格式。
+- 路径读取错误的处理策略不变，但 `ErrorDataTransformException` 现在新增将路径读取异常
+  作为 cause；此前该异常没有 cause。其诊断仍包含源数据，不属于转换错误的隐私边界。
+  请更新原先假设不存在嵌套 cause 的堆栈解析器和告警，以处理新增的 `Caused by` 部分。
 
 ### RabbitMQ Connector
 
