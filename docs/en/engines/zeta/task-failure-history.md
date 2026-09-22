@@ -4,7 +4,7 @@ This document proposes the first backend contract for [GH-11667](https://github.
 
 ## Problem
 
-The Job Detail page currently exposes one exception string. This is not enough when a pipeline is restored several times or when different task groups fail during the same job. Operators need to see which attempt failed, where it ran, and when it happened without searching every worker log.
+The Job Detail page currently exposes one exception string. This is not enough when a pipeline is restored several times or when different task groups fail during the same job. Operators need to see which pipeline attempt and task group failed, and when it happened without searching every worker log. The first version attributes failures to pipelines and task groups, not worker addresses.
 
 The current engine state has three relevant limitations:
 
@@ -20,7 +20,7 @@ It should:
 
 - group failures by pipeline execution attempt;
 - identify the pipeline and task group that reported the failure;
-- retain the worker address and task metadata when they are available;
+- retain task metadata when it is available, without storing worker addresses as failure-history attribution fields;
 - preserve timestamp, message, stack trace, and exception type without parsing display text;
 - survive master failover and pipeline restore;
 - expire with the existing finished-job history policy; and
@@ -73,7 +73,7 @@ Field rules:
 - `sequence` is monotonically increasing within one job and provides deterministic ordering when timestamps are equal.
 - `timestamp`, `jobId`, `pipelineId`, `attempt`, and `taskGroupId` are required.
 - `attemptStartedAt` is the start time stored with the durable diagnostic attempt metadata. Attempt `0` is initialized when the pipeline execution is created for deployment, and a restored attempt is initialized when its diagnostic attempt identity is advanced before restore scheduling. The field is optional for legacy or synthetic paths that cannot resolve this metadata. It has the same value for every record with the same `pipelineId` and `attempt` and is distinct from `timestamp`, which records when the individual failure was captured.
-- `taskId`, `taskName`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them. Worker addresses are internal attribution metadata and are omitted from the default REST representation.
+- `taskId`, `taskName`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them. The first version has no worker-address attribution field in running history, finished history, or REST responses.
 - `messageTruncated` and `stackTraceTruncated` are required booleans. They indicate whether the corresponding value was shortened before storage.
 - `exceptionType` must come from structured failure transport. It must not be inferred by parsing the formatted stack trace.
 - `stackTrace` remains the diagnostic detail; `message` is the concise display value.
@@ -83,7 +83,7 @@ Field rules:
 
 `TaskExecutionState` remains the structured worker-to-master failure transport, but it is not the only way a task group can fail. The common capture point for terminal worker-reported failures is the `PhysicalVertex` state transition after `updateStateByExecutionService` accepts a `FAILED` state. This covers both normal worker reports and node-loss state updates that are routed directly to the physical vertex.
 
-Deployment failures do not carry a `TaskExecutionState`; they enter through `makeTaskGroupFailing`. That path must create a failure record from the deployment exception and the known pipeline, task-group, slot, and worker metadata. `TaskDeployState.failed(Throwable)` must extract the original failure's class name, message, and bounded stack trace as strings while the `Throwable` is still available. For `deployOnRemote`, these strings are captured on the worker before the response crosses the Hazelcast RPC boundary; the live `Throwable` must not be included because its connector-specific class may not be available to the master. The resulting record reads those structured fields directly, so its `exceptionType` identifies the original cause rather than `TaskGroupDeployException`. The same deduplication key prevents a later terminal delivery for that attempt from creating another record. Cancellation without a failure cause is not recorded as an exception.
+Deployment failures do not carry a `TaskExecutionState`; they enter through `makeTaskGroupFailing`. That path must create a failure record from the deployment exception and the known pipeline and task-group metadata, without copying slot or worker addresses into the history record. `TaskDeployState.failed(Throwable)` must extract the original failure's class name, message, and bounded stack trace as strings while the `Throwable` is still available. For `deployOnRemote`, these strings are captured on the worker before the response crosses the Hazelcast RPC boundary; the live `Throwable` must not be included because its connector-specific class may not be available to the master. The resulting record reads those structured fields directly, so its `exceptionType` identifies the original cause rather than `TaskGroupDeployException`. The same deduplication key prevents a later terminal delivery for that attempt from creating another record. Cancellation without a failure cause is not recorded as an exception.
 
 Exception content must be sanitized and bounded at these capture boundaries, before it is written to HA or finished-job history. The implementation should extract the redaction patterns from `DryRunConnectFailureMessageSanitizer` into a shared utility rather than persisting raw connector messages or stack traces. Failure history keeps its own 4 KiB message and 64 KiB stack-trace limits and truncation flags; it must not inherit the dry-run utility's 2 KiB display limit.
 
@@ -103,13 +103,17 @@ The first version uses these bounds:
 - retain at most 1 MiB of combined UTF-8 `message` and `stackTrace` content per job;
 - evict the oldest records until both the record-count and aggregate-text limits are satisfied;
 - do not apply a TTL while the job is active; and
-- after the job reaches a terminal state, give the dedicated finished-history entry its own `history-job-expire-minutes` TTL.
+- after the job reaches a terminal state, give the dedicated finished-history entry its own `history-job-expire-minutes` TTL and apply that retention period to any remaining running-history entry as a cleanup fallback.
 
 The initial limit should be a constant rather than a new user option. A configurable limit can be added later if operational evidence shows that 100 records is insufficient.
 
 When a job reaches a terminal state, `JobHistoryService` writes the retained records and authoritative pipeline attempt values to a dedicated finished-history entry. The entry receives the same `history-job-expire-minutes` TTL as the corresponding finished-job record, so expiration does not depend on a cleanup-listener callback. A listener may remove it eagerly when the finished-job record is deleted, but the entry's own TTL remains the fallback guarantee. This reuses the existing finished-job lifecycle without introducing a pluggable history-store abstraction.
 
 The terminal snapshot write is best effort. A write or cleanup failure must be logged, but must not change the job terminal state, restore behavior, or existing finished-job record. Running and finished reads use the same response model even though their storage lifecycle differs.
+
+After the finished-history snapshot attempt, the running-history entry must be removed through the existing durable pending-cleanup mechanism (`JobCleanupRecord` / `IMAP_PENDING_JOB_CLEANUP`), even if the snapshot write fails. The implementation must include the new history entry in terminal cleanup and in terminal-zombie recovery after an active-master switch; deleting other job-state keys must not lose the pending history cleanup. Cleanup remains pending until the running-history entry is absent. Removal or TTL-setting failures are logged and retried through that mechanism, without changing the job's terminal outcome.
+
+At terminal transition, any remaining running-history entry receives a fallback expiry based on the job's terminal time and `history-job-expire-minutes`. Recovery and cleanup retries preserve that deadline rather than extending retention. Terminal fencing must prevent queued or late failure-record and attempt updates from recreating the running entry, removing its TTL, or extending its expiry after cleanup. Once the job is terminal, REST reads only the finished-history snapshot, not the pending-cleanup entry. A failed best-effort snapshot may leave a known finished job with no failure records; keeping diagnostics indefinitely is not a fallback.
 
 Master failover preserves records already acknowledged by the HA history store and resumes sequence and attempt numbering from that persisted state. Because history submission is asynchronous and best effort, a submission still in flight when the active master fails may be lost. This diagnostic path does not delay the task failure or restore decision to wait for a history acknowledgement.
 
@@ -130,7 +134,7 @@ Behavior:
 - return a controlled `404` response for an unknown or expired job; and
 - return the same response model for running and finished jobs, regardless of which dedicated state entry supplies the records.
 
-`JobInfoServlet` currently treats all path information after `/job-info/` as one numeric job ID. The REST implementation must extend that routing, or add an equivalent dedicated handler, so `/job-info/{jobId}` keeps its current behavior while `/job-info/{jobId}/failures` is routed to failure history. Routing must match only these exact path shapes. Additional segments, prefixes, or substring matches must fall through to the existing not-found behavior.
+`JobInfoServlet` currently parses the entire path information as one numeric job ID and also serves the deprecated `/running-job/*` alias. The implementation must distinguish the servlet mapping and exact path segments, or use an equivalent dedicated handler. Only `/job-info/{jobId}/failures` serves failure history. The single-ID routes `/job-info/{jobId}` and `/running-job/{jobId}` keep their existing behavior, including their existing `400` response for malformed IDs. Any other path shape under these mappings, including `/running-job/{jobId}/failures` and extra segments after `/failures`, returns a controlled `404` without reflecting input or exposing a stack trace. Prefix or substring matching is not allowed. This explicitly changes invalid multi-segment paths from today's numeric-parse `400` to `404`; it does not claim that this not-found behavior already exists.
 
 The current `/job-info/{jobId}` behavior and its `errorMsg` field remain unchanged, including its existing response for an unknown job. The new failure-history endpoint defines its own explicit `404` response so callers can distinguish an unknown job from a known job with no failures.
 
@@ -140,13 +144,13 @@ The endpoint uses the same `BasicAuthFilter` boundary as the existing engine RES
 
 Redaction and UTF-8-safe truncation are applied at capture, before every HA IMap or finished-history write, not only while serializing a REST response. This includes worker-reported, deployment, node-loss, and terminal-snapshot paths. This ensures that Hazelcast state, dedicated finished-history entries, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
 
-The route handler owns validation of `jobId` and `limit`:
+The new failure-history route handler owns validation of `jobId` and `limit`; these rules do not change validation on the legacy single-ID routes:
 
 - malformed or overflowing signed-64-bit job identifiers and non-numeric, overflowing signed-32-bit, or non-positive limits return a controlled `400` response;
 - an absent limit defaults to 100; valid positive limits above 100 are capped at 100; and
 - validation failures must not include a stack trace or echo untrusted input through the shared exception handler.
 
-The first version omits the worker `host:port` field from all default failure-history responses, even when internal capture metadata contains it. Existing `/pending-jobs` behavior is unchanged. An operator-only opt-in or logical worker identifier requires a separate agreed contract; this design does not introduce a new role system or address-exposure option.
+The first version neither persists worker `host:port` attribution fields in running or finished failure history nor exposes them in REST responses. Capture code may consult existing execution metadata, but must not copy its addresses into history fields. This avoids retaining topology data with no consumer in this version; it does not promise to remove every address mentioned inside sanitized exception text. Existing execution metadata and `/pending-jobs` behavior are unchanged. An operator-only opt-in or logical worker identifier requires a separate agreed contract; this design does not introduce a new role system or address-exposure option.
 
 ## Web UI Follow-up
 
@@ -156,7 +160,7 @@ Missing optional fields should be displayed as unavailable. The UI must not clai
 
 ## Compatibility
 
-The feature is additive:
+The feature is additive for valid existing job-detail requests. Invalid multi-segment paths change from numeric-parse `400` to controlled `404`, as specified above:
 
 - existing jobs do not need configuration changes;
 - existing REST fields and the final error message remain available;
@@ -173,7 +177,7 @@ The feature is additive:
 3. Duplicate delivery of one terminal state does not create a duplicate record while the original record remains in the bounded history; a delayed duplicate may be recorded after eviction.
 4. Failures from different task groups in the same attempt remain separate.
 5. A master failover preserves records acknowledged by the HA history store and the next attempt number; an asynchronous submission still in flight at failover may be lost.
-6. A finished job exposes the same records until the configured history expiration.
+6. A successfully written finished-history snapshot exposes the retained records until the configured history expiration; a failed best-effort snapshot may leave a known finished job with no failure records.
 7. More than 100 failures, or more than 1 MiB of retained UTF-8 message and stack-trace content, evicts the oldest records deterministically until both limits are satisfied.
 8. Messages larger than 4 KiB and stack traces larger than 64 KiB are truncated at valid UTF-8 boundaries and expose the corresponding truncation flag.
 9. A terminal job writes one bounded failure-history entry that expires with its corresponding finished-job record.
@@ -181,18 +185,21 @@ The feature is additive:
 11. Existing job-detail clients continue to receive the current `errorMsg` field.
 12. Concurrent duplicate deliveries create one record and allocate one sequence number through the atomic job-entry update.
 13. Secrets in messages and stack traces are redacted before HA and finished-history persistence.
-14. Malformed `jobId` or `limit` input returns a controlled `400` response without exposing a stack trace or reflecting the invalid value.
+14. On the new failure-history route, malformed `jobId` or `limit` input returns a controlled `400` response without exposing a stack trace or reflecting the invalid value.
 15. The endpoint is covered by the same configured REST authentication boundary as existing job-detail endpoints.
 16. Failure-history updates are submitted asynchronously and do not block a Hazelcast operation thread.
 17. Failure-history state uses the same default Hazelcast map configuration as the existing job-state maps and does not add backups or persistence.
-18. Only the exact `/job-info/{jobId}` and `/job-info/{jobId}/failures` path shapes are accepted; additional path segments use the existing not-found behavior.
+18. Only the exact `/job-info/{jobId}/failures` route serves failure history. Legacy single-ID `/job-info/{jobId}` and `/running-job/{jobId}` requests retain their behavior, including malformed-ID `400` responses. Other path shapes, including alias failure-history requests and extra segments, return controlled `404` responses without reflected input or stack traces.
 19. Existing serialized `TaskExecutionState` values remain readable after the optional structured failure fields are added.
 20. A deployment failure that enters through `makeTaskGroupFailing` creates one bounded record even though no `TaskExecutionState` exists, and its `exceptionType` identifies the original cause rather than `TaskGroupDeployException` when a cause is available.
 21. Persisting diagnostic attempt identity does not change `job.retry.times`, restore eligibility, or retry behavior after active-master failover.
 22. Every record that exposes `attemptStartedAt` reads it from the durable metadata created for that pipeline attempt.
 23. A restored execution cannot report a failure before its attempt advance is atomically committed in the shared job-scoped entry; an advance failure does not start execution with the previous attempt identity.
-24. Default REST responses omit worker addresses; enabling or disabling REST authentication does not accidentally add per-job authorization or expose an opt-in address field.
+24. Running-history entries, finished-history snapshots and REST responses contain no worker-address attribution field. Enabling or disabling REST authentication does not add per-job authorization or expose an opt-in address field; existing execution metadata is unchanged.
 25. Tests cover absent, zero, negative, non-numeric, overflowing, and above-maximum limits, plus overflowing job IDs and extra path segments.
+26. No running-history entry survives completed terminal cleanup, including after active-master failover or terminal-zombie recovery. Failed snapshot writes, removal and TTL-setting failures do not lose durable pending cleanup or change the terminal outcome.
+27. A remaining terminal running-history entry expires using `history-job-expire-minutes` from the original terminal time even when eager removal fails; cleanup retries and master recovery do not extend the deadline.
+28. Queued or late history and attempt updates cannot recreate a cleaned entry, remove its terminal TTL, or extend its expiry. Terminal REST reads never fall back to running entries awaiting cleanup.
 
 ## Delivery Plan
 
