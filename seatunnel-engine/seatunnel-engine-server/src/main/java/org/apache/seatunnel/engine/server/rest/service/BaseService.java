@@ -83,6 +83,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -1372,10 +1373,19 @@ public abstract class BaseService {
                 .add(RestConstant.JOB_NAME, jobConfig.getName());
     }
 
+    /**
+     * Resolves the explicit restore contract before the legacy savepoint flag.
+     *
+     * <p>The explicit mode is normalized because REST callers are not limited to the Web UI. The
+     * legacy flag remains the fallback for existing clients that do not send {@code restoreMode}.
+     *
+     * @param requestParams REST query parameters.
+     * @return the requested restore mode, or {@link RestoreMode#NONE} when no restore is requested.
+     */
     private RestoreMode resolveRestoreMode(Map<String, String> requestParams) {
         String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
         if (StringUtils.isNotBlank(restoreModeValue)) {
-            return RestoreMode.valueOf(restoreModeValue.toUpperCase());
+            return RestoreMode.valueOf(restoreModeValue.trim().toUpperCase(Locale.ROOT));
         }
         if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))) {
             return RestoreMode.SAVEPOINT;
@@ -1420,7 +1430,21 @@ public abstract class BaseService {
 
                                         log.error("Failed to get cluster health metrics", e);
                                     }
-                                    return parseSystemMonitoringMetrics(input, address);
+                                    JsonObject memberMetrics =
+                                            parseSystemMonitoringMetrics(input, address);
+                                    // Include identity so the UI can target the local REST node
+                                    // explicitly instead of updating the wrong worker.
+                                    memberMetrics.add("uuid", member.getUuid().toString());
+                                    memberMetrics.add("localMember", member.localMember());
+                                    JsonObject tags = new JsonObject();
+                                    member.getAttributes()
+                                            .forEach(
+                                                    (key, value) ->
+                                                            tags.add(
+                                                                    key,
+                                                                    value == null ? "" : value));
+                                    memberMetrics.add("tags", tags);
+                                    return memberMetrics;
                                 })
                         .collect(JsonArray::new, JsonArray::add, JsonArray::add);
         return jsonValues;
