@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.engine.core.job;
 
+import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.utils.IdGenerator;
+import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -60,6 +64,21 @@ class JobImmutableInformationCompatibilityTest {
         Assertions.assertEquals(createTime, jobImmutableInformation.getCreateTime());
         Assertions.assertEquals(RestoreMode.SAVEPOINT, jobImmutableInformation.getRestoreMode());
         Assertions.assertEquals(jobId, jobImmutableInformation.getRestoreSourceJobId());
+    }
+
+    @Test
+    void shouldReadLegacyPayloadWithoutSavepoint() throws Exception {
+        long jobId = 123L;
+        long createTime = 456L;
+
+        JobImmutableInformation jobImmutableInformation =
+                deserializeCurrentPayload(
+                        serializeLegacyPayload(jobId, "legacy-job", false, createTime));
+
+        Assertions.assertFalse(jobImmutableInformation.isStartWithSavePoint());
+        Assertions.assertFalse(jobImmutableInformation.isSavepointRestore());
+        Assertions.assertFalse(jobImmutableInformation.isRestoreJob());
+        Assertions.assertEquals(RestoreMode.NONE, jobImmutableInformation.getRestoreMode());
     }
 
     @Test
@@ -108,18 +127,24 @@ class JobImmutableInformationCompatibilityTest {
     @Test
     void restoreMode_shouldMatchLegacySavepointFlag() throws Exception {
         for (RestoreMode restoreMode : EnumSet.allOf(RestoreMode.class)) {
-            JobImmutableInformation jobImmutableInformation = new JobImmutableInformation();
-            setField(jobImmutableInformation, "jobId", 123L);
-            setField(jobImmutableInformation, "jobName", "restore-job");
-            setField(jobImmutableInformation, "restoreMode", restoreMode);
-            setField(
-                    jobImmutableInformation,
-                    "restoreSourceJobId",
-                    restoreMode.isRestore() ? 456L : null);
-            setField(
-                    jobImmutableInformation,
-                    "isStartWithSavePoint",
-                    restoreMode == RestoreMode.SAVEPOINT);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            123L,
+                            "restore-job",
+                            restoreMode,
+                            restoreMode.isRestore() ? 456L : null,
+                            serializationService,
+                            new LogicalDag(new JobConfig(), new IdGenerator()),
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            boolean isSavepointRestore = restoreMode == RestoreMode.SAVEPOINT;
+
+            Assertions.assertEquals(
+                    isSavepointRestore, jobImmutableInformation.isStartWithSavePoint());
+            Assertions.assertEquals(
+                    isSavepointRestore, jobImmutableInformation.isSavepointRestore());
+            Assertions.assertEquals(
+                    restoreMode.isRestore(), jobImmutableInformation.isRestoreJob());
 
             BufferObjectDataOutput out = serializationService.createObjectDataOutput();
             jobImmutableInformation.writeData(out);
@@ -132,9 +157,17 @@ class JobImmutableInformationCompatibilityTest {
                     restoredJobInformation.getRestoreMode(),
                     "Unexpected restore mode after round trip");
             Assertions.assertEquals(
-                    restoreMode == RestoreMode.SAVEPOINT,
+                    isSavepointRestore,
                     restoredJobInformation.isStartWithSavePoint(),
                     "Unexpected legacy savepoint flag for restore mode " + restoreMode);
+            Assertions.assertEquals(
+                    isSavepointRestore,
+                    restoredJobInformation.isSavepointRestore(),
+                    "Unexpected savepoint restore state for restore mode " + restoreMode);
+            Assertions.assertEquals(
+                    restoreMode.isRestore(),
+                    restoredJobInformation.isRestoreJob(),
+                    "Unexpected restore state for restore mode " + restoreMode);
         }
     }
 

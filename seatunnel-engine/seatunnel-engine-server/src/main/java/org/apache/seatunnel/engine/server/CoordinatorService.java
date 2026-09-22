@@ -1389,6 +1389,7 @@ public class CoordinatorService {
         // The caller-supplied flag is part of the submission protocol and is also used by the
         // coordinator. It represents savepoint restore only: checkpoint restores and normal jobs
         // pass false.
+
         // Check if the current jobID is already running. If so, complete the submission
         // successfully.
         // This avoids potential issues like redundant job restores or other anomalies.
