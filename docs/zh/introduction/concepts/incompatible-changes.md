@@ -16,6 +16,17 @@
   - **变更说明**：升级后的 HTTP 客户端保留更强的默认 TLS 策略，支持 TLS 1.2 和 TLS 1.3，不再兼容旧客户端支持的 TLS 1.0/1.1。仅支持 TLS 1.0 或 TLS 1.1 的端点将无法接收 HTTPS 事件上报。普通 HTTP 端点不受此 TLS 变更影响。
   - **升级指南**：升级 HTTPS 收集器或网关以支持 TLS 1.2 或 TLS 1.3，并使用 SeaTunnel JVM 支持的协议和密码套件。不要依赖旧版 TLS 回退；配置项名称不变。
 
+### Redis 认证
+
+- Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
+  此前，`SINGLE` 模式先使用仅密码认证，再执行 `ACL SETUSER`；`CLUSTER` 模式忽略 `user`。
+  连接初始化不再创建或修改 ACL 用户。
+- 升级前，请创建目标 ACL 用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+  `SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+  将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
+- 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
+  命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
