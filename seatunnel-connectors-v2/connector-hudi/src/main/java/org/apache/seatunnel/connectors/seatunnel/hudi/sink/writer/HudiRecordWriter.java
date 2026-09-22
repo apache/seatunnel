@@ -28,10 +28,12 @@ import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.hudi.exception.HudiErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.client.WriteClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.HudiRecordConverter;
+import org.apache.seatunnel.connectors.seatunnel.hudi.sink.state.HudiCommitInfo;
 
 import org.apache.avro.Schema;
 import org.apache.hudi.avro.AvroSchemaUtils;
 import org.apache.hudi.client.HoodieJavaWriteClient;
+import org.apache.hudi.client.WriteStatus;
 import org.apache.hudi.common.model.HoodieAvroPayload;
 import org.apache.hudi.common.model.HoodieKey;
 import org.apache.hudi.common.model.HoodieRecord;
@@ -46,6 +48,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.apache.seatunnel.connectors.seatunnel.hudi.sink.convert.AvroSchemaConverter.convertToSchema;
@@ -80,16 +83,38 @@ public class HudiRecordWriter implements Serializable {
 
     private transient volatile Exception flushException;
 
+    private final boolean exactlyOnce;
+
+    /**
+     * The instant that collects all the records written since the last prepare commit. It is only
+     * used with the exactly-once semantics, and it is committed by the aggregated committer after
+     * the checkpoint completes.
+     */
+    private transient String pendingInstantTime;
+
+    /** The write statuses of {@link #pendingInstantTime}, they are required to commit it. */
+    private final List<WriteStatus> pendingWriteStatuses;
+
     public HudiRecordWriter(
             HudiTableConfig hudiTableConfig,
             WriteClientProvider clientProvider,
             SeaTunnelRowType seaTunnelRowType) {
+        this(hudiTableConfig, clientProvider, seaTunnelRowType, false);
+    }
+
+    public HudiRecordWriter(
+            HudiTableConfig hudiTableConfig,
+            WriteClientProvider clientProvider,
+            SeaTunnelRowType seaTunnelRowType,
+            boolean exactlyOnce) {
         this.hudiTableConfig = hudiTableConfig;
         this.clientProvider = clientProvider;
         this.seaTunnelRowType = seaTunnelRowType;
         this.writeRecords = new ArrayList<>();
         this.deleteRecordKeys = new ArrayList<>();
+        this.pendingWriteStatuses = new ArrayList<>();
         this.recordConverter = new HudiRecordConverter();
+        this.exactlyOnce = exactlyOnce;
     }
 
     public void open() {
@@ -166,30 +191,91 @@ public class HudiRecordWriter implements Serializable {
 
     private void executeWrite() {
         HoodieJavaWriteClient<HoodieAvroPayload> writeClient = clientProvider.getOrCreateClient();
-        String writeInstantTime = writeClient.startCommit();
+        String writeInstantTime = instantTimeToWrite(writeClient);
         // write records
+        List<WriteStatus> writeStatuses;
         switch (hudiTableConfig.getOpType()) {
             case INSERT:
-                writeClient.insert(writeRecords, writeInstantTime);
+                writeStatuses = writeClient.insert(writeRecords, writeInstantTime);
                 break;
             case UPSERT:
-                writeClient.upsert(writeRecords, writeInstantTime);
+                writeStatuses = writeClient.upsert(writeRecords, writeInstantTime);
                 break;
             case BULK_INSERT:
-                writeClient.bulkInsert(writeRecords, writeInstantTime);
+                writeStatuses = writeClient.bulkInsert(writeRecords, writeInstantTime);
                 break;
             default:
                 throw new HudiConnectorException(
                         HudiErrorCode.UNSUPPORTED_OPERATION,
                         "Unsupported operation type: " + hudiTableConfig.getOpType());
         }
+        collectWriteStatuses(writeStatuses);
         writeRecords.clear();
     }
 
     private void executeDelete() {
         HoodieJavaWriteClient<HoodieAvroPayload> writeClient = clientProvider.getOrCreateClient();
-        writeClient.delete(deleteRecordKeys, writeClient.startCommit());
+        List<WriteStatus> writeStatuses =
+                writeClient.delete(deleteRecordKeys, instantTimeToWrite(writeClient));
+        collectWriteStatuses(writeStatuses);
         deleteRecordKeys.clear();
+    }
+
+    /**
+     * Returns the instant that the current batch is written into.
+     *
+     * <p>With the at-least-once semantics every batch is written and committed in its own instant
+     * by the Hudi client auto-commit. With the exactly-once semantics the client must not commit by
+     * itself, all the batches written between two checkpoints share one instant and that instant is
+     * committed by the aggregated committer only after the checkpoint completes.
+     *
+     * @param writeClient the write client of this table
+     * @return the instant time to write with
+     */
+    private String instantTimeToWrite(HoodieJavaWriteClient<HoodieAvroPayload> writeClient) {
+        if (!exactlyOnce) {
+            return writeClient.startCommit();
+        }
+        if (pendingInstantTime == null) {
+            pendingInstantTime = writeClient.startCommit();
+        }
+        return pendingInstantTime;
+    }
+
+    private void collectWriteStatuses(List<WriteStatus> writeStatuses) {
+        if (exactlyOnce && writeStatuses != null) {
+            pendingWriteStatuses.addAll(writeStatuses);
+        }
+    }
+
+    /**
+     * Flushes the buffered records and returns the commit info of the instant that holds the
+     * records written since the last prepare commit.
+     *
+     * <p>The returned commit info is handed over to the aggregated committer, which commits the
+     * instant after the checkpoint completes. The writer must not commit the instant by itself,
+     * otherwise a failure that replays the records of a checkpoint that never completed would write
+     * them twice.
+     *
+     * @param checkpointId the checkpoint that the instant belongs to
+     * @return the commit info, empty when there is no record to commit
+     */
+    public Optional<HudiCommitInfo> prepareCommit(long checkpointId) {
+        flush();
+        if (!exactlyOnce || pendingInstantTime == null) {
+            return Optional.empty();
+        }
+        HudiCommitInfo commitInfo =
+                new HudiCommitInfo(
+                        checkpointId, pendingInstantTime, new ArrayList<>(pendingWriteStatuses));
+        log.info(
+                "Prepare to commit hudi instant [{}] of table [{}] for checkpoint [{}].",
+                pendingInstantTime,
+                hudiTableConfig.getTableName(),
+                checkpointId);
+        pendingInstantTime = null;
+        pendingWriteStatuses.clear();
+        return Optional.of(commitInfo);
     }
 
     protected void prepareRecords(SeaTunnelRow element) {
@@ -226,15 +312,29 @@ public class HudiRecordWriter implements Serializable {
     public synchronized void close() {
         if (!closed) {
             closed = true;
-            try {
-                flush();
-            } catch (Exception e) {
-                LOG.warn("Flush records to Hudi failed.", e);
-                flushException =
-                        new HudiConnectorException(
-                                CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                                "Flush records to Hudi failed.",
-                                e);
+            if (exactlyOnce) {
+                // Records written after the last completed checkpoint can not be committed anymore,
+                // writing them into a new instant here would leave an instant that is never
+                // committed behind.
+                if (pendingInstantTime != null) {
+                    LOG.warn(
+                            "The records written into hudi instant [{}] of table [{}] are not committed, "
+                                    + "because no checkpoint completed after they were written. Please check that the "
+                                    + "checkpoint is enabled and that the last checkpoint completed successfully.",
+                            pendingInstantTime,
+                            hudiTableConfig.getTableName());
+                }
+            } else {
+                try {
+                    flush();
+                } catch (Exception e) {
+                    LOG.warn("Flush records to Hudi failed.", e);
+                    flushException =
+                            new HudiConnectorException(
+                                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                                    "Flush records to Hudi failed.",
+                                    e);
+                }
             }
 
             try {
