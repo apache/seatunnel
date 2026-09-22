@@ -346,7 +346,10 @@ public class RocketMqAdminUtil {
                     // above: a group cannot commit an offset for any topic without first
                     // registering, and registering is what creates the retry topic, so a missing
                     // retry topic means no topic in the list has committed anything and the map
-                    // is necessarily still empty here. If that ever stops holding, this has to
+                    // is still empty here. The invariant does not cover one transition: each
+                    // iteration re-resolves the retry topic, so a route that was present on an
+                    // earlier iteration and gone on a later one would reach this return with
+                    // offsets already collected. If that ever becomes reachable, this has to
                     // become a continue that keeps the earlier offsets, otherwise a later
                     // cold-start topic silently rewinds the topics already read.
                     log.warn(
