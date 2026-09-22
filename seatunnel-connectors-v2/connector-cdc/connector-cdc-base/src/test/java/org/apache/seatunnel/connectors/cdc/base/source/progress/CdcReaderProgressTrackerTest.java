@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.mockito.Mockito;
@@ -195,7 +196,7 @@ class CdcReaderProgressTrackerTest {
         }
         com.sun.management.ThreadMXBean bean =
                 (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        org.junit.jupiter.api.Assumptions.assumeTrue(bean.isThreadAllocatedMemorySupported());
+        Assumptions.assumeTrue(bean.isThreadAllocatedMemorySupported());
         bean.setThreadAllocatedMemoryEnabled(true);
         long thread = Thread.currentThread().getId();
         long bytes = bean.getThreadAllocatedBytes(thread);
@@ -235,7 +236,7 @@ class CdcReaderProgressTrackerTest {
         }
         com.sun.management.ThreadMXBean bean =
                 (com.sun.management.ThreadMXBean) ManagementFactory.getThreadMXBean();
-        org.junit.jupiter.api.Assumptions.assumeTrue(bean.isThreadAllocatedMemorySupported());
+        Assumptions.assumeTrue(bean.isThreadAllocatedMemorySupported());
         bean.setThreadAllocatedMemoryEnabled(true);
         long thread = Thread.currentThread().getId();
         long bytes = bean.getThreadAllocatedBytes(thread);

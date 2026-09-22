@@ -158,6 +158,90 @@ class ReportCdcProgressOperationSerializationTest {
     }
 
     @Test
+    void testReaderNamedWireFixtureAndWriterOutput() throws IOException {
+        BufferObjectDataOutput fixture = serializationService.createObjectDataOutput();
+        writeNamedFixtureHeader(fixture, "READER");
+        fixture.writeString("MySQL-CDC");
+        fixture.writeString("INCREMENTAL");
+        fixture.writeString("incremental-split");
+        fixture.writeString("BEST_EFFORT");
+        fixture.writeString("MYSQL_BINLOG");
+        fixture.writeInt(1);
+        fixture.writeInt(1);
+        fixture.writeString("file");
+        fixture.writeString("mysql-bin.000001");
+        fixture.writeString("UNAVAILABLE");
+        fixture.writeString("UNAVAILABLE");
+        fixture.writeLong(9L);
+        fixture.writeBoolean(false);
+
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(fixture.toByteArray());
+        CdcProgressEnvelope<?> envelope = CdcProgressReportSerializer.readEnvelope(input);
+        Assertions.assertEquals(CdcProgressOwner.READER, envelope.getOwner());
+        CdcReaderProgressReport report = (CdcReaderProgressReport) envelope.getReport();
+        Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, report.getLifecycle());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getCurrentConsumedPosition().getAccuracy());
+        Assertions.assertEquals(
+                "mysql-bin.000001",
+                report.getCurrentConsumedPosition().getValue().getValues().get("file"));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, report.getRestoredPosition().getAccuracy());
+        Assertions.assertEquals(fixture.toByteArray().length, input.position());
+
+        BufferObjectDataOutput actual = serializationService.createObjectDataOutput();
+        CdcProgressReportSerializer.writeEnvelope(
+                actual,
+                readerEnvelope(
+                        CdcProgressLifecycle.INCREMENTAL, value(CdcProgressAccuracy.BEST_EFFORT)));
+        Assertions.assertArrayEquals(fixture.toByteArray(), actual.toByteArray());
+    }
+
+    @Test
+    void testEnumeratorNamedWireFixtureAndWriterOutput() throws IOException {
+        BufferObjectDataOutput fixture = serializationService.createObjectDataOutput();
+        writeNamedFixtureHeader(fixture, "ENUMERATOR");
+        fixture.writeString("MySQL-CDC");
+        fixture.writeString("ASSIGNING");
+        for (int i = 0; i < 5; i++) {
+            fixture.writeString("EXACT");
+            fixture.writeInt(0);
+        }
+        fixture.writeBoolean(false);
+        fixture.writeInt(0);
+
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(fixture.toByteArray());
+        CdcProgressEnvelope<?> envelope = CdcProgressReportSerializer.readEnvelope(input);
+        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, envelope.getOwner());
+        CdcEnumeratorProgressReport report = (CdcEnumeratorProgressReport) envelope.getReport();
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.ASSIGNING, report.getSnapshotAssignmentStatus());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT, report.getAssignedSplitCount().getAccuracy());
+        Assertions.assertEquals(0, report.getAssignedSplitCount().getValue());
+        Assertions.assertTrue(report.getActiveSplits().isEmpty());
+        Assertions.assertEquals(fixture.toByteArray().length, input.position());
+
+        BufferObjectDataOutput actual = serializationService.createObjectDataOutput();
+        CdcProgressReportSerializer.writeEnvelope(
+                actual, enumeratorEnvelope(CdcSnapshotAssignmentStatus.ASSIGNING));
+        Assertions.assertArrayEquals(fixture.toByteArray(), actual.toByteArray());
+    }
+
+    private void writeNamedFixtureHeader(BufferObjectDataOutput output, String owner)
+            throws IOException {
+        // Literal names above pin the wire contract independently of both production codec halves.
+        output.writeString(owner);
+        output.writeObject(taskLocation());
+        output.writeLong(5L);
+        output.writeLong(6L);
+        output.writeLong(7L);
+        output.writeLong(8L);
+    }
+
+    @Test
     void testEveryProgressOwnerRoundTripsByName() {
         for (CdcProgressOwner owner : CdcProgressOwner.values()) {
             CdcProgressEnvelope<?> restored =

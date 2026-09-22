@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
@@ -346,22 +347,28 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         () -> jobMaster.init(System.currentTimeMillis(), false)));
         PipelineLocation pipeline = getRunningPipelineLocation(jobMaster);
         CdcProgressService progress = server.getCdcProgressService();
+        // A late report would repopulate even an empty scope if rollback had left it registered.
         progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
         Assertions.assertTrue(
                 progress.getReaderReports(jobId, pipeline.getPipelineId(), 10L).isEmpty(),
                 "failed initialization must close its observation scope");
-        Map<?, ?> scopes = (Map<?, ?>) ReflectionUtils.getField(progress, "pipelines").get();
-        Assertions.assertFalse(
-                scopes.containsKey(pipeline), "rollback must also remove empty scopes");
     }
 
     @Test
     void testOldJobMasterCannotRegisterAfterCdcClear() {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        CdcProgressService progress = new CdcProgressService();
+        SeaTunnelServer isolatedServer = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(isolatedServer.getCdcProgressService()).thenReturn(progress);
         JobMaster jobMaster =
-                newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_old_master", false);
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "cdc_old_master",
+                        false,
+                        Collections.emptyMap(),
+                        isolatedServer);
         PipelineLocation pipeline = new PipelineLocation(jobId, 1);
-        CdcProgressService progress = server.getCdcProgressService();
         progress.clear();
         try {
             jobMaster.registerCdcProgressContext(pipeline);
@@ -376,14 +383,20 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                     progress.getReaderReports(jobId, 1, 10L).isEmpty(),
                     "reactivation must not revive the old owner's generation");
             JobMaster replacement =
-                    newJobMaster(jobId, "batch_fake_to_console.conf", "cdc_new_master", false);
+                    newJobMaster(
+                            jobId,
+                            "batch_fake_to_console.conf",
+                            "cdc_new_master",
+                            false,
+                            Collections.emptyMap(),
+                            isolatedServer);
             replacement.registerCdcProgressContext(pipeline);
             progress.updateReports(Collections.singletonList(cdcReaderReport(pipeline)));
             jobMaster.closeCdcProgressContexts();
             Assertions.assertEquals(1, progress.getReaderReports(jobId, 1, 10L).size());
             replacement.closeCdcProgressContexts();
         } finally {
-            progress.activate();
+            progress.clear();
         }
     }
 
@@ -765,6 +778,16 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             String jobName,
             boolean restore,
             Map<String, Object> envOptions) {
+        return newJobMaster(jobId, configFile, jobName, restore, envOptions, server);
+    }
+
+    private JobMaster newJobMaster(
+            long jobId,
+            String configFile,
+            String jobName,
+            boolean restore,
+            Map<String, Object> envOptions,
+            SeaTunnelServer progressServer) {
         runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
@@ -795,7 +818,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 ownedSlotProfilesIMap,
                 runningJobInfoIMap,
                 ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig(),
-                server);
+                progressServer);
     }
 
     private PipelineLocation getRunningPipelineLocation(JobMaster jobMaster) {

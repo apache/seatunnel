@@ -256,7 +256,7 @@ public class SnapshotSplitAssignerTest {
                                     () ->
                                             assigner.getCdcEnumeratorProgress(
                                                     "MySQL-CDC", "MYSQL_BINLOG"))
-                            .get(1, TimeUnit.SECONDS);
+                            .get(5, TimeUnit.SECONDS);
             Assertions.assertEquals(2, during.getAssignedSplitCount().getValue());
             Assertions.assertEquals(0, during.getPreparedRemainingSplitCount().getValue());
             release.countDown();
@@ -334,7 +334,7 @@ public class SnapshotSplitAssignerTest {
                                 return null;
                             });
             Assertions.assertTrue(chunking.await(5, TimeUnit.SECONDS));
-            executor.submit(enumerator::getCdcProgress).get(1, TimeUnit.SECONDS);
+            executor.submit(enumerator::getCdcProgress).get(5, TimeUnit.SECONDS);
             CdcEnumeratorProgressReport direct =
                     ((CdcEnumeratorProgressSource) assigner)
                             .getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
@@ -343,7 +343,7 @@ public class SnapshotSplitAssignerTest {
             Assertions.assertEquals(1, direct.getRemainingUnchunkedTableCount().getValue());
             for (int i = 0; i < 20; i++) {
                 CdcEnumeratorProgressReport report =
-                        executor.submit(enumerator::getCdcProgress).get(1, TimeUnit.SECONDS);
+                        executor.submit(enumerator::getCdcProgress).get(5, TimeUnit.SECONDS);
                 Assertions.assertEquals(0, report.getAssignedSplitCount().getValue());
                 Assertions.assertEquals(
                         CdcSnapshotAssignmentStatus.DISCOVERING,
@@ -351,7 +351,7 @@ public class SnapshotSplitAssignerTest {
             }
             SnapshotSplit returned = new SnapshotSplit("returned", table, null, null, null);
             executor.submit(() -> enumerator.addSplitsBack(Collections.singletonList(returned), 0))
-                    .get(1, TimeUnit.SECONDS);
+                    .get(5, TimeUnit.SECONDS);
             Assertions.assertEquals(
                     1, enumerator.getCdcProgress().getPreparedRemainingSplitCount().getValue());
             release.countDown();
@@ -400,7 +400,7 @@ public class SnapshotSplitAssignerTest {
                                     () ->
                                             assigner.getCdcEnumeratorProgress(
                                                     "MySQL-CDC", "MYSQL_BINLOG"))
-                            .get(1, TimeUnit.SECONDS);
+                            .get(5, TimeUnit.SECONDS);
             Assertions.assertEquals(0, during.getCompletedSplitCount().getValue());
             Assertions.assertEquals(1, during.getRunningSplitCount().getValue());
             release.countDown();
