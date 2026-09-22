@@ -26,6 +26,8 @@ import org.apache.seatunnel.connectors.seatunnel.slack.config.SlackSinkOptions;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+
 @AutoService(Factory.class)
 public class SlackSinkFactory implements TableSinkFactory {
     @Override
@@ -36,10 +38,9 @@ public class SlackSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        SlackSinkOptions.WEBHOOKS_URL,
-                        SlackSinkOptions.OAUTH_TOKEN,
-                        SlackSinkOptions.SLACK_CHANNEL)
+                .required(SlackSinkOptions.WEBHOOKS_URL, notBlank(SlackSinkOptions.WEBHOOKS_URL))
+                .required(SlackSinkOptions.OAUTH_TOKEN, notBlank(SlackSinkOptions.OAUTH_TOKEN))
+                .required(SlackSinkOptions.SLACK_CHANNEL, notBlank(SlackSinkOptions.SLACK_CHANNEL))
                 .build();
     }
 

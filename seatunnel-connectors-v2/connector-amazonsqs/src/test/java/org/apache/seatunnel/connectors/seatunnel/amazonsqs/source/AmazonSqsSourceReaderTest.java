@@ -32,6 +32,8 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonError;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.AmazonSqsSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.amazonsqs.config.MessageFormat;
@@ -444,6 +446,72 @@ class AmazonSqsSourceReaderTest {
         return reader;
     }
 
+    @Test
+    void shouldWrapJsonParseErrorCreatedByFactory() throws Exception {
+        RecordingSqsClient sqsClient = new RecordingSqsClient(message("invalid", "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+
+        Map<String, Object> fields = new HashMap<>();
+        fields.put("value", "string");
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", "https://sqs.us-east-1.amazonaws.com/123456789012/orders");
+        options.put("region", "us-east-1");
+        options.put("schema", schema);
+        options.put("delete_message", true);
+
+        TableSource<?, ?, ?> tableSource =
+                new AmazonSqsSourceFactory()
+                        .createSource(
+                                new TableSourceFactoryContext(
+                                        ReadonlyConfig.fromMap(options),
+                                        Thread.currentThread().getContextClassLoader()));
+        AmazonSqsSource source = (AmazonSqsSource) tableSource.createSource();
+        AmazonSqsSourceReader reader =
+                (AmazonSqsSourceReader) source.createReader(new SingleSplitReaderContext(context));
+        reader.sqsClient = sqsClient.client;
+        RecordingCollector collector = new RecordingCollector();
+
+        AmazonSqsConnectorException exception =
+                Assertions.assertThrows(
+                        AmazonSqsConnectorException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertEquals(
+                AmazonSqsConnectorErrorCode.DESERIALIZE_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(
+                exception.getMessage().contains("Failed to deserialize Amazon SQS message"));
+        SeaTunnelRuntimeException cause =
+                Assertions.assertInstanceOf(SeaTunnelRuntimeException.class, exception.getCause());
+        Assertions.assertEquals(
+                CommonErrorCode.JSON_OPERATION_FAILED, cause.getSeaTunnelErrorCode());
+        Assertions.assertNotNull(cause.getCause());
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+        Assertions.assertEquals(0, context.noMoreElementSignals);
+    }
+
+    @Test
+    void shouldPropagateNonJsonRuntimeExceptionWhenParseErrorsIgnored() {
+        RecordingSqsClient sqsClient = new RecordingSqsClient(message("invalid", "receipt-1"));
+        RecordingReaderContext context = new RecordingReaderContext();
+        AmazonSqsSourceReader reader =
+                createReader(
+                        context, true, true, new UnsupportedDeserializationSchema(), sqsClient);
+        RecordingCollector collector = new RecordingCollector();
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class, () -> reader.pollNext(collector));
+
+        Assertions.assertFalse(exception instanceof AmazonSqsConnectorException);
+        Assertions.assertEquals(
+                CommonErrorCode.OPERATION_NOT_SUPPORTED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(collector.records.isEmpty());
+        Assertions.assertTrue(sqsClient.deletedRequests.isEmpty());
+        Assertions.assertEquals(0, context.noMoreElementSignals);
+    }
+
     private static AmazonSqsSourceReader createReader(
             RecordingReaderContext context,
             boolean deleteMessage,
@@ -549,6 +617,13 @@ class AmazonSqsSourceReaderTest {
         @Override
         public void deserialize(byte[] message, Collector<SeaTunnelRow> output) {
             throw failure;
+        }
+    }
+
+    private static final class UnsupportedDeserializationSchema extends TestDeserializationSchema {
+        @Override
+        public SeaTunnelRow deserialize(byte[] message) throws IOException {
+            throw CommonError.unsupportedOperation("AmazonSqs", "deserialize");
         }
     }
 

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.SerializationUtils;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.mqtt.exception.MqttConnectorException;
@@ -195,6 +196,45 @@ class MqttSourceTest {
                 () -> reader.messageArrived("users", mqttMessage("{\"id\":2}")));
         Assertions.assertThrows(
                 MqttConnectorException.class, () -> reader.pollNext(new RecordingCollector()));
+    }
+
+    @Test
+    void testSourceIsJavaSerializable() {
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+        // The engine sets the job context before it serializes the logical DAG, so mirror that
+        // ordering rather than serializing a source that has never had one.
+        source.setJobContext(new JobContext().setJobMode(JobMode.STREAMING));
+
+        MqttSource restored = SerializationUtils.deserialize(SerializationUtils.serialize(source));
+
+        // Assert restored state, not a constant: getPluginName() alone would still pass if
+        // every field were lost.
+        Assertions.assertEquals(
+                source.getProducedCatalogTables().get(0).getTableId(),
+                restored.getProducedCatalogTables().get(0).getTableId());
+        Assertions.assertEquals(
+                source.getProducedCatalogTables().get(0).getTableSchema(),
+                restored.getProducedCatalogTables().get(0).getTableSchema());
+
+        // sourceConfig is the third and last field of MqttSource, and the one createReader
+        // hands to the reader. There is no getter for it, but MqttSourceReader's constructor
+        // dereferences it, so building a reader from the restored source fails if it was lost.
+        Assertions.assertDoesNotThrow(
+                () -> restored.createReader(Mockito.mock(SingleSplitReaderContext.class)));
+    }
+
+    @Test
+    void testJobContextSurvivesJavaSerialization() {
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+        // A STREAMING round trip cannot prove the job context survived: getBoundedness()
+        // returns UNBOUNDED for a null context too, so the assertion would hold even if the
+        // field were dropped. BATCH distinguishes the two, because it only throws when the
+        // context came back. The pre-serialization equivalent is testBatchJobModeFails.
+        source.setJobContext(new JobContext().setJobMode(JobMode.BATCH));
+
+        MqttSource restored = SerializationUtils.deserialize(SerializationUtils.serialize(source));
+
+        Assertions.assertThrows(MqttConnectorException.class, restored::getBoundedness);
     }
 
     private static Map<String, Object> baseConfig() {

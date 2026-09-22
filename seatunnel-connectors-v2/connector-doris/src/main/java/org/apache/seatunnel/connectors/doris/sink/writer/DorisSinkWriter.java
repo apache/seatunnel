@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -208,7 +209,10 @@ public class DorisSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        validateSchemaChangeCompatibility();
+        boolean restoreRuntimeSchema = event instanceof RestoreTableSchemaEvent;
+        if (!restoreRuntimeSchema) {
+            validateSchemaChangeCompatibility();
+        }
 
         // The in-flight stream load may still buffer rows serialized with the previous schema.
         // In non-2PC mode each micro-batch is an independent load, so close the current load
@@ -226,11 +230,13 @@ public class DorisSinkWriter
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         this.serializer = createSerializer(this.dorisSinkConfig, seaTunnelRowType);
 
-        try {
-            schemaChangeManager.applySchemaChange(sinkTablePath, event);
-        } catch (Exception e) {
-            throw new DorisSchemaChangeException(
-                    DorisConnectorErrorCode.SCHEMA_CHANGE_FAILED, "Failed to schemaChange", e);
+        if (!restoreRuntimeSchema) {
+            try {
+                schemaChangeManager.applySchemaChange(sinkTablePath, event);
+            } catch (Exception e) {
+                throw new DorisSchemaChangeException(
+                        DorisConnectorErrorCode.SCHEMA_CHANGE_FAILED, "Failed to schemaChange", e);
+            }
         }
 
         if (flushBeforeSchemaChange) {
