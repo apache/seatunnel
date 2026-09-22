@@ -54,6 +54,7 @@ public class HudiIT extends TestSuiteBase {
     private static final String DATABASE = "st";
     private static final String DEFAULT_DATABASE = "default";
     private static final String TABLE_NAME = "st_test";
+    private static final String EXACTLY_ONCE_TABLE_NAME = "st_test_exactly_once";
     private static final String TABLE_PATH = HOST_VOLUME_MOUNT_PATH + "/hudi/";
 
     @TestTemplate
@@ -125,6 +126,47 @@ public class HudiIT extends TestSuiteBase {
                             long rowCount = 0;
 
                             // Read data and count rows
+                            while (reader.read() != null) {
+                                rowCount++;
+                            }
+                            Assertions.assertEquals(5, rowCount);
+                        });
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.SPARK_2_4},
+            type = {EngineType.FLINK},
+            disabledReason = "FLINK do not support local file catalog in hudi.")
+    public void testWriteHudiWithExactlyOnceSemantics(TestContainer container)
+            throws IOException, InterruptedException, URISyntaxException {
+        Container.ExecResult textWriteResult =
+                container.executeJob("/hudi/fake_to_hudi_exactly_once.conf");
+        Assertions.assertEquals(0, textWriteResult.getExitCode());
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        // the records are committed when the checkpoint completes, so they are only visible after
+        // the job finished
+        Path inputPath =
+                new Path(
+                        TABLE_PATH
+                                + File.separator
+                                + DATABASE
+                                + File.separator
+                                + EXACTLY_ONCE_TABLE_NAME);
+
+        given().ignoreExceptions()
+                .await()
+                .atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            ParquetReader<Group> reader =
+                                    ParquetReader.builder(new GroupReadSupport(), inputPath)
+                                            .withConf(configuration)
+                                            .build();
+
+                            long rowCount = 0;
+
                             while (reader.read() != null) {
                                 rowCount++;
                             }

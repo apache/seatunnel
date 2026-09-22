@@ -10,10 +10,18 @@ Used to write data to Hudi.
 
 ## Key features
 
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+:::tip Exactly-once semantics
+
+Exactly-once is opt-in, set `semantics = EXACTLY_ONCE` and enable the checkpoint. With the default
+`AT_LEAST_ONCE` semantics a retried job can commit the records of a failed attempt twice, see
+[Exactly-once semantics](#exactly-once-semantics).
+
+:::
 
 :::caution Hive Metastore synchronization
 
@@ -32,6 +40,7 @@ Base configuration:
 | table_list                 | Array   | no       | -                            | Per-table settings for multi-table jobs. |
 | schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target schema before the job starts. |
 | data_save_mode             | enum    | no       | APPEND_DATA                  | How to handle existing table data before the job starts. |
+| semantics                  | enum    | no       | AT_LEAST_ONCE                | Write semantics: `AT_LEAST_ONCE` or `EXACTLY_ONCE`. `EXACTLY_ONCE` requires the checkpoint to be enabled. |
 | common-options             | Config  | no       | -                            | [Common sink options](../common-options/sink-common-options.md). |
 
 Table list configuration:
@@ -156,6 +165,13 @@ Choose how to handle existing data before the synchronization task starts.
 
 `ERROR_WHEN_DATA_EXISTS`: Throw an error when data already exists.
 
+### semantics [Enum]
+
+`semantics` How the sink commits the records to the Hudi table:
+
+- `AT_LEAST_ONCE`: The default. Every flushed batch is committed by the Hudi client immediately, so the records are visible as soon as they are flushed, but a retried job can commit the records of a failed attempt again.
+- `EXACTLY_ONCE`: The records are written into a Hudi instant and the instant is committed only after the checkpoint that contains it completes, which gives exactly-once semantics. The checkpoint must be enabled, and the records are visible only after a checkpoint completes. See [Exactly-once semantics](#exactly-once-semantics).
+
 ### common options
 
 Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.
@@ -172,10 +188,62 @@ env {
 }
 ```
 
-Hudi timer flush reuses the connector's synchronized batch flush and the Hudi client's auto-commit behavior. The Hudi
-sink does not provide a 2PC exactly-once writer, so timer flush provides at-least-once delivery. Retries can create
-additional commits. With `INSERT`, generated record keys can also produce duplicate rows after recovery; `UPSERT` with
-stable `record_key_fields` limits duplicate logical records.
+Hudi timer flush reuses the connector's synchronized batch flush. With the default `AT_LEAST_ONCE`
+semantics the Hudi client commits every flushed batch immediately, so timer flush provides
+at-least-once delivery and a retry can create additional commits. With `semantics = EXACTLY_ONCE`
+timer flush only stages the records into the instant of the current checkpoint, and they become
+visible when that checkpoint completes.
+
+## Exactly-once semantics
+
+Set `semantics = EXACTLY_ONCE` to write with the two-phase commit protocol of the engine:
+
+```hocon
+env {
+  checkpoint.interval = 10000
+}
+
+sink {
+  Hudi {
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
+    table_name = "st_test"
+    semantics = "EXACTLY_ONCE"
+    op_type = "UPSERT"
+    record_key_fields = "c_bigint"
+  }
+}
+```
+
+How it works:
+
+1. While the job is running the writers only write the records into a Hudi instant and never commit
+   it. All the batches of one checkpoint are written with the same instant.
+2. When a checkpoint completes, the aggregated committer commits the instant of that checkpoint.
+   Committing is what makes the files visible to the readers.
+3. The commit info of a checkpoint is part of the checkpoint state. If the commit is lost, for
+   example because the job failed between the checkpoint completion and the commit, the job commits
+   the same instant again after it restores from that checkpoint. An instant that is already
+   committed is skipped, so the records are never published twice.
+4. The records of a checkpoint that never completed are not committed. The source replays them after
+   the pipeline restarts, and the instants that the failed attempt left behind are rolled back by
+   Hudi when the writer heartbeat expires.
+
+Requirements and trade-offs:
+
+* The checkpoint must be enabled, otherwise no instant is ever committed and no record becomes
+  visible. Use `AT_LEAST_ONCE` for a batch job without checkpoint or a job that must publish the
+  records as soon as they are flushed.
+* The records are visible only after a checkpoint completes, so the visibility latency is at least
+  the checkpoint interval.
+* The instants are committed by the aggregated committer when the engine completes a checkpoint
+  (Zeta, Flink) or a micro batch (Spark), so the sink needs an engine that commits the commit info
+  of a successful checkpoint.
+* Parallel writers still follow the Hudi single writer concurrency control, so two jobs (or two
+  writers) that update the same file group can overwrite each other. Keep a single writer per table,
+  or make sure the writers work on disjoint keys and partitions.
+* A commit whose instant is not on the active timeline anymore, for example because the heartbeat
+  of the writer expired before the commit, fails the job with an explicit error instead of
+  silently publishing incomplete data.
 
 ## Examples
 

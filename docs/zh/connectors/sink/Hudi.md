@@ -10,10 +10,17 @@ import ChangeLog from '../changelog/connector-hudi.md';
 
 ## 主要特性
 
-- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+:::tip 精确一次语义
+
+精确一次是可选能力，需要设置 `semantics = EXACTLY_ONCE` 并开启 checkpoint。默认的 `AT_LEAST_ONCE`
+语义下，作业重试可能把失败尝试的记录重复提交一次，详见[精确一次语义](#精确一次语义)。
+
+:::
 
 :::caution Hive Metastore 同步
 
@@ -32,6 +39,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | table_list                 | array  | 否      | -                            |
 | schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode             | enum   | 否      | APPEND_DATA                  |
+| semantics                  | enum   | 否      | AT_LEAST_ONCE                |
 | common-options             | config | 否      | -                            |
 
 表清单配置:
@@ -151,6 +159,13 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 `APPEND_DATA`：保留表结构和已有数据<br/>
 `ERROR_WHEN_DATA_EXISTS`：当已有数据存在时报错<br/>
 
+### semantics [Enum]
+
+`semantics` 控制 Sink 以哪种语义把记录提交到 Hudi 表：
+
+- `AT_LEAST_ONCE`：默认值。每个刷新批次由 Hudi 客户端立即提交，数据一刷新即可见，但作业重试时可能把失败尝试的记录再次提交。
+- `EXACTLY_ONCE`：记录先写入一个 Hudi instant，只有包含它的 checkpoint 完成后才提交该 instant，从而提供精确一次语义。该语义要求开启 checkpoint，并且数据只在 checkpoint 完成后才可见，详见[精确一次语义](#精确一次语义)。
+
 ### 通用选项
 
 Sink插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
@@ -167,9 +182,50 @@ env {
 }
 ```
 
-Hudi 定时刷新复用连接器现有的同步批量刷新和 Hudi 客户端 auto-commit 行为。Hudi Sink 没有 2PC 精确一次
-写入器，因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。使用 `INSERT` 时，自动生成的
-record key 还可能在恢复后产生重复行；使用具有稳定 `record_key_fields` 的 `UPSERT` 可以减少逻辑记录重复。
+Hudi 定时刷新复用连接器现有的同步批量刷新。默认的 `AT_LEAST_ONCE` 语义下，Hudi 客户端会立即提交每个刷新批次，
+因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。当 `semantics = EXACTLY_ONCE` 时，定时刷新只会把
+记录写入当前 checkpoint 对应的 instant，这些记录会在该 checkpoint 完成后才可见。
+
+## 精确一次语义
+
+设置 `semantics = EXACTLY_ONCE` 后，Sink 会使用引擎的两阶段提交协议写入：
+
+```hocon
+env {
+  checkpoint.interval = 10000
+}
+
+sink {
+  Hudi {
+    table_dfs_path = "/tmp/seatunnel_mnt/hudi"
+    table_name = "st_test"
+    semantics = "EXACTLY_ONCE"
+    op_type = "UPSERT"
+    record_key_fields = "c_bigint"
+  }
+}
+```
+
+工作流程：
+
+1. 作业运行期间，写入器只把记录写入一个 Hudi instant，不会提交它；同一个 checkpoint 的所有批次共用同一个 instant。
+2. checkpoint 完成后，聚合提交器（aggregated committer）才提交该 checkpoint 对应的 instant。提交之后文件才对读取方可见。
+3. checkpoint 的提交信息会作为 checkpoint 状态保存。如果提交丢失（例如作业在 checkpoint 完成之后、提交之前失败），
+   作业从该 checkpoint 恢复后会重新提交同一个 instant；已经提交过的 instant 会被跳过，因此记录不会重复发布。
+4. 未完成的 checkpoint 的记录不会被提交：流水线重启后由 source 重放这些记录，失败尝试留下的 instant 会在写入器心跳
+   过期后由 Hudi 自行回滚。
+
+约束与取舍：
+
+* 必须开启 checkpoint，否则不会提交任何 instant，数据也不会可见。没有 checkpoint 的批处理作业或需要“刷新即可见”的
+  作业请使用 `AT_LEAST_ONCE`。
+* 数据只在 checkpoint 完成后可见，因此可见性延迟至少是一个 checkpoint 间隔。
+* instant 由聚合提交器在引擎完成 checkpoint（Zeta、Flink）或微批（Spark）后提交，因此需要使用会提交成功
+  checkpoint 对应 commit info 的引擎。
+* 并行写入仍然遵循 Hudi 的单写入者并发控制，两个作业（或两个写入器）更新同一个 file group 时可能互相覆盖。请保证
+  同一张表只有一个写入者，或让写入器处理互不相交的 key 和分区。
+* 如果提交时 instant 已经不在 active timeline 上（例如写入器心跳在提交前过期），作业会以明确的错误失败，而不是静默
+  发布不完整的数据。
 
 ## 示例
 

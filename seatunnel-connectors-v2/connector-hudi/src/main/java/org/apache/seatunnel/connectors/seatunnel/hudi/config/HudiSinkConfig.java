@@ -44,6 +44,8 @@ public class HudiSinkConfig implements Serializable {
 
     private DataSaveMode dataSaveMode;
 
+    private HudiSemantics semantics;
+
     public static HudiSinkConfig of(ReadonlyConfig config) {
         Builder builder = HudiSinkConfig.builder();
         Optional<SchemaSaveMode> optionalSchemaSaveMode =
@@ -59,6 +61,18 @@ public class HudiSinkConfig implements Serializable {
                 optionalSchemaSaveMode.orElseGet(HudiSinkOptions.SCHEMA_SAVE_MODE::defaultValue));
         builder.dataSaveMode(
                 optionalDataSaveMode.orElseGet(HudiSinkOptions.DATA_SAVE_MODE::defaultValue));
+        builder.semantics(
+                config.getOptional(HudiSinkOptions.SEMANTICS)
+                        .orElseGet(HudiSinkOptions.SEMANTICS::defaultValue));
         return builder.build();
+    }
+
+    /**
+     * Whether the sink writes with the two-phase commit protocol of the engine.
+     *
+     * @return true when the sink must only commit after a checkpoint completes
+     */
+    public boolean isExactlyOnce() {
+        return HudiSemantics.EXACTLY_ONCE.equals(semantics);
     }
 }

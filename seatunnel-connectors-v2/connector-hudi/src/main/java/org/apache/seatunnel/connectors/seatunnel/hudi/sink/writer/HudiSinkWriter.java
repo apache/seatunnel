@@ -66,7 +66,11 @@ public class HudiSinkWriter
                 new HudiWriteClientProvider(
                         sinkConfig, tableConfig.getTableName(), seaTunnelRowType);
         this.hudiRecordWriter =
-                new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
+                new HudiRecordWriter(
+                        tableConfig,
+                        writeClientProvider,
+                        seaTunnelRowType,
+                        sinkConfig.isExactlyOnce());
         context.registerFlushAction(this::timerFlush);
     }
 
@@ -76,13 +80,37 @@ public class HudiSinkWriter
         hudiRecordWriter.writeRecord(element);
     }
 
+    /**
+     * Prepares the commit of the records written since the last checkpoint.
+     *
+     * <p>With the exactly-once semantics the records are written into a Hudi instant that is not
+     * committed yet, and the returned commit info makes the aggregated committer commit the instant
+     * once the checkpoint completes.
+     *
+     * @param checkpointId the checkpoint id
+     * @return the commit info of this checkpoint, empty when there is nothing to commit
+     */
     @Override
-    public Optional<HudiCommitInfo> prepareCommit() throws IOException {
+    public Optional<HudiCommitInfo> prepareCommit(long checkpointId) throws IOException {
         tryOpen();
-        hudiRecordWriter.flush();
-        return Optional.empty();
+        return hudiRecordWriter.prepareCommit(checkpointId);
     }
 
+    @Override
+    @SuppressWarnings("deprecation")
+    public Optional<HudiCommitInfo> prepareCommit() throws IOException {
+        return prepareCommit(-1L);
+    }
+
+    /**
+     * {@inheritDoc}
+     *
+     * <p>Nothing is rolled back here on purpose. The data written for a checkpoint that never
+     * completed is replayed by the source after the pipeline restarts, and the instants that are
+     * left behind by the failed attempt are rolled back by Hudi itself, because their writer
+     * heartbeat expires. Rolling the instant back here could also race with the aggregated
+     * committer, which commits the instants of the checkpoints that did complete.
+     */
     @Override
     public void abortPrepare() {}
 
@@ -110,7 +138,11 @@ public class HudiSinkWriter
                         queueIndex,
                         tableConfig.getTableName());
         this.hudiRecordWriter =
-                new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
+                new HudiRecordWriter(
+                        tableConfig,
+                        writeClientProvider,
+                        seaTunnelRowType,
+                        sinkConfig.isExactlyOnce());
     }
 
     /**
