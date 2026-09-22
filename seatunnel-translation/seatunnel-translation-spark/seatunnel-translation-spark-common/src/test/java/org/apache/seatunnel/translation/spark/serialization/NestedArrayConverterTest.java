@@ -65,8 +65,10 @@ import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class NestedArrayConverterTest {
 
@@ -99,6 +101,53 @@ class NestedArrayConverterTest {
                                 DataTypes.createArrayType(DataTypes.CalendarIntervalType)));
     }
 
+    @ParameterizedTest(name = "{index}: internal={0}")
+    @MethodSource("invalidArrayElements")
+    void reportsDeclaredAndRuntimeArrayElementTypes(boolean internal, Object invalidElement)
+            throws IOException {
+        ArrayType<?, ?> type = ArrayType.INT_ARRAY_TYPE;
+        SeaTunnelRow input = row(new Integer[] {1, null, 2});
+        WrappedArray.ofRef<?> invalid =
+                new WrappedArray.ofRef<>(new Object[] {1, null, invalidElement});
+        IllegalArgumentException error;
+        if (internal) {
+            InternalRowConverter converter = new InternalRowConverter(rowType(type));
+            InternalRow converted = converter.convert(input);
+            InternalRow malformed =
+                    new GenericInternalRow(
+                            new Object[] {
+                                converted.getByte(0), converted.getUTF8String(1), invalid
+                            });
+            error =
+                    assertThrows(
+                            IllegalArgumentException.class, () -> converter.reconvert(malformed));
+        } else {
+            SeaTunnelRowConverter converter = new SeaTunnelRowConverter(rowType(type));
+            GenericRow converted = converter.convert(input);
+            GenericRow malformed =
+                    new GenericRow(new Object[] {converted.get(0), converted.get(1), invalid});
+            error =
+                    assertThrows(
+                            IllegalArgumentException.class, () -> converter.reconvert(malformed));
+        }
+        assertTrue(error.getMessage().contains(type.toString()), error.getMessage());
+        assertTrue(error.getMessage().contains("index 2"), error.getMessage());
+        assertTrue(error.getMessage().contains(Integer.class.getName()), error.getMessage());
+        assertTrue(
+                error.getMessage().contains(invalidElement.getClass().getName()),
+                error.getMessage());
+        assertFalse(error.getMessage().contains(invalidElement.toString()), error.getMessage());
+        assertTrue(error.getCause() instanceof ArrayStoreException);
+    }
+
+    static Stream<Arguments> invalidArrayElements() {
+        return Stream.of(
+                Arguments.of(false, 987654321L),
+                Arguments.of(true, 987654321L),
+                Arguments.of(false, "private-test-value"),
+                Arguments.of(true, "private-test-value"));
+    }
+
     @ParameterizedTest(name = "{index}: {0}")
     @MethodSource("arrays")
     void roundTripsThroughSparkExecution(ArrayType<?, ?> type, Object value) throws IOException {
@@ -119,7 +168,18 @@ class NestedArrayConverterTest {
 
     static Stream<Arguments> arrays() {
         // Value conversion uses the declared SeaTunnel type; reverse schema inference is separate.
-        return Stream.concat(Stream.concat(schemaArrays(), timeArrays()), parsedArrays());
+        return Stream.concat(
+                Stream.concat(schemaArrays(), timeArrays()),
+                Stream.concat(parsedArrays(), constantArrays()));
+    }
+
+    static Stream<Arguments> constantArrays() {
+        // API constants carry a non-runtime array class; value conversion must derive it
+        // recursively.
+        return Stream.of(
+                Arguments.of(
+                        ArrayType.of(ArrayType.LOCAL_DATE_ARRAY_TYPE),
+                        new LocalDate[][] {{LocalDate.of(2026, 1, 1), null}, {}, null}));
     }
 
     static Stream<Arguments> parsedArrays() {
@@ -227,6 +287,9 @@ class NestedArrayConverterTest {
                 Arguments.of(
                         ArrayType.of(new DecimalType(10, 2)),
                         new BigDecimal[] {new BigDecimal("12.34"), null}),
+                Arguments.of(
+                        ArrayType.of(new DecimalType(20, 6)),
+                        new BigDecimal[] {new BigDecimal("12.345678"), null}),
                 Arguments.of(
                         ArrayType.of(PrimitiveByteArrayType.INSTANCE),
                         new byte[][] {new byte[] {1, 2}, new byte[0], null}),

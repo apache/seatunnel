@@ -7,13 +7,14 @@
 ### Spark 数组转换
 
 - **行为变更：保留 null 映射元素和有类型的数组**
-  - **影响范围**：Spark 转换层，包括 Spark 2.4 和 3.3 作业。
+  - **影响范围**：`seatunnel-translation/seatunnel-translation-spark`
   - **变更说明**：此前，数组中的 null 映射元素在 Spark Source 转换路径上会变为空映射（`{}`）。
     现在该元素保持为 `null`，空映射仍保持为空映射。从 Spark 行返回给 SeaTunnel Transform 的数组
     现在使用声明的元素类型（例如 `String[]` 或 `Integer[]`），而不是通用的 `Object[]`。
     返回给 Transform 或 Sink 的空数组也会保留声明的数组类型。
   - **影响**：依赖 null 到空映射转换、精确检查 `Object[]` 类型，或向返回数组写入其他类型元素的
-    自定义 Transform 或连接器，在升级后可能出现不同的行为。
+    自定义 Transform 或连接器，在升级后可能出现不同的行为。Sink Writer 遍历映射元素时，
+    如果没有检查 null，现在可能抛出 `NullPointerException`。
   - **迁移指南**：分别处理 null 映射元素和空映射。读写数组时使用声明的 SeaTunnel 元素类型；
     如果自定义代码需要通用的工作数组，请复制到新的 `Object[]`。无需修改配置或 checkpoint 格式。
 

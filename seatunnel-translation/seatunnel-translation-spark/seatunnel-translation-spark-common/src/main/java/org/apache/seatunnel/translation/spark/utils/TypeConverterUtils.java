@@ -180,6 +180,9 @@ public class TypeConverterUtils {
     }
 
     private static ArrayType<?, ?> convert(org.apache.spark.sql.types.ArrayType arrayType) {
+        // Array elements have no StructField metadata: Long/Decimal encodings cannot recover
+        // logical TIME/TIMESTAMP_TZ types. Preserve their physical types instead of rejecting
+        // valid numeric arrays. Canonical array classes can differ from parser-built ArrayTypes.
         SeaTunnelDataType<?> elementType = convert(arrayType.elementType());
         switch (elementType.getSqlType()) {
             case STRING:

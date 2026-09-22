@@ -272,7 +272,11 @@ public class SeaTunnelRowConverter extends RowConverter<GenericRow> {
     private Object reconvertArray(WrappedArray.ofRef<?> arrayData, ArrayType<?, ?> arrayType) {
         Object[] newArray = SeaTunnelArrayType.newArray(arrayType, arrayData.size());
         for (int i = 0; i < arrayData.size(); i++) {
-            newArray[i] = reconvert(arrayData.apply(i), arrayType.getElementType());
+            SeaTunnelArrayType.setElement(
+                    newArray,
+                    i,
+                    reconvert(arrayData.apply(i), arrayType.getElementType()),
+                    arrayType);
         }
         return newArray;
     }

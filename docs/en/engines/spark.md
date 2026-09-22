@@ -112,13 +112,13 @@ The example entry point is:
 
 For fields whose SeaTunnel type is an array, including types provided by connectors or catalogs, the Spark translation layer preserves array values across source, transform and sink conversion boundaries, including arrays containing arrays, maps, rows and decimals. For example, an `ARRAY<ARRAY<INT>>` field retains its inner arrays, including empty arrays.
 
-Configuration `schema` strings accept array elements of string, boolean, numeric, map and array types, including `array<array<map<string,array<int>>>>`. Arrays of rows or decimals require types supplied by a connector or catalog; this conversion support does not extend the configuration schema parser.
+Configuration `schema` strings accept array elements of string, boolean, integer, floating-point, map and array types, including `array<array<map<string,array<int>>>>`. Other element types, such as row, decimal, date, time, timestamp and bytes, require types supplied by a connector or catalog.
 
 Connector materialization remains separate from Spark conversion. JSON-based sources such as FakeSource cannot currently materialize parser-declared arrays of arrays of maps, even though the schema string parses successfully.
 
-Null elements, including null maps and rows, remain null. Previously, a null map inside an array became an empty map (`{}`) on the Spark source conversion path. Arrays returned to SeaTunnel transforms now use the declared element class (for example, `String[]` or `Integer[]`) instead of generic `Object[]`, and empty arrays retain their type at transform and sink boundaries. See [Spark Array Conversion](../introduction/concepts/incompatible-changes.md#spark-array-conversion) for migration guidance.
+Null elements, including null maps and rows, remain null. Arrays returned to SeaTunnel transforms use the declared element class (for example, `String[]` or `Integer[]`), and empty arrays retain their type at transform and sink boundaries. See [Spark Array Conversion](../introduction/concepts/incompatible-changes.md#spark-array-conversion) for migration guidance.
 
-Every array must have one compatible element type. Mixed element shapes, such as an integer and an array in the same array, are not supported. This array-conversion fix does not establish support for every nested SQL expression or map-of-map pipeline. It does not add automatic inference of SeaTunnel time types from Spark array schemas, change schema configuration or SeaTunnel Sql syntax, expand connector-specific type support, or change Flink translation.
+Every array must have one compatible element type. Mixed element shapes, such as an integer and an array in the same array, are not supported. Nested SQL expressions and map-of-map pipelines remain subject to the transform and connector type limits. Spark array schemas do not carry the field metadata needed to infer SeaTunnel `TIME` or `TIMESTAMP_TZ`: their physical `BIGINT` and `DECIMAL` representations do not identify the logical time type. Reverse schema inference for `TIMESTAMP` arrays is also unsupported.
 
 ## Next Steps
 
