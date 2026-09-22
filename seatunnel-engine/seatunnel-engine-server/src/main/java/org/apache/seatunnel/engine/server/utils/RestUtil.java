@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigUtil;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -31,6 +33,8 @@ import scala.Tuple2;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -73,7 +77,7 @@ public class RestUtil {
 
     public static Config buildConfig(JsonNode jsonNode) {
         Map<String, Object> objectMap = JsonUtils.toMap(jsonNode);
-        return ConfigBuilder.of(objectMap);
+        return ConfigBuilder.of(quoteInvalidPathKeys(objectMap));
     }
 
     public static List<Tuple2<Map<String, String>, Config>> buildConfigList(JsonNode jsonNode) {
@@ -84,9 +88,40 @@ public class RestUtil {
                             Map<String, Object> nodeMap = JsonUtils.toMap(node);
                             Map<String, String> params =
                                     (Map<String, String>) nodeMap.remove(REST_SUBMIT_JOBS_PARAMS);
-                            Config config = ConfigBuilder.of(nodeMap);
+                            Config config = ConfigBuilder.of(quoteInvalidPathKeys(nodeMap));
                             return new Tuple2<>(params, config);
                         })
                 .collect(Collectors.toList());
+    }
+
+    private static Map<String, Object> quoteInvalidPathKeys(Map<String, Object> objectMap) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        objectMap.forEach(
+                (key, value) -> result.put(quoteInvalidPathKey(key), quoteInvalidPathKeys(value)));
+        return result;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Object quoteInvalidPathKeys(Object value) {
+        if (value instanceof Map<?, ?>) {
+            return quoteInvalidPathKeys((Map<String, Object>) value);
+        }
+        if (value instanceof List<?>) {
+            List<Object> result = new ArrayList<>();
+            for (Object item : (List<?>) value) {
+                result.add(quoteInvalidPathKeys(item));
+            }
+            return result;
+        }
+        return value;
+    }
+
+    private static String quoteInvalidPathKey(String key) {
+        try {
+            ConfigUtil.splitPath(key);
+            return key;
+        } catch (ConfigException.BadPath ignored) {
+            return ConfigUtil.quoteString(key);
+        }
     }
 }
