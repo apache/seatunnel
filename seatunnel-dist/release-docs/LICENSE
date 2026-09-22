@@ -360,6 +360,11 @@ MOZILLA PUBLIC LICENSE License
 The following components are provided under the MOZILLA PUBLIC LICENSE License. See project link for details.
 The text of each license is also included at licenses/LICENSE-[project].txt.
 
+     (Mozilla Public License, Version 2.0) Public Suffix List data bundled in OkHttp 4.12.0
+     (okhttp3/internal/publicsuffix/publicsuffixes.gz - https://publicsuffix.org/).
+     The data is redistributed in the shaded starter jar; see licenses/LICENSE-publicsuffix.txt.
+     The source list is available at https://publicsuffix.org/list/public_suffix_list.dat.
+
 ========================================================================
 Apache-2.0 and BSD-2-Clause and BSD-3-Clause licenses
 ========================================================================
