@@ -192,6 +192,20 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             Map<String, String> map, CatalogTable catalogTable, List<String> primaryKeys) {
         validatePrimaryKeyColumns(primaryKeys, catalogTable.getTablePath().getTableName());
         map.put(JdbcSinkOptions.PRIMARY_KEYS.key(), String.join(",", primaryKeys));
+        return buildCatalogTableWithPrimaryKey(catalogTable, primaryKeys);
+    }
+
+    /**
+     * Rebuilds the catalog table so that its primary key is the given columns. The option map is
+     * left untouched, so a caller that resolved the columns from the existing configuration keeps
+     * the value the user wrote.
+     *
+     * @param catalogTable the table being processed
+     * @param primaryKeys the resolved key columns
+     * @return a new catalog table whose primary key is replaced with the resolved columns
+     */
+    private CatalogTable buildCatalogTableWithPrimaryKey(
+            CatalogTable catalogTable, List<String> primaryKeys) {
         PrimaryKey configPk =
                 PrimaryKey.of(
                         catalogTable.getTablePath().getTableName() + "_config_pk", primaryKeys);
@@ -248,7 +262,10 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             }
             return catalogTable;
         }
-        return applyPrimaryKeys(map, catalogTable, config.get(JdbcSinkOptions.PRIMARY_KEYS));
+        // The legacy explicit primary_keys branch keeps the pre-existing behaviour: only the
+        // catalog primary key is rebuilt, the option value is neither rewritten nor re-validated.
+        return buildCatalogTableWithPrimaryKey(
+                catalogTable, config.get(JdbcSinkOptions.PRIMARY_KEYS));
     }
 
     /**

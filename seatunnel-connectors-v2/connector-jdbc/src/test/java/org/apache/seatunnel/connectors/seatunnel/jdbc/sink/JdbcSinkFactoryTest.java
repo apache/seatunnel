@@ -473,6 +473,26 @@ class JdbcSinkFactoryTest {
     }
 
     /**
+     * Guards the legacy top-level {@code primary_keys} branch: it keeps rebuilding the catalog
+     * primary key without rewriting the option value and without applying the new column
+     * validation, which is what this branch did before {@code multi_table_config} was added.
+     */
+    @Test
+    void testLegacyPrimaryKeysStillRebuildCatalogPrimaryKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Collections.singletonList("name"));
+
+        TableSink tableSink = createSinkViaFactoryContext(cfg, false);
+        SeaTunnelSink<?, ?, ?, ?> sink = tableSink.createSink();
+        CatalogTable writeTable = sink.getWriteCatalogTable().get();
+
+        Assertions.assertNotNull(writeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                Collections.singletonList("name"),
+                writeTable.getTableSchema().getPrimaryKey().getColumnNames());
+    }
+
+    /**
      * Pins the order between the engine-level TablePlaceholder pass and the connector-level
      * expansion. The engine pass rewrites only top-level {@code String} values and single-element
      * {@code String} lists, so a top-level {@code primary_keys = ["${primary_key}"]} is expanded

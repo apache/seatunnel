@@ -314,6 +314,7 @@ multi_table_config {
 - 每个 value 是列名列表。仅在该选项内支持 `${primary_key}` 和 `${unique_key}` 占位符，且可与静态列混用。`${primary_key}` 展开为上游主键列，`${unique_key}` 展开为上游第一组唯一键列。
 - 若一张表同时匹配多个模式，按声明顺序取第一个匹配。
 - 若命中的表使用了 `${primary_key}`（或 `${unique_key}`）但上游没有主键（或唯一键），任务会以清晰错误信息失败。
+- 通过配置文件提交，或通过 REST submit-job 接口的 HOCON body 提交时，支持正则 key；该接口的 JSON body 暂不支持，会在解析阶段直接拒绝。在该问题修复前，请改用配置文件或 HOCON body 提交。
 
 示例：为表名以 `t_nova_` 开头的表，使用上游主键加上共享的 `DATA_SOURCE` 列作为复合主键。
 

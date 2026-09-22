@@ -467,6 +467,34 @@ public class ConfigShadeTest {
                 Arrays.asList("id_txn_ctrl", "DATA_SOURCE"), primaryKeys.get("^t_tyuen_txn_.*$"));
     }
 
+    /**
+     * Guards the other half of the JSON round trip in {@code processConfig}: ordinary config shapes
+     * must survive the rebuild unchanged. The key below is unquoted (so HOCON expands it to a
+     * nested object), {@code dfs.replication} is a quoted literal key inside a nested map, and both
+     * values are numbers.
+     */
+    @Test
+    public void testDecryptPreservesOrdinaryConfigShapes() {
+        Config input =
+                ConfigFactory.parseString(
+                        "env { job.mode = \"BATCH\" }\n"
+                                + "source { FakeSource { plugin_output = \"fake\", "
+                                + "split.size = 8096, \"dfs.replication\" = 3 } }\n"
+                                + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\" } }");
+
+        Config decrypted = ConfigShadeUtils.decryptConfig(input);
+
+        Assertions.assertEquals(
+                input.getConfig("env").root().unwrapped(),
+                decrypted.getConfig("env").root().unwrapped());
+        Assertions.assertEquals(
+                input.getConfigList("source").get(0).root().unwrapped(),
+                decrypted.getConfigList("source").get(0).root().unwrapped());
+        Assertions.assertEquals(
+                input.getConfigList("sink").get(0).root().unwrapped(),
+                decrypted.getConfigList("sink").get(0).root().unwrapped());
+    }
+
     public static class ConfigShadeWithProps implements ConfigShade {
 
         private String suffix;

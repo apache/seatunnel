@@ -314,6 +314,7 @@ multi_table_config {
 - Each value is a list of column names. The `${primary_key}` and `${unique_key}` placeholders are supported inside this option only, and can be mixed with static columns. `${primary_key}` expands to the upstream primary key columns, `${unique_key}` expands to the first upstream unique key columns.
 - If a table matches multiple patterns, the first pattern in declaration order wins.
 - If a matched table uses `${primary_key}` (or `${unique_key}`) but has no upstream primary key (or unique key), the job fails with a clear error.
+- Regex keys are supported when the job is submitted from a config file or with the HOCON body of the REST submit-job API. The JSON body of that API does not support them yet and rejects such a configuration while parsing it; until the follow-up fix is available, submit the job from a config file or with the HOCON body.
 
 Example: use the upstream primary key plus a shared `DATA_SOURCE` column as the composite key for tables whose names start with `t_nova_`.
 
