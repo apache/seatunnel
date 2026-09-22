@@ -37,6 +37,7 @@ import org.apache.hudi.client.common.HoodieJavaEngineContext;
 import org.apache.hudi.common.config.HoodieStorageConfig;
 import org.apache.hudi.common.engine.EngineType;
 import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.common.model.HoodieFailedWritesCleaningPolicy;
 import org.apache.hudi.config.HoodieArchivalConfig;
 import org.apache.hudi.config.HoodieCleanConfig;
 import org.apache.hudi.config.HoodieCompactionConfig;
@@ -174,6 +175,10 @@ public class HudiUtil {
                                         hudiSinkConfig.getTableDfsPath(),
                                         hudiTable.getDatabase(),
                                         hudiTable.getTableName()))
+                        // When the sink works with the exactly-once semantics the instant is
+                        // committed by the aggregated committer after the checkpoint completes, so
+                        // the write client must not commit by itself.
+                        .withAutoCommit(!hudiSinkConfig.isExactlyOnce())
                         .withSchema(
                                 convertToSchema(
                                                 seaTunnelRowType,
@@ -194,6 +199,16 @@ public class HudiUtil {
                                 HoodieCleanConfig.newBuilder()
                                         .withAutoClean(true)
                                         .withAsyncClean(false)
+                                        // The default EAGER policy rolls back every inflight
+                                        // instant before a new instant is created. That would
+                                        // roll back the instants that are still waiting for the
+                                        // commit of their checkpoint, so the exactly-once
+                                        // semantics uses the LAZY policy, which only rolls back
+                                        // the instants whose writer heartbeat expired.
+                                        .withFailedWritesCleaningPolicy(
+                                                hudiSinkConfig.isExactlyOnce()
+                                                        ? HoodieFailedWritesCleaningPolicy.LAZY
+                                                        : HoodieFailedWritesCleaningPolicy.EAGER)
                                         .build())
                         .withEmbeddedTimelineServerEnabled(false)
                         .withCompactionConfig(
