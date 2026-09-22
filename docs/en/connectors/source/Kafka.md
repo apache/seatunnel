@@ -23,6 +23,27 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 Source connector for Apache Kafka.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` validates the Kafka source using only topic metadata. It uses the configured
+`bootstrap.servers` and `kafka.config` security settings, checks explicit topics with `describeTopics`,
+and resolves `pattern = true` with the same full-name matching as normal execution. Both
+`tables_configs` and the legacy `table_list` are supported. Output schemas, including native fields,
+Kafka header fields and event-time metadata, are inferred through the normal source configuration path.
+
+Metadata requests share a 30-second time budget; a smaller `kafka.config.default.api.timeout.ms`
+is honored. The request timeout is capped by this budget and client cleanup has a bounded wait.
+As in normal Kafka startup, an explicitly configured API timeout must not be smaller than the
+configured (or Kafka-default) `request.timeout.ms` before these dry-run limits are applied.
+Client setup, including DNS and authentication-provider initialization, can take additional time.
+Normal job execution and its timeouts are unchanged. No consumer or producer is created, no records
+are read or written, no consumer offsets are accessed or committed, and missing topics are not created.
+
+Successful validation proves metadata access, **not** permission to consume records, access a consumer
+group, or deserialize actual messages. A pattern with no currently visible matches is allowed, as it
+is at runtime; validation in that case checks topic listing only, not access to future topics. Kafka
+sinks remain unsupported by connectivity dry-run.
+
 ## Supported DataSource Info
 
 In order to use the Kafka connector, the following dependencies are required.
@@ -63,7 +84,6 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf or avro. For protobuf, strips the Confluent Schema Registry header before deserialization. For avro, strips the fixed five-byte header (magic byte and schema ID); `avro_schema` is required when enabled, and no Schema Registry lookup is performed. |
 | reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
-| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
 
 > On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
