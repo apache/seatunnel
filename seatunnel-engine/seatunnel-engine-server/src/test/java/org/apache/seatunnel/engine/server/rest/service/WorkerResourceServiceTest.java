@@ -24,12 +24,21 @@ import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceSnapshot;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.cluster.impl.MemberImpl;
+import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.spi.exception.TargetNotMemberException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+import com.hazelcast.version.MemberVersion;
 
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.LinkedHashSet;
+import java.util.Set;
 import java.util.concurrent.CompletionException;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -56,8 +65,7 @@ class WorkerResourceServiceTest {
     @Test
     void shouldReturnUnavailableSnapshotWhenMasterLeavesDuringForwarding()
             throws UnknownHostException {
-        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
-        when(nodeEngine.getMasterAddress()).thenReturn(new Address("localhost", 5801));
+        NodeEngineImpl nodeEngine = nodeEngineWithCoordinatorMaster();
         RuntimeException failure =
                 new CompletionException(new TargetNotMemberException("master left"));
         WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, failure);
@@ -70,8 +78,7 @@ class WorkerResourceServiceTest {
 
     @Test
     void shouldPropagateUnrelatedForwardingFailure() throws UnknownHostException {
-        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
-        when(nodeEngine.getMasterAddress()).thenReturn(new Address("localhost", 5801));
+        NodeEngineImpl nodeEngine = nodeEngineWithCoordinatorMaster();
         RuntimeException failure = new IllegalStateException("unexpected failure");
         WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, failure);
 
@@ -80,8 +87,7 @@ class WorkerResourceServiceTest {
 
     @Test
     void shouldReturnUnavailableSnapshotWhenTargetLosesMastership() throws UnknownHostException {
-        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
-        when(nodeEngine.getMasterAddress()).thenReturn(new Address("localhost", 5801));
+        NodeEngineImpl nodeEngine = nodeEngineWithCoordinatorMaster();
         RuntimeException failure =
                 new CompletionException(
                         new SeaTunnelEngineException("This is not a master node now."));
@@ -93,9 +99,59 @@ class WorkerResourceServiceTest {
         assertTrue(snapshot.getWorkers().isEmpty());
     }
 
+    /**
+     * Verifies that a non-coordinator node forwards the read to the active SeaTunnel coordinator
+     * when Hazelcast mastership sits on a worker-only lite member, which cannot answer it.
+     */
+    @Test
+    void shouldForwardToActiveCoordinatorWhenHazelcastMasterIsLiteWorker()
+            throws UnknownHostException {
+        Address liteMasterAddress = new Address("localhost", 5801);
+        Address coordinatorAddress = new Address("localhost", 5802);
+        MemberImpl liteMaster = newMember(liteMasterAddress, true);
+        MemberImpl coordinator = newMember(coordinatorAddress, false);
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+        ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
+        when(nodeEngine.getMasterAddress()).thenReturn(liteMasterAddress);
+        when(nodeEngine.getClusterService()).thenReturn(clusterService);
+        // Membership order matters: the lite worker is the oldest member and therefore the
+        // Hazelcast master, the coordinator-capable member joined after it.
+        Set<Member> members = new LinkedHashSet<>(Arrays.<Member>asList(liteMaster, coordinator));
+        when(clusterService.getMember(liteMasterAddress)).thenReturn(liteMaster);
+        when(clusterService.getMembers()).thenReturn(members);
+        TestWorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, null);
+
+        WorkerResourceSnapshot snapshot = service.getWorkerResources();
+
+        assertTrue(snapshot.isAvailable());
+        assertEquals(coordinatorAddress, service.forwardedAddress);
+    }
+
+    /**
+     * Builds a node engine whose Hazelcast master is coordinator-capable, which is the mixed
+     * cluster default where the active coordinator equals the Hazelcast master.
+     */
+    private static NodeEngineImpl nodeEngineWithCoordinatorMaster() throws UnknownHostException {
+        Address masterAddress = new Address("localhost", 5801);
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+        ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
+        when(nodeEngine.getMasterAddress()).thenReturn(masterAddress);
+        when(nodeEngine.getClusterService()).thenReturn(clusterService);
+        when(clusterService.getMember(masterAddress)).thenReturn(newMember(masterAddress, false));
+        return nodeEngine;
+    }
+
+    private static MemberImpl newMember(Address address, boolean liteMember) {
+        return new MemberImpl.Builder(address)
+                .version(MemberVersion.of(5, 1, 0))
+                .liteMember(liteMember)
+                .build();
+    }
+
     private static class TestWorkerResourceService extends WorkerResourceService {
         private final SeaTunnelServer seaTunnelServer;
         private final RuntimeException invocationFailure;
+        private Address forwardedAddress;
 
         private TestWorkerResourceService(
                 NodeEngineImpl nodeEngine,
@@ -113,7 +169,11 @@ class WorkerResourceServiceTest {
 
         @Override
         protected WorkerResourceSnapshot invokeOnMaster(Address masterAddress) {
-            throw invocationFailure;
+            forwardedAddress = masterAddress;
+            if (invocationFailure != null) {
+                throw invocationFailure;
+            }
+            return new WorkerResourceSnapshot(true, 1L, Collections.emptyList());
         }
     }
 }

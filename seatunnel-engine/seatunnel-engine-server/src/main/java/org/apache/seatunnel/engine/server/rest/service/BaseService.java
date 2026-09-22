@@ -394,6 +394,7 @@ public abstract class BaseService {
             jobStatus = seaTunnelServer.getCoordinatorService().getJobStatus(jobId);
         }
 
+        Address activeMasterAddress = NodeEngineUtil.getActiveMasterAddress(nodeEngine);
         long nowMs = System.currentTimeMillis();
         RunningJobDagJsonCacheEntry cached = RUNNING_JOB_DAG_JSON_CACHE.get(jobId);
         JsonObject jobDagJson = cached == null ? null : cached.dagJson;
@@ -412,8 +413,8 @@ public abstract class BaseService {
                                 getSeaTunnelServer(false).getSeaTunnelConfig().getEngineConfig(),
                                 true,
                                 new ExecutionAddress(
-                                        this.nodeEngine.getMasterAddress().getHost(),
-                                        this.nodeEngine.getMasterAddress().getPort()),
+                                        activeMasterAddress.getHost(),
+                                        activeMasterAddress.getPort()),
                                 new HashSet<>());
             }
             jobDagJson = jobDAGInfo.toJsonObject();

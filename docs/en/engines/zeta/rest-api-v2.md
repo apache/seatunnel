@@ -841,6 +841,12 @@ starting beyond the end of the result set also returns `400`, while a page start
 ```json
 [
   {
+    "isMaster":"true",
+    "nodeRole":"MASTER_AND_WORKER",
+    "coordinator":"true",
+    "worker":"true",
+    "host":"localhost",
+    "port":"5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -889,6 +895,17 @@ starting beyond the end of the result set also returns `400`, while a page start
   }
 ]
 ```
+
+- `isMaster`: whether this node is the current active SeaTunnel coordinator. In separated master
+  and worker deployments, this can differ from Hazelcast mastership.
+- `nodeRole`: statically configured node capability. Valid values are `MASTER`, `WORKER`, and
+  `MASTER_AND_WORKER`.
+- `coordinator`: whether this node is configured with coordinator capability.
+- `worker`: whether this node is configured with worker capability.
+
+`nodeRole`, `coordinator`, and `worker` disclose the cluster topology. The REST API is
+unauthenticated by default, so restrict network access to it or enable basic authentication (see
+[Security](security.md)) when this information is sensitive.
 
 </details>
 

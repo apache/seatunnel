@@ -270,6 +270,8 @@ b2c3d4e5-f6g7-8901-bcde-f23456789012 192.168.1.101:5701  MASTER               5.
 c3d4e5f6-g7h8-9012-cdef-345678901234 192.168.1.102:5701  WORKER               5.3.0
 ```
 
+`ACTIVE MASTER` 标记的是激活中的 SeaTunnel coordinator。在 master / worker 分离集群中，Hazelcast master 可能是 worker-only 节点；此时命令会根据客户端成员视图推断 coordinator，并在表格下方额外输出一行 `Active master: <address> (best effort)`。如果无法解析出 coordinator，则输出 `Active master: UNKNOWN`，此时 `MASTER` 行只表示节点的配置角色。
+
 **注意**: 必须使用 `-cn` 参数指定集群名称。集群必须处于运行状态才能执行此命令。
 
 ## 停止集群

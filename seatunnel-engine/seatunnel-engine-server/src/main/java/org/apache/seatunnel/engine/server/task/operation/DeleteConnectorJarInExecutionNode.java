@@ -56,7 +56,7 @@ public class DeleteConnectorJarInExecutionNode extends Operation
             return;
         }
         ServerConnectorPackageClient serverConnectorPackageClient =
-                seaTunnelServer.getTaskExecutionService().getServerConnectorPackageClient();
+                seaTunnelServer.getServerConnectorPackageClient();
         serverConnectorPackageClient.deleteConnectorJar(connectorJarIdentifier);
     }
 

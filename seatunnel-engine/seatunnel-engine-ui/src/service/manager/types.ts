@@ -17,6 +17,9 @@
 
 export interface Monitor {
   isMaster: 'true' | 'false'
+  nodeRole: 'MASTER' | 'WORKER' | 'MASTER_AND_WORKER'
+  coordinator: 'true' | 'false'
+  worker: 'true' | 'false'
   processors: string
   host: string
   port: string

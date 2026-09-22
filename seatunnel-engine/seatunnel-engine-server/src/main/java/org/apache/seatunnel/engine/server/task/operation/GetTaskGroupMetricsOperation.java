@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsCollector;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.logging.ILogger;
@@ -52,7 +53,7 @@ public class GetTaskGroupMetricsOperation extends Operation implements Identifie
         Address callerAddress = getCallerAddress();
 
         NodeEngineImpl nodeEngine = (NodeEngineImpl) getNodeEngine();
-        Address masterAddress = getNodeEngine().getMasterAddress();
+        Address masterAddress = NodeEngineUtil.getActiveMasterAddress(getNodeEngine());
         if (!callerAddress.equals(masterAddress)) {
             throw new IllegalStateException(
                     "Caller "

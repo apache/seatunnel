@@ -812,6 +812,12 @@ seatunnel:
 ```json
 [
   {
+    "isMaster":"true",
+    "nodeRole":"MASTER_AND_WORKER",
+    "coordinator":"true",
+    "worker":"true",
+    "host":"localhost",
+    "port":"5801",
     "processors":"8",
     "physical.memory.total":"16.0G",
     "physical.memory.free":"16.3M",
@@ -860,6 +866,15 @@ seatunnel:
   }
 ]
 ```
+
+- `isMaster`：当前节点是否为激活中的 SeaTunnel coordinator。在 master / worker 分离部署中，
+  这个字段可能与 Hazelcast master 身份不同。
+- `nodeRole`：节点的静态能力角色，合法取值为 `MASTER`、`WORKER`、`MASTER_AND_WORKER`。
+- `coordinator`：当前节点是否具备 coordinator 能力。
+- `worker`：当前节点是否具备 worker 能力。
+
+`nodeRole`、`coordinator` 和 `worker` 会暴露集群拓扑。REST API 默认不启用认证，如果这些信息较为敏感，
+请限制对该接口的网络访问，或开启基础认证（参见 [Security](security.md)）。
 
 </details>
 

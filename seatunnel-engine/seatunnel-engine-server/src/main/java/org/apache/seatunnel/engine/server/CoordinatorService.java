@@ -1923,14 +1923,19 @@ public class CoordinatorService {
                         jobImmutableInformation,
                         nodeEngine.getSerializationService(),
                         classLoaderService);
+        // Report the active SeaTunnel coordinator instead of the raw Hazelcast master, which can be
+        // a worker-only lite member in separated clusters. This path only runs on the active
+        // coordinator, so the local address is the correct value while the view is converging.
+        Address activeMasterAddress = NodeEngineUtil.getActiveMasterAddress(nodeEngine);
+        if (activeMasterAddress == null) {
+            activeMasterAddress = nodeEngine.getThisAddress();
+        }
         return DAGUtils.getJobDAGInfo(
                 logicalDag,
                 jobImmutableInformation,
                 engineConfig,
                 true,
-                new ExecutionAddress(
-                        nodeEngine.getMasterAddress().getHost(),
-                        nodeEngine.getMasterAddress().getPort()),
+                new ExecutionAddress(activeMasterAddress.getHost(), activeMasterAddress.getPort()),
                 new HashSet<>());
     }
 
