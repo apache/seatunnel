@@ -17,11 +17,27 @@
 package org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 
 import lombok.Builder;
 import lombok.Getter;
 
 import java.io.Serializable;
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.CONNECTION_STRING;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.CONSUMER_GROUP;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.EVENT_HUB_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.FIELD_DELIMITER;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.FORMAT;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.MAX_BATCH_SIZE;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.POLL_TIMEOUT_MS;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.PREFETCH_COUNT;
+import static org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config.AzureEventHubsSourceOptions.START_MODE;
 
 /** Immutable runtime configuration for the Azure Event Hubs source. */
 @Getter
@@ -45,48 +61,64 @@ public class AzureEventHubsSourceConfig implements Serializable {
     private final int prefetchCount;
 
     public static AzureEventHubsSourceConfig from(ReadonlyConfig config) {
-        AzureEventHubsSourceConfig sourceConfig =
-                AzureEventHubsSourceConfig.builder()
-                        .connectionString(config.get(AzureEventHubsSourceOptions.CONNECTION_STRING))
-                        .eventHubName(config.get(AzureEventHubsSourceOptions.EVENT_HUB_NAME))
-                        .consumerGroup(config.get(AzureEventHubsSourceOptions.CONSUMER_GROUP))
-                        .startMode(config.get(AzureEventHubsSourceOptions.START_MODE))
-                        .format(config.get(AzureEventHubsSourceOptions.FORMAT))
-                        .fieldDelimiter(config.get(AzureEventHubsSourceOptions.FIELD_DELIMITER))
-                        .maxBatchSize(config.get(AzureEventHubsSourceOptions.MAX_BATCH_SIZE))
-                        .pollTimeoutMs(config.get(AzureEventHubsSourceOptions.POLL_TIMEOUT_MS))
-                        .prefetchCount(config.get(AzureEventHubsSourceOptions.PREFETCH_COUNT))
-                        .build();
-        sourceConfig.validate();
-        return sourceConfig;
+        // Optional cross-field Conditions require both keys, even when an option has a default.
+        Map<String, Object> validationOptions = new HashMap<>(config.getSourceMap());
+        validationOptions.put(MAX_BATCH_SIZE.key(), config.get(MAX_BATCH_SIZE));
+        validationOptions.put(PREFETCH_COUNT.key(), config.get(PREFETCH_COUNT));
+        ConfigValidator.of(ReadonlyConfig.fromMap(validationOptions))
+                .validate(optionRuleBuilder().build());
+        return AzureEventHubsSourceConfig.builder()
+                .connectionString(config.get(AzureEventHubsSourceOptions.CONNECTION_STRING))
+                .eventHubName(config.get(AzureEventHubsSourceOptions.EVENT_HUB_NAME))
+                .consumerGroup(config.get(AzureEventHubsSourceOptions.CONSUMER_GROUP))
+                .startMode(config.get(AzureEventHubsSourceOptions.START_MODE))
+                .format(config.get(AzureEventHubsSourceOptions.FORMAT))
+                .fieldDelimiter(config.get(AzureEventHubsSourceOptions.FIELD_DELIMITER))
+                .maxBatchSize(config.get(AzureEventHubsSourceOptions.MAX_BATCH_SIZE))
+                .pollTimeoutMs(config.get(AzureEventHubsSourceOptions.POLL_TIMEOUT_MS))
+                .prefetchCount(config.get(AzureEventHubsSourceOptions.PREFETCH_COUNT))
+                .build();
     }
 
-    private void validate() {
-        requireNonBlank(connectionString, AzureEventHubsSourceOptions.CONNECTION_STRING.key());
-        requireNonBlank(eventHubName, AzureEventHubsSourceOptions.EVENT_HUB_NAME.key());
-        requireNonBlank(consumerGroup, AzureEventHubsSourceOptions.CONSUMER_GROUP.key());
-        if (connectionStringContainsEntityPath(connectionString)) {
-            throw new IllegalArgumentException(
-                    "Option 'connection_string' must not include EntityPath; configure 'event_hub_name' separately");
-        }
-        if (format == AzureEventHubsMessageFormat.TEXT && fieldDelimiter.isEmpty()) {
-            throw new IllegalArgumentException("Option 'field_delimiter' cannot be empty");
-        }
-        if (maxBatchSize <= 0) {
-            throw new IllegalArgumentException("Option 'max_batch_size' must be greater than zero");
-        }
-        if (pollTimeoutMs <= 0 || pollTimeoutMs > MAX_POLL_TIMEOUT_MS) {
-            throw new IllegalArgumentException(
-                    "Option 'poll_timeout_ms' must be between 1 and " + MAX_POLL_TIMEOUT_MS);
-        }
-        if (prefetchCount <= 0 || prefetchCount > MAX_PREFETCH_COUNT) {
-            throw new IllegalArgumentException(
-                    "Option 'prefetch_count' must be between 1 and " + MAX_PREFETCH_COUNT);
-        }
-        if (prefetchCount < maxBatchSize) {
-            throw new IllegalArgumentException(
-                    "Option 'prefetch_count' must be greater than or equal to max_batch_size");
-        }
+    /** Shared connector rules; the factory additionally requires a schema. */
+    public static OptionRule.Builder optionRuleBuilder() {
+        return OptionRule.builder()
+                .required(
+                        CONNECTION_STRING,
+                        Conditions.notBlank(CONNECTION_STRING)
+                                .and(
+                                        Conditions.extension(
+                                                CONNECTION_STRING,
+                                                new ConditionExtension<String>() {
+                                                    @Override
+                                                    public String description() {
+                                                        return "must not include EntityPath; configure 'event_hub_name' separately";
+                                                    }
+
+                                                    @Override
+                                                    public boolean evaluate(
+                                                            ReadonlyConfig config, String value) {
+                                                        return !connectionStringContainsEntityPath(
+                                                                value);
+                                                    }
+                                                })))
+                .required(EVENT_HUB_NAME, Conditions.notBlank(EVENT_HUB_NAME))
+                .optional(CONSUMER_GROUP, Conditions.notBlank(CONSUMER_GROUP))
+                .optional(START_MODE, FORMAT, FIELD_DELIMITER)
+                .conditional(
+                        FORMAT,
+                        AzureEventHubsMessageFormat.TEXT,
+                        Conditions.matches(FIELD_DELIMITER, "(?s).+"))
+                .optional(MAX_BATCH_SIZE, Conditions.greaterThan(MAX_BATCH_SIZE, 0))
+                .optional(
+                        POLL_TIMEOUT_MS,
+                        Conditions.greaterThan(POLL_TIMEOUT_MS, 0L)
+                                .and(Conditions.lessOrEqual(POLL_TIMEOUT_MS, MAX_POLL_TIMEOUT_MS)))
+                .optional(
+                        PREFETCH_COUNT,
+                        Conditions.greaterThan(PREFETCH_COUNT, 0)
+                                .and(Conditions.lessOrEqual(PREFETCH_COUNT, MAX_PREFETCH_COUNT)),
+                        Conditions.greaterOrEqualField(PREFETCH_COUNT, MAX_BATCH_SIZE));
     }
 
     private static boolean connectionStringContainsEntityPath(String connectionString) {
@@ -98,11 +130,5 @@ public class AzureEventHubsSourceConfig implements Serializable {
             }
         }
         return false;
-    }
-
-    private static void requireNonBlank(String value, String option) {
-        if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException("Option '" + option + "' cannot be blank");
-        }
     }
 }

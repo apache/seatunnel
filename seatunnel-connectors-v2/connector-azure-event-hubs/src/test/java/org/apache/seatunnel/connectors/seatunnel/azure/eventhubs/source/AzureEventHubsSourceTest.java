@@ -18,6 +18,7 @@ package org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.source;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -90,14 +91,14 @@ class AzureEventHubsSourceTest {
                 new TableSourceFactoryContext(
                         ReadonlyConfig.fromMap(options), getClass().getClassLoader());
 
-        IllegalArgumentException exception =
+        OptionValidationException exception =
                 Assertions.assertThrows(
-                        IllegalArgumentException.class,
+                        OptionValidationException.class,
                         () -> new AzureEventHubsSourceFactory().createSource(context));
 
-        Assertions.assertEquals(
-                "Option 'prefetch_count' must be greater than or equal to max_batch_size",
-                exception.getMessage());
+        Assertions.assertTrue(
+                exception.getMessage().contains("'prefetch_count' >= 'max_batch_size'"));
+        Assertions.assertFalse(exception.getMessage().contains("c3ludGhldGljLXNlY3JldA=="));
         Assertions.assertNull(exception.getCause());
     }
 

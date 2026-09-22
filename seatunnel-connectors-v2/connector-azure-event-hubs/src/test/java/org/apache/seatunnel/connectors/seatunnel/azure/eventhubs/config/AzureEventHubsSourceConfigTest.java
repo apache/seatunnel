@@ -17,12 +17,16 @@
 package org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.source.AzureEventHubsSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.source.AzureEventHubsSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,8 +50,8 @@ class AzureEventHubsSourceConfigTest {
                         .contains(SAS_KEY));
         for (String hub : new String[] {"events", "different-hub"}) {
             options.put("connection_string", CONNECTION_STRING + ";EnTiTyPaTh=" + hub);
-            IllegalArgumentException exception =
-                    Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+            OptionValidationException exception =
+                    Assertions.assertThrows(OptionValidationException.class, () -> config(options));
             Assertions.assertTrue(exception.getMessage().contains("must not include EntityPath"));
             Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains(SAS_KEY));
             Assertions.assertFalse(
@@ -76,8 +80,8 @@ class AzureEventHubsSourceConfigTest {
             Map<String, Object> options = validOptions();
             options.put(option, "  ");
 
-            IllegalArgumentException exception =
-                    Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+            OptionValidationException exception =
+                    Assertions.assertThrows(OptionValidationException.class, () -> config(options));
             Assertions.assertTrue(exception.getMessage().contains(option));
         }
     }
@@ -89,8 +93,8 @@ class AzureEventHubsSourceConfigTest {
                 "connection_string",
                 "Endpoint=sb://example/;SharedAccessKeyName=name;SharedAccessKey=key;EnTiTyPaTh=events;");
 
-        IllegalArgumentException exception =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> config(options));
 
         Assertions.assertTrue(exception.getMessage().contains("must not include EntityPath"));
     }
@@ -111,8 +115,8 @@ class AzureEventHubsSourceConfigTest {
         options.put("format", "text");
         options.put("field_delimiter", "");
 
-        IllegalArgumentException exception =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> config(options));
 
         Assertions.assertTrue(exception.getMessage().contains("field_delimiter"));
     }
@@ -123,8 +127,8 @@ class AzureEventHubsSourceConfigTest {
             Map<String, Object> options = validOptions();
             options.put(option, 0);
 
-            IllegalArgumentException exception =
-                    Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+            OptionValidationException exception =
+                    Assertions.assertThrows(OptionValidationException.class, () -> config(options));
             Assertions.assertTrue(exception.getMessage().contains(option));
         }
     }
@@ -135,9 +139,10 @@ class AzureEventHubsSourceConfigTest {
             Map<String, Object> options = validOptions();
             options.put("poll_timeout_ms", value);
 
-            IllegalArgumentException exception =
-                    Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
-            Assertions.assertTrue(exception.getMessage().contains("between 1 and"));
+            OptionValidationException exception =
+                    Assertions.assertThrows(OptionValidationException.class, () -> config(options));
+            Assertions.assertTrue(exception.getMessage().contains("'poll_timeout_ms' > 0"));
+            Assertions.assertTrue(exception.getMessage().contains("'poll_timeout_ms' <= 5000"));
         }
     }
 
@@ -158,11 +163,11 @@ class AzureEventHubsSourceConfigTest {
                 "connection_string",
                 "Endpoint=sb://example/;SharedAccessKeyName=listen;SharedAccessKey=private-sas-key;");
 
-        IllegalArgumentException exception =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> config(options));
 
-        Assertions.assertEquals(
-                "Option 'prefetch_count' must be between 1 and 8000", exception.getMessage());
+        Assertions.assertTrue(exception.getMessage().contains("'prefetch_count' <= 8000"));
+        Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains("private-sas-key"));
         Assertions.assertNull(exception.getCause());
     }
 
@@ -172,10 +177,99 @@ class AzureEventHubsSourceConfigTest {
         options.put("max_batch_size", 101);
         options.put("prefetch_count", 100);
 
-        IllegalArgumentException exception =
-                Assertions.assertThrows(IllegalArgumentException.class, () -> config(options));
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> config(options));
 
-        Assertions.assertTrue(exception.getMessage().contains("greater than or equal"));
+        Assertions.assertTrue(
+                exception.getMessage().contains("'prefetch_count' >= 'max_batch_size'"));
+    }
+
+    @Test
+    void factoryRulesRejectBlankAndCrossFieldOptions() {
+        for (String option :
+                new String[] {"connection_string", "event_hub_name", "consumer_group"}) {
+            Map<String, Object> options = validOptions();
+            options.put(option, "  ");
+            assertFactoryRuleRejects(options, option);
+        }
+
+        Map<String, Object> options = validOptions();
+        options.put("max_batch_size", 100);
+        options.put("prefetch_count", 99);
+        assertFactoryRuleRejects(options, "prefetch_count");
+        options.put("max_batch_size", 99);
+        validateFactoryRules(options);
+    }
+
+    @Test
+    void runtimeCrossFieldValidationIncludesDefaults() {
+        Map<String, Object> largerBatch = validOptions();
+        largerBatch.put("max_batch_size", 301);
+        Assertions.assertThrows(OptionValidationException.class, () -> config(largerBatch));
+        Map<String, Object> smallerPrefetch = validOptions();
+        smallerPrefetch.put("prefetch_count", 99);
+        Assertions.assertThrows(OptionValidationException.class, () -> config(smallerPrefetch));
+    }
+
+    @Test
+    void factoryBoundsDoNotDependOnExplicitBatchSize() {
+        for (int prefetch : new int[] {0, 8001}) {
+            Map<String, Object> options = validOptions();
+            options.put("connection_string", CONNECTION_STRING);
+            options.put("prefetch_count", prefetch);
+            OptionValidationException exception =
+                    assertFactoryRuleRejects(options, "prefetch_count");
+            Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains(SAS_KEY));
+        }
+    }
+
+    @Test
+    void factoryRulesRejectEntityPathWithoutExposingCredentials() {
+        for (String suffix :
+                new String[] {";EnTiTyPaTh=events", "; EntityPath =other", ";EntityPath="}) {
+            Map<String, Object> options = validOptions();
+            options.put("connection_string", CONNECTION_STRING + suffix);
+            OptionValidationException exception =
+                    assertFactoryRuleRejects(options, "must not include EntityPath");
+            Assertions.assertFalse(ExceptionUtils.getMessage(exception).contains(SAS_KEY));
+            Assertions.assertFalse(
+                    ExceptionUtils.getMessage(exception).contains(CONNECTION_STRING));
+            Assertions.assertNull(exception.getCause());
+            Assertions.assertEquals(0, exception.getSuppressed().length);
+        }
+
+        Map<String, Object> options = validOptions();
+        options.put("connection_string", CONNECTION_STRING.replace("=listen;", "=EntityPathUser;"));
+        validateFactoryRules(options);
+    }
+
+    @Test
+    void factoryRulesPreserveFormatSpecificDelimiterSemantics() {
+        Map<String, Object> options = validOptions();
+        options.put("field_delimiter", "");
+        validateFactoryRules(options);
+        options.put("format", "text");
+        assertFactoryRuleRejects(options, "field_delimiter");
+        options.put("field_delimiter", " ");
+        validateFactoryRules(options);
+    }
+
+    private OptionValidationException assertFactoryRuleRejects(
+            Map<String, Object> options, String expectedMessage) {
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateFactoryRules(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(expectedMessage), exception.getMessage());
+        return exception;
+    }
+
+    private void validateFactoryRules(Map<String, Object> options) {
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("value", "string")));
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new AzureEventHubsSourceFactory().optionRule());
     }
 
     private AzureEventHubsSourceConfig config(Map<String, Object> options) {

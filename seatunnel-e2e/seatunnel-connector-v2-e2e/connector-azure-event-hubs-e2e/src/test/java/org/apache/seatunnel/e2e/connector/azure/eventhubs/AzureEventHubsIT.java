@@ -44,9 +44,12 @@ import com.azure.messaging.eventhubs.models.SendOptions;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Duration;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -174,23 +177,33 @@ public class AzureEventHubsIT extends TestSuiteBase implements TestResource {
                     .untilAsserted(
                             () -> {
                                 assertJobStillRunning(jobFuture);
-                                String logs = container.getServerLogs();
-                                Assertions.assertTrue(
-                                        logs.contains(PARTITION_0_EVENT),
-                                        "Partition 0 event was not emitted by the source");
-                                Assertions.assertTrue(
-                                        logs.contains(PARTITION_1_EVENT),
-                                        "Partition 1 event was not emitted by the source");
+                                assertExpectedRows(container.getServerLogs());
                             });
+            // Zero can mean an unavailable REST metric, not a confirmed checkpoint baseline.
+            long checkpointsAfterRows =
+                    await().atMost(60, TimeUnit.SECONDS)
+                            .pollInterval(1, TimeUnit.SECONDS)
+                            .until(
+                                    () -> {
+                                        assertJobStillRunning(jobFuture);
+                                        Assertions.assertEquals(
+                                                "RUNNING", container.getJobStatus(jobId));
+                                        return container.getCompletedCheckpointCount(jobId);
+                                    },
+                                    count -> count > 0);
+            // A checkpoint already in progress when Console emitted the rows is insufficient.
             await().atMost(60, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobStillRunning(jobFuture);
                                 Assertions.assertTrue(
-                                        container.getCompletedCheckpointCount(jobId) > 0,
-                                        "No checkpoint completed after the events were emitted");
+                                        container.getCompletedCheckpointCount(jobId)
+                                                > checkpointsAfterRows + 1,
+                                        "No subsequent checkpoint completed through both sinks");
                             });
+            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+            assertExpectedRows(container.getServerLogs());
         } finally {
             if (!jobFuture.isDone()) {
                 Container.ExecResult cancelResult = container.cancelJob(jobId);
@@ -207,6 +220,23 @@ public class AzureEventHubsIT extends TestSuiteBase implements TestResource {
         producer.send(
                 Collections.singletonList(new EventData(body)),
                 new SendOptions().setPartitionId(partitionId));
+    }
+
+    private void assertExpectedRows(String logs) {
+        String rowMarker = "SeaTunnelRow#kind=INSERT : ";
+        List<String> rows =
+                Arrays.stream(logs.split("\\R"))
+                        .filter(line -> line.contains("rowIndex=") && line.contains(rowMarker))
+                        .map(
+                                line ->
+                                        line.substring(line.indexOf(rowMarker) + rowMarker.length())
+                                                .trim())
+                        .sorted()
+                        .collect(Collectors.toList());
+        Assertions.assertEquals(
+                Arrays.asList(PARTITION_0_EVENT + ", created", PARTITION_1_EVENT + ", created"),
+                rows,
+                "Expected exactly one validated event from each partition");
     }
 
     private void assertJobStillRunning(CompletableFuture<Container.ExecResult> jobFuture)

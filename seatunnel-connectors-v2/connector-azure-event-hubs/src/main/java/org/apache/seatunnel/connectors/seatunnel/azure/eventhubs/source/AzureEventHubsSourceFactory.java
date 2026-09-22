@@ -16,7 +16,6 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.azure.eventhubs.source;
 
-import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
@@ -50,34 +49,7 @@ public class AzureEventHubsSourceFactory implements TableSourceFactory {
 
     @Override
     public OptionRule optionRule() {
-        return OptionRule.builder()
-                .required(
-                        AzureEventHubsSourceOptions.CONNECTION_STRING,
-                        AzureEventHubsSourceOptions.EVENT_HUB_NAME,
-                        SCHEMA)
-                .optional(
-                        AzureEventHubsSourceOptions.CONSUMER_GROUP,
-                        AzureEventHubsSourceOptions.START_MODE,
-                        AzureEventHubsSourceOptions.FORMAT,
-                        AzureEventHubsSourceOptions.FIELD_DELIMITER)
-                .optional(
-                        AzureEventHubsSourceOptions.MAX_BATCH_SIZE,
-                        Conditions.greaterThan(AzureEventHubsSourceOptions.MAX_BATCH_SIZE, 0))
-                .optional(
-                        AzureEventHubsSourceOptions.POLL_TIMEOUT_MS,
-                        Conditions.greaterThan(AzureEventHubsSourceOptions.POLL_TIMEOUT_MS, 0L)
-                                .and(
-                                        Conditions.lessOrEqual(
-                                                AzureEventHubsSourceOptions.POLL_TIMEOUT_MS,
-                                                AzureEventHubsSourceConfig.MAX_POLL_TIMEOUT_MS)))
-                .optional(
-                        AzureEventHubsSourceOptions.PREFETCH_COUNT,
-                        Conditions.greaterThan(AzureEventHubsSourceOptions.PREFETCH_COUNT, 0)
-                                .and(
-                                        Conditions.lessOrEqual(
-                                                AzureEventHubsSourceOptions.PREFETCH_COUNT,
-                                                AzureEventHubsSourceConfig.MAX_PREFETCH_COUNT)))
-                .build();
+        return AzureEventHubsSourceConfig.optionRuleBuilder().required(SCHEMA).build();
     }
 
     @Override
