@@ -41,6 +41,7 @@ import org.apache.seatunnel.resource.core.config.ApplicationOptions;
 
 import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
 import com.hazelcast.cluster.MembershipEvent;
 import com.hazelcast.cluster.MembershipListener;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -231,7 +232,7 @@ public final class ApplicationRuntime {
                     workers.add(await(request, deadline));
                 }
                 while (master.getCluster().getMembers().stream()
-                                .filter(member -> member.isLiteMember())
+                                .filter(Member::isLiteMember)
                                 .count()
                         < specification.getWorkerCount()) {
                     checkFailure();

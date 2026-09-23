@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
-
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Owns external worker allocations for one application independently of SeaTunnel's slot scheduler.

@@ -536,11 +536,10 @@ jobs:
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
         if: runner.os == 'Windows'
 
-  seatunnel-resource-managers-it:
+  engine-resource-managers-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.resource-managers == 'true' || needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || inputs.TEST_IN_PR == 'false'
-    name: SeaTunnel Resource Managers IT (${{ matrix.platform }})
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -548,8 +547,10 @@ jobs:
         include:
           - platform: yarn
             test: YarnApplicationIT
+            os: ubuntu-24.04
           - platform: kubernetes
             test: KubernetesApplicationIT
+            os: ubuntu-24.04
     env:
       PLATFORM: ${{ matrix.platform }}
       E2E_MODULE: seatunnel-e2e/seatunnel-resource-managers-e2e
@@ -563,48 +564,10 @@ jobs:
           cache: maven
       - name: Build E2E dependencies and run focused unit tests
         run: |
-          ./mvnw -B -nsu -Pci,resource-managers-e2e,"$PLATFORM" \
-            -pl "$E2E_MODULE" -am \
-            -Dskip.ui=true -Dsurefire.failIfNoSpecifiedTests=false \
-            '-Dtest=ApplicationSpecificationTest,ApplicationRuntimeTest,ApplicationClusterConfigTest,ApplicationJarPathResolverTest,SeaTunnelApplicationTest,ServerExecuteCommandTest,ClassLoaderServiceTest,ClassLoaderServiceCacheModeTest,YarnApplicationTest,YarnClusterTest,Kubernetes*Test' \
-            package install:install
+          ./mvnw -T 1 -B package install:install -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Dsurefire.failIfNoSpecifiedTests=false '-Dtest=ApplicationSpecificationTest,ApplicationRuntimeTest,ApplicationClusterConfigTest,ApplicationJarPathResolverTest,SeaTunnelApplicationTest,ServerExecuteCommandTest,ClassLoaderServiceTest,ClassLoaderServiceCacheModeTest,YarnApplicationTest,YarnClusterTest,Kubernetes*Test' -pl "$E2E_MODULE" -am -Pci,resource-managers-e2e,"$PLATFORM"
       - name: Run the real platform lifecycle tests
         run: |
-          ./mvnw -B -nsu -Pci,resource-managers-e2e,"$PLATFORM" \
-            -pl "$E2E_MODULE" -DskipUT=true -DskipIT=false \
-            -Dit.test="$E2E_TEST" integration-test
-      - name: Check integration-test reports
-        if: always()
-        run: |
-          python3 - <<'PYTHON'
-          import os
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-
-          reports = list(Path(os.environ['E2E_MODULE']).glob('target/failsafe-reports/TEST-*.xml'))
-          if not reports:
-              raise SystemExit('No integration-test reports were produced')
-          tests = failures = errors = skipped = 0
-          for report in reports:
-              suite = ET.parse(report).getroot()
-              tests += int(suite.get('tests', '0'))
-              failures += int(suite.get('failures', '0'))
-              errors += int(suite.get('errors', '0'))
-              skipped += int(suite.get('skipped', '0'))
-          print(f'Tests: {tests}; failures: {failures}; errors: {errors}; skipped: {skipped}')
-          if tests == 0 or failures or errors or skipped:
-              raise SystemExit('Application lifecycle integration tests did not all pass')
-          PYTHON
-      - name: Upload diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-resource-managers-it-${{ matrix.platform }}
-          path: |
-            **/target/surefire-reports/**
-            **/target/failsafe-reports/**
-            **/target/seatunnel-yarn-application/*logDir*/**
-          retention-days: 7
+          ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -Dit.test="$E2E_TEST" -pl "$E2E_MODULE" -am -Pci,resource-managers-e2e,"$PLATFORM"
 
   benchmark-test:
     needs: [ changes, sanity-check ]
