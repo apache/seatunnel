@@ -75,6 +75,8 @@ Sink 对这些字段使用显式 UTC 转换，包括更新和删除条件。包�
 | data_save_mode                        | Enum    | 否   | APPEND_DATA | 数据保存模式，请参考下面的 `data_save_mode`。 |
 | custom_sql                            | String  | 否   | -     | 当 `data_save_mode = CUSTOM_PROCESSING` 时必填。该 SQL 会在同步任务开始前执行。 |
 | save_mode_create_template             | String  | 否   | 见下文 | 当表结构保存模式需要创建表时使用的建表模板。 |
+| server_time_zone                      | String  | 否   | JVM 系统默认 | ClickHouse 服务器的会话时区。默认为 JVM 系统时区（`ZoneId.systemDefault()`）。 |
+| multi_table_sink_replica              | Int     | 否   | 1     | 多表写入时的写入器副本数。当 `multi_table_sink_replica > 1` 时，多表并行写入。 |
 | common-options                        |         | 否   | -     | Sink 插件通用参数，详见 [Sink 常用选项](../common-options/sink-common-options.md)。 |
 
 ### schema_save_mode [Enum]

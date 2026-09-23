@@ -79,8 +79,9 @@ UPDATE and DELETE changes after the initial snapshot is finished.
 | incremental.parallelism | Integer | No | 1 | The number of parallel readers in the incremental phase. |
 | snapshot.split.size | Integer | No | 8096 | The split size of table snapshot. |
 | snapshot.fetch.size | Integer | No | 1024 | The maximum fetch size for each poll when reading table snapshot. |
-| server-time-zone | String | No | UTC | The session time zone in database server. |
-| connect.timeout.ms | Duration | No | 30s | The maximum time that the connector should wait after trying to connect to the database server before timing out. |
+| enable_concurrent_read | Boolean | No | true | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source reads the table as a single split without any split analysis, which is useful for tables without indexes. |
+| server-time-zone | String | No | - | The session time zone in database server. |
+| connect.timeout.ms | Long | No | 30000 | The maximum time that the connector should wait after trying to connect to the database server before timing out. |
 | connect.max-retries | Integer | No | 3 | The maximum retry times to build database server connection. |
 | connection.pool.size | Integer | No | 20 | The connection pool size. |
 | chunk-key.even-distribution.factor.upper-bound | Double | No | 100 | The upper bound used to decide whether a split key is evenly distributed. |
