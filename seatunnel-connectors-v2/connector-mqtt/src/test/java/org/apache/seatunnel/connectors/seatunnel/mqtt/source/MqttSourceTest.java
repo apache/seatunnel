@@ -231,7 +231,7 @@ class MqttSourceTest {
         // the reader is the only way to observe it. Building one proves the reference survived,
         // and driving it past the configured limit proves the value inside did too: with
         // max_queue_size restored as 1 the second message is rejected, whereas the default
-        // 2048 would accept it and a zeroed int would fail to build the queue at all.
+        // 1000 would accept it and a zeroed int would fail to build the queue at all.
         MqttSourceReader reader =
                 (MqttSourceReader)
                         restored.createReader(Mockito.mock(SingleSplitReaderContext.class));
