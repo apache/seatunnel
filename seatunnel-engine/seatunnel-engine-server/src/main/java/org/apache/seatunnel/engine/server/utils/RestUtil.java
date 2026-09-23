@@ -117,6 +117,8 @@ public class RestUtil {
     }
 
     private static String quoteInvalidPathKey(String key) {
+        // ConfigFactory.parseMap treats map keys as HOCON paths, so regex keys can fail parsing.
+        // Quote only rejected paths; valid keys keep SeaTunnel's existing path semantics.
         try {
             ConfigUtil.splitPath(key);
             return key;

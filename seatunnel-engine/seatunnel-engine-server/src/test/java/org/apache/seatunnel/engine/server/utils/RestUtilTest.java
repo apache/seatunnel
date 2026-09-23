@@ -43,6 +43,14 @@ class RestUtilTest {
     }
 
     @Test
+    void buildConfigShouldPreserveDottedKeyAsLiteral() throws IOException {
+        Config config = RestUtil.buildConfig(jsonNode("{\"a.b\":\"value\"}"));
+
+        Assertions.assertEquals("value", config.getString("a.b"));
+        Assertions.assertEquals("value", config.root().unwrapped().get("a.b"));
+    }
+
+    @Test
     void buildConfigListShouldPreserveRegexKeysFromJson() throws IOException {
         List<Tuple2<Map<String, String>, Config>> configs =
                 RestUtil.buildConfigList(
