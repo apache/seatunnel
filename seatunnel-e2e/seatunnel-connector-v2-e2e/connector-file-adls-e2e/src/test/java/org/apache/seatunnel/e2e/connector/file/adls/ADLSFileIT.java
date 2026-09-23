@@ -99,8 +99,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
                     environment.put(ACCOUNT_ENV, requiredEnvironment(ACCOUNT_ENV));
                     environment.put(CONTAINER_ENV, requiredEnvironment(CONTAINER_ENV));
                     environment.put(ACCOUNT_KEY_ENV, requiredEnvironment(ACCOUNT_KEY_ENV));
-                    environment.put(
-                            TEST_ROOT_ENV, testRoot(requiredEnvironment(TEST_PREFIX_ENV)));
+                    environment.put(TEST_ROOT_ENV, testRoot(requiredEnvironment(TEST_PREFIX_ENV)));
                     List<TestContainer> containers = ContainerUtil.discoverTestContainers();
                     containers.forEach(
                             container ->
