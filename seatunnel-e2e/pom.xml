@@ -87,4 +87,13 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>resource-managers-e2e</id>
+            <modules>
+                <module>seatunnel-resource-managers-e2e</module>
+            </modules>
+        </profile>
+    </profiles>
 </project>

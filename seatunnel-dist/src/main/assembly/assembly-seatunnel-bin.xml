@@ -153,6 +153,28 @@
     </files>
 
     <dependencySets>
+        <!-- Optional platform SDK bundle; present only with the yarn profile. -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>false</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <outputDirectory>/resource-managers/yarn</outputDirectory>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-resource-manager-yarn:jar</include>
+            </includes>
+            <scope>provided</scope>
+        </dependencySet>
+        <!-- Optional platform SDK bundle; present only with the kubernetes profile. -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <useTransitiveDependencies>false</useTransitiveDependencies>
+            <unpack>false</unpack>
+            <outputDirectory>/resource-managers/kubernetes</outputDirectory>
+            <includes>
+                <include>org.apache.seatunnel:seatunnel-resource-manager-kubernetes:jar</include>
+            </includes>
+            <scope>provided</scope>
+        </dependencySet>
         <!-- ============ Logging Jars ============  -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>

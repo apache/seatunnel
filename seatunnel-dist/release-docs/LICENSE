@@ -480,3 +480,65 @@ The Google Analytics 4 connector also bundles these components:
 
 The existing CDDL entry for javax.annotation:javax.annotation-api:1.3.2 applies
 to this connector as well. Its license is retained in the connector JAR.
+
+========================================================================
+Optional Kubernetes application resource manager
+========================================================================
+
+The seatunnel-resource-manager-kubernetes module bundles the following dependencies when the
+kubernetes build profile is selected. Apache-2.0 components use the Apache
+License text at the beginning of this file.
+
+     (Apache-2.0) io.kubernetes:client-java:19.0.1 - https://github.com/kubernetes-client/java
+     (Apache-2.0) io.kubernetes:client-java-api:19.0.1 - https://github.com/kubernetes-client/java
+     (Apache-2.0) io.swagger:swagger-annotations:1.6.11 - https://github.com/swagger-api/swagger-core
+     (Apache-2.0) com.google.code.gson:gson:2.10.1 - https://github.com/google/gson
+     (Apache-2.0) io.gsonfire:gson-fire:1.8.5 - https://github.com/julman99/gson-fire
+     (Apache-2.0) com.google.code.findbugs:jsr305:3.0.2 - https://github.com/findbugsproject/findbugs
+     (Apache-2.0) io.kubernetes:client-java-proto:19.0.1 - https://github.com/kubernetes-client/java
+     (Apache-2.0) org.yaml:snakeyaml:2.2 - https://bitbucket.org/snakeyaml/snakeyaml
+     (Apache-2.0) commons-codec:commons-codec:1.13 - https://commons.apache.org/proper/commons-codec/
+     (Apache-2.0) org.apache.commons:commons-compress:1.20 - https://commons.apache.org/
+     (Apache-2.0) org.apache.commons:commons-lang3:3.18.0 - https://commons.apache.org/
+     (Apache-2.0) commons-io:commons-io:2.11.0 - https://commons.apache.org/proper/commons-io/
+     (Apache-2.0) org.apache.commons:commons-collections4:4.4 - https://commons.apache.org/
+     (Apache-2.0) org.bitbucket.b_c:jose4j:0.9.3 - https://bitbucket.org/b_c/jose4j
+     (Apache-2.0) com.squareup.okhttp3:okhttp:4.12.0 - https://github.com/square/okhttp
+     (Apache-2.0) com.squareup.okio:okio:3.6.0 - https://github.com/square/okio
+     (Apache-2.0) com.squareup.okio:okio-jvm:3.6.0 - https://github.com/square/okio
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-common:1.9.10 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.21 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib:1.8.21 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) org.jetbrains:annotations:13.0 - https://github.com/JetBrains/java-annotations
+     (Apache-2.0) org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.21 - https://github.com/JetBrains/kotlin
+     (Apache-2.0) com.squareup.okhttp3:logging-interceptor:4.12.0 - https://github.com/square/okhttp
+     (Apache-2.0) io.prometheus:simpleclient:0.16.0 - https://github.com/prometheus/client_java
+     (Apache-2.0) io.prometheus:simpleclient_tracer_otel:0.16.0 - https://github.com/prometheus/client_java
+     (Apache-2.0) io.prometheus:simpleclient_tracer_common:0.16.0 - https://github.com/prometheus/client_java
+     (Apache-2.0) io.prometheus:simpleclient_tracer_otel_agent:0.16.0 - https://github.com/prometheus/client_java
+     (Apache-2.0) io.prometheus:simpleclient_hotspot:0.16.0 - https://github.com/prometheus/client_java
+     (Apache-2.0) io.prometheus:simpleclient_httpserver:0.16.0 - https://github.com/prometheus/client_java
+     (Apache-2.0) io.prometheus:simpleclient_common:0.16.0 - https://github.com/prometheus/client_java
+
+The existing CDDL entry for javax.annotation:javax.annotation-api:1.3.2 also
+applies to its copy in this module.
+
+     (MIT) org.bouncycastle:bcpkix-jdk18on:1.76
+     (MIT) org.bouncycastle:bcprov-jdk18on:1.76
+     (MIT) org.bouncycastle:bcutil-jdk18on:1.76
+     https://www.bouncycastle.org/
+     See licenses/LICENSE-bouncycastle-1.76.txt, reproduced from the
+     org.bouncycastle.LICENSE class in bcprov-jdk18on-1.76.jar.
+
+     (BSD-3-Clause) com.google.protobuf:protobuf-java:3.24.3
+     https://github.com/protocolbuffers/protobuf/tree/v24.3
+     See licenses/LICENSE-protobuf-java-3.24.3.txt, reproduced from
+     https://raw.githubusercontent.com/protocolbuffers/protobuf/v24.3/LICENSE.
+
+     (MPL-2.0) Public Suffix List resource bundled in okhttp:4.12.0
+     See licenses/LICENSE-public-suffix-list.txt.
+     The unmodified publicsuffixes.gz resource is compiled from source at
+     https://publicsuffix.org/list/public_suffix_list.dat.
+     Its original notice is reproduced in NOTICE and retained in the shaded
+     Kubernetes JAR alongside the resource. The MPL terms apply to this
+     resource; OkHttp's Java/Kotlin code is Apache-2.0 licensed.

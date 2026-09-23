@@ -49,6 +49,7 @@
         <module>seatunnel-plugin-discovery</module>
         <module>seatunnel-formats</module>
         <module>seatunnel-engine</module>
+        <module>seatunnel-resource-managers</module>
         <module>seatunnel-trace</module>
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
@@ -1196,6 +1197,14 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+        </profile>
+        <!-- Platform modules are aggregated by seatunnel-resource-managers. These markers
+             keep platform-only builds from activating the default release distribution. -->
+        <profile>
+            <id>yarn</id>
+        </profile>
+        <profile>
+            <id>kubernetes</id>
         </profile>
         <profile>
             <id>benchmark</id>

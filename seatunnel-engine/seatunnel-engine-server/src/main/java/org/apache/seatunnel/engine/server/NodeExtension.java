@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpPostCommandProcessor;
 import org.apache.seatunnel.engine.server.rest.RestHttpGetCommandProcessor;
@@ -44,9 +45,30 @@ public class NodeExtension extends DefaultNodeExtension {
     @Getter private final CollectorRegistry collectorRegistry;
     @Getter private final SeaTunnelServer seaTunnelServer;
 
+    /**
+     * Creates the Engine extension using unchanged jar identities for class loading.
+     *
+     * @param node owning Hazelcast node
+     * @param seaTunnelConfig Engine and cluster configuration
+     */
     public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
+        this(node, seaTunnelConfig, JarPathResolver.identity());
+    }
+
+    /**
+     * Creates the node-owned Engine server with an explicit jar resolver.
+     *
+     * @param node owning Hazelcast node, which controls the extension's lifecycle
+     * @param seaTunnelConfig Engine and cluster configuration
+     * @param jarPathResolver stable node-local resolver; this extension does not close it
+     * @throws NullPointerException if a required argument is null
+     */
+    public NodeExtension(
+            @NonNull Node node,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull JarPathResolver jarPathResolver) {
         super(node);
-        seaTunnelServer = new SeaTunnelServer(seaTunnelConfig);
+        seaTunnelServer = new SeaTunnelServer(seaTunnelConfig, jarPathResolver);
         extCommon = new NodeExtensionCommon(node, seaTunnelServer);
         collectorRegistry = new CollectorRegistry(true);
     }
