@@ -20,7 +20,7 @@
     <parent>
         <groupId>org.apache.seatunnel</groupId>
         <artifactId>connector-http</artifactId>
-        <version>3.0.0</version>
+        <version>3.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>connector-mem0</artifactId>
     <name>SeaTunnel : Connectors V2 : Http : Mem0</name>
