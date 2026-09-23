@@ -33,6 +33,7 @@
         <module>seatunnel-transforms-v2-e2e</module>
         <module>seatunnel-core-e2e</module>
         <module>seatunnel-edge-agent-e2e</module>
+        <module>seatunnel-resource-managers-e2e</module>
     </modules>
 
     <properties>
@@ -88,12 +89,4 @@
         </plugins>
     </build>
 
-    <profiles>
-        <profile>
-            <id>resource-managers-e2e</id>
-            <modules>
-                <module>seatunnel-resource-managers-e2e</module>
-            </modules>
-        </profile>
-    </profiles>
 </project>

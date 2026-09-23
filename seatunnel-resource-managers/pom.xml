@@ -28,19 +28,7 @@
     <name>SeaTunnel : Resource Managers</name>
     <modules>
         <module>core</module>
+        <module>yarn</module>
+        <module>kubernetes</module>
     </modules>
-    <profiles>
-        <profile>
-            <id>yarn</id>
-            <modules>
-                <module>yarn</module>
-            </modules>
-        </profile>
-        <profile>
-            <id>kubernetes</id>
-            <modules>
-                <module>kubernetes</module>
-            </modules>
-        </profile>
-    </profiles>
 </project>

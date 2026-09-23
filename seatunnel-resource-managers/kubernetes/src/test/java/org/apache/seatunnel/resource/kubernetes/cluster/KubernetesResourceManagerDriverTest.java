@@ -18,6 +18,7 @@
 package org.apache.seatunnel.resource.kubernetes.cluster;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
 import org.apache.seatunnel.resource.core.application.ApplicationId;
@@ -38,7 +39,6 @@ import io.kubernetes.client.openapi.models.V1PodStatus;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;

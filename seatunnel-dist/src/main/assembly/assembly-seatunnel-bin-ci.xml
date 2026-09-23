@@ -132,7 +132,7 @@
         </file>
     </files>
     <dependencySets>
-        <!-- Optional platform SDK bundle; present only with the yarn profile. -->
+        <!-- YARN resource manager provider. -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>false</useTransitiveDependencies>
@@ -143,7 +143,7 @@
             </includes>
             <scope>provided</scope>
         </dependencySet>
-        <!-- Optional platform SDK bundle; present only with the kubernetes profile. -->
+        <!-- Kubernetes resource manager provider. -->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
             <useTransitiveDependencies>false</useTransitiveDependencies>

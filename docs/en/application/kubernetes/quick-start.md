@@ -16,7 +16,7 @@ Download a binary distribution that includes Application Mode from the [SeaTunne
 To test unreleased functionality or local code changes, run from the repository root:
 
 ```bash
-./mvnw -Prelease,seatunnel,kubernetes \
+./mvnw -Prelease,seatunnel \
   -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
@@ -88,6 +88,12 @@ kubectl apply -f application-rbac.yaml
 The submitting user also needs permission to manage Jobs, ConfigMaps, Services, and Pods in this namespace.
 
 ## 3. Create job and deployment configuration
+
+Copy the distribution template before editing the Kubernetes deployment settings:
+
+```bash
+cp config/v1.kubernetes.conf.template kubernetes.conf
+```
 
 `job.conf`:
 

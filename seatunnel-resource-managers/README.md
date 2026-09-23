@@ -32,17 +32,17 @@ resource-manager-core → engine-core → seatunnel-core-starter
 engine-server → resource-manager-core
 seatunnel-starter → resource-manager-core, engine-client, engine-server
 yarn / kubernetes → resource-manager-core, seatunnel-starter
-seatunnel-dist → seatunnel-starter, selected providers
+seatunnel-dist → seatunnel-starter, yarn, kubernetes
 ```
 
 Inside core, `client` uses `application` models, and `application` uses `config` options. The deployment-provider SPI resource is `META-INF/services/org.apache.seatunnel.resource.core.client.ApplicationDeployerFactory`.
 
-Arrows mean “depends on”. The root reactor has one `seatunnel-resource-managers` module entry. Its parent POM always aggregates `core`; its `yarn` and `kubernetes` profiles add the selected platform modules. All three children inherit this parent. The root keeps empty profiles with the same platform names so a platform-only build does not activate the default release distribution. CI explicitly selects `ci` to exclude distribution packaging.
+Arrows mean “depends on”. The root reactor has one `seatunnel-resource-managers` module entry. Its parent POM aggregates `core`, `yarn`, and `kubernetes`, and all three children inherit this parent. CI explicitly selects `ci` to exclude distribution packaging.
 
 To build the standard SeaTunnel distribution with both providers:
 
 ```shell
-./mvnw -Prelease,seatunnel,yarn,kubernetes -pl seatunnel-dist -am \
+./mvnw -Prelease,seatunnel -pl seatunnel-dist -am \
   -DskipTests -Dskip.ui=true package
 ```
 
@@ -51,11 +51,11 @@ The standard archive is `seatunnel-dist/target/apache-seatunnel-${version}-bin.t
 The unified E2E module uses Maven dependencies to prepare its test runtime, following the existing connector E2E staging mechanism:
 
 ```shell
-./mvnw -Pci,resource-managers-e2e,yarn,kubernetes \
-  -pl seatunnel-e2e/seatunnel-resource-managers-e2e -am \
-  -DskipTests -Dskip.ui=true package install:install
+./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false \
+  -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates \
+  -pl :seatunnel-resource-managers-e2e -am -Pci
 ```
 
-At `process-test-resources`, `maven-dependency-plugin:copy` stages the selected runtime artifacts under `target/test-classes/e2e-dependencies`. Tests resolve these files through the shared `DependencyJar` utility and prepare a temporary SeaTunnel directory with the repository configuration and scripts. Kubernetes builds its image from this directory; YARN compresses the directory for container localization. No prebuilt distribution or additional assembly descriptor is required. Both platform suites read the same FakeSource, Console and Assert jobs from `src/test/resources/common`; platform directories contain only Engine configuration. Follow the platform guides for running the integration tests.
+At `process-test-resources`, `maven-dependency-plugin:copy` stages both platform providers and their runtime artifacts under `target/test-classes/e2e-dependencies`. Tests resolve these files through the shared `DependencyJar` utility and prepare a temporary SeaTunnel directory with the repository configuration and scripts. Kubernetes builds its image from this directory; YARN compresses the directory for container localization. No prebuilt distribution or additional assembly descriptor is required. Both platform suites read the same FakeSource, Console and Assert jobs from `src/test/resources/common`; platform directories contain only Engine configuration. Follow the platform guides for running the integration tests.
 
 Persistent checkpoints use the existing Engine storage configuration, including HDFS and object stores. A new application can restore a previous job's checkpoint using its native job ID. This recovery path does not require Hazelcast backup replicas; automatic master failover is not provided.

@@ -76,7 +76,7 @@ For retention, storage dependencies, connector compatibility, and recovery limit
 | YARN | One ApplicationMaster and a fixed number of worker containers; a shared filesystem localizes the distribution | [YARN Application Mode](yarn/overview.md) |
 | Kubernetes | One Job hosting the master and a fixed number of worker pods; all processes use the same image | [Kubernetes Application Mode](kubernetes/overview.md) |
 
-Platform providers are optional components of the standard SeaTunnel distribution. Enable the YARN or Kubernetes provider with the `yarn` or `kubernetes` Maven profile. The result remains the standard `apache-seatunnel-<version>-bin.tar.gz`; Application Mode does not introduce a separate distribution.
+The standard SeaTunnel distribution includes both YARN and Kubernetes providers. The result remains the standard `apache-seatunnel-<version>-bin.tar.gz`; Application Mode does not introduce a separate distribution.
 
 ## Current scope
 

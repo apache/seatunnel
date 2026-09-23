@@ -16,7 +16,7 @@ title: 快速开始
 需要验证尚未发布的功能或修改代码时，在仓库根目录执行：
 
 ```bash
-./mvnw -Prelease,seatunnel,kubernetes \
+./mvnw -Prelease,seatunnel \
   -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
@@ -88,6 +88,12 @@ kubectl apply -f application-rbac.yaml
 提交用户还需要在该 Namespace 中管理 Job、ConfigMap、Service 和 Pod 的权限。
 
 ## 3. 创建作业和部署配置
+
+修改 Kubernetes 部署参数前，先复制发行包中的模板：
+
+```bash
+cp config/v1.kubernetes.conf.template kubernetes.conf
+```
 
 `job.conf`：
 

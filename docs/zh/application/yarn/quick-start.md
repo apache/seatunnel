@@ -28,7 +28,7 @@ apache-seatunnel-<version>/
 需要验证尚未发布的功能或修改代码时，在仓库根目录执行：
 
 ```bash
-./mvnw -Prelease,seatunnel,yarn \
+./mvnw -Prelease,seatunnel \
   -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
@@ -57,7 +57,13 @@ sink { Console {} }
 
 ## 3. 创建部署配置
 
-保存为 `yarn-deployment.conf`：
+复制发行包中的模板，并按目标集群修改：
+
+```bash
+cp config/v1.yarn.conf.template yarn-deployment.conf
+```
+
+生成的 `yarn-deployment.conf` 应包含：
 
 ```hocon
 application {

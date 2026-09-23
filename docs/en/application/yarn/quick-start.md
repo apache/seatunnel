@@ -28,7 +28,7 @@ apache-seatunnel-<version>/
 To test unreleased functionality or local code changes, run from the repository root:
 
 ```bash
-./mvnw -Prelease,seatunnel,yarn \
+./mvnw -Prelease,seatunnel \
   -pl seatunnel-dist -am -DskipTests -Dskip.ui=true package
 ```
 
@@ -57,7 +57,13 @@ sink { Console {} }
 
 ## 3. Create a deployment configuration
 
-Save as `yarn-deployment.conf`:
+Copy the distribution template and edit it for the target cluster:
+
+```bash
+cp config/v1.yarn.conf.template yarn-deployment.conf
+```
+
+The resulting `yarn-deployment.conf` should contain:
 
 ```hocon
 application {

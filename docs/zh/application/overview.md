@@ -76,7 +76,7 @@ checkpoint 的保留策略、存储依赖、Connector 一致性和恢复限制�
 | YARN | 一个 ApplicationMaster 和固定数量的 Worker Container；发行包通过共享文件系统本地化 | [YARN Application Mode](yarn/overview.md) |
 | Kubernetes | 一个承载 Master 的 Job 和固定数量的 Worker Pod；Master 与 Worker 使用同一镜像 | [Kubernetes Application Mode](kubernetes/overview.md) |
 
-平台 provider 是标准 SeaTunnel 发行包中的可选组件，分别通过 `yarn`、`kubernetes` Maven profile 启用。发行包仍是标准的 `apache-seatunnel-<version>-bin.tar.gz`，不会产生另一套 application 专用发行包。
+标准 SeaTunnel 发行包默认包含 YARN 和 Kubernetes provider。发行包仍是标准的 `apache-seatunnel-<version>-bin.tar.gz`，不会产生另一套 application 专用发行包。
 
 ## 能力范围
 
