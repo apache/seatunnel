@@ -32,6 +32,7 @@ Base configuration:
 | table_list                 | Array   | no       | -                            | Per-table settings for multi-table jobs. |
 | schema_save_mode           | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target schema before the job starts. |
 | data_save_mode             | enum    | no       | APPEND_DATA                  | How to handle existing table data before the job starts. |
+| multi_table_sink_replica   | int     | no       | 1                            | Replica number for every table writer in multi-table sink mode. |
 | common-options             | Config  | no       | -                            | [Common sink options](../common-options/sink-common-options.md). |
 
 Table list configuration:
