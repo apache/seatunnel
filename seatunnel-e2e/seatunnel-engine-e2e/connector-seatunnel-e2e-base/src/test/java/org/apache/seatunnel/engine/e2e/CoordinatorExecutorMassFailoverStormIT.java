@@ -361,7 +361,7 @@ public class CoordinatorExecutorMassFailoverStormIT {
             //      connection close immediately, but the pending Hazelcast invocation does not
             //      fail fast -- it only surfaces once the operation-heartbeat-timeout gives up on
             //      it, up to ~120s later (TaskExecutionService#updateMetricsContextInImap,
-            //      TaskExecutionService.java:880 and 893-901). That task still completes CANCELED
+            //      TaskExecutionService.java:936 and 946-950). That task still completes CANCELED
             //      (it was already flagged for cancellation), just ~120s after its siblings.
             //   3. Only once every task in the pipeline has completed does
             //      SubPlan#getPipelineEndState() (SubPlan.java:250-259) make the final call: it
