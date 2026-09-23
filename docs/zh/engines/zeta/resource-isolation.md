@@ -47,7 +47,7 @@ SeaTunnel支持对每个实例添加`tag`, 然后在提交任务时可以在配�
 
 2. 在任务的配置中添加`tag_filter`来选择你需要运行该任务的节点
 
-```hacon
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"

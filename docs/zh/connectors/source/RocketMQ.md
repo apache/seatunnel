@@ -285,7 +285,7 @@ sink {
 
 ### RocketMQ 源连接器支持哪些起始消费位点模式？
 
-通过 `start.mode` 参数支持从最早位点（`CONSUME_FROM_FIRST_OFFSET`）、最新位点（`CONSUME_FROM_LAST_OFFSET`）或指定时间戳位点（`CONSUME_FROM_TIMESTAMP`）开始读取数据。
+通过 `start.mode` 参数支持从消费组位点（`CONSUME_FROM_GROUP_OFFSETS`，默认值）、最早位点（`CONSUME_FROM_FIRST_OFFSET`）、最新位点（`CONSUME_FROM_LAST_OFFSET`）、指定位点时间戳（`CONSUME_FROM_TIMESTAMP`，配合 `start.mode.timestamp`）或指定位点（`CONSUME_FROM_SPECIFIC_OFFSETS`，配合 `start.mode.offsets`）开始读取数据。
 
 ### 作业发生故障恢复时如何保证消费位点一致性？
 

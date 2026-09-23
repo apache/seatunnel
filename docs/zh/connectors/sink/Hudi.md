@@ -107,7 +107,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 ### op_type [enum]
 
-`op_type` Hudi 表的操作类型。值可以是 `insert`、`upsert` 或 `bulk_insert`。
+`op_type` Hudi 表的操作类型。值可以是 `INSERT`、`UPSERT` 或 `BULK_INSERT`。
 
 ### batch_interval_ms [Int]
 

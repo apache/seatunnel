@@ -400,7 +400,7 @@ When subscribing to partitioned topics or topic patterns (`topic-pattern`), SeaT
 
 ### Which cursor reset strategies and subscription modes are supported?
 
-The source supports `EARLIEST` and `LATEST` startup modes through `cursor.startup.mode`. Consumers join the subscription with configurable subscription types (e.g. `Failover` or `Exclusive`), and SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
+The source supports `EARLIEST`, `LATEST`, `SUBSCRIPTION` and `TIMESTAMP` startup modes through `cursor.startup.mode`. Consumers join the subscription with configurable subscription types (e.g. `Failover` or `Exclusive`), and SeaTunnel checkpoints message IDs to ensure reliable playback on failure.
 
 ### How do I configure authentication for secure Pulsar clusters?
 

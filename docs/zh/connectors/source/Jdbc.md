@@ -284,7 +284,8 @@ int_type_narrowing = false
 | SqlServer | Tablestore | Teradata |
 | Vertica   | OceanBase | XUGU |
 | IRIS      | Inceptor | Highgo |
-| YashanDB  |          |          |
+| OpenGauss | Presto   | Dsql   |
+| DuckDB    | YashanDB |        |
 
 达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
 

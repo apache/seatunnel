@@ -204,10 +204,10 @@ seatunnel:
           namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
           storage.type: hdfs
           fs.defaultFS: hdfs://localhost:9000
-          // if you used kerberos, you can config like this:
+          # if you used kerberos, you can config like this:
           kerberosPrincipal: your-kerberos-principal
           kerberosKeytabFilePath: your-kerberos-keytab
-          // if you need hdfs-site config, you can config like this:
+          # if you need hdfs-site config, you can config like this:
           hdfs_site_path: /path/to/your/hdfs_site_path
 ```
 
