@@ -39,6 +39,12 @@
             </includes>
             <excludes>
                 <exclude>**/target/**</exclude>
+                <!-- build-generated poms written at module roots by
+                     flatten-maven-plugin and maven-shade-plugin during a
+                     full build; they are gitignored and must not leak into
+                     the source release -->
+                <exclude>**/.flattened-pom.xml</exclude>
+                <exclude>**/dependency-reduced-pom.xml</exclude>
                 <exclude>**/.settings/**</exclude>
                 <exclude>**/.project</exclude>
                 <exclude>**/.classpath</exclude>

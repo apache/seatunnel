@@ -42,9 +42,15 @@
                 <exclude>**/*.class</exclude>
                 <exclude>**/*.jar</exclude>
                 <exclude>**/*.war</exclude>
-                <exclude>**/*.zip</exclude>
                 <exclude>**/*.tar</exclude>
                 <exclude>**/*.tar.gz</exclude>
+
+                <!-- build-generated poms written at module roots by
+                     flatten-maven-plugin and maven-shade-plugin during a
+                     full build; they are gitignored and must not leak into
+                     the source release -->
+                <exclude>**/.flattened-pom.xml</exclude>
+                <exclude>**/dependency-reduced-pom.xml</exclude>
 
                 <!-- maven plugin ignore -->
                 <exclude>release.properties</exclude>
@@ -56,6 +62,10 @@
                      frontend-maven-plugin, they are not part of the source release -->
                 <exclude>**/node_modules/**</exclude>
                 <exclude>**/node/**</exclude>
+                <!-- compiled frontend bundle generated into the engine-server
+                     resources by the frontend build; not part of the source
+                     release -->
+                <exclude>seatunnel-engine/seatunnel-engine-server/src/main/resources/ui/**</exclude>
                 <!--github ignore-->
                 <exclude>**/.github/**</exclude>
                 <exclude>**/.dlc.json</exclude>
@@ -85,6 +95,29 @@
                 <!-- system ignore -->
                 <exclude>**/.DS_Store</exclude>
                 <exclude>**/Thumbs.db</exclude>
+            </excludes>
+        </fileSet>
+        <!-- Re-add the git housekeeping files that the default excludes drop,
+             so the source archive matches `git archive` of the tag -->
+        <fileSet>
+            <directory>../</directory>
+            <useDefaultExcludes>false</useDefaultExcludes>
+            <includes>
+                <include>**/.gitignore</include>
+                <include>**/.gitattributes</include>
+                <include>**/.gitmodules</include>
+            </includes>
+            <excludes>
+                <exclude>**/target/**</exclude>
+                <exclude>**/node_modules/**</exclude>
+                <exclude>**/node/**</exclude>
+                <exclude>**/.git/**</exclude>
+                <exclude>**/.svn/**</exclude>
+                <exclude>**/.hg/**</exclude>
+                <exclude>**/.bzr/**</exclude>
+                <exclude>**/.github/**</exclude>
+                <exclude>**/.idea/**</exclude>
+                <exclude>**/.settings/**</exclude>
             </excludes>
         </fileSet>
     </fileSets>
