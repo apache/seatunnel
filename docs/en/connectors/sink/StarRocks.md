@@ -108,9 +108,9 @@ You can use the following placeholders
 
 ### table [string]
 
-Use `database` and this `table-name` auto-generate sql and receive upstream input datas write to database.
+Together with `database`, this option identifies the target StarRocks table that receives the upstream data.
 
-This option is mutually exclusive with `query` and has a higher priority.
+If `table` is not set, the upstream table name is used.
 
 The table parameter can fill in the name of an unwilling table, which will eventually be used as the table name of the creation table, and supports variables (`${table_name}`, `${schema_name}`). Replacement rules: `${schema_name}` will replace the SCHEMA name passed to the target side, and `${table_name}` will replace the name of the table passed to the table at the target side.
 

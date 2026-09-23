@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-http-zendesk.md';
 | rate_limit_backoff_ms    | int     | 否   | 30000  | 收到 429（速率限制）响应时的基础退避时间（毫秒）。默认 30000ms。必须 `>= 0`。 |
 | resource_key             | String  | 否   | -      | Zendesk API 请求体的 JSON 包装键（如 `"ticket"`、`"user"`、`"organization"`）。设置后将直接使用该值，而不从 URL 路径自动推断。适用于自动推断无法正确处理的端点。 |
 | rate_limit_max_retries   | int     | 否   | 3      | 收到 429 响应后的最大重试次数。默认 3。必须 `>= 0`。 |
+| multi_table_sink_replica | int     | 否   | 1      | 多表写入模式下每张表对应的 Sink 写入并发数。 |
 | common-options           |         | 否   | -      | Sink 通用选项。参见 [Sink 通用选项](../common-options/sink-common-options.md)。 |
 
 ## 使用说明

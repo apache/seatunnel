@@ -32,6 +32,7 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | table_list                 | array  | 否      | -                            |
 | schema_save_mode           | enum   | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | data_save_mode             | enum   | 否      | APPEND_DATA                  |
+| multi_table_sink_replica   | int    | 否      | 1                            |
 | common-options             | config | 否      | -                            |
 
 表清单配置:
@@ -56,7 +57,9 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 | record_byte_size           | int    | 否       | 1024          |
 | cdc_enabled                | boolean| 否       | false         |
 
-注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。
+注意：写入单表时，可以把 `table_list` 中的表配置项平铺到外层。多表作业中，表级配置需放在各自的 `table_list` 条目内；`table_dfs_path`、`conf_files_path`、`schema_save_mode` 和 `data_save_mode` 保持在 sink 层级。
+
+`record_key_fields` 在 `UPSERT` 模式下必填（启动时校验），在 `BULK_INSERT` 模式下也必填（当前未校验——缺少该配置会在写入时抛出 `NullPointerException`，而不是配置期错误）。对于 CDC 输入，上游记录必须包含 `record_key_fields` 引用的字段；仅当需要 Hudi CDC 变更日志时才设置 `cdc_enabled = true`。
 
 ### table_name [string]
 
@@ -270,6 +273,22 @@ sink {
     op_type = "UPSERT"
     record_key_fields = "id"
     cdc_enabled = true
+  }
+}
+```
+
+### S3 存储
+
+sink 可以写入 S3 兼容路径。`connector-hudi` 模块不依赖 `hadoop-aws`/`aws-java-sdk`，因此要解析 `s3a://` 协议，需要先将 `hadoop-aws` 和匹配的 AWS SDK 包（或 SeaTunnel 的 `seatunnel-hadoop-aws` jar）放入 `$SEATUNNEL_HOME/lib`（或连接器的插件 lib 目录），下面的示例才能运行。之后通过 `conf_files_path`（或运行时 classpath）提供所需的 Hadoop 文件系统配置，再使用 `s3a://` 表路径。
+
+```hocon
+sink {
+  Hudi {
+    table_dfs_path = "s3a://hudi/"
+    conf_files_path = "/etc/hadoop/core-site.xml;/etc/hadoop/hdfs-site.xml"
+    table_name = "st_test"
+    op_type = "UPSERT"
+    record_key_fields = "id"
   }
 }
 ```
