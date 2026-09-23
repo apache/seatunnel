@@ -192,6 +192,12 @@ public class ActivemqSourceReader implements SourceReader<SeaTunnelRow, Split> {
                             throw new IOException(
                                     "ActiveMQ source received a null TextMessage payload");
                         }
+                        // The shared text deserializer emits no row for an empty payload. Never
+                        // acknowledge a queue message that would be silently dropped.
+                        if (text.isEmpty()) {
+                            throw new IOException(
+                                    "ActiveMQ source received an empty TextMessage payload");
+                        }
                         try {
                             byte[] payload = text.getBytes(StandardCharsets.UTF_8);
                             if (deserializer instanceof JsonDeserializationSchema) {

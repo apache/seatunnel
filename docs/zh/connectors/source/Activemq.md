@@ -70,7 +70,7 @@ limitations under the License.
 
 ### format / field_delimiter
 
-`JSON` 按 `schema` 映射对象或对象数组；`TEXT` 使用现有分隔文本反序列化器，分隔符 `field_delimiter` 默认为 `,`。仅支持 `TextMessage`；对象消息、字节消息、空消息体和无效内容使任务失败且不确认该消息，不进行 Java 对象反序列化。反序列化或输出失败时不保留可能包含消息内容的原始异常详情；请通过有权限的代理客户端检查消息与 schema、format 是否匹配。
+`JSON` 按 `schema` 映射对象或对象数组；`TEXT` 使用现有分隔文本反序列化器，分隔符 `field_delimiter` 默认为 `,`。仅支持 `TextMessage`；对象消息、字节消息、null 或空字符串消息体以及无效内容使任务失败且不确认该消息，不进行 Java 对象反序列化。反序列化或输出失败时不保留可能包含消息内容的原始异常详情；请通过有权限的代理客户端检查消息与 schema、format 是否匹配。
 
 ### max_in_flight_messages [int]
 

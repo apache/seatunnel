@@ -70,7 +70,7 @@ Optional credentials, which must be configured together. When omitted, the clien
 
 ### format / field_delimiter
 
-`JSON` maps an object or an array of objects using `schema`. `TEXT` uses the existing delimited text deserializer, with `field_delimiter` (default `,`). Only JMS `TextMessage` is accepted; `ObjectMessage`, `BytesMessage`, null bodies and invalid payloads fail the task without acknowledging that message. No Java object payload is deserialized. Deserialization/emission failures omit the original exception details because those details can contain the queue payload; verify the schema and format against the message through an authorized broker client.
+`JSON` maps an object or an array of objects using `schema`. `TEXT` uses the existing delimited text deserializer, with `field_delimiter` (default `,`). Only JMS `TextMessage` is accepted; `ObjectMessage`, `BytesMessage`, null or empty bodies, and invalid payloads fail the task without acknowledging that message. No Java object payload is deserialized. Deserialization/emission failures omit the original exception details because those details can contain the queue payload; verify the schema and format against the message through an authorized broker client.
 
 ### max_in_flight_messages [int]
 

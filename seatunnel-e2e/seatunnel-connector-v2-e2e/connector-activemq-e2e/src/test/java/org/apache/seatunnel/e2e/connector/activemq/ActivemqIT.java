@@ -227,6 +227,16 @@ public class ActivemqIT extends TestSuiteBase implements TestResource {
         assertEquals("not-json", receive(queue));
     }
 
+    @Test
+    public void testSourceEmptyTextMessageRemainsOnQueue() throws Exception {
+        String queue = newQueue();
+        publish(queue, "");
+        try (SourceReader<SeaTunnelRow, Split> reader = createReader(queue, "TEXT")) {
+            assertThrows(IOException.class, () -> reader.pollNext(new RowCollector()));
+        }
+        assertEquals("", receive(queue));
+    }
+
     @TestTemplate
     @DisabledOnContainer(
             value = {},

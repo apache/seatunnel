@@ -235,6 +235,15 @@ class ActivemqSourceReaderTest {
     }
 
     @Test
+    void rejectsEmptyTextPayloadWithoutAcknowledging() throws Exception {
+        TextMessage message = enqueue("");
+        assertThrows(IOException.class, () -> reader.pollNext(collector));
+        verify(deserializer, never()).deserialize(any(byte[].class), eq(collector));
+        verify(message, never()).acknowledge();
+        assertThrows(IOException.class, () -> reader.snapshotState(1));
+    }
+
+    @Test
     void closeDoesNotAcknowledgeAndClosesAllResources() throws Exception {
         TextMessage message = enqueue("pending");
         reader.pollNext(collector);
