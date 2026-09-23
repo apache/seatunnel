@@ -81,6 +81,20 @@
             <artifactId>hadoop-minicluster</artifactId>
             <version>${seatunnel.shade.hadoop.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <!-- Kubernetes client 19.0.1 requires Gson 2.10.1; Hadoop 3.1.4 brings 2.2.4. -->
+                <exclusion>
+                    <groupId>com.google.code.gson</groupId>
+                    <artifactId>gson</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <!-- Hadoop MiniYARNCluster's JAXB web application needs this API on Java 11+. -->
+            <groupId>javax.activation</groupId>
+            <artifactId>javax.activation-api</artifactId>
+            <version>1.2.0</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
