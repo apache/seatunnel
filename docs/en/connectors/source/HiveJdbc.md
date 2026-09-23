@@ -53,7 +53,7 @@ authentication is supported.
 |                                      Hive Data Type                                       | SeaTunnel Data Type |
 |-------------------------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                                   | BOOLEAN             |
-| TINYINT                                                                                              | TINYINT             |
+| TINYINT                                                                                              | BYTE             |
 | SMALLINT                                                                                             | SHORT               |
 | INT<br/>INTEGER                                                                           | INT                 |
 | BIGINT                                                                                    | LONG                |

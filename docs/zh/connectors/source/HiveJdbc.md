@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | Hive 数据类型                                                                                 | SeaTunnel 数据类型    |
 |-------------------------------------------------------------------------------------------|-------------------|
 | BOOLEAN                                                                                   | BOOLEAN           |
-| TINYINT                                                                                    | TINYINT           |
+| TINYINT                                                                                    | BYTE           |
 | SMALLINT                                                                                   | SHORT             |
 | INT<br/>INTEGER                                                                           | INT               |
 | BIGINT                                                                                    | LONG              |
