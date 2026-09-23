@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                                   Oracle 数据类型                                   | SeaTunnel 数据类型 |
 |--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
+| INTEGER                                                                              | DECIMAL(38,0)       |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
@@ -59,7 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
+| DATE                                                                                 | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
@@ -72,8 +72,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -                            | 连接实例用户名。                                                                                                                                                                                                                  |
 | password                     | String  | 否       | -                            | 连接实例密码。                                                                                                                                                                                                                   |
 | query                        | String  | 否       | -                            | 使用此sql将上游输入数据写入数据库。例如： `INSERT ...`,`query` 具有更高的优先级                                                                                                                                           |
-| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                       |
-| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                           |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                       |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                           |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
