@@ -249,9 +249,9 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
      * Column#enumValues()} and the value of {@link Column#length()} is only a bookkeeping count
      * ({@code 2 * options - 1}). Appending it would produce a type such as {@code SET(5)}, which is
      * not valid DDL, and that value reaches generated auto-create statements through {@code
-     * Column#getSourceType()} (see <a href="https://github.com/apache/seatunnel/issues/12354">issue
-     * #12354</a>). Render the option list instead, the way the base implementation renders length
-     * and scale for other types.
+     * org.apache.seatunnel.api.table.catalog.Column#getSourceType()} (see <a
+     * href="https://github.com/apache/seatunnel/issues/12354">issue #12354</a>). Render the option
+     * list instead, the way the base implementation renders length and scale for other types.
      */
     @Override
     public String getSourceColumnTypeWithLengthScale(Column column) {
