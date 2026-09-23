@@ -106,6 +106,12 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private Set<String> connectorJarFingerprintsBeforeTest;
     private Set<String> runtimeLibraryFingerprintsBeforeTest;
     private Set<String> temporaryConfigsBeforeTest;
+    private volatile boolean abfsThreadExemptionEnabled;
+
+    /** Allows Hadoop ABFS daemon threads during an ADLS E2E job on this container. */
+    public void setAbfsThreadExemptionEnabled(boolean enabled) {
+        abfsThreadExemptionEnabled = enabled;
+    }
 
     @Override
     public void startUp() throws Exception {
@@ -156,6 +162,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
                 CONTAINER_HADOOP_JAR_PATH.toString());
         applyJavaToolOptions(server);
+        applyEnvironmentVariables(server);
         // execute extra commands
         executeExtraCommands(server);
 
@@ -861,6 +868,14 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         // The shaded GCS client's OpenCensus exporters are JVM-global daemon threads. Their names
         // are shared by other OpenCensus users, so exempt them only for the GCS E2E lifecycle.
         if (isGcsOpenCensusThreadExempt(threadName)) {
+            return true;
+        }
+        // Hadoop's ABFS read-ahead workers and throttling timers are daemon threads that outlive
+        // a job in the SeaTunnel server JVM. Exempt them only during the ADLS E2E invocation.
+        if (abfsThreadExemptionEnabled
+                && (threadName.matches("ABFS-prefetch-\\d+")
+                        || threadName.equals("abfs-timer-client-throttling-analyzer-read")
+                        || threadName.equals("abfs-timer-client-throttling-analyzer-write"))) {
             return true;
         }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder

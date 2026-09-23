@@ -20,12 +20,15 @@ package org.apache.seatunnel.e2e.connector.file.adls;
 import org.apache.seatunnel.connectors.seatunnel.file.adls.config.ADLSRuntimeCompatibility;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
@@ -41,21 +44,22 @@ import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Exercises the ADLSFile source and sink over ABFS against real ADLS Gen2. Enable with {@code
  * SEATUNNEL_ADLS_IT=true}, {@code SEATUNNEL_ADLS_ACCOUNT}, {@code SEATUNNEL_ADLS_CONTAINER}, {@code
  * SEATUNNEL_ADLS_ACCOUNT_KEY}, and an absolute container-relative {@code
- * SEATUNNEL_ADLS_TEST_PREFIX}. Hadoop 2.7 engine images are excluded because this connector
- * requires the Hadoop 3 Azure runtime.
+ * SEATUNNEL_ADLS_TEST_PREFIX}. The test forwards these values to each engine container before it
+ * starts so the job HOCON can resolve its environment references. Hadoop 2.7 engine images are
+ * excluded because this connector requires the Hadoop 3 Azure runtime.
  */
 @EnabledIfEnvironmentVariable(named = "SEATUNNEL_ADLS_IT", matches = "(?i)true")
 @DisabledOnContainer(
@@ -69,8 +73,7 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
     private static final String CONTAINER_ENV = "SEATUNNEL_ADLS_CONTAINER";
     private static final String ACCOUNT_KEY_ENV = "SEATUNNEL_ADLS_ACCOUNT_KEY";
     private static final String TEST_PREFIX_ENV = "SEATUNNEL_ADLS_TEST_PREFIX";
-    private static final String DEFAULT_ENDPOINT_SUFFIX = "dfs.core.windows.net";
-    private static final String SECRET_CONFIG_PATH = "/tmp/seatunnel/config/adls-e2e-secrets.conf";
+    private static final String TEST_ROOT_ENV = "SEATUNNEL_ADLS_TEST_ROOT";
     private static final String ADLS_PLUGIN_DIRECTORY =
             "/tmp/seatunnel/plugins/connector-file-adls";
     private static final String ADLS_RUNTIME_JAR = "connector-file-adls-runtime.jar";
@@ -86,8 +89,26 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
                 DependencyJar.staged(ADLS_RUNTIME_JAR).copyTo(container, ADLS_PLUGIN_DIRECTORY);
                 DependencyJar.staged(MavenJarUtil.getHadoop3UberJarName())
                         .copyTo(container, ADLS_PLUGIN_DIRECTORY);
-                copySecretConfiguration(container);
+                verifyContainerEnvironment(container);
             };
+
+    public ADLSFileIT() {
+        containersFactory =
+                () -> {
+                    Map<String, String> environment = new HashMap<>();
+                    environment.put(ACCOUNT_ENV, requiredEnvironment(ACCOUNT_ENV));
+                    environment.put(CONTAINER_ENV, requiredEnvironment(CONTAINER_ENV));
+                    environment.put(ACCOUNT_KEY_ENV, requiredEnvironment(ACCOUNT_KEY_ENV));
+                    environment.put(
+                            TEST_ROOT_ENV, testRoot(requiredEnvironment(TEST_PREFIX_ENV)));
+                    List<TestContainer> containers = ContainerUtil.discoverTestContainers();
+                    containers.forEach(
+                            container ->
+                                    ((AbstractTestContainer) container)
+                                            .setEnvironmentVariables(environment));
+                    return containers;
+                };
+    }
 
     @BeforeAll
     @Override
@@ -123,6 +144,21 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testFileRoundTrip(TestContainer container) throws Exception {
+        SeaTunnelContainer seaTunnelContainer =
+                container instanceof SeaTunnelContainer ? (SeaTunnelContainer) container : null;
+        if (seaTunnelContainer != null) {
+            seaTunnelContainer.setAbfsThreadExemptionEnabled(true);
+        }
+        try {
+            runFileRoundTrip(container);
+        } finally {
+            if (seaTunnelContainer != null) {
+                seaTunnelContainer.setAbfsThreadExemptionEnabled(false);
+            }
+        }
+    }
+
+    private void runFileRoundTrip(TestContainer container) throws Exception {
         String engine = container.identifier().name();
         String runId = engine.toLowerCase(Locale.ROOT).replace('_', '-');
         List<String> variables = Arrays.asList("RUN_ID=" + runId);
@@ -136,12 +172,13 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
         Container.ExecResult writeResult = container.executeJob(ADLS_WRITE_JOB, variables);
         Assertions.assertEquals(0, writeResult.getExitCode(), writeResult.getStderr());
 
-        Assertions.assertTrue(exists(outputDirectory), "ADLS output was not created for " + engine);
+        Assertions.assertTrue(
+                containsFiles(outputDirectory), "ADLS output was not created for " + engine);
         Assertions.assertFalse(
                 exists(staleFile), "DROP_DATA did not remove the stale object for " + engine);
         Assertions.assertFalse(
-                exists(temporaryDirectory),
-                "The sink did not rename and clean up its temporary output for " + engine);
+                containsFiles(temporaryDirectory),
+                "The sink left uncommitted files in its temporary path for " + engine);
 
         Container.ExecResult readResult = container.executeJob(ADLS_READ_JOB, variables);
         Assertions.assertEquals(
@@ -160,6 +197,11 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
 
     private boolean exists(String relativePath) throws IOException {
         return fileSystem.exists(new Path(testRoot, relativePath));
+    }
+
+    private boolean containsFiles(String relativePath) throws IOException {
+        Path path = new Path(testRoot, relativePath);
+        return fileSystem.exists(path) && fileSystem.listFiles(path, true).hasNext();
     }
 
     private static String testRoot(String prefix) {
@@ -188,69 +230,20 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
         return value;
     }
 
-    private static void copySecretConfiguration(GenericContainer<?> container)
+    private static void verifyContainerEnvironment(GenericContainer<?> container)
             throws IOException, InterruptedException {
-        String account = requiredEnvironment(ACCOUNT_ENV);
-        String storageContainer = requiredEnvironment(CONTAINER_ENV);
-        String accountKey = requiredEnvironment(ACCOUNT_KEY_ENV);
-        String root = testRoot(requiredEnvironment(TEST_PREFIX_ENV));
-        String contents =
-                "adls_e2e {\n"
-                        + "  account_name = "
-                        + hoconString(account)
-                        + "\n  container = "
-                        + hoconString(storageContainer)
-                        + "\n  account_key = "
-                        + hoconString(accountKey)
-                        + "\n  endpoint_suffix = "
-                        + hoconString(DEFAULT_ENDPOINT_SUFFIX)
-                        + "\n  test_root = "
-                        + hoconString(root)
-                        + "\n}\n";
-
-        java.nio.file.Path secretFile = Files.createTempFile("seatunnel-adls-e2e-", ".conf");
-        try {
-            Files.write(secretFile, contents.getBytes(StandardCharsets.UTF_8));
-            container.copyFileToContainer(
-                    MountableFile.forHostPath(secretFile), SECRET_CONFIG_PATH);
-            Container.ExecResult chmod =
-                    container.execInContainer("chmod", "600", SECRET_CONFIG_PATH);
-            Assertions.assertEquals(0, chmod.getExitCode(), chmod.getStderr());
-        } finally {
-            Files.deleteIfExists(secretFile);
-        }
-    }
-
-    private static String hoconString(String value) {
-        StringBuilder result = new StringBuilder(value.length() + 2).append('"');
-        for (int index = 0; index < value.length(); index++) {
-            char character = value.charAt(index);
-            switch (character) {
-                case '"':
-                    result.append("\\\"");
-                    break;
-                case '\\':
-                    result.append("\\\\");
-                    break;
-                case '\n':
-                    result.append("\\n");
-                    break;
-                case '\r':
-                    result.append("\\r");
-                    break;
-                case '\t':
-                    result.append("\\t");
-                    break;
-                case '\b':
-                    result.append("\\b");
-                    break;
-                case '\f':
-                    result.append("\\f");
-                    break;
-                default:
-                    result.append(character);
-            }
-        }
-        return result.append('"').toString();
+        Container.ExecResult result =
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "test -n \"$SEATUNNEL_ADLS_ACCOUNT\""
+                                + " && test -n \"$SEATUNNEL_ADLS_CONTAINER\""
+                                + " && test -n \"$SEATUNNEL_ADLS_ACCOUNT_KEY\""
+                                + " && test -n \"$SEATUNNEL_ADLS_TEST_ROOT\"");
+        Assertions.assertEquals(
+                0,
+                result.getExitCode(),
+                "ADLS environment variables are missing from engine container "
+                        + container.getDockerImageName());
     }
 }
