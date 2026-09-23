@@ -129,13 +129,13 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
                     specification.write(localSpecification.toPath());
                     fileSystem.copyFromLocalFile(
                             new Path(localSpecification.toURI()),
-                            new Path(staging, YarnContainerLaunch.SPECIFICATION));
+                            new Path(staging, YarnContainerLaunch.LOCALIZED_SPECIFICATION_NAME));
                 } finally {
                     Files.deleteIfExists(localSpecification.toPath());
                 }
                 try (FSDataOutputStream output =
                         fileSystem.create(
-                                new Path(staging, YarnContainerLaunch.HADOOP_CONFIGURATION),
+                                new Path(staging, YarnContainerLaunch.LOCALIZED_HADOOP_CONFIG_NAME),
                                 false)) {
                     configuration.writeXml(output);
                 }

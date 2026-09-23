@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.yarn.cluster;
 
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
@@ -39,7 +40,6 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
 import java.util.zip.GZIPOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;

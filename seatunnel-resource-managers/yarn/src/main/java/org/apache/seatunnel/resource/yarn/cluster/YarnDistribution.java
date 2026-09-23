@@ -129,6 +129,6 @@ public final class YarnDistribution {
     }
 
     String localizedHome() {
-        return YarnContainerLaunch.DISTRIBUTION + "/" + root;
+        return YarnContainerLaunch.LOCALIZED_DISTRIBUTION_NAME + "/" + root;
     }
 }

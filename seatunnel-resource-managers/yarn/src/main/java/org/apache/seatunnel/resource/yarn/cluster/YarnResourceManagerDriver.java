@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.resource.yarn.cluster;
 
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
@@ -42,7 +43,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;

@@ -47,7 +47,8 @@ public final class YarnApplicationMaster {
     /** Runs the native job and releases staged artifacts on normal or interrupted shutdown. */
     public static void main(String[] args) throws Exception {
         Configuration configuration =
-                YarnConfigurationUtils.loadLocalized(YarnContainerLaunch.HADOOP_CONFIGURATION);
+                YarnConfigurationUtils.loadLocalized(
+                        YarnContainerLaunch.LOCALIZED_HADOOP_CONFIG_NAME);
         Path staging = YarnStagingDirectory.fromEnvironment();
         Thread cleanup =
                 new Thread(
@@ -74,7 +75,8 @@ public final class YarnApplicationMaster {
                                     .getApplicationId()
                                     .toString());
             ApplicationSpecification specification =
-                    ApplicationSpecification.read(Paths.get(YarnContainerLaunch.SPECIFICATION));
+                    ApplicationSpecification.read(
+                            Paths.get(YarnContainerLaunch.LOCALIZED_SPECIFICATION_NAME));
             result =
                     ApplicationRuntime.run(
                             id,

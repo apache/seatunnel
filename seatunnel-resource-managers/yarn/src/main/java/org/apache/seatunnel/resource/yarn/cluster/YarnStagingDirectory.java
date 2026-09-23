@@ -29,7 +29,7 @@ public final class YarnStagingDirectory {
 
     /** Resolves the application-owned remote directory supplied by the NodeManager launcher. */
     public static Path fromEnvironment() {
-        String staging = System.getenv(YarnContainerLaunch.STAGING_ENV);
+        String staging = System.getenv(YarnContainerLaunch.STAGING_DIRECTORY_ENV);
         if (staging == null || staging.isEmpty()) {
             throw new IllegalStateException("YARN application staging environment is missing");
         }

@@ -40,13 +40,14 @@ import java.util.Map;
 
 /** Localizes the exact same distribution for the master and every worker. */
 public final class YarnContainerLaunch {
-    static final String DISTRIBUTION = "seatunnel";
+    /** Directory name under which YARN expands the localized SeaTunnel distribution archive. */
+    static final String LOCALIZED_DISTRIBUTION_NAME = "seatunnel";
     /** Localized job specification shared by the submitting client and ApplicationMaster. */
-    public static final String SPECIFICATION = "application.properties";
+    public static final String LOCALIZED_SPECIFICATION_NAME = "application.properties";
     /** Merged Hadoop settings loaded from each container's private working directory. */
-    public static final String HADOOP_CONFIGURATION = "core-site.xml";
+    public static final String LOCALIZED_HADOOP_CONFIG_NAME = "hadoop-conf.xml";
     /** Remote directory owned by this application and removed during terminal cleanup. */
-    public static final String STAGING_ENV = "SEATUNNEL_YARN_STAGING";
+    public static final String STAGING_DIRECTORY_ENV = "SEATUNNEL_YARN_STAGING";
 
     private YarnContainerLaunch() {}
 
@@ -93,20 +94,23 @@ public final class YarnContainerLaunch {
             YarnDistribution distribution = YarnDistribution.read(fileSystem, staging);
             home = distribution.localizedHome();
             resources.put(
-                    DISTRIBUTION,
+                    LOCALIZED_DISTRIBUTION_NAME,
                     resource(fileSystem, distribution.archive(staging), LocalResourceType.ARCHIVE));
             resources.put(
-                    SPECIFICATION,
-                    resource(fileSystem, new Path(staging, SPECIFICATION), LocalResourceType.FILE));
-            resources.put(
-                    HADOOP_CONFIGURATION,
+                    LOCALIZED_SPECIFICATION_NAME,
                     resource(
                             fileSystem,
-                            new Path(staging, HADOOP_CONFIGURATION),
+                            new Path(staging, LOCALIZED_SPECIFICATION_NAME),
+                            LocalResourceType.FILE));
+            resources.put(
+                    LOCALIZED_HADOOP_CONFIG_NAME,
+                    resource(
+                            fileSystem,
+                            new Path(staging, LOCALIZED_HADOOP_CONFIG_NAME),
                             LocalResourceType.FILE));
         }
         Map<String, String> environment = new HashMap<>();
-        environment.put(STAGING_ENV, staging.toString());
+        environment.put(STAGING_DIRECTORY_ENV, staging.toString());
         // ApplicationConstants expands on the NodeManager, never on the submitting host.
         String workingDirectory = ApplicationConstants.Environment.PWD.$$();
         environment.put("SEATUNNEL_HOME", workingDirectory + "/" + home);

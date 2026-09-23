@@ -155,11 +155,17 @@ class YarnApplicationTest {
             assertFalse(launch.getCommands().get(0).contains("starter/*"));
             assertTrue(launch.getCommands().get(0).contains("starter/logging/*"));
             assertTrue(launch.getCommands().get(0).contains(YarnApplicationMaster.class.getName()));
-            Path staging = new Path(launch.getEnvironment().get(YarnContainerLaunch.STAGING_ENV));
+            Path staging =
+                    new Path(
+                            launch.getEnvironment().get(YarnContainerLaunch.STAGING_DIRECTORY_ENV));
             try (FileSystem fileSystem = FileSystem.newInstance(configuration)) {
                 assertEquals(
                         (short) 0700, fileSystem.getFileStatus(staging).getPermission().toShort());
-                assertTrue(fileSystem.exists(new Path(staging, YarnContainerLaunch.SPECIFICATION)));
+                assertTrue(
+                        fileSystem.exists(
+                                new Path(
+                                        staging,
+                                        YarnContainerLaunch.LOCALIZED_SPECIFICATION_NAME)));
             }
             deployed.cancel();
             assertFalse(Files.exists(Paths.get(staging.toUri())));

@@ -33,7 +33,8 @@ public final class YarnResourceManagerDriverFactory implements ResourceManagerDr
     @Override
     public ResourceManagerDriver create(ApplicationSpecification specification) throws Exception {
         return new YarnResourceManagerDriver(
-                YarnConfigurationUtils.loadLocalized(YarnContainerLaunch.HADOOP_CONFIGURATION),
+                YarnConfigurationUtils.loadLocalized(
+                        YarnContainerLaunch.LOCALIZED_HADOOP_CONFIG_NAME),
                 YarnStagingDirectory.fromEnvironment());
     }
 }
