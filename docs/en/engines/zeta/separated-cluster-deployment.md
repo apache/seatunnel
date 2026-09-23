@@ -202,6 +202,14 @@ seatunnel:
     state-cleanup-delay-ms: 60000
 ```
 
+The `/system-monitoring-information` REST API asks every cluster member for its health metrics. All members share one deadline controlled by `health-metrics-timeout-seconds`, whose default value is `3` seconds. A member that does not answer within this deadline is reported with its address and a `timeout` marker instead of blocking the whole response, so the total latency of the API no longer grows with the number of unreachable members.
+
+```yaml
+seatunnel:
+  engine:
+    health-metrics-timeout-seconds: 3
+```
+
 ### 4.5 Class Loader Cache Mode
 
 This configuration mainly solves the problem of resource leakage caused by continuously creating and attempting to destroy class loaders.
