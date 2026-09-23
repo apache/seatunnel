@@ -406,9 +406,17 @@ public class PhysicalVertex {
         }
     }
 
+    /**
+     * Requests cancellation and publishes any terminal result received while state processing was
+     * stopped for pipeline restore.
+     */
     public synchronized void cancel() {
         if (!getExecutionState().isEndState()) {
             updateTaskState(ExecutionState.CANCELING);
+        } else {
+            // A late terminal callback may arrive before this vertex resumes. Its new completion
+            // future still needs to be resolved without changing the terminal state.
+            stateProcess();
         }
     }
 

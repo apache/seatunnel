@@ -66,6 +66,9 @@ Usage: seatunnel.sh [options]
 bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
+未使用 `--async` 时，客户端会等待作业的最终结果。如果作业在任务启动或自动恢复期间持续失败，例如
+Paimon source 缺少 `SELECT` 权限，达到配置的重试上限后，作业会返回 `FAILED`，客户端以非零状态退出。
+
 **--async** 参数可以让作业在后台运行，当作业提交后，客户端会退出。
 
 ```shell

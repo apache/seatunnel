@@ -50,6 +50,11 @@ Usage: seatunnel.sh [options]
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```
 
+Without `--async`, the client waits for the final job result. If a job keeps failing during
+task startup or automatic recovery, for example because a Paimon source lacks `SELECT` permission, the job
+returns `FAILED` after exhausting the configured retries and the client exits with a nonzero
+status.
+
 The **--async** parameter allows the job to run in the background. When the job is submitted, the client will exit.
 
 ```shell

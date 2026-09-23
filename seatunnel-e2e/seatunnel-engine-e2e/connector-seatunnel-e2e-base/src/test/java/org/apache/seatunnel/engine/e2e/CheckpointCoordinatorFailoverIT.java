@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class CheckpointCoordinatorFailoverIT {
@@ -695,21 +696,16 @@ public class CheckpointCoordinatorFailoverIT {
      * a mock and not a reflected exception injected into production code: it is the same real,
      * unmodified, running {@code JobMaster#queryTaskGroupAddress} that throws its own real {@code
      * IllegalArgumentException} the moment it next executes, exactly as it would if this
-     * bookkeeping ever went missing for any other reason. A check of every other reader of this map
-     * (metrics export, pipeline cleanup, {@code PhysicalVertex#checkTaskGroupIsExecuting} -- itself
-     * only reachable via master-failover restore, never during steady-state RUNNING) confirms all
-     * of them null-check and skip gracefully, so this removal cannot trip any other code path
-     * first.
+     * bookkeeping ever went missing for any other reason. Checkpoint-completion notifications also
+     * read this map, so removing the entry while a checkpoint is still pending could fail through
+     * that different path instead of testing barrier dispatch.
      *
-     * <p>This is deterministic, not a narrow-window race like a worker kill: the entry is left
-     * removed permanently (this pipeline is about to fail anyway), so unlike catching a kill at the
-     * exact moment a barrier is dispatched, the very next scheduled trigger attempt that has not
-     * already started -- or the one after that -- is guaranteed to observe the missing entry once
-     * the removal completes, with no timing window to miss. To also demonstrate the fault lands on
-     * a previously healthy coordinator (not one that was simply never able to checkpoint at all),
-     * the test first waits for the checkpoint-id counter to reach 2, which -- since {@code
-     * tryTriggerPendingCheckpoint} never allocates a new id while {@code pendingCounter > 0} (line
-     * ~800) -- can only happen after checkpoint id 1 has fully completed and been acknowledged.
+     * <p>The test first waits for the checkpoint-id counter to reach 2 to establish healthy
+     * checkpointing. It then removes the entry only when {@code pendingCounter} is zero, while
+     * holding the same lock used to start a checkpoint. The counter is decremented after completion
+     * notifications finish, and the lock prevents another trigger from starting between the idle
+     * check and removal. The next barrier dispatch therefore encounters the missing entry without
+     * racing a previous checkpoint's completion notification.
      *
      * <p><b>What this test proves:</b> a real checkpoint-barrier dispatch failure, on a coordinator
      * that was previously checkpointing successfully, fails the job (terminal {@code
@@ -789,19 +785,41 @@ public class CheckpointCoordinatorFailoverIT {
                                                 + " before injecting the fault");
                             });
 
-            // Real-fault injection: remove this pipeline's entry from the same live, shared,
-            // named Hazelcast IMap (engine_ownedSlotProfilesIMap) that
-            // JobMaster#queryTaskGroupAddress consults on every checkpoint-barrier dispatch. See
-            // the class javadoc above for why this is real (not mocked/reflected),
-            // deterministic, and cannot be short-circuited by any other code path.
+            CheckpointCoordinator coordinator =
+                    getJobMaster(node, jobId)
+                            .getCheckpointManager()
+                            .getCheckpointCoordinator(pipelineId);
+            Assertions.assertNotNull(coordinator);
+
+            // Inject the real lookup failure between checkpoints. Checking the counter and
+            // removing the entry under the trigger lock excludes both an outstanding completion
+            // notification and a new checkpoint starting before removal.
             IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
                     node.getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
             PipelineLocation pipelineLocation = new PipelineLocation(jobId, pipelineId);
-            Map<TaskGroupLocation, SlotProfile> removedSlotProfiles =
-                    ownedSlotProfilesIMap.remove(pipelineLocation);
-            Assertions.assertNotNull(
-                    removedSlotProfiles,
-                    "the running task's slot-profile bookkeeping should exist before injection");
+            AtomicReference<Map<TaskGroupLocation, SlotProfile>> removedSlotProfiles =
+                    new AtomicReference<>();
+            Awaitility.await()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .pollInterval(50, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            coordinator.runWhenNoCheckpointPending(
+                                                    () -> {
+                                                        Map<TaskGroupLocation, SlotProfile>
+                                                                removed =
+                                                                        ownedSlotProfilesIMap
+                                                                                .remove(
+                                                                                        pipelineLocation);
+                                                        Assertions.assertNotNull(
+                                                                removed,
+                                                                "the running task's slot-profile"
+                                                                        + " bookkeeping should exist"
+                                                                        + " before injection");
+                                                        removedSlotProfiles.set(removed);
+                                                    }),
+                                            "Waiting for checkpoint completion notifications"));
             log.info(
                     "Job {} checkpoint id counter reached 2; removed pipeline {}'s slot-profile"
                             + " bookkeeping ({} task group(s)) so the next checkpoint-barrier"
@@ -809,7 +827,7 @@ public class CheckpointCoordinatorFailoverIT {
                             + " queryTaskGroupAddress failure path.",
                     jobId,
                     pipelineId,
-                    removedSlotProfiles.size());
+                    removedSlotProfiles.get().size());
 
             Awaitility.await()
                     .atMost(60, TimeUnit.SECONDS)
