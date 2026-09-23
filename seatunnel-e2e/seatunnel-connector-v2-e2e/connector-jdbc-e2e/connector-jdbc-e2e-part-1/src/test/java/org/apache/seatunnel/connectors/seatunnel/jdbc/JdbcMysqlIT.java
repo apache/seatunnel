@@ -485,7 +485,9 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                     "TestContainer.executeJob/cancelJob/getJobStatus are only implemented by the "
                             + "Zeta engine, and the tested cancel hook is Zeta only")
     public void testCancelJdbcSourceQuery(TestContainer container) throws Exception {
-        String jobId = "jdbc-source-cancel-" + System.nanoTime();
+        // The Zeta client requires --set-job-id to be numeric, and the job status/cancel REST
+        // calls address the job by the same id.
+        String jobId = String.valueOf(System.nanoTime());
         ExecutorService executor = Executors.newSingleThreadExecutor();
         Future<Container.ExecResult> jobFuture =
                 executor.submit(() -> container.executeJob(CANCEL_CONFIG_FILE, jobId));
