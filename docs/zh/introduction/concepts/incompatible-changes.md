@@ -15,6 +15,17 @@
     - 滚动重启期间，动态/静态混部的 Worker 可能在心跳中上报不一致的 `dynamicSlot`，建议采用协调式（非滚动）重启。
   - **迁移方案**：如需保留旧行为，请在 `seatunnel.yaml` 中设置 `seatunnel.engine.slot-service.dynamic-slot: true`。若保持静态 Slot，请根据峰值并行度评估 `slot-num`（N = 2 + Σ 作业并行度），并相应调整 Worker JVM 堆内存（`-Xmx`）以容纳相应数量的并发任务组工作集。同时请审计任何可能硬编码 `dynamic-slot: true` 的打包/helm/docker `seatunnel.yaml`。
 
+### Redis 认证
+
+- Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。
+  此前，`SINGLE` 模式先使用仅密码认证，再执行 `ACL SETUSER`；`CLUSTER` 模式忽略 `user`。
+  连接初始化不再创建或修改 ACL 用户。
+- 升级前，请创建目标 ACL 用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+  `SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+  将 `auth` 设置为该用户的密码。当 `user` 非空白时，省略密码或使用空字符串将发送空密码。
+- 如需继续使用默认用户，请移除 `user`，并在需要密码时保留 `auth`。
+  命名用户需要 Redis 6 或更新版本；未配置用户名的旧配置行为保持不变。
+
 ### RabbitMQ Connector
 
 - **破坏性变更：`amqps://` 连接现在会校验 Broker 证书**
