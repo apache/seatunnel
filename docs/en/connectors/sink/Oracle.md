@@ -51,7 +51,7 @@ semantics (using XA transaction guarantee).
 
 |                                   Oracle Data Type                                   | SeaTunnel Data Type |
 |--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
+| INTEGER                                                                              | DECIMAL(38,0)       |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
@@ -60,7 +60,7 @@ semantics (using XA transaction guarantee).
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
+| DATE                                                                                 | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
@@ -73,8 +73,8 @@ semantics (using XA transaction guarantee).
 | username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                   |
 | query                                     | String  | No       | -                            | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
-| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
+| database                                  | String  | No       | -                            | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                       |
+| table                                     | String  | No       | -                            | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is only used to auto-generate SQL when `generate_sink_sql = true`; when `query` is set, `query` takes precedence.                                                           |
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
