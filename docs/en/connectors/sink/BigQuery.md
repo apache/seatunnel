@@ -49,7 +49,7 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | schema_save_mode            | enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. See below.                                                                           |
 | data_save_mode              | enum    | No       | APPEND_DATA | Data save mode. See below.                                                                                 |
 | custom_sql                  | string  | No       | -       | Custom SQL to execute when `data_save_mode` is `CUSTOM_PROCESSING`.                                         |
-| multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime.                                  |
+| multi_table_sink_replica    | int     | No       | 1       | Sink common option. It controls sink replica count in multi-table runtime.                                  |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
 ### Authentication Options

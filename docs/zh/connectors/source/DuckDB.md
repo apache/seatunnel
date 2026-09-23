@@ -77,9 +77,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | query                        | String     | 是    | -               | 查询语句                                                                                                                                                 |
 | connection_check_timeout_sec | Int        | 否    | 30              | 等待用于验证连接的数据库操作完成的时间（以秒为单位）                                                                                                                           |
 | partition_column             | String     | 否    | -               | 并行度分区的列名，仅支持数字类型主键，并且只能配置一列。                                                                                                                         |
-| partition_lower_bound        | BigDecimal | 否    | -               | 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                |
-| partition_upper_bound        | BigDecimal | 否    | -               | 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。                                                                                                |
-| partition_num                | Int        | 否    | job parallelism | 分区计数的数量，仅支持正整数。默认值为作业并行度                                                                                                                             |
+| partition_lower_bound        | String     | 否    | -               | 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                |
+| partition_upper_bound        | String     | 否    | -               | 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。                                                                                                |
+| partition_num                | Int        | 否    | 10              | 分区计数的数量，仅支持正整数。默认值为 10                                                                                                                             |
 | fetch_size                   | Int        | 否    | 0               | 对于返回大量对象的查询，您可以配置<br/> 查询中使用的行获取大小来通过<br/> 减少满足选择条件所需的数据库命中次数来提高性能。<br/> 零表示使用 jdbc 默认值。                                                             |
 | properties                   | Map        | 否    | -               | 附加连接配置参数，当 properties 和 URL 具有相同参数时，优先级由 <br/>驱动程序的具体实现确定。例如，在 DuckDB 中，properties 优先于 URL。                                                          |
 | table_path                   | String     | 否    | -               | 表的完整路径，您可以使用此配置代替 `query`。 <br/>示例： <br/>duckdb: "main.table1" <br/>                                                                                 |
@@ -112,11 +112,11 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 
 用于拆分数据的列名。
 
-#### partition_upper_bound [BigDecimal]
+#### partition_upper_bound [string]
 
 扫描的 partition_column 最大值，如果未设置，SeaTunnel 将查询数据库获取最大值。
 
-#### partition_lower_bound [BigDecimal]
+#### partition_lower_bound [string]
 
 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。
 
@@ -124,7 +124,7 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 
 > 不建议使用，正确的方法是通过 `split.size` 控制拆分数量
 
-我们需要拆分成多少个拆分，仅支持正整数。默认值为作业并行度。
+我们需要拆分成多少个拆分，仅支持正整数。默认值为 10。
 
 ## 提示
 
