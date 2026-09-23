@@ -43,7 +43,6 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * InputFormat to read data from a database and generate Rows. The InputFormat has to be configured
@@ -65,8 +64,12 @@ public class JdbcInputFormat implements Serializable {
     private transient TableSchema splitTableSchema;
     private transient volatile PreparedStatement statement;
     private transient ResultSet resultSet;
+    // Runtime connection state written by the task thread and read by the engine cancel thread;
+    // cancel() may close it while the task thread is still using it.
     private transient volatile Connection activeConnection;
-    private final AtomicBoolean cancelled = new AtomicBoolean();
+    // Sticky cancellation flag set by the engine cancel thread and honoured by cancel() and open(),
+    // so a cancel that arrives before the statement is published is not silently lost.
+    private transient volatile boolean cancelled;
     private volatile boolean hasNext;
 
     public JdbcInputFormat(JdbcSourceConfig config, Map<TablePath, CatalogTable> tables) {
@@ -101,12 +104,27 @@ public class JdbcInputFormat implements Serializable {
      * while the source task is blocked inside {@code executeQuery()} or {@code ResultSet.next()}.
      * Closing the statement and connection is the fallback for drivers that do not implement {@link
      * PreparedStatement#cancel()} correctly.
+     *
+     * <p>The cancellation is sticky: it is recorded in {@code cancelled} and re-checked in {@link
+     * #open(JdbcSourceSplit)}, so a cancel that arrives before the statement is published — or
+     * between splits — is not silently lost. Safe to call multiple times from the engine cancel
+     * thread; only touches volatile fields and never acquires the checkpoint lock.
      */
     public void cancel() {
-        if (!cancelled.compareAndSet(false, true)) {
+        if (cancelled) {
             return;
         }
+        cancelled = true;
+        abortInFlight();
+    }
 
+    /**
+     * Best-effort abort of the in-flight statement and its connection. Idempotent and safe to run
+     * concurrently from the task thread (via {@link #ensureNotCancelled()}) and the cancel thread
+     * (via {@link #cancel()}), because JDBC drivers must tolerate repeated {@code cancel()} and
+     * {@code close()} calls.
+     */
+    private void abortInFlight() {
         PreparedStatement currentStatement = statement;
         Connection currentConnection = activeConnection;
         if (currentStatement != null) {
@@ -137,6 +155,23 @@ public class JdbcInputFormat implements Serializable {
         }
     }
 
+    /**
+     * Honours a sticky cancellation before more work is started. Checked at the start of {@link
+     * #open(JdbcSourceSplit)} (a cancelled reader must not connect for the next split) and again
+     * after the statement is published (the usual publish-then-check ordering, so a cancel racing
+     * with statement creation is always observed by at least one side).
+     */
+    private void ensureNotCancelled() throws IOException {
+        if (!cancelled) {
+            return;
+        }
+        abortInFlight();
+        statement = null;
+        activeConnection = null;
+        throw new IOException(
+                "JDBC source reader has been cancelled, stop opening split " + splitTableId);
+    }
+
     public void closeInputFormat() throws IOException {
         try {
             close();
@@ -155,6 +190,7 @@ public class JdbcInputFormat implements Serializable {
      * @throws IOException if there's an error during the execution of the query
      */
     public void open(JdbcSourceSplit inputSplit) throws IOException {
+        ensureNotCancelled();
         try {
             splitTableSchema = tables.get(inputSplit.getTablePath()).getTableSchema();
             splitTableId = inputSplit.getTablePath().toString();
@@ -165,6 +201,7 @@ public class JdbcInputFormat implements Serializable {
             } catch (SQLException e) {
                 LOG.debug("JDBC statement did not expose its connection before execution", e);
             }
+            ensureNotCancelled();
             resultSet = statement.executeQuery();
             hasNext = resultSet.next();
         } catch (SQLException se) {

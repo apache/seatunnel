@@ -102,7 +102,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
     private Address enumeratorTaskAddress;
 
-    private SourceReader<T, SplitT> reader;
+    // Volatile: cancel() reads it from the engine cancel thread while the task thread may still be
+    // creating the reader in init().
+    private volatile SourceReader<T, SplitT> reader;
 
     private transient Serializer<SplitT> splitSerializer;
 

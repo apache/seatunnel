@@ -47,7 +47,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceSplitEnumerator;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSourceState;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -476,6 +478,12 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
     }
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "TestContainer.executeJob/cancelJob/getJobStatus are only implemented by the "
+                            + "Zeta engine, and the tested cancel hook is Zeta only")
     public void testCancelJdbcSourceQuery(TestContainer container) throws Exception {
         String jobId = "jdbc-source-cancel-" + System.nanoTime();
         ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -490,16 +498,14 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
                             () ->
                                     Assertions.assertEquals(
                                             "RUNNING", container.getJobStatus(jobId)));
-            given().ignoreExceptions()
-                    .await()
+            given().await()
                     .atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(() -> Assertions.assertTrue(hasRunningCancelQuery()));
 
             Container.ExecResult cancelResult = container.cancelJob(jobId);
             Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
 
-            given().ignoreExceptions()
-                    .await()
+            given().await()
                     .atMost(30, TimeUnit.SECONDS)
                     .untilAsserted(() -> Assertions.assertFalse(hasRunningCancelQuery()));
 
@@ -519,14 +525,21 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         }
     }
 
+    /**
+     * Checks the MySQL process list for the in-flight source query, identified by the marker
+     * comment in {@code jdbc_mysql_source_cancel.conf}. Excludes this control connection itself so
+     * the helper cannot match its own {@code PROCESSLIST} statement. Connection errors are
+     * propagated so they fail with their message instead of a blind timeout.
+     */
     private boolean hasRunningCancelQuery() throws SQLException {
         String processListQuery =
-                "SELECT INFO FROM information_schema.PROCESSLIST WHERE INFO LIKE '%"
+                "SELECT INFO FROM information_schema.PROCESSLIST "
+                        + "WHERE ID <> CONNECTION_ID() AND INFO LIKE '%"
                         + CANCEL_QUERY_MARKER
                         + "%'";
         try (Connection controlConnection =
                         DriverManager.getConnection(
-                                jdbcCase.getJdbcUrl(),
+                                jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()),
                                 jdbcCase.getUserName(),
                                 jdbcCase.getPassword());
                 Statement statement = controlConnection.createStatement();

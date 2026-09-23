@@ -36,13 +36,17 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.Map;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
@@ -226,10 +230,9 @@ class JdbcInputFormatTest {
         context.inputFormat.cancel();
         context.inputFormat.cancel();
 
-        verify(context.statement).cancel();
-        verify(context.statement).close();
-        verify(context.connection).close();
         verify(context.statement, times(1)).cancel();
+        verify(context.statement, times(1)).close();
+        verify(context.connection, times(1)).close();
     }
 
     @Test
@@ -259,9 +262,9 @@ class JdbcInputFormatTest {
 
         ExecutorService executor = Executors.newSingleThreadExecutor();
         try {
-            java.util.concurrent.Future<?> openFuture =
+            Future<?> openFuture =
                     executor.submit(
-                            (java.util.concurrent.Callable<Void>)
+                            (Callable<Void>)
                                     () -> {
                                         context.inputFormat.open(SPLIT);
                                         return null;
@@ -274,6 +277,79 @@ class JdbcInputFormatTest {
         } finally {
             executor.shutdownNow();
         }
+    }
+
+    /**
+     * Regression test for the lost-cancel window: a cancel recorded before {@code open()} must be
+     * honoured, so the reader neither connects for the next split nor starts a new query.
+     */
+    @Test
+    void shouldNotOpenNextSplitAfterCancel() throws Exception {
+        TestContext context = createContext(true);
+
+        context.inputFormat.cancel();
+
+        assertThrows(IOException.class, () -> context.inputFormat.open(SPLIT));
+        verify(context.chunkSplitter, never()).generateSplitStatement(SPLIT, TABLE_SCHEMA);
+        verify(context.statement, never()).executeQuery();
+    }
+
+    /**
+     * Regression test for the publish-then-check ordering: a cancel that lands after the statement
+     * is published but before the query starts must abort the statement instead of being lost.
+     */
+    @Test
+    void shouldAbortOpenWhenCancelRacesWithStatementCreation() throws Exception {
+        TestContext context = createContext(true);
+        AtomicBoolean cancelInjected = new AtomicBoolean();
+        when(context.chunkSplitter.generateSplitStatement(SPLIT, TABLE_SCHEMA))
+                .thenReturn(context.statement);
+        doAnswer(
+                        invocation -> {
+                            // Simulates the engine cancel thread winning the race after the
+                            // statement is published but before executeQuery() starts. The guard
+                            // keeps the nested abortInFlight() call from re-entering the cancel.
+                            if (cancelInjected.compareAndSet(false, true)) {
+                                context.inputFormat.cancel();
+                            }
+                            return context.connection;
+                        })
+                .when(context.statement)
+                .getConnection();
+        when(context.resultSet.next()).thenReturn(false);
+
+        assertThrows(IOException.class, () -> context.inputFormat.open(SPLIT));
+
+        verify(context.statement, never()).executeQuery();
+        verify(context.statement, atLeastOnce()).cancel();
+        verify(context.statement, atLeastOnce()).close();
+        verify(context.connection, atLeastOnce()).close();
+    }
+
+    @Test
+    void shouldStillCloseConnectionWhenStatementCancelFails() throws Exception {
+        TestContext context = createContext(true);
+        context.openEmptySplit();
+        doThrow(new SQLException("cancel rejected")).when(context.statement).cancel();
+
+        context.inputFormat.cancel();
+
+        verify(context.statement).close();
+        verify(context.connection).close();
+    }
+
+    @Test
+    void shouldAllowCloseAfterCancel() throws Exception {
+        TestContext context = createContext(true);
+        context.openEmptySplit();
+        when(context.connection.isClosed()).thenReturn(false);
+        when(context.connection.getAutoCommit()).thenReturn(false);
+
+        context.inputFormat.cancel();
+        context.inputFormat.close();
+
+        verify(context.connection, times(1)).rollback();
+        verify(context.connection, times(1)).setAutoCommit(true);
     }
 
     @Test

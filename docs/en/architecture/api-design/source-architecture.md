@@ -368,6 +368,13 @@ public interface SourceReader<T, SplitT extends SourceSplit>
     void open() throws Exception;
 
     /**
+     * Request cancellation of an in-flight source operation (Zeta only).
+     * Called from an engine thread while open/pollNext/close may run concurrently;
+     * implementations must be idempotent, thread-safe and lock-free.
+     */
+    default void cancel() {}
+
+    /**
      * Poll next batch of records (non-blocking or timeout)
      */
     void pollNext(Collector<T> output) throws Exception;
@@ -415,6 +422,10 @@ public interface SourceReader<T, SplitT extends SourceSplit>
 - **Progress Tracking**: Track offset/position within each split
 - **State Management**: Snapshot split progress for recovery
 - **Split Management**: Handle split assignment, completion, and removal
+- **Job Cancellation**: Override `cancel()` when reads can block in an external system (e.g. a
+  JDBC query). The engine calls it from a separate thread on job cancellation, so implementations
+  must be idempotent, thread-safe, and must not acquire locks held by the reader methods. Currently
+  only the Zeta engine invokes this hook.
 
 **Implementation Example**:
 
