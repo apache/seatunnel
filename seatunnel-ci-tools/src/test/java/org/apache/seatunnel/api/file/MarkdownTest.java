@@ -116,11 +116,12 @@ public class MarkdownTest {
                             int lineNumber = 0;
                             boolean inFrontMatter = false;
 
-                            for (int i = 0; i < lines.size(); i++) {
+                            int contentStart = firstContentLine(lines);
+                            for (int i = contentStart; i < lines.size(); i++) {
                                 String line = lines.get(i).trim();
                                 lineNumber = i + 1;
 
-                                if (i == 0 && line.equals("---")) {
+                                if (i == contentStart && line.equals("---")) {
                                     inFrontMatter = true;
                                     continue;
                                 }
@@ -207,7 +208,7 @@ public class MarkdownTest {
 
                         for (Path mdPath : mdFiles) {
                             List<String> lines = Files.readAllLines(mdPath, StandardCharsets.UTF_8);
-                            String line = lines.get(0);
+                            String line = lines.get(firstContentLine(lines));
                             Assertions.assertTrue(
                                     line.startsWith("import ChangeLog from '../changelog/"),
                                     "The first line of the file "
@@ -258,5 +259,21 @@ public class MarkdownTest {
                         throw new RuntimeException(e);
                     }
                 });
+    }
+
+    private static int firstContentLine(List<String> lines) {
+        int index = 0;
+        if (lines.size() > 1
+                && "<!--".equals(lines.get(0).trim())
+                && lines.get(1).trim().startsWith("Licensed to the Apache Software Foundation")) {
+            while (index < lines.size() && !"-->".equals(lines.get(index).trim())) {
+                index++;
+            }
+            index++;
+        }
+        while (index < lines.size() && lines.get(index).trim().isEmpty()) {
+            index++;
+        }
+        return index;
     }
 }
