@@ -103,9 +103,9 @@ StarRocks数据接收器根据上游数据自动获取相应的信息来填充�
 
 ### table [string]
 
-使用选项参数`database`和`table-name`自动生成SQL，并接收上游输入数据写入StarRocks中。
+选项参数 `database` 和 `table` 共同确定接收上游数据的目标 StarRocks 表。
 
-此选项与 `query` 是互斥的，具具有更高的优先级。
+如果未设置 `table`，则使用上游表名。
 
 table选项参数可以填入一任意表名，这个名字最终会被用作目标表的表名，并且支持变量（`${table_name}`，`${schema_name}`）。
 替换规则如下：`${schema_name}` 将替换传递给目标端的 SCHEMA 名称，`${table_name}` 将替换传递给目标端的表名。
