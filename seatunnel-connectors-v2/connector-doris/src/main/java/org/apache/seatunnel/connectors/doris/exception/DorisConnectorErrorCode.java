@@ -31,7 +31,8 @@ public enum DorisConnectorErrorCode implements SeaTunnelErrorCode {
     SCAN_BATCH_FAILED("Doris-09", "scan batch error"),
     RESOURCE_CLOSE_FAILED("Doris-10", "resource close failed"),
     SCHEMA_CHANGE_FAILED("Doris-11", "schema change failed"),
-    SHOULD_NEVER_HAPPEN("Doris-00", "Should Never Happen !");
+    SHOULD_NEVER_HAPPEN("Doris-00", "Should Never Happen !"),
+    GET_LOAD_STATE_FAILED("Doris-11", "get load state failed !");
 
     private final String code;
     private final String description;
