@@ -44,18 +44,6 @@
             <groupId>com.hierynomus</groupId>
             <artifactId>smbj</artifactId>
             <version>0.13.0</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.bouncycastle</groupId>
-                    <artifactId>bcprov-jdk18on</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>org.bouncycastle</groupId>
-            <artifactId>bcprov-lts8on</artifactId>
-            <version>2.73.9</version>
-            <scope>provided</scope>
         </dependency>
     </dependencies>
 
@@ -75,6 +63,10 @@
                                 <relocation>
                                     <pattern>net.engio</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.${connector.name}.net.engio</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.bouncycastle</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.${connector.name}.org.bouncycastle</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
