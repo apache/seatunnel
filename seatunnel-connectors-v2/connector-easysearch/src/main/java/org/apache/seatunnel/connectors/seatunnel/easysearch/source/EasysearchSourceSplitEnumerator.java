@@ -36,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.seatunnel.easysearch.exception.EasysearchConnectorErrorCode.UNSUPPORTED_OPERATION;
@@ -48,6 +49,7 @@ public class EasysearchSourceSplitEnumerator
     private final SourceSplitEnumerator.Context<EasysearchSourceSplit> context;
     private final ReadonlyConfig pluginConfig;
     private final Map<Integer, List<EasysearchSourceSplit>> pendingSplit;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
     private final List<String> source;
     private EasysearchClient ezsClient;
     private volatile boolean shouldEnumerate;
@@ -71,12 +73,13 @@ public class EasysearchSourceSplitEnumerator
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplit.putAll(sourceState.getPendingSplit());
+            this.assignCount.set(sourceState.getAssignCount());
         }
         this.source = source;
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int assignCount, int numReaders) {
+        return assignCount % numReaders;
     }
 
     @Override
@@ -105,11 +108,21 @@ public class EasysearchSourceSplitEnumerator
 
     private void addPendingSplit(Collection<EasysearchSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (EasysearchSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
-            log.info("Assigning {} to {} reader.", split, ownerReader);
-            pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
-        }
+        splits.stream()
+                .sorted(Comparator.comparing(EasysearchSourceSplit::splitId))
+                .forEach(
+                        split -> {
+                            int ownerReader =
+                                    getSplitOwner(assignCount.getAndIncrement(), readerCount);
+                            log.info("Assigning {} to {} reader.", split, ownerReader);
+                            pendingSplit
+                                    .computeIfAbsent(ownerReader, r -> new ArrayList<>())
+                                    .add(split);
+                        });
+    }
+
+    private void addPendingSplit(Collection<EasysearchSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -169,14 +182,21 @@ public class EasysearchSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<EasysearchSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplit.size();
+        return pendingSplit.values().stream().mapToInt(List::size).sum();
     }
 
     @Override
@@ -196,7 +216,7 @@ public class EasysearchSourceSplitEnumerator
     @Override
     public EasysearchSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new EasysearchSourceState(shouldEnumerate, pendingSplit);
+            return new EasysearchSourceState(shouldEnumerate, pendingSplit, assignCount.get());
         }
     }
 

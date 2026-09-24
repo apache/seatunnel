@@ -25,6 +25,7 @@ import org.apache.seatunnel.connectors.seatunnel.slack.exception.SlackConnectorE
 import com.slack.api.Slack;
 import com.slack.api.methods.MethodsClient;
 import com.slack.api.methods.SlackApiException;
+import com.slack.api.methods.request.chat.ChatPostMessageRequest;
 import com.slack.api.methods.response.chat.ChatPostMessageResponse;
 import com.slack.api.methods.response.conversations.ConversationsListResponse;
 import com.slack.api.model.Conversation;
@@ -80,17 +81,30 @@ public class SlackClient {
         try {
             ChatPostMessageResponse chatPostMessageResponse =
                     methodsClient.chatPostMessage(
-                            r ->
-                                    r
-                                            // The Token used to initialize app
-                                            .token(pluginConfig.get(SLACK_CHANNEL))
-                                            .channel(channelId)
-                                            .text(text));
+                            createMessageRequest(pluginConfig.get(OAUTH_TOKEN), channelId, text));
             publishMessageSuccess = chatPostMessageResponse.isOk();
         } catch (IOException | SlackApiException e) {
             log.error("error: {}", ExceptionUtils.getMessage(e));
         }
         return publishMessageSuccess;
+    }
+
+    /**
+     * Builds a chat.postMessage request authenticated with the configured OAuth token, not the
+     * channel name.
+     *
+     * @param oauthToken OAuth token used to authenticate the request
+     * @param channelId resolved ID of the destination channel
+     * @param text message text to publish
+     * @return the request with authentication and message fields populated
+     */
+    static ChatPostMessageRequest createMessageRequest(
+            String oauthToken, String channelId, String text) {
+        return ChatPostMessageRequest.builder()
+                .token(oauthToken)
+                .channel(channelId)
+                .text(text)
+                .build();
     }
 
     /** Close Conversion */

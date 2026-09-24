@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -28,6 +29,9 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSink;
 import org.apache.seatunnel.connectors.seatunnel.redis.sink.RedisSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.redis.source.RedisSourceFactory;
 
@@ -36,7 +40,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.MockedConstruction;
+import org.mockito.Mockito;
 
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.exceptions.JedisDataException;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,6 +59,73 @@ class RedisFactoryTest {
 
     private static final OptionRule SOURCE_RULE = new RedisSourceFactory().optionRule();
     private static final OptionRule SINK_RULE = new RedisSinkFactory().optionRule();
+
+    @Test
+    void namedAuthenticationDoesNotAdministerUsers() {
+        try (MockedConstruction<Jedis> construction = Mockito.mockConstruction(Jedis.class)) {
+            RedisParameters parameters = singleConnectionParameters();
+            parameters.setUser("named-user");
+            parameters.setAuth("named-password");
+            parameters.setDbNum(3);
+            Jedis connection = parameters.buildJedis();
+            Assertions.assertSame(construction.constructed().get(0), connection);
+            Mockito.verify(connection).auth("named-user", "named-password");
+            Mockito.verify(connection).select(3);
+            Mockito.verifyNoMoreInteractions(connection);
+            connection.close();
+        }
+    }
+
+    @Test
+    void authenticationFailureClosesConnectionAndPreservesCause() {
+        JedisDataException failure = new JedisDataException("Authentication failed");
+        RuntimeException closeFailure = new RuntimeException("Close failed");
+        try (MockedConstruction<Jedis> construction =
+                Mockito.mockConstruction(
+                        Jedis.class,
+                        (connection, context) -> {
+                            Mockito.when(connection.auth("named-user", "wrong")).thenThrow(failure);
+                            Mockito.doThrow(closeFailure).when(connection).close();
+                        })) {
+            RedisParameters parameters = singleConnectionParameters();
+            parameters.setUser("named-user");
+            parameters.setAuth("wrong");
+            Assertions.assertSame(
+                    failure,
+                    Assertions.assertThrows(JedisDataException.class, parameters::buildJedis));
+            Mockito.verify(construction.constructed().get(0)).close();
+            Assertions.assertArrayEquals(new Throwable[] {closeFailure}, failure.getSuppressed());
+        }
+    }
+
+    @Test
+    void versionInitializationFailureClosesConnection() {
+        for (String info : Arrays.asList("redis_version:not-a-version", "no-version")) {
+            RedisParameters parameters = Mockito.spy(singleConnectionParameters());
+            Jedis connection = Mockito.mock(Jedis.class);
+            Mockito.doReturn(connection).when(parameters).buildJedis();
+            Mockito.when(connection.info()).thenReturn(info);
+            Assertions.assertThrows(RuntimeException.class, parameters::buildRedisClient);
+            Mockito.verify(connection).close();
+        }
+        RedisParameters parameters = Mockito.spy(singleConnectionParameters());
+        Jedis connection = Mockito.mock(Jedis.class);
+        Mockito.doReturn(connection).when(parameters).buildJedis();
+        JedisDataException denied = new JedisDataException("INFO denied");
+        Mockito.when(connection.info()).thenThrow(denied);
+        Assertions.assertSame(
+                denied,
+                Assertions.assertThrows(JedisDataException.class, parameters::buildRedisClient));
+        Mockito.verify(connection).close();
+    }
+
+    private RedisParameters singleConnectionParameters() {
+        RedisParameters parameters = new RedisParameters();
+        parameters.setHost("localhost");
+        parameters.setPort(6379);
+        parameters.setMode(RedisBaseOptions.RedisMode.SINGLE);
+        return parameters;
+    }
 
     @Test
     void optionRule() {
@@ -142,6 +219,20 @@ class RedisFactoryTest {
                         catalogTable(), config, Thread.currentThread().getContextClassLoader());
         Assertions.assertDoesNotThrow(
                 () -> new RedisSinkFactory().createSink(context).createSink());
+    }
+
+    @Test
+    void sinkExposesSchemaWriterStateSerializer() throws IOException {
+        RedisSink sink = new RedisSink(ReadonlyConfig.fromMap(singleSinkConfig()), catalogTable());
+
+        Assertions.assertTrue(sink.getWriterStateSerializer().isPresent());
+        @SuppressWarnings("unchecked")
+        Serializer<TableSchema> serializer =
+                (Serializer<TableSchema>) (Serializer<?>) sink.getWriterStateSerializer().get();
+        TableSchema tableSchema = catalogTable().getTableSchema();
+
+        Assertions.assertEquals(
+                tableSchema, serializer.deserialize(serializer.serialize(tableSchema)));
     }
 
     // parameterized-case providers

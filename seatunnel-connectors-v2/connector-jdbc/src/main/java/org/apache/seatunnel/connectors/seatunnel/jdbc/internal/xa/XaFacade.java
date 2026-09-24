@@ -97,11 +97,12 @@ public interface XaFacade extends JdbcConnectionProvider, Serializable, AutoClos
     }
 
     /**
-     * Indicates a transient or unknown failure from the resource manager (see {@link
-     * XAException#XA_RBTRANSIENT XA_RBTRANSIENT}, {@link XAException#XAER_RMFAIL XAER_RMFAIL}).
+     * Indicates that an XA operation had no effect and can be retried, or that its outcome is
+     * unknown because the resource manager is unavailable (see {@link XAException#XA_RETRY
+     * XA_RETRY}, {@link XAException#XAER_RMFAIL XAER_RMFAIL}).
      */
     class TransientXaException extends RuntimeException {
-        TransientXaException(XAException cause) {
+        public TransientXaException(XAException cause) {
             super(cause);
         }
     }

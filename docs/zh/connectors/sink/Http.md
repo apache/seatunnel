@@ -53,6 +53,8 @@ import ChangeLog from '../changelog/connector-http.md';
 
 Http Sink 固定发送 `POST` 请求。每条上游数据会被转换成 JSON 作为请求体；当 `array_mode = true` 时，会先把多条数据攒成 JSON 数组再发送，`batch_size` 控制单次请求最多包含多少条数据。
 
+当 HTTP 响应不是 200，或请求过程中发生异常时，Sink 会将写入失败上报给引擎；失败批次不会被当作已成功发送。该连接器不提供精确一次投递保证，接收端应保证幂等。
+
 简单示例:
 
 ```hocon

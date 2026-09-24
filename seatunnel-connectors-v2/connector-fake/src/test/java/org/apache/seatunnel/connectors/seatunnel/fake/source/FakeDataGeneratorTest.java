@@ -126,6 +126,28 @@ public class FakeDataGeneratorTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = {"fake-data.schema.conf"})
+    public void testCustomRowDataSlice(String conf)
+            throws FileNotFoundException, URISyntaxException {
+        SeaTunnelRow row3 = new SeaTunnelRow(new Object[] {3L, "C", 100});
+        row3.setRowKind(RowKind.INSERT);
+        row3.setTableId(TablePath.DEFAULT.getFullName());
+        SeaTunnelRow row1UpdateBefore = new SeaTunnelRow(new Object[] {1L, "A", 100});
+        row1UpdateBefore.setTableId(TablePath.DEFAULT.getFullName());
+        row1UpdateBefore.setRowKind(RowKind.UPDATE_BEFORE);
+
+        ReadonlyConfig testConfig = getTestConfigFile(conf);
+        FakeConfig fakeConfig = FakeConfig.buildWithConfig(testConfig);
+        FakeDataGenerator fakeDataGenerator = new FakeDataGenerator(fakeConfig, null);
+        List<SeaTunnelRow> seaTunnelRows = new ArrayList<>();
+        long generatedRows = fakeDataGenerator.generateCustomRows(2, 2, seaTunnelRows::add);
+
+        Assertions.assertEquals(6, fakeDataGenerator.getCustomRowCount());
+        Assertions.assertEquals(2, generatedRows);
+        Assertions.assertIterableEquals(Arrays.asList(row3, row1UpdateBefore), seaTunnelRows);
+    }
+
+    @ParameterizedTest
     @ValueSource(strings = {"fake-vector.conf"})
     public void testVectorParse(String conf) throws FileNotFoundException, URISyntaxException {
         ReadonlyConfig testConfig = getTestConfigFile(conf);

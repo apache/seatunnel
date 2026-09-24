@@ -49,7 +49,8 @@ public class SeaTunnelClientOOMTest {
                                             Mockito.any(String[].class),
                                             Mockito.any(ClientCommandArgs.class),
                                             Mockito.anyString(),
-                                            Mockito.anyBoolean()))
+                                            Mockito.anyBoolean(),
+                                            Mockito.any()))
                     .thenReturn(clientCommandArgs);
 
             // Mock SeaTunnel.run to throw OutOfMemoryError

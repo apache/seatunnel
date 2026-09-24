@@ -18,12 +18,12 @@ import ChangeLog from '../changelog/connector-google-bigtable.md';
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
-该 Source 是有界读取。当前只会为配置的表或行键范围生成一个切分，所以提高作业并行度不会把一次 Bigtable 扫描拆成多个 tablet 范围并发读取。每次扫描会读取所请求行范围内的全部 Cell，并为每个 Bigtable 行输出一条 SeaTunnel 记录。
+该 Source 是有界读取。Enumerator 会调用 Bigtable `sampleRowKeys`，把整表（或配置的 `start_rowkey` / `end_rowkey` 范围）按 tablet 切成多个 split，再按 `hash(splitId) % parallelism` 分配。将 `env.parallelism`（或 Source 并行度）设为大于 1，多个 Reader 会扫描不同 key range。若采样失败、返回空，或与用户范围求交后没有任何有效区间，则回退为单个 split，作业仍可运行。每次扫描会读取所请求行范围内的全部 Cell，并为每个 Bigtable 行输出一条 SeaTunnel 记录。
 
 :::
 
@@ -90,7 +90,7 @@ Cell 时间戳过滤的结束值，不包含该时间戳，单位是微秒。
 
 ### scan_row_limit [int]
 
-最多读取的行数。默认值 `-1` 表示不限制。把 `scan_row_limit` 与 `start_rowkey` / `end_rowkey` 配合，可以在多个作业之间分页扫描整张表。
+每个 split 最多读取的行数。默认值 `-1` 表示不限制。当 Enumerator 切出多个 split 时，作业级上限约为 `scan_row_limit × split 数`，而不是整表一条上限。把 `scan_row_limit` 与 `start_rowkey` / `end_rowkey` 配合，可以在多个作业之间分页扫描整张表。
 
 ### common options
 

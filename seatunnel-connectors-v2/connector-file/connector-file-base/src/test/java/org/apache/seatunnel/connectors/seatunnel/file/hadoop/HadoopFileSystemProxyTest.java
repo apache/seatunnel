@@ -19,13 +19,17 @@ package org.apache.seatunnel.connectors.seatunnel.file.hadoop;
 
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
+import org.apache.hadoop.fs.FileSystem;
+import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.fs.RemoteIterator;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -67,6 +71,45 @@ class HadoopFileSystemProxyTest {
     }
 
     @Test
+    void testHasAnyFileUsesLazyListingAndRecursiveFlag() throws Exception {
+        Path warehouse = new Path("gs://test-bucket/warehouse");
+        FileSystem fileSystem = Mockito.mock(FileSystem.class);
+        @SuppressWarnings("unchecked")
+        RemoteIterator<LocatedFileStatus> directFiles = Mockito.mock(RemoteIterator.class);
+        @SuppressWarnings("unchecked")
+        RemoteIterator<LocatedFileStatus> recursiveFiles = Mockito.mock(RemoteIterator.class);
+        Mockito.when(fileSystem.exists(warehouse)).thenReturn(true);
+        Mockito.when(fileSystem.listFiles(warehouse, false)).thenReturn(directFiles);
+        Mockito.when(fileSystem.listFiles(warehouse, true)).thenReturn(recursiveFiles);
+        Mockito.when(directFiles.hasNext()).thenReturn(false);
+        Mockito.when(recursiveFiles.hasNext()).thenReturn(true);
+
+        try (HadoopFileSystemProxy proxy = newProxy(fileSystem)) {
+            Assertions.assertFalse(proxy.hasAnyFile(warehouse.toString(), false));
+            Assertions.assertTrue(proxy.hasAnyFile(warehouse.toString(), true));
+        }
+
+        Mockito.verify(fileSystem).listFiles(warehouse, false);
+        Mockito.verify(fileSystem).listFiles(warehouse, true);
+        Mockito.verify(directFiles, Mockito.never()).next();
+        Mockito.verify(recursiveFiles, Mockito.never()).next();
+    }
+
+    @Test
+    void testHasAnyFileSkipsListingWhenPathDoesNotExist() throws Exception {
+        Path missingPath = new Path("gs://test-bucket/missing");
+        FileSystem fileSystem = Mockito.mock(FileSystem.class);
+        Mockito.when(fileSystem.exists(missingPath)).thenReturn(false);
+
+        try (HadoopFileSystemProxy proxy = newProxy(fileSystem)) {
+            Assertions.assertFalse(proxy.hasAnyFile(missingPath.toString(), true));
+        }
+
+        Mockito.verify(fileSystem, Mockito.never())
+                .listFiles(Mockito.any(Path.class), Mockito.anyBoolean());
+    }
+
+    @Test
     void testRenameTreatsExistingTargetAsCompletedRetry() throws Exception {
         HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
         java.nio.file.Path source = tempDir.resolve("missing-source.bin");
@@ -103,118 +146,23 @@ class HadoopFileSystemProxyTest {
     }
 
     @Test
-    void testWrapClasspathMismatchRewritesNoSuchMethodErrorAsDiagnosticIOException() {
-        assertRewrittenAsDiagnosticIOException(
-                new NoSuchMethodError("org.apache.hadoop.fs.FsTracer.get"));
-    }
-
-    @Test
-    void testWrapClasspathMismatchRewritesNoClassDefFoundError() {
-        assertRewrittenAsDiagnosticIOException(
-                new NoClassDefFoundError("org/apache/hadoop/tracing/TraceUtils"));
-    }
-
-    @Test
-    void testWrapClasspathMismatchRewritesNoSuchFieldError() {
-        assertRewrittenAsDiagnosticIOException(
-                new NoSuchFieldError("org.apache.hadoop.fs.FileSystem.statistics"));
-    }
-
-    @Test
-    void testWrapClasspathMismatchRewritesIncompatibleClassChangeError() {
-        assertRewrittenAsDiagnosticIOException(
-                new IncompatibleClassChangeError("org.apache.hadoop.hdfs.DFSClient"));
-    }
-
-    @Test
-    void testWrapClasspathMismatchDoesNotSwallowUnrelatedErrors() {
-        OutOfMemoryError original = new OutOfMemoryError("Java heap space");
-
-        OutOfMemoryError thrown =
-                Assertions.assertThrows(
-                        OutOfMemoryError.class,
-                        () ->
-                                HadoopFileSystemProxy.wrapClasspathMismatch(
-                                        () -> {
-                                            throw original;
-                                        }));
-
-        Assertions.assertSame(original, thrown);
-    }
-
-    @Test
-    void testWrapClasspathMismatchPropagatesIOExceptionUnchanged() {
-        IOException original = new IOException("Connection refused");
-
-        IOException thrown =
-                Assertions.assertThrows(
-                        IOException.class,
-                        () ->
-                                HadoopFileSystemProxy.wrapClasspathMismatch(
-                                        () -> {
-                                            throw original;
-                                        }));
-
-        Assertions.assertSame(original, thrown);
-        Assertions.assertNull(thrown.getCause());
-    }
-
-    @Test
-    void testWrapClasspathMismatchNamesTheConcreteLinkageFailure() {
-        UnsatisfiedLinkError original = new UnsatisfiedLinkError("no hadoop in java.library.path");
-
-        IOException wrapped = rewrite(original);
-
-        Assertions.assertSame(original, wrapped.getCause());
-        Assertions.assertTrue(wrapped.getMessage().contains("UnsatisfiedLinkError"));
-        Assertions.assertTrue(
-                wrapped.getMessage().contains("no hadoop in java.library.path"),
-                "the concrete linkage failure should be inlined for logs that only capture "
-                        + "getMessage()");
-    }
-
-    @Test
-    void testWrapClasspathMismatchHandlesLinkageErrorWithoutMessage() {
-        NoClassDefFoundError original = new NoClassDefFoundError();
-
-        IOException wrapped = rewrite(original);
-
-        Assertions.assertSame(original, wrapped.getCause());
-        Assertions.assertTrue(wrapped.getMessage().contains("NoClassDefFoundError"));
-        Assertions.assertFalse(wrapped.getMessage().contains("null"));
-    }
-
-    private static IOException rewrite(LinkageError original) {
-        return Assertions.assertThrows(
-                IOException.class,
-                () ->
-                        HadoopFileSystemProxy.wrapClasspathMismatch(
-                                () -> {
-                                    throw original;
-                                }));
-    }
-
-    private static void assertRewrittenAsDiagnosticIOException(LinkageError original) {
-        IOException wrapped = rewrite(original);
-
-        Assertions.assertSame(original, wrapped.getCause());
-        Assertions.assertTrue(wrapped.getMessage().contains("Hadoop client"));
-        Assertions.assertTrue(wrapped.getMessage().contains("version mismatch"));
-        Assertions.assertTrue(
-                wrapped.getMessage().contains(original.getClass().getSimpleName()),
-                "the diagnostic should name the concrete linkage error");
-    }
-
-    @Test
-    void testWrapClasspathMismatchPassesThroughOnSuccess() throws Exception {
+    void testCloseClearsFileSystemSoProxyCanBeReused() throws Exception {
         HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
         try {
-            org.apache.hadoop.fs.FileSystem fileSystem =
-                    HadoopFileSystemProxy.wrapClasspathMismatch(proxy::getFileSystem);
+            FileSystem first = proxy.getFileSystem();
 
-            Assertions.assertNotNull(fileSystem);
+            proxy.close();
+
+            Assertions.assertNotSame(first, proxy.getFileSystem());
         } finally {
             proxy.close();
         }
+    }
+
+    private static HadoopFileSystemProxy newProxy(FileSystem fileSystem) {
+        HadoopFileSystemProxy proxy =
+                Mockito.mock(HadoopFileSystemProxy.class, Mockito.CALLS_REAL_METHODS);
+        Mockito.doReturn(fileSystem).when(proxy).getFileSystem();
+        return proxy;
     }
 }

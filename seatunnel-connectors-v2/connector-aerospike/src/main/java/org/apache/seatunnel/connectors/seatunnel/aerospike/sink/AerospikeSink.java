@@ -21,25 +21,35 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSinkWriter;
+
+import java.util.Optional;
 
 public class AerospikeSink extends AbstractSimpleSink<SeaTunnelRow, Void> {
     private final ReadonlyConfig pluginConfig;
     private final CatalogTable catalogTable;
+    private final SeaTunnelRowType seaTunnelRowType;
 
     public AerospikeSink(ReadonlyConfig pluginConfig, CatalogTable catalogTable) {
         this.pluginConfig = pluginConfig;
         this.catalogTable = catalogTable;
+        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
     }
 
     @Override
     public AbstractSinkWriter<SeaTunnelRow, Void> createWriter(SinkWriter.Context context) {
-        return new AerospikeSinkWriter(catalogTable.getSeaTunnelRowType(), pluginConfig);
+        return new AerospikeSinkWriter(seaTunnelRowType, pluginConfig);
     }
 
     @Override
     public String getPluginName() {
         return "aerospike";
+    }
+
+    @Override
+    public Optional<CatalogTable> getWriteCatalogTable() {
+        return Optional.of(catalogTable);
     }
 }

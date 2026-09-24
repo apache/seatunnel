@@ -48,6 +48,12 @@ Fluss Sink 用于在批处理或流处理作业中，将 SeaTunnel 数据写入�
 | multi_table_sink_replica | int | 否 | 1 | 多表写入模式下的 Sink writer 副本数。 |
 | common-options | - | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
+### bootstrap.servers
+
+Fluss coordinator 地址。
+
+该值不能为空字符串或仅包含空白字符。
+
 ### database
 
 未配置 `database` 时，Sink 会使用输入表标识中的上游数据库名。
@@ -201,6 +207,73 @@ sink {
 多表写入时，Sink 会为每个上游表分别解析目标表名。运行作业前，需要先创建对应的 Fluss database 和 table。
 
 多表写入时，`database` 和 `table` 可以同时包含固定文本和占位符。例如 `database = "fluss_db_${database_name}"`、`table = "fluss_tb_${table_name}"` 会把上游表 `test2.table1` 写入 `fluss_db_test2.fluss_tb_table1`。
+
+### 向主键 Fluss 表流式写入 upsert
+
+当目标 Fluss 表带有主键时，Sink 会按每行记录的 `RowKind` 路由到对应的写入操作。
+下面的示例从 CDC 源读取，并写入包含主键的 Fluss 表，会产生插入、更新和删除三类事件。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "orders_cdc"
+    base-url = "jdbc:mysql://mysql:3306/shop"
+    username = "cdc"
+    password = "${secret}"
+    database-names = ["shop"]
+    table-names = ["shop.orders"]
+  }
+}
+
+sink {
+  Fluss {
+    plugin_input = "orders_cdc"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "shop"
+    table = "orders"
+  }
+}
+```
+
+### 跨库复制 CDC 变更
+
+可以使用占位符把一个 Fluss 命名空间下的 CDC 变更复制到另一个命名空间。
+`schema_name` 占位符会解析为上游数据库名，`table_name` 解析为上游表名，
+这样单个 Sink 配置就能扇出多张表。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Fluss {
+    plugin_output = "fluss_cdc"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "source_db"
+    table = "source_table"
+    start_mode = "earliest"
+  }
+}
+
+sink {
+  Fluss {
+    plugin_input = "fluss_cdc"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "sink_db_${schema_name}"
+    table = "sink_${table_name}"
+    multi_table_sink_replica = 2
+  }
+}
+```
 
 ## Changelog
 

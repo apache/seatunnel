@@ -24,7 +24,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且可以按 `batch_size` 或 `batch_interval_ms` 刷新缓存数据。
+该连接器可以把输入行写成顶点或边，支持插入、更新、删除，并且会在达到 `batch_size`、checkpoint 或 close 时刷新缓存数据。
 
 :::caution
 
@@ -44,9 +44,9 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `username`          | String  | 否       | -      | 用于HugeGraph身份验证的用户名。                                        |
 | `password`          | String  | 否       | -      | 用于HugeGraph身份验证的密码。                                          |
 | `batch_size`        | Integer | 否       | 500    | 在单批次写入HugeGraph之前缓冲的记录数。                                |
-| `batch_interval_ms` | Integer | 否       | 5000   | 刷新批次前等待的最大时间（毫秒）。                                     |
-| `batch_failure_fallback` | Boolean | 否   | true   | 批量写入失败时，降级为逐条写入，使单条“毒药”记录不再拖垮整批。失败记录会记录日志并跳过，其余成功；若整批全部失败（系统性错误）则抛出。设为 `false` 则整批失败。 |
-| `max_insert_errors` | Integer | 否       | 500    | 逐条降级（`batch_failure_fallback=true`）累计跳过的失败记录达到该数量后使任务失败，用于约束原本无上限的“毒药”记录静默跳过。设为 `-1` 表示不限。仅在开启 `batch_failure_fallback` 时生效。 |
+| `batch_interval_ms` | Integer | 否       | 5000   | 为兼容性保留。在 Zeta 上需要定时刷新时，请在作业 `env` 中配置 `sink.flush.interval`。 |
+| `batch_failure_fallback` | Boolean | 否   | false  | 批量写入失败时，降级为逐条写入，使单条“毒药”记录不再拖垮整批。失败记录会记录日志并跳过，其余成功；若整批全部失败（系统性错误）则抛出。设为 `false` 则整批失败。 |
+| `max_insert_errors` | Integer | 否       | 0      | 逐条降级（`batch_failure_fallback=true`）累计跳过的失败记录达到该数量后使任务失败。默认 `0`：任何被跳过的记录都会使任务失败。设为 `-1` 表示不限。仅在开启 `batch_failure_fallback` 时生效。 |
 | `failure_data_path` | String  | 否       | -      | 可选本地目录。设置后，逐条降级跳过的每条记录（映射后的 id、label、属性及服务端错误）会追加写入按子任务区分的文件（`hugegraph-sink-failures-subtask-N.log`）以便离线排查。集群模式下文件写在运行该 sink 子任务的 worker 节点上。 |
 | `check_vertex`      | Boolean | 否       | false  | 写入边时服务端是否校验边的源/目标顶点是否存在。为 `false` 时，端点从未写入的边会被写成孤儿边（或触发服务端幻影顶点自动创建）。开启后此类边会被拒绝。 |
 | `max_retries`       | Integer | 否       | 3      | 首次请求失败后的重试次数。设置为 `0` 可禁用重试。                       |
@@ -61,11 +61,24 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 | `schema_save_mode`         | Enum    | 否       | `mappings` 为 `CREATE_SCHEMA_WHEN_NOT_EXIST`；legacy 为 `ERROR_WHEN_SCHEMA_NOT_EXIST` | Schema 管理模式。 |
 | `data_save_mode`           | Enum    | 否       | `APPEND_DATA` | 写入前如何处理已有数据。`APPEND_DATA` 保留已有数据；`DROP_DATA` 在任务开始时**仅**删除本任务涉及的 label 的数据（先边后点），保留其 schema 以及其他 label 的数据；删除按 label 隔离（某张表的 DROP 不会波及其他表），且在 checkpoint 重启时不会重复执行。 |
 | `delete_vertex_with_edges` | Boolean | 否       | `mappings` 为 `false`；legacy 为 `true` | 为 true 时，顶点 DELETE 行会同时删除关联边。 |
+| `allow_cascade_delete_unmapped_edges` | Boolean | 否 | `false` | 当 `data_save_mode = DROP_DATA` 时，删除顶点会级联删除其关联的边——包括未在本作业 `mappings` 中列出的边 label。默认 `false`：作业快速失败并列出未映射的边 label。设为 `true` 表示接受该破坏性级联删除。 |
 | `schema_config`            | Object  | 否       | -      | 已废弃的 legacy 映射对象。请使用 `mappings`。必须配置 `mappings` 或 `schema_config` 之一。 |
 | `selected_fields`          | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
 | `ignored_fields`           | List    | 否       | -      | 已废弃。Legacy `schema_config` 仍会应用；新任务请使用 mapping 内的 `properties`。 |
 
 如果同时配置 `mappings` 和 `schema_config`，connector 会使用 `mappings`，并输出警告说明 `schema_config` 被忽略。
+
+## 定时刷新
+
+定时刷新是仅由 Zeta 支持的引擎级能力。在作业的 `env` 中配置 `sink.flush.interval` 后，即使尚未达到 `batch_size`，HugeGraph Sink 也会写出待处理的记录。Spark 和 Flink 不会注入 `FlushSignal`，因此不会触发这种定时刷新。
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+HugeGraph 定时刷新复用连接器现有的同步批量刷新。失败会直接传递给引擎，而不会被连接器自建后台线程延迟暴露。
 
 ### 映射配置 (`mappings`)
 

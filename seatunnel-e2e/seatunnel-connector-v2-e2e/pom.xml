@@ -30,22 +30,29 @@
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>
         <module>connector-redis-e2e</module>
+        <module>connector-cdc-db2-e2e</module>
         <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-databend-e2e</module>
         <module>connector-starrocks-e2e</module>
         <module>connector-influxdb-e2e</module>
         <module>connector-amazondynamodb-e2e</module>
+        <module>connector-amazondocumentdb-e2e</module>
+        <module>connector-azurecosmosdb-e2e</module>
         <module>connector-amazonsqs-e2e</module>
         <module>connector-file-local-e2e</module>
         <module>connector-file-cos-e2e</module>
+        <module>connector-file-bos-e2e</module>
         <module>connector-file-hadoop-e2e</module>
         <module>connector-file-sftp-e2e</module>
         <module>connector-file-oss-e2e</module>
         <module>connector-file-s3-e2e</module>
+        <module>connector-file-gcs-e2e</module>
         <module>connector-cassandra-e2e</module>
         <module>connector-neo4j-e2e</module>
         <module>connector-http-e2e</module>
+        <module>connector-paypal-e2e</module>
+        <module>connector-tiktok-ads-e2e</module>
         <module>connector-rabbitmq-e2e</module>
         <module>connector-kafka-e2e</module>
         <module>connector-doris-e2e</module>
@@ -54,6 +61,7 @@
         <module>connector-iotdb-e2e</module>
         <module>connector-iotdb-v2-e2e</module>
         <module>connector-cdc-mysql-e2e</module>
+        <module>connector-cdc-oceanbase-e2e</module>
         <module>connector-cdc-mongodb-e2e</module>
         <module>connector-iceberg-e2e</module>
         <module>connector-iceberg-hadoop3-e2e</module>
@@ -68,6 +76,9 @@
         <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-google-pubsub-e2e</module>
+        <module>connector-google-analytics4-e2e</module>
+        <module>connector-snmp-e2e</module>
+        <module>connector-azure-queue-storage-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
@@ -86,6 +97,7 @@
         <module>connector-qdrant-e2e</module>
         <module>connector-sls-e2e</module>
         <module>connector-socket-e2e</module>
+        <module>connector-syslog-e2e</module>
         <module>connector-typesense-e2e</module>
         <module>connector-email-e2e</module>
         <module>connector-edge-socket-e2e</module>
@@ -95,11 +107,13 @@
         <module>connector-aerospike-e2e</module>
         <module>connector-sensorsdata-e2e</module>
         <module>connector-hugegraph-e2e</module>
+        <module>connector-nebulagraph-e2e</module>
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
         <module>connector-bigquery-e2e</module>
         <module>connector-nats-jetstream-e2e</module>
         <module>connector-couchbase-e2e</module>
+        <module>connector-firebase-e2e</module>
     </modules>
 
     <properties>
