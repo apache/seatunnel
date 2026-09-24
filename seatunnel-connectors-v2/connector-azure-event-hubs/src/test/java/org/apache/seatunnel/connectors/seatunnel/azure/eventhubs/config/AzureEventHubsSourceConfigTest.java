@@ -44,10 +44,15 @@ class AzureEventHubsSourceConfigTest {
         AzureEventHubsSourceConfig config = config(options);
         Assertions.assertEquals(CONNECTION_STRING, config.getConnectionString());
         Assertions.assertFalse(config.toString().contains(SAS_KEY));
+        Assertions.assertFalse(config.toString().contains(CONNECTION_STRING));
         Assertions.assertFalse(
                 new AzureEventHubsSourceSplit(config.getEventHubName(), "0", 10L)
                         .toString()
                         .contains(SAS_KEY));
+        Assertions.assertFalse(
+                new AzureEventHubsSourceSplit(config.getEventHubName(), "0", 10L)
+                        .toString()
+                        .contains(CONNECTION_STRING));
         for (String hub : new String[] {"events", "different-hub"}) {
             options.put("connection_string", CONNECTION_STRING + ";EnTiTyPaTh=" + hub);
             OptionValidationException exception =

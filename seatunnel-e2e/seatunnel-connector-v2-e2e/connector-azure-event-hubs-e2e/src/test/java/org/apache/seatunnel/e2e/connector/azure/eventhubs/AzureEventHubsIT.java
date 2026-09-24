@@ -49,6 +49,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -180,17 +181,18 @@ public class AzureEventHubsIT extends TestSuiteBase implements TestResource {
                                 assertExpectedRows(container.getServerLogs());
                             });
             // Zero can mean an unavailable REST metric, not a confirmed checkpoint baseline.
-            long checkpointsAfterRows =
-                    await().atMost(60, TimeUnit.SECONDS)
-                            .pollInterval(1, TimeUnit.SECONDS)
-                            .until(
-                                    () -> {
-                                        assertJobStillRunning(jobFuture);
-                                        Assertions.assertEquals(
-                                                "RUNNING", container.getJobStatus(jobId));
-                                        return container.getCompletedCheckpointCount(jobId);
-                                    },
-                                    count -> count > 0);
+            AtomicLong checkpointsAfterRows = new AtomicLong();
+            await().atMost(60, TimeUnit.SECONDS)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(jobFuture);
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                                long count = container.getCompletedCheckpointCount(jobId);
+                                Assertions.assertTrue(
+                                        count > 0, "No checkpoint baseline available");
+                                checkpointsAfterRows.set(count);
+                            });
             // A checkpoint already in progress when Console emitted the rows is insufficient.
             await().atMost(60, TimeUnit.SECONDS)
                     .pollInterval(1, TimeUnit.SECONDS)
@@ -199,7 +201,7 @@ public class AzureEventHubsIT extends TestSuiteBase implements TestResource {
                                 assertJobStillRunning(jobFuture);
                                 Assertions.assertTrue(
                                         container.getCompletedCheckpointCount(jobId)
-                                                > checkpointsAfterRows + 1,
+                                                > checkpointsAfterRows.get() + 1,
                                         "No subsequent checkpoint completed through both sinks");
                             });
             Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
