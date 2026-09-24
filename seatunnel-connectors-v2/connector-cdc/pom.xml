@@ -34,6 +34,7 @@
         <module>connector-cdc-db2</module>
         <module>connector-cdc-mariadb</module>
         <module>connector-cdc-mysql</module>
+        <module>connector-cdc-oceanbase</module>
         <module>connector-cdc-sqlserver</module>
         <module>connector-cdc-mongodb</module>
         <module>connector-cdc-postgres</module>
