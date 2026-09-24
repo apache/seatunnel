@@ -20,33 +20,12 @@
 application {
   name = "example-batch"
   worker-count = 2
-  worker {
-    memory-mb = 1024
-    cpu-cores = 1
-    slots = 4
-  }
-  master {
-    memory-mb = 1024
-    cpu-cores = 1
-    port = 5801
-  }
-  startup-timeout-millis = 180000
 }
 
 kubernetes {
   namespace = "seatunnel"
   image = "your-registry/seatunnel-application:<version>"
   service-account = "seatunnel-application"
-  image-pull-policy = "IfNotPresent"
-  # image-pull-secrets = "registry-secret-1,registry-secret-2"
-  seatunnel-home = "/opt/seatunnel"
   # Existing ConfigMap containing seatunnel.yaml, log4j2_client.properties, and other runtime configuration.
   config-map = "seatunnel-configuration"
-  finished-job-retention-seconds = 86400
-  # master-node-selector = "workload:control-plane"
-  # worker-node-selector = "workload:data-plane"
-  # master-labels = "team:data,component:master"
-  # worker-labels = "team:data,component:worker"
-  # master-annotations = "example.com/owner:platform"
-  # worker-annotations = "example.com/owner:runtime"
 }

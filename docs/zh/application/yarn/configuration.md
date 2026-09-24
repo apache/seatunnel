@@ -21,6 +21,8 @@ title: 配置参考
 | `yarn.master.node-label` | String | 空 | ApplicationMaster 使用的 node-label expression。 |
 | `yarn.worker.node-label` | String | 空 | Worker 使用的 node-label expression；为空时继承 `yarn.master.node-label`。 |
 
+`yarn.config-dir` 只用于配置 Hadoop 客户端。SeaTunnel 运行时与日志配置来自 `yarn.distribution` 内的 `config/seatunnel.yaml` 和 `config/log4j2_client.properties`。YARN 会为 ApplicationMaster 和所有 Worker 本地化同一份只读发行包；需要自定义 JVM、引擎、checkpoint 或日志配置时，应在创建归档前修改这些文件。
+
 ## Application 公共选项
 
 | 选项 | 类型 | 默认值 | 说明 |

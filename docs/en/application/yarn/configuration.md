@@ -21,6 +21,8 @@ Deployment configuration uses HOCON. Resource values and timeouts must be positi
 | `yarn.master.node-label` | String | Empty | Node-label expression for the ApplicationMaster. |
 | `yarn.worker.node-label` | String | Empty | Node-label expression for workers; empty inherits `yarn.master.node-label`. |
 
+`yarn.config-dir` configures Hadoop clients only. SeaTunnel runtime and logging configuration comes from `config/seatunnel.yaml` and `config/log4j2_client.properties` inside `yarn.distribution`. YARN localizes the same read-only distribution for the ApplicationMaster and every worker, so update those files before creating the archive when the application needs custom JVM, engine, checkpoint, or logging settings.
+
 ## Shared application options
 
 | Option | Type | Default | Description |

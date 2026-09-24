@@ -20,27 +20,9 @@
 application {
   name = "example-batch"
   worker-count = 2
-  worker {
-    memory-mb = 1024
-    cpu-cores = 1
-    slots = 4
-  }
-  master {
-    memory-mb = 1024
-    cpu-cores = 1
-    port = 5801
-  }
-  startup-timeout-millis = 180000
 }
 
 yarn {
-  deployment-target = APPLICATION
   distribution = "/path/to/apache-seatunnel-<version>-bin.tar.gz"
   config-dir = "/etc/hadoop/conf"
-  staging-dir = ".seatunnel/applications"
-  queue = "default"
-  priority = -1
-  # tags = "batch,production"
-  # master.node-label = "master-pool"
-  # worker.node-label = "worker-pool"
 }
