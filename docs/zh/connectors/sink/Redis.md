@@ -14,14 +14,12 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 
 ### 连通性 dry-run
 
-Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配置的凭据。`SINGLE` 模式下，
-会打开一个连接并依次发送 `AUTH`（仅在配置了 `auth` 时）、`SELECT db_num` 和 `PING`。`CLUSTER`
-模式下，会基于 `nodes` 以单次尝试初始化集群 slot 缓存（`CLUSTER SLOTS`，配置了 `auth` 时还会发送
-`AUTH`），并从一个节点读取 `INFO`。连接超时和 socket 超时均为 10 秒，无论成功或失败都会关闭所有
-客户端。校验不会读取、扫描、写入任何 key，也不会设置过期时间或创建 key 空间。正常作业运行保持不变。
-
-dry-run 期间不会应用 `user` 选项，因为运行时客户端通过 `ACL SETUSER` 应用该选项，会修改服务端状态。
-因此依赖 `user` 的部署无法通过 `--dry-run connect` 得到完整验证。
+Zeta 的 `--dry-run connect` 会校验 Redis 是否可达以及是否接受配置的凭据。客户端通过与正常作业
+运行相同的连接逻辑创建，因此 `user` 和 `auth` 会按运行时的方式进行验证：配置了 `user` 时发送
+`AUTH user auth`，仅配置了 `auth` 时发送 `AUTH auth`。`SINGLE` 模式下随后发送 `SELECT db_num` 和
+`PING`。`CLUSTER` 模式下会基于 `nodes` 初始化集群 slot 缓存（`CLUSTER SLOTS`），并从一个节点读取
+`INFO`。连接超时和 socket 超时沿用运行时的默认值（2 秒），无论成功或失败都会关闭所有客户端。校验不会
+读取、扫描、写入任何 key，不会设置过期时间或创建 key 空间，也不会修改任何 ACL 条目。正常作业运行保持不变。
 
 校验成功**不代表**具备目标 key 的写入权限。`key`、`value_field`、`hash_key_field` 和
 `hash_value_field` 不会与上游 schema 进行比对，因为运行时如果名称不是上游字段，会作为字面值写入。

@@ -17,93 +17,75 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.client;
 
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.common.exception.CommonErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.redis.config.JedisWrapper;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.redis.exception.RedisErrorCode;
 
-import redis.clients.jedis.ConnectionPoolConfig;
-import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisCluster;
-
-import java.util.LinkedHashSet;
-import java.util.Set;
 
 /**
  * Connectivity and authentication check for {@code --dry-run connect}, shared by the Redis source
  * and sink.
  *
- * <p>Only {@code AUTH}, {@code SELECT}, {@code PING}, {@code CLUSTER SLOTS} and {@code INFO} are
- * issued: no key is read, scanned, written or expired. {@link RedisParameters#buildJedis()} is
- * deliberately not reused because it calls {@code ACL SETUSER} for the {@code user} option, which
- * mutates server state.
+ * <p>The client is created through {@link RedisParameters#buildJedis()}, the same connection setup
+ * the runtime uses, so the {@code user} and {@code auth} options are verified exactly as they are
+ * during job execution. Afterwards only {@code PING} (single node) or {@code INFO} (cluster) is
+ * issued: no key is read, scanned, written or expired, no key space is created and no ACL is
+ * modified. The client is closed on success and on failure.
  */
 public final class RedisDryRunValidator {
 
-    static final int TIMEOUT_MS = 10_000;
-    static final int CLUSTER_MAX_ATTEMPTS = 1;
-
     private RedisDryRunValidator() {}
 
+    /**
+     * Opens one short-lived connection with the runtime connection setup and closes it again.
+     *
+     * @param parameters connection parameters built from the source or sink options
+     * @throws RedisConnectorException with {@link RedisErrorCode#REDIS_CONNECTION_ERROR} naming the
+     *     validated target when Redis is unreachable or rejects the credentials
+     */
     public static void validate(RedisParameters parameters) {
+        String target = target(parameters);
+        Jedis jedis;
+        try {
+            // Sends AUTH (and SELECT in SINGLE mode, CLUSTER SLOTS in CLUSTER mode) and already
+            // closes the connection itself when that fails.
+            jedis = parameters.buildJedis();
+        } catch (RuntimeException e) {
+            throw connectionError(target, e);
+        }
+        try (Jedis client = jedis) {
+            switch (parameters.getMode()) {
+                case SINGLE:
+                    client.ping();
+                    break;
+                case CLUSTER:
+                    // JedisWrapper has no connection of its own, so INFO is read from a node.
+                    client.info();
+                    break;
+                default:
+                    throw unsupportedMode();
+            }
+        } catch (RuntimeException e) {
+            throw connectionError(target, e);
+        }
+    }
+
+    private static String target(RedisParameters parameters) {
         switch (parameters.getMode()) {
             case SINGLE:
-                validateSingle(parameters);
-                return;
+                return parameters.getHost() + ":" + parameters.getPort();
             case CLUSTER:
-                validateCluster(parameters);
-                return;
+                return String.valueOf(parameters.getRedisNodes());
             default:
-                throw new RedisConnectorException(
-                        CommonErrorCode.OPERATION_NOT_SUPPORTED, "Not support this redis mode");
+                throw unsupportedMode();
         }
     }
 
-    private static void validateSingle(RedisParameters parameters) {
-        String target = parameters.getHost() + ":" + parameters.getPort();
-        try (Jedis jedis =
-                new Jedis(parameters.getHost(), parameters.getPort(), TIMEOUT_MS, TIMEOUT_MS)) {
-            if (StringUtils.isNotBlank(parameters.getAuth())) {
-                jedis.auth(parameters.getAuth());
-            }
-            jedis.select(parameters.getDbNum());
-            jedis.ping();
-        } catch (RuntimeException e) {
-            throw connectionError(target, e);
-        }
-    }
-
-    private static void validateCluster(RedisParameters parameters) {
-        Set<HostAndPort> nodes = new LinkedHashSet<>();
-        for (String redisNode : parameters.getRedisNodes()) {
-            String[] splits = redisNode.split(":");
-            nodes.add(new HostAndPort(splits[0], Integer.parseInt(splits[1])));
-        }
-        String target = String.valueOf(parameters.getRedisNodes());
-        String password =
-                StringUtils.isNotBlank(parameters.getAuth()) ? parameters.getAuth() : null;
-        try {
-            // The constructor initializes the slot cache, which already proves that at least one
-            // node is reachable and accepts the credentials.
-            JedisCluster jedisCluster =
-                    new JedisCluster(
-                            nodes,
-                            TIMEOUT_MS,
-                            TIMEOUT_MS,
-                            CLUSTER_MAX_ATTEMPTS,
-                            password,
-                            new ConnectionPoolConfig());
-            // Closing the wrapper also closes the cluster client and its node connections.
-            try (JedisWrapper jedisWrapper = new JedisWrapper(jedisCluster)) {
-                jedisWrapper.info();
-            }
-        } catch (RuntimeException e) {
-            throw connectionError(target, e);
-        }
+    private static RedisConnectorException unsupportedMode() {
+        return new RedisConnectorException(
+                CommonErrorCode.OPERATION_NOT_SUPPORTED, "Not support this redis mode");
     }
 
     private static RedisConnectorException connectionError(String target, Throwable cause) {

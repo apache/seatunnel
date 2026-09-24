@@ -47,7 +47,9 @@ import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.Jedis;
 
 import java.io.IOException;
+import java.net.InetAddress;
 import java.net.ServerSocket;
+import java.net.Socket;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -66,6 +68,8 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
     private static final String IMAGE = "redis:7";
     private static final int REDIS_PORT = 6379;
     private static final String PASSWORD = "test-only-password";
+    private static final String USER = "dry-run-user";
+    private static final String USER_PASSWORD = "test-only-user-password";
     private static final int DB_NUM = 3;
 
     private GenericContainer<?> redis;
@@ -86,6 +90,8 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
         log.info("Password-protected Redis dry-run fixture started");
         admin = new Jedis(redis.getHost(), redis.getFirstMappedPort());
         admin.auth(PASSWORD);
+        // A named ACL user, so that the user option is exercised against a real server.
+        admin.aclSetUser(USER, "on", ">" + USER_PASSWORD, "+@all", "~*");
     }
 
     @AfterAll
@@ -106,8 +112,10 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
     public void testSourceAndSinkValidationHaveNoKeyOrAclSideEffects() throws Exception {
         List<String> aclBefore = admin.aclList();
 
-        List<CatalogTable> tables = validateSource(PASSWORD, redis.getFirstMappedPort());
-        validateSink(PASSWORD, redis.getFirstMappedPort());
+        List<CatalogTable> tables = validateSource(null, PASSWORD, redis.getFirstMappedPort());
+        validateSink(null, PASSWORD, redis.getFirstMappedPort());
+        validateSource(USER, USER_PASSWORD, redis.getFirstMappedPort());
+        validateSink(USER, USER_PASSWORD, redis.getFirstMappedPort());
 
         assertEquals(1, tables.size());
         // No key space is created, neither in the default db nor in the configured db_num.
@@ -115,33 +123,54 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
         assertEquals(0L, admin.dbSize());
         admin.select(DB_NUM);
         assertEquals(0L, admin.dbSize());
-        // The configured user option must not trigger ACL SETUSER.
+        // Validating with a named user must not create or alter any ACL entry.
         assertEquals(aclBefore, admin.aclList());
     }
 
     @Test
     public void testIncorrectPasswordFailsValidation() {
-        assertConnectionError(() -> validateSource("incorrect", redis.getFirstMappedPort()));
-        assertConnectionError(() -> validateSink("incorrect", redis.getFirstMappedPort()));
+        assertConnectionError(() -> validateSource(null, "incorrect", redis.getFirstMappedPort()));
+        assertConnectionError(() -> validateSink(null, "incorrect", redis.getFirstMappedPort()));
     }
 
     @Test
     public void testMissingPasswordFailsValidation() {
-        assertConnectionError(() -> validateSource(null, redis.getFirstMappedPort()));
-        assertConnectionError(() -> validateSink(null, redis.getFirstMappedPort()));
+        assertConnectionError(() -> validateSource(null, null, redis.getFirstMappedPort()));
+        assertConnectionError(() -> validateSink(null, null, redis.getFirstMappedPort()));
     }
 
     @Test
-    public void testUnreachablePortFailsValidation() throws IOException {
-        int closedPort = closedPort();
-        assertConnectionError(() -> validateSource(PASSWORD, closedPort));
-        assertConnectionError(() -> validateSink(PASSWORD, closedPort));
+    public void testNamedUserCredentialsAreVerified() {
+        int port = redis.getFirstMappedPort();
+        // The named user's password is checked, not the server-wide requirepass.
+        assertConnectionError(() -> validateSource(USER, PASSWORD, port));
+        assertConnectionError(() -> validateSink(USER, PASSWORD, port));
+        assertConnectionError(() -> validateSource("unknown-user", USER_PASSWORD, port));
+        assertConnectionError(() -> validateSink("unknown-user", USER_PASSWORD, port));
     }
 
-    private List<CatalogTable> validateSource(String password, int port) throws Exception {
+    @Test
+    public void testUnreachableServerFailsValidation() throws Exception {
+        // A listener that drops every connection stands in for an unreachable Redis; unlike a
+        // released ephemeral port it cannot be taken over by another process mid-test.
+        try (ServerSocket server = droppingServer()) {
+            String host = server.getInetAddress().getHostAddress();
+            int port = server.getLocalPort();
+            assertConnectionError(() -> validateSource(null, PASSWORD, host, port));
+            assertConnectionError(() -> validateSink(null, PASSWORD, host, port));
+        }
+    }
+
+    private List<CatalogTable> validateSource(String user, String password, int port)
+            throws Exception {
+        return validateSource(user, password, redis.getHost(), port);
+    }
+
+    private List<CatalogTable> validateSource(String user, String password, String host, int port)
+            throws Exception {
         TableSourceFactoryContext context =
                 new TableSourceFactoryContext(
-                        ReadonlyConfig.fromMap(options(password, port)),
+                        ReadonlyConfig.fromMap(options(user, password, host, port)),
                         getClass().getClassLoader());
         SupportSourceDryRunValidation validation = new RedisSourceFactory();
         List<CatalogTable> tables = validation.inferSchemaForDryRun(context);
@@ -149,8 +178,13 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
         return tables;
     }
 
-    private void validateSink(String password, int port) throws Exception {
-        Map<String, Object> options = options(password, port);
+    private void validateSink(String user, String password, int port) throws Exception {
+        validateSink(user, password, redis.getHost(), port);
+    }
+
+    private void validateSink(String user, String password, String host, int port)
+            throws Exception {
+        Map<String, Object> options = options(user, password, host, port);
         options.remove("keys");
         options.put("key", "id");
         TableSinkFactoryContext context =
@@ -162,14 +196,17 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
         validation.validateConnectionForDryRun(context);
     }
 
-    private Map<String, Object> options(String password, int port) {
+    private static Map<String, Object> options(
+            String user, String password, String host, int port) {
         Map<String, Object> options = new HashMap<>();
-        options.put("host", redis.getHost());
+        options.put("host", host);
         options.put("port", port);
         options.put("db_num", DB_NUM);
         options.put("keys", "dry-run-*");
         options.put("data_type", "KEY");
-        options.put("user", "dry-run-must-not-create-this-user");
+        if (user != null) {
+            options.put("user", user);
+        }
         if (password != null) {
             options.put("auth", password);
         }
@@ -181,13 +218,28 @@ public class RedisConnectDryRunIT extends TestSuiteBase implements TestResource 
                 assertThrows(RedisConnectorException.class, validation::run);
         assertEquals(RedisErrorCode.REDIS_CONNECTION_ERROR, exception.getSeaTunnelErrorCode());
         assertFalse(exception.getMessage().contains(PASSWORD), exception.getMessage());
+        assertFalse(exception.getMessage().contains(USER_PASSWORD), exception.getMessage());
         assertTrue(exception.getMessage().contains("dry-run"), exception.getMessage());
     }
 
-    private static int closedPort() throws IOException {
-        try (ServerSocket socket = new ServerSocket(0)) {
-            return socket.getLocalPort();
-        }
+    /** Listens on a loopback port and closes every accepted connection without answering. */
+    private static ServerSocket droppingServer() throws IOException {
+        ServerSocket server = new ServerSocket(0, 1, InetAddress.getLoopbackAddress());
+        Thread acceptor =
+                new Thread(
+                        () -> {
+                            while (!server.isClosed()) {
+                                try (Socket ignored = server.accept()) {
+                                    // Close immediately so the client sees a dropped connection.
+                                } catch (IOException e) {
+                                    // The server socket was closed by the test; stop accepting.
+                                }
+                            }
+                        },
+                        "redis-dry-run-dropping-server");
+        acceptor.setDaemon(true);
+        acceptor.start();
+        return server;
     }
 
     private static CatalogTable catalogTable() {

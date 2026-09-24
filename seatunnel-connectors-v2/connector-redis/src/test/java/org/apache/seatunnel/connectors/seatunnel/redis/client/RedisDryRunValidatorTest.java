@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.MockedConstruction;
 
+import redis.clients.jedis.DefaultJedisClientConfig;
 import redis.clients.jedis.HostAndPort;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisCluster;
@@ -56,39 +57,52 @@ import static org.mockito.Mockito.when;
 
 class RedisDryRunValidatorTest {
 
+    private static final String USER = "synthetic-user";
     private static final String PASSWORD = "synthetic-secret";
+    private static final String SINGLE_TARGET = "localhost:6379";
+    private static final String CLUSTER_TARGET = "[127.0.0.1:7000, 127.0.0.1:7001]";
 
     @Test
-    void singleNodeAuthenticatesSelectsPingsAndCloses() {
+    void singleNodeAuthenticatesNamedUserSelectsPingsAndCloses() {
         try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
-            RedisDryRunValidator.validate(singleParameters(PASSWORD));
+            RedisDryRunValidator.validate(singleParameters(USER, PASSWORD));
 
             assertEquals(1, clients.constructed().size());
+            Jedis jedis = clients.constructed().get(0);
+            InOrder order = inOrder(jedis);
+            order.verify(jedis).auth(USER, PASSWORD);
+            order.verify(jedis).select(2);
+            order.verify(jedis).ping();
+            order.verify(jedis).close();
+            // Proves that no key or ACL command is issued.
+            verifyNoMoreInteractions(jedis);
+        }
+    }
+
+    @Test
+    void singleNodeAuthenticatesPasswordOnly() {
+        try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
+            RedisDryRunValidator.validate(singleParameters(null, PASSWORD));
+
             Jedis jedis = clients.constructed().get(0);
             InOrder order = inOrder(jedis);
             order.verify(jedis).auth(PASSWORD);
             order.verify(jedis).select(2);
             order.verify(jedis).ping();
             order.verify(jedis).close();
-            // Proves that no key command is issued.
             verifyNoMoreInteractions(jedis);
         }
     }
 
     @Test
-    void singleNodeUsesBoundedTimeouts() {
+    void singleNodeUsesRuntimeConnectionSetup() {
         try (MockedConstruction<Jedis> clients =
                 mockConstruction(
                         Jedis.class,
                         (jedis, context) ->
                                 assertEquals(
-                                        Arrays.asList(
-                                                "localhost",
-                                                6379,
-                                                RedisDryRunValidator.TIMEOUT_MS,
-                                                RedisDryRunValidator.TIMEOUT_MS),
-                                        context.arguments()))) {
-            RedisDryRunValidator.validate(singleParameters(null));
+                                        Arrays.asList("localhost", 6379), context.arguments()))) {
+            RedisDryRunValidator.validate(singleParameters(null, null));
 
             assertEquals(1, clients.constructed().size());
         }
@@ -97,7 +111,7 @@ class RedisDryRunValidatorTest {
     @Test
     void singleNodeWithoutAuthDoesNotAuthenticate() {
         try (MockedConstruction<Jedis> clients = mockConstruction(Jedis.class)) {
-            RedisDryRunValidator.validate(singleParameters(null));
+            RedisDryRunValidator.validate(singleParameters(null, null));
 
             Jedis jedis = clients.constructed().get(0);
             verify(jedis, never()).auth(anyString());
@@ -116,13 +130,13 @@ class RedisDryRunValidatorTest {
         try (MockedConstruction<Jedis> clients =
                 mockConstruction(
                         Jedis.class,
-                        (jedis, context) -> when(jedis.auth(PASSWORD)).thenThrow(cause))) {
+                        (jedis, context) -> when(jedis.auth(USER, PASSWORD)).thenThrow(cause))) {
             RedisConnectorException exception =
                     assertThrows(
                             RedisConnectorException.class,
-                            () -> RedisDryRunValidator.validate(singleParameters(PASSWORD)));
+                            () -> RedisDryRunValidator.validate(singleParameters(USER, PASSWORD)));
 
-            assertConnectionError(exception, "localhost:6379", cause);
+            assertConnectionError(exception, SINGLE_TARGET, cause);
             Jedis jedis = clients.constructed().get(0);
             verify(jedis, never()).select(anyInt());
             verify(jedis, never()).ping();
@@ -140,38 +154,49 @@ class RedisDryRunValidatorTest {
             RedisConnectorException exception =
                     assertThrows(
                             RedisConnectorException.class,
-                            () -> RedisDryRunValidator.validate(singleParameters(null)));
+                            () -> RedisDryRunValidator.validate(singleParameters(null, null)));
 
-            assertConnectionError(exception, "localhost:6379", cause);
+            assertConnectionError(exception, SINGLE_TARGET, cause);
+            verify(clients.constructed().get(0)).close();
+        }
+    }
+
+    @Test
+    void singleNodePingFailureIsReportedAndClientClosed() {
+        JedisConnectionException cause = new JedisConnectionException("Unexpected end of stream.");
+        try (MockedConstruction<Jedis> clients =
+                mockConstruction(
+                        Jedis.class, (jedis, context) -> when(jedis.ping()).thenThrow(cause))) {
+            RedisConnectorException exception =
+                    assertThrows(
+                            RedisConnectorException.class,
+                            () -> RedisDryRunValidator.validate(singleParameters(null, PASSWORD)));
+
+            assertConnectionError(exception, SINGLE_TARGET, cause);
             verify(clients.constructed().get(0)).close();
         }
     }
 
     @Test
     @SuppressWarnings("unchecked")
-    void clusterUsesBoundedSingleAttemptClientReadsInfoAndCloses() {
+    void clusterAuthenticatesNamedUserReadsInfoAndCloses() {
         try (MockedConstruction<JedisCluster> clusters =
                         mockConstruction(
                                 JedisCluster.class,
                                 (cluster, context) -> {
                                     List<?> arguments = context.arguments();
-                                    Set<HostAndPort> nodes = (Set<HostAndPort>) arguments.get(0);
-                                    assertEquals(2, nodes.size());
-                                    assertTrue(nodes.contains(new HostAndPort("127.0.0.1", 7000)));
-                                    assertTrue(nodes.contains(new HostAndPort("127.0.0.1", 7001)));
-                                    assertEquals(RedisDryRunValidator.TIMEOUT_MS, arguments.get(1));
-                                    assertEquals(RedisDryRunValidator.TIMEOUT_MS, arguments.get(2));
-                                    assertEquals(
-                                            RedisDryRunValidator.CLUSTER_MAX_ATTEMPTS,
-                                            arguments.get(3));
-                                    assertEquals(PASSWORD, arguments.get(4));
+                                    assertClusterNodes((Set<HostAndPort>) arguments.get(0));
+                                    DefaultJedisClientConfig config =
+                                            (DefaultJedisClientConfig) arguments.get(1);
+                                    assertEquals(USER, config.getUser());
+                                    assertEquals(PASSWORD, config.getPassword());
                                 });
                 MockedConstruction<JedisWrapper> wrappers =
                         mockConstruction(
                                 JedisWrapper.class,
                                 (wrapper, context) ->
                                         when(wrapper.info()).thenReturn("redis_version:7.0.0"))) {
-            RedisDryRunValidator.validate(clusterParameters(PASSWORD));
+            RedisDryRunValidator.validate(clusterParameters(USER, PASSWORD));
 
             assertEquals(1, clusters.constructed().size());
             JedisWrapper wrapper = wrappers.constructed().get(0);
@@ -183,14 +208,39 @@ class RedisDryRunValidatorTest {
     }
 
     @Test
-    void clusterWithoutAuthPassesNoPassword() {
+    @SuppressWarnings("unchecked")
+    void clusterAuthenticatesPasswordOnly() {
         try (MockedConstruction<JedisCluster> clusters =
                         mockConstruction(
                                 JedisCluster.class,
-                                (cluster, context) ->
-                                        assertEquals(null, context.arguments().get(4)));
+                                (cluster, context) -> {
+                                    List<?> arguments = context.arguments();
+                                    assertClusterNodes((Set<HostAndPort>) arguments.get(0));
+                                    assertEquals(PASSWORD, arguments.get(4));
+                                });
                 MockedConstruction<JedisWrapper> wrappers = mockConstruction(JedisWrapper.class)) {
-            RedisDryRunValidator.validate(clusterParameters(null));
+            RedisDryRunValidator.validate(clusterParameters(null, PASSWORD));
+
+            assertEquals(1, clusters.constructed().size());
+            JedisWrapper wrapper = wrappers.constructed().get(0);
+            verify(wrapper).info();
+            verify(wrapper).close();
+        }
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void clusterWithoutAuthPassesNoCredentials() {
+        try (MockedConstruction<JedisCluster> clusters =
+                        mockConstruction(
+                                JedisCluster.class,
+                                (cluster, context) -> {
+                                    List<?> arguments = context.arguments();
+                                    assertEquals(1, arguments.size());
+                                    assertClusterNodes((Set<HostAndPort>) arguments.get(0));
+                                });
+                MockedConstruction<JedisWrapper> wrappers = mockConstruction(JedisWrapper.class)) {
+            RedisDryRunValidator.validate(clusterParameters(null, null));
 
             assertEquals(1, clusters.constructed().size());
             verify(wrappers.constructed().get(0)).close();
@@ -211,9 +261,9 @@ class RedisDryRunValidatorTest {
             RedisConnectorException exception =
                     assertThrows(
                             RedisConnectorException.class,
-                            () -> RedisDryRunValidator.validate(clusterParameters(PASSWORD)));
+                            () -> RedisDryRunValidator.validate(clusterParameters(USER, PASSWORD)));
 
-            assertConnectionError(exception, "[127.0.0.1:7000, 127.0.0.1:7001]", cause);
+            assertConnectionError(exception, CLUSTER_TARGET, cause);
             assertTrue(wrappers.constructed().isEmpty());
         }
     }
@@ -232,11 +282,33 @@ class RedisDryRunValidatorTest {
             RedisConnectorException exception =
                     assertThrows(
                             RedisConnectorException.class,
-                            () -> RedisDryRunValidator.validate(clusterParameters(PASSWORD)));
+                            () -> RedisDryRunValidator.validate(clusterParameters(null, PASSWORD)));
 
-            assertConnectionError(exception, "[127.0.0.1:7000, 127.0.0.1:7001]", cause);
+            assertConnectionError(exception, CLUSTER_TARGET, cause);
             verify(wrappers.constructed().get(0)).close();
         }
+    }
+
+    @Test
+    void clusterMalformedNodeIsReportedAsConnectionError() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("mode", "CLUSTER");
+        config.put("nodes", Arrays.asList("127.0.0.1:7000", "host-without-port"));
+        RedisParameters parameters = parameters(config);
+
+        RedisConnectorException exception =
+                assertThrows(
+                        RedisConnectorException.class,
+                        () -> RedisDryRunValidator.validate(parameters));
+
+        assertEquals(RedisErrorCode.REDIS_CONNECTION_ERROR, exception.getSeaTunnelErrorCode());
+        assertTrue(exception.getMessage().contains("host-without-port"), exception.getMessage());
+    }
+
+    private static void assertClusterNodes(Set<HostAndPort> nodes) {
+        assertEquals(2, nodes.size());
+        assertTrue(nodes.contains(new HostAndPort("127.0.0.1", 7000)));
+        assertTrue(nodes.contains(new HostAndPort("127.0.0.1", 7001)));
     }
 
     private static void assertConnectionError(
@@ -252,29 +324,31 @@ class RedisDryRunValidatorTest {
         assertSame(cause, current);
     }
 
-    private static RedisParameters singleParameters(String auth) {
+    private static RedisParameters singleParameters(String user, String auth) {
         Map<String, Object> config = new HashMap<>();
         config.put("mode", "SINGLE");
         config.put("host", "localhost");
         config.put("port", 6379);
         config.put("db_num", 2);
-        // ACL SETUSER must never be issued, even when the user option is set.
-        config.put("user", "synthetic-user");
-        if (auth != null) {
-            config.put("auth", auth);
-        }
-        return parameters(config);
+        return parameters(withCredentials(config, user, auth));
     }
 
-    private static RedisParameters clusterParameters(String auth) {
+    private static RedisParameters clusterParameters(String user, String auth) {
         Map<String, Object> config = new HashMap<>();
         config.put("mode", "CLUSTER");
         config.put("nodes", Arrays.asList("127.0.0.1:7000", "127.0.0.1:7001"));
-        config.put("user", "synthetic-user");
+        return parameters(withCredentials(config, user, auth));
+    }
+
+    private static Map<String, Object> withCredentials(
+            Map<String, Object> config, String user, String auth) {
+        if (user != null) {
+            config.put("user", user);
+        }
         if (auth != null) {
             config.put("auth", auth);
         }
-        return parameters(config);
+        return config;
     }
 
     private static RedisParameters parameters(Map<String, Object> config) {
