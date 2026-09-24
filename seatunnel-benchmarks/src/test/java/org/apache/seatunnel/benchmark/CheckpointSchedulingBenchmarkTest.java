@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -122,6 +123,17 @@ class CheckpointSchedulingBenchmarkTest {
         assertEquals(5, CheckpointSchedulingFixture.probeStride(500, TimeUnit.SECONDS.toNanos(10)));
         assertEquals(
                 3, CheckpointSchedulingFixture.probeStride(3, TimeUnit.MILLISECONDS.toNanos(10)));
+    }
+
+    @Test
+    void shouldRejectTooManySkipsOnlyOnceEnoughTriggersWereDue() {
+        // A one-second smoke iteration sees a handful of due triggers; one skip there is noise.
+        assertFalse(CheckpointSchedulingFixture.isSkipShareTooHigh(7, 1));
+        assertFalse(CheckpointSchedulingFixture.isSkipShareTooHigh(49, 49));
+
+        assertFalse(CheckpointSchedulingFixture.isSkipShareTooHigh(100, 10));
+        assertTrue(CheckpointSchedulingFixture.isSkipShareTooHigh(100, 11));
+        assertTrue(CheckpointSchedulingFixture.isSkipShareTooHigh(50, 50));
     }
 
     @Test

@@ -85,6 +85,13 @@ final class CheckpointSchedulingFixture {
     /** Share of due triggers that may be skipped before an iteration is rejected. */
     static final double MAX_SKIP_RATIO = 0.1;
 
+    /**
+     * Fewest due triggers an iteration needs before {@link #MAX_SKIP_RATIO} is enforced. A short
+     * smoke iteration, such as the CI benchmark job's one second, sees a handful of due triggers,
+     * where a single skip is already above the ratio and says nothing about the run.
+     */
+    static final long MIN_DUE_TRIGGERS_FOR_SKIP_CHECK = 50;
+
     private static final int PIPELINE_ID = 1;
     private static final long FIRST_JOB_ID = 1_000L;
     private static final long NOT_SYNCED = Long.MIN_VALUE;
@@ -280,19 +287,22 @@ final class CheckpointSchedulingFixture {
     /**
      * Rejects the iteration if more than {@link #MAX_SKIP_RATIO} of due triggers could not be
      * measured, so a run where most triggers took the pending re-arm path produces an error rather
-     * than a number.
+     * than a number. Enforced once at least {@link #MIN_DUE_TRIGGERS_FOR_SKIP_CHECK} triggers were
+     * due; shorter iterations still print their counts.
      */
     void endIteration() {
         checkFailure();
-        long due = dueTriggers();
-        long skipped = due - sampled;
-        if (due > 0 && skipped > MAX_SKIP_RATIO * due) {
+        if (isSkipShareTooHigh(dueTriggers(), dueTriggers() - sampled)) {
             throw new IllegalStateException(
                     String.format(
                             "%d pipelines: %s. That is above the %.0f%% limit, so the measured "
                                     + "delays would not be representative",
                             pipelineNum, iterationReport(), MAX_SKIP_RATIO * 100));
         }
+    }
+
+    static boolean isSkipShareTooHigh(long due, long skipped) {
+        return due >= MIN_DUE_TRIGGERS_FOR_SKIP_CHECK && skipped > MAX_SKIP_RATIO * due;
     }
 
     private long dueTriggers() {
