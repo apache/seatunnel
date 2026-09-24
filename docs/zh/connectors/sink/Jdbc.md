@@ -979,6 +979,8 @@ sink {
 
 会，但仅限 Zeta 引擎。在 MySQL-CDC source 上设置 `table-operations.enabled = true`。JDBC Sink 会先刷出该表的缓冲行，再对物理 sink 表执行 `TRUNCATE TABLE`。表结构不变，因此不会重建 writer。该能力与 schema evolution（`schema-changes.*`）相互独立。JDBC sink 必须保持 `exactly_once = false`（默认）；`is_exactly_once = true` 不支持表操作，会直接失败。Flink / Spark 不会执行表操作事件。
 
+flush 和 `TRUNCATE` 不在同一事务里。`TRUNCATE TABLE` 是 DDL，会立即提交。若 flush 已成功而随后 `TRUNCATE` 失败（例如外键约束或权限不足），已刷出的行会留在 sink 中。作业失败后，恢复会重放这些行以及待执行的 `TRUNCATE`；重放的 `TRUNCATE` 幂等，但在 truncate 成功之前该窗口仍可能出现重复行。
+
 ### 为什么提示 JDBC 驱动未找到？
 
 SeaTunnel 不内置所有 JDBC 驱动。Spark 和 Flink 需要把 JAR 放到每个执行节点的 `${SEATUNNEL_HOME}/plugins/Jdbc/lib/`；Zeta 需要放到每个 SeaTunnel 节点的 `${SEATUNNEL_HOME}/lib/`，然后重启受影响的进程。常见驱动文件名包括：

@@ -417,7 +417,10 @@ When `table-operations.enabled = true`:
   transaction. Flink and Spark fail fast. A non-JDBC sink also fails fast
   instead of silently dropping the truncate.
 - Restore is at-least-once: a replayed `TRUNCATE` is idempotent. After restore, later `INSERT`s
-  continue against the same table schema.
+  continue against the same table schema. Flush and `TRUNCATE` are not one transaction. If flush
+  succeeds and then `TRUNCATE` fails (for example a foreign-key constraint), the flushed rows stay
+  committed; restore replays those rows plus the pending `TRUNCATE`, so that window can produce
+  duplicates until the truncate succeeds.
 
 `DROP TABLE` is out of scope for this version.
 

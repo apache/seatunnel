@@ -1042,6 +1042,12 @@ evolution (`schema-changes.*`). The JDBC sink must keep `exactly_once = false` (
 `is_exactly_once = true` is not supported for table operations and fails fast. Flink and Spark do
 not apply table-operation events.
 
+Flush and `TRUNCATE` are not one transaction. `TRUNCATE TABLE` is DDL and commits immediately.
+If the flush succeeds and then `TRUNCATE` fails (for example a foreign-key constraint or missing
+privilege), the flushed rows stay committed. The job fails, restore replays those rows plus the
+pending `TRUNCATE`, and the replayed `TRUNCATE` is idempotent — so that window can still produce
+duplicates until the truncate succeeds.
+
 ### Why is my JDBC driver not found?
 
 SeaTunnel does not bundle all JDBC drivers. For Spark and Flink, place the JAR in `${SEATUNNEL_HOME}/plugins/Jdbc/lib/` on every execution node. For Zeta, place it in `${SEATUNNEL_HOME}/lib/` on every SeaTunnel node and restart the affected processes. Common driver file names include:

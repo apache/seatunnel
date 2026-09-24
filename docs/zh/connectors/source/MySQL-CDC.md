@@ -411,6 +411,8 @@ source {
   `TRUNCATE` 是 DDL，不能加入已 prepare 的 XA 事务。Flink / Spark
   会直接失败。非 JDBC sink 同样 fail-fast，不会静默丢弃破坏性操作。
 - 恢复语义是 at-least-once：重放的 `TRUNCATE` 幂等。恢复后的 `INSERT` 仍写入同一张表，schema 不变。
+  flush 和 `TRUNCATE` 不在同一事务里。若 flush 已成功而随后 `TRUNCATE` 失败（例如外键约束），已刷出的行会留下；
+  恢复会重放这些行以及待执行的 `TRUNCATE`，在 truncate 成功前该窗口仍可能出现重复行。
 
 本版本不处理 `DROP TABLE`。
 
