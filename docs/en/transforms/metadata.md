@@ -33,6 +33,31 @@ The Metadata transform plugin is used to extract metadata information from data 
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
+## Connector-Declared Metadata Fields
+
+Connectors can expose source-specific metadata through `CatalogTable.MetadataSchema` without registering every key in the global metadata registry. The `Metadata` transform accepts a logical key when **either**:
+
+1. It is a globally supported metadata key (see the tables in this document), or
+2. It is explicitly declared by the input table's `MetadataSchema`
+
+For connector-declared keys, the output physical column keeps the declared data type, nullability, length, default value, and comment. Runtime values are read from `SeaTunnelRow.options`.
+
+This does **not** allow arbitrary row-option keys. A key present only in `SeaTunnelRow.options`, but absent from both the global registry and `MetadataSchema`, is rejected. Matching is case-sensitive. The transform does not read physical columns that happen to use the same name.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "source_rows"
+    plugin_output = "rows_with_source_metadata"
+    metadata_fields {
+      KafkaOffset = kafka_offset
+    }
+  }
+}
+```
+
+The upstream source or transform must declare `KafkaOffset` in `CatalogTable.metadataSchema` and write the corresponding value into `SeaTunnelRow.options`. The `Metadata` transform does not invent connector-specific metadata by itself.
+
 ## Knowledge Sync Metadata Fields
 
 Knowledge Sync pipelines can use the following logical metadata keys to carry document and chunk identity. These keys become physical fields only after they are explicitly projected by the `Metadata` transform.
@@ -54,7 +79,7 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 
 ### Important Notes
 
-1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
+1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the tables above (e.g., `Database`, `Table`, `RowKind`) or the exact names declared in the input `MetadataSchema`.
 2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
@@ -137,7 +162,7 @@ metadata_fields {
 ```
 
 **Notes:**
-- The left side must be a supported metadata Key (see table above), and is strictly case-sensitive
+- The left side must be a globally supported metadata Key (see the tables above) or a key declared in the input table `MetadataSchema`, and is strictly case-sensitive
 - The right side is a custom output field name, which cannot duplicate existing field names
 - You can select only the metadata fields you need, not all of them must be configured
 
