@@ -27,8 +27,12 @@ see [Getting Started: Standalone](https://spark.apache.org/docs/latest/spark-sta
 
 ## Step 3: Add Job Config File To Define A Job
 
-Edit `config/v2.streaming.conf.template`, which determines the way and logic of data input, processing, and output after seatunnel is started.
-The following is an example of the configuration file, which is the same as the example application mentioned above.
+Choose the config example that matches your Spark version.
+
+### Spark 2.4 / 3.3
+
+Edit `config/v2.streaming.conf.template`, which determines the way and logic of data input, processing, and output after SeaTunnel is started.
+The following example includes a `FieldMapper` transform stage and applies to Spark 2.4 / 3.3 only.
 
 ```hocon
 env {
@@ -68,6 +72,36 @@ sink {
 
 ```
 
+### Spark 4.1
+
+Create `config/spark41-fake-to-console.conf` with a **transform-free** source → sink job. The `-spark41-bin` tarball does not ship `seatunnel-transforms-v2` yet, so do **not** copy the Spark 2.4 / 3.3 example above. See [Spark 4.1 support scope](../../engines/spark.md#spark-41-support-scope).
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "fake"
+  }
+}
+```
+
 More information about config please check [Config Concept](../../introduction/concepts/config.md)
 
 If you need more details about dataset wiring or transform parameters, continue with:
@@ -89,7 +123,7 @@ cd "apache-seatunnel-${version}"
 --config ./config/v2.streaming.conf.template
 ```
 
-Spark3.x.x
+Spark 3.x.x
 
 ```shell
 cd "apache-seatunnel-${version}"
@@ -97,6 +131,20 @@ cd "apache-seatunnel-${version}"
 --master local[4] \
 --deploy-mode client \
 --config ./config/v2.streaming.conf.template
+```
+
+Spark 4.1.x (JDK 17+)
+
+Download the dedicated Spark 4.1 binary `apache-seatunnel-${version}-spark41-bin.tar.gz`. The standard `-bin` tarball does not include Spark 4.1.
+
+Use the transform-free config from [Step 3 (Spark 4.1)](#spark-41) above:
+
+```shell
+cd "apache-seatunnel-${version}"
+./bin/start-seatunnel-spark-4.1-connector-v2.sh \
+--master local[4] \
+--deploy-mode client \
+--config ./config/spark41-fake-to-console.conf
 ```
 
 **See The Output**: When you run the command, you can see its output in your console. This
