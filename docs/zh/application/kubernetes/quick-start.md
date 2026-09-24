@@ -120,20 +120,17 @@ sink { Console {} }
 `kubernetes.conf`：
 
 ```hocon
-application.name = "example"
-application.worker-count = 2
-application.worker.memory-mb = 1024
-application.worker.cpu-cores = 1
-application.worker.slots = 2
-application.master.memory-mb = 1024
-application.master.cpu-cores = 1
-application.startup-timeout-millis = 180000
+application {
+  name = "example"
+  worker-count = 2
+}
 
-kubernetes.namespace = "seatunnel-apps"
-kubernetes.image = "registry.example.com/seatunnel:application"
-kubernetes.service-account = "seatunnel-application"
-kubernetes.image-pull-policy = "IfNotPresent"
-kubernetes.config-map = "seatunnel-configuration"
+kubernetes {
+  namespace = "seatunnel-apps"
+  image = "registry.example.com/seatunnel:application"
+  service-account = "seatunnel-application"
+  config-map = "seatunnel-configuration"
+}
 ```
 
 ## 4. 提交并等待结果
