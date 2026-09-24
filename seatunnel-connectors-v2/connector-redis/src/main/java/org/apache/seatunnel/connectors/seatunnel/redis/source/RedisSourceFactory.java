@@ -21,12 +21,16 @@ import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisDryRunValidator;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisNodesValidator;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSingleTableDataTypeValidator;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfigsValidator;
@@ -34,9 +38,10 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfigsV
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.List;
 
 @AutoService(Factory.class)
-public class RedisSourceFactory implements TableSourceFactory {
+public class RedisSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Redis";
@@ -109,5 +114,20 @@ public class RedisSourceFactory implements TableSourceFactory {
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return RedisSource.class;
+    }
+
+    /** Uses the configured schema only; no Redis value is inspected and no reader is created. */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context) {
+        return new RedisSource(context.getOptions()).getProducedCatalogTables();
+    }
+
+    /** Checks connectivity and authentication only; no key is read or scanned. */
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
+        RedisParameters redisParameters = new RedisParameters();
+        redisParameters.buildConnectionConfig(context.getOptions());
+        RedisDryRunValidator.validate(redisParameters);
     }
 }

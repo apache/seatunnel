@@ -8,6 +8,25 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 Used to read data from Redis.
 
+### Connectivity dry-run
+
+Zeta's `--dry-run connect` checks that Redis is reachable and accepts the configured credentials.
+In `SINGLE` mode it opens one connection and sends `AUTH` (only when `auth` is set), `SELECT db_num`
+and `PING`. In `CLUSTER` mode it initializes the cluster slot cache from `nodes` with a single attempt
+(`CLUSTER SLOTS`, plus `AUTH` when `auth` is set) and reads `INFO` from one node. Connect and socket
+timeouts are 10 seconds, and every client is closed on success and on failure. No key is read,
+scanned, written or expired, and no key space is created. Normal job execution is unchanged.
+
+The `user` option is not applied during the dry run, because the runtime client applies it with
+`ACL SETUSER`, which changes server state. A deployment that depends on `user` is therefore not
+fully verified by `--dry-run connect`.
+
+Output schemas come from the configured `schema` or `tables_configs`, through the same path as normal
+execution; no Redis value is inspected. Successful validation does **not** prove that matching keys
+exist, that stored values match `data_type` or `format`, or that the credentials may read those keys.
+In `CLUSTER` mode, validation passes as long as one node answers, so partially unreachable clusters
+are not detected.
+
 ## Support Those Engines
 
 > Spark<br/>
