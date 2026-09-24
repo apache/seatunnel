@@ -88,7 +88,7 @@ final class CassandraSourceDryRunValidator {
                                         .setTimeout(TIMEOUT)
                                         .build());
                 if (prepared.getVariableDefinitions().size() != 0) {
-                    throw new IllegalArgumentException("Unbound parameters are not supported");
+                    throw new SafeValidationException("Unbound parameters are not supported");
                 }
                 CassandraTableConfig table =
                         CassandraSource.buildTableConfig(
@@ -96,11 +96,15 @@ final class CassandraSourceDryRunValidator {
                                 prepared.getResultSetDefinitions(),
                                 parameters.getKeyspace());
                 if (!tableIds.add(table.getTableId())) {
-                    throw new IllegalArgumentException("Duplicate table identifiers");
+                    throw new SafeValidationException("Duplicate table identifiers");
                 }
                 tables.add(table.getCatalogTable());
             }
             return tables;
+        } catch (SafeValidationException failure) {
+            checkInterrupted();
+            // Closing the session may attach sensitive suppressed exceptions.
+            throw new IllegalArgumentException(failure.getMessage());
         } catch (RuntimeException failure) {
             checkInterrupted();
             // CQL and server errors may contain literal values or credentials.
@@ -127,6 +131,12 @@ final class CassandraSourceDryRunValidator {
     private static void checkInterrupted() throws InterruptedException {
         if (Thread.currentThread().isInterrupted()) {
             throw new InterruptedException("Cassandra connect dry-run interrupted");
+        }
+    }
+
+    private static final class SafeValidationException extends IllegalArgumentException {
+        private SafeValidationException(String message) {
+            super(message);
         }
     }
 }

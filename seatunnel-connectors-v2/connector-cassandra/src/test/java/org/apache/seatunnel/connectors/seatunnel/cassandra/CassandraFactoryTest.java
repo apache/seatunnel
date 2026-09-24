@@ -118,9 +118,18 @@ class CassandraFactoryTest {
                         Collections.singletonMap("cql", "select id from table1"),
                         Collections.singletonMap("cql", "select name from table1")));
         try (DryRunSession fixture = new DryRunSession()) {
-            Assertions.assertThrows(
-                    IllegalStateException.class,
-                    () -> new CassandraSourceFactory().inferSchemaForDryRun(dryRunContext(config)));
+            Mockito.doThrow(new IllegalStateException("sensitive-close-value"))
+                    .when(fixture.session)
+                    .close();
+            IllegalArgumentException failure =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    new CassandraSourceFactory()
+                                            .inferSchemaForDryRun(dryRunContext(config)));
+            Assertions.assertEquals("Duplicate table identifiers", failure.getMessage());
+            Assertions.assertNull(failure.getCause());
+            Assertions.assertEquals(0, failure.getSuppressed().length);
             Mockito.verify(fixture.session).close();
         }
     }
@@ -156,12 +165,21 @@ class CassandraFactoryTest {
                 } else {
                     Mockito.when(fixture.variables.size()).thenReturn(1);
                 }
-                Assertions.assertThrows(
-                        IllegalStateException.class,
-                        () ->
-                                new CassandraSourceFactory()
-                                        .inferSchemaForDryRun(
-                                                dryRunContext(sourceConfigWithCql())));
+                RuntimeException failure =
+                        Assertions.assertThrows(
+                                RuntimeException.class,
+                                () ->
+                                        new CassandraSourceFactory()
+                                                .inferSchemaForDryRun(
+                                                        dryRunContext(sourceConfigWithCql())));
+                if (missingColumns) {
+                    Assertions.assertInstanceOf(IllegalStateException.class, failure);
+                    Assertions.assertFalse(failure.getMessage().contains("select"));
+                } else {
+                    Assertions.assertInstanceOf(IllegalArgumentException.class, failure);
+                    Assertions.assertEquals(
+                            "Unbound parameters are not supported", failure.getMessage());
+                }
                 Mockito.verify(fixture.session).close();
             }
         }
