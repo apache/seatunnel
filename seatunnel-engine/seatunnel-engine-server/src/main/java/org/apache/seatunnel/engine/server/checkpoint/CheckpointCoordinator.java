@@ -552,6 +552,8 @@ public class CheckpointCoordinator {
                     try {
                         tryTriggerPendingCheckpoint(checkpointType);
                     } catch (Throwable e) {
+                        // A thrown trigger would otherwise drop the scheduled checkpoint chain
+                        // silently; fail the coordinator so the job can handle the error.
                         handleCoordinatorError(
                                 String.format(
                                         "Failed to trigger %s for job id: %s, pipeline id: %s",
