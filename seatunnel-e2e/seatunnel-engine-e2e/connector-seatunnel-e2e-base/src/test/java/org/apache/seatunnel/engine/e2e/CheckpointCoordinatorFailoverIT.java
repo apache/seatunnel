@@ -682,8 +682,8 @@ public class CheckpointCoordinatorFailoverIT {
                     getJobMaster(node, jobId)
                             .getCheckpointManager()
                             .getCheckpointCoordinator(pipelineId);
-            // Intentionally access private lock/pendingCounter fields to coordinate fault injection;
-            // keep these lookups in sync with CheckpointCoordinator internals when refactoring.
+            // Reflectively access the private lock and pendingCounter to time fault injection.
+            // Keep these field lookups in sync when refactoring CheckpointCoordinator.
             Object triggerLock =
                     ReflectionUtils.getField(coordinator, "lock")
                             .orElseThrow(
