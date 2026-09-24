@@ -149,6 +149,12 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 ### ReportMetricsOperation 指标
 
+指标快照写入和删除对同一个分桶最多尝试 10 次竞争更新。持续发生竞争时，操作会抛出
+`Failed to update metrics partition ... after 10 concurrent modifications`。Worker 上报失败会记录日志，
+并计入 `report_metrics_operation_total{result="failure"}`；任务上下文仍保留时，后续定时上报可以再次尝试。
+待处理 Pipeline 清理在指标删除失败时会保留清理记录。这个上限限制的是竞争重试次数，单次 Hazelcast
+调用的等待时间仍由其超时设置决定。指标格式和 checkpoint/savepoint 状态保持不变。
+
 | MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
 |---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
 | report_metrics_operation_total                    | Counter | **address**，worker 实例地址，例如："127.0.0.1:5801"。**result**，取值包括："success" "failure" "interrupted" | worker 发送的 `ReportMetricsOperation` 调用总次数                                       |

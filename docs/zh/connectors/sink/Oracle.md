@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                                   Oracle 数据类型                                   | SeaTunnel 数据类型 |
 |--------------------------------------------------------------------------------------|---------------------|
-| INTEGER                                                                              | INT                 |
+| INTEGER                                                                              | DECIMAL(38,0)       |
 | FLOAT                                                                                | DECIMAL(38, 18)     |
 | NUMBER(precision <= 9, scale == 0)                                                   | INT                 |
 | NUMBER(9 < precision <= 18, scale == 0)                                              | BIGINT              |
@@ -59,7 +59,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | BINARY_DOUBLE                                                                        | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                | FLOAT               |
 | CHAR<br/>NCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/> | STRING              |
-| DATE                                                                                 | DATE                |
+| DATE                                                                                 | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                         | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                  | BYTES               |
 
@@ -72,8 +72,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否       | -                            | 连接实例用户名。                                                                                                                                                                                                                  |
 | password                     | String  | 否       | -                            | 连接实例密码。                                                                                                                                                                                                                   |
 | query                        | String  | 否       | -                            | 使用此sql将上游输入数据写入数据库。例如： `INSERT ...`,`query` 具有更高的优先级                                                                                                                                           |
-| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                       |
-| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>此选项与`query` 互斥，具有更高的优先级                                                           |
+| database                     | String  | 否       | -                            | 使用此 `database` 和 `table-name` 自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                       |
+| table                        | String  | 否       | -                            | 使用数据库和此表名自动生成sql并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准                                                           |
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
@@ -84,7 +84,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
 | max_commit_attempts          | Int     | 否       | 3                            | 事务提交失败的重试次数                                                                                                                                                                                          |
 | transaction_timeout_sec      | Int     | 否       | -1                           | 事务打开后的超时，默认值为-1（永不超时）。请注意，设置超时可能会影响＜br/＞精确一次语义                                                                                            |
-| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交                                                                                                                                                                                              |
+| auto_commit                  | Boolean | 否       | true                         | 默认情况下启用自动事务提交。Oracle Sink 即使配置为 `true`，实际写入时也会在内部使用手动提交，以保证失败批次的原子性并保留原始数据错误。                                                                                                                                                                                              |
 | properties                   | Map     | 否       | -                            | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
 | common-options               |         | 否       | -                            | Sink插件常用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)                                                                                                                                     |
 | schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 在启动同步任务之前，对目标侧的现有表面结构选择不同的处理方案。                                                                                                      |

@@ -10,8 +10,8 @@ Two validation paths:
 
 | Path                                                            | Engine required | Purpose                                    |
 | --------------------------------------------------------------- | --------------- | ------------------------------------------ |
-| [Console local test](#console-local-test-no-engine)             | No              | Install, collect, local WAL without Engine |
-| [Production setup (with Engine)](#production-setup-with-engine) | Yes             | Agent → Engine job                         |
+| [Console local test](#console-local-test)             | No              | Install, collect, local WAL without Engine |
+| [Production setup (with Engine)](#production-setup) | Yes             | Agent → Engine job                         |
 
 
 For production hardening, see [Deployment Guide](deployment-guide.md) and [Operations](operations.md).
@@ -79,7 +79,7 @@ Search log/edge-agent.log for EDGE_CONSOLE_OUTPUT (console writes via the app lo
 
 :::
 
-The agent still creates edge-agent.id and the WAL persistence files under data/ (wal.db, wal.db-wal, wal.db-shm), even without Engine. See [Configuration — WAL persistence files](configuration.md#sqlite-persistence-files).
+The agent still creates edge-agent.id and the WAL persistence files under data/ (wal.db, wal.db-wal, wal.db-shm), even without Engine. See [Configuration — WAL persistence files](configuration.md#wal-persistence-files).
 
 ### Stop
 
@@ -87,7 +87,7 @@ The agent still creates edge-agent.id and the WAL persistence files under data/ 
 sh bin/seatunnel-edge-agent.sh stop
 ```
 
-To continue with Engine, see [Production setup](#production-setup-with-engine).
+To continue with Engine, see [Production setup](#production-setup).
 
 ## Production setup
 
