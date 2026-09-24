@@ -117,6 +117,23 @@ public final class ApplicationRuntime {
         return status == JobStatus.CANCELED ? ApplicationStatus.CANCELED : ApplicationStatus.FAILED;
     }
 
+    /**
+     * Cancels a job that completed remote submission after application shutdown started.
+     *
+     * <p>The caller must publish the submitted proxy before invoking this method. This closes the
+     * window where normal cleanup observed no job while the remote submission was still in flight.
+     *
+     * @param submittedJob remotely submitted native job
+     * @param closing whether application cleanup has started
+     * @throws IllegalStateException after the submitted job is synchronously canceled
+     */
+    static void cancelSubmittedJobIfClosing(ClientJobProxy submittedJob, boolean closing) {
+        if (closing) {
+            submittedJob.cancelJob();
+            throw new IllegalStateException("Application stopped while submitting its native job");
+        }
+    }
+
     private static final class RuntimeContext implements ResourceManagerContext {
         private final ApplicationId id;
         private final ApplicationSpecification specification;
@@ -343,9 +360,10 @@ public final class ApplicationRuntime {
             jobConfig.setName(specification.getName());
             Long restoreJobId = specification.getOption(ApplicationOptions.RESTORE_JOB_ID);
             long jobId = specification.getJobId();
+            ClientJobProxy submittedJob;
             if (restoreJobId == null) {
                 log.info("Application {} submits native job {}", id.getId(), jobId);
-                job =
+                submittedJob =
                         client.createExecutionContext(
                                         jobFile.toString(), null, jobConfig, config, jobId)
                                 .execute();
@@ -363,7 +381,7 @@ public final class ApplicationRuntime {
                         id.getId(),
                         jobId,
                         restoreJobId);
-                job =
+                submittedJob =
                         client.restoreFromCheckpointExecutionContext(
                                         jobFile.toString(),
                                         null,
@@ -373,7 +391,9 @@ public final class ApplicationRuntime {
                                         jobId)
                                 .execute();
             }
-            return job.waitForJobCompleteV2();
+            job = submittedJob;
+            cancelSubmittedJobIfClosing(submittedJob, closing);
+            return submittedJob.waitForJobCompleteV2();
         }
 
         private <T> T await(Future<T> future, long deadline) throws Exception {

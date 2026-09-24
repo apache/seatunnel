@@ -23,25 +23,22 @@ import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
-import org.apache.seatunnel.resource.kubernetes.cluster.KubernetesResources;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
 import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 
-import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1JobCondition;
 import io.kubernetes.client.openapi.models.V1JobStatus;
+import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Protocol;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
-import okio.Buffer;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -63,61 +60,24 @@ import static org.mockito.Mockito.when;
 
 class KubernetesApplicationTest {
     @Test
-    void startsJobWithFieldPatchWithoutControllerResourceVersion() throws Exception {
-        ApiClient client = new ApiClient();
-        client.setHttpClient(
-                new OkHttpClient.Builder()
-                        .addInterceptor(
-                                chain -> {
-                                    assertEquals("PATCH", chain.request().method());
-                                    assertEquals(
-                                            "/apis/batch/v1/namespaces/test/jobs/application",
-                                            chain.request().url().encodedPath());
-                                    assertEquals(
-                                            "application/json-patch+json",
-                                            chain.request().header("Content-Type"));
-                                    Buffer body = new Buffer();
-                                    chain.request().body().writeTo(body);
-                                    assertEquals(
-                                            "[{\"op\":\"replace\",\"path\":\"/spec/suspend\",\"value\":false}]",
-                                            body.readUtf8());
-                                    return new Response.Builder()
-                                            .request(chain.request())
-                                            .protocol(Protocol.HTTP_1_1)
-                                            .code(200)
-                                            .message("OK")
-                                            .body(
-                                                    ResponseBody.create(
-                                                            "{\"apiVersion\":\"batch/v1\",\"kind\":\"Job\"}",
-                                                            MediaType.get("application/json")))
-                                            .build();
-                                })
-                        .build());
-        try (KubernetesApi api = new KubernetesApi(client, "test")) {
-            api.startJob("application");
-        }
-    }
-
-    @Test
     void deploysDependenciesBeforeStartingOwner() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any()))
                 .thenAnswer(
                         invocation -> {
-                            V1Job job = invocation.getArgument(0);
-                            job.getMetadata().setUid("server-uid");
+                            KubernetesJob job = invocation.getArgument(0);
+                            job.getInternalResource().getMetadata().setUid("server-uid");
                             return job;
                         });
-        when(api.getJob(anyString())).thenReturn(job().status(new V1JobStatus().active(1)));
+        when(api.getJob(anyString())).thenReturn(job(new V1JobStatus().active(1)));
         when(api.listPods(anyString()))
-                .thenReturn(
-                        Collections.singletonList(
-                                new V1Pod().status(new V1PodStatus().phase("Running"))));
+                .thenReturn(Collections.singletonList(pod("master", "Running")));
         ApplicationClient client = new KubernetesApplicationDeployer(api).deploy(specification());
         assertEquals(DeployType.KUBERNETES, client.getApplicationId().getDeployType());
         InOrder order = inOrder(api);
+        order.verify(api).getConfigMap("seatunnel-runtime");
         order.verify(api).createJob(any());
-        order.verify(api).createConfigMap(any());
+        order.verify(api).createSecret(any());
         order.verify(api).createService(any());
         order.verify(api).startJob(client.getApplicationId().getId());
         client.close();
@@ -127,14 +87,14 @@ class KubernetesApplicationTest {
 
     @Test
     void rollsBackPartiallyCreatedAndAmbiguouslyCreatedApplications() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any())).thenReturn(job());
         doThrow(new ApiException(403, "denied")).when(api).createService(any());
         assertThrows(
                 ApiException.class,
                 () -> new KubernetesApplicationDeployer(api).deploy(specification()));
         verify(api).deleteApplication(anyString());
-        KubernetesApi interrupted = mock(KubernetesApi.class);
+        KubernetesClient interrupted = mock(KubernetesClient.class);
         when(interrupted.createJob(any())).thenThrow(new ApiException(0, "connection interrupted"));
         assertThrows(
                 ApiException.class,
@@ -144,13 +104,11 @@ class KubernetesApplicationTest {
 
     @Test
     void masterSchedulingTimeoutRollsBackAllApplicationResources() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         when(api.createJob(any())).thenReturn(job());
-        when(api.getJob(anyString())).thenReturn(job().status(new V1JobStatus().active(1)));
+        when(api.getJob(anyString())).thenReturn(job(new V1JobStatus().active(1)));
         when(api.listPods(anyString()))
-                .thenReturn(
-                        Collections.singletonList(
-                                new V1Pod().status(new V1PodStatus().phase("Pending"))));
+                .thenReturn(Collections.singletonList(pod("master", "Pending")));
         Map<String, String> options = new HashMap<>(specification().getOptions());
         options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "5");
         ApplicationSpecification specification =
@@ -163,28 +121,28 @@ class KubernetesApplicationTest {
 
     @Test
     void mapsTerminalJobConditionsAndCancellation() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         KubernetesApplicationClient client =
                 new KubernetesApplicationClient(
                         api, new ApplicationId(DeployType.KUBERNETES, "app"));
         when(api.getJob("app"))
                 .thenReturn(
-                        job().status(
-                                        new V1JobStatus()
-                                                .addConditionsItem(
-                                                        new V1JobCondition()
-                                                                .type("Complete")
-                                                                .status("True"))));
+                        job(
+                                new V1JobStatus()
+                                        .addConditionsItem(
+                                                new V1JobCondition()
+                                                        .type("Complete")
+                                                        .status("True"))));
         assertEquals(ApplicationStatus.SUCCEEDED, client.getStatus());
         when(api.getJob("app"))
                 .thenReturn(
-                        job().status(
-                                        new V1JobStatus()
-                                                .addConditionsItem(
-                                                        new V1JobCondition()
-                                                                .type("Failed")
-                                                                .status("True")
-                                                                .reason("BackoffLimitExceeded"))));
+                        job(
+                                new V1JobStatus()
+                                        .addConditionsItem(
+                                                new V1JobCondition()
+                                                        .type("Failed")
+                                                        .status("True")
+                                                        .reason("BackoffLimitExceeded"))));
         assertEquals(ApplicationStatus.FAILED, client.getStatus());
         assertEquals("BackoffLimitExceeded", client.getResult().getDiagnostics());
         when(api.getJob("app")).thenThrow(new ApiException(404, "gone"));
@@ -199,7 +157,7 @@ class KubernetesApplicationTest {
         Map<String, String> options = new HashMap<>();
         ApplicationSpecification specification =
                 ApplicationSpecification.fromOptions(DeployType.KUBERNETES, "env {}", options);
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         assertThrows(
                 IllegalArgumentException.class,
                 () -> new KubernetesApplicationDeployer(api).deploy(specification));
@@ -209,7 +167,7 @@ class KubernetesApplicationTest {
                         "Mixed_Name",
                         "---",
                         "an-application-with-a-name-that-is-longer-than-the-kubernetes-resource-name-limit")) {
-            String id = KubernetesResources.newId(name);
+            String id = KubernetesResourceFactory.newId(name);
             assertTrue(id.matches("[a-z0-9]([a-z0-9-]*[a-z0-9])?"));
             assertTrue(id.length() < 50);
         }
@@ -218,15 +176,30 @@ class KubernetesApplicationTest {
     private static ApplicationSpecification specification() {
         Map<String, String> options = new HashMap<>();
         options.put(KubernetesOptions.IMAGE.key(), "seatunnel:application");
+        options.put(KubernetesOptions.CONFIG_MAP.key(), "seatunnel-runtime");
         options.put(KubernetesOptions.KUBE_CONFIG.key(), "/submitter-kubeconfig");
         options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
         return ApplicationSpecification.fromOptions(
                 DeployType.KUBERNETES, "env { job.mode = BATCH }", options);
     }
 
-    private static V1Job job() {
-        V1Job job = KubernetesResources.job("app", specification());
-        job.getMetadata().setUid("uid-1");
+    private static KubernetesJob job() {
+        return job(null);
+    }
+
+    private static KubernetesJob job(V1JobStatus status) {
+        KubernetesJob job =
+                KubernetesResourceFactory.job(
+                        "app", KubernetesApplicationParameters.from(specification()));
+        job.getInternalResource().getMetadata().setUid("uid-1");
+        job.getInternalResource().setStatus(status);
         return job;
+    }
+
+    private static KubernetesPod pod(String name, String phase) {
+        return new KubernetesPod(
+                new V1Pod()
+                        .metadata(new V1ObjectMeta().name(name))
+                        .status(new V1PodStatus().phase(phase)));
     }
 }

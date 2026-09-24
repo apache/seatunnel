@@ -16,7 +16,8 @@ flowchart TB
 
   subgraph ns["Application Namespace"]
     job["batch/v1 Job"]
-    config["ConfigMap<br/>job and deployment config"]
+    config["Secret<br/>job and deployment config"]
+    runtimeConfig["Existing ConfigMap<br/>SeaTunnel runtime config"]
     service["Headless Service<br/>master discovery"]
     master["Master Pod<br/>Zeta Master"]
     worker1["Worker Pod 1"]
@@ -27,6 +28,9 @@ flowchart TB
   api --> job
   job --> master
   config -. mount .-> master
+  runtimeConfig -. read-only mount .-> master
+  runtimeConfig -. read-only mount .-> worker1
+  runtimeConfig -. read-only mount .-> workerN
   service -. resolve master .-> worker1
   service -. resolve master .-> workerN
   master -->|create fixed workers| api
@@ -44,23 +48,23 @@ flowchart TB
   classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
   class client,api layerCyan;
   class ns,job,master,worker1,workerN layerBlue;
-  class config,service,image,checkpoint layerPurple;
+  class config,runtimeConfig,service,image,checkpoint layerPurple;
   linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## Resource creation order
 
-1. The submitter creates a suspended Job with `backoffLimit: 0`.
-2. After receiving the Job UID, it creates an owner-referenced ConfigMap and headless Service.
-3. It unsuspends the Job after localization is ready and waits for the master Pod to run.
-4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API.
-5. Workers resolve the master through the headless Service, join the cluster, and register slots.
+1. The submitter validates the user-owned runtime ConfigMap, then creates a suspended Job with `backoffLimit: 0`.
+2. After receiving the Job UID, it creates an owner-referenced Secret and headless Service.
+3. After the API confirms both dependent resources, it unsuspends the Job and waits for the master Pod to run. A TCP startup probe gives the Zeta master its configured startup window; readiness and liveness probes then check the Hazelcast master port.
+4. The master starts an isolated Zeta cluster and creates a fixed number of worker Pods through the Kubernetes API. Each worker has a process liveness probe, and the master watches application-labelled Pod snapshots for deletion and terminal phases.
+5. Workers resolve the master through the headless Service, join the cluster, and register slots. Pod phase is used for failure detection; Zeta registration remains the source of worker readiness and slot capacity.
 6. The master submits one Zeta job after every worker is ready.
 7. After the job terminates, the master removes workers and exits. The Job records `Complete` or `Failed`.
 
 ## RBAC boundary
 
-The submitter identity creates Jobs, ConfigMaps, and Services and performs status and cancellation operations. The application ServiceAccount only needs to read its Job and manage worker Pods. Only the master mounts the ServiceAccount token; workers do not access the Kubernetes API.
+The submitter identity creates Jobs, Secrets, and Services and performs status and cancellation operations. The application ServiceAccount only needs to read its Job and manage worker Pods. Only the master mounts the ServiceAccount token; workers do not access the Kubernetes API.
 
 ## Network and capacity
 
@@ -74,8 +78,10 @@ application.worker-count × application.worker.slots
 
 Pod requests equal limits. Namespace quota, LimitRange, admission policies, and node capacity can prevent scheduling.
 
+The Kubernetes API acknowledges Job, Secret, and Service creation synchronously before the Job is started. Runtime watches are therefore used for externally changing Pod lifecycle state, while a failed or ambiguous submission request triggers cleanup of every application-labelled resource.
+
 ## Ownership and durable data
 
-The ConfigMap and Service are owned by the Job and are garbage-collected when it is deleted. Workers are explicitly cleaned by the application and carry application labels for fallback deletion.
+The Secret and Service are owned by the Job and are garbage-collected when it is deleted. Workers are explicitly cleaned by the application and carry application labels for fallback deletion. The runtime ConfigMap is user-owned, shared by the master and workers, and retained after application cleanup.
 
 A caller-owned checkpoint PVC has no Job owner reference, so success, failure, cancellation, or TTL expiry does not delete it. Remote checkpoint storage is also independent of the application lifecycle.

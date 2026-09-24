@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistrat
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
+import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -51,12 +52,22 @@ import java.util.concurrent.TimeUnit;
 
 /** Fixed worker allocation: a lost container fails the application, without replacement or HA. */
 final class YarnResourceManagerDriver implements ResourceManagerDriver {
+    /** Allocation priority shared by all fixed-capacity workers in one application. */
+    private static final int WORKER_PRIORITY = 0;
+
+    /** Heartbeat interval used to request allocations and observe completed containers. */
+    private static final long HEARTBEAT_INTERVAL_MILLIS = 500;
+
+    /** YARN progress value while the native job owns the application lifecycle. */
+    private static final float APPLICATION_PROGRESS = 0.0f;
+
     private final Configuration configuration;
     private final Path staging;
     private final AMRMClient<AMRMClient.ContainerRequest> resourceManager;
     private final NMClient nodeManager;
+    private final String workerNodeLabel;
     private final Queue<PendingWorker> pending = new ArrayDeque<>();
-    private final Map<String, Container> workers = new HashMap<>();
+    private final Map<String, YarnWorkerNode> workers = new HashMap<>();
     private ScheduledExecutorService heartbeats;
     private ResourceManagerContext context;
     private boolean active;
@@ -65,7 +76,16 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     private boolean nodeManagerInitialized;
 
     YarnResourceManagerDriver(Configuration configuration, Path staging) {
-        this(configuration, staging, AMRMClient.createAMRMClient(), NMClient.createNMClient());
+        this(configuration, staging, null);
+    }
+
+    YarnResourceManagerDriver(Configuration configuration, Path staging, String workerNodeLabel) {
+        this(
+                configuration,
+                staging,
+                workerNodeLabel,
+                new DefaultYarnResourceManagerClientFactory().create(),
+                new DefaultYarnNodeManagerClientFactory().create());
     }
 
     YarnResourceManagerDriver(
@@ -73,8 +93,18 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
             Path staging,
             AMRMClient<AMRMClient.ContainerRequest> resourceManager,
             NMClient nodeManager) {
+        this(configuration, staging, null, resourceManager, nodeManager);
+    }
+
+    YarnResourceManagerDriver(
+            Configuration configuration,
+            Path staging,
+            String workerNodeLabel,
+            AMRMClient<AMRMClient.ContainerRequest> resourceManager,
+            NMClient nodeManager) {
         this.configuration = YarnConfigurationUtils.withBoundedRpc(configuration);
         this.staging = staging;
+        this.workerNodeLabel = workerNodeLabel;
         this.resourceManager = resourceManager;
         this.nodeManager = nodeManager;
     }
@@ -103,7 +133,8 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                             thread.setDaemon(true);
                             return thread;
                         });
-        heartbeats.scheduleWithFixedDelay(this::heartbeat, 0, 500, TimeUnit.MILLISECONDS);
+        heartbeats.scheduleWithFixedDelay(
+                this::heartbeat, 0, HEARTBEAT_INTERVAL_MILLIS, TimeUnit.MILLISECONDS);
     }
 
     @Override
@@ -121,7 +152,9 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                                 specification.getMemoryMb(), specification.getCpuCores()),
                         null,
                         null,
-                        Priority.newInstance(0));
+                        Priority.newInstance(WORKER_PRIORITY),
+                        true,
+                        workerNodeLabel);
         pending.add(new PendingWorker(request, specification, result));
         resourceManager.addContainerRequest(request);
         return result;
@@ -134,7 +167,7 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
             }
         }
         try {
-            AllocateResponse response = resourceManager.allocate(0.0f);
+            AllocateResponse response = resourceManager.allocate(APPLICATION_PROGRESS);
             for (ContainerStatus status : response.getCompletedContainersStatuses()) {
                 String id = status.getContainerId().toString();
                 boolean unexpected;
@@ -151,47 +184,49 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                 }
             }
             for (Container container : response.getAllocatedContainers()) {
+                YarnWorkerNode workerNode = new YarnWorkerNode(container);
                 PendingWorker worker;
                 synchronized (this) {
                     worker = active ? pending.poll() : null;
                     if (worker != null) {
-                        workers.put(container.getId().toString(), container);
+                        workers.put(workerNode.getWorkerId(), workerNode);
                     }
                 }
                 if (worker == null) {
-                    resourceManager.releaseAssignedContainer(container.getId());
+                    resourceManager.releaseAssignedContainer(workerNode.getContainerId());
                     continue;
                 }
                 resourceManager.removeContainerRequest(worker.request);
                 try {
                     nodeManager.startContainer(
-                            container,
-                            YarnContainerLaunch.worker(
+                            workerNode.getContainer(),
+                            YarnContainerLaunchContextFactory.worker(
                                     configuration,
                                     staging,
                                     context.getClusterName(),
                                     context.getMasterAddress(),
                                     worker.specification));
                     synchronized (this) {
-                        if (active && workers.containsKey(container.getId().toString())) {
+                        if (active && workers.containsKey(workerNode.getWorkerId())) {
                             worker.result.complete(
-                                    new WorkerRegistration(container.getId().toString()));
+                                    new WorkerRegistration(workerNode.getWorkerId()));
                             continue;
                         }
                     }
                     // A launch can finish after shutdown removed its allocation record.
                     try {
-                        nodeManager.stopContainer(container.getId(), container.getNodeId());
+                        nodeManager.stopContainer(
+                                workerNode.getContainerId(), workerNode.getNodeId());
                     } finally {
-                        resourceManager.releaseAssignedContainer(container.getId());
+                        resourceManager.releaseAssignedContainer(workerNode.getContainerId());
                     }
                     worker.result.completeExceptionally(
                             new IOException("YARN application stopped during worker launch"));
                 } catch (Exception failure) {
                     synchronized (this) {
-                        workers.remove(container.getId().toString());
+                        workers.remove(workerNode.getWorkerId());
                     }
-                    resourceManager.releaseAssignedContainer(container.getId());
+                    resourceManager.releaseAssignedContainer(workerNode.getContainerId());
                     worker.result.completeExceptionally(failure);
                     throw failure;
                 }
@@ -213,16 +248,16 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
 
     @Override
     public void releaseWorker(WorkerRegistration registration) throws Exception {
-        Container container;
+        YarnWorkerNode worker;
         synchronized (this) {
-            container = workers.remove(registration.getWorkerId());
+            worker = workers.remove(registration.getWorkerId());
         }
-        if (container != null) {
+        if (worker != null) {
             // Remove first, so the expected completed-container event cannot fail the application.
             try {
-                nodeManager.stopContainer(container.getId(), container.getNodeId());
+                nodeManager.stopContainer(worker.getContainerId(), worker.getNodeId());
             } finally {
-                resourceManager.releaseAssignedContainer(container.getId());
+                resourceManager.releaseAssignedContainer(worker.getContainerId());
             }
         }
     }

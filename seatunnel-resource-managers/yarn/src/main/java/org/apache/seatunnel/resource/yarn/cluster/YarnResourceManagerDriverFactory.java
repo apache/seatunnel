@@ -21,7 +21,10 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriverFactory;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
+import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
+import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
 /** Creates the ApplicationMaster allocation driver through the resource-manager SPI. */
 public final class YarnResourceManagerDriverFactory implements ResourceManagerDriverFactory {
@@ -32,9 +35,11 @@ public final class YarnResourceManagerDriverFactory implements ResourceManagerDr
 
     @Override
     public ResourceManagerDriver create(ApplicationSpecification specification) throws Exception {
+        YarnApplicationConfiguration configuration =
+                YarnApplicationConfiguration.forApplicationMaster(specification);
         return new YarnResourceManagerDriver(
-                YarnConfigurationUtils.loadLocalized(
-                        YarnContainerLaunch.LOCALIZED_HADOOP_CONFIG_NAME),
-                YarnStagingDirectory.fromEnvironment());
+                YarnConfigurationUtils.loadLocalized(YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME),
+                YarnStagingDirectory.fromEnvironment(),
+                configuration.getWorkerNodeLabel());
     }
 }

@@ -34,8 +34,13 @@ application {
 }
 
 yarn {
+  deployment-target = APPLICATION
   distribution = "/path/to/apache-seatunnel-<version>-bin.tar.gz"
   config-dir = "/etc/hadoop/conf"
   staging-dir = ".seatunnel/applications"
   queue = "default"
+  priority = -1
+  # tags = "batch,production"
+  # master.node-label = "master-pool"
+  # worker.node-label = "worker-pool"
 }

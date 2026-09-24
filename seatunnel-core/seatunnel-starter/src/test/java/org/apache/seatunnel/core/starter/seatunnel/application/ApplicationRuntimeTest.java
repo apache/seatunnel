@@ -18,6 +18,7 @@
 package org.apache.seatunnel.core.starter.seatunnel.application;
 
 import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.HdfsFileStorageInstance;
+import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
@@ -71,7 +72,10 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 /** Exercises application lifecycle against real master/worker engine instances and native jobs. */
 @Timeout(120)
@@ -104,6 +108,17 @@ class ApplicationRuntimeTest {
             "env { parallelism = 1, job.mode = BATCH }\n"
                     + "source { FakeSource { row.num = 10, schema { fields { id = int } } } }\n"
                     + "sink { Console {} }";
+
+    @Test
+    void cancelsJobThatFinishesSubmissionDuringShutdown() {
+        ClientJobProxy submittedJob = mock(ClientJobProxy.class);
+
+        assertThrows(
+                IllegalStateException.class,
+                () -> ApplicationRuntime.cancelSubmittedJobIfClosing(submittedJob, true));
+
+        verify(submittedJob).cancelJob();
+    }
 
     @Test
     void runsNativeBatchOnAnIsolatedWorkerAndCleansResources() throws Exception {

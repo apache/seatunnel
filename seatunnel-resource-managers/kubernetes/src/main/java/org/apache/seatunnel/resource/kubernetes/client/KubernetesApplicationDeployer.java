@@ -23,11 +23,12 @@ import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
 import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
-import org.apache.seatunnel.resource.kubernetes.cluster.KubernetesResources;
-import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
 
 import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1Job;
 
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -35,9 +36,9 @@ import java.util.concurrent.TimeoutException;
 
 /** Deploys a suspended owner Job, localizes configuration, then starts its control plane. */
 final class KubernetesApplicationDeployer implements ApplicationDeployer {
-    private final KubernetesApi api;
+    private final KubernetesClient api;
 
-    KubernetesApplicationDeployer(KubernetesApi api) {
+    KubernetesApplicationDeployer(KubernetesClient api) {
         this.api = api;
     }
 
@@ -53,14 +54,20 @@ final class KubernetesApplicationDeployer implements ApplicationDeployer {
         if (specification.getDeployType() != DeployType.KUBERNETES) {
             throw new IllegalArgumentException("Expected Kubernetes specification");
         }
-        KubernetesOptions.validate(specification);
-        String id = KubernetesResources.newId(specification.getName());
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(specification);
+        if (parameters.getConfigMap() != null) {
+            // Fail before creating application-owned resources when the user-owned runtime
+            // configuration does not exist or is not readable by the submitting client.
+            api.getConfigMap(parameters.getConfigMap());
+        }
+        String id = KubernetesResourceFactory.newId(specification.getName());
         boolean ownerCreated = false;
         try {
-            V1Job job = api.createJob(KubernetesResources.job(id, specification));
+            KubernetesJob job = api.createJob(KubernetesResourceFactory.job(id, parameters));
             ownerCreated = true;
-            api.createConfigMap(KubernetesResources.configMap(job, specification));
-            api.createService(KubernetesResources.service(job, specification));
+            api.createSecret(KubernetesResourceFactory.secret(job, specification));
+            api.createService(KubernetesResourceFactory.service(job, parameters));
             api.startJob(id);
             KubernetesApplicationClient client =
                     new KubernetesApplicationClient(

@@ -20,6 +20,7 @@ package org.apache.seatunnel.resource.kubernetes.client;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
 import org.apache.seatunnel.resource.core.client.ApplicationDeployerFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 
 import java.util.Map;
 
@@ -39,6 +40,6 @@ public final class KubernetesApplicationDeployerFactory implements ApplicationDe
      */
     @Override
     public ApplicationDeployer create(Map<String, String> options) throws Exception {
-        return new KubernetesApplicationDeployer(KubernetesApi.connect(options, false));
+        return new KubernetesApplicationDeployer(KubernetesClientFactory.create(options, false));
     }
 }

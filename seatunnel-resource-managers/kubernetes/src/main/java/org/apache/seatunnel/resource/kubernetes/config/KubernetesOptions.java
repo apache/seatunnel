@@ -19,7 +19,6 @@ package org.apache.seatunnel.resource.kubernetes.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 
 /** Options for isolated, fixed-size Kubernetes applications. */
 public final class KubernetesOptions {
@@ -44,6 +43,12 @@ public final class KubernetesOptions {
                     .defaultValue("IfNotPresent")
                     .withDescription(
                             "Kubernetes image pull policy: Always, IfNotPresent or Never.");
+    public static final Option<String> IMAGE_PULL_SECRETS =
+            Options.key("kubernetes.image-pull-secrets")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(
+                            "Comma-separated names of existing Secrets used to pull the container image.");
     public static final Option<String> SERVICE_ACCOUNT =
             Options.key("kubernetes.service-account")
                     .stringType()
@@ -55,6 +60,12 @@ public final class KubernetesOptions {
                     .stringType()
                     .defaultValue("/opt/seatunnel")
                     .withDescription("Absolute path of the distribution inside the image.");
+    public static final Option<String> CONFIG_MAP =
+            Options.key("kubernetes.config-map")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Existing ConfigMap mounted read-only at the SeaTunnel configuration directory in master and worker pods.");
     public static final Option<String> KUBE_CONFIG =
             Options.key("kubernetes.kubeconfig")
                     .stringType()
@@ -73,34 +84,32 @@ public final class KubernetesOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Existing persistent volume claim mounted on the master at /opt/seatunnel/checkpoints; never deleted by application cleanup.");
+    public static final Option<String> MASTER_LABELS =
+            keyValueOption(
+                    "kubernetes.master.labels",
+                    "Additional labels on the master Pod, formatted as comma-separated key:value pairs.");
+    public static final Option<String> WORKER_LABELS =
+            keyValueOption(
+                    "kubernetes.worker.labels",
+                    "Additional labels on worker Pods, formatted as comma-separated key:value pairs.");
+    public static final Option<String> MASTER_ANNOTATIONS =
+            keyValueOption(
+                    "kubernetes.master.annotations",
+                    "Annotations on the master Pod, formatted as comma-separated key:value pairs.");
+    public static final Option<String> WORKER_ANNOTATIONS =
+            keyValueOption(
+                    "kubernetes.worker.annotations",
+                    "Annotations on worker Pods, formatted as comma-separated key:value pairs.");
+    public static final Option<String> MASTER_NODE_SELECTOR =
+            keyValueOption(
+                    "kubernetes.master.node-selector",
+                    "Node selector for the master Pod, formatted as comma-separated key:value pairs.");
+    public static final Option<String> WORKER_NODE_SELECTOR =
+            keyValueOption(
+                    "kubernetes.worker.node-selector",
+                    "Node selector for worker Pods, formatted as comma-separated key:value pairs.");
 
-    /**
-     * Validates the deployment options before any Kubernetes resources are created.
-     *
-     * @param specification immutable application options to validate
-     * @throws IllegalArgumentException if an image, container path, pull policy or claim is invalid
-     */
-    public static void validate(ApplicationSpecification specification) {
-        String image = specification.getOption(IMAGE);
-        if (image == null || image.trim().isEmpty()) {
-            throw new IllegalArgumentException("kubernetes.image is required");
-        }
-        String home = specification.getOption(SEATUNNEL_HOME);
-        if (home == null || !home.startsWith("/") || home.contains(":")) {
-            throw new IllegalArgumentException(
-                    "kubernetes.seatunnel-home must be an absolute path without ':'");
-        }
-        String policy = specification.getOption(IMAGE_PULL_POLICY);
-        if (!"Always".equals(policy) && !"IfNotPresent".equals(policy) && !"Never".equals(policy)) {
-            throw new IllegalArgumentException("Invalid kubernetes.image-pull-policy");
-        }
-        if (specification.getOption(RETENTION_SECONDS) < 1) {
-            throw new IllegalArgumentException(
-                    "kubernetes.finished-job-retention-seconds must be positive");
-        }
-        String claim = specification.getOption(CHECKPOINT_PVC);
-        if (claim != null && claim.trim().isEmpty()) {
-            throw new IllegalArgumentException("kubernetes.checkpoint-pvc must not be empty");
-        }
+    private static Option<String> keyValueOption(String key, String description) {
+        return Options.key(key).stringType().defaultValue("").withDescription(description);
     }
 }

@@ -203,7 +203,9 @@ public final class SeaTunnelApplication {
         @Parameter(names = "--wait", description = "Wait for terminal application status")
         private boolean wait;
 
-        @DynamicParameter(names = "-D", description = "Override a deployment option: -Dkey=value")
+        @DynamicParameter(
+                names = "-D",
+                description = "Override a non-sensitive deployment option: -Dkey=value")
         private Map<String, String> options = new LinkedHashMap<>();
 
         @Parameter(

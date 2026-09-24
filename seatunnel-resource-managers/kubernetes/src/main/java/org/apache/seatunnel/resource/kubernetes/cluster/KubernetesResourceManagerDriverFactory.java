@@ -21,8 +21,8 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriverFactory;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
-import org.apache.seatunnel.resource.kubernetes.client.KubernetesApi;
-import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 
 /** Creates in-cluster workers using only the application pod's service account. */
 public final class KubernetesResourceManagerDriverFactory implements ResourceManagerDriverFactory {
@@ -40,8 +40,9 @@ public final class KubernetesResourceManagerDriverFactory implements ResourceMan
      */
     @Override
     public ResourceManagerDriver create(ApplicationSpecification specification) throws Exception {
-        KubernetesOptions.validate(specification);
+        KubernetesApplicationParameters parameters =
+                KubernetesApplicationParameters.from(specification);
         return new KubernetesResourceManagerDriver(
-                KubernetesApi.connect(specification.getOptions(), true), specification);
+                KubernetesClientFactory.create(specification.getOptions(), true), parameters);
     }
 }

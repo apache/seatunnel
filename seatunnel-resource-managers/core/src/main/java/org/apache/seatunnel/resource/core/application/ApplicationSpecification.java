@@ -51,6 +51,21 @@ import java.util.UUID;
 @Getter
 public final class ApplicationSpecification {
 
+    /** Current serialization version for specifications localized by platform providers. */
+    private static final String FORMAT_VERSION = "1";
+
+    /** Stable property names shared by specification writers and application entrypoints. */
+    private static final String FORMAT_VERSION_PROPERTY = "format.version";
+
+    private static final String DEPLOY_TYPE_PROPERTY = "deploy.type";
+    private static final String NAME_PROPERTY = "name";
+    private static final String JOB_CONFIG_PROPERTY = "job.config";
+    private static final String WORKER_COUNT_PROPERTY = "worker.count";
+    private static final String WORKER_MEMORY_PROPERTY = "worker.memory";
+    private static final String WORKER_CPU_PROPERTY = "worker.cpu";
+    private static final String WORKER_SLOTS_PROPERTY = "worker.slots";
+
+    /** Prefix separating deployment options from the specification's structural properties. */
     private static final String OPTION_PREFIX = "option.";
     /** External resource platform responsible for this application. */
     private final DeployType deployType;
@@ -203,20 +218,36 @@ public final class ApplicationSpecification {
      * @throws IOException if the specification cannot be written
      */
     public void write(Path path) throws IOException {
-        Properties properties = new Properties();
-        properties.setProperty("format.version", "1");
-        properties.setProperty("deploy.type", deployType.name());
-        properties.setProperty("name", name);
-        properties.setProperty("job.config", jobConfig);
-        properties.setProperty("worker.count", Integer.toString(workerCount));
-        properties.setProperty(
-                "worker.memory", Integer.toString(workerSpecification.getMemoryMb()));
-        properties.setProperty("worker.cpu", Integer.toString(workerSpecification.getCpuCores()));
-        properties.setProperty("worker.slots", Integer.toString(workerSpecification.getSlots()));
-        options.forEach((key, value) -> properties.setProperty(OPTION_PREFIX + key, value));
         try (Writer writer = Files.newBufferedWriter(path, StandardCharsets.UTF_8)) {
-            properties.store(writer, "SeaTunnel application specification");
+            write(writer);
         }
+    }
+
+    /**
+     * Serializes this specification to a caller-owned character stream.
+     *
+     * <p>This method does not close or log the writer. Callers can therefore write directly to a
+     * platform staging stream or an in-memory Secret payload without creating a temporary file. The
+     * serialized content may contain credentials and must be handled as sensitive data.
+     *
+     * @param writer destination owned and closed by the caller
+     * @throws IOException if the specification cannot be written
+     */
+    public void write(Writer writer) throws IOException {
+        Properties properties = new Properties();
+        properties.setProperty(FORMAT_VERSION_PROPERTY, FORMAT_VERSION);
+        properties.setProperty(DEPLOY_TYPE_PROPERTY, deployType.name());
+        properties.setProperty(NAME_PROPERTY, name);
+        properties.setProperty(JOB_CONFIG_PROPERTY, jobConfig);
+        properties.setProperty(WORKER_COUNT_PROPERTY, Integer.toString(workerCount));
+        properties.setProperty(
+                WORKER_MEMORY_PROPERTY, Integer.toString(workerSpecification.getMemoryMb()));
+        properties.setProperty(
+                WORKER_CPU_PROPERTY, Integer.toString(workerSpecification.getCpuCores()));
+        properties.setProperty(
+                WORKER_SLOTS_PROPERTY, Integer.toString(workerSpecification.getSlots()));
+        options.forEach((key, value) -> properties.setProperty(OPTION_PREFIX + key, value));
+        properties.store(writer, "SeaTunnel application specification");
     }
 
     /**
@@ -232,7 +263,7 @@ public final class ApplicationSpecification {
         try (Reader reader = Files.newBufferedReader(path, StandardCharsets.UTF_8)) {
             properties.load(reader);
         }
-        if (!"1".equals(properties.getProperty("format.version"))) {
+        if (!FORMAT_VERSION.equals(properties.getProperty(FORMAT_VERSION_PROPERTY))) {
             throw new IOException("Unsupported application specification format: " + path);
         }
         Map<String, String> options = new LinkedHashMap<>();
@@ -245,14 +276,14 @@ public final class ApplicationSpecification {
                                         properties.getProperty(key)));
         try {
             return new ApplicationSpecification(
-                    DeployType.valueOf(properties.getProperty("deploy.type")),
-                    properties.getProperty("name"),
-                    properties.getProperty("job.config"),
-                    Integer.parseInt(properties.getProperty("worker.count")),
+                    DeployType.valueOf(properties.getProperty(DEPLOY_TYPE_PROPERTY)),
+                    properties.getProperty(NAME_PROPERTY),
+                    properties.getProperty(JOB_CONFIG_PROPERTY),
+                    Integer.parseInt(properties.getProperty(WORKER_COUNT_PROPERTY)),
                     new WorkerSpecification(
-                            Integer.parseInt(properties.getProperty("worker.memory")),
-                            Integer.parseInt(properties.getProperty("worker.cpu")),
-                            Integer.parseInt(properties.getProperty("worker.slots"))),
+                            Integer.parseInt(properties.getProperty(WORKER_MEMORY_PROPERTY)),
+                            Integer.parseInt(properties.getProperty(WORKER_CPU_PROPERTY)),
+                            Integer.parseInt(properties.getProperty(WORKER_SLOTS_PROPERTY))),
                     options);
         } catch (IllegalArgumentException | NullPointerException e) {
             throw new IOException("Invalid application specification: " + path, e);

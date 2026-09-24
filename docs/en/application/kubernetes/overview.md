@@ -15,7 +15,8 @@ Use it when Kubernetes manages compute resources and jobs require isolated resou
 | --- | --- | --- |
 | Application master | One Job Pod | Start the Zeta master, create workers, submit the job, and coordinate cleanup |
 | Worker | N regular Pods | Join the isolated Hazelcast cluster and provide fixed task slots |
-| Job configuration | ConfigMap | Mounted only by the master with resolved job and deployment information |
+| Job configuration | Secret | Mounted read-only only by the master with resolved job and deployment information |
+| Runtime configuration | Existing ConfigMap | Mounted read-only by the master and workers with `seatunnel.yaml` and logging configuration |
 | Master discovery | Headless Service | Provide the current application's master address to workers |
 | Checkpoint | PVC or supported remote storage | Preserve recoverable state outside the application |
 
@@ -26,15 +27,16 @@ Losing the master or any worker fails the current Job. Workers are not replaced 
 - Kubernetes 1.24 or later with `batch/v1` Jobs, suspended Jobs, and Job TTL support.
 - `kubectl` and a submitter kubeconfig, or a suitable in-cluster identity.
 - An existing namespace, ServiceAccount, and minimal RBAC.
+- An existing ConfigMap containing the SeaTunnel runtime configuration.
 - Hazelcast TCP connectivity between master and worker Pods.
 - A cluster that can pull an image containing SeaTunnel, the Kubernetes provider, and job plugins.
-- Submission permission to create and manage Jobs, ConfigMaps, Services, and Pods.
+- Submission permission to create and manage Jobs, Secrets, Services, and Pods.
 
 ## Recommended reading order
 
 | Phase | Document | Content |
 | --- | --- | --- |
-| Understand deployment | [Cluster architecture](architecture.md) | Job, worker Pods, Service, ConfigMap, and storage relationships |
+| Understand deployment | [Cluster architecture](architecture.md) | Job, worker Pods, Service, Secret, ConfigMap, and storage relationships |
 | Run the first job | [Quick start](quick-start.md) | Build an image, create RBAC, and submit a job |
 | Tune deployment | [Configuration](configuration.md) | Complete Kubernetes and shared application options |
 | Configure recovery | [Checkpoint recovery](checkpoint-recovery.md) | PVC, HDFS, object storage, and explicit recovery |

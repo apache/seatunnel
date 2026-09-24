@@ -21,36 +21,32 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
-import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
-import org.apache.seatunnel.resource.kubernetes.client.KubernetesApi;
-
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1Pod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesWatch;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /** Fixed-size worker provisioning with lifecycle failure detection and explicit cleanup. */
 final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
-    private final KubernetesApi api;
-    private final ApplicationSpecification specification;
+    private static final long WORKER_WATCH_INTERVAL_MILLIS = 1_000;
+
+    private final KubernetesClient api;
+    private final KubernetesApplicationParameters parameters;
     private final Set<String> workers = new HashSet<>();
     private final Set<String> releasing = new HashSet<>();
-    private final ScheduledExecutorService monitor =
-            Executors.newSingleThreadScheduledExecutor(
-                    r -> {
-                        Thread thread = new Thread(r, "seatunnel-kubernetes-worker-monitor");
-                        thread.setDaemon(true);
-                        return thread;
-                    });
     private final ExecutorService launches =
             Executors.newSingleThreadExecutor(
                     r -> {
@@ -60,15 +56,17 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                     });
     private final Map<String, CompletableFuture<WorkerRegistration>> pending = new HashMap<>();
     private ResourceManagerContext context;
-    private V1Job job;
+    private KubernetesJob job;
+    private KubernetesWatch workerWatch;
     private int nextWorker;
     private boolean running;
     private boolean closed;
     private boolean workersStopped;
 
-    KubernetesResourceManagerDriver(KubernetesApi api, ApplicationSpecification specification) {
+    KubernetesResourceManagerDriver(
+            KubernetesClient api, KubernetesApplicationParameters parameters) {
         this.api = api;
-        this.specification = specification;
+        this.parameters = parameters;
     }
 
     /**
@@ -86,7 +84,12 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
         this.context = context;
         this.job = api.getJob(context.getApplicationId().getId());
         this.running = true;
-        monitor.scheduleWithFixedDelay(this::checkWorkers, 1, 1, TimeUnit.SECONDS);
+        this.workerWatch =
+                api.watchPods(
+                        workerSelector(),
+                        WORKER_WATCH_INTERVAL_MILLIS,
+                        this::checkWorkers,
+                        this::onWatchFailure);
     }
 
     /**
@@ -104,7 +107,7 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                     new IllegalStateException("Kubernetes driver is not running"));
             return future;
         }
-        String name = job.getMetadata().getName() + "-worker-" + nextWorker++;
+        String name = job.getName() + "-worker-" + nextWorker++;
         // Register before creation: ambiguous HTTP failures must still be deleted on close.
         workers.add(name);
         pending.put(name, future);
@@ -124,10 +127,10 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
         }
         try {
             api.createPod(
-                    KubernetesResources.worker(
+                    KubernetesResourceFactory.worker(
                             job,
                             name,
-                            specification,
+                            parameters,
                             resources,
                             context.getClusterName(),
                             context.getMasterAddress()));
@@ -172,6 +175,14 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
     }
 
     void checkWorkers() {
+        try {
+            checkWorkers(api.listPods(workerSelector()));
+        } catch (Exception failure) {
+            onWatchFailure(failure);
+        }
+    }
+
+    private void checkWorkers(List<KubernetesPod> pods) {
         Set<String> observed;
         synchronized (this) {
             if (!running) {
@@ -184,51 +195,46 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                 return;
             }
         }
-        try {
-            Map<String, V1Pod> current = new HashMap<>();
-            for (V1Pod pod :
-                    api.listPods(
-                            KubernetesResources.selector(job.getMetadata().getName())
-                                    + ","
-                                    + KubernetesResources.ROLE_LABEL
-                                    + "=worker")) {
-                current.put(pod.getMetadata().getName(), pod);
+        Map<String, KubernetesPod> current = new HashMap<>();
+        for (KubernetesPod pod : pods) {
+            current.put(pod.getName(), pod);
+        }
+        synchronized (this) {
+            if (!running) {
+                return;
             }
-            synchronized (this) {
-                if (!running) {
-                    return;
+            for (String name : observed) {
+                if (!workers.contains(name) || releasing.contains(name)) {
+                    continue;
                 }
-                for (String name : observed) {
-                    if (!workers.contains(name) || releasing.contains(name)) {
-                        continue;
-                    }
-                    V1Pod pod = current.get(name);
-                    String phase =
-                            pod == null || pod.getStatus() == null
-                                    ? null
-                                    : pod.getStatus().getPhase();
-                    if (pod == null
-                            || pod.getMetadata().getDeletionTimestamp() != null
-                            || "Failed".equals(phase)
-                            || "Succeeded".equals(phase)) {
-                        running = false;
-                        context.onWorkerTerminated(
-                                name,
-                                pod == null
-                                        ? "Worker pod disappeared"
-                                        : "Worker pod terminated with phase " + phase);
-                        return;
-                    }
-                }
-            }
-        } catch (Exception e) {
-            synchronized (this) {
-                if (running) {
+                KubernetesPod pod = current.get(name);
+                if (pod == null || pod.isTerminating() || pod.isTerminated()) {
                     running = false;
-                    context.onError(e);
+                    context.onWorkerTerminated(
+                            name,
+                            pod == null
+                                    ? "Worker pod disappeared"
+                                    : "Worker pod terminated with phase " + pod.getPhase());
+                    return;
                 }
             }
         }
+    }
+
+    private void onWatchFailure(Exception failure) {
+        synchronized (this) {
+            if (running) {
+                running = false;
+                context.onError(failure);
+            }
+        }
+    }
+
+    private String workerSelector() {
+        return KubernetesResourceFactory.selector(job.getName())
+                + ","
+                + KubernetesResourceFactory.ROLE_LABEL
+                + "=worker";
     }
 
     /**
@@ -249,7 +255,9 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
                 future.completeExceptionally(new CancellationException("Application is stopping"));
             }
         }
-        monitor.shutdownNow();
+        if (workerWatch != null) {
+            workerWatch.close();
+        }
         launches.shutdownNow();
         Exception failure = null;
         try {
@@ -266,7 +274,7 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
         }
         if (job != null) {
             try {
-                api.deleteWorkers(job.getMetadata().getName());
+                api.deleteWorkers(job.getName());
             } catch (Exception e) {
                 if (failure == null) {
                     failure = e;

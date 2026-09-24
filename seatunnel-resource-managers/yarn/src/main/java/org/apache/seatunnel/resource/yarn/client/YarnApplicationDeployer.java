@@ -24,37 +24,43 @@ import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
 import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
-import org.apache.seatunnel.resource.yarn.cluster.YarnContainerLaunch;
-import org.apache.seatunnel.resource.yarn.cluster.YarnDistribution;
-import org.apache.seatunnel.resource.yarn.cluster.YarnStagingDirectory;
+import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
+import org.apache.seatunnel.resource.yarn.config.YarnDeploymentTarget;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
+import org.apache.seatunnel.resource.yarn.launch.YarnApplicationFileUploader;
+import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFactory;
+import org.apache.seatunnel.resource.yarn.launch.YarnDistribution;
+import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FSDataOutputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.permission.FsPermission;
-import org.apache.hadoop.yarn.api.records.ApplicationReport;
 import org.apache.hadoop.yarn.api.records.ApplicationSubmissionContext;
+import org.apache.hadoop.yarn.api.records.Priority;
 import org.apache.hadoop.yarn.api.records.Resource;
-import org.apache.hadoop.yarn.api.records.YarnApplicationState;
 import org.apache.hadoop.yarn.client.api.YarnClient;
 import org.apache.hadoop.yarn.client.api.YarnClientApplication;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Supplier;
 
 import static org.apache.hadoop.yarn.api.records.ApplicationId.fromString;
 
 /** Submits one distribution and one job as a private, single-attempt YARN application. */
 final class YarnApplicationDeployer implements ApplicationDeployer {
+    /** YARN application type shown by the ResourceManager UI and CLI. */
+    private static final String APPLICATION_TYPE = "SeaTunnel";
+
+    /** Private staging directories must only be accessible by their submitting user. */
+    private static final FsPermission STAGING_PERMISSION = new FsPermission((short) 0700);
+
+    /** Scheme rejected for production staging because NodeManagers cannot share local files. */
+    private static final String LOCAL_FILE_SCHEME = "file";
+
     private final Configuration configuration;
     private final Supplier<YarnClient> clientFactory;
     private final boolean allowLocalStaging;
@@ -84,17 +90,13 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
             throw new IllegalArgumentException(
                     "YARN deployer requires a YARN application specification");
         }
-        String distributionPath = specification.getOption(YarnOptions.DISTRIBUTION);
-        if (distributionPath == null || distributionPath.trim().isEmpty()) {
-            throw new IllegalArgumentException("Required option yarn.distribution is missing");
+        YarnApplicationConfiguration deployment =
+                YarnApplicationConfiguration.forSubmission(specification);
+        if (deployment.getDeploymentTarget() != YarnDeploymentTarget.APPLICATION) {
+            throw new UnsupportedOperationException(
+                    "Unsupported YARN deployment target: " + deployment.getDeploymentTarget());
         }
-        File distribution = new File(distributionPath).getAbsoluteFile();
-        if (!Files.isRegularFile(distribution.toPath())) {
-            throw new IllegalArgumentException(
-                    "yarn.distribution must be a readable local distribution archive: "
-                            + distribution);
-        }
-        YarnDistribution layout = YarnDistribution.inspect(distribution);
+        YarnDistribution layout = YarnDistribution.inspect(deployment.getDistribution());
         YarnClient client = newClient();
         Path staging = null;
         String yarnId = null;
@@ -104,10 +106,11 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
             YarnClientApplication application = client.createApplication();
             ApplicationSubmissionContext submission = application.getApplicationSubmissionContext();
             yarnId = submission.getApplicationId().toString();
-            Path stagingRoot = new Path(specification.getOption(YarnOptions.STAGING_DIRECTORY));
+            Path stagingRoot = deployment.getStagingRoot();
             try (FileSystem fileSystem =
                     FileSystem.newInstance(stagingRoot.toUri(), configuration)) {
-                if (!allowLocalStaging && "file".equals(fileSystem.getUri().getScheme())) {
+                if (!allowLocalStaging
+                        && LOCAL_FILE_SCHEME.equals(fileSystem.getUri().getScheme())) {
                     throw new IllegalArgumentException(
                             "yarn.staging-dir must resolve to a shared filesystem such as HDFS; local file staging is not supported");
                 }
@@ -116,29 +119,19 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
                     throw new IllegalStateException(
                             "Application staging directory already exists: " + staging);
                 }
-                if (!fileSystem.mkdirs(staging, new FsPermission((short) 0700))) {
+                if (!fileSystem.mkdirs(staging, STAGING_PERMISSION)) {
                     throw new IOException(
                             "Could not create application staging directory " + staging);
                 }
                 staged = true;
-                fileSystem.setPermission(staging, new FsPermission((short) 0700));
-                layout.stage(fileSystem, staging, distribution);
-                File localSpecification =
-                        Files.createTempFile("seatunnel-yarn-", ".properties").toFile();
-                try {
-                    specification.write(localSpecification.toPath());
-                    fileSystem.copyFromLocalFile(
-                            new Path(localSpecification.toURI()),
-                            new Path(staging, YarnContainerLaunch.LOCALIZED_SPECIFICATION_NAME));
-                } finally {
-                    Files.deleteIfExists(localSpecification.toPath());
-                }
-                try (FSDataOutputStream output =
-                        fileSystem.create(
-                                new Path(staging, YarnContainerLaunch.LOCALIZED_HADOOP_CONFIG_NAME),
-                                false)) {
-                    configuration.writeXml(output);
-                }
+                fileSystem.setPermission(staging, STAGING_PERMISSION);
+                YarnApplicationFileUploader.upload(
+                        fileSystem,
+                        staging,
+                        layout,
+                        deployment.getDistribution(),
+                        specification,
+                        configuration);
             }
             int masterMemory = specification.getOption(ApplicationOptions.MASTER_MEMORY_MB);
             int masterCores = specification.getOption(ApplicationOptions.MASTER_CPU_CORES);
@@ -154,16 +147,26 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
                         "Requested master/worker resources exceed YARN maximum container capability");
             }
             submission.setApplicationName(specification.getName());
-            submission.setApplicationType("SeaTunnel");
-            submission.setQueue(specification.getOption(YarnOptions.QUEUE));
+            submission.setApplicationType(APPLICATION_TYPE);
+            submission.setQueue(deployment.getQueue());
+            if (deployment.getPriority() >= 0) {
+                submission.setPriority(Priority.newInstance(deployment.getPriority()));
+            }
+            if (!deployment.getTags().isEmpty()) {
+                submission.setApplicationTags(deployment.getTags());
+            }
+            if (deployment.getMasterNodeLabel() != null) {
+                submission.setNodeLabelExpression(deployment.getMasterNodeLabel());
+            }
             submission.setMaxAppAttempts(1);
             submission.setResource(Resource.newInstance(masterMemory, masterCores));
             submission.setAMContainerSpec(
-                    YarnContainerLaunch.master(configuration, staging, masterMemory));
+                    YarnContainerLaunchContextFactory.master(configuration, staging, masterMemory));
             // A lost submit response can still mean the RM accepted the application.
             submitted = true;
             client.submitApplication(submission);
-            awaitApplicationMaster(client, yarnId, specification.getStartupTimeoutMillis());
+            new YarnApplicationStatusMonitor(client)
+                    .awaitRunning(fromString(yarnId), specification.getStartupTimeoutMillis());
             return new YarnApplicationClient(client, configuration, yarnId, staging);
         } catch (Exception failure) {
             if (submitted && yarnId != null) {
@@ -208,27 +211,6 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
             staging = fileSystem.makeQualified(new Path(stagingRoot, yarnId));
         }
         return new YarnApplicationClient(newClient(), configuration, yarnId, staging);
-    }
-
-    private void awaitApplicationMaster(YarnClient client, String yarnId, long timeoutMillis)
-            throws Exception {
-        long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
-        while (true) {
-            ApplicationReport report = client.getApplicationReport(fromString(yarnId));
-            if (report.getYarnApplicationState() == YarnApplicationState.RUNNING
-                    || YarnApplicationClient.status(report).isTerminal()) {
-                return;
-            }
-            if (System.nanoTime() >= deadline) {
-                throw new TimeoutException(
-                        "YARN application "
-                                + yarnId
-                                + " did not start its ApplicationMaster within "
-                                + timeoutMillis
-                                + " ms; check queue capacity and NodeManager resources");
-            }
-            Thread.sleep(Math.min(500, timeoutMillis));
-        }
     }
 
     private YarnClient newClient() {

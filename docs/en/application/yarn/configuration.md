@@ -11,10 +11,15 @@ Deployment configuration uses HOCON. Resource values and timeouts must be positi
 
 | Option | Type | Default | Description |
 | --- | --- | --- | --- |
+| `yarn.deployment-target` | Enum | `APPLICATION` | Deployment topology. The first release supports one isolated application per job. |
 | `yarn.distribution` | String | Required | Local `.tar.gz`, `.tgz`, or `.zip` distribution readable by the submitter. |
 | `yarn.config-dir` | String | Empty | Hadoop configuration directory. Empty uses `HADOOP_CONF_DIR`, then the Hadoop classpath. |
 | `yarn.staging-dir` | String | `.seatunnel/applications` | Shared-filesystem staging root. A relative path normally resolves below the submitting user's HDFS home. |
 | `yarn.queue` | String | `default` | YARN submission queue. |
+| `yarn.priority` | Integer | `-1` | Application priority. A negative value keeps the cluster default. |
+| `yarn.tags` | String | Empty | Comma-separated YARN application tags. |
+| `yarn.master.node-label` | String | Empty | Node-label expression for the ApplicationMaster. |
+| `yarn.worker.node-label` | String | Empty | Node-label expression for workers; empty inherits `yarn.master.node-label`. |
 
 ## Shared application options
 

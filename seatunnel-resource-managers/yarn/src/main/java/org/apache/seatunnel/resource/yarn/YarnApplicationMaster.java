@@ -23,10 +23,10 @@ import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.yarn.cluster.YarnContainerLaunch;
 import org.apache.seatunnel.resource.yarn.cluster.YarnResourceManagerDriverFactory;
-import org.apache.seatunnel.resource.yarn.cluster.YarnStagingDirectory;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
+import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
+import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -47,8 +47,7 @@ public final class YarnApplicationMaster {
     /** Runs the native job and releases staged artifacts on normal or interrupted shutdown. */
     public static void main(String[] args) throws Exception {
         Configuration configuration =
-                YarnConfigurationUtils.loadLocalized(
-                        YarnContainerLaunch.LOCALIZED_HADOOP_CONFIG_NAME);
+                YarnConfigurationUtils.loadLocalized(YarnConstants.LOCALIZED_HADOOP_CONFIG_NAME);
         Path staging = YarnStagingDirectory.fromEnvironment();
         Thread cleanup =
                 new Thread(
@@ -76,7 +75,7 @@ public final class YarnApplicationMaster {
                                     .toString());
             ApplicationSpecification specification =
                     ApplicationSpecification.read(
-                            Paths.get(YarnContainerLaunch.LOCALIZED_SPECIFICATION_NAME));
+                            Paths.get(YarnConstants.LOCALIZED_SPECIFICATION_NAME));
             result =
                     ApplicationRuntime.run(
                             id,

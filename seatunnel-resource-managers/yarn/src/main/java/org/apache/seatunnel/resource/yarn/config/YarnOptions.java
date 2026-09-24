@@ -25,6 +25,13 @@ public final class YarnOptions {
 
     private YarnOptions() {}
 
+    public static final Option<YarnDeploymentTarget> DEPLOYMENT_TARGET =
+            Options.key("yarn.deployment-target")
+                    .enumType(YarnDeploymentTarget.class)
+                    .defaultValue(YarnDeploymentTarget.APPLICATION)
+                    .withDescription(
+                            "YARN deployment topology. The first release supports APPLICATION only.");
+
     public static final Option<String> DISTRIBUTION =
             Options.key("yarn.distribution")
                     .stringType()
@@ -51,4 +58,30 @@ public final class YarnOptions {
                     .stringType()
                     .defaultValue("default")
                     .withDescription("YARN scheduling queue.");
+
+    public static final Option<Integer> PRIORITY =
+            Options.key("yarn.priority")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription(
+                            "Application priority. A negative value leaves the cluster default unchanged.");
+
+    public static final Option<String> TAGS =
+            Options.key("yarn.tags")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("Comma-separated tags attached to the YARN application.");
+
+    public static final Option<String> MASTER_NODE_LABEL =
+            Options.key("yarn.master.node-label")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription("YARN node-label expression used for the ApplicationMaster.");
+
+    public static final Option<String> WORKER_NODE_LABEL =
+            Options.key("yarn.worker.node-label")
+                    .stringType()
+                    .defaultValue("")
+                    .withDescription(
+                            "YARN node-label expression used for worker containers; empty inherits yarn.master.node-label.");
 }

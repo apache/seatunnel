@@ -23,7 +23,8 @@ import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
 import org.apache.seatunnel.resource.yarn.YarnApplicationMaster;
-import org.apache.seatunnel.resource.yarn.cluster.YarnContainerLaunch;
+import org.apache.seatunnel.resource.yarn.config.YarnOptions;
+import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -48,8 +49,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;
 import java.util.zip.ZipEntry;
@@ -144,6 +147,11 @@ class YarnApplicationTest {
             verify(client).submitApplication(context.capture());
             assertEquals(1, context.getValue().getMaxAppAttempts());
             assertEquals("test-application", context.getValue().getApplicationName());
+            assertEquals(3, context.getValue().getPriority().getPriority());
+            assertEquals(
+                    new HashSet<>(Arrays.asList("batch", "finance")),
+                    context.getValue().getApplicationTags());
+            assertEquals("master-pool", context.getValue().getNodeLabelExpression());
             ContainerLaunchContext launch = context.getValue().getAMContainerSpec();
             assertEquals(3, launch.getLocalResources().size());
             assertTrue(launch.getCommands().get(0).contains("-Dseatunnel.home=\"{{PWD}}\"/"));
@@ -156,16 +164,13 @@ class YarnApplicationTest {
             assertTrue(launch.getCommands().get(0).contains("starter/logging/*"));
             assertTrue(launch.getCommands().get(0).contains(YarnApplicationMaster.class.getName()));
             Path staging =
-                    new Path(
-                            launch.getEnvironment().get(YarnContainerLaunch.STAGING_DIRECTORY_ENV));
+                    new Path(launch.getEnvironment().get(YarnConstants.STAGING_DIRECTORY_ENV));
             try (FileSystem fileSystem = FileSystem.newInstance(configuration)) {
                 assertEquals(
                         (short) 0700, fileSystem.getFileStatus(staging).getPermission().toShort());
                 assertTrue(
                         fileSystem.exists(
-                                new Path(
-                                        staging,
-                                        YarnContainerLaunch.LOCALIZED_SPECIFICATION_NAME)));
+                                new Path(staging, YarnConstants.LOCALIZED_SPECIFICATION_NAME)));
             }
             deployed.cancel();
             assertFalse(Files.exists(Paths.get(staging.toUri())));
@@ -257,8 +262,11 @@ class YarnApplicationTest {
             zip.closeEntry();
         }
         Map<String, String> options = new HashMap<>();
-        options.put("yarn.distribution", archive.toString());
-        options.put("yarn.staging-dir", temporary.toURI().toString());
+        options.put(YarnOptions.DISTRIBUTION.key(), archive.toString());
+        options.put(YarnOptions.STAGING_DIRECTORY.key(), temporary.toURI().toString());
+        options.put(YarnOptions.PRIORITY.key(), "3");
+        options.put(YarnOptions.TAGS.key(), "batch,finance,batch");
+        options.put(YarnOptions.MASTER_NODE_LABEL.key(), "master-pool");
         return new ApplicationSpecification(
                 DeployType.YARN,
                 "test-application",

@@ -49,6 +49,7 @@ import io.kubernetes.client.openapi.ApiException;
 import io.kubernetes.client.openapi.apis.BatchV1Api;
 import io.kubernetes.client.openapi.apis.CoreV1Api;
 import io.kubernetes.client.openapi.apis.RbacAuthorizationV1Api;
+import io.kubernetes.client.openapi.models.V1ConfigMap;
 import io.kubernetes.client.openapi.models.V1Namespace;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1PersistentVolumeClaim;
@@ -61,6 +62,7 @@ import io.kubernetes.client.openapi.models.V1ResourceRequirements;
 import io.kubernetes.client.openapi.models.V1Role;
 import io.kubernetes.client.openapi.models.V1RoleBinding;
 import io.kubernetes.client.openapi.models.V1RoleRef;
+import io.kubernetes.client.openapi.models.V1Secret;
 import io.kubernetes.client.openapi.models.V1ServiceAccount;
 import io.kubernetes.client.openapi.models.V1Subject;
 import io.kubernetes.client.util.Config;
@@ -98,6 +100,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
     private static final Logger LOG = LoggerFactory.getLogger(KubernetesApplicationIT.class);
     private static final String APPLICATION_LABEL = "seatunnel.apache.org/application-id";
     private static final String ROLE_LABEL = "seatunnel.apache.org/role";
+    private static final String APPLICATION_SPECIFICATION_FILE = "application.properties";
+    private static final String RUNTIME_CONFIG_MAP = "seatunnel-runtime-configuration";
     private final String namespace =
             "seatunnel-app-it-" + UUID.randomUUID().toString().substring(0, 8);
     private CoreV1Api core;
@@ -156,6 +160,27 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 null,
                 null,
                 null);
+        Map<String, String> runtimeConfiguration = new HashMap<>();
+        runtimeConfiguration.put(
+                "seatunnel.yaml",
+                new String(
+                        Files.readAllBytes(getResourcesFile("/kubernetes/seatunnel.yaml").toPath()),
+                        StandardCharsets.UTF_8));
+        runtimeConfiguration.put(
+                "log4j2_client.properties",
+                new String(
+                        Files.readAllBytes(
+                                Paths.get(PROJECT_ROOT_PATH, "config", "log4j2_client.properties")),
+                        StandardCharsets.UTF_8));
+        core.createNamespacedConfigMap(
+                namespace,
+                new V1ConfigMap()
+                        .metadata(new V1ObjectMeta().name(RUNTIME_CONFIG_MAP))
+                        .data(runtimeConfiguration),
+                null,
+                null,
+                null,
+                null);
         RbacAuthorizationV1Api rbac = new RbacAuthorizationV1Api(apiClient);
         rbac.createNamespacedRole(
                 namespace,
@@ -205,6 +230,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         options.put(KubernetesOptions.IMAGE.key(), image);
         options.put(KubernetesOptions.IMAGE_PULL_POLICY.key(), "Never");
         options.put(KubernetesOptions.SERVICE_ACCOUNT.key(), "application");
+        options.put(KubernetesOptions.CONFIG_MAP.key(), RUNTIME_CONFIG_MAP);
         options.put(ApplicationOptions.WORKER_COUNT.key(), "2");
         options.put(ApplicationOptions.WORKER_MEMORY_MB.key(), "768");
         options.put(ApplicationOptions.MASTER_MEMORY_MB.key(), "768");
@@ -251,13 +277,19 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                         application.getApplicationId().getId(), namespace, null)
                                 .getStatus()
                                 .getSucceeded());
-                assertEquals(
-                        1,
-                        core.readNamespacedConfigMap(
-                                        application.getApplicationId().getId(), namespace, null)
-                                .getMetadata()
-                                .getOwnerReferences()
-                                .size());
+                V1Secret applicationSecret =
+                        core.readNamespacedSecret(
+                                application.getApplicationId().getId(), namespace, null);
+                assertEquals(1, applicationSecret.getMetadata().getOwnerReferences().size());
+                assertEquals("Opaque", applicationSecret.getType());
+                assertTrue(applicationSecret.getData().containsKey(APPLICATION_SPECIFICATION_FILE));
+                assertTrue(
+                        missing(
+                                () ->
+                                        core.readNamespacedConfigMap(
+                                                application.getApplicationId().getId(),
+                                                namespace,
+                                                null)));
             } finally {
                 application.cancel();
             }
@@ -296,6 +328,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                     String secondMaster = masterPod(second).getStatus().getPodIP() + ":5801";
                     assertNotEquals(firstMaster, secondMaster);
                     for (V1Pod worker : workers(first)) {
+                        assertRuntimeConfigMapMounted(worker);
                         List<String> command = worker.getSpec().getContainers().get(0).getCommand();
                         assertTrue(command.contains(firstMaster));
                         assertFalse(command.contains(secondMaster));
@@ -303,6 +336,8 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                 first.getApplicationId().getId(),
                                 worker.getMetadata().getOwnerReferences().get(0).getName());
                     }
+                    assertRuntimeConfigMapMounted(masterPod(first));
+                    assertRuntimeConfigMapMounted(masterPod(second));
                     first.cancel();
                     assertEquals(ApplicationStatus.CANCELED, first.getStatus());
                     awaitAllResourcesRemoved(first);
@@ -707,6 +742,22 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                 .untilAsserted(() -> assertTrue(workers(application).isEmpty()));
     }
 
+    private static void assertRuntimeConfigMapMounted(V1Pod pod) {
+        assertTrue(
+                pod.getSpec().getVolumes().stream()
+                        .anyMatch(
+                                volume ->
+                                        volume.getConfigMap() != null
+                                                && RUNTIME_CONFIG_MAP.equals(
+                                                        volume.getConfigMap().getName())));
+        assertTrue(
+                pod.getSpec().getContainers().get(0).getVolumeMounts().stream()
+                        .anyMatch(
+                                mount ->
+                                        "/opt/seatunnel/config".equals(mount.getMountPath())
+                                                && Boolean.TRUE.equals(mount.getReadOnly())));
+    }
+
     private void awaitAllResourcesRemoved(ApplicationClient application) {
         Awaitility.await()
                 .atMost(60, TimeUnit.SECONDS)
@@ -724,6 +775,13 @@ public class KubernetesApplicationIT extends TestSuiteBase {
                                     missing(
                                             () ->
                                                     core.readNamespacedService(
+                                                            application.getApplicationId().getId(),
+                                                            namespace,
+                                                            null)));
+                            assertTrue(
+                                    missing(
+                                            () ->
+                                                    core.readNamespacedSecret(
                                                             application.getApplicationId().getId(),
                                                             namespace,
                                                             null)));
@@ -870,10 +928,6 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             Files.copy(
                     Paths.get(PROJECT_ROOT_PATH, "plugin-mapping.properties"),
                     connectors.resolve("plugin-mapping.properties"));
-            Files.copy(
-                    getResourcesFile("/kubernetes/seatunnel.yaml").toPath(),
-                    home.resolve("config/seatunnel.yaml"),
-                    StandardCopyOption.REPLACE_EXISTING);
             Files.write(
                     context.resolve("Dockerfile"),
                     Arrays.asList(

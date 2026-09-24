@@ -24,14 +24,17 @@ import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistrat
 import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
-import org.apache.seatunnel.resource.kubernetes.client.KubernetesApi;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
 import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1Job;
 import io.kubernetes.client.openapi.models.V1ObjectMeta;
 import io.kubernetes.client.openapi.models.V1Pod;
 import io.kubernetes.client.openapi.models.V1PodStatus;
@@ -58,7 +61,7 @@ import static org.mockito.Mockito.when;
 class KubernetesResourceManagerDriverTest {
     @Test
     void reportsWorkerFailureAndCleansEveryPod() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         ResourceManagerContext context = context();
         when(api.getJob("app")).thenReturn(job());
         AtomicBoolean failed = new AtomicBoolean();
@@ -66,19 +69,11 @@ class KubernetesResourceManagerDriverTest {
                 .thenAnswer(
                         invocation ->
                                 Arrays.asList(
-                                        new V1Pod()
-                                                .metadata(new V1ObjectMeta().name("app-worker-0"))
-                                                .status(
-                                                        new V1PodStatus()
-                                                                .phase(
-                                                                        failed.get()
-                                                                                ? "Failed"
-                                                                                : "Running")),
-                                        new V1Pod()
-                                                .metadata(new V1ObjectMeta().name("app-worker-1"))
-                                                .status(new V1PodStatus().phase("Running"))));
+                                        pod("app-worker-0", failed.get() ? "Failed" : "Running"),
+                                        pod("app-worker-1", "Running")));
         KubernetesResourceManagerDriver driver =
-                new KubernetesResourceManagerDriver(api, specification());
+                new KubernetesResourceManagerDriver(
+                        api, KubernetesApplicationParameters.from(specification()));
         driver.initialize(context);
         WorkerRegistration first =
                 driver.requestWorker(specification().getWorkerSpecification()).get();
@@ -94,10 +89,11 @@ class KubernetesResourceManagerDriverTest {
 
     @Test
     void ambiguousWorkerCreationIsStillCleanedAndCleanupFailurePropagates() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         when(api.getJob("app")).thenReturn(job());
         KubernetesResourceManagerDriver driver =
-                new KubernetesResourceManagerDriver(api, specification());
+                new KubernetesResourceManagerDriver(
+                        api, KubernetesApplicationParameters.from(specification()));
         driver.initialize(context());
         doThrow(new ApiException(0, "connection interrupted")).when(api).createPod(any());
         assertThrows(
@@ -115,7 +111,7 @@ class KubernetesResourceManagerDriverTest {
     @Test
     @Timeout(10)
     void closeWaitsForRacingAllocationAndDeletesItsPod() throws Exception {
-        KubernetesApi api = mock(KubernetesApi.class);
+        KubernetesClient api = mock(KubernetesClient.class);
         when(api.getJob("app")).thenReturn(job());
         CountDownLatch creating = new CountDownLatch(1);
         CountDownLatch accepted = new CountDownLatch(1);
@@ -147,7 +143,8 @@ class KubernetesResourceManagerDriverTest {
                 .when(api)
                 .deletePod(anyString());
         KubernetesResourceManagerDriver driver =
-                new KubernetesResourceManagerDriver(api, specification());
+                new KubernetesResourceManagerDriver(
+                        api, KubernetesApplicationParameters.from(specification()));
         driver.initialize(context());
         CompletableFuture<WorkerRegistration> allocation =
                 driver.requestWorker(specification().getWorkerSpecification());
@@ -190,9 +187,18 @@ class KubernetesResourceManagerDriverTest {
                 DeployType.KUBERNETES, "env { job.mode = BATCH }", options);
     }
 
-    private static V1Job job() {
-        V1Job job = KubernetesResources.job("app", specification());
-        job.getMetadata().setUid("uid-1");
+    private static KubernetesJob job() {
+        KubernetesJob job =
+                KubernetesResourceFactory.job(
+                        "app", KubernetesApplicationParameters.from(specification()));
+        job.getInternalResource().getMetadata().setUid("uid-1");
         return job;
+    }
+
+    private static KubernetesPod pod(String name, String phase) {
+        return new KubernetesPod(
+                new V1Pod()
+                        .metadata(new V1ObjectMeta().name(name))
+                        .status(new V1PodStatus().phase(phase)));
     }
 }

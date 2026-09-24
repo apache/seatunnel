@@ -22,7 +22,7 @@ import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.yarn.cluster.YarnStagingDirectory;
+import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

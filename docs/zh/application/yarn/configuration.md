@@ -11,10 +11,15 @@ title: 配置参考
 
 | 选项 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
+| `yarn.deployment-target` | Enum | `APPLICATION` | 部署拓扑；一期仅支持每个作业对应一个独立 application。 |
 | `yarn.distribution` | String | 必填 | 提交机可读的 `.tar.gz`、`.tgz` 或 `.zip` 发行包。 |
 | `yarn.config-dir` | String | 空 | Hadoop 配置目录；为空时使用 `HADOOP_CONF_DIR`，再回退到 Hadoop classpath。 |
 | `yarn.staging-dir` | String | `.seatunnel/applications` | 共享文件系统 staging 根目录；相对路径通常位于提交用户的 HDFS home。 |
 | `yarn.queue` | String | `default` | 提交 application 的 YARN 队列。 |
+| `yarn.priority` | Integer | `-1` | Application 调度优先级；负数表示沿用集群默认值。 |
+| `yarn.tags` | String | 空 | 以逗号分隔的 YARN application tag。 |
+| `yarn.master.node-label` | String | 空 | ApplicationMaster 使用的 node-label expression。 |
+| `yarn.worker.node-label` | String | 空 | Worker 使用的 node-label expression；为空时继承 `yarn.master.node-label`。 |
 
 ## Application 公共选项
 

@@ -40,7 +40,7 @@ Add the deployment option:
 kubernetes.checkpoint-pvc = "seatunnel-checkpoints"
 ```
 
-Configure native storage in the image's `config/seatunnel.yaml`:
+Configure native storage in the `seatunnel.yaml` stored in the runtime ConfigMap:
 
 ```yaml
 seatunnel:
@@ -61,7 +61,7 @@ The provider only mounts the PVC. Native checkpoint storage interprets the backe
 
 ## Use remote storage
 
-Configure the complete `seatunnel.engine.checkpoint.storage.plugin-config` in the image. Application Mode does not parse checkpoint URIs or maintain a backend allowlist. See [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md) for HDFS, OSS, S3, COS, endpoint, and authentication settings.
+Configure the complete `seatunnel.engine.checkpoint.storage.plugin-config` in the runtime ConfigMap's `seatunnel.yaml`. Application Mode does not parse checkpoint URIs or maintain a backend allowlist. See [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md) for HDFS, OSS, S3, COS, endpoint, and authentication settings.
 
 ## Submit a recovery job
 

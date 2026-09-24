@@ -85,7 +85,15 @@ roleRef:
 kubectl apply -f application-rbac.yaml
 ```
 
-The submitting user also needs permission to manage Jobs, ConfigMaps, Services, and Pods in this namespace.
+The submitting user also needs permission to manage Jobs, Secrets, Services, and Pods in this namespace. Restrict Secret `get` and `list` permissions to the submitting identity because the application Secret contains the resolved job configuration.
+
+Create the runtime ConfigMap from the distribution configuration. Both master and worker Pods mount it at `/opt/seatunnel/config`:
+
+```bash
+kubectl -n seatunnel-apps create configmap seatunnel-configuration \
+  --from-file=seatunnel.yaml=config/seatunnel.yaml \
+  --from-file=log4j2_client.properties=config/log4j2_client.properties
+```
 
 ## 3. Create job and deployment configuration
 
@@ -125,6 +133,7 @@ kubernetes.namespace = "seatunnel-apps"
 kubernetes.image = "registry.example.com/seatunnel:application"
 kubernetes.service-account = "seatunnel-application"
 kubernetes.image-pull-policy = "IfNotPresent"
+kubernetes.config-map = "seatunnel-configuration"
 ```
 
 ## 4. Submit and wait

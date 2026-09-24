@@ -45,10 +45,10 @@ flowchart TB
 ## Submission lifecycle
 
 1. The client allocates an application ID from the ResourceManager.
-2. It creates a private `0700` staging directory and uploads the distribution, job configuration, and resolved Hadoop configuration.
-3. The ResourceManager starts the ApplicationMaster, and the NodeManager localizes and extracts the same distribution.
+2. It creates a private `0700` staging directory. The application file uploader stores the validated distribution, job configuration, and resolved Hadoop configuration as one localization set.
+3. The client status monitor waits for the ResourceManager to start the ApplicationMaster or report a terminal state. The NodeManager localizes and extracts the same distribution.
 4. The ApplicationMaster starts an isolated Zeta master and requests a fixed number of worker containers through `AMRMClient`.
-5. `NMClient` starts worker JVMs. Workers join the isolated Hazelcast cluster using the master's actual address.
+5. `NMClient` starts worker JVMs. Each allocated container is tracked as one worker node, and workers join the isolated Hazelcast cluster using the master's actual address.
 6. After all workers register their membership and slots, the master submits one Zeta job.
 7. When the job reaches a terminal state, the master releases workers, unregisters the YARN application, and removes staging.
 

@@ -85,7 +85,15 @@ roleRef:
 kubectl apply -f application-rbac.yaml
 ```
 
-提交用户还需要在该 Namespace 中管理 Job、ConfigMap、Service 和 Pod 的权限。
+提交用户还需要在该 Namespace 中管理 Job、Secret、Service 和 Pod 的权限。Application Secret 包含解析后的作业配置，因此 Secret 的 `get` 和 `list` 权限应只授予提交身份。
+
+使用发行包配置创建运行时 ConfigMap。Master 和 Worker Pod 都会把它挂载到 `/opt/seatunnel/config`：
+
+```bash
+kubectl -n seatunnel-apps create configmap seatunnel-configuration \
+  --from-file=seatunnel.yaml=config/seatunnel.yaml \
+  --from-file=log4j2_client.properties=config/log4j2_client.properties
+```
 
 ## 3. 创建作业和部署配置
 
@@ -125,6 +133,7 @@ kubernetes.namespace = "seatunnel-apps"
 kubernetes.image = "registry.example.com/seatunnel:application"
 kubernetes.service-account = "seatunnel-application"
 kubernetes.image-pull-policy = "IfNotPresent"
+kubernetes.config-map = "seatunnel-configuration"
 ```
 
 ## 4. 提交并等待结果

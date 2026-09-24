@@ -21,21 +21,20 @@ import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.kubernetes.cluster.KubernetesResources;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesJob;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesPod;
 
 import io.kubernetes.client.openapi.ApiException;
-import io.kubernetes.client.openapi.models.V1Job;
-import io.kubernetes.client.openapi.models.V1JobCondition;
-import io.kubernetes.client.openapi.models.V1JobStatus;
-import io.kubernetes.client.openapi.models.V1Pod;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
 final class KubernetesApplicationClient implements ApplicationClient {
-    private final KubernetesApi api;
+    private final KubernetesClient api;
     private final ApplicationId applicationId;
     private volatile boolean canceled;
 
-    KubernetesApplicationClient(KubernetesApi api, ApplicationId applicationId) {
+    KubernetesApplicationClient(KubernetesClient api, ApplicationId applicationId) {
         this.api = api;
         this.applicationId = applicationId;
     }
@@ -68,31 +67,23 @@ final class KubernetesApplicationClient implements ApplicationClient {
                     applicationId, ApplicationStatus.CANCELED, "Application resources deleted");
         }
         try {
-            V1Job job = api.getJob(applicationId.getId());
-            V1JobStatus status = job.getStatus();
-            if (status != null && status.getConditions() != null) {
-                for (V1JobCondition condition : status.getConditions()) {
-                    if ("True".equals(condition.getStatus())
-                            && "Failed".equals(condition.getType())) {
-                        return new ApplicationResult(
-                                applicationId, ApplicationStatus.FAILED, condition.getReason());
-                    }
-                    if ("True".equals(condition.getStatus())
-                            && "Complete".equals(condition.getType())) {
-                        return new ApplicationResult(
-                                applicationId, ApplicationStatus.SUCCEEDED, null);
-                    }
-                }
+            KubernetesJob job = api.getJob(applicationId.getId());
+            if (job.isFailed()) {
+                return new ApplicationResult(
+                        applicationId, ApplicationStatus.FAILED, job.getFailureReason());
+            }
+            if (job.isComplete()) {
+                return new ApplicationResult(applicationId, ApplicationStatus.SUCCEEDED, null);
             }
             ApplicationStatus state = ApplicationStatus.DEPLOYING;
-            if (status != null && status.getActive() != null && status.getActive() > 0) {
-                for (V1Pod pod :
+            if (job.isActive()) {
+                for (KubernetesPod pod :
                         api.listPods(
-                                KubernetesResources.selector(applicationId.getId())
+                                KubernetesResourceFactory.selector(applicationId.getId())
                                         + ","
-                                        + KubernetesResources.ROLE_LABEL
+                                        + KubernetesResourceFactory.ROLE_LABEL
                                         + "=master")) {
-                    if (pod.getStatus() != null && "Running".equals(pod.getStatus().getPhase())) {
+                    if (pod.isRunning()) {
                         state = ApplicationStatus.RUNNING;
                         break;
                     }

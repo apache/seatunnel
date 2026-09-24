@@ -31,6 +31,29 @@ import java.util.Map;
 
 /** Loads platform configuration and bounds Hadoop RPC retries for lifecycle cleanup. */
 public final class YarnConfigurationUtils {
+    /** Standard environment variable used to discover client-side Hadoop XML files. */
+    private static final String HADOOP_CONF_DIR_ENV = "HADOOP_CONF_DIR";
+
+    /** Hadoop configuration files copied into the merged application configuration. */
+    private static final String[] HADOOP_CONFIGURATION_FILES =
+            new String[] {"core-site.xml", "hdfs-site.xml", "yarn-site.xml"};
+
+    /** Authentication mode supported by the MVP container localization flow. */
+    private static final String SIMPLE_AUTHENTICATION = "simple";
+
+    /** Hadoop settings without public constants that bound application lifecycle RPCs. */
+    private static final String IPC_CONNECT_TIMEOUT = "ipc.client.connect.timeout";
+
+    private static final String IPC_CONNECT_MAX_RETRIES = "ipc.client.connect.max.retries";
+    private static final String IPC_CONNECT_TIMEOUT_RETRIES =
+            "ipc.client.connect.max.retries.on.timeouts";
+    private static final String IPC_RPC_TIMEOUT = "ipc.client.rpc-timeout.ms";
+    private static final String DFS_SOCKET_TIMEOUT = "dfs.client.socket-timeout";
+    private static final String HADOOP_AUTHENTICATION = "hadoop.security.authentication";
+
+    /** Bounds one Hadoop or YARN RPC attempt so cleanup fits the runtime shutdown deadline. */
+    private static final int RPC_TIMEOUT_MILLIS = 10000;
+
     private YarnConfigurationUtils() {}
 
     /** Loads the submitting user's Hadoop XML files and validates supported authentication. */
@@ -40,14 +63,14 @@ public final class YarnConfigurationUtils {
                 ReadonlyConfig.fromMap(new HashMap<String, Object>(options))
                         .get(YarnOptions.CONFIG_DIRECTORY);
         if (directory.isEmpty()) {
-            directory = System.getenv("HADOOP_CONF_DIR");
+            directory = System.getenv(HADOOP_CONF_DIR_ENV);
         }
         if (directory != null && !directory.isEmpty()) {
             if (!Files.isDirectory(Paths.get(directory))) {
                 throw new IllegalArgumentException(
                         "Hadoop configuration directory does not exist: " + directory);
             }
-            for (String name : new String[] {"core-site.xml", "hdfs-site.xml", "yarn-site.xml"}) {
+            for (String name : HADOOP_CONFIGURATION_FILES) {
                 File file = new File(directory, name);
                 if (Files.isRegularFile(file.toPath())) {
                     configuration.addResource(new Path(file.toURI()));
@@ -71,24 +94,25 @@ public final class YarnConfigurationUtils {
      */
     public static Configuration withBoundedRpc(Configuration original) {
         Configuration configuration = new Configuration(original);
-        configuration.setLong(YarnConfiguration.RESOURCEMANAGER_CONNECT_MAX_WAIT_MS, 10000);
+        configuration.setLong(
+                YarnConfiguration.RESOURCEMANAGER_CONNECT_MAX_WAIT_MS, RPC_TIMEOUT_MILLIS);
         configuration.setLong(YarnConfiguration.RESOURCEMANAGER_CONNECT_RETRY_INTERVAL_MS, 1000);
-        configuration.setLong(YarnConfiguration.CLIENT_NM_CONNECT_MAX_WAIT_MS, 10000);
+        configuration.setLong(YarnConfiguration.CLIENT_NM_CONNECT_MAX_WAIT_MS, RPC_TIMEOUT_MILLIS);
         configuration.setLong(YarnConfiguration.CLIENT_NM_CONNECT_RETRY_INTERVAL_MS, 1000);
         configuration.setLong(
                 YarnConfiguration.YARN_CLIENT_APPLICATION_CLIENT_PROTOCOL_POLL_TIMEOUT_MS, 20000);
-        configuration.setInt("ipc.client.connect.timeout", 10000);
-        configuration.setInt("ipc.client.connect.max.retries", 1);
-        configuration.setInt("ipc.client.connect.max.retries.on.timeouts", 1);
-        configuration.setInt("ipc.client.rpc-timeout.ms", 10000);
-        configuration.setInt("dfs.client.socket-timeout", 10000);
+        configuration.setInt(IPC_CONNECT_TIMEOUT, RPC_TIMEOUT_MILLIS);
+        configuration.setInt(IPC_CONNECT_MAX_RETRIES, 1);
+        configuration.setInt(IPC_CONNECT_TIMEOUT_RETRIES, 1);
+        configuration.setInt(IPC_RPC_TIMEOUT, RPC_TIMEOUT_MILLIS);
+        configuration.setInt(DFS_SOCKET_TIMEOUT, RPC_TIMEOUT_MILLIS);
         return configuration;
     }
 
     /** Rejects credentials that the application launcher cannot propagate to containers. */
     public static void requireSimpleAuthentication(Configuration configuration) {
-        if (!"simple"
-                .equalsIgnoreCase(configuration.get("hadoop.security.authentication", "simple"))) {
+        if (!SIMPLE_AUTHENTICATION.equalsIgnoreCase(
+                configuration.get(HADOOP_AUTHENTICATION, SIMPLE_AUTHENTICATION))) {
             throw new IllegalArgumentException(
                     "YARN application mode supports simple authentication only; Kerberos is not supported.");
         }

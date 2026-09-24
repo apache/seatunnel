@@ -22,8 +22,6 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
@@ -35,14 +33,11 @@ import org.apache.hadoop.yarn.util.Records;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.util.Collections;
-import java.util.zip.GZIPOutputStream;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -56,44 +51,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class YarnClusterTest {
+class YarnResourceManagerDriverTest {
     @TempDir File temporary;
-
-    @Test
-    void nativeTarGzRetainsArchiveTypeAndDistributionRoot() throws Exception {
-        String distributionRoot = "apache-seatunnel-test-version/";
-        File archive = new File(temporary, "native-distribution.tar.gz");
-        try (TarArchiveOutputStream tar =
-                new TarArchiveOutputStream(
-                        new GZIPOutputStream(Files.newOutputStream(archive.toPath())))) {
-            TarArchiveEntry entry =
-                    new TarArchiveEntry(distributionRoot + "starter/seatunnel-starter.jar");
-            entry.setSize(1);
-            tar.putArchiveEntry(entry);
-            tar.write(1);
-            tar.closeArchiveEntry();
-        }
-        YarnDistribution layout = YarnDistribution.inspect(archive);
-        assertEquals("seatunnel/" + distributionRoot, layout.localizedHome());
-        assertEquals("distribution.tar.gz", layout.archive(new Path("/staging")).getName());
-    }
-
-    @Test
-    void unsafeArchiveCannotBeSubmitted() throws Exception {
-        File archive = new File(temporary, "unsafe.zip");
-        try (ZipOutputStream zip = new ZipOutputStream(Files.newOutputStream(archive.toPath()))) {
-            zip.putNextEntry(new ZipEntry("../starter/seatunnel-starter.jar"));
-            zip.closeEntry();
-        }
-        assertThrows(IllegalArgumentException.class, () -> YarnDistribution.inspect(archive));
-    }
-
-    @Test
-    void shellArgumentsRemainLiteral() {
-        assertEquals(
-                "'worker'\"'\"'s $(touch /tmp/unsafe)'",
-                YarnContainerLaunch.quote("worker's $(touch /tmp/unsafe)"));
-    }
 
     @Test
     void initializationFailureDoesNotStopAnUnopenedNodeManager() throws Exception {
@@ -142,6 +101,30 @@ class YarnClusterTest {
         verify(resourceManager).removeContainerRequest(any());
         verify(nodeManager).stop();
         verify(resourceManager).stop();
+    }
+
+    @Test
+    void workerRequestsUseConfiguredNodeLabel() throws Exception {
+        AMRMClient<AMRMClient.ContainerRequest> resourceManager = mock(AMRMClient.class);
+        NMClient nodeManager = mock(NMClient.class);
+        ResourceManagerContext context = mock(ResourceManagerContext.class);
+        when(context.getMasterAddress()).thenReturn("localhost:5801");
+        when(resourceManager.allocate(anyFloat()))
+                .thenReturn(Records.newRecord(AllocateResponse.class));
+        YarnResourceManagerDriver driver =
+                new YarnResourceManagerDriver(
+                        localConfiguration(),
+                        new Path(temporary.toURI()),
+                        "worker-pool",
+                        resourceManager,
+                        nodeManager);
+        driver.initialize(context);
+        driver.requestWorker(new WorkerSpecification(512, 1, 2));
+        ArgumentCaptor<AMRMClient.ContainerRequest> request =
+                ArgumentCaptor.forClass(AMRMClient.ContainerRequest.class);
+        verify(resourceManager).addContainerRequest(request.capture());
+        assertEquals("worker-pool", request.getValue().getNodeLabelExpression());
+        driver.close();
     }
 
     @Test

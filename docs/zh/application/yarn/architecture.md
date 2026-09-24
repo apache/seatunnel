@@ -45,10 +45,10 @@ flowchart TB
 ## 提交流程
 
 1. 客户端从 ResourceManager 获取 application ID。
-2. 客户端创建权限为 `0700` 的 application staging 目录，上传发行包、作业配置和解析后的 Hadoop 配置。
-3. ResourceManager 启动 ApplicationMaster，NodeManager 本地化并解压同一发行包。
+2. 客户端创建权限为 `0700` 的 application staging 目录；application 文件上传器将校验后的发行包、作业配置和解析后的 Hadoop 配置作为一组本地化资源上传。
+3. 客户端状态监视器等待 ResourceManager 启动 ApplicationMaster 或报告终态；NodeManager 本地化并解压同一发行包。
 4. ApplicationMaster 启动独立 Zeta Master，并通过 `AMRMClient` 申请固定数量的 Worker Container。
-5. `NMClient` 在 Container 中启动 Worker JVM。Worker 使用 Master 的实际地址加入独立 Hazelcast 集群。
+5. `NMClient` 在 Container 中启动 Worker JVM。每个已分配 Container 作为一个 Worker 节点跟踪；Worker 使用 Master 的实际地址加入独立 Hazelcast 集群。
 6. 所有 Worker 完成成员和 slot 注册后，Master 提交唯一的 Zeta 作业。
 7. 作业进入终态后，Master 释放 Worker、注销 YARN application 并清理 staging。
 

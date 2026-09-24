@@ -40,7 +40,7 @@ spec:
 kubernetes.checkpoint-pvc = "seatunnel-checkpoints"
 ```
 
-镜像内 `config/seatunnel.yaml` 配置原生存储：
+在运行时 ConfigMap 的 `seatunnel.yaml` 中配置原生存储：
 
 ```yaml
 seatunnel:
@@ -61,7 +61,7 @@ Provider 只负责挂载 PVC；存储类型和 namespace 由原生 checkpoint pl
 
 ## 使用远程存储
 
-在镜像的 `seatunnel.yaml` 中配置完整 `seatunnel.engine.checkpoint.storage.plugin-config`。Application Mode 不解析 checkpoint URI，也不维护存储后端白名单。HDFS、OSS、S3、COS、endpoint 和认证配置参见 [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md)。
+在运行时 ConfigMap 的 `seatunnel.yaml` 中配置完整 `seatunnel.engine.checkpoint.storage.plugin-config`。Application Mode 不解析 checkpoint URI，也不维护存储后端白名单。HDFS、OSS、S3、COS、endpoint 和认证配置参见 [Checkpoint Storage](../../engines/zeta/checkpoint-storage.md)。
 
 ## 提交恢复作业
 
