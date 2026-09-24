@@ -249,6 +249,44 @@ const sidebars = {
                                 "engines/zeta/separated-cluster-deployment"
                             ]
                         },
+                        {
+                            "type": "category",
+                            "label": "Application Mode (Experimental)",
+                            "items": [
+                                "application/overview",
+                                "application/architecture",
+                                {
+                                    "type": "category",
+                                    "label": "YARN",
+                                    "link": {
+                                        "type": "doc",
+                                        "id": "application/yarn/overview"
+                                    },
+                                    "items": [
+                                        "application/yarn/architecture",
+                                        "application/yarn/quick-start",
+                                        "application/yarn/configuration",
+                                        "application/yarn/checkpoint-recovery",
+                                        "application/yarn/faq"
+                                    ]
+                                },
+                                {
+                                    "type": "category",
+                                    "label": "Kubernetes",
+                                    "link": {
+                                        "type": "doc",
+                                        "id": "application/kubernetes/overview"
+                                    },
+                                    "items": [
+                                        "application/kubernetes/architecture",
+                                        "application/kubernetes/quick-start",
+                                        "application/kubernetes/configuration",
+                                        "application/kubernetes/checkpoint-recovery",
+                                        "application/kubernetes/faq"
+                                    ]
+                                }
+                            ]
+                        },
                         "getting-started/submit-job-to-remote-zeta-cluster",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/state-storage-and-recovery",

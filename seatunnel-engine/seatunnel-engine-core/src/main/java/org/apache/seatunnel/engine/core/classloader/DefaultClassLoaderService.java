@@ -43,11 +43,35 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     private final Map<Long, Map<String, ClassLoader>> classLoaderCache;
     private final Map<Long, Map<String, AtomicInteger>> classLoaderReferenceCount;
     private final NodeEngine nodeEngine;
+    private final JarPathResolver jarPathResolver;
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
 
+    /**
+     * Creates a service using the original jar URLs without deployment-specific resolution.
+     *
+     * @param cacheMode whether loaders with equal jar identities are shared across jobs
+     * @param nodeEngine owning node for local artifact checks, or null when no node is available
+     */
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
+        this(cacheMode, nodeEngine, JarPathResolver.identity());
+    }
+
+    /**
+     * Creates a service with an explicit instance-scoped jar resolver.
+     *
+     * <p>The service retains the resolver without closing it. Original URLs remain the cache and
+     * release identities; resolved URLs are used only for local validation and loader construction.
+     *
+     * @param cacheMode whether loaders with equal jar identities are shared across jobs
+     * @param nodeEngine owning node for local artifact checks, or null when no node is available
+     * @param jarPathResolver stable resolver for this service's lifetime
+     * @throws NullPointerException if the resolver is null
+     */
+    public DefaultClassLoaderService(
+            boolean cacheMode, NodeEngine nodeEngine, JarPathResolver jarPathResolver) {
         this.cacheMode = cacheMode;
         this.nodeEngine = nodeEngine;
+        this.jarPathResolver = Objects.requireNonNull(jarPathResolver, "jarPathResolver");
         classLoaderCache = new ConcurrentHashMap<>();
         classLoaderReferenceCount = new ConcurrentHashMap<>();
         log.info("start classloader service" + (cacheMode ? " with cache mode" : ""));
@@ -71,10 +95,11 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             classLoaderReferenceCount.get(jobId).get(key).incrementAndGet();
             return classLoaderMap.get(key);
         } else {
+            Collection<URL> localJars = jarPathResolver.resolve(jars);
             if (Objects.nonNull(nodeEngine)
                     && !Boolean.parseBoolean(
                             System.getenv().getOrDefault(SKIP_CHECK_JAR, "false"))) {
-                for (URL jar : jars) {
+                for (URL jar : localJars) {
                     File file = new File(jar.toURI().getPath());
                     if (!file.exists()) {
                         String host =
@@ -91,7 +116,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             } else {
                 log.debug("Run the test class without file checking");
             }
-            ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(jars);
+            ClassLoader classLoader = new SeaTunnelChildFirstClassLoader(localJars);
             log.info("Create classloader for job {} with jars {}", jobId, jars);
             classLoaderMap.put(key, classLoader);
             classLoaderReferenceCount.get(jobId).put(key, new AtomicInteger(1));

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutDiscoveryJoiner;
 import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutMulticastJoiner;
 import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutTcpIpJoiner;
@@ -25,7 +26,6 @@ import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutTcpIpJoiner;
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.instance.impl.DefaultNodeContext;
 import com.hazelcast.instance.impl.Node;
-import com.hazelcast.instance.impl.NodeExtension;
 import com.hazelcast.internal.cluster.Joiner;
 import com.hazelcast.internal.config.AliasedDiscoveryConfigUtils;
 import lombok.NonNull;
@@ -38,14 +38,39 @@ import static com.hazelcast.spi.properties.ClusterProperty.DISCOVERY_SPI_ENABLED
 public class SeaTunnelNodeContext extends DefaultNodeContext {
 
     private final SeaTunnelConfig seaTunnelConfig;
+    private final JarPathResolver jarPathResolver;
 
+    /**
+     * Creates a node context preserving the existing jar-path behavior.
+     *
+     * @param seaTunnelConfig node configuration retained for node initialization
+     */
     public SeaTunnelNodeContext(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this.seaTunnelConfig = seaTunnelConfig;
+        this(seaTunnelConfig, JarPathResolver.identity());
     }
 
+    /**
+     * Creates a context that passes a typed jar resolver to this node's Engine services.
+     *
+     * @param seaTunnelConfig node configuration retained for initialization
+     * @param jarPathResolver stable node-local resolver; caller retains resource ownership
+     * @throws NullPointerException if either argument is null
+     */
+    public SeaTunnelNodeContext(
+            @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
+        this.seaTunnelConfig = seaTunnelConfig;
+        this.jarPathResolver = jarPathResolver;
+    }
+
+    /**
+     * Creates this node's Engine extension with the dependencies captured by the context.
+     *
+     * @param node Hazelcast node owning the extension and Engine server lifecycle
+     * @return a fresh SeaTunnel extension with the node-local jar resolver
+     */
     @Override
-    public NodeExtension createNodeExtension(@NonNull Node node) {
-        return new org.apache.seatunnel.engine.server.NodeExtension(node, seaTunnelConfig);
+    public com.hazelcast.instance.impl.NodeExtension createNodeExtension(@NonNull Node node) {
+        return new NodeExtension(node, seaTunnelConfig, jarPathResolver);
     }
 
     @Override

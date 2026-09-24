@@ -986,3 +986,39 @@ Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
  + org.snmp4j:snmp4j (https://www.snmp4j.org/)
  + Copyright Frank Fock and Jochen Katz
  + Licensed under the Apache License, Version 2.0
+
+========================================================================
+Notices for the optional Kubernetes application resource manager
+========================================================================
+
+org.apache.commons:commons-lang3:3.18.0
+
+Apache Commons Lang
+Copyright 2001-2025 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+commons-io:commons-io:2.11.0
+
+Apache Commons IO
+Copyright 2002-2021 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+org.apache.commons:commons-collections4:4.4
+
+Apache Commons Collections
+Copyright 2001-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+com.squareup.okhttp3:okhttp:4.12.0
+
+Note that publicsuffixes.gz is compiled from The Public Suffix List:
+https://publicsuffix.org/list/public_suffix_list.dat
+
+It is subject to the terms of the Mozilla Public License, v. 2.0:
+https://mozilla.org/MPL/2.0/
