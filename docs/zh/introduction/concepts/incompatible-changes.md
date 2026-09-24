@@ -15,6 +15,10 @@
   - **迁移指南**：将 Broker 证书（或私有 CA 证书链）导入 SeaTunnel 运行时的 JVM 信任库，或改用
     `host`/`port` + `ssl = true` 配置并正确设置信任库。
 
+### FakeSource (connector-fake)
+
+- 声明式选项约束现在在工厂校验阶段即强制生效，而非仅在运行时校验。受影响选项：split.num 必须 > 0；ector.dimension 和 inary.vector.dimension 必须 > 0；	inyint.min/max、smallint.min/max、int.min/max、igint.min/max、loat.min/max、double.min/max、ector.float.min/max 必须满足 min <= max。注意 ow.num = 0（空 Source）仍然有效。此前设置了无效值且成功运行的现有作业，将在启动时快速失败并抛出校验错误。
+
 ### Zeta REST 分页参数校验
 
 - **行为变更：分页接口开始校验 `page` 与 `rows`**

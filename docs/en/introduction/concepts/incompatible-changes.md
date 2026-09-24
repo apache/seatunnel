@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Redis Authentication
+
+- Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
+  `CLUSTER` mode. Previously, `SINGLE` used password-only authentication followed by `ACL SETUSER`,
+  and `CLUSTER` ignored `user`. Connection setup no longer creates or modifies ACL users.
+- Before upgrading, create the intended ACL user and grant its required command and key permissions,
+  including `INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for
+  topology discovery in `CLUSTER` mode. Set `auth` to that user's password. An omitted or empty password
+  is sent as an empty string when `user` is nonblank.
+- To keep using the default user, remove `user` and retain `auth` when a password is required.
+  Named users require Redis 6 or later. Legacy configurations without a username remain unchanged.
+
 ### RabbitMQ Connector
 
 - **Breaking Change: `amqps://` connections now verify broker certificates**
@@ -17,6 +29,16 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Import the broker certificate (or your private CA chain) into the JVM
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
+
+### FakeSource (connector-fake)
+
+- Declarative option constraints are now enforced at factory validation time instead of
+  silently passing and failing only at runtime. Affected options: `split.num` must be > 0;
+  `vector.dimension` and `binary.vector.dimension` must be > 0; `tinyint.min/max`,
+  `smallint.min/max`, `int.min/max`, `bigint.min/max`, `float.min/max`, `double.min/max`,
+  and `vector.float.min/max` must satisfy min <= max. Note that `row.num = 0` (empty source)
+  is still valid. Existing jobs that set invalid values and previously ran successfully will now
+  fail fast at startup with a validation error.
 
 ### Zeta REST Pagination Parameter Validation
 
@@ -145,6 +167,12 @@ You need to check this document before you upgrade to related version.
 
 
 ### Connector Changes
+
+- **Behavior change: HTTP sink write failures now fail the task instead of being silently dropped**
+  - **Affected component**: `seatunnel-connectors-v2/connector-http/connector-http-base`
+  - **Description**: Previously, `HttpSinkWriter.doHttpRequest` handled both a non-200 HTTP response and any request exception (network error, timeout, serialization error) by logging at `error` level and returning normally, so the failed row/batch was silently dropped while the job kept running and checkpoints completed. The writer now throws `HttpConnectorException` (`REQUEST_FAILED`) for both cases, so the failure propagates to the engine and fails the task/job.
+  - **Impact**: Jobs whose downstream HTTP endpoint occasionally returns non-200 or is occasionally unreachable used to keep running with silent data loss; after this change they fail loudly at the first failed write. The connector still has no built-in retry or dead-letter mechanism, so re-submitting a failed job may deliver rows that succeeded before the failure again — make sure the receiver tolerates duplicate delivery on retry/restart.
+  - **Migration Guide**: No configuration change is required. If your endpoint is expected to return non-200 responses as part of normal operation, handle them upstream of the sink or add an external retry mechanism before upgrading.
 
 - **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
   - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
@@ -319,6 +347,14 @@ You need to check this document before you upgrade to related version.
   — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
   (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
 
+### Format Changes
+
+- **Breaking Change: JSON serialization of numeric fields now follows the runtime value type**
+  - **Affected component**: `seatunnel-formats/seatunnel-format-json` (`RowToJsonConverters`) - affects every connector that serializes rows with the JSON format (for example Kafka, RabbitMQ, Pulsar, and file JSON sinks)
+  - **Description**: Previously, a field declared as a numeric type in the catalog (`TINYINT`, `SMALLINT`, `INT`, `BIGINT`, `FLOAT`, `DOUBLE`, `DECIMAL`) was serialized by blindly casting the runtime value to the Java type implied by the declared type (for example `(long) value` for `BIGINT`). In multi-table jobs (for example CDC jobs writing JSON to RabbitMQ/Kafka) where several tables share one catalog schema but carry different physical column types, a `String` or `BigDecimal` runtime value in such a field threw a raw `ClassCastException` and killed the job. Now numeric fields are serialized according to their runtime type: any numeric wrapper (`Byte`, `Short`, `Integer`, `Long`, `Float`, `Double`, `BigInteger`, `BigDecimal`) becomes the corresponding JSON number; numeric character sequences are parsed into JSON numbers, while non-numeric text is emitted as a JSON string; `Float`/`Double` values in a field declared as `DECIMAL` are serialized via `BigDecimal.valueOf` to avoid floating-point representation artifacts.
+  - **Impact**: Heterogeneous numeric values that previously crashed the job with `ClassCastException` now serialize successfully, and the emitted JSON numeric shape follows the runtime value rather than the declared column type (a `String` or `BigDecimal` value in a `BIGINT` column keeps its exact numeric value). Runtime values that can neither be represented as a number nor parsed from text (for example `byte[]`, `Map`, `LocalDateTime`) now fail fast with a typed `SeaTunnelJsonFormatException` (`UNSUPPORTED_DATA_TYPE`) instead of a raw `ClassCastException`. Downstream consumers that assume the JSON numeric shape always matches the declared column type should be reviewed. (#11415)
+
 ### Engine Behavior Changes
 
 ### Dependency Upgrades
+

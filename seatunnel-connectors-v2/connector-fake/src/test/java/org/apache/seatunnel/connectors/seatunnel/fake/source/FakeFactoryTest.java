@@ -124,7 +124,8 @@ public class FakeFactoryTest {
     @Test
     void neitherSchemaNorTableConfigsRejected() {
         Assertions.assertThrows(
-                OptionValidationException.class, () -> validate(new HashMap<>()));
+                OptionValidationException.class, () -> validate(new HashMap<>())
+        );
     }
 
     @Test
@@ -254,3 +255,4 @@ public class FakeFactoryTest {
         validate(map);
     }
 }
+

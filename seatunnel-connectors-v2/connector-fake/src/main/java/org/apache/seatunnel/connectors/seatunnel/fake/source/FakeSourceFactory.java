@@ -107,26 +107,16 @@ public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRu
                         BINARY_VECTOR_DIMENSION,
                         Conditions.greaterThan(BINARY_VECTOR_DIMENSION, 0))
                 .optional(
-                        TINYINT_MIN,
-                        TINYINT_MAX,
+                        TINYINT_MIN, TINYINT_MAX,
                         Conditions.lessOrEqualField(TINYINT_MIN, TINYINT_MAX))
                 .optional(
                         SMALLINT_MIN,
                         SMALLINT_MAX,
                         Conditions.lessOrEqualField(SMALLINT_MIN, SMALLINT_MAX))
                 .optional(INT_MIN, INT_MAX, Conditions.lessOrEqualField(INT_MIN, INT_MAX))
-                .optional(
-                        BIGINT_MIN,
-                        BIGINT_MAX,
-                        Conditions.lessOrEqualField(BIGINT_MIN, BIGINT_MAX))
-                .optional(
-                        FLOAT_MIN,
-                        FLOAT_MAX,
-                        Conditions.lessOrEqualField(FLOAT_MIN, FLOAT_MAX))
-                .optional(
-                        DOUBLE_MIN,
-                        DOUBLE_MAX,
-                        Conditions.lessOrEqualField(DOUBLE_MIN, DOUBLE_MAX))
+                .optional(BIGINT_MIN, BIGINT_MAX, Conditions.lessOrEqualField(BIGINT_MIN, BIGINT_MAX))
+                .optional(FLOAT_MIN, FLOAT_MAX, Conditions.lessOrEqualField(FLOAT_MIN, FLOAT_MAX))
+                .optional(DOUBLE_MIN, DOUBLE_MAX, Conditions.lessOrEqualField(DOUBLE_MIN, DOUBLE_MAX))
                 .optional(
                         VECTOR_FLOAT_MIN,
                         VECTOR_FLOAT_MAX,
@@ -185,3 +175,4 @@ public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRu
         return FakeSource.class;
     }
 }
+
