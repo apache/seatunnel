@@ -1,6 +1,6 @@
 # 任务失败历史设计
 
-本文档提出 [GH-11667](https://github.com/apache/seatunnel/issues/11667) 的第一版后端契约。目前仅为设计，不代表 API 已经实现。
+本文档提出 [GH-11667](https://github.com/apache/seatunnel/issues/11667) 的第一版后端契约。规范的 STIP 讨论位于 [STIP-33](https://github.com/apache/seatunnel/issues/11735)。目前仅为设计，不代表 API 已经实现。
 
 ## 问题
 
@@ -14,123 +14,302 @@
 
 ## 范围
 
-第一阶段实现应提供有界的、作业级别的失败历史，并通过同一个 REST 契约查询运行中和已完成作业。
+第一阶段实现提供有界的、作业级别的失败历史，并通过同一个 REST 契约查询运行中和已完成作业。
 
-它应当：
+它：
 
 - 按 pipeline 执行 attempt 对失败进行分组；
-- 标识上报失败的 pipeline 和 task group；
+- 标识上报失败的 pipeline，以及涉及的 task group；
+- 记录不属于 task group 失败的 pipeline 级失败，例如 checkpoint 失败和资源分配失败；
 - 在信息可用时保留 task 元数据，但不将 worker 地址存储为失败历史归因字段；
 - 以结构化方式保留时间、消息、堆栈和异常类型，不解析展示文本；
-- 在 master 切换和 pipeline 恢复后继续保留；
+- 在 active master 切换和 pipeline 恢复后继续保留；
 - 随现有 finished job 历史策略过期；
 - 为兼容性保留现有单一 `errorMsg` 字段。
 
-第一阶段不增加日志聚合、分布式追踪或无界异常归档。Web UI 应在后端契约确定后单独实现。
+第一阶段不增加日志聚合、分布式追踪或无界异常归档。Web UI 在后端契约确定后单独实现。
+
+与 GH-11667 相比，第一版做出以下明确取舍：
+
+- 按照本设计的安全评审，不按主机或 worker 地址归因；
+- 从记录跳转到 worker 日志依赖 [#11662](https://github.com/apache/seatunnel/issues/11662) 以及另行商定的逻辑 worker 标识；
+- attempt 已运行的时长由 `attemptStartedAt` 推导，失败发生时间为 `timestamp`。
 
 ## Attempt 模型
 
 Attempt 属于 pipeline，而不是单个 task。
 
-- pipeline 初始执行为 attempt `0`；
-- 在调度恢复前递增 attempt；
-- 同一次执行中捕获的所有失败使用相同的 attempt；
-- 用于诊断的 attempt 标识必须写入 HA 状态，避免新的 active master 从 `0` 重新编号。
+`SubPlan.pipelineRestoreNum` 参与 `job.retry.times` 判断。它只保存在内存中，新的 active master 重建 `SubPlan` 时会从 `0` 开始。将其用于历史记录，要么会在 failover 后丢失 attempt，要么在持久化后改变重试预算。因此失败历史使用独立的诊断标识。`canRestorePipeline()` 和 `job.retry.times` 从不读取它，任何恢复步骤都不会等待历史操作。恢复资格、恢复时机和可用性保持不变。
 
-`SubPlan.pipelineRestoreNum` 当前参与 `job.retry.times` 判断。如果将它持久化并直接用于历史记录，也会使重试预算在 active master 切换后继续生效，这属于另一项行为变更。因此第一阶段实现必须保持现有重试计数器和重试上限语义不变。
+### Attempt key
 
-失败历史在作业级 HA 状态中保存独立的、持久化的诊断 attempt 标识。初次执行创建 attempt `0`。每次恢复开始新的执行前，在历史状态中原子递增该 pipeline 的诊断 attempt 并记录开始时间。新的 active master 在记录下一次失败前读取该标识。这个计数器只用于失败关联和 REST 输出，不能参与恢复资格或重试上限判断。
+一次 pipeline 执行的持久化标识称为 attempt key，即该 pipeline 在 `runningJobStateTimestampsIMap` 中的 `CREATED` 时间戳。当前 `dev` 只在两处写入该槽位：
 
-attempt 递增与失败记录更新使用同一个作业级 `EntryProcessor` 串行化边界，因此不会覆盖同一作业中其他 pipeline 并发写入的记录。attempt 递增不同于尽力而为的失败记录写入，它属于恢复调度流程的一部分，必须在恢复后的执行启动前完成。写入失败不会改变现有的重试资格判断，但调度器不能使用旧的 attempt 标识启动新执行。确认不了递增时应重试、暂停还是判为失败，仍须作为设计决策；这可能影响恢复可用性，不能笼统宣称重试行为不变。
+- `SubPlan` 构造函数首次创建 pipeline 状态时；
+- 恢复前的 `SubPlan.resetPipelineState()`，先写时间戳，再将 pipeline 状态设为 `CREATED`。
 
-一种候选方案是按 `(jobIncarnation, pipelineId, fromDiagnosticAttempt)` 标识每个 pipeline 的恢复转换。在作业级条目中，递增操作将 attempt `n` 原子转换为 `PENDING` 状态的 attempt `n + 1`，并保留转换 key；确认响应丢失后的重试返回同一个目标 attempt。新 master 先接管条目的 epoch，再恢复待处理转换，而不是再次递增。来自旧 epoch 的追加和递增操作应被拒绝。诊断状态绝不能参与 `canRestorePipeline()` 或 `job.retry.times` 判断。
+构造函数会保留已有值，因此新的 active master 重建 `SubPlan` 时，仍在运行的执行保持原有 key。
 
-该候选方案尚不是完整的恢复协议。当前 `SubPlan.prepareRestorePipeline()` 在 `reset()` 前递增内存中的 `pipelineRestoreNum`，而 active master 切换后会重新构建 `SubPlan` 并调用 `restorePipelineState()`。master 可能在诊断递增之后、独立的 pipeline 状态重置或部署之前或之后失效。仅有 `PENDING` 无法证明新执行是否已经启动；盲目恢复可能将两次执行归入同一 attempt，盲目再次递增又会为一次恢复重复计数。STIP 必须定义从 `PENDING` 到已启动状态的持久化转换、它与现有 pipeline 状态的关系，以及新 master 在每个崩溃窗口的处理方式。当前不存在持久化的 master epoch；在历史条目中递增 epoch 只能隔离接管提交后的操作，因此还须规定交接期间旧 master 的调度行为。`pipelineRestoreNum` 既不是持久化的恢复标识，也不能充当该隔离机制。
+key 总是在写入或部署的时刻被复制并存入失败历史，之后绝不再从 `runningJobStateTimestampsIMap` 读取，因为每次恢复都会覆盖该槽位。
 
-预期边界是将诊断编号与现有重试资格计算分开；上述崩溃窗口和递增失败规则仍待确定。
+- `SubPlan` 在内存中保存当前 key：构造函数从已持久化的值设置，`resetPipelineState()` 以最后一次成功写入的值设置；
+- 写入 key 时如果时间戳数组不存在，则 key 未知，此时捕获的记录 `attempt` 和 `attemptStartedAt` 均为 null。
+
+为使 key 唯一且有序，`resetPipelineState()` 写入 `max(now, previousCreated + 1)` 而不是 `now`，其中 `previousCreated` 读取自同一个已持久化的时间戳数组。因此每个 pipeline 的 key 严格递增，包括在时钟不一致的不同 active master 之间。
+
+该值是公开的：自 #11982 起，`/job-info` 以 `diagnostics.pipelines[].stateTimestamps.CREATED` 返回它。只有当一次重置与上一次落在同一毫秒内，或时钟回拨之后，该值才会与墙钟时间不同，此时它最多比 pipeline 的 `SCHEDULED` 时间戳晚一个回拨幅度。`rest-api-v2` 文档中该字段的说明将注明 `CREATED` 在多次恢复之间严格递增。这是本设计对现有值的唯一改动。
+
+### 部署标识
+
+`PhysicalVertex` 部署 task group 时，记录该次部署的 `(executionId, attemptKey)`。`executionId` 是 `getTaskGroupImmutableInformation()` 已经通过 flake ID 生成器为每次部署生成的 ID。vertex 保存当前部署和上一次部署；`reset()` 将当前部署移入上一次部署槽位。
+
+这些配对保存在 master 内存中，因此新的 active master 会重建它们：恢复作业时，每个状态为 `DEPLOYING`、`RUNNING`、`FAILING` 或 `CANCELING` 的 vertex，都会在 `SubPlan` 当前 key 下获得一个 `executionId` 未知的占位部署。在 failover 中存活的 task group 仍在 worker 上执行，worker 会跳过重新部署（`TaskExecutionService`），并继续上报旧 master 分配的 `executionId`；新 master 不认识该 ID，于是归入占位部署。
+
+### Attempt 编号
+
+每个 pipeline 在历史条目中有一张 attempt 表和一个下一编号计数器。attempt 表将每个 attempt key 映射到其 attempt 编号和被抑制的失败数，每个 pipeline 最多 256 个 key；表满时淘汰最小的 key，淘汰不会改变计数器。attempt 表独立于记录淘汰。
+
+条目创建以及 failover 后的接管都会登记每个 pipeline 的当前 key。每条记录在与追加相同的原子更新中解析其 key：
+
+- 已在表中的 key 使用其编号；
+- 大于表中所有 key 的 key 取计数器当前值，计数器随之递增；
+- 不在表中且小于表中最大 key 的 key 来自较晚到达或已被淘汰的旧执行，以 `attempt = null` 保存，并保留其 `attemptStartedAt`；已有编号永不改变。
+
+`resetPipelineState()` 之后，master 还会为新 key 提交一次尽力而为的 `registerAttempt`，使没有记录任何失败的执行也获得编号。如果该操作被丢弃，下一次有记录的执行取下一个编号。因此 `attempt` 是失败历史所观察到的执行序号，`attemptStartedAt` 才是精确标识。
+
+这是 attempt 递增的对账形式：每条记录都携带自己的 key，因此正确分组从不依赖于递增在恢复后的执行失败之前完成。重试，或早于登记到达的记录，都解析为同一个编号。
+
+### 上报归因
+
+- worker 上报通过 `TaskExecutionState` 上新增的可为空字段，携带产生该上报的部署的 `executionId`；
+- 如果该 ID 与 vertex 的当前或上一次部署匹配，就归入该部署的 key；
+- vertex 不认识的 ID 在存在占位部署时归入占位部署，否则来自更早的部署，从历史中丢弃并记录 WARN 日志；
+- 不带 `executionId` 的上报使用 vertex 的当前部署，包括节点丢失、master 恢复以及早于该字段的 worker 的上报；
+- 在部署标识产生之前就失败的部署使用 `SubPlan` 的当前 key；
+- 没有当前部署的 vertex（例如已重置为 `CREATED` 但尚未重新部署）不产生 task group 记录。
+
+在当前 `dev` 上，引擎本身会将迟到的 `FAILED` 上报接受到已重置为 `CREATED` 的 vertex 中，因为 `updateTaskState` 只拒绝离开终态的转换。`executionId` 归因会将这类上报保留在产生它的执行之下。让引擎忽略过期上报是另一项修复，不在本设计范围内。
+
+### 崩溃窗口
+
+下表遵循当前 `dev`。新的 active master 只有在恢复的作业离开 pending 队列后才执行 `restorePipelineState()`：它取消并重新调度状态低于 `RUNNING` 的 pipeline；以 `FAILED` 或 `CANCELED` 结束的 pipeline，只有在新 master 上 `canRestorePipeline()` 成立时才会恢复，而此时内存中的重试计数器已从 `0` 重新开始。
+
+| Active master 失败时机 | 新 master 看到的持久化状态 | `dev` 上的引擎行为 | 诊断结果 |
+|---|---|---|---|
+| `resetPipelineState()` 写入状态之前 | `FAILED` 或 `CANCELED`；`CREATED` 槽位可能已有一个未使用的 key | 若 `canRestorePipeline()` 成立则再次恢复，写入新 key | 未使用的 key 从未部署；接管时可能登记它，否则不获得编号 |
+| 重置之后、任何部署之前 | `CREATED`，key 为 `K1` | 取消，然后以 `K2` 恢复 | `K1` 在接管时登记；`K2` 取下一个编号 |
+| 调度或部署期间 | `SCHEDULED` 或 `DEPLOYING`，key 为 `K1` | 取消，然后以 `K2` 恢复 | 部署失败仍属于 `K1`；`K2` 取下一个编号 |
+| `RUNNING` 且所有 task group 存活 | `RUNNING`，key 为 `K` | 继续运行；重建的 `SubPlan` 保留 `K` | 没有新 key；失败通过占位部署解析到 `K` |
+| `RUNNING` 且部分 task group 被判定丢失 | `RUNNING`，key 为 `K` | `initStateFuture` 将这些 task group 标记为 `FAILING`；pipeline 失败并可能恢复 | 每个 task group 在 `K` 下获得一条无异常文本的 `MASTER_RECOVERY` 记录。该检查在任何 `ExecutionException` 时都会判定 task group 丢失，因此记录可能是现有检查的误判 |
+| `FAILING` 或 `CANCELING` 期间 | `FAILING` 或 `CANCELING`，key 为 `K` | 取消剩余 task，结束 pipeline，并可能恢复 | worker 上报通过占位部署解析到 `K` |
+| 恢复的作业在 pending 队列中等待 | 任意 | 在此窗口上报的 worker 收到 `JobNotFoundException` 并停止重试 | 这些上报会丢失。这是现有引擎行为；master 从未收到的内容无法被记录 |
+
+### 隔离
+
+当前 `dev` 没有持久化的 master epoch；`resetPipelineState()` 和 `updatePipelineState()` 写入 `runningJobStateIMap` 时不检查所有者。失败历史依赖与其所描述的 pipeline 状态相同的单一 active master 假设，不声称更强的过期 master 隔离。在该假设下：
+
+- key 严格递增且已有编号永不改变，旧 master 的迟到操作不会打乱 attempt 顺序，最坏情况只是保存一条 `attempt = null` 的记录；
+- 历史消费线程在每次操作前检查本节点仍是 active master；`clearCoordinatorService()` 丢弃其队列及内存中的合并状态；
+- 来自上一个作业实例或终态之后的写入，会被“存储与保留”中的所有者和终态检查拒绝。
+
+出现第二个 active master 的脑裂情况不在第一版保证范围内，这与现有作业状态一致。
 
 ## 失败记录
 
-建议的 REST 表示如下：
+建议的 REST 响应为：
 
 ```json
 {
-  "sequence": 7,
-  "timestamp": 1753574400000,
   "jobId": "123456789",
-  "pipelineId": 1,
-  "attempt": 2,
-  "attemptStartedAt": 1753574380000,
-  "taskGroupId": 4,
-  "taskId": null,
-  "taskName": "mysql-source -> transform",
-  "exceptionType": "java.sql.SQLException",
-  "message": "Connection reset",
-  "messageOriginalBytes": 16,
-  "messageTruncated": false,
-  "stackTrace": "java.sql.SQLException: Connection reset\n...",
-  "stackTraceOriginalBytes": 43,
-  "stackTraceTruncated": false
+  "attempts": [
+    {
+      "pipelineId": 1,
+      "attempt": 2,
+      "attemptStartedAt": 1753574380000,
+      "suppressedCount": 0
+    }
+  ],
+  "failures": [
+    {
+      "sequence": 7,
+      "timestamp": 1753574400000,
+      "jobId": "123456789",
+      "pipelineId": 1,
+      "attempt": 2,
+      "attemptStartedAt": 1753574380000,
+      "scope": "TASK_GROUP",
+      "source": "WORKER",
+      "taskGroupId": 4,
+      "taskId": null,
+      "taskName": "mysql-source -> transform",
+      "exceptionType": "java.sql.SQLException",
+      "exceptionFingerprint": "5f3a9c1e20b47d86",
+      "message": "Connection reset",
+      "messageOriginalBytes": 16,
+      "messageTruncated": false,
+      "stackTrace": "java.sql.SQLException: Connection reset\n...",
+      "stackTraceOriginalBytes": 43,
+      "stackTraceTruncated": false
+    }
+  ]
 }
 ```
 
-字段规则：
+`attempts` 列出每个 pipeline 的 attempt 表，包括没有保留失败的 attempt。`suppressedCount` 是该 attempt 中未被单独记录的失败数（见“捕获与去重”）。
 
-- `sequence` 在单个作业内单调递增，在时间戳相同时提供确定顺序；
-- `timestamp`、`jobId`、`pipelineId`、`attempt` 和 `taskGroupId` 为必填；
-- `attemptStartedAt` 来自持久化的诊断 attempt 元数据。attempt `0` 在 pipeline 执行创建并准备部署时初始化；恢复 attempt 在调度恢复前递增诊断标识时初始化。对于无法解析该元数据的旧路径或合成路径，该字段可以为空。相同 `pipelineId` 和 `attempt` 的所有记录使用同一个值。它不同于 `timestamp`，后者表示单条失败被捕获的时间；
-- `taskId`、`taskName`、`exceptionType`、`message` 和 `stackTrace` 为可选，因为旧路径或合成失败路径可能无法提供。第一版的运行中历史、已完成历史和 REST 响应均不包含 worker 地址归因字段；
-- `messageTruncated` 和 `stackTraceTruncated` 为必填布尔值，用于说明对应内容是否在存储前被截断；
-- `messageOriginalBytes` 和 `stackTraceOriginalBytes` 表示脱敏后、截断前的 UTF-8 字节长度。对应文本非空时提供长度，文本不可用时为 `null`。finished 快照保留每条记录的长度和截断标记；不持久化脱敏前的原始长度；
-- `exceptionType` 必须来自结构化失败传输，不能通过解析格式化堆栈推断；
-- `stackTrace` 保留诊断细节，`message` 用于简短展示。
-- 存储的 UTF-8 内容中，`message` 上限为 4 KiB，`stackTrace` 上限为 64 KiB。截断必须保持 UTF-8 有效。截断消息保留开头，截断堆栈同时保留开头和结尾，以便保留异常信息和最深层 cause。
+失败记录字段规则：
+
+- `scope` 为 `TASK_GROUP` 或 `PIPELINE`；
+- `source` 标识捕获路径：`TASK_GROUP` 为 `WORKER`、`NODE_LOSS`、`DEPLOY` 或 `MASTER_RECOVERY`；`PIPELINE` 为 `CHECKPOINT`、`RESOURCE` 或 `ENGINE`；
+- `TASK_GROUP` 记录包含 `taskGroupId`，`PIPELINE` 记录中为 null；
+- `attempt` 是 Attempt 模型中的 attempt 编号；`attemptStartedAt` 是 attempt key，即引擎为该次执行创建或重置 pipeline 的时间；二者仅在 Attempt 模型所述情况下为 null；
+- `timestamp` 是 active master 接受该失败时的时间；attempt 已运行的时长为 `timestamp - attemptStartedAt`；由于 master 切换前后时钟可能不同，Web UI 将负值时长显示为 `0`；
+- `messageTruncated` 和 `stackTraceTruncated` 是必填布尔值；`messageOriginalBytes` 和 `stackTraceOriginalBytes` 是脱敏后、截断前的 UTF-8 字节长度，定义见下文“文本处理”；文本不可用时为 null；不持久化脱敏前的原始长度；
+- `exceptionType` 和 `exceptionFingerprint` 来自结构化失败传输，均不通过解析格式化文本推断。指纹为 16 个十六进制字符（64 位）的哈希，输入为根因的类名以及其前五个栈帧各自的声明类名和方法名；不包含消息、行号，也不使用在 JDK 8 与 JDK 11 上格式不同的 `StackTraceElement.toString()`；生成的 lambda 类后缀会被规范化。没有 `Throwable` 的路径（例如 `NODE_LOSS` 和 `MASTER_RECOVERY`）指纹为 null。指纹用于在 Web UI 中归并重复原因，不是安全标识；
+- `message` 的 UTF-8 存储上限为 4 KiB，`stackTrace` 为 64 KiB。截断必须保持有效 UTF-8。截断后的消息保留前缀；截断后的堆栈同时保留开头和结尾，以保留异常本身和最深层原因。
+
+字段分为两组：
+
+| 分组 | 字段 | 保证 |
+|---|---|---|
+| 稳定契约 | `sequence`、`timestamp`、`jobId`、`pipelineId`、`attempt`、`attemptStartedAt`、`scope`、`source`、`taskGroupId`、`messageTruncated`、`stackTraceTruncated`，以及 `attempts` 的全部字段 | 始终存在且含义如文档所述；`attempt`、`attemptStartedAt` 和 `taskGroupId` 仅在上述情况下可为 null |
+| 尽力而为的遥测 | `taskId`、`taskName`、`exceptionType`、`exceptionFingerprint`、`message`、`messageOriginalBytes`、`stackTrace`、`stackTraceOriginalBytes` | 捕获路径提供时存在；旧路径或合成路径可能为 null |
+
+第一版在运行中历史、已完成历史和 REST 响应中都没有 worker 地址归因字段。
 
 ## 捕获与去重
 
-`TaskExecutionState` 仍然是 worker 到 master 的结构化失败传输，但它不是 task group 失败的唯一路径。对于 worker 上报的终态失败，统一捕获点是 `PhysicalVertex` 在 `updateStateByExecutionService` 接受 `FAILED` 状态后的状态转换。该路径同时覆盖正常 worker 上报和直接路由到 physical vertex 的节点丢失状态更新。
+捕获发生在引擎自身的状态转换内部，因此先于该转换可能触发的任何 pipeline 重置。
 
-部署失败没有 `TaskExecutionState`，而是通过 `makeTaskGroupFailing` 进入状态机。该路径必须使用部署异常以及已知的 pipeline 和 task group 元数据创建失败记录，不将 slot 或 worker 地址复制到历史记录中。`TaskDeployState.failed(Throwable)` 必须在原始 `Throwable` 仍然可用时，将失败类名、消息和有界堆栈提取为字符串。对于 `deployOnRemote`，这些字符串必须在 worker 端、响应跨越 Hazelcast RPC 边界之前完成提取；不能携带原始 `Throwable`，因为 master 端可能无法加载 connector 特有的异常类。失败记录直接读取这些结构化字段，因此 `exceptionType` 表示原始原因，而不是 `TaskGroupDeployException`。同一个去重键可以防止该 attempt 后续的终态上报生成重复记录。没有失败原因的取消不记录为异常。
+- **task group 失败（`WORKER`、`NODE_LOSS`、`MASTER_RECOVERY`）。** 在 `PhysicalVertex.updateTaskState` 的同一个同步转换中，写入 `FAILED` 或 `FAILING` 状态之后、`stateProcess()` 和 task future 完成之前进行捕获。
+  - `updateStateByExecutionService` 将上报中的结构化字段和 `executionId` 传入该转换；
+  - 节点丢失（`CoordinatorService.makeTasksFailed`）和 master 恢复（`initStateFuture`）使用同一个转换，不带 `executionId`；
+  - pipeline 结束回调在作业执行器上异步运行，此时捕获已经提交，因此重置不会越过该失败。
+- **部署失败（`DEPLOY`）。** `PhysicalVertex` 中的部署失败路径（`deploy` 和 `deployOnRemote`）向 `makeTaskGroupFailing` 传入 `DEPLOY` 失败上下文，并在 `FAILING` 转换被接受之后捕获。
+  - `TaskDeployState.failed(Throwable)` 在 `Throwable` 可用处以字符串形式携带原始失败的类名、消息、堆栈和指纹；在 worker 上，这发生在响应跨越 Hazelcast RPC 边界之前；
+  - master 端的失败将 `ExecutionException` 和 `CompletionException` 解包为原始原因。实时 `Throwable` 永不跨越该边界，因此 master 不需要连接器特定的异常类；
+  - 该记录的 `exceptionType` 标识原始原因，而不是 `TaskGroupDeployException`。
+- **pipeline 失败（`CHECKPOINT`、`RESOURCE`、`ENGINE`）。**
+  - `CHECKPOINT` 在 `CheckpointCoordinator.handleCoordinatorError` 中、coordinator 首次进入 `FAILED` 时捕获，此时 `Throwable` 可用且 pipeline 尚未被取消；
+  - `RESOURCE` 在 `SCHEDULED` 状态下资源分配失败时捕获；
+  - `ENGINE` 取自其余 `makePipelineFailing` 原因（状态更新和恢复错误）。
+- 每个捕获点都传入标明其 `source` 的失败上下文；没有失败上下文的 `FAILING` 或 `FAILED` 转换不产生记录，包括取消以及 `updateTaskState` 内部的错误处理。
 
-异常内容必须在这些捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将 `DryRunConnectFailureMessageSanitizer` 中的脱敏规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。基于规则的脱敏是尽力而为的：未知格式的凭据和其他敏感诊断文本仍可能保留，因此仍须控制访问。测试必须覆盖支持的凭据格式和对抗性变体。失败历史仍使用自己的 4 KiB 消息上限、64 KiB 堆栈上限和截断标记，不能继承 dry-run 工具的 2 KiB 展示上限。
+捕获运行在 Hazelcast 操作线程、成员事件线程、作业执行器、failover 后恢复作业的线程以及 checkpoint coordinator 线程上。它只做常量级工作加一次有界复制：先检查每个 attempt 的合并上限，超过上限后不再处理任何文本；每个文本字段最多复制前 256 KiB；然后调用非阻塞的 `offer`。脱敏、截断和序列化在下文的消费线程上执行，绝不在捕获线程上执行。
 
-当原始记录仍在保留范围内时，重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。以作业级 HA 条目为目标的 Hazelcast `EntryProcessor` 在一次原子操作中完成去重检查、sequence 分配、追加记录和最旧记录删除。它必须从 task 状态操作路径异步提交。完成回调可以记录存储失败，但不能等待 Hazelcast operation thread，也不能重新进入该线程。第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
+去重 key：
 
-去重使用当前保留记录作为有界 key 集合。当一条记录因 100 条上限或 1 MiB 聚合文本上限被删除后，该 key 的延迟重复上报可能再次生成记录。第一版不会额外保存作业生命周期内所有历史 key 的无界集合。
+- `TASK_GROUP`：`(pipelineId, attemptKey, taskGroupId)`；
+- `PIPELINE`：`(pipelineId, attemptKey, source)`。
 
-历史记录属于尽力而为的诊断能力。提交不能等待写入结果；如果无法立即接受提交，应记录日志并丢弃该记录，不能阻塞 task 状态操作。异步失败记录写入失败时也记录日志并丢弃，不能通过 task 失败或恢复路径同步重试或重放。完成回调只能报告结果，不能再发起 Hazelcast 操作、改变 task 状态或重新进入失败/恢复流程。这不适用于恢复后执行启动前必须完成的 attempt 递增。
+第一次投递创建记录并获得作业级 `sequence`；之后相同 key 的投递被忽略，且不消耗 sequence。已保留的记录就是有界的 key 集合，因此记录被淘汰后，延迟到达的重复投递可能再次被记录。恢复后的失败具有不同的 attempt key，保持为单独的记录。
+
+master 会合并失败风暴：每个 pipeline attempt 最多提交 20 条记录；该 attempt 中更多的失败只在 master 内存中递增计数，计数总值以绝对值随该 pipeline 的下一次操作或作业的终态操作一起发送；历史为该 attempt 保留收到的最大总值，因此重试的操作不会重复计数。因此高并行度下的节点丢失，每个 attempt 最多产生 20 次记录操作。该计数是尽力而为的，failover 时会丢失。
+
+历史记录属于尽力而为的诊断能力：
+
+- 每个 active master 的 `CoordinatorService` 拥有一个有界 FIFO 队列和一个专用消费线程；
+- 队列最多容纳 1,000 个操作、16 MiB 已捕获文本，且每个作业最多 100 个排队操作；超过任一上限的 `offer` 被丢弃；
+- 消费线程在 Hazelcast 操作线程和作业调度执行器之外运行每个 `EntryProcessor`；只重试 Hazelcast 判定为可重试的失败，最多三次，然后丢弃该操作；
+- 完成处理从不改变 task 或 pipeline 状态，从不回调 `JobMaster` 或 `SubPlan`，也从不重新进入失败或恢复处理；
+- task 失败、恢复决策或恢复后的执行都不依赖任何失败历史操作。
+
+每个被丢弃或失败的历史操作都以 WARN 级别记录日志，并按作业限流。日志行只包含 `jobId`、`pipelineId`、attempt key、`taskGroupId` 或 source、异常类名以及固定的原因代码，从不包含消息、堆栈或 task 名称文本。历史值、记录和操作类重写 `toString()`，不输出这些文本。
+
+### 文本处理
+
+文本按以下固定顺序处理：
+
+1. 捕获端每个字段最多保留前 256 KiB。该上限只去掉后缀，因此可能丢掉秘密的值，但绝不会暴露缺少键的值。worker 在发送新的结构化字段之前应用同样的上限；
+2. 消费线程将截取后的整段文本作为一个字符串进行脱敏，包括多行模式；
+3. 消费线程根据脱敏后的文本记录 `*OriginalBytes`；
+4. 消费线程在 UTF-8 边界（堆栈则在行边界）将脱敏后的文本截断到上述上限，并明确标记省略的范围。
+
+第 2 步之前不对文本做任何截断、开窗或切片。之后的再次截断（例如已完成快照的上限）作用于已脱敏的文本。master 会对从 worker 收到的所有结构化文本进行脱敏，从不依赖 worker 已经脱敏。脱敏是幂等的。
 
 ## 存储与保留
 
-待清理状态目前通过 `put` 按 `jobId` 只保存一条 `JobCleanupRecord`。仅增加 incarnation 字段仍会让新的待清理义务覆盖尚未完成的旧义务。STIP 必须选择兼容的复合 key 或多记录模型，或者在复用 ID 前确认旧义务已经完成，并测试删除失败后复用 ID 的情况。
+失败历史使用两个独立的 Hazelcast map：`engine_runningJobFailureHistory` 和 `engine_finishedJobFailureHistory`，均以 `jobId` 为 key。
 
-失败历史应使用以 `jobId` 为 key 的独立 HA 引擎状态条目。第一版可以使用独立的 Hazelcast `IMap`，并采用与引擎现有作业状态 map 相同的默认 Hazelcast `MapConfig`。它不增加额外备份、持久化或外部历史后端。REST 表示不依赖具体的存储选择。一种可行的终态隔离候选方案是：在新作业运行前预先创建条目，为其附加抗碰撞的作业 incarnation 标识和 owner epoch；每个追加/递增 `EntryProcessor` 遇到不存在、已终态或身份不匹配的条目时都不修改它。终态清理有条件地删除条目；晚到更新看到条目不存在，同一个 job ID 的新 incarnation 也不会与旧操作匹配。只有作业初始化或明确设计的迁移流程可以创建条目。预创建后提交失败时必须删除孤立条目或让它过期；升级前已在运行且没有条目的作业需要明确的无历史策略，不能由追加操作悄悄创建条目。
+- 两个 map 使用与现有作业状态 map 相同的默认 Hazelcast `MapConfig`，本设计不增加备份、持久化或外部历史后端；
+- `FileMapStore.init` 已将 `engine_runningJobMetrics` 排除在 IMap 存储之外；它以同样方式排除这两个历史 map，即使运维人员为 `map.engine*` 配置了 `map-store`；
+- 这使大体积的诊断值不会写入 HDFS 或 S3 IMap 存储，也不会在分区线程上同步写穿；同时保证 TTL 过期有效，因为 `MapStore` 中的条目在过期时既不会被删除，也不会带着 TTL 重新加载；
+- 因此失败历史在整个集群重启后不会保留；这种重启后从 IMap 存储恢复的作业没有失败历史条目；
+- REST 表示与该存储选择无关。
 
-第一版使用以下边界：
+### 所有权
 
-- 每个作业最多保留 100 条失败记录；
-- 每个作业的 `message`、`stackTrace`、`taskName` 和 `exceptionType` 四个字段的 UTF-8 文本总量最多为 1 MiB；`taskName` 和 `exceptionType` 在存储前分别限制为 1 KiB，并同样执行尽力而为的脱敏；
-- 删除最旧记录，直到记录数量和文本总量两个限制都满足；
-- 作业运行期间不设置 TTL；
-- 作业进入终态后，为独立的 finished-history 条目设置自己的 `history-job-expire-minutes` TTL，并为仍然存在的运行中历史条目应用相同保留周期，作为清理兜底。
+每个运行中条目和每个已完成快照都以 `JobInfo` 中的 `(jobId, initializationTimestamp)` 作为所有者。当前 `dev` 使用同一标识判断清理所有权（`isCleanupOwnedByCurrentJob` 和 `JobCleanupRecord.ownerInitializationTimestamp`）。`JobInfo` 和 `JobCleanupRecord` 都不变。
 
-初始上限应使用常量，不新增用户配置。如果实际运行数据证明 100 条不足，可以后续增加可配置项。
+- 新提交（包括复用 job ID 的 savepoint 启动）的 `JobMaster` 初始化会提交一个创建操作；其他操作都不会创建条目；
+- 消费线程按顺序执行创建操作：如果运行中条目属于其他所有者且尚未完成终结，先按“终态处理”对其终结；删除其他所有者的已完成快照；然后创建新条目并登记每个 pipeline 的当前 key。如果终结失败，仍创建新条目，并记录上一个作业实例历史丢失的日志；
+- active master 恢复时，只有当现有条目的所有者与恢复的 `JobInfo` 匹配且条目未进入终态时才接管，接管时登记每个 pipeline 的当前 key；
+- 没有匹配条目时，例如功能部署之前启动的作业或创建操作被丢弃的作业，该作业不记录失败历史，REST 返回已知作业的空列表；
+- 追加和 attempt 操作从不创建条目。
 
-作业进入终态时，`JobHistoryService` 将保留的失败记录和权威 pipeline attempt 值写入独立的 finished history 条目。该条目使用与对应 finished job 记录相同的 `history-job-expire-minutes` TTL，因此过期不依赖 cleanup listener 回调。listener 可以在 finished job 记录删除时提前清理，但条目自身的 TTL 仍是兜底保证。该方案复用现有 finished job 生命周期，不引入可插拔的历史存储抽象。
+所有者标识的唯一性仅取决于 `initializationTimestamp`。发生冲突需要 savepoint 启动的初始化恰好落在上一个作业实例的同一毫秒，这需要时钟回拨。现有清理所有权具有相同的限制，本设计没有扩大它。
 
-终态快照写入采用尽力而为语义。写入或清理失败必须记录日志，但不能改变作业终态、恢复行为或现有 finished job 记录。运行中和已完成作业虽然存储生命周期不同，但读取时使用同一个响应模型。
+### 上限
 
-尝试写入 finished-history 快照后，即使快照写入失败，也必须通过现有持久化待清理机制（`JobCleanupRecord` / `IMAP_PENDING_JOB_CLEANUP`）删除运行中历史负载。当前 `JobCleanupRecord` 只序列化 `stateKeys` 和 `timestampKeys`，清理端也只从对应的两个状态 map 删除这些 key；将历史 key 放进任一集合都不能删除独立历史 `IMap` 中的条目。可以从待清理记录的 job ID 推导独立 map 的 key，但删除时还必须比较历史条目和持久化待清理义务中的同一个强 incarnation 标识。仅有 `ownerInitializationTimestamp` 不够：它来自 `System.currentTimeMillis()`，REST 允许指定 job ID，savepoint 恢复也会重用 job ID。若同一毫秒内再次提交或系统时钟调整，两个 incarnation 可以具有相同的 `(jobId, initializationTimestamp)`；旧回调可能向新条目追加记录，旧清理也可能删除新条目。现有 `JobCleanupRecord` 没有 incarnation 字段，因此 STIP 必须选择兼容的方式在持久化清理元数据中保留该标识；仅向其固定的 `IdentifiedDataSerializable` 格式末尾追加字段，不能证明兼容。正常终态清理、terminal-zombie 恢复及恢复/清理路径必须同步更新。只有确认匹配的历史条目已不存在且现有状态清理完成，才能删除待清理义务。删除或 TTL 更新失败必须记录日志并保留该义务以便重试，不能改变作业终态。
+运行中历史对每个作业保留：
 
-进入终态时，仍然存在的运行中历史条目必须设置基于作业终态时间和 `history-job-expire-minutes` 的兜底过期时间。恢复和清理重试必须保留该截止时间，不能延长保留期。终态隔离必须阻止排队中或延迟到达的失败记录及 attempt 更新重新创建已清理的运行中条目、移除其 TTL 或延长其过期时间。作业进入终态后，REST 只读取 finished-history 快照，不读取待清理条目。尽力而为的快照写入失败可能导致已知的已完成作业没有失败记录；不能通过无限期保留诊断数据来兜底。
+- 最多 100 条失败记录；
+- `message`、`stackTrace`、`taskName` 和 `exceptionType` 合计最多 1 MiB 的 UTF-8 文本；每个 `taskName` 和 `exceptionType` 最多 1 KiB，并同样应用尽力而为的脱敏；
+- attempt 表，每个 pipeline 最多 256 个 key，每个 key 仅占少量字节。
 
-追加/递增 `EntryProcessor` 必须在同一次作业级原子更新中检查条目是否存在、是否未进入终态，以及 incarnation 和 owner epoch 是否匹配。采用预创建条目的候选方案时，终态清理先将匹配条目标记为终态，再有条件地删除；针对已不存在 key 的旧操作是空操作，因此不需要另存无限期 tombstone。即使数字 job ID 和初始化时间重复，新 incarnation 也必须使用不同标识。STIP 仍须确定终态标记、快照和清理的顺序、持久化清理标识与不同版本间的行为，以及接管能否先于旧调度器的任何操作完成。在这些规则得到明确和测试之前，清理后不得重新创建条目仍是验收目标，而不是已证明的机制。
+超过上限时，从最旧的记录开始淘汰，直到记录数和文本总量都满足限制；每个 pipeline attempt 的第一条记录（通常是根因）在所有其他记录之后才会被淘汰。作业运行期间不设置 TTL。
 
-master 切换会保留已经由 HA 历史存储确认的记录，并从持久化状态继续 sequence 和 attempt 编号。由于历史提交是异步且尽力而为的，active master 失效时仍在处理中的提交可能丢失。该诊断路径不会为了等待历史写入确认而延迟 task 失败或恢复决策。
+已完成快照保留 attempt 表和全部已保留记录，每条堆栈最多保留 16 KiB（开头和结尾），作业文本总量最多 256 KiB，淘汰顺序相同，并保留截断标记和原始字节长度。
+
+最坏情况下的集群堆内存为：
+
+`(运行中作业数 × 1 MiB + history-job-expire-minutes 内结束的作业数 × 256 KiB) × (1 + 备份数) + 每个 active master 16 MiB 的排队文本`
+
+在默认值（24 小时、1 个备份）下，每天 1,000 个失败作业的已完成快照约占 0.5 GiB。需要硬性全局上限的运维人员可以为 `engine_finishedJobFailureHistory` 配置 Hazelcast 淘汰策略；快照被淘汰后，返回已知作业的空列表。
+
+每次 `EntryProcessor` 操作都会在分区线程上反序列化并重新序列化该作业的值（最多约 1 MiB），备份也会重复一次；合并机制将其频率限制为每个 pipeline attempt 最多 20 次记录操作。
+
+这些上限是常量，而不是用户选项。如果运行经验表明这些上限不足，后续可以增加配置项。
+
+### 终态隔离
+
+终态隔离由历史 `EntryProcessor` 实施。每个追加和 attempt 操作在与其修改相同的单 key 原子更新中检查：条目存在；条目所有者等于操作的 `(jobId, initializationTimestamp)`；条目未进入终态。否则操作不写入直接返回，因此不存在的条目永远不会被重建。
+
+Processor 是确定性的：消费线程在首次提交操作前计算当前时间和 TTL，并在该操作的重试中复用相同的值，因此主副本和备份得到相同结果，重试也不会延长截止时间。
+
+### 终态处理
+
+终态处理包含三个幂等步骤：
+
+1. **`markTerminal(owner, terminalTime, ttl)`**：当所有者匹配且条目未进入终态时，设置 `terminal = true`、保存 `terminalTime`，并通过 `ExtendedMapEntry.setValue(value, ttl, unit)` 设置条目 TTL，其中 `ttl = terminalTime + history-job-expire-minutes - now`；TTL 不为正时删除条目。已进入终态的条目原样返回且不调用 `setValue`，因为普通的 `setValue` 会清除 TTL；不调用它，任何重试或恢复都无法延长截止时间。该 processor 返回冻结后的记录；
+2. **写入已完成快照**：使用冻结后的记录、所有者以及相同的剩余 TTL；该步骤为尽力而为；
+3. **`removeIfOwner(owner)`**：仅当所有者匹配且条目已进入终态时删除条目。
+
+所有终结都通过同一个 FIFO 队列，排在之前的所有捕获操作之后，因此导致终态的失败先于条目进入终态被应用。调用方在提交之前确定 `terminalTime`。如果已存在同一所有者的已完成快照，终结会跳过第 2 步。
+
+`JobMaster.cleanJob()` 在其他终态工作之前、在独立的 `try` 中首先提交终结。以下四处也会以尽力而为的方式提交终结：
+
+- `processPendingJobCleanup`，使用 `ownerInitializationTimestamp`，在 `cleanupPendingJobStateMaps` 之前；
+- `cleanupTerminalZombieJob`，使用 `JobInfo` 的初始化时间戳，在其状态 key 删除之前；
+- `cleanupPendingJobStateForRestore`，在 savepoint 启动初始化新作业实例之前；
+- 历史清扫。清扫每 60 秒在现有 `pipelineCleanupScheduler` 上运行，且只在 active master 上运行；它终结所有者在 `runningJobInfoIMap` 中没有匹配 `JobInfo` 的运行中条目（包括提交失败遗留的条目），以及作业状态已为终态的运行中条目；每次运行在仍有此类条目时持续处理，时间预算为 5 秒。
+
+终结失败或被丢弃时只记录日志，不向这些路径抛出异常；它不会使 `JobCleanupRecord` 保持待处理、延迟现有状态清理或导致 savepoint 启动提交失败。清扫会重试它。
+
+`terminalTime` 按以下顺序确定，且所有读取都在任何状态 key 被删除之前完成：
+
+1. `markTerminal` 保存的值；
+2. `runningJobStateTimestampsIMap` 中作业的终态时间戳；
+3. `engine_finishedJobState` 中的 `JobState.finishTime`；
+4. 仅当以上都不存在时，使用终结时的时间，并记录日志。
+
+`JobCleanupRecord` 不做扩展：增加第三个 key 集合会改变一个已有 HA 持久化实例的共享 `IdentifiedDataSerializable`；`IMAP_PENDING_JOB_CLEANUP` 每个 job ID 只保存一条记录；诊断失败还可能使现有状态清理保持待处理。
+
+Master failover 会保留历史 map 已确认的记录，以及 sequence 和 attempt 表。active master 失败时仍在队列中的操作可能丢失。该诊断路径从不为了等待历史确认而延迟 task 失败或恢复决策。
 
 ## REST 契约
 
-建议端点：
+建议的端点为：
 
 ```text
 GET /job-info/{jobId}/failures?limit=100
@@ -138,89 +317,164 @@ GET /job-info/{jobId}/failures?limit=100
 
 行为：
 
-- 按 `sequence` 降序返回；
-- `limit` 默认值为 100，非正数应被拒绝；
-- 请求值不能超过保留上限；
-- 已知但没有失败记录的作业返回空列表；
-- 未知或已过期作业返回受控的 `404` 响应；
-- 无论记录来自哪个独立状态条目，运行中和已完成作业都返回同一个响应模型。
+- `failures` 按 `sequence` 降序返回，最多 `limit` 条；`attempts` 始终完整返回；
+- `limit` 默认值为 100，更大的值被限制为 100；
+- 运行中和已完成作业使用同一个响应模型；
+- 响应通过流式 JSON writer 写出，其大小受 JSON 转义后的已存储文本上限约束。
 
-`JobInfoServlet` 当前将全部路径信息作为一个数字 job ID 解析，同时处理已弃用的 `/running-job/*` 别名。实现必须区分 servlet 映射和精确路径段，或使用等效的独立处理器。只有 `/job-info/{jobId}/failures` 提供失败历史。单 ID 路由 `/job-info/{jobId}` 和 `/running-job/{jobId}` 保持现有行为，包括非法 ID 的现有 `400` 响应。这些映射下的其他路径形状，包括 `/running-job/{jobId}/failures` 和 `/failures` 后的额外路径段，返回受控的 `404`，不回显输入或暴露堆栈。禁止前缀或子字符串匹配。这明确将非法多段路径从当前数字解析的 `400` 改为 `404`，并不声称这种 not-found 行为已存在。
+端点按以下顺序解析作业：
 
-当前 `/job-info/{jobId}` 的行为及其 `errorMsg` 字段保持不变，包括未知作业的现有响应。新的失败历史端点定义明确的 `404` 响应，使调用方能够区分未知作业和没有失败记录的已知作业。
-端点依据运行中或已完成的作业记录判断作业是否存在，不能仅凭失败历史条目判断。已知作业没有历史条目时（包括尽力而为的快照写入失败）返回空列表；对应作业记录过期后，残留历史条目也不能让该作业被误判为已知。
+1. 当 `runningJobInfoIMap` 中存在 `JobInfo`、`runningJobStateIMap` 中的作业状态不是终态，并且该状态存在或存在所有者与 `JobInfo` 匹配且未进入终态的运行中条目时，作业处于运行中；此时返回所有者匹配的运行中条目的记录，没有条目时返回空列表；
+2. 否则，如果存在已完成快照，返回该快照；
+3. 否则，如果存在 `JobInfo` 或已完成作业状态，作业为已知作业，返回空列表；这包括没有条目的作业以及快照写入失败或被淘汰的作业；
+4. 否则返回 `404`；残留的历史条目绝不会让未知或已过期的作业被误判为已知。
+
+因此终态作业从不读取运行中记录，包括在 `JobInfo` 仍存在的 `state-cleanup-delay-ms` 窗口内。复用 job ID 的 savepoint 启动绝不会返回上一个作业实例的历史，因为创建其条目时会删除其他所有者的快照。
+
+`JobInfoServlet` 当前将解码后的完整路径作为一个数字 job ID 解析，同时处理已弃用的 `/running-job/*` 别名。Jetty 的解码路径会将 `%2F` 转为 `/`、去掉 `;` 参数并解析点路径段，因此新路由从不基于它进行路由。failures 路由的匹配规则如下：
+
+- 处理器读取 `getRequestURI()`，要求前缀 `getContextPath() + getServletPath()` 按字面匹配；
+- 其余部分必须完全匹配 `^/([0-9]{1,19})/failures$`：只允许 ASCII 数字，`failures` 区分大小写；
+- 包含 `%`、`;`、`\`、空路径段、`.` 或 `..` 路径段，或以斜杠结尾的 URI 返回 `404`；
+- job ID 必须能解析为正的有符号 64 位值，否则返回 `400`；
+- 只有匹配成功的路径才读取 `limit`：必须匹配 `^[0-9]{1,10}$` 且为正数；空的或重复的 `limit` 返回 `400`，未知查询参数被忽略；
+- 该路由只处理 `GET`，其他方法由处理器自身返回 `405`。
+
+单 ID 路由 `/job-info/{jobId}` 和 `/running-job/{jobId}` 保持现有行为，包括非法 ID 的现有 `400` 响应。这些映射下的其他路径形状，包括 `/running-job/{jobId}/failures` 和 `/failures` 后的额外路径段，都返回 `404`。禁止前缀或子字符串匹配。这明确将非法多段路径从当前数字解析的 `400` 改为 `404`。
+
+failures 路由自行写出所有非 200 响应：
+
+- 使用 `setStatus` 和固定的 JSON 响应体，例如 `{"status":"fail","message":"Not found"}`；
+- 从不调用 `sendError`，因为 Jetty 默认错误页会回显 URI，并可能包含堆栈；
+- 从不根据请求输入或异常文本构造响应体；
+- 捕获 map 读取中的 `RuntimeException`，返回固定的 `503` 响应体，详情只写入服务端日志；
+- 响应设置 `Content-Type: application/json; charset=UTF-8` 和 `X-Content-Type-Options: nosniff`。
+
+当前 `/job-info/{jobId}` 的行为及其 `errorMsg` 字段保持不变，包括未知作业的响应。新端点定义自己的 `404`，使调用方能够区分未知作业和没有失败记录的已知作业。该端点会写入 `rest-api-v2` 的中英文文档。
 
 ## 安全与输入校验
 
-该端点沿用现有引擎 REST API 的 `BasicAuthFilter` 边界，不新增端点专用的认证机制。这是面向运维人员的端点：现有边界不提供按作业或租户的授权，已认证的 REST 用户可以读取作业诊断信息。需要更细粒度访问控制的部署必须在现有网关或网络边界实施限制。未启用 REST 认证时，能够访问该端点的调用方可以读取诊断信息；运维人员不能假定新路由会提供额外授权。即使凭据已脱敏，异常文本仍可能包含敏感的运行信息。
+**认证。** 该端点位于现有 `JobInfoServlet` 映射下，因此继承引擎 REST API 的 `BasicAuthFilter` 边界，不新增端点专用的认证机制。
 
-尽力而为的脱敏和保持有效 UTF-8 的截断必须在捕获时完成，早于每一次新失败历史的 HA IMap 或 finished-history 写入，而不能只在 REST 响应序列化时处理。该要求覆盖 worker 上报、部署失败、节点丢失和终态快照路径。新的历史存储和 API 响应使用同一份有界内容。现有作业的 `errorMsg` 存储和 REST 行为不变；本设计不对该旧路径进行脱敏，也不保证从诊断信息中删除所有秘密。
+- REST 认证默认关闭（`enable-basic-auth: false`），而 HTTP 默认在 8080 端口开启；默认情况下，能访问该端口的任何人都可以读取失败历史；
+- 现有边界是一个没有角色的共享凭据，不提供按作业或租户的授权；需要更细粒度访问控制的部署必须在网关或网络边界实施；
+- 该路由直接处理请求，不使用 async 或 forward 分发，因为过滤器只注册在 `REQUEST` 分发上。
 
-新的失败历史路由处理器负责校验 `jobId` 和 `limit`；这些规则不改变旧单 ID 路由的校验：
+**其他访问路径。** 脱敏是纵深防御，而不是访问边界。同样的失败信息仍可通过以下途径以未脱敏形式获得：
 
-- 非法或超出有符号 64 位范围的 job 标识，以及非数字、超出有符号 32 位范围或非正数的 limit 返回受控的 `400` 响应；
-- 未提供 limit 时默认为 100；有效的正整数 limit 超过 100 时限制为 100；
-- 校验失败不能包含堆栈，也不能通过共享异常处理器回显不可信输入。
+- `/job-info/{jobId}` 现有的 `errorMsg` 字段；
+- 节点日志端点；
+- 任何能访问 Hazelcast 成员端口的客户端。开源版 Hazelcast 没有成员或客户端认证，此类客户端可以读取所有引擎 map，包括失败历史。成员端口必须处于可信网络中。
 
-第一版既不在运行中或已完成失败历史中持久化 worker 的 `host:port` 归因字段，也不在 REST 响应中暴露该字段。捕获代码可以查询现有执行元数据，但不能将其中的地址复制到历史字段中。这样可以避免为本版本没有消费者的拓扑数据增加保留；这并不保证删除已脱敏异常文本中提及的所有地址。现有执行元数据和 `/pending-jobs` 行为保持不变。仅限运维人员的显式开关或逻辑 worker 标识需要单独商定契约；本设计不新增角色体系或地址暴露选项。
+随发行包提供的 `hazelcast.yaml` 已启用 `DATA` 端点组，因此启用 Hazelcast 内置 REST API 会在 `BasicAuthFilter` 之外暴露 map 值。允许读取失败历史的人，也必须被信任可以访问这些路径。
+
+异常文本还可能包含记录值和远端服务的响应，脱敏并不针对这些内容；失败历史在作业结束后最多保留 `history-job-expire-minutes`。引擎安全文档将列出新端点和这些注意事项。
+
+**脱敏。** 尽力而为的脱敏按“文本处理”中定义的顺序，在每一次写入运行中 map 或已完成快照之前执行，覆盖 worker 上报、部署、节点丢失、master 恢复、pipeline 和终态快照路径。实现将 `DryRunConnectFailureMessageSanitizer` 的模式提取为共享工具，`redact` 与 `truncate` 分为两个函数，并扩展如下：
+
+- **敏感键名**：在由 `[A-Za-z0-9._-]` 组成的键中任意位置匹配以下词，支持 snake、kebab、点分和驼峰写法，键可以带引号：
+  - `password`、`passwd`、`pwd`、`passphrase`；
+  - `secret`、`client secret`；
+  - `token`、`session token`、`security token`、`auth token`；
+  - `credential`、`signature`；
+  - `private key`、`access key`、`account key`、`shared access key`、`api key`；
+  - `cookie`、`jaas`。
+
+  例如 `db_password`、`ssl.keystore.password`、`fs.s3a.secret.key`、`fs.azure.account.key.*`、`aws_secret_access_key`、`accessKeySecret` 和 `SharedAccessKey`。
+- **值**：`=` 或 `:` 之后的值，可以是带转义引号的双引号字符串、单引号字符串、花括号值，或到空白、`&`、`,`、`}`、`)` 为止的内容。
+- **整体掩码**：
+  - `sasl.jaas.config` 的完整值，以及 JAAS 文本中单独出现的 `password="..."`；
+  - 连接字符串（Azure、ODBC、SQL Server）中的敏感 `Key=Value;`；
+  - JDBC URL，只保留 `jdbc:<subprotocol>:`。
+- **URL 与 HTTP**：
+  - URL 用户信息（`scheme://user:pass@host`）；
+  - 敏感 URL 查询参数，包括 `sig`、`signature`、`key`、`apikey`、`access_token`、`refresh_token`、`id_token`、`code` 和 `X-Amz-*`；
+  - `Authorization`、`Proxy-Authorization`、`Cookie`、`Set-Cookie` 和 `X-Api-Key` 头的值；
+  - 单独出现的 `Bearer` 和 `Basic` 凭据。
+- **PEM 私钥**：支持真实换行和 JSON 转义换行；未闭合的块掩码到文本末尾。
+- **令牌格式**：以固定前缀锚定，包括 JWT、AWS access key ID、Google API key、GitHub token 和 Slack token。
+
+每个模式都以字面量锚定，且没有嵌套的无界量词。性能测试限制每个模式在对抗性的 1 MiB 输入上的执行时间。
+
+明确不做的内容：通用高熵检测、百分号编码的秘密、SQL 字面量中的秘密、行数据、嵌入在 URL 路径中的秘密，以及 URL 之外的用户名或主机名。现有作业的 `errorMsg` 存储和 REST 行为不变。
+
+**Worker 地址。** 第一版既不在运行中或已完成失败历史中存储 worker 的 `host:port` 归因字段，也不在 REST 响应中暴露该字段。捕获代码可以查询现有执行元数据，但不能将其中的地址复制到历史字段中。这并不保证删除已脱敏异常文本中提及的所有地址。现有执行元数据和 `/pending-jobs` 行为保持不变。
 
 ## Web UI 后续工作
 
-Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 attempt 分组，并展示时间、pipeline、task group、task 名称、异常类型和消息。不得推断或暴露 API 已省略的 worker 地址。堆栈默认折叠。
+Exception tab 可以在单独变更中接入 REST 端点。第一版 UI：
 
-缺失的可选字段应显示为不可用。当引擎只提供 task group 级失败时，UI 不应宣称具有 task 级精度。
+- 按 pipeline 和 attempt 分组展示失败，并利用 `attempts` 展示没有失败的 attempt 和被抑制的数量；
+- 展示时间、pipeline、task group 或 pipeline source、task 名称、异常类型和消息；
+- 将 `exceptionFingerprint` 相同的记录标记为跨 attempt 重复出现；
+- 展示每个 attempt 失败时已运行的时长；
+- 展示截断标记，堆栈默认折叠。
+
+UI 仅以纯文本渲染 `message`、`stackTrace`、`taskName` 和 `exceptionType`，不解释 HTML，也不将异常文本中的 URL 转为链接。不得推断或暴露 API 已省略的 worker 地址。缺失的可选字段显示为不可用。当引擎只提供 task group 级失败时，UI 不应宣称具有 task 级精度。日志链接等待 #11662 和逻辑 worker 标识。
 
 ## 兼容性
 
-对于有效的现有 job-detail 请求，该功能为增量功能。非法多段路径从数字解析的 `400` 改为上述受控 `404`：
+对于有效的现有 job-detail 请求，该功能纯属新增。非法多段路径从数字解析的 `400` 改为上述 `404`：
 
 - 现有作业不需要修改配置；
-- 现有 REST 字段和最终错误消息继续保留；
-- 不修改 checkpoint 或 savepoint 内容；
-- 现有 `job.retry.times` 资格判断不读取诊断 attempt 状态；无法确认所需递增时对恢复可用性的影响必须单独说明；
-- 旧失败路径只需要填写它能够提供的字段。
+- 现有 REST 字段和最终 `errorMsg` 仍然可用；
+- checkpoint 和 savepoint 负载、`JobInfo` 以及 `JobCleanupRecord` 保持不变；
+- `job.retry.times`、恢复资格和恢复可用性保持不变；
+- 对现有值的唯一改动见“Attempt key”：`/job-info` diagnostics 返回的 pipeline `CREATED` 时间戳在多次恢复之间严格递增；
+- 旧的失败路径只填充其已知字段。
 
-`TaskExecutionState` 在 worker 和 master 之间使用 Java 序列化。增加新的可选失败字段之前，实现必须记录当前类自动生成的 serial UID，并显式声明该值。保留现有字段的类型和名称，反序列化时将缺失的新字段视为 `null`。必须用未修改类序列化的 fixture 验证新类能够读取并保留现有字段，不能仅凭 UID 相同就推定兼容。上线前还需明确测试不同版本 worker/master 的交互。
+有两个 Java 序列化类跨越 worker 与 master 边界并新增字段，二者当前都未声明 `serialVersionUID`：
 
-这项 Java 序列化规则不适用于 `JobInfo` 或 `JobCleanupRecord`：二者使用没有版本字段的固定 `IdentifiedDataSerializable` 读写布局。如需在其中增加 incarnation，必须明确新旧 wire 格式方案，并测试 HA 条目和不同版本的成员。能够接管作业的旧 master 也不能悄然忽略新历史条目的清理。
+- `TaskExecutionState` 由 `NotifyTaskStatusOperation` 通过 `writeObject` 写出，生成值为 `-108652017022658969L`，源码自 2023 年 3 月以来未变；
+- `TaskDeployState`（Lombok `@Data` 类）是 `DeployTaskOperation` 的响应，其生成值为 `2646079648150626562L`（基于 Lombok 生成后的类计算），源码自 2023 年 3 月以来未变。
+
+两个值均在 JDK 8 和 JDK 11 上用 `serialver` 计算。实现先声明这两个确切的值再增加字段，保留现有字段的名称和类型，只增加可为空的字段：`Long` 类型的 `executionId` 和 `String` 类型的结构化失败字段。序列化形式中不出现新类，因此旧的读取方永远不需要它没有的类。
+
+根据 Java 序列化的兼容变更规则，新的读取方将缺失字段设为 `null`，旧的读取方忽略未知字段，因此新旧 worker 与 master 可以互通；旧 worker 的上报只是没有 `executionId`。每个类的测试覆盖两个方向：由未修改的类写出的字节 fixture 能被新类反序列化；由新类写出的值能被旧类定义反序列化。任一声明的 UID 发生变化时，保护测试失败。
+
+历史值及其 `EntryProcessor` 类是新类型。在没有这些类的成员上，历史操作会失败并按尽力而为原则丢弃。本设计不承诺在混合版本滚动升级期间提供失败历史。
 
 ## 验收标准
 
-1. 首次执行的 task group 失败生成一条 attempt `0` 的记录；
-2. pipeline 恢复后失败生成一条 attempt 递增的新记录；
-3. 当原始记录仍在有界历史中时，重复发送同一个终态不会生成重复记录；记录被删除后，延迟重复上报可以再次生成记录；
-4. 同一个 attempt 中不同 task group 的失败分别保留；
-5. master 切换后，HA 历史存储已确认的记录和下一个 attempt 编号保持不变；切换时仍在处理中的异步提交可能丢失；
-6. 成功写入的 finished-history 快照在配置的历史过期时间内提供保留记录；尽力而为的快照写入失败可能导致已知的已完成作业没有失败记录；
-7. 超过 100 条记录，或者四个可变长度字段的 UTF-8 文本总量超过 1 MiB 后，按确定顺序删除最旧记录，直到两个限制都满足；
-8. 超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并在运行中和已完成历史中提供对应的截断标记及脱敏后、截断前的字节长度；
-9. 作业进入终态时写入一个有界失败历史条目，该条目随对应的 finished job 记录过期；
-10. 尽力而为的失败记录、finished 快照写入或清理失败，不改变作业失败、恢复或终态流程；所需诊断递增失败则遵循另行商定的恢复策略；
-11. 现有 job detail 客户端继续收到当前 `errorMsg` 字段。
-12. 并发重复上报只生成一条记录，并通过作业条目的原子更新只分配一个 sequence；
-13. 所有持久化文本字段中受支持的凭据格式在写入新失败历史的 HA 和 finished history 前完成脱敏；测试覆盖对抗性变体，文档说明这是尽力而为而非彻底删除秘密的保证；
-14. 在新的失败历史路由上，非法 `jobId` 或 `limit` 返回受控的 `400` 响应，不暴露堆栈或回显非法值；
-15. 该端点使用与现有 job-detail 端点相同的 REST 认证边界。
-16. 失败历史更新异步提交，不阻塞 Hazelcast operation thread；
-17. 失败历史状态使用与现有作业状态 map 相同的默认 Hazelcast 配置，不增加备份或持久化；
-18. 只有精确的 `/job-info/{jobId}/failures` 路由提供失败历史。旧单 ID 请求 `/job-info/{jobId}` 和 `/running-job/{jobId}` 保持现有行为，包括非法 ID 的 `400` 响应。其他路径形状，包括通过别名请求失败历史和额外路径段，返回受控 `404`，不回显输入或暴露堆栈。
-19. 增加可选的结构化失败字段后，已有序列化 `TaskExecutionState` 仍可读取。
-20. 通过 `makeTaskGroupFailing` 进入的部署失败即使没有 `TaskExecutionState`，也会创建一条有界记录；当原始 cause 可用时，`exceptionType` 表示原始原因而不是 `TaskGroupDeployException`。
-21. 持久化诊断 attempt 标识不能参与 `job.retry.times` 或恢复资格判断，包括 active master 切换之后；无法确认所需递增时对可用性的影响须明确说明并单独测试。
-22. 任何包含 `attemptStartedAt` 的记录都从该 pipeline attempt 创建时的持久化元数据读取该值。
-23. 恢复后的执行只有在共享作业级条目中原子提交 attempt 递增后才能上报失败；递增写入失败时，不能使用上一个 attempt 标识启动执行。
-24. 运行中历史条目、已完成历史快照和 REST 响应均不包含 worker 地址归因字段。启用或禁用 REST 认证不会额外提供按作业授权，也不会暴露地址开关字段；现有执行元数据保持不变。
-25. 测试覆盖未提供、零、负数、非数字、溢出和超过上限的 limit，以及溢出的 job ID 和额外路径段。
-26. 完成终态清理后不再存在运行中历史负载，包括 active master 切换或 terminal-zombie 恢复之后。清理只能有条件地删除匹配的作业 incarnation，确认其负载已不存在后才能完成待清理义务；仅凭 job ID 和初始化时间不能证明两者匹配。快照写入、删除或 TTL 设置失败不能丢失持久化待清理记录，也不能改变终态结果。
-27. 即使立即删除失败，残留的终态运行中历史条目也按原始终态时间起算的 `history-job-expire-minutes` 过期；清理重试和 master 恢复不能延长截止时间。
-28. 排队中或延迟的历史及 attempt 更新不能重新创建已清理条目、移除终态 TTL 或延长过期时间。终态 REST 读取不能回退到待清理的运行中条目。
-29. 测试覆盖旧版序列化的 `JobCleanupRecord` 和 `JobInfo`、独立历史 map 在正常清理、failover 和 terminal-zombie 路径中的清理、删除失败及重试，以及初始化时间相同的 job ID 重用；还覆盖 attempt 递增确认响应丢失和 active master 切换且不改变重试资格、异步写入被拒绝或失败或延迟时不阻塞也不通过回调重新进入流程、旧版 `TaskExecutionState` wire 数据与不同版本间传输、清理期间的晚到写入，以及 REST 对已知空历史与未知或过期作业的区分。必须先确定 incarnation 的 wire 格式、恢复转换和接管顺序，测试才能证明标准 23 和 28。
-30. 测试分别在重置前、pipeline 状态变为 `CREATED` 后及部署开始后切换 master，验证 `PENDING` 递增的不同结果。旧 epoch 操作不能修改已被接管的条目；旧 incarnation 的操作和清理不能修改重用 job ID 的新条目。预创建后提交失败及升级前已运行但没有条目的作业不能产生无界或错误归因的历史。
+1. 首个 attempt 中的 task group 失败创建一条 attempt 为 `0` 的 `TASK_GROUP` 记录。
+2. 恢复后执行中的失败创建一条使用下一个 attempt、`attemptStartedAt` 更晚的记录；即使恢复后的执行在其尽力而为的登记生效之前失败、登记被丢弃，或 pipeline 曾经在没有任何失败记录的情况下恢复过一次，也成立。
+3. 同一终态的重复投递在原记录保留期间只创建一条记录；记录被淘汰后，延迟重复可能再次被记录；并发重复只分配一个 sequence。
+4. 同一 attempt 中不同 task group 的失败保持为单独记录。
+5. 携带上一次部署 `executionId` 的迟到 `FAILED` 上报，记录在上一次 attempt key 下，而不是记录在恢复后的执行下。
+6. active master 切换后，存活 task group 的上报（包括携带旧 master 分配的 `executionId` 的上报）通过占位部署记录在当前 key 下。
+7. 节点丢失失败、master 恢复时丢失的 task group 和部署失败（包括在部署标识产生之前失败的部署），各自创建一条带有对应 `source` 的有界记录；部署记录的 `exceptionType` 标识原始原因，而不是 `TaskGroupDeployException`；`updateTaskState` 内部的状态更新错误不会被记录为 `DEPLOY`。
+8. checkpoint coordinator 失败（包括取消期间 task 也上报 `FAILED` 的情况）、资源分配失败和引擎恢复错误，各自创建一条 `taskGroupId` 为 null 的 `PIPELINE` 记录。
+9. 失败 task group 的捕获在其 pipeline 可能被重置之前提交；使用单 task group pipeline 测试，其结束回调与操作线程竞争。
+10. 在崩溃窗口表每一行对应的时机发生 active master 切换时，attempt 编号符合表中描述；重试资格和恢复时机保持不变。
+11. key 不在 attempt 表中且小于表中最大 key 的记录以 `attempt = null` 保存；attempt 表淘汰最小的 key，且从不改变已有编号或下一编号计数器。
+12. `resetPipelineState()` 写入严格大于上一个值的 `CREATED` 时间戳，包括时钟回拨和写入重试的情况；内存中的 key 等于最后一次成功写入的值；`rest-api-v2` 文档相应说明该字段。
+13. `attemptStartedAt` 始终等于在重置或部署时复制的 attempt key，在之后的恢复发生后绝不从 `runningJobStateTimestampsIMap` 读取。
+14. 超过 100 条记录或保留文本超过 1 MiB 时，从最旧的记录开始淘汰，直到两个上限都满足；每个 attempt 的第一条记录最后淘汰。
+15. 脱敏先于任何截断，包括 worker 端的上限；跨越截断边界的秘密不会被存储。超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并在运行中和已完成历史中提供截断标记以及脱敏后、截断前的字节长度。
+16. 已完成快照记录其所有者，每条堆栈最多保留 16 KiB，文本总量最多 256 KiB，并保留标记和长度；其过期时间不晚于终态时间之后 `history-job-expire-minutes`。
+17. 同一 pipeline attempt 中超过 20 个失败时，最多提交 20 次记录操作，其余数量通过 `attempts[].suppressedCount` 报告；重试的操作不会重复计数。
+18. 队列已满，以及失败、重试和延迟的历史操作，不会阻塞捕获线程，不会重新进入失败或恢复处理，也不会改变失败、恢复或终态结果；捕获不执行正则处理，队列保持在数量、字节和单作业上限之内。
+19. 失败历史产生的 WARN 或 ERROR 日志行不包含消息、堆栈或 task 名称文本；被丢弃记录中的标记秘密不会出现在任何日志行中。
+20. 追加和 attempt 操作从不创建条目；在 `markTerminal` 或删除之后它们不产生任何效果，也从不移除或延长终态 TTL；终结之前排队的捕获会在条目进入终态之前被应用。
+21. 终结之后不存在运行中条目，包括 active master 切换、terminal-zombie 恢复、复用 job ID 的 savepoint 启动以及清扫发现的孤立条目；终结失败由清扫重试，且不会使 `JobCleanupRecord` 保持待处理、延迟现有状态清理或导致 savepoint 启动提交失败。
+22. 复用 job ID 的 savepoint 启动，在创建自己的条目之前，先终结上一个作业实例尚未终结的条目并删除其已完成快照；上一个所有者的在途写入不会改变新条目。
+23. 终态时间按规定锚定，恢复或清理重试从不延长截止时间；`markTerminal` 之后被提升的备份保留过期时间。
+24. 为 `map.engine*` 配置 `map-store` 时，两个历史 map 都不会写入 IMap 存储。
+25. REST：运行中作业返回运行中记录；终态作业只返回自己的已完成快照，包括在 `state-cleanup-delay-ms` 期间以及状态 key 删除之后；运行中的复用 job ID 的 savepoint 启动绝不返回上一个作业实例的历史；没有记录的已知作业（包括快照写入失败或被淘汰后）返回空列表；未知或已过期作业即使存在残留条目也返回 `404`。
+26. 只有符合规定语法的原始 URI 才提供失败历史；旧单 ID 路由保持现有行为，包括非法 ID 的 `400` 响应；别名失败历史请求、额外路径段、结尾斜杠、`%` 编码字符、`;` 参数、点路径段和空路径段返回受控的 `404`。
+27. 该路由的每个非 200 响应都由处理器设置固定 JSON 响应体，不包含请求输入或堆栈；使用 URI 中的唯一标记以及消息携带标记的 map 读取失败进行测试；没有响应来自 `sendError` 或 Jetty 错误页。
+28. 在新路由上，缺失、空、重复、零、负数、非数字、Unicode 数字、带符号和溢出的 limit，以及溢出的 job ID，返回规定的响应。
+29. 该端点使用与现有 job-detail 端点相同的已配置 REST 认证边界；任何历史记录或响应都不包含 worker 地址归因字段。
+30. “安全”中列出的每个脱敏项都有正向和近似反例测试，包括跨截断边界的秘密、PEM 块、转义引号以及带和不带前缀的 JAAS 文本；每个模式在对抗性的 1 MiB 输入上在固定时间预算内完成，且脱敏是幂等的。
+31. `TaskExecutionState` 和 `TaskDeployState` 的 UID 保护测试和双向字节 fixture 测试通过；现有 `errorMsg` 客户端不受影响。
+32. 现有 `job.retry.times`、恢复资格和恢复调度从不读取或等待失败历史状态，包括 active master 切换之后。
+33. 英文和中文文档描述相同的契约。
 
 ## 交付计划
 
-1. 确认记录、attempt、存储、保留和 REST 契约；
-2. 增加独立的 HA 运行中和已完成作业历史条目、原子 `EntryProcessor` 和结构化 task 失败传输，并补充单元测试；
-3. 增加捕获时脱敏、去重、保留和恢复测试；
-4. 增加 REST 路由和端点、认证边界、输入校验、向后兼容以及运行中和已完成作业的 API 测试；
-5. 在单独的 pull request 中增加 Web UI 历史视图。
+1. 在 STIP-33 中就本契约达成一致。
+2. 结构化失败传输：固定两个序列化 UID，增加可为空的 `executionId` 和失败字段，按 vertex 跟踪部署标识（包括 failover 后的占位部署），使 `CREATED` 时间戳严格递增并更新其 `rest-api-v2` 说明，同时增加兼容性测试。
+3. 历史存储：两个 map、`FileMapStore` 排除、`EntryProcessor`、所有权、上限、终态隔离与终结以及清扫，并增加 failover 和清理测试。
+4. 捕获：捕获点、消费队列、合并、文本处理和共享脱敏工具，并增加捕获顺序、崩溃窗口、脱敏和日志测试。
+5. REST：路由和端点，包括认证边界、URI 语法、错误响应体、校验、兼容性以及运行中/已完成作业测试，并补充 `rest-api-v2` 和引擎安全文档的中英文内容。
+6. 在单独的 pull request 中实现 Web UI 历史视图。
