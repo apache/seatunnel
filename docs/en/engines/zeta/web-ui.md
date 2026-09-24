@@ -112,11 +112,12 @@ within their column. The existing sidebar collapse control remains available.
   An already-running refresh is allowed to finish before a new one starts.
   Leaving the page stops polling. The table paginates locally; each Workers
   refresh sends two HTTP requests from the browser. On the server, the monitoring
-  endpoint performs one RPC per cluster member sequentially, so its fan-out is
-  O(n) for n members, not constant-cost. Each RPC waits without an explicit
-  timeout in this collection loop; a slow member can keep the server request
-  occupied beyond the browser's 6-second timeout. This UI change does not alter
-  backend RPC or timeout behavior.
+  endpoint dispatches one RPC per cluster member concurrently, so its fan-out
+  is O(n) for n members, not constant-cost. Responses are collected against one
+  shared deadline (`seatunnel.engine.health-metrics-timeout-seconds`, 3 seconds
+  by default); members that miss it are reported with a `timeout` error marker.
+  The browser's 6-second timeout does not cancel server-side operations. This
+  UI change does not alter backend RPC or timeout behavior.
 - Monitoring and resource-manager values are separate samples. **Resource
   response time** is when the master built the resource response, not when a
   worker last sent a heartbeat. It cannot establish heartbeat freshness.
