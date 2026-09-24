@@ -74,7 +74,7 @@ SQL 语句。连接器在批处理模式下执行查询，并把每一行结果�
 | url | String | 是 | - | Databend JDBC 连接 URL，必须以 `jdbc:databend://` 开头 |
 | username | String | 是 | - | Databend 数据库用户名 |
 | password | String | 是 | - | Databend 数据库密码 |
-| database | String | 否 | - | Databend 数据库名称，默认使用连接 URL 中指定的数据库名 |
+| database | String | 否 | `default` | Databend 数据库名称。未设置时源端回退到 `default` 数据库 |
 | table | String | 否 | - | Databend 表名称 |
 | query | String | 否 | - | Databend 查询语句。如果设置，会覆盖 database 和 table 的设置 |
 | sql | String | 否 | - | 自定义 SQL 语句。若同时配置 `sql` 和 `query`，优先使用 `sql` |

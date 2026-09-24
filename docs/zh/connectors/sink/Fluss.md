@@ -48,6 +48,12 @@ Fluss Sink 用于在批处理或流处理作业中，将 SeaTunnel 数据写入�
 | multi_table_sink_replica | int | 否 | 1 | 多表写入模式下的 Sink writer 副本数。 |
 | common-options | - | 否 | - | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。 |
 
+### bootstrap.servers
+
+Fluss coordinator 地址。
+
+该值不能为空字符串或仅包含空白字符。
+
 ### database
 
 未配置 `database` 时，Sink 会使用输入表标识中的上游数据库名。
