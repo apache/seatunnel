@@ -141,6 +141,37 @@ Next, I'll show how to quickly use SeaTunnel's own `base64` encryption:
    ${SEATUNNEL_HOME}/bin/seatunnel.sh --config config/v2.batch.template --decrypt
    ```
 
+## Azure Key Vault
+
+The `azure-kv` provider resolves sensitive configuration values from Azure Key Vault. It is an optional provider and is not included in the default SeaTunnel distribution.
+
+1. Build or obtain the `seatunnel-config-shade-azure-kv` jar and add it to `${SEATUNNEL_HOME}/lib`. The packaged jar includes its Azure SDK runtime dependencies.
+2. Configure an authentication method supported by Azure `DefaultAzureCredential`, such as environment credentials or managed identity.
+3. Set `shade.identifier` to `azure-kv` and provide the Key Vault URL in `shade.properties.vault.url`:
+
+   ```hocon
+   env {
+     shade.identifier = "azure-kv"
+     shade.properties = {
+       vault.url = "https://example.vault.azure.net"
+     }
+   }
+
+   source {
+     Jdbc {
+       url = "jdbc:mysql://localhost:3306/example"
+       driver = "com.mysql.cj.jdbc.Driver"
+       user = "seatunnel"
+       password = "${keyvault:azure:database-password}"
+       query = "select * from example"
+     }
+   }
+   ```
+
+The value after `${keyvault:azure:` must be a plain Key Vault secret name. Full Azure secret identifiers and paths are not supported. Only options selected by `shade.options` or SeaTunnel's default sensitive option list are resolved.
+
+The `azure-kv` provider only resolves existing secrets during decryption. The `--encrypt` command does not create or update secrets in Azure Key Vault.
+
 ## How to implement user-defined encryption and decryption
 
 If you want to customize the encryption method and the configuration of the encryption, this section will help you to solve the problem.
