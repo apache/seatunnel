@@ -156,58 +156,185 @@ public class AbstractJdbcSourceChunkSplitterTest {
     }
 
     /**
-     * When IDs are non-consecutive (distributionFactor > 1.0) and sampling is enabled, the
-     * splitEvenlySizedChunks path should NOT be used. Instead, sampling-based splitting should be
-     * preferred for better chunk balance.
-     *
-     * <p>This test verifies that for a table with IDs spanning a wide range but few actual rows
-     * (distributionFactor >> 1.0), the algorithm falls back to arithmetic stepping only when
-     * sampling is disabled.
+     * Verifies the decision logic in splitTableIntoChunks for non-consecutive IDs. When
+     * distributionFactor > 1.0 and sampling is enabled, it should use sampling. If sampling fails
+     * (returns insufficient data), it should fallback to splitUnevenlySizedChunks.
      */
     @Test
-    public void testSplitEvenlySizedChunksWithNonConsecutiveIds() {
-        UtJdbcSourceChunkSplitter splitter = new UtJdbcSourceChunkSplitter();
+    public void testSplitTableIntoChunksDecisionLogic() throws Exception {
+        TestJdbcSourceConfig config =
+                new TestJdbcSourceConfig() {
+                    @Override
+                    public double getDistributionFactorUpper() {
+                        return 100.0;
+                    }
 
-        // Case 1: distributionFactor = 1.0 (consecutive IDs) should use arithmetic stepping
-        // Table with IDs 1-1000, 1000 rows, chunkSize=100
-        // distributionFactor = (1000 - 1 + 1) / 1000 = 1.0
-        // dynamicChunkSize = 1.0 * 100 = 100
-        List<ChunkRange> consecutiveChunks =
-                splitter.splitEvenlySizedChunks(null, 1, 1000, 1000, 100, 100);
-        // Should produce ~10 chunks via arithmetic stepping
-        assertEquals(10, consecutiveChunks.size());
-        // First chunk: [null, 101)
-        assertNull(consecutiveChunks.get(0).getChunkStart());
-        assertEquals(101, consecutiveChunks.get(0).getChunkEnd());
-        // Last chunk: [901, null)
-        assertEquals(901, consecutiveChunks.get(consecutiveChunks.size() - 1).getChunkStart());
-        assertNull(consecutiveChunks.get(consecutiveChunks.size() - 1).getChunkEnd());
+                    @Override
+                    public double getDistributionFactorLower() {
+                        return 0.05;
+                    }
 
-        // Case 2: distributionFactor = 50.0 (highly non-consecutive IDs)
-        // Table with IDs 1-5000000, 100000 rows, chunkSize=1000
-        // distributionFactor = (5000000 - 1 + 1) / 100000 = 50.0
-        // dynamicChunkSize = 50 * 1000 = 50000
-        // Arithmetic stepping would create 100 chunks of 50000 IDs each, but
-        // if IDs are clustered, some chunks would have too many/few rows.
-        List<ChunkRange> nonConsecutiveChunks =
-                splitter.splitEvenlySizedChunks(null, 1, 5000000, 100000, 1000, 50000);
-        assertEquals(100, nonConsecutiveChunks.size());
-        // Verify chunks cover the full range
-        assertNull(nonConsecutiveChunks.get(0).getChunkStart());
-        assertNull(nonConsecutiveChunks.get(nonConsecutiveChunks.size() - 1).getChunkEnd());
+                    @Override
+                    public int getSplitSize() {
+                        return 100;
+                    }
 
-        // Case 3: Verify the efficientShardingThroughSampling handles the same scenario better
-        // Simulated sample data from non-consecutive IDs (clustered in ranges 1-100000 and
-        // 4900000-5000000)
-        Object[] sampleData = new Object[] {10, 200, 5000, 50000, 4900000, 4950000, 4990000};
-        int shardCount = 3;
-        List<ChunkRange> sampledChunks =
-                splitter.efficientShardingThroughSampling(null, sampleData, 100000, shardCount);
-        // Sampling should produce chunks based on actual data distribution,
-        // not arithmetic stepping
-        assertEquals(3, sampledChunks.size());
-        assertNull(sampledChunks.get(0).getChunkStart());
-        assertNull(sampledChunks.get(sampledChunks.size() - 1).getChunkEnd());
+                    @Override
+                    public boolean isSampleShardingAllow() {
+                        return true;
+                    }
+
+                    @Override
+                    public int getSampleShardingThreshold() {
+                        return 2;
+                    }
+                };
+
+        TableId tableId = new TableId("test", "test", "test");
+        java.lang.reflect.Method splitMethod =
+                AbstractJdbcSourceChunkSplitter.class.getDeclaredMethod(
+                        "splitTableIntoChunks", JdbcConnection.class, TableId.class, Column.class);
+        splitMethod.setAccessible(true);
+
+        final boolean[] samplingCalled = {false};
+        final boolean[] unevenlyCalled = {false};
+        final boolean[] evenlyCalled = {false};
+
+        AbstractJdbcSourceChunkSplitter splitterSuccess =
+                new ConfiguredUtJdbcSourceChunkSplitter(config) {
+                    @Override
+                    public Object[] queryMinMax(
+                            JdbcConnection jdbc, TableId tableId, String columnName) {
+                        return new Object[] {1, 50000};
+                    }
+
+                    @Override
+                    public boolean isEvenlySplitColumn(Column splitColumn) {
+                        return true;
+                    }
+
+                    @Override
+                    public Long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId) {
+                        return 1000L;
+                    }
+
+                    @Override
+                    public Object[] sampleDataFromColumn(
+                            JdbcConnection jdbc,
+                            TableId tableId,
+                            String columnName,
+                            int samplingRate) {
+                        samplingCalled[0] = true;
+                        return new Object[] {1, 2, 3, 4, 5, 6, 7, 8, 9, 10};
+                    }
+
+                    @Override
+                    protected List<ChunkRange> splitEvenlySizedChunks(
+                            TableId tableId,
+                            Object min,
+                            Object max,
+                            long approximateRowCnt,
+                            int chunkSize,
+                            int dynamicChunkSize) {
+                        evenlyCalled[0] = true;
+                        return java.util.Collections.emptyList();
+                    }
+
+                    @Override
+                    protected List<ChunkRange> splitUnevenlySizedChunks(
+                            JdbcConnection jdbc,
+                            TableId tableId,
+                            Column splitColumn,
+                            Object min,
+                            Object max,
+                            int chunkSize) {
+                        unevenlyCalled[0] = true;
+                        return java.util.Collections.emptyList();
+                    }
+
+                    @Override
+                    protected List<ChunkRange> efficientShardingThroughSampling(
+                            TableId tableId,
+                            Object[] sampleData,
+                            long approximateRowCnt,
+                            int shardCount) {
+                        return java.util.Collections.emptyList();
+                    }
+                };
+
+        splitMethod.invoke(splitterSuccess, null, tableId, null);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                samplingCalled[0], "Should invoke sampling for sparse IDs");
+        org.junit.jupiter.api.Assertions.assertFalse(
+                evenlyCalled[0], "Should not invoke arithmetic fallback");
+        org.junit.jupiter.api.Assertions.assertFalse(
+                unevenlyCalled[0], "Should not invoke uneven query fallback");
+
+        samplingCalled[0] = false;
+        evenlyCalled[0] = false;
+        unevenlyCalled[0] = false;
+
+        AbstractJdbcSourceChunkSplitter splitterFallback =
+                new ConfiguredUtJdbcSourceChunkSplitter(config) {
+                    @Override
+                    public Object[] queryMinMax(
+                            JdbcConnection jdbc, TableId tableId, String columnName) {
+                        return new Object[] {1, 50000};
+                    }
+
+                    @Override
+                    public boolean isEvenlySplitColumn(Column splitColumn) {
+                        return true;
+                    }
+
+                    @Override
+                    public Long queryApproximateRowCnt(JdbcConnection jdbc, TableId tableId) {
+                        return 1000L;
+                    }
+
+                    @Override
+                    public Object[] sampleDataFromColumn(
+                            JdbcConnection jdbc,
+                            TableId tableId,
+                            String columnName,
+                            int samplingRate) {
+                        samplingCalled[0] = true;
+                        return new Object[] {1, 50000};
+                    }
+
+                    @Override
+                    protected List<ChunkRange> splitEvenlySizedChunks(
+                            TableId tableId,
+                            Object min,
+                            Object max,
+                            long approximateRowCnt,
+                            int chunkSize,
+                            int dynamicChunkSize) {
+                        evenlyCalled[0] = true;
+                        return java.util.Collections.emptyList();
+                    }
+
+                    @Override
+                    protected List<ChunkRange> splitUnevenlySizedChunks(
+                            JdbcConnection jdbc,
+                            TableId tableId,
+                            Column splitColumn,
+                            Object min,
+                            Object max,
+                            int chunkSize) {
+                        unevenlyCalled[0] = true;
+                        return java.util.Collections.emptyList();
+                    }
+                };
+
+        splitMethod.invoke(splitterFallback, null, tableId, null);
+        org.junit.jupiter.api.Assertions.assertTrue(
+                samplingCalled[0], "Should attempt sampling for sparse IDs");
+        org.junit.jupiter.api.Assertions.assertFalse(
+                evenlyCalled[0], "Should NOT fallback to arithmetic splitting if sparse");
+        org.junit.jupiter.api.Assertions.assertTrue(
+                unevenlyCalled[0],
+                "Should fallback to exact query splitting when sampler is defeated");
     }
 
     private void check(List<ChunkRange> a, List<ChunkRange> b) {
