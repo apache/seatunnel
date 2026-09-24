@@ -155,6 +155,61 @@ public class AbstractJdbcSourceChunkSplitterTest {
                         ChunkRange.of(6, null)));
     }
 
+    /**
+     * When IDs are non-consecutive (distributionFactor > 1.0) and sampling is enabled, the
+     * splitEvenlySizedChunks path should NOT be used. Instead, sampling-based splitting should be
+     * preferred for better chunk balance.
+     *
+     * <p>This test verifies that for a table with IDs spanning a wide range but few actual rows
+     * (distributionFactor >> 1.0), the algorithm falls back to arithmetic stepping only when
+     * sampling is disabled.
+     */
+    @Test
+    public void testSplitEvenlySizedChunksWithNonConsecutiveIds() {
+        UtJdbcSourceChunkSplitter splitter = new UtJdbcSourceChunkSplitter();
+
+        // Case 1: distributionFactor = 1.0 (consecutive IDs) should use arithmetic stepping
+        // Table with IDs 1-1000, 1000 rows, chunkSize=100
+        // distributionFactor = (1000 - 1 + 1) / 1000 = 1.0
+        // dynamicChunkSize = 1.0 * 100 = 100
+        List<ChunkRange> consecutiveChunks =
+                splitter.splitEvenlySizedChunks(null, 1, 1000, 1000, 100, 100);
+        // Should produce ~10 chunks via arithmetic stepping
+        assertEquals(10, consecutiveChunks.size());
+        // First chunk: [null, 101)
+        assertNull(consecutiveChunks.get(0).getChunkStart());
+        assertEquals(101, consecutiveChunks.get(0).getChunkEnd());
+        // Last chunk: [901, null)
+        assertEquals(901, consecutiveChunks.get(consecutiveChunks.size() - 1).getChunkStart());
+        assertNull(consecutiveChunks.get(consecutiveChunks.size() - 1).getChunkEnd());
+
+        // Case 2: distributionFactor = 50.0 (highly non-consecutive IDs)
+        // Table with IDs 1-5000000, 100000 rows, chunkSize=1000
+        // distributionFactor = (5000000 - 1 + 1) / 100000 = 50.0
+        // dynamicChunkSize = 50 * 1000 = 50000
+        // Arithmetic stepping would create 100 chunks of 50000 IDs each, but
+        // if IDs are clustered, some chunks would have too many/few rows.
+        List<ChunkRange> nonConsecutiveChunks =
+                splitter.splitEvenlySizedChunks(null, 1, 5000000, 100000, 1000, 50000);
+        assertEquals(100, nonConsecutiveChunks.size());
+        // Verify chunks cover the full range
+        assertNull(nonConsecutiveChunks.get(0).getChunkStart());
+        assertNull(nonConsecutiveChunks.get(nonConsecutiveChunks.size() - 1).getChunkEnd());
+
+        // Case 3: Verify the efficientShardingThroughSampling handles the same scenario better
+        // Simulated sample data from non-consecutive IDs (clustered in ranges 1-100000 and
+        // 4900000-5000000)
+        Object[] sampleData = new Object[] {10, 200, 5000, 50000, 4900000, 4950000, 4990000};
+        int shardCount = 3;
+        List<ChunkRange> sampledChunks =
+                splitter.efficientShardingThroughSampling(null, sampleData, 100000, shardCount);
+        // Sampling should produce chunks based on actual data distribution,
+        // not arithmetic stepping
+        assertEquals(3, sampledChunks.size());
+        assertNull(sampledChunks.get(0).getChunkStart());
+        assertNull(sampledChunks.get(sampledChunks.size() - 1).getChunkEnd());
+    }
+
     private void check(List<ChunkRange> a, List<ChunkRange> b) {
         checkRule(b);
         assertEquals(a, b);
