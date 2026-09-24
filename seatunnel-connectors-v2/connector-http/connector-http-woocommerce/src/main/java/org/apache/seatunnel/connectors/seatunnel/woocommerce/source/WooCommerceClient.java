@@ -121,6 +121,7 @@ final class WooCommerceClient implements AutoCloseable {
                                                     .getBytes(StandardCharsets.UTF_8)));
             request.setHeader("Accept", "application/json");
             int delay = config.retryDelay;
+            String transportFailure = null;
             try {
                 Reply reply = execute(request);
                 if (transientStatus(reply.status)) {
@@ -134,9 +135,10 @@ final class WooCommerceClient implements AutoCloseable {
                     return parse(reply, page);
                 }
             } catch (IOException e) {
-                // Transport exceptions can contain credentials or remote response data.
+                // Exception messages can contain credentials or remote response data.
+                transportFailure = e.getClass().getSimpleName();
             }
-            retry(attempt, delay);
+            retry(attempt, delay, transportFailure);
         }
     }
 
@@ -253,13 +255,13 @@ final class WooCommerceClient implements AutoCloseable {
         try {
             long millis;
             if (value.matches("[0-9]+")) {
-                millis = Math.multiplyExact(Long.parseLong(value), 1000);
+                millis = Math.multiplyExact(Long.parseLong(value), 1000L);
             } else {
                 long seconds =
                         ZonedDateTime.parse(value, DateTimeFormatter.RFC_1123_DATE_TIME)
                                         .toEpochSecond()
                                 - Instant.now().getEpochSecond();
-                millis = Math.multiplyExact(Math.max(0, seconds), 1000);
+                millis = Math.multiplyExact(Math.max(0, seconds), 1000L);
             }
             if (millis > 60000) {
                 throw new IllegalArgumentException();
@@ -275,10 +277,15 @@ final class WooCommerceClient implements AutoCloseable {
         return status == 429 || status == 500 || status == 502 || status == 503 || status == 504;
     }
 
-    private synchronized void retry(int attempt, int delay) throws InterruptedException {
+    private synchronized void retry(int attempt, int delay, String transportFailure)
+            throws InterruptedException {
         checkOpen();
         if (attempt >= config.retries) {
-            throw failure("HTTP retry budget exhausted (transport details withheld)");
+            throw failure(
+                    "HTTP retry budget exhausted"
+                            + (transportFailure == null
+                                    ? ""
+                                    : " (transport: " + transportFailure + ")"));
         }
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(delay);
         long remaining;

@@ -61,7 +61,7 @@ start_date 与 end_date 均为排他的订单创建时间边界，必须包含�
 
 复用 SeaTunnel JSON schema 映射，支持嵌套 ROW、MAP 和已有 ARRAY 类型。缺失或 null 字段输出 null，未选择字段忽略。金额应选择 DECIMAL；返回金额若不能精确适配声明的精度/小数位则失败，不会舍入。但 WooCommerce 会先按 decimal_places 格式化金额，默认 2 不能保留商店中更高精度的值，需按业务配置。
 
-line_items 等嵌套数组可用 STRING 保留 JSON，或用 array<map<string,string>>；当前公共 schema 解析器不支持 ARRAY<ROW>。订单可能包含个人信息，应使用有访问控制的 sink，不记录输出行。
+line_items 等嵌套数组可用 STRING 保留 JSON，或用 array<map<string,string>>；当前公共 schema 解析器不支持 ARRAY&lt;ROW&gt;。订单可能包含个人信息，应使用有访问控制的 sink，不记录输出行。
 
 ## 示例
 

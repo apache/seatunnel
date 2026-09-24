@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -429,12 +430,14 @@ class WooCommerceClientTest {
     @Test
     void transportFailureBudgetAndClosedClientAreEnforced() throws Exception {
         CloseableHttpClient http = mock(CloseableHttpClient.class);
-        when(http.execute(any(HttpUriRequest.class))).thenThrow(new IOException(SECRET));
+        when(http.execute(any(HttpUriRequest.class))).thenThrow(new UnknownHostException(SECRET));
         WooCommerceClient client = new WooCommerceClient(config(), http);
         try {
             HttpConnectorException e =
                     assertThrows(HttpConnectorException.class, () -> client.page(1));
             assertTrue(e.getMessage().contains("budget"));
+            assertTrue(e.getMessage().contains("transport: UnknownHostException"));
+            assertFalse(e.toString().contains(SECRET));
             assertNull(e.getCause());
             verify(http, times(2)).execute(any(HttpUriRequest.class));
         } finally {

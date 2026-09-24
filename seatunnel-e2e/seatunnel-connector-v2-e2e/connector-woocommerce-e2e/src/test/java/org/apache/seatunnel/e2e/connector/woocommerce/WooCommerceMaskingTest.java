@@ -38,6 +38,7 @@ import org.apache.logging.log4j.core.layout.PatternLayout;
 
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -81,7 +82,8 @@ class WooCommerceMaskingTest {
         try {
             Config config =
                     ConfigBuilder.of(
-                            getClass().getResource("/woocommerce_to_assert.conf").getPath());
+                            Paths.get(getClass().getResource("/woocommerce_to_assert.conf").toURI())
+                                    .toString());
             String logs = String.join("\n", messages);
             assertTrue(logs.contains("Parsed config"));
             assertTrue(logs.contains("******"));

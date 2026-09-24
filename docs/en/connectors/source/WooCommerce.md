@@ -75,7 +75,7 @@ Define only fields required by the pipeline. JSON conversion uses SeaTunnel's ex
 
 Select monetary fields as DECIMAL, not FLOAT/DOUBLE. Returned amounts must fit the declared precision/scale exactly; the connector fails rather than rounding. However, WooCommerce itself formats amounts according to `decimal_places` before sending them. Set this option to the precision required by the store; the default 2 is not a promise to preserve higher-precision stored values.
 
-Nested order arrays such as `line_items` can be preserved as a STRING containing JSON or `array<map<string,string>>`. The current common schema parser does not support ARRAY<ROW>; this connector does not change that contract. Customer addresses, notes and metadata may contain personal information: use access-controlled sinks and avoid logging output rows.
+Nested order arrays such as `line_items` can be preserved as a STRING containing JSON or `array<map<string,string>>`. The current common schema parser does not support ARRAY&lt;ROW&gt;; this connector does not change that contract. Customer addresses, notes and metadata may contain personal information: use access-controlled sinks and avoid logging output rows.
 
 ## Example
 
