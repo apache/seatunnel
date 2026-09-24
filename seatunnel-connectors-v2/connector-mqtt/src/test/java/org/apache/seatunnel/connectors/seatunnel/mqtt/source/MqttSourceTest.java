@@ -199,8 +199,14 @@ class MqttSourceTest {
     }
 
     @Test
-    void testSourceIsJavaSerializable() {
-        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
+    void testSourceIsJavaSerializable() throws Exception {
+        Map<String, Object> config = baseConfig();
+        // max_queue_size is the one restored value this test can observe from outside the
+        // source, because the reader turns it into the capacity of its bounded queue. 1 is
+        // deliberately not the default, so it can tell a faithfully restored config from one
+        // that merely came back non-null.
+        config.put("max_queue_size", 1);
+        MqttSource source = new MqttSource(ReadonlyConfig.fromMap(config));
         // The engine sets the job context before it serializes the logical DAG, so mirror that
         // ordering rather than serializing a source that has never had one.
         source.setJobContext(new JobContext().setJobMode(JobMode.STREAMING));
@@ -216,20 +222,34 @@ class MqttSourceTest {
                 source.getProducedCatalogTables().get(0).getTableSchema(),
                 restored.getProducedCatalogTables().get(0).getTableSchema());
 
-        // sourceConfig is the third and last field of MqttSource, and the one createReader
-        // hands to the reader. There is no getter for it, but MqttSourceReader's constructor
-        // dereferences it, so building a reader from the restored source fails if it was lost.
+        // Happy path complement of testJobContextSurvivesJavaSerialization. On its own this
+        // cannot prove the context survived, since a null context also yields UNBOUNDED, but
+        // it does catch a context that came back with a null jobMode, which would throw here.
+        Assertions.assertEquals(Boundedness.UNBOUNDED, restored.getBoundedness());
+
+        // sourceConfig is the field createReader hands to the reader. There is no getter, so
+        // the reader is the only way to observe it. Building one proves the reference survived,
+        // and driving it past the configured limit proves the value inside did too: with
+        // max_queue_size restored as 1 the second message is rejected, whereas the default
+        // 1000 would accept it and a zeroed int would fail to build the queue at all.
+        MqttSourceReader reader =
+                (MqttSourceReader)
+                        restored.createReader(Mockito.mock(SingleSplitReaderContext.class));
         Assertions.assertDoesNotThrow(
-                () -> restored.createReader(Mockito.mock(SingleSplitReaderContext.class)));
+                () -> reader.messageArrived("users", mqttMessage("{\"id\":1}")));
+        Assertions.assertThrows(
+                MqttConnectorException.class,
+                () -> reader.messageArrived("users", mqttMessage("{\"id\":2}")));
     }
 
     @Test
     void testJobContextSurvivesJavaSerialization() {
         MqttSource source = new MqttSource(ReadonlyConfig.fromMap(baseConfig()));
-        // A STREAMING round trip cannot prove the job context survived: getBoundedness()
-        // returns UNBOUNDED for a null context too, so the assertion would hold even if the
-        // field were dropped. BATCH distinguishes the two, because it only throws when the
-        // context came back. The pre-serialization equivalent is testBatchJobModeFails.
+        // Complement of the UNBOUNDED assertion in testSourceIsJavaSerializable rather than a
+        // replacement for it. That one cannot prove the context survived, since getBoundedness()
+        // returns UNBOUNDED for a null context too; this one only throws when the context came
+        // back. Together they pin both the reference and the mode, and neither half does it
+        // alone. The pre-serialization equivalent is testBatchJobModeFails.
         source.setJobContext(new JobContext().setJobMode(JobMode.BATCH));
 
         MqttSource restored = SerializationUtils.deserialize(SerializationUtils.serialize(source));
