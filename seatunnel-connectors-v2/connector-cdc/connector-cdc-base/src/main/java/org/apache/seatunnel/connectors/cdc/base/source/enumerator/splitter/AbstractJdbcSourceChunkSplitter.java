@@ -173,6 +173,46 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                             && doubleCompare(distributionFactor, distributionFactorUpper) <= 0;
 
             if (dataIsEvenlyDistributed) {
+                // When distributionFactor > 1.0, primary key IDs are not consecutive
+                // (there are gaps in the ID space). Arithmetic-based evenly-sized chunk
+                // splitting assumes gaps are uniformly distributed, which fails when
+                // gaps are clustered (e.g., large ranges of deleted IDs). In this case,
+                // prefer sampling-based splitting which uses actual data points for
+                // chunk boundaries, producing balanced splits regardless of gap
+                // distribution.
+                int shardCount = (int) (approximateRowCnt / chunkSize);
+                if (doubleCompare(distributionFactor, 1.0d) > 0
+                        && sampleShardingAllow
+                        && shardCount > 0) {
+                    int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
+                    if (inverseSamplingRate > chunkSize) {
+                        log.warn(
+                                "The inverseSamplingRate is {}, which is greater than chunkSize {}, so we set inverseSamplingRate to chunkSize",
+                                inverseSamplingRate,
+                                chunkSize);
+                        inverseSamplingRate = chunkSize;
+                    }
+                    log.info(
+                            "Distribution factor {} > 1.0 for table {}, using sampling-based "
+                                    + "splitting for better chunk balance with non-consecutive IDs, "
+                                    + "the sampling rate is {}",
+                            distributionFactor,
+                            tableId,
+                            inverseSamplingRate);
+                    Object[] sample =
+                            sampleDataFromColumn(jdbc, tableId, splitColumn, inverseSamplingRate);
+                    log.info(
+                            "Sample data from table {} end, the sample size is {}",
+                            tableId,
+                            sample.length);
+                    if (sample.length > 0) {
+                        return efficientShardingThroughSampling(
+                                tableId, sample, approximateRowCnt, shardCount);
+                    }
+                    log.info(
+                            "Sampling returned no data for table {}, falling back to evenly-sized chunks",
+                            tableId);
+                }
                 // the minimum dynamic chunk size is at least 1
                 final int dynamicChunkSize = Math.max((int) (distributionFactor * chunkSize), 1);
                 return splitEvenlySizedChunks(
