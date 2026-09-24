@@ -24,6 +24,7 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Threads;
 
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -31,11 +32,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CheckpointSchedulingBenchmarkTest {
 
-    private static final int PIPELINE_NUM = 8;
-    private static final long CHECKPOINT_INTERVAL_MILLIS = 20L;
-    private static final long TRIGGER_BODY_MICROS = 100L;
-    private static final int TRIGGER_COUNT = 200;
-    private static final long BACKGROUND_LOAD_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
+    private static final int PIPELINE_NUM = 4;
+    private static final long CHECKPOINT_INTERVAL_MILLIS = 200L;
+    private static final int SAMPLE_COUNT = 20;
+    private static final long THREAD_STOP_TIMEOUT_NANOS = TimeUnit.SECONDS.toNanos(30);
 
     @Test
     void shouldSampleSchedulingDelayOnASingleThread() {
@@ -49,70 +49,88 @@ class CheckpointSchedulingBenchmarkTest {
     }
 
     @Test
-    void shouldRunEveryScheduledTriggerUnderBackgroundLoad() throws Exception {
-        CheckpointSchedulingBenchmarkState state =
-                new CheckpointSchedulingBenchmarkState(
-                        PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS, TRIGGER_BODY_MICROS);
-        state.setUp();
-        long schedulerThreads;
+    void shouldMeasureDueTriggersOfRealCoordinators() throws Exception {
+        CheckpointSchedulingFixture fixture =
+                new CheckpointSchedulingFixture(PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS);
+        fixture.setUp();
         try {
-            for (int i = 0; i < TRIGGER_COUNT; i++) {
-                state.scheduleAndAwaitTrigger();
+            assertTrue(
+                    CheckpointSchedulingFixture.countSchedulerThreads() > 0,
+                    "the coordinators should be running checkpoint scheduler threads");
+            fixture.beginIteration();
+            for (int i = 0; i < SAMPLE_COUNT; i++) {
+                fixture.awaitNextDueTrigger();
+                long due = System.nanoTime();
+                long observed = fixture.awaitTrigger();
+                assertTrue(
+                        observed - due < TimeUnit.MILLISECONDS.toNanos(CHECKPOINT_INTERVAL_MILLIS),
+                        "a due trigger should run well within one interval");
             }
-            awaitEveryPipelineTriggered(state);
-            schedulerThreads = CheckpointSchedulingBenchmarkState.countSchedulerThreads();
-        } finally {
-            state.tearDown();
-        }
 
-        assertEquals(TRIGGER_COUNT, state.getMeasuredTriggers());
-        assertTrue(
-                state.getBackgroundTriggers() >= PIPELINE_NUM,
-                "every pipeline should have run its periodic trigger at least once, ran "
-                        + state.getBackgroundTriggers());
-        assertTrue(
-                schedulerThreads >= PIPELINE_NUM,
-                "the per-pipeline model should hold at least one thread per pipeline, held "
-                        + schedulerThreads);
+            assertEquals(SAMPLE_COUNT, fixture.getSampled());
+            fixture.endIteration();
+        } finally {
+            fixture.tearDown();
+        }
     }
 
     @Test
     void shouldStopEverySchedulerThreadOnTearDown() throws Exception {
-        CheckpointSchedulingBenchmarkState state =
-                new CheckpointSchedulingBenchmarkState(
-                        PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS, TRIGGER_BODY_MICROS);
-        state.setUp();
-        state.scheduleAndAwaitTrigger();
+        CheckpointSchedulingFixture fixture =
+                new CheckpointSchedulingFixture(PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS);
+        fixture.setUp();
 
-        state.tearDown();
+        fixture.tearDown();
 
-        assertEquals(0L, CheckpointSchedulingBenchmarkState.countSchedulerThreads());
-    }
-
-    /**
-     * Waits for the periodic load to cover every pipeline.
-     *
-     * <p>The measured triggers run far faster than one checkpoint interval, so the periodic
-     * triggers of the later pipelines have not come due by the time the loop finishes.
-     */
-    private static void awaitEveryPipelineTriggered(CheckpointSchedulingBenchmarkState state)
-            throws InterruptedException {
-        long deadline = System.nanoTime() + BACKGROUND_LOAD_TIMEOUT_NANOS;
-        while (state.getBackgroundTriggers() < PIPELINE_NUM && System.nanoTime() < deadline) {
+        long deadline = System.nanoTime() + THREAD_STOP_TIMEOUT_NANOS;
+        while (CheckpointSchedulingFixture.countSchedulerThreads() > 0
+                && System.nanoTime() < deadline) {
             TimeUnit.MILLISECONDS.sleep(CHECKPOINT_INTERVAL_MILLIS);
         }
+        assertEquals(
+                0L,
+                CheckpointSchedulingFixture.countSchedulerThreads(),
+                () ->
+                        "still running: "
+                                + Thread.getAllStackTraces().keySet().stream()
+                                        .map(Thread::getName)
+                                        .filter(
+                                                name ->
+                                                        name.startsWith(
+                                                                CheckpointSchedulingFixture
+                                                                        .SCHEDULER_THREAD_NAME_PREFIX))
+                                        .collect(Collectors.toList()));
     }
 
     @Test
     void shouldRejectParametersOutsideTheSupportedRange() {
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new CheckpointSchedulingBenchmarkState(0, 1_000L, 0L).setUp());
+                () -> new CheckpointSchedulingFixture(0, 1_000L).setUp());
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new CheckpointSchedulingBenchmarkState(1, 9L, 0L).setUp());
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> new CheckpointSchedulingBenchmarkState(1, 1_000L, -1L).setUp());
+                () -> new CheckpointSchedulingFixture(1, 9L).setUp());
+    }
+
+    @Test
+    void shouldSpaceMeasuredCoordinatorsAtLeastOneHundredMillisApart() {
+        long interval = TimeUnit.MILLISECONDS.toNanos(CHECKPOINT_INTERVAL_MILLIS);
+
+        assertEquals(1, CheckpointSchedulingFixture.probeStride(1, interval));
+        assertEquals(2, CheckpointSchedulingFixture.probeStride(4, interval));
+        assertEquals(5, CheckpointSchedulingFixture.probeStride(10, interval));
+        assertEquals(5, CheckpointSchedulingFixture.probeStride(500, TimeUnit.SECONDS.toNanos(10)));
+        assertEquals(
+                3, CheckpointSchedulingFixture.probeStride(3, TimeUnit.MILLISECONDS.toNanos(10)));
+    }
+
+    @Test
+    void shouldNameTheEngineFieldWhenItNoLongerExists() {
+        IllegalStateException failure =
+                assertThrows(
+                        IllegalStateException.class,
+                        () -> BenchmarkReflection.requireField(Object.class, "pendingCounter"));
+
+        assertTrue(failure.getMessage().contains("java.lang.Object#pendingCounter"));
     }
 }

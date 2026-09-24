@@ -21,6 +21,7 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Param;
@@ -29,6 +30,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Threads;
+import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -38,26 +40,35 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Measures how long a due checkpoint trigger waits before its scheduling thread runs it.
+ * Measures how late a periodic checkpoint trigger runs after it is due, on a real member with
+ * {@code pipelineNum} real checkpoint coordinators.
  *
- * <p>This is the part of checkpointing that the scheduling model decides. Checkpoint completion
- * time, which {@link CheckpointingTimeBenchmark} measures, is dominated by the barrier round-trip
- * and is close to blind to how the trigger was scheduled.
+ * <p>This is the part of checkpointing the scheduling model decides. Checkpoint completion time,
+ * which {@link CheckpointingTimeBenchmark} measures, is dominated by the barrier round-trip and is
+ * close to blind to how the trigger was scheduled.
  *
- * <p>The axis that separates scheduling models is the pipeline count. Every {@code
- * CheckpointCoordinator} builds its own two-thread pool, so a member running P pipelines carries 2P
- * scheduler threads; a shared pool is a fixed width whatever P is. {@code triggerBodyMicros} is a
- * parameter rather than a fixed cost because how long a trigger occupies its thread is what decides
- * whether a fixed width is wide enough, and that cost is not the same for every deployment.
+ * <p>Each invocation measures one trigger. The untimed setup picks the coordinator due soonest and
+ * returns exactly when its trigger is due; the timed body spins until that trigger has created its
+ * pending checkpoint. The score is therefore the scheduling delay plus the trigger's own decision
+ * logic up to creating the checkpoint, and nothing else. {@code Level.Invocation} is normally
+ * discouraged, but here the delay being measured is in microseconds while the setup overhead JMH
+ * leaves outside the timed region is tens of nanoseconds. See {@link CheckpointSchedulingFixture}
+ * for how due times are known and which triggers are skipped.
  *
- * <p>{@code checkpointIntervalMillis} defaults far below the production default of 300000 so that a
- * benchmark iteration of a few seconds sees a realistic number of triggers.
+ * <p>The checkpoint interval is {@code pipelineNum * triggerSpacingMillis}, so every point of the
+ * sweep sees the same rate of due triggers and the same checkpoint load on storage, and only the
+ * number of coordinators changes. It is floored at {@link #MIN_CHECKPOINT_INTERVAL_MILLIS}, so the
+ * smallest pipeline counts sample less often. Each job has one pipeline: many jobs is what "many
+ * active pipelines" means on a member, and it keeps per-job checkpoint state from becoming the
+ * bottleneck.
  */
 @BenchmarkMode(Mode.SampleTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @Threads(1)
+@Warmup(iterations = 2, time = 10)
+@Measurement(iterations = 5, time = 10)
 @Fork(
-        value = 3,
+        value = 2,
         jvmArgsAppend = {
             "-Xms4g",
             "-Xmx4g",
@@ -68,6 +79,13 @@ import java.util.concurrent.TimeUnit;
             "-Djava.net.preferIPv4Stack=true"
         })
 public class CheckpointSchedulingBenchmark extends BenchmarkBase {
+
+    /**
+     * Floor for the checkpoint interval. A checkpoint takes a few milliseconds here, and an
+     * interval close to that sends triggers down the pending re-arm path instead of measuring them,
+     * which is what a 20 ms interval at one pipeline would do.
+     */
+    static final long MIN_CHECKPOINT_INTERVAL_MILLIS = 200L;
 
     public static void main(String[] args) throws RunnerException {
         Options options =
@@ -83,43 +101,56 @@ public class CheckpointSchedulingBenchmark extends BenchmarkBase {
     }
 
     @Benchmark
-    public long perPipelineSchedulerTriggerDelay(PerPipelineSchedulerState state)
-            throws InterruptedException {
-        return state.scheduleAndAwaitTrigger();
+    public long periodicTriggerDelay(CoordinatorsState state) {
+        return state.fixture.awaitTrigger();
     }
 
     @State(Scope.Thread)
-    public static class PerPipelineSchedulerState {
+    public static class CoordinatorsState {
 
         @Param({"1", "10", "100", "500"})
         private int pipelineNum;
 
-        @Param({"1000"})
-        private long checkpointIntervalMillis;
+        @Param({"20"})
+        private long triggerSpacingMillis;
 
-        @Param({"0", "500"})
-        private long triggerBodyMicros;
-
-        private CheckpointSchedulingBenchmarkState delegate;
+        private CheckpointSchedulingFixture fixture;
 
         @Setup(Level.Trial)
-        public void setUp() {
-            delegate =
-                    new CheckpointSchedulingBenchmarkState(
-                            pipelineNum, checkpointIntervalMillis, triggerBodyMicros);
-            delegate.setUp();
+        public void setUp() throws Exception {
+            fixture =
+                    new CheckpointSchedulingFixture(
+                            pipelineNum,
+                            Math.max(
+                                    MIN_CHECKPOINT_INTERVAL_MILLIS,
+                                    pipelineNum * triggerSpacingMillis));
+            fixture.setUp();
             System.out.printf(
-                    "# checkpoint scheduler threads for %d pipelines: %d%n",
-                    pipelineNum, CheckpointSchedulingBenchmarkState.countSchedulerThreads());
+                    "# checkpoint scheduler threads for %d pipelines: %d; measuring %d of them%n",
+                    pipelineNum,
+                    CheckpointSchedulingFixture.countSchedulerThreads(),
+                    fixture.probeCount());
         }
 
-        long scheduleAndAwaitTrigger() throws InterruptedException {
-            return delegate.scheduleAndAwaitTrigger();
+        @Setup(Level.Iteration)
+        public void setUpIteration() {
+            fixture.beginIteration();
+        }
+
+        @Setup(Level.Invocation)
+        public void awaitDueTrigger() {
+            fixture.awaitNextDueTrigger();
+        }
+
+        @TearDown(Level.Iteration)
+        public void tearDownIteration() {
+            System.out.println("# " + fixture.iterationReport());
+            fixture.endIteration();
         }
 
         @TearDown(Level.Trial)
-        public void tearDown() throws InterruptedException {
-            delegate.tearDown();
+        public void tearDown() throws Exception {
+            fixture.tearDown();
         }
     }
 }
