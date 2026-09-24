@@ -145,7 +145,7 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testMultiTableWithRestore(TestContainer container)
             throws IOException, InterruptedException {
         // Clear related content to ensure that multiple operations are not affected
@@ -385,7 +385,7 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testTiDBCdcSavepointRestoreWithAddedTable(TestContainer container)
             throws IOException, InterruptedException {
         clearSimpleTables();
@@ -517,7 +517,7 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testTiDBCdcSavepointRestoreWithRemovedTable(TestContainer container)
             throws IOException, InterruptedException {
         clearSimpleTables();
@@ -820,7 +820,7 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testTiDBCdcLegacyConfigRestoredWithTableNamesExpanded(TestContainer container)
             throws IOException, InterruptedException {
         clearSimpleTables();
@@ -952,7 +952,7 @@ public class TiDBCDCIT extends TiDBTestBase implements TestResource {
     @DisabledOnContainer(
             value = {},
             type = {EngineType.SPARK, EngineType.FLINK},
-            disabledReason = "")
+            disabledReason = "Currently SPARK and FLINK do not support restore")
     public void testTiDBCdcTableNamesRestoredWithLegacyConfigReduced(TestContainer container)
             throws IOException, InterruptedException {
         clearSimpleTables();
