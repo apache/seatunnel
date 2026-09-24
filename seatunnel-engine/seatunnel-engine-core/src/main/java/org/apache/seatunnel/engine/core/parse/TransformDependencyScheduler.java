@@ -248,6 +248,10 @@ public final class TransformDependencyScheduler {
             return outputId;
         }
 
+        public List<String> getInputIds() {
+            return inputIds;
+        }
+
         public int getActionIndex() {
             return actionIndex;
         }

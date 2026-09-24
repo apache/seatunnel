@@ -217,11 +217,7 @@ class DryRunConnectValidator {
         for (ScheduledTransform scheduledTransform : scheduledTransforms) {
             results.add(
                     validateTransform(
-                            evaluationIndex++,
-                            scheduledTransform.getConfig(),
-                            scheduledTransform.isLegacyFallback(),
-                            classLoader,
-                            tableWithSchemas));
+                            evaluationIndex++, scheduledTransform, classLoader, tableWithSchemas));
         }
     }
 
@@ -236,17 +232,16 @@ class DryRunConnectValidator {
 
     private PluginResult validateTransform(
             int configIndex,
-            Config transformConfig,
-            boolean legacyFallback,
+            ScheduledTransform scheduledTransform,
             ClassLoader classLoader,
             LinkedHashMap<String, SchemaInfo> tableWithSchemas) {
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(transformConfig);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(scheduledTransform.getConfig());
         String factoryId = ConfigParserUtil.getFactoryId(readonlyConfig);
-        String outputId = readonlyConfig.getOptional(PLUGIN_OUTPUT).orElse(DEFAULT_ID);
+        String outputId = scheduledTransform.getOutputId();
         try {
-            List<String> inputIds = getInputIds(readonlyConfig);
+            List<String> inputIds = scheduledTransform.getInputIds();
             List<SchemaInfo> inputSchemas;
-            if (legacyFallback) {
+            if (scheduledTransform.isLegacyFallback()) {
                 inputSchemas = Collections.singletonList(findLast(tableWithSchemas));
             } else {
                 List<String> missingInputIds =
