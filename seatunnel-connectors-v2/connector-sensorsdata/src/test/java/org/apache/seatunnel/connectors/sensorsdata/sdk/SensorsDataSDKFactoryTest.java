@@ -48,9 +48,7 @@ class SensorsDataSDKFactoryTest {
         map.put(
                 "identity_fields",
                 Arrays.asList(new TargetColumnConfig("name", "String", "$identity_name")));
-        map.put(
-                "property_fields",
-                Arrays.asList(new TargetColumnConfig("name", "String", "name")));
+        map.put("property_fields", Arrays.asList(new TargetColumnConfig("name", "String", "name")));
         return map;
     }
 
@@ -107,3 +105,4 @@ class SensorsDataSDKFactoryTest {
         Assertions.assertThrows(OptionValidationException.class, () -> validate(map));
     }
 }
+
