@@ -40,6 +40,7 @@ class RestUtilTest {
         Config config = RestUtil.buildConfig(jsonNode(jobConfigJson()));
 
         assertJobConfig(config);
+        assertJobConfig(ConfigShadeUtils.decryptConfig(config));
     }
 
     @Test
@@ -51,6 +52,14 @@ class RestUtilTest {
     }
 
     @Test
+    void buildConfigShouldKeepValidPathExpressions() throws IOException {
+        Config config = RestUtil.buildConfig(jsonNode("{\"a->b\":\"value\"}"));
+
+        Assertions.assertEquals("value", config.getConfig("a").getString("b"));
+        Assertions.assertFalse(config.root().unwrapped().containsKey("a->b"));
+    }
+
+    @Test
     void buildConfigListShouldPreserveRegexKeysFromJson() throws IOException {
         List<Tuple2<Map<String, String>, Config>> configs =
                 RestUtil.buildConfigList(
@@ -59,6 +68,7 @@ class RestUtilTest {
         Assertions.assertEquals(1, configs.size());
         Assertions.assertTrue(configs.get(0)._1.isEmpty());
         assertJobConfig(configs.get(0)._2);
+        assertJobConfig(ConfigShadeUtils.decryptConfig(configs.get(0)._2));
     }
 
     @Test
@@ -86,7 +96,7 @@ class RestUtilTest {
                 + REGEX_FIELD
                 + "\":\"string\"}}}],"
                 + "\"transform\":[],"
-                + "\"sink\":[]"
+                + "\"sink\":[{}]"
                 + "}";
     }
 

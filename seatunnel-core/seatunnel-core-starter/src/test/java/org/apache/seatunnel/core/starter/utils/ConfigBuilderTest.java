@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -27,6 +29,31 @@ import java.util.List;
 import java.util.Map;
 
 public class ConfigBuilderTest {
+
+    @Test
+    public void testInvalidPathKeysSurviveConfigShadeRoundTrip() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("a\"b\\c", "string");
+        fields.put("${FOO}", "boolean");
+        fields.put("", "int");
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("schema", schema);
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("source", Arrays.asList(source));
+        configMap.put("sink", Arrays.asList(new LinkedHashMap<>()));
+
+        Config config = ConfigShadeUtils.decryptConfig(ConfigBuilder.of(configMap));
+        Map<?, ?> actualFields =
+                config.getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped();
+        Assertions.assertEquals(fields, actualFields);
+    }
 
     @Test
     public void testConfigDesensitizationSort() {

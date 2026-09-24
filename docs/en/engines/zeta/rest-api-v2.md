@@ -918,6 +918,7 @@ Each member is asked in parallel and awaited against one shared deadline (`seatu
 #### Body
 
 You can choose json, hocon or sql to pass request body.
+For JSON submissions, keys that cannot be parsed as SeaTunnel config paths (for example regex field names such as `^t_nova_.*$`) are treated as literal keys. Valid path expressions retain their existing meaning: `a->b` creates nested config, while a dotted key such as `job.mode` remains a single key. The same rule applies to batch submissions.
 The json format example:
 ``` json
 {

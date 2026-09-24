@@ -26,6 +26,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.configuration.util.ConfigMapPathUtils;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
@@ -106,7 +107,7 @@ public class ConfigBuilder {
     public static Config of(@NonNull Map<String, Object> objectMap) {
         log.info("Loading config file from objectMap");
         Config config =
-                ConfigFactory.parseMap(objectMap)
+                ConfigFactory.parseMap(ConfigMapPathUtils.quoteInvalidPathKeys(objectMap))
                         .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
                         .resolveWith(
                                 ConfigFactory.systemProperties(),
