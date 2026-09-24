@@ -60,12 +60,30 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Behavior change: query-only JDBC sources merge the underlying table's comments**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` (source)
+  - **Description**: When a source table is defined by `query` only (no `table_path`) and JDBC
+    metadata reports every result column as originating from the same physical table, SeaTunnel
+    now resolves that table and, by default, merges its column comments and table comment into
+    the query-derived schema. Previously the schema was derived from `ResultSetMetaData` only and
+    carried none of this metadata. Table options, the primary key, constraint keys and partition
+    keys are deliberately not merged by default because they can change generated sink DDL,
+    insert/upsert semantics or split planning; set the new source option
+    `query_table_metadata_merge = ALL` to merge them as well (the same result as configuring
+    `table_path` together with `query`), or `NONE` to restore the previous behavior entirely.
+    (#11971)
+  - **Impact**: Row shape, column order, table options, primary keys, sink DDL, sink insert/upsert
+    semantics, split planning and checkpoint/savepoint compatibility are unchanged by default.
+    The only default difference is that sinks with automatic table creation (MySQL, Doris,
+    StarRocks, ...) create the target table with the source table's comments on the first run
+    after the upgrade; already-created sink tables are not modified. Multi-table queries and
+    queries whose column origins cannot be verified (for example expression columns) are
+    unaffected — the merge is skipped for them.
 - **Breaking Change: JDBC XA restore now uses recovery-order evidence and fail-closed gaps**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` sink exactly-once XA path
   - **Description**: SeaTunnel now consumes `max_commit_attempts` within a single aggregated-commit or restore invocation, and restore replays only the still-prepared suffix starting from the first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are treated as already resolved only after the suffix commits successfully. If none of the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already resolved and skips replay. If a missing XID appears after the first recovered checkpoint XID, restore still fails closed instead of inferring a successful commit from `XAER_NOTA`-like absence alone.
   - **Impact**: Jobs that previously relied on restore inferring success from a missing XA branch may now fail during recovery when the XA recovery scan still contains later checkpoint XIDs but shows a gap after them. Operators may also observe that `max_commit_attempts` is exhausted within one restore/commit invocation rather than across repeated task restarts.
   - **Migration Guide**: Before upgrading, inspect the resource manager for dangling prepared XA transactions (for example `XA RECOVER` on MySQL or `pg_prepared_xacts` on PostgreSQL). If recovery fails closed because a later checkpoint XID still exists but a following one is missing, investigate whether the missing XID was rolled back, expired, or cleaned up externally before retrying the job. XA recovery cannot distinguish a SeaTunnel-committed XID from one rolled back or removed by an external cleanup actor. Therefore, a missing prefix or all-absent batch is inferred to be resolved; do not externally clean up SeaTunnel-owned prepared branches while their jobs may be restored, and coordinate any cleanup with job recovery.
-
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc`, `seatunnel-connectors-v2/connector-iceberg`, `seatunnel-connectors-v2/connector-cdc-base`, `seatunnel-connectors-v2/connector-cdc-tidb`, `seatunnel-connectors-v2/connector-starrocks`, `seatunnel-connectors-v2/connector-hudi`, `seatunnel-connectors-v2/connector-snowflake` (via JDBC dialect)
   - **Description**: Previously, JDBC sources mapped both timezone-naive (e.g., MySQL `DATETIME`) and timezone-aware (e.g., MySQL `TIMESTAMP`) timestamp columns to SeaTunnel's internal `TIMESTAMP` type. Now, timezone-aware columns like MySQL `TIMESTAMP`, PostgreSQL `timestamptz`, Oracle `TIMESTAMP WITH LOCAL TIME ZONE`, SQL Server `datetimeoffset`, Snowflake `TIMESTAMP_LTZ/TZ`, and others are explicitly mapped to `TIMESTAMP_TZ`. This ensures that timezone semantics are accurately preserved when writing to formats like Iceberg, where `TIMESTAMP` is saved as `timestamp` (without timezone) and `TIMESTAMP_TZ` is saved as `timestamptz` (with timezone).
