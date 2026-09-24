@@ -69,18 +69,11 @@ The resulting `yarn-deployment.conf` should contain:
 application {
   name = "example-yarn-application"
   worker-count = 2
-  worker.memory-mb = 1024
-  worker.cpu-cores = 1
-  worker.slots = 2
-  master.memory-mb = 1024
-  master.cpu-cores = 1
-  startup-timeout-millis = 120000
 }
+
 yarn {
   distribution = "/opt/packages/apache-seatunnel-<version>-bin.tar.gz"
   config-dir = "/etc/hadoop/conf"
-  staging-dir = "hdfs:///user/seatunnel/applications"
-  queue = "default"
 }
 ```
 
