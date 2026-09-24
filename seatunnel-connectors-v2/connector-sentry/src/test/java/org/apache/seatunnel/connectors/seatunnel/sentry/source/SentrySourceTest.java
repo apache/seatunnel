@@ -54,6 +54,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
@@ -471,7 +472,8 @@ class SentrySourceTest {
         CountDownLatch responseSent = new CountDownLatch(1);
         start(
                 exchange -> {
-                    reply(exchange, 503, "private", null);
+                    exchange.sendResponseHeaders(503, -1);
+                    exchange.close();
                     responseSent.countDown();
                 });
         Map<String, Object> options = localOptions();
@@ -479,13 +481,28 @@ class SentrySourceTest {
         SourceReader.Context context = mock(SourceReader.Context.class);
         AbstractSingleSplitReader<SeaTunnelRow> reader = reader(options, context);
         executor = Executors.newSingleThreadExecutor();
+        AtomicReference<Thread> pollingThread = new AtomicReference<>();
         Future<?> future =
                 executor.submit(
-                        () ->
-                                Assertions.assertThrows(
-                                        Exception.class,
-                                        () -> reader.pollNext(collector(new ArrayList<>()))));
+                        () -> {
+                            pollingThread.set(Thread.currentThread());
+                            return Assertions.assertThrows(
+                                    Exception.class,
+                                    () -> reader.pollNext(collector(new ArrayList<>())));
+                        });
         Assertions.assertTrue(responseSent.await(5, TimeUnit.SECONDS));
+        org.awaitility.Awaitility.await()
+                .atMost(5, TimeUnit.SECONDS)
+                .until(
+                        () ->
+                                pollingThread.get() != null
+                                        && pollingThread.get().getState()
+                                                == Thread.State.TIMED_WAITING
+                                        && Arrays.stream(pollingThread.get().getStackTrace())
+                                                .anyMatch(
+                                                        frame ->
+                                                                frame.getMethodName()
+                                                                        .equals("retry")));
         reader.close();
         future.get(5, TimeUnit.SECONDS);
         verify(context, never()).signalNoMoreElement();
