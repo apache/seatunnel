@@ -120,6 +120,14 @@ public class ServerConfigOptions {
                             "Enable scheduled cleanup, with default value of true. The system will automatically delete relevant log files when job expiration time, as defined by `history-job-expire-minutes`, is reached. "
                                     + "If this feature is disabled, logs will remain permanently on disk, requiring manual management, which may affect disk space usage. It is recommended to configure this setting based on specific needs.");
 
+    public static final Option<Long> JOB_LOG_PRUNE_INTERVAL_MINUTES =
+            Options.key("job-log-prune-interval-minutes")
+                    .longType()
+                    .defaultValue(TelemetryLogsConfig.DEFAULT_JOB_LOG_PRUNE_INTERVAL_MINUTES)
+                    .withDescription(
+                            "Interval, in minutes, at which the local job log pruner scans the log directory and removes rolled segments whose last-modified age exceeds `file_ttl`. "
+                                    + "Defaults to 60 minutes. Set to a non-positive value to disable pruning.");
+
     public static final Option<TelemetryLogsConfig> TELEMETRY_LOGS =
             Options.key("logs")
                     .type(new TypeReference<TelemetryLogsConfig>() {})
