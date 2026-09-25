@@ -40,6 +40,8 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
     public static String STREAM_CONF_WITH_ERROR_PATH = "stream_fake_to_inmemory_with_error.conf";
     public static String STREAM_CONF_WITH_SLEEP_PATH = "stream_fake_to_inmemory_with_sleep.conf";
     public static String BATCH_CONF_PATH = "batch_fakesource_to_file.conf";
+    public static String STREAM_CONF_SAVEPOINT_FAILS_DURING_RESTORE_PATH =
+            "stream_two_pipelines_savepoint_fails_during_restore.conf";
 
     @Test
     public void testSavePoint() throws InterruptedException {
@@ -89,6 +91,29 @@ public class SavePointTest extends AbstractSeaTunnelServerTest<SavePointTest> {
                                 Assertions.assertEquals(
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.FAILED));
+    }
+
+    /**
+     * A pipeline that fails during a savepoint is scheduled for restore before the job master
+     * learns that the savepoint failed. The stop the job master then decides must still end the
+     * job, instead of the restored pipeline leaving it in {@code DOING_SAVEPOINT}. One sink fails
+     * the savepoint after 4 s and the other finishes its part after 5 s, so that stop lands while
+     * the failed pipeline waits the 3 s before its restore.
+     */
+    @Test
+    public void testSavePointFailureDuringPipelineRestoreWaitEndsTheJob()
+            throws InterruptedException {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, STREAM_CONF_SAVEPOINT_FAILS_DURING_RESTORE_PATH, false);
+        Thread.sleep(2000L);
+        PassiveCompletableFuture<Void> savepoint = server.getCoordinatorService().savePoint(jobId);
+        Assertions.assertThrows(CompletionException.class, savepoint::join);
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.FAILED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
     }
 
     @Test
