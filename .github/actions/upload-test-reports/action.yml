@@ -1,0 +1,96 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the 'License'); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an 'AS IS' BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+name: Upload test reports
+description: >
+  Lists failed tests from the Surefire and Failsafe XML reports in the job summary
+  and uploads the report directories as a workflow artifact.
+
+inputs:
+  id:
+    description: Suffix that makes the artifact name unique within the job, for example the matrix values.
+    required: true
+  retention-days:
+    description: Number of days to keep the artifact.
+    required: false
+    default: '7'
+
+runs:
+  using: composite
+  steps:
+    # The caller runs this action with `if: failure()`, so the steps below always run once it is invoked.
+    - name: List failed tests in the job summary
+      if: always()
+      shell: python
+      env:
+        REPORT_ARTIFACT: test-reports-${{ github.job }}-${{ inputs.id }}-attempt-${{ github.run_attempt }}
+      run: |
+        import glob, html, os
+        import xml.etree.ElementTree as ET
+
+        max_rows = 100
+        failed = []
+        report_files = 0
+        for pattern in ("**/target/surefire-reports/TEST-*.xml", "**/target/failsafe-reports/TEST-*.xml"):
+            for path in glob.glob(pattern, recursive=True):
+                report_files += 1
+                try:
+                    root = ET.parse(path).getroot()
+                except ET.ParseError as e:
+                    failed.append((path, "unreadable report", str(e)))
+                    continue
+                for case in root.iter("testcase"):
+                    for kind in ("failure", "error"):
+                        node = case.find(kind)
+                        if node is None:
+                            continue
+                        name = "%s#%s" % (case.get("classname", "?"), case.get("name", "?"))
+                        message = (node.get("message") or node.get("type") or "").strip()
+                        failed.append((name, kind, message.splitlines()[0] if message else ""))
+                        break
+
+        lines = ["### Failed tests: %s" % os.environ.get("GITHUB_JOB", ""), ""]
+        if failed:
+            lines += ["| Test | Result | Message |", "| --- | --- | --- |"]
+            for name, kind, message in failed[:max_rows]:
+                message = html.escape(message[:300]).replace("|", "\\|")
+                name = name.replace("`", "'").replace("|", "\\|")
+                lines.append("| `%s` | %s | %s |" % (name, kind, message))
+            if len(failed) > max_rows:
+                lines.append("")
+                lines.append("%d more not shown." % (len(failed) - max_rows))
+        else:
+            lines.append(
+                "No failed test cases found in %d Surefire/Failsafe XML reports. "
+                "The failure happened outside a test, or before its report was written." % report_files)
+        if report_files:
+            lines += ["", "Reports are uploaded as the `%s` artifact." % os.environ["REPORT_ARTIFACT"]]
+        lines.append("")
+        with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as summary:
+            summary.write("\n".join(lines))
+        print("\n".join(lines))
+
+    - name: Upload Surefire and Failsafe reports
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-reports-${{ github.job }}-${{ inputs.id }}-attempt-${{ github.run_attempt }}
+        path: |
+          **/target/surefire-reports/
+          **/target/failsafe-reports/
+        retention-days: ${{ inputs.retention-days }}
+        if-no-files-found: ignore
