@@ -13,7 +13,7 @@ TableFilter 转换插件用于按表名、库名或 schema 规则，正向或反
 | database_pattern | string | 否       |        | 数据库过滤规则。默认不过滤；如需过滤数据库名称，请填写正则表达式。 |
 | schema_pattern   | string | 否       |        | schema 过滤规则。默认不过滤；如需过滤 schema 名称，请填写正则表达式。 |
 | table_pattern    | string | 否       |        | 表过滤规则。默认不过滤；如需过滤表名称，请填写正则表达式。 |
-| pattern_mode     | string | 否       | INCLUDE | 过滤模式。`INCLUDE` 表示保留匹配的表，`EXCLUDE` 表示排除匹配的表。 |
+| pattern_mode     | enum   | 否       | INCLUDE | 过滤模式。`INCLUDE` 表示保留匹配的表，`EXCLUDE` 表示排除匹配的表。 |
 
 ## 示例
 

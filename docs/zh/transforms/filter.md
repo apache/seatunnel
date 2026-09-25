@@ -17,6 +17,10 @@
 
 需要保留的字段列表。不在列表中的字段将被删除。
 
+:::note
+为了向后兼容，已废弃的选项名 `fields` 仍然可以作为 `include_fields` 的替代被接受。新配置请使用 `include_fields`。
+:::
+
 ### exclude_fields [array]
 
 需要删除的字段列表。不在列表中的字段将被保留。

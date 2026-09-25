@@ -23,6 +23,7 @@ JsonPath 转换插件支持使用 JSONPath 选择数据。
 
 - FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
 - SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
+- ROUTE_TO_TABLE：选择`ROUTE_TO_TABLE`时，解析失败的行会被路由到 `row_error_handle_way.error_table` 配置的错误表中。如果未配置错误表，无效行将被跳过并输出警告日志。
 
 ### columns [array]
 
@@ -189,9 +190,9 @@ transform {
 
 那么数据结果表 `fake1` 将会像这样
 
-|             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |
-|------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|
-| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] |
+|             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |         c1_map_array         |
+|------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|------------------------------|
+| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] | [{"key1": "value1", "key2": "value2"}] |
 
 ## 读取 SeatunnelRow 示例
 

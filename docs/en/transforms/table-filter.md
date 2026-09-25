@@ -13,7 +13,7 @@ TableFilter transform plugin for filter tables.
 | database_pattern | string | no       |               | Specify database filter pattern, the default value is null, which means no filtering. If you want to filter the database name, please set it to a regular expression. |
 |  schema_pattern  | string | no       |               | Specify schema filter pattern, the default value is null, which means no filtering. If you want to filter the schema name, please set it to a regular expression.     |
 |  table_pattern   | string | no       |               | Specify table filter pattern, the default value is null, which means no filtering. If you want to filter the table name, please set it to a regular expression.       |
-|   pattern_mode   | string | no       | INCLUDE       | Specify pattern mode, the default value is INCLUDE, which means include the matched table. If you want to exclude the matched table, please set it to EXCLUDE.        |
+|   pattern_mode   | enum   | no       | INCLUDE       | Specify pattern mode, the default value is INCLUDE, which means include the matched table. If you want to exclude the matched table, please set it to EXCLUDE.        |
 
 ## Examples
 
