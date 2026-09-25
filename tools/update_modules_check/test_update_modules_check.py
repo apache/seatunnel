@@ -17,6 +17,7 @@
 """Regression tests for connector E2E module sharding."""
 
 import io
+import json
 import re
 import unittest
 from collections import Counter
@@ -28,6 +29,8 @@ from update_modules_check import (
     ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES,
     ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
     build_sub_it_modules,
+    build_sub_update_it_modules,
+    build_sub_update_it_shards,
     get_sub_it_modules,
     get_sub_update_it_modules,
     modules_to_json,
@@ -258,6 +261,85 @@ class ConnectorItShardingTest(unittest.TestCase):
                     "contains(fromJSON(needs.changes.outputs.it-modules), "
                     f"'{module}')",
                     workflow,
+                )
+
+    def test_updated_shards_list_only_shards_with_modules(self) -> None:
+        # A single changed connector used to start all 8 shard jobs on 2 JDKs.
+        self.assertEqual(
+            ["part-1"],
+            build_sub_update_it_shards(
+                modules_to_json(":connector-cassandra-e2e,:connector-cassandra-e2e"), 8
+            ),
+        )
+        self.assertEqual(
+            ["part-1", "part-2", "part-3"],
+            build_sub_update_it_shards(
+                modules_to_json(":connector-a-e2e,:connector-b-e2e,:connector-c-e2e"),
+                8,
+            ),
+        )
+        # Modules owned by dedicated jobs leave every shared shard empty.
+        self.assertEqual(
+            [],
+            build_sub_update_it_shards(
+                modules_to_json(
+                    ":connector-kafka-e2e,:seatunnel-engine-k8s-e2e,"
+                    ":connector-seatunnel-e2e-base,:connector-console-seatunnel-e2e"
+                ),
+                8,
+            ),
+        )
+        self.assertEqual([], build_sub_update_it_shards("[]", 8))
+        many_modules = [f"connector-m{i}-e2e" for i in range(11)]
+        self.assertEqual(
+            [f"part-{i}" for i in range(1, 9)],
+            build_sub_update_it_shards(json.dumps(many_modules), 8),
+        )
+
+    def test_updated_shards_agree_with_per_shard_modules(self) -> None:
+        modules = modules_to_json(
+            ":connector-a-e2e,:connector-kafka-e2e,:connector-b-e2e,"
+            ":connector-jdbc-e2e,:seatunnel-engine-k8s-e2e,:connector-c-e2e"
+        )
+        shards = build_sub_update_it_shards(modules, 8)
+        for current_num in range(8):
+            with self.subTest(current_num=current_num):
+                self.assertEqual(
+                    f"part-{current_num + 1}" in shards,
+                    bool(build_sub_update_it_modules(modules, 8, current_num)),
+                )
+
+    def test_updated_shards_reject_non_positive_shard_count(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "total shard count must be positive, got 0"
+        ):
+            build_sub_update_it_shards("[]", 0)
+
+    def test_updated_module_jobs_are_gated_on_their_shard(self) -> None:
+        workflow = self.workflow_text()
+        jobs = dict(
+            re.findall(
+                r"^  (updated-modules-integration-test-part-\d+):\n(.*?)(?=^  \S|\Z)",
+                workflow,
+                re.MULTILINE | re.DOTALL,
+            )
+        )
+        self.assertEqual(8, len(jobs))
+        self.assertTrue(
+            'sub_update_it_shards "$IT_MODULES" 8' in workflow,
+            "changes job must compute the non-empty updated-modules shards",
+        )
+        for part in range(1, 9):
+            job = jobs[f"updated-modules-integration-test-part-{part}"]
+            with self.subTest(part=part):
+                if_line = re.search(r"^    if: (.*)$", job, re.MULTILINE).group(1)
+                self.assertIn(
+                    "contains(fromJSON(needs.changes.outputs.updated-it-shards), "
+                    f"'part-{part}')",
+                    if_line,
+                )
+                self.assertIn(
+                    f'sub_update_it_module "$IT_MODULES" 8 {part - 1}', job
                 )
 
     def test_full_shard_rejects_non_positive_shard_count(self) -> None:
