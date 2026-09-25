@@ -18,15 +18,14 @@
 seatunnel:
     engine:
         backup-count: 1
-        print-execution-info-interval: 2
-        max-promoted-cooperative-workers: 8
-        max-promoted-cooperative-workers-per-job: 4
+        print-execution-info-interval: 10
+        state-cleanup-delay-ms: 0
+        task_execution_thread_share_mode: ALL
+        max-promoted-cooperative-workers: 2
+        max-promoted-cooperative-workers-per-job: 1
         slot-service:
-            dynamic-slot: false
+            dynamic-slot: true
             slot-num: 5
-        coordinator-service:
-            core-thread-num: 30
-            max-thread-num: 1000
         checkpoint:
             interval: 6000
             timeout: 7000
@@ -37,11 +36,3 @@ seatunnel:
                     namespace: /tmp/seatunnel/checkpoint_snapshot
                     storage.type: hdfs
                     fs.defaultFS: file:/// # Ensure that the directory has written permission
-        telemetry:
-            metric:
-                enabled: false
-        http:
-             enable-http: true
-             port: 8080
-             enable-dynamic-port: true
-             port-range: 200
