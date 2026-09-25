@@ -88,8 +88,10 @@ Enumerator 计数不一致时报告 `BEST_EFFORT`，不改变分配或 checkpoin
 
 - 该契约和报告类型仍为实验性。
 - MySQL CDC、PostgreSQL CDC、Oracle CDC、SQL Server CDC、DB2 CDC 和 MongoDB CDC
-  当前通过 `connector-cdc-base` 继承进度 Provider。MySQL 使用明确的 `MYSQL_BINLOG`
-  位置类型；其他 base Connector 在定义更具体的位置类型前使用 Plugin 名称。
+  当前通过 `connector-cdc-base` 继承进度 Provider。OceanBase CDC 继承 MySQL CDC Source，
+  openGauss CDC 运行 PostgreSQL CDC Source 并以 `Postgres-CDC` 报告，因此二者也继承同一接入。
+  MySQL 和 OceanBase 使用明确的 `MYSQL_BINLOG` 位置类型；其他 base Connector
+  在定义更具体的位置类型前使用 Plugin 名称。
   此列表仅说明 Provider 接入情况，不表示各连接器具有相同的位置精度或均已完成端到端验证。
   未接入该 Provider 的 CDC Source（包括 TiDB CDC 和 Vitess CDC）不会返回报告。
 - 仅快照、快照后增量和仅增量模式使用同一个 Provider 契约。配置或恢复的起始位置在成功发送记录前

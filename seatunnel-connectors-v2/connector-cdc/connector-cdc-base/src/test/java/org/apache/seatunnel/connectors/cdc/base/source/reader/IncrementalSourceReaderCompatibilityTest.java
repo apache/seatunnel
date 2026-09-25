@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -26,7 +27,10 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceRead
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
+import java.util.Collections;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.function.Supplier;
 
@@ -44,5 +48,25 @@ class IncrementalSourceReaderCompatibilityTest {
                         SourceReader.Context.class,
                         SourceConfig.class,
                         DebeziumDeserializationSchema.class));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void constructorWithoutProgressTrackerAcceptsDialectWithoutName() throws Exception {
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                new IncrementalSourceReader<>(
+                        Mockito.mock(DataSourceDialect.class),
+                        new ArrayBlockingQueue<>(2),
+                        () -> Mockito.mock(IncrementalSourceSplitReader.class),
+                        Mockito.mock(RecordEmitter.class),
+                        new SourceReaderOptions(ReadonlyConfig.fromMap(Collections.emptyMap())),
+                        Mockito.mock(SourceReader.Context.class),
+                        Mockito.mock(SourceConfig.class),
+                        Mockito.mock(DebeziumDeserializationSchema.class));
+        try {
+            Assertions.assertEquals("UNKNOWN", reader.getCdcProgress().getConnectorType());
+        } finally {
+            reader.close();
+        }
     }
 }

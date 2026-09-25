@@ -136,8 +136,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private static <T> CdcReaderProgressTracker createLegacyProgressTracker(
             DataSourceDialect<?> dataSourceDialect,
             RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter) {
+        String connectorType = dataSourceDialect.getName();
         CdcReaderProgressTracker progressTracker =
-                new CdcReaderProgressTracker(dataSourceDialect.getName(), "UNKNOWN");
+                new CdcReaderProgressTracker(
+                        connectorType == null ? "UNKNOWN" : connectorType, "UNKNOWN");
         if (recordEmitter instanceof IncrementalSourceRecordEmitter) {
             ((IncrementalSourceRecordEmitter<?>) recordEmitter)
                     .setCdcProgressTracker(progressTracker);
