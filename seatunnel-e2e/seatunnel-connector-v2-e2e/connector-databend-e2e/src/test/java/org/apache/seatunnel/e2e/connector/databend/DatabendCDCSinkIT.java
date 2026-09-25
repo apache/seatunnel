@@ -207,17 +207,15 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         this.minioContainer =
-                // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated
-                // pulls; quay.io is MinIO's own registry and mirrors the same tags publicly.
-                // Pinned to the same release used by the other MinIO containers in this test
-                // suite instead of :latest, so an upstream MinIO release can't silently change
-                // this test's behavior underneath it.
-                new GenericContainer<>("quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z")
+                // MinIO's own images are no longer pullable. bitnamilegacy/minio:2024.6.13 (same
+                // release), pinned by digest; no /data, so the server uses the image's volume.
+                new GenericContainer<>(
+                                "bitnamilegacy/minio@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("minio")
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
-                        .withCommand("server", "/data")
+                        .withCommand("minio", "server", "/bitnami/minio/data")
                         .withExposedPorts(9000);
 
         this.minioContainer.setWaitStrategy(

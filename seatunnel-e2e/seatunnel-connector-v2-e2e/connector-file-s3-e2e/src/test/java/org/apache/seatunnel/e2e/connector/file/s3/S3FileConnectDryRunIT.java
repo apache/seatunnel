@@ -56,7 +56,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** Exercises the source factory metadata contract against MinIO without submitting a job. */
 @Timeout(60)
 public class S3FileConnectDryRunIT extends TestSuiteBase implements TestResource {
-    private static final String IMAGE = "quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z";
+    // MinIO's own images are no longer pullable. bitnamilegacy/minio:2024.6.13 (same MinIO
+    // release), pinned by digest; it has no /data, so the server uses the image's data volume.
+    private static final String IMAGE =
+            "bitnamilegacy/minio@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645";
+    private static final String MINIO_DATA_DIR = "/bitnami/minio/data";
     private static final String BUCKET = "dry-run-events";
     private static final String ACCESS_KEY = "minioadmin";
     private static final String SECRET_KEY = "minioadmin";
@@ -71,7 +75,7 @@ public class S3FileConnectDryRunIT extends TestSuiteBase implements TestResource
                 new GenericContainer<>(DockerImageName.parse(IMAGE))
                         .withEnv("MINIO_ROOT_USER", ACCESS_KEY)
                         .withEnv("MINIO_ROOT_PASSWORD", SECRET_KEY)
-                        .withCommand("server", "/data")
+                        .withCommand("minio", "server", MINIO_DATA_DIR)
                         .withExposedPorts(9000)
                         .waitingFor(Wait.forHttp("/minio/health/ready").forPort(9000))
                         .withStartupTimeout(Duration.ofMinutes(2))

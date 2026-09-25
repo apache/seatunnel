@@ -145,14 +145,14 @@ services:
       retries: 30
 
   minio:
-    # Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls;
-    # quay.io is MinIO's own registry and mirrors the same tags publicly.
-    image: quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z
+    # MinIO's own images are no longer pullable. Same MinIO release, pinned by digest; it has
+    # no /data, so the server uses the image's data volume.
+    image: bitnamilegacy/minio:2024.6.13@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645
     container_name: st-bench-minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-    command: ["server", "/data", "--console-address", ":9090"]
+    command: ["minio", "server", "/bitnami/minio/data", "--console-address", ":9090"]
     ports:
       - "19000:9000"   # host remapped; in-network stays 9000
       - "19090:9090"
@@ -163,7 +163,8 @@ services:
       retries: 30
 
   minio-init:
-    image: minio/mc:RELEASE.2024-06-12T14-34-03Z
+    # The MinIO image above also ships the mc client.
+    image: bitnamilegacy/minio:2024.6.13@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645
     container_name: st-bench-minio-init
     depends_on:
       minio:

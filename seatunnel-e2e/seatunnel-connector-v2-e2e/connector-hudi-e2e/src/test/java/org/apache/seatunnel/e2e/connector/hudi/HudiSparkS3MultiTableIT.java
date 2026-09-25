@@ -54,12 +54,11 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResource {
 
-    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
-    // ("pull access denied ... repository does not exist or may require 'docker login'"); quay.io
-    // is
-    // MinIO's own registry and mirrors the same tags publicly.
+    // MinIO's own images are no longer pullable. bitnamilegacy/minio:2024.6.13 (same MinIO
+    // release), pinned by digest; it has no /data, so the server uses the image's data volume.
     private static final String MINIO_DOCKER_IMAGE =
-            "quay.io/minio/minio:RELEASE.2024-06-13T22-53-53Z";
+            "bitnamilegacy/minio@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645";
+    private static final String MINIO_DATA_DIR = "/bitnami/minio/data";
     private static final String HOST = "minio";
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_USER_NAME = "minio";
@@ -80,11 +79,13 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
     public void startUp() throws Exception {
         container =
                 // MinIOContainer validates its image name is a recognized substitute for
-                // "minio/minio"; the quay.io mirror needs an explicit compatibility declaration
+                // "minio/minio"; a non-official image needs an explicit compatibility declaration
                 // or Testcontainers rejects it with IllegalStateException at startup.
                 new MinIOContainer(
                                 DockerImageName.parse(MINIO_DOCKER_IMAGE)
                                         .asCompatibleSubstituteFor("minio/minio"))
+                        .withCommand(
+                                "minio", "server", "--console-address", ":9001", MINIO_DATA_DIR)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withUserName(MINIO_USER_NAME)
