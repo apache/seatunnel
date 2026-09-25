@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.client.BigtableClient;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableParameters;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.exception.BigtableConnectorErrorCode;
@@ -287,7 +288,7 @@ public class BigtableSourceSplitEnumeratorTest {
         // Each split's owner must match hash(splitId) % parallelism.
         for (int i = 0; i < parallelism; i++) {
             for (BigtableSourceSplit split : context.getAssignedSplits(i)) {
-                int expected = (split.splitId().hashCode() & Integer.MAX_VALUE) % parallelism;
+                int expected = HashUtils.bucketIndex(split.splitId().hashCode(), parallelism);
                 assertEquals(
                         expected,
                         i,

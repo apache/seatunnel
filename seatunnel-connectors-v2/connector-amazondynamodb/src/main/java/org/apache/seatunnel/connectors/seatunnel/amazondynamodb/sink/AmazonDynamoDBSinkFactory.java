@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.amazondynamodb.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -51,9 +52,9 @@ public class AmazonDynamoDBSinkFactory implements TableSinkFactory {
                 .optional(
                         BATCH_SIZE,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA,
-                        MAX_RETRIES,
                         RETRY_BASE_DELAY_MS,
                         RETRY_MAX_DELAY_MS)
+                .optional(MAX_RETRIES, Conditions.greaterOrEqual(MAX_RETRIES, 0))
                 .build();
     }
 

@@ -79,7 +79,7 @@ public class RowToAvroConverter implements Serializable {
         for (int i = 0; i < fieldNames.length; i++) {
             String fieldName = rowType.getFieldName(i);
             Object value = element.getField(i);
-            builder.set(fieldName.toLowerCase(), resolveObject(value, rowType.getFieldType(i)));
+            builder.set(fieldName, resolveObject(value, rowType.getFieldType(i)));
         }
         return builder.build();
     }
@@ -147,8 +147,7 @@ public class RowToAvroConverter implements Serializable {
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
                     recordBuilder.set(
-                            fieldNames[i].toLowerCase(),
-                            resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
+                            fieldNames[i], resolveObject(seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
             default:

@@ -23,6 +23,26 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 用于 Apache Kafka 的源连接器。
 
+### 连通性 dry-run
+
+Zeta 的 `--dry-run connect` 仅通过主题元数据校验 Kafka source。它使用配置的
+`bootstrap.servers` 和 `kafka.config` 安全设置，通过 `describeTopics` 检查显式主题，
+并对 `pattern = true` 使用与正常运行一致的主题全名匹配规则。支持 `tables_configs`
+及旧版 `table_list`。输出 schema 复用正常 source 配置路径，包括 native 字段、Kafka
+header 字段和事件时间元数据。
+
+元数据请求共享 30 秒的时间预算；如果 `kafka.config.default.api.timeout.ms` 更小，
+则使用该值。请求超时不会超过此预算，客户端清理也使用有界等待。与 Kafka 正常启动一致，
+在应用 dry-run 限制之前，显式配置的 API 超时不得小于配置值或 Kafka 默认值的
+`request.timeout.ms`。客户端初始化（包括 DNS
+和认证提供方初始化）可能需要额外时间。正常作业运行及其超时
+配置保持不变。校验不会创建 consumer 或 producer，不会读写消息、访问或提交消费位点，
+也不会创建缺失的主题。
+
+校验成功仅证明可以访问元数据，**不代表**具备消费消息、访问消费组或反序列化实际消息
+的能力。与运行时一致，允许正则表达式当前没有可见的匹配主题；此时仅校验主题列表访问，
+不验证未来主题的访问权限。Kafka sink 仍不支持连通性 dry-run。
+
 ## 支持的数据源信息
 
 使用 Kafka 连接器需要以下依赖项。  
@@ -48,6 +68,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
 | format                              | String                              | 否    | json                         | 数据格式。默认格式为 json。可选格式包括 text, canal_json, debezium_json, ogg_json, maxwell_json, avro , protobuf和native。默认字段分隔符为 ", "。如果自定义分隔符，添加 "field_delimiter" 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md) 了解详细信息。如果使用 debezium 格式，请参考 [debezium-json](../formats/debezium-json.md)。一些Format的详细信息请参考 [formats](../formats) |
 | avro_schema                         | String                              | 否    | -                            | 当 `format` 为 `avro` 时生效。用于提供二进制 Avro 消息的 writer schema，适用于消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不完全一致的场景。                                                                                                                                                                                                                                             |
+| value_converter_schema_enabled      | Boolean                             | 否    | true                         | 仅在 `format = compatible_kafka_connect_json` 时生效。Kafka Connect value 转换后的 JSON 载荷是否携带 schema。                                                                                                                                                                                                                                                                                |
 | format_error_handle_way             | String                              | 否    | fail                         | 数据格式错误的处理方式。默认值为 fail，可选值为 fail 和 skip。当选择 fail 时，数据格式错误将阻塞并抛出异常。当选择 skip 时，数据格式错误将跳过此行数据。                                                                                                                                                                                                                                     |
 | debezium_record_include_schema      | Boolean                             | 否    | true                         | 当 `format` 为 `debezium_json` 时生效，用于说明 Debezium 记录中是否携带 schema 信息。                                                                                                                                                                                                                                          |
 | debezium_record_table_filter        | Config                              | 否    | -                            | 用于过滤 debezium 格式的数据，仅当格式设置为 `debezium_json` 时使用。请参阅下面的 `debezium_record_table_filter`                                                                                                                                                                                                                                          |
@@ -61,9 +82,8 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | common-options                      |                                     | 否    | -                            | 源插件的常见参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)。                                                                                                                                                                                                                                                           |
 | protobuf_message_name               | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定消息名称。                                                                                                                                                                                                                                                                                                    |
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
-| strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 时有效。是否在 Protobuf 反序列化之前去除 Confluent Schema Registry 线格式头部（magic byte、schema id 和 message indexes）。当消费使用 Confluent Schema Registry 编码的 Protobuf 消息时，此选项非常有用。启用后，连接器将尝试在解析 Protobuf 消息之前检测并删除 Schema Registry 头部。如果未检测到头部，它将回退到标准的 Protobuf 反序列化。                                                                                                                                                                                                                                                                                              |
+| strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 或 avro 时有效。protobuf 会在反序列化前去除 Confluent Schema Registry 头；avro 会去除固定的 5 字节头（magic byte 和 schema ID）。avro 启用此选项时必须同时配置 `avro_schema`，且不会查询 Schema Registry。 |
 | reader_cache_queue_size             | Integer                             | 否    | 2                            | Fetcher 与 Reader 线程之间缓冲队列的容量。每个元素是一次 `consumer.poll()` 的整批结果，而非单条消息。详见 [reader_cache_queue_size](#reader_cache_queue_size)。 |
-| is_native                           | Boolean                             | 否    | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
 | kafka_headers_fields                | Array                               | 否    | -                            | 指定要从 Kafka 消息 header 中提取并映射为行字段的 header key 列表。每个 header 值以 STRING 类型追加到输出行的末尾（位于正常 schema 字段之后）。不支持 NATIVE 格式。                                                                                                                                                                                                               |
 
 > 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。
@@ -531,8 +551,6 @@ source {
 ```
 
 **注意**：当启用 `strip_schema_registry_header` 时，连接器可以安全地处理 Schema Registry 编码的消息和纯 Protobuf 消息。如果未检测到 Schema Registry 头部，它将自动回退到标准 Protobuf 反序列化。
-```
-
 ### 忽略无 Leader 分区
 
 当处理可能存在临时 leader 问题的 Kafka 集群时，您可以配置连接器忽略没有 leader 的分区：
@@ -563,7 +581,6 @@ source {
     start_mode = "earliest"
     format_error_handle_way = skip
     format = "NATIVE"
-    value_converter_schema_enabled = false
     consumer.group = "native_group"
   }
 }
@@ -702,9 +719,9 @@ transform {
 
 ### Kafka Source 支持哪些消息格式？
 
-支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
+支持：`json`、`text`、`canal_json`、`debezium_json`、`maxwell_json`、`ogg_json`、`avro`、`protobuf`、`compatible_kafka_connect_json` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
 
-`format = avro` 仅支持原始（未经 Schema Registry 封装）的 Avro 消息。与 `protobuf`（参见 [Protobuf with Schema Registry wire format](#protobuf-with-schema-registry-wire-format)）不同，`avro` 没有对应 `strip_schema_registry_header` 的选项：如果 topic 是由 Confluent `KafkaAvroSerializer` 写入、消息中带有 Confluent Schema Registry 线格式头部（magic byte + schema id），`format = avro` 不会在反序列化前去除该头部，因此会读取失败或得到损坏的数据。`avro_schema` 仅用于为普通（非 Schema Registry）Avro 消息提供 writer schema。
+`format = avro` 默认读取原始 Avro 二进制消息。对于由 Confluent `KafkaAvroSerializer` 写入的消息，请设置 `strip_schema_registry_header = true` 并提供 `avro_schema`。连接器通过开头的 magic byte 检测并剥离固定的 5 字节线上格式头（magic byte `0` 加 4 字节 schema ID）后再解码，不会查询 Schema Registry。该选项默认关闭，关闭时原始 Avro 行为保持不变。
 
 ### 如何配置 SASL/Kerberos 认证？
 

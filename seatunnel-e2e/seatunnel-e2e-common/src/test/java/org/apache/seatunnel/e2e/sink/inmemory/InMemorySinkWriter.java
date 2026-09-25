@@ -87,6 +87,19 @@ public class InMemorySinkWriter
             }
         }
 
+        long writeDelayMs = config.get(InMemorySinkFactory.WRITE_DELAY_MS);
+        if (writeDelayMs > 0) {
+            // Throttle this writer to simulate a slow/rate-limited sink: sleeping here (on the
+            // sink task's own thread) keeps it from draining the bounded intermediate queue,
+            // which is exactly the condition needed to exercise sustained source->sink
+            // backpressure in tests.
+            try {
+                Thread.sleep(writeDelayMs);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
         if (config.get(InMemorySinkFactory.THROW_OUT_OF_MEMORY)) {
             throw new OutOfMemoryError();
         }

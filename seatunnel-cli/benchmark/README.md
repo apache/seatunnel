@@ -109,6 +109,56 @@ Task format:
 }
 ```
 
+### Optional public paraphrase suite
+
+The default remains the same 100 baseline tasks. Select `--suite paraphrase`
+to run **only 12 alternative-wording tasks**, not the baseline plus its variants:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.runner --provider openai --model gpt-4o \
+    --suite paraphrase --out benchmark/paraphrase-baseline
+
+# Filter using the inherited tier and the distinct variant ID.
+python -m benchmark.runner --provider openai --model gpt-4o \
+    --suite paraphrase --tiers 2 --tasks t2_cdc_pg_kafka_p1 \
+    --out benchmark/paraphrase-postgres
+```
+
+These commands call the selected model and use the normal gate and repair
+pipeline. `--level l1` removes engine execution, **not model calls**. The wrapper
+`run_benchmark.sh` also forwards `--suite`. Invalid, duplicate, empty, or
+out-of-tier task selections in the paraphrase suite fail before provider setup.
+Baseline selection behavior is unchanged.
+
+`tasks/paraphrase.json` contains four routing variants, four CDC variants, and
+four connector-option/mode variants, including one Chinese routing prompt.
+Each record provides only `parent_id`, `parent_sha256`, and alternative `prompt`.
+The loader copies the entire canonical task, including assertions and execution
+fixtures, and uses `<parent_id>_p1` as its stable task ID. It refuses unknown or
+duplicate parents, assertion overrides, unchanged wording, and parent fingerprint
+mismatches. A parent edit requires reviewing semantic equivalence and explicitly
+repinning the full parent contract; do not automatically refresh pins.
+This first slice intentionally uses one reviewed wording per parent; multiple
+wordings and their ID/weighting policy are left for a separate corpus expansion.
+
+Saved variant entries include `parent_id` and `parent_sha256`. The existing
+`task_sha256` covers the expanded variant, including its wording and provenance.
+New results also record `suite` at run level. Cross-suite comparisons are rejected
+before task pairing. Older baseline results without a suite marker remain
+compatible; unmarked paraphrase results must be collected again with this marker.
+Keep baseline and candidate runs in separate directories and compare the same
+variant IDs using `benchmark.compare`; parent tasks and variants are different
+tasks, not directly paired samples. Changed wording/contracts are excluded from
+cross-revision comparisons. Existing report formats and skipped-gate exclusions
+are unchanged.
+
+This is a **public regression corpus**, not an unseen holdout or a measurement of
+generalization. A wording-sensitive regression can only be established by actual
+model runs. Offline tests verify selection, fixture inheritance, scoring and
+reporting contracts; they do not prove model accuracy or full output-data semantic
+equivalence. Keep production prompt tuning separate from corpus changes.
+
 ## Docker data environment
 
 `docker/docker-compose.yml` provides sources and sinks with pre-seeded data
@@ -121,7 +171,7 @@ Task format:
 | Kafka (KRaft) | `apache/kafka:3.7.0` | `localhost:9092` | PLAINTEXT | topics clicks, order_events, dbz.shop.users (seeded), events, wms.inventory, shop.orders.changelog |
 | ClickHouse | `clickhouse/clickhouse-server:23.3.13.6` | `localhost:8123` | default / Test@123 | db `bench`: pre-created sink tables |
 | Elasticsearch | `elasticsearch:8.9.0` | `localhost:9200` | security disabled | — |
-| MinIO (S3) | `minio/minio` | `localhost:9000` | minioadmin / minioadmin | bucket `bench` |
+| MinIO (S3) | `quay.io/minio/minio` | `localhost:9000` | minioadmin / minioadmin | bucket `bench` |
 | Doris *(profile `olap`)* | `apache/doris:doris-all-in-one-2.1.0` | FE 8030 / query 9030 | root / empty | apply `init/doris/01_bench.sql` |
 | StarRocks *(profile `olap`)* | `starrocks/allin1-ubuntu:3.3.4` | FE 8031 / query 9031 | root / empty | apply `init/doris/01_bench.sql` |
 
@@ -214,6 +264,60 @@ claude-sonnet-4 (bedrock)  (28 tasks)
 ```
 
 ## Methodology notes
+
+### Compare saved results across revisions
+
+Keep each run in a separate output directory, then compare its saved JSON:
+
+```bash
+cd seatunnel-cli
+python -m benchmark.compare benchmark/baseline/results.json benchmark/candidate/results.json \
+    --out benchmark/comparison.md
+```
+
+This command uses only the Python standard library. It does not generate configs,
+call a model, start Docker, or rerun validation. Without `--out` it prints Markdown
+to stdout. An existing output file is never overwritten, including either input
+or an existing single-run report. Incompatible runs produce an explanatory report;
+exit code 0 means the report was produced, not that a regression gate passed.
+Unreadable/malformed input, ambiguous duplicate identities, or an output error
+produce exit code 2.
+
+The report shows per-model paired-trial rates for the first delivered config
+(`pass@1`) and success within the configured repair budget. Every matched task and
+trial also shows `pass→fail`, `fail→pass`, `pass→pass`, or `fail→fail`, so an overall
+gain cannot hide a regression. Trial indices identify independent samples, not
+matched random seeds; transitions are observations, not statistical significance.
+
+Compatibility is checked before reporting deltas:
+
+- Requested gates, trial count, and repair budget must match. Both runs need a
+  CLI revision stamp.
+- Model names identify rows; recorded provider settings must match and explicitly
+  include provider and model IDs. Different aliases are reported as missing models.
+- Task IDs must match and carry the same `task_sha256`. New runs record a SHA-256
+  of the complete task dictionary (including prompt, assertions, tier, and execution
+  probes), encoded as UTF-8 JSON with sorted keys, no whitespace separators, and
+  unescaped Unicode. This field is additive; existing summaries are unchanged.
+- Trial IDs must exactly cover the declared count. Missing tasks/models/trials,
+  initialization failures, skipped requested gates, and incomplete or contradictory
+  attempt records are excluded from both sides, with reasons. A real generation or
+  gate failure still counts as a failure; later gates short-circuited by that failure
+  do not make the trial incomplete.
+
+Results recorded before `task_sha256` was added cannot establish that their task
+definitions match. They remain readable by the existing single-run reporter, but
+the comparison excludes them. Collect new baseline and candidate runs with the
+fingerprint-enabled harness; do not backfill hashes from today's task files.
+
+Only the paired, complete subset contributes to both denominators. Inspect all
+exclusions before interpreting a delta as a full-suite change. The report compares
+recorded settings, not every runtime input: keep environment variables (including
+fast-model overrides), model serving state, gate implementations, connector metadata,
+engine version, and source/sink data constant when isolating a CLI change. A matching
+task hash does not prove these inputs match or attribute an improvement to CLI code.
+
+### Existing evaluation methodology
 
 - **Determinism**: L2/L3 verdicts are exit-code/liveness based — no LLM judge.
 - **Isolation**: each task gets a fresh Orchestrator; CLI state goes to a
