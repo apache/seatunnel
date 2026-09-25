@@ -23,6 +23,11 @@ on:
   schedule:
   - cron: "*/15 * * * *"
 
+# Overlapping ticks must not both create a Build check run for the same re-run.
+concurrency:
+  group: update-build-status
+  cancel-in-progress: false
+
 jobs:
   update:
     name: Update build status
@@ -38,6 +43,8 @@ jobs:
           script: |
             const SEARCH_WINDOW_DAYS = 7;
             const BATCH_SIZE = 10;
+            const TIMEOUT_ANNOTATION = 'exceeded the maximum execution time';
+            const MAX_TIMEOUT_LOOKUPS = 10;
 
             function getSearchSince() {
               const windowStart = new Date(Date.now() - SEARCH_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -111,12 +118,14 @@ jobs:
             }
 
             function shouldSkipPatch(checkRun, workflowRun) {
+              // details_url is not compared: GitHub keeps it pointing at the check run itself
+              // for check runs created by GitHub Actions, so it never equals the fork run URL
+              // and every Build check was patched on every tick.
               const sameStatus = checkRun.status === workflowRun.status;
               const sameConclusion =
                 workflowRun.status !== 'completed' || checkRun.conclusion === workflowRun.conclusion;
-              const sameDetailsUrl = checkRun.details_url === workflowRun.details_url;
 
-              return sameStatus && sameConclusion && sameDetailsUrl;
+              return sameStatus && sameConclusion;
             }
 
             function deriveCompletedConclusion(jobs, fallbackConclusion) {
@@ -184,6 +193,70 @@ jobs:
               return jobs;
             }
 
+            // A completed Build check that was written after the workflow run last changed
+            // already holds the final result, so skip the job and annotation lookups.
+            function isCheckFinalForRun(checkRun, workflowRun) {
+              if (
+                checkRun.status !== 'completed'
+                || checkRun.conclusion === 'action_required'
+                || workflowRun.status !== 'completed'
+              ) {
+                return false;
+              }
+              const checkCompletedAt = Date.parse(checkRun.completed_at || '');
+              const runUpdatedAt = Date.parse(workflowRun.updated_at || '');
+              return !Number.isNaN(checkCompletedAt)
+                && !Number.isNaN(runUpdatedAt)
+                && checkCompletedAt >= runUpdatedAt;
+            }
+
+            function jobDurationMs(job) {
+              const startedAt = Date.parse(job.started_at || '');
+              const completedAt = Date.parse(job.completed_at || '');
+              return Number.isNaN(startedAt) || Number.isNaN(completedAt) ? 0 : completedAt - startedAt;
+            }
+
+            // A job that reaches its timeout-minutes ends as `cancelled`, and GitHub then reports
+            // the whole run as `cancelled`, even when other jobs failed. Report a failed job as
+            // `failure` and a timed-out job as `timed_out` so the Build check does not look as if
+            // the run was stopped by hand.
+            async function refineCancelledConclusion(workflowRunParams, jobs) {
+              if (
+                jobs.some(
+                  (job) => job.conclusion === 'failure' || job.conclusion === 'startup_failure'
+                )
+              ) {
+                return 'failure';
+              }
+
+              const cancelledJobs = jobs
+                .filter((job) => job.conclusion === 'cancelled')
+                .sort((left, right) => jobDurationMs(right) - jobDurationMs(left))
+                .slice(0, MAX_TIMEOUT_LOOKUPS);
+              for (const job of cancelledJobs) {
+                const annotations = (
+                  await github.request(
+                    'GET /repos/{owner}/{repo}/check-runs/{check_run_id}/annotations',
+                    {
+                      owner: workflowRunParams.owner,
+                      repo: workflowRunParams.repo,
+                      check_run_id: job.id,
+                      per_page: 100
+                    }
+                  )
+                ).data;
+                if (
+                  annotations.some(
+                    (annotation) => (annotation.message || '').includes(TIMEOUT_ANNOTATION)
+                  )
+                ) {
+                  return 'timed_out';
+                }
+              }
+
+              return 'cancelled';
+            }
+
             async function normalizeWorkflowRun(workflowRunParams, workflowRun) {
               const normalizedWorkflowRun = {
                 status: workflowRun.status,
@@ -192,6 +265,12 @@ jobs:
               };
 
               if (workflowRun.status !== 'queued') {
+                if (workflowRun.status === 'completed' && workflowRun.conclusion === 'cancelled') {
+                  normalizedWorkflowRun.conclusion = await refineCancelledConclusion(
+                    workflowRunParams,
+                    await listWorkflowJobs(workflowRunParams)
+                  );
+                }
                 return normalizedWorkflowRun;
               }
 
@@ -210,6 +289,12 @@ jobs:
                   jobs,
                   workflowRun.conclusion
                 );
+                if (normalizedWorkflowRun.conclusion === 'cancelled') {
+                  normalizedWorkflowRun.conclusion = await refineCancelledConclusion(
+                    workflowRunParams,
+                    jobs
+                  );
+                }
                 return normalizedWorkflowRun;
               }
 
@@ -238,13 +323,15 @@ jobs:
                   {
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    ref: pr.head.sha
+                    ref: pr.head.sha,
+                    per_page: 100
                   }
                 );
 
-                const buildCheckRuns = checkRuns.data.check_runs.filter(
-                  (checkRun) => checkRun.name === 'Build'
-                );
+                // Newest first: a rerun of the fork run adds a new Build check run (see below).
+                const buildCheckRuns = checkRuns.data.check_runs
+                  .filter((checkRun) => checkRun.name === 'Build')
+                  .sort((left, right) => right.id - left.id);
                 const buildCheckRun =
                   buildCheckRuns.find(
                     (checkRun) => checkRun.conclusion !== 'action_required'
@@ -290,6 +377,13 @@ jobs:
                   }
                 }
 
+                if (isCheckFinalForRun(buildCheckRun, workflowRun)) {
+                  console.log(
+                    `  Skip PR #${pr.number}: Build check run ${buildCheckRun.id} is already final for workflow run ${workflowRunParams.run_id}`
+                  );
+                  return;
+                }
+
                 let normalizedWorkflowRun;
                 try {
                   normalizedWorkflowRun = await normalizeWorkflowRun(
@@ -298,6 +392,45 @@ jobs:
                   );
                 } catch (error) {
                   console.error(`  Skip PR #${pr.number}: workflow jobs lookup failed`, error);
+                  return;
+                }
+
+                const runStartedAt = Date.parse(workflowRun.run_started_at || '');
+                const hasCheckForCurrentAttempt = buildCheckRuns.some(
+                  (checkRun) =>
+                    checkRun.conclusion !== 'action_required'
+                    && !Number.isNaN(runStartedAt)
+                    && Date.parse(checkRun.started_at || '') >= runStartedAt
+                );
+                if (
+                  buildCheckRun.status === 'completed'
+                  && normalizedWorkflowRun.status !== 'completed'
+                  && !hasCheckForCurrentAttempt
+                ) {
+                  // The fork run was re-run. GitHub accepts a PATCH that moves a completed check
+                  // run back to in_progress but keeps it completed, so the PR kept showing the
+                  // previous attempt's result until the re-run finished. Start a new Build check
+                  // run for the same workflow run instead; later ticks update the newest one.
+                  console.log(
+                    `  Create Build check run for PR #${pr.number}: check run ${buildCheckRun.id} is completed but workflow run ${workflowRunParams.run_id} is ${normalizedWorkflowRun.status}`
+                  );
+                  await github.request('POST /repos/{owner}/{repo}/check-runs', {
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: 'Build',
+                    head_sha: pr.head.sha,
+                    status: normalizedWorkflowRun.status === 'in_progress' ? 'in_progress' : 'queued',
+                    output: {
+                      title: 'Test results',
+                      summary: `[See test results](${workflowRun.html_url})`,
+                      text: JSON.stringify({
+                        owner: workflowRunParams.owner,
+                        repo: workflowRunParams.repo,
+                        run_id: workflowRunParams.run_id
+                      })
+                    },
+                    details_url: normalizedWorkflowRun.details_url
+                  });
                   return;
                 }
 
@@ -326,6 +459,7 @@ jobs:
 
                 if (normalizedWorkflowRun.status === 'completed') {
                   patchParams.conclusion = normalizedWorkflowRun.conclusion;
+                  patchParams.completed_at = new Date().toISOString();
                   console.log(
                     `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status}/${buildCheckRun.conclusion} -> ${normalizedWorkflowRun.status}/${normalizedWorkflowRun.conclusion}`
                   );
