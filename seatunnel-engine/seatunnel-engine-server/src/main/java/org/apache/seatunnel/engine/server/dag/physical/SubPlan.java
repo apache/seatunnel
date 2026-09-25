@@ -514,6 +514,30 @@ public class SubPlan {
         }
     }
 
+    /**
+     * Ends a pipeline whose restore was decided but must not go ahead any more.
+     *
+     * <p>A pipeline waits {@code pipelineRestoreIntervalSeconds} between being reset and being
+     * restarted. A stop that the job master decides in that window, such as {@code
+     * JobMaster.savepointFailed} after a savepoint the failure broke, calls {@link
+     * #forceStopPipeline()}, which finds only reset tasks and so stops nothing. Without this check
+     * the pipeline would restart anyway and leave its job in {@code DOING_SAVEPOINT} for good.
+     *
+     * <p>Moving the pipeline back to the state it failed with runs the normal terminal path again,
+     * where no restore is allowed now, so it ends and completes the pipeline future as usual.
+     *
+     * @param endState the terminal state the pipeline reached before the restore was prepared
+     * @param failure the pipeline error recorded before the restore reset it
+     */
+    private void abandonRestore(PipelineStatus endState, String failure) {
+        log.info(
+                "{} no longer needs restore, ending it as {} instead of restarting it",
+                pipelineFullName,
+                endState);
+        errorByPhysicalVertex.compareAndSet(null, failure);
+        updatePipelineState(endState);
+    }
+
     /** restore the pipeline when pipeline failed or canceled by error. */
     public void restorePipeline() {
         try {
@@ -736,11 +760,19 @@ public class SubPlan {
                 break;
             case FAILED:
             case CANCELED:
-                if (checkNeedRestore(state) && prepareRestorePipeline()) {
-                    jobMaster.releasePipelineResource(this);
-                    jobMaster.preApplyResources(this);
-                    restorePipeline();
-                    return;
+                if (checkNeedRestore(state)) {
+                    // restoring resets the error, keep it in case the restore is abandoned
+                    String failure = errorByPhysicalVertex.get();
+                    if (prepareRestorePipeline()) {
+                        if (!jobMaster.isNeedRestore()) {
+                            abandonRestore(state, failure);
+                            return;
+                        }
+                        jobMaster.releasePipelineResource(this);
+                        jobMaster.preApplyResources(this);
+                        restorePipeline();
+                        return;
+                    }
                 }
                 subPlanDone(state);
                 stopSubPlanStateProcess();
