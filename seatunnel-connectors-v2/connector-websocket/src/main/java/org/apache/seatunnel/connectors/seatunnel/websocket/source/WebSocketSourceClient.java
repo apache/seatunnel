@@ -36,6 +36,8 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Keeps a single WebSocket connection to the configured server and buffers every received frame
@@ -49,8 +51,13 @@ public class WebSocketSourceClient {
 
     private static final int NORMAL_CLOSURE_STATUS = 1000;
 
+    /** How long a single buffering attempt waits before re-checking whether the reader is alive. */
+    private static final long ENQUEUE_OFFER_TIMEOUT_MS = 500L;
+
     private final WebSocketSourceConfig config;
     private final BlockingQueue<String> messageQueue;
+    private final AtomicInteger reconnectTimes = new AtomicInteger();
+    private final AtomicLong droppedMessages = new AtomicLong();
 
     private OkHttpClient httpClient;
     private ScheduledExecutorService reconnectScheduler;
@@ -58,7 +65,6 @@ public class WebSocketSourceClient {
     private volatile WebSocket webSocket;
     private volatile Throwable fatalError;
     private volatile boolean closed;
-    private int reconnectTimes;
 
     public WebSocketSourceClient(WebSocketSourceConfig config) {
         this.config = config;
@@ -112,12 +118,12 @@ public class WebSocketSourceClient {
                 WebSocketConnectorErrorCode.CONNECT_FAILED,
                 String.format(
                         "Connection to websocket server [%s] failed after [%s] reconnect attempts",
-                        config.getUrl(), reconnectTimes),
+                        config.getUrl(), reconnectTimes.get()),
                 error);
     }
 
     /** Closes the connection and releases the underlying OkHttp resources. */
-    public void close() {
+    public synchronized void close() {
         closed = true;
         if (reconnectScheduler != null) {
             reconnectScheduler.shutdownNow();
@@ -133,7 +139,15 @@ public class WebSocketSourceClient {
         }
     }
 
-    private void connect() {
+    /**
+     * Opens a new connection. Synchronized against {@link #close()} because a reconnect task may
+     * still fire once the reader is gone, and a connection created after the teardown would never
+     * be closed again.
+     */
+    private synchronized void connect() {
+        if (closed) {
+            return;
+        }
         Request.Builder requestBuilder = new Request.Builder().url(config.getUrl());
         Map<String, String> headers = config.getHeaders();
         if (headers != null) {
@@ -151,20 +165,19 @@ public class WebSocketSourceClient {
             fatalError = cause;
             return;
         }
-        if (reconnectTimes >= config.getMaxReconnectTimes()) {
+        if (reconnectTimes.get() >= config.getMaxReconnectTimes()) {
             log.error(
                     "Reconnect to websocket server [{}] gave up after [{}] attempts",
                     config.getUrl(),
-                    reconnectTimes);
+                    reconnectTimes.get());
             fatalError = cause;
             return;
         }
-        reconnectTimes++;
         log.warn(
                 "Websocket connection to [{}] is broken, reconnecting in [{}]ms, attempt [{}/{}]",
                 config.getUrl(),
                 config.getReconnectIntervalMs(),
-                reconnectTimes,
+                reconnectTimes.incrementAndGet(),
                 config.getMaxReconnectTimes(),
                 cause);
         try {
@@ -177,12 +190,35 @@ public class WebSocketSourceClient {
         }
     }
 
+    /**
+     * Buffers a received frame, making the callback thread wait while the queue is full so that the
+     * server is back-pressured instead of the heap growing without limit.
+     *
+     * <p>Every attempt is bounded on purpose. The whole read loop of a connection runs on a single
+     * callback thread that {@link #close()} cannot interrupt, so waiting for room without ever
+     * re-checking {@link #closed} would pin that thread forever once the reader stops draining the
+     * queue, which is exactly what happens when a batch job reaches its stop condition or a task is
+     * cancelled under back-pressure. Frames that arrive after the reader is gone are dropped
+     * instead: nothing would ever consume them.
+     */
     private void enqueue(String message) {
         try {
-            messageQueue.put(message);
+            while (!closed) {
+                if (messageQueue.offer(message, ENQUEUE_OFFER_TIMEOUT_MS, TimeUnit.MILLISECONDS)) {
+                    return;
+                }
+            }
+            if (droppedMessages.getAndIncrement() == 0) {
+                log.warn(
+                        "Dropping messages received from websocket server [{}] because the reader is"
+                                + " already closed, further drops are not logged",
+                        config.getUrl());
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            log.warn("Interrupted while buffering a message from websocket server");
+            log.warn(
+                    "Interrupted while buffering a message from websocket server [{}]",
+                    config.getUrl());
         }
     }
 
@@ -190,7 +226,7 @@ public class WebSocketSourceClient {
 
         @Override
         public void onOpen(WebSocket webSocket, Response response) {
-            reconnectTimes = 0;
+            reconnectTimes.set(0);
             log.info("Websocket connection to [{}] is established", config.getUrl());
             List<String> openMessages = config.getOpenMessages();
             if (openMessages == null || openMessages.isEmpty()) {
