@@ -132,7 +132,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         }
     }
 
-    private List<ChunkRange> splitTableIntoChunks(
+    protected List<ChunkRange> splitTableIntoChunks(
             JdbcConnection jdbc, TableId tableId, Column splitColumn) throws Exception {
         final String splitColumnName = splitColumn.name();
         final Object[] minMax = queryMinMax(jdbc, tableId, splitColumn);
@@ -183,7 +183,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 int shardCount = (int) Math.ceil((double) approximateRowCnt / chunkSize);
                 if (doubleCompare(distributionFactor, 1.0d) > 0
                         && sampleShardingAllow
-                        && sampleShardingThreshold < shardCount) {
+                        && shardCount > 1) {
                     int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
                     if (inverseSamplingRate > chunkSize) {
                         log.warn(

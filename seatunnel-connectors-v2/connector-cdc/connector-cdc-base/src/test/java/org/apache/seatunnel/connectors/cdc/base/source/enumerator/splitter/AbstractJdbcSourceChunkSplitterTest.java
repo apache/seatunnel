@@ -186,15 +186,13 @@ public class AbstractJdbcSourceChunkSplitterTest {
 
                     @Override
                     public int getSampleShardingThreshold() {
-                        return 2;
+                        return 1000; // Large default threshold that should be ignored for gap fixes
                     }
                 };
 
         TableId tableId = new TableId("test", "test", "test");
-        java.lang.reflect.Method splitMethod =
-                AbstractJdbcSourceChunkSplitter.class.getDeclaredMethod(
-                        "splitTableIntoChunks", JdbcConnection.class, TableId.class, Column.class);
-        splitMethod.setAccessible(true);
+        io.debezium.relational.Column splitColumn =
+                io.debezium.relational.Column.editor().name("id").create();
 
         final boolean[] samplingCalled = {false};
         final boolean[] unevenlyCalled = {false};
@@ -204,12 +202,14 @@ public class AbstractJdbcSourceChunkSplitterTest {
                 new ConfiguredUtJdbcSourceChunkSplitter(config) {
                     @Override
                     public Object[] queryMinMax(
-                            JdbcConnection jdbc, TableId tableId, String columnName) {
+                            JdbcConnection jdbc,
+                            TableId tableId,
+                            io.debezium.relational.Column columnName) {
                         return new Object[] {1, 50000};
                     }
 
                     @Override
-                    public boolean isEvenlySplitColumn(Column splitColumn) {
+                    public boolean isEvenlySplitColumn(io.debezium.relational.Column splitColumn) {
                         return true;
                     }
 
@@ -244,7 +244,7 @@ public class AbstractJdbcSourceChunkSplitterTest {
                     protected List<ChunkRange> splitUnevenlySizedChunks(
                             JdbcConnection jdbc,
                             TableId tableId,
-                            Column splitColumn,
+                            io.debezium.relational.Column splitColumn,
                             Object min,
                             Object max,
                             int chunkSize) {
@@ -262,7 +262,7 @@ public class AbstractJdbcSourceChunkSplitterTest {
                     }
                 };
 
-        splitMethod.invoke(splitterSuccess, null, tableId, null);
+        splitterSuccess.splitTableIntoChunks(null, tableId, splitColumn);
         org.junit.jupiter.api.Assertions.assertTrue(
                 samplingCalled[0], "Should invoke sampling for sparse IDs");
         org.junit.jupiter.api.Assertions.assertFalse(
@@ -278,12 +278,14 @@ public class AbstractJdbcSourceChunkSplitterTest {
                 new ConfiguredUtJdbcSourceChunkSplitter(config) {
                     @Override
                     public Object[] queryMinMax(
-                            JdbcConnection jdbc, TableId tableId, String columnName) {
+                            JdbcConnection jdbc,
+                            TableId tableId,
+                            io.debezium.relational.Column columnName) {
                         return new Object[] {1, 50000};
                     }
 
                     @Override
-                    public boolean isEvenlySplitColumn(Column splitColumn) {
+                    public boolean isEvenlySplitColumn(io.debezium.relational.Column splitColumn) {
                         return true;
                     }
 
@@ -318,7 +320,7 @@ public class AbstractJdbcSourceChunkSplitterTest {
                     protected List<ChunkRange> splitUnevenlySizedChunks(
                             JdbcConnection jdbc,
                             TableId tableId,
-                            Column splitColumn,
+                            io.debezium.relational.Column splitColumn,
                             Object min,
                             Object max,
                             int chunkSize) {
@@ -327,7 +329,7 @@ public class AbstractJdbcSourceChunkSplitterTest {
                     }
                 };
 
-        splitMethod.invoke(splitterFallback, null, tableId, null);
+        splitterFallback.splitTableIntoChunks(null, tableId, splitColumn);
         org.junit.jupiter.api.Assertions.assertTrue(
                 samplingCalled[0], "Should attempt sampling for sparse IDs");
         org.junit.jupiter.api.Assertions.assertFalse(
