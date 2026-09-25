@@ -132,11 +132,51 @@ jobs:
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4
-      - run: sudo npm install -g markdown-link-check@3.8.7
-      - run: |
-          for file in $(find . -name "*.md"); do
-            markdown-link-check -c .dlc.json -q "$file"
-          done
+        with:
+          fetch-depth: '2000'
+      - name: Collect markdown files to check
+        env:
+          # The nightly run and pushes to apache/seatunnel dev check every file.
+          # Other pushes only check markdown files changed against apache/seatunnel dev.
+          FULL_SCAN: ${{ github.event_name == 'schedule' || (github.repository_owner == 'apache' && github.ref == 'refs/heads/dev') }}
+        run: |
+          md_files="${RUNNER_TEMP}/md-files.txt"
+          if [[ "$FULL_SCAN" != 'true' ]]; then
+            git remote add apache https://github.com/apache/seatunnel
+            if git fetch --no-tags --depth=2000 apache dev && base=$(git merge-base FETCH_HEAD HEAD); then
+              git -c core.quotePath=false diff --name-only --diff-filter=d "$base" HEAD -- '*.md' > "$md_files"
+            else
+              echo "::warning::Could not find the merge base with apache/seatunnel dev; checking all markdown files"
+              FULL_SCAN='true'
+            fi
+          fi
+          if [[ "$FULL_SCAN" == 'true' ]]; then
+            find . -name "*.md" > "$md_files"
+          fi
+          echo "Markdown files to check: $(wc -l < "$md_files")"
+          echo "MD_FILES=$md_files" >> "$GITHUB_ENV"
+      - name: Check links
+        run: |
+          if [[ ! -s "$MD_FILES" ]]; then
+            echo "No markdown files to check."
+            exit 0
+          fi
+          sudo npm install -g markdown-link-check@3.8.7
+          failed=()
+          while IFS= read -r file; do
+            if ! markdown-link-check -c .dlc.json -q -- "$file" < /dev/null; then
+              # markdown-link-check 3.8.7 only retries HTTP 429, so give
+              # transient 5xx responses and timeouts one more chance.
+              echo "Retrying $file in 30 seconds ..."
+              sleep 30
+              markdown-link-check -c .dlc.json -q -- "$file" < /dev/null || failed+=("$file")
+            fi
+          done < "$MD_FILES"
+          if (( ${#failed[@]} > 0 )); then
+            echo "Dead links found in:"
+            printf '  %s\n' "${failed[@]}"
+            exit 1
+          fi
 
   sanity-check:
     name: Sanity check results
