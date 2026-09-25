@@ -29,6 +29,7 @@ connector-cassandra
 connector-salesforce
 connector-cdc-db2
 connector-cdc-mysql
+connector-cdc-oceanbase
 connector-cdc-mongodb
 connector-cdc-sqlserver
 connector-cdc-postgres
@@ -61,6 +62,7 @@ connector-google-pubsub
 connector-azure-queue-storage
 connector-google-bigtable
 connector-google-ads
+connector-google-analytics4
 connector-facebook-ads
 connector-tiktok-ads
 connector-graphql
@@ -73,6 +75,7 @@ connector-http-github
 connector-http-jira
 connector-http-klaviyo
 connector-http-stripe
+connector-http-paypal
 connector-http-lemlist
 connector-http-linear
 connector-http-myhours
@@ -80,6 +83,7 @@ connector-http-notion
 connector-http-onesignal
 connector-http-persistiq
 connector-http-shopify
+connector-http-splunk
 connector-http-wechat
 connector-http-airtable
 connector-http-zendesk
@@ -107,6 +111,7 @@ connector-s3-redshift
 connector-sentry
 connector-slack
 connector-socket
+connector-syslog
 connector-edge-socket
 connector-starrocks
 connector-tablestore
