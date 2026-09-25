@@ -22,7 +22,6 @@ import org.apache.seatunnel.edge.agent.connector.EdgeEvent;
 import org.apache.seatunnel.edge.agent.connector.config.FileCollectConfig;
 import org.apache.seatunnel.edge.agent.connector.config.FileCollectOptions;
 
-import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -37,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.awaitility.Awaitility.await;
 
@@ -57,10 +57,13 @@ public class FileCollectReaderBehaviorTest {
         map.put(FileCollectOptions.GLOB_SCAN_INTERVAL_MS.key(), GLOB_SCAN_INTERVAL_MS);
         map.put(FileCollectOptions.READ_FROM_BEGINNING.key(), false);
 
+        // Idle close and glob rediscovery are driven by this clock, not by wall-clock time.
+        AtomicLong clock = new AtomicLong(1_000_000L);
         FileCollectReader reader =
                 new FileCollectReader(
                         FileCollectConfig.from(ReadonlyConfig.fromMap(map)),
-                        new NoOpPositionStore());
+                        new NoOpPositionStore(),
+                        clock::get);
         reader.open();
         try {
             Assertions.assertTrue(reader.poll(10).isEmpty());
@@ -69,26 +72,13 @@ public class FileCollectReaderBehaviorTest {
                     logFile, "first\n".getBytes(StandardCharsets.UTF_8), StandardOpenOption.APPEND);
             Assertions.assertEquals(1, reader.poll(10).size());
 
-            long idleDeadlineMs = System.currentTimeMillis() + CLOSE_INACTIVE_MS + 30L;
-            Awaitility.await()
-                    .atMost(3, TimeUnit.SECONDS)
-                    .pollInterval(GLOB_SCAN_INTERVAL_MS, TimeUnit.MILLISECONDS)
-                    .until(
-                            () -> {
-                                reader.poll(10);
-                                return System.currentTimeMillis() >= idleDeadlineMs;
-                            });
+            // Past the idle window: this poll closes the inactive cursor. Discovery runs before
+            // the close within a poll, so the file is not picked up again by the same poll.
+            clock.addAndGet(CLOSE_INACTIVE_MS + 1);
+            Assertions.assertTrue(reader.poll(10).isEmpty());
 
-            // Ensure glob scan rediscovers the file before new data is appended
-            Awaitility.await()
-                    .atMost(3, TimeUnit.SECONDS)
-                    .pollInterval(5, TimeUnit.MILLISECONDS)
-                    .until(
-                            () -> {
-                                reader.poll(10);
-                                return System.currentTimeMillis()
-                                        >= idleDeadlineMs + GLOB_SCAN_INTERVAL_MS;
-                            });
+            // One glob scan interval later the file is rediscovered and reopened at its end.
+            clock.addAndGet(GLOB_SCAN_INTERVAL_MS);
             Assertions.assertTrue(reader.poll(10).isEmpty());
 
             Files.write(
@@ -107,6 +97,10 @@ public class FileCollectReaderBehaviorTest {
                                                 events.get(0).getPayload(), StandardCharsets.UTF_8);
                                 Assertions.assertTrue(payload.contains("second"));
                                 Assertions.assertFalse(payload.contains("first"));
+                                // Line numbering restarts only if the cursor was closed and the
+                                // file was picked up again by the glob scan.
+                                Assertions.assertEquals(
+                                        "1", events.get(0).getMetadata().get("line"));
                             });
         } finally {
             reader.close();
