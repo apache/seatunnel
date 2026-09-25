@@ -2,6 +2,15 @@
 
 This document proposes the first backend contract for [GH-11667](https://github.com/apache/seatunnel/issues/11667). The canonical STIP discussion is [STIP-33](https://github.com/apache/seatunnel/issues/11735). This document does not describe an implemented API yet.
 
+Changes since `e944f1e3`:
+
+- The attempt key's source, its single writer, and how each kind of report resolves are now tables (Normative Rules R1 and R2).
+- What each dropped operation leaves behind is now a table (R3), and the ordering statements now cover only operations accepted into the queue.
+- Each history map now has one row naming its writers, fence, expiry, cleanup owner and persistence (R4).
+- The REST resolution order is now a decision table that handles an absent job state (R5).
+- Entry creation and adoption are ordered before any capture for the same job, including master-recovery captures during `JobMaster.init` (Ownership section and R4).
+- The wire-compatibility fixtures are delivered as a first implementation slice, before any field is added (Compatibility).
+
 ## Problem
 
 The Job Detail page currently exposes one exception string. This is not enough when a pipeline is restored several times, or when different task groups fail during the same job. Operators need to see which pipeline attempt and task group failed, and when, without searching every worker log. The first version attributes failures to pipelines and task groups, not to worker addresses.
@@ -63,7 +72,7 @@ This value is public. Since #11982, `/job-info` returns it as `diagnostics.pipel
 
 When `PhysicalVertex` deploys a task group, it records the pair `(executionId, attemptKey)` for that deployment. `executionId` is the per-deployment ID that `getTaskGroupImmutableInformation()` already generates with the flake ID generator. The vertex keeps its current deployment and the one before it, and `reset()` moves the current deployment to the previous slot.
 
-These pairs live in master memory. A new active master therefore rebuilds them. While it restores the job, every vertex whose state is `DEPLOYING`, `RUNNING`, `FAILING` or `CANCELING` receives a placeholder deployment with an unknown `executionId` under the `SubPlan`'s current key. A worker keeps executing a task group that survived the failover and skips the redeploy (`TaskExecutionService`), so it keeps reporting the `executionId` that the old master assigned. That ID is unknown to the new master and resolves to the placeholder.
+These pairs live in master memory. A new active master therefore rebuilds them. When `JobMaster.init` rebuilds the plan on a new active master (`restart = true`), `PhysicalVertex.initStateFuture` gives every vertex whose state is `DEPLOYING`, `RUNNING`, `FAILING` or `CANCELING` a placeholder deployment with an unknown `executionId` under the `SubPlan`'s current key. It does this before it checks whether the task group is still executing. `initStateFuture` also runs when a pipeline is restored on the same master. There it installs no placeholder, and a transition it causes carries no failure context, so it records nothing. A worker keeps executing a task group that survived the failover and skips the redeploy (`TaskExecutionService`), so it keeps reporting the `executionId` that the old master assigned. That ID is unknown to the new master and resolves to the placeholder.
 
 ### Attempt number
 
@@ -155,7 +164,7 @@ The proposed REST response is:
 }
 ```
 
-`attempts` lists the attempt table of every pipeline, including attempts with no retained failure. `suppressedCount` is the number of failures in that attempt that were not recorded individually (see Capture and Deduplication).
+`attempts` lists the attempt table of every pipeline as stored, including attempts with no retained failure. `suppressedCount` is the number of failures in that attempt that were not recorded individually (see Capture and Deduplication).
 
 Field rules for a failure:
 
@@ -192,8 +201,8 @@ Capture happens inside the engine's own state transitions, so it is ordered befo
 
 - **Task-group failures (`WORKER`, `NODE_LOSS`, `MASTER_RECOVERY`).** Capture happens inside `PhysicalVertex.updateTaskState`, within the same synchronized transition. It runs after the `FAILED` or `FAILING` state is written and before `stateProcess()` and the task future complete.
   - `updateStateByExecutionService` passes the report's structured fields and `executionId` into that transition.
-  - Node loss (`CoordinatorService.makeTasksFailed`) and master recovery (`initStateFuture`) use the same transition, without an `executionId`.
-  - A pipeline end callback runs asynchronously on the job executor. Capture has already been offered at that point, so a reset cannot overtake the failure.
+  - Node loss (`CoordinatorService.makeTasksFailed`) and master recovery (`initStateFuture` during `JobMaster.init` with `restart = true`) use the same transition, without an `executionId`.
+  - A pipeline end callback runs asynchronously on the job executor. Capture has already been offered at that point, so an accepted capture is queued ahead of every operation the reset offers. A rejected capture is handled as described in R3.
 - **Deployment failures (`DEPLOY`).** The deploy failure paths in `PhysicalVertex` (`deploy` and `deployOnRemote`) pass a `DEPLOY` failure context to `makeTaskGroupFailing`. Capture happens there, after the `FAILING` transition is accepted.
   - `TaskDeployState.failed(Throwable)` carries the original failure's class name, message, stack trace and fingerprint as strings, captured where the `Throwable` is available. On the worker, that is before the response crosses the Hazelcast RPC boundary.
   - Master-side failures unwrap `ExecutionException` and `CompletionException` to the original cause. The live `Throwable` never crosses the boundary, so connector-specific exception classes are not needed on the master.
@@ -225,7 +234,7 @@ Recording history is diagnostic and best effort:
 
 - Each active master's `CoordinatorService` owns one bounded FIFO queue and one dedicated consumer thread.
 - The queue holds at most 1,000 operations and 16 MiB of captured text, and at most 100 queued operations per job. An `offer` that would exceed a bound is dropped.
-- The consumer runs each `EntryProcessor` outside Hazelcast operation threads and outside the job scheduling executor. It retries only failures that Hazelcast classifies as retryable, up to three times, and then drops the operation.
+- The consumer runs each `EntryProcessor` outside Hazelcast operation threads and outside the job scheduling executor. It processes the queue strictly in order. It retries an operation in place, before taking the next one, only for failures that Hazelcast classifies as retryable, up to three times, and then drops it.
 - Completion never changes task or pipeline state, never calls back into `JobMaster` or `SubPlan`, and never re-enters failure or restore processing.
 - No failure-history operation is required for a task failure, restore decision, or restored execution to proceed.
 
@@ -257,10 +266,12 @@ Failure history uses two dedicated Hazelcast maps: `engine_runningJobFailureHist
 Each running entry and each finished snapshot records its owner as `(jobId, initializationTimestamp)` from `JobInfo`. Current `dev` uses the same identity for cleanup ownership (`isCleanupOwnedByCurrentJob` and `JobCleanupRecord.ownerInitializationTimestamp`). Neither `JobInfo` nor `JobCleanupRecord` changes.
 
 - `JobMaster` initialization of a new submission, including a savepoint start that reuses a job ID, offers a create operation. No other operation creates an entry.
+- `JobMaster.init` offers the create operation (or, after failover, the adopt operation) immediately after `PlanUtils.fromLogicalDAG` returns. This is before `initCheckPointManager` and `initStateFuture`, which can capture `MASTER_RECOVERY` failures on a new active master. On current `dev`, `submitJob` and `restoreJobFromMasterActiveSwitch` both call `init` before the job enters the pending queue, and no other capture point runs before the job leaves that queue. An accepted create or adopt is therefore queued ahead of every capture for the job. If it is rejected, later operations for the job are rejected as `NO_ENTRY` or `OWNER_MISMATCH` (R3).
 - The consumer runs the create operation in order:
   1. If the running entry belongs to another owner and is not finalized, finalize it as described in Terminal Handling.
-  2. Remove any finished snapshot of another owner.
-  3. Create the new entry and register each pipeline's current key.
+  2. Create the new entry and register each pipeline's current key.
+
+  A create operation never removes a finished snapshot of another owner. The snapshot of the new owner replaces it once that owner finishes (R4).
 
   If step 1 fails, the new entry is still created and the loss of the previous incarnation's history is logged.
 - Active-master recovery adopts an existing entry only when its owner matches the recovered `JobInfo` and the entry is not terminal. Adoption registers each pipeline's current key.
@@ -313,16 +324,20 @@ Terminal handling has three idempotent steps:
 
    An already terminal entry is returned unchanged, without calling `setValue`. A plain `setValue` would clear the TTL, and not calling it means no retry or recovery can extend the deadline. The processor returns the frozen records.
 2. **Write the finished snapshot** from the frozen records, with its owner and the same remaining TTL. This step is best effort.
-3. **`removeIfOwner(owner)`.** Remove the entry only when the owner matches and the entry is terminal.
+3. **`removeIfOwner(owner)`.** Remove the entry only when the owner matches and the entry is terminal. This step runs only after step 2 succeeded, or after a snapshot of the same owner was found. Otherwise the terminal entry stays until the next finalization offer or the sweep retries step 2, or until its TTL expires.
 
-Every finalization goes through the same FIFO queue, behind every earlier capture operation. The failures that led to the terminal state are therefore applied before the entry becomes terminal. Callers resolve `terminalTime` before they offer the operation. Finalization skips step 2 when a finished snapshot with the same owner already exists.
+Every finalization goes through the same FIFO queue, behind every earlier operation that the queue accepted. Captures accepted before the finalization are therefore applied before the entry becomes terminal. A capture that was rejected or exhausted its retries is absent and logged (R3). The terminal fence depends only on the owner, the terminal flag and `terminalTime`, never on whether every earlier record was stored. Callers resolve `terminalTime` before they offer the operation. Finalization skips step 2 when a finished snapshot with the same owner already exists.
+
+The finished snapshot stores its owner and the frozen records and attempt tables. It is written only over no snapshot, or over a snapshot whose owner has a smaller `initializationTimestamp`, so an older incarnation can never overwrite a newer one.
+
+A finished savepoint start that reuses a job ID can have no snapshot of its own in two cases: its create operation was dropped, or every attempt to write its snapshot failed until its running entry expired. In either case, once its `JobInfo` is removed, REST returns the previous incarnation's snapshot, if one remains, until that snapshot's TTL expires. Both cases are logged at WARN. They are the only cases where history can belong to an earlier incarnation of the same job ID.
 
 `JobMaster.cleanJob()` offers finalization first, in its own `try`, before its other terminal work. Finalization is also offered best effort from four other places:
 
 - `processPendingJobCleanup`, with `ownerInitializationTimestamp`, before `cleanupPendingJobStateMaps`;
 - `cleanupTerminalZombieJob`, with the `JobInfo` initialization timestamp, before its state keys are removed;
 - `cleanupPendingJobStateForRestore`, before a savepoint start initializes the new incarnation; and
-- a history sweep. The sweep runs every 60 seconds on the existing `pipelineCleanupScheduler`, only on the active master. It finalizes any running entry whose owner has no matching `JobInfo` in `runningJobInfoIMap`, including one left by a failed submission, and any running entry whose job state is terminal. Each run continues while such entries remain, within a 5-second budget.
+- a history sweep. The sweep runs every 60 seconds on the existing `pipelineCleanupScheduler`, only on the active master. It finalizes any running entry whose owner has no matching `JobInfo` in `runningJobInfoIMap`, and any running entry whose job state is an end state; an absent job state is not an end state. An entry whose owner has no `JobInfo`, that is not terminal, and whose job never reached an end state is an orphan, such as one left by a failed submission. For an orphan, the sweep runs `markTerminal` and `removeIfOwner` without step 2, both fenced by owner. Every other finalization writes a snapshot, even an empty one. Each run continues while such entries remain, within a 5-second budget.
 
 A failed or dropped finalization is logged and not thrown into those paths. It cannot keep a `JobCleanupRecord` pending, delay existing state cleanup, or fail a savepoint-start submission. The sweep retries it.
 
@@ -347,24 +362,12 @@ GET /job-info/{jobId}/failures?limit=100
 
 Behavior:
 
-- `failures` is returned in descending `sequence` order, with at most `limit` records. `attempts` is always complete.
+- `failures` is returned in descending `sequence` order, with at most `limit` records. `attempts` is not limited by `limit`.
 - `limit` defaults to 100. Larger values are capped at 100.
 - Running and finished jobs use the same response model.
 - The response is written with a streaming JSON writer. Its size is bounded by the stored text limits after JSON escaping.
 
-The endpoint resolves the job in this order:
-
-1. The job is running when all of these hold:
-   - `JobInfo` exists in `runningJobInfoIMap`;
-   - the job's state in `runningJobStateIMap` is not an end state; and
-   - either that state is present, or a running entry whose owner matches `JobInfo` exists and is not terminal.
-
-   For a running job, the endpoint returns the records of the owner-matching running entry, or an empty list when there is none.
-2. Otherwise, if a finished snapshot exists, the endpoint returns it.
-3. Otherwise, if `JobInfo` or a finished job state exists, the job is known and the endpoint returns an empty list. This covers a job without an entry and a failed or evicted snapshot.
-4. Otherwise it returns `404`. A leftover history entry never makes an unknown or expired job appear known.
-
-A terminal job therefore never reads running records, including during the `state-cleanup-delay-ms` window when `JobInfo` still exists. A savepoint start that reuses the job ID never returns the previous incarnation's history, because creating its entry removes the other owner's snapshot.
+The endpoint resolves the job with the decision table R5 in Normative Rules. A terminal job never reads running records, including during the `state-cleanup-delay-ms` window when `JobInfo` still exists. While a savepoint start that reuses the job ID is running, R5 returns only records and snapshots whose owner matches its `JobInfo`. After it finishes, see the limit described in Terminal handling.
 
 `JobInfoServlet` currently parses the whole decoded path as one numeric job ID. It also serves the deprecated `/running-job/*` alias. Jetty's decoded path turns `%2F` into `/`, strips `;` parameters and resolves dot segments, so the new route never routes on it. The failures route is matched as follows:
 
@@ -467,14 +470,98 @@ Two Java-serialized classes cross the worker-master boundary and gain fields. Bo
 
 Both values were computed with `serialver` on JDK 8 and JDK 11. The implementation declares exactly these values before adding fields. It keeps the existing fields' names and types, and adds only nullable fields: `executionId` as a `Long`, and the structured failure fields as `String`s. No new class appears in the serialized form, so an old reader never needs a class it lacks.
 
-Under Java serialization's compatible-change rules, a new reader leaves absent fields `null` and an old reader ignores unknown fields. Old and new workers and masters therefore interoperate; a report from an old worker simply has no `executionId`. For each class, tests cover both directions:
+Under Java serialization's compatible-change rules, a new reader leaves absent fields `null` and an old reader ignores unknown fields. Old and new workers and masters therefore interoperate; a report from an old worker simply has no `executionId`. The first implementation slice pins both values and adds `TaskStateSerializationTest` in the `org.apache.seatunnel.engine.server.serializable` test package, before any field is added:
 
-- a byte fixture written by the unchanged class deserializes with the new class;
-- a value written by the new class deserializes with the old class definition.
+- The fixtures are the Java serialization bytes of fixed `TaskExecutionState` and `TaskDeployState` values, written by the unmodified classes on current `dev`. JDK 8 and JDK 11 produced identical bytes.
+- The tests assert:
+  - the fixtures deserialize with the pinned classes, field by field;
+  - the pinned classes write exactly the fixture bytes;
+  - each declared UID equals the previously generated value.
 
-A guard test fails if either declared UID changes.
+The slice that adds the optional fields keeps these fixtures. It adds tests that the new class reads the old bytes with the new fields `null`, and that bytes written by the new class are read by the unmodified class definition in an isolated class loader.
 
 The history value and its `EntryProcessor` classes are new types. On members that do not have them, history operations fail and are dropped as best effort. The design does not claim failure history during a mixed-version rollout.
+
+## Normative Rules
+
+The tables below are the precise form of the rules above. Where prose and a table differ, the table applies.
+
+### R1. Attempt key source and writer
+
+| Moment | Value copied | Written by | Stored as |
+|---|---|---|---|
+| First creation of the pipeline state | The `CREATED` slot that the `SubPlan` constructor writes with `System.currentTimeMillis()` when the pipeline state is absent. The `INITIALIZING` slot, which holds `initializationTimestamp`, is not the key | The active master's `SubPlan` constructor | `SubPlan.currentKey`, registered by create |
+| Constructor on a new active master, state present | The persisted `CREATED` value, unchanged. If that slot is null, the key is unknown | Nobody; it is only read | `SubPlan.currentKey`, registered by adopt |
+| Restore | `max(now, previousCreated + 1)`, where `previousCreated` is read from the persisted timestamp array in the same execution of the write. If that slot is null, `now` | Only the active master's `SubPlan`. `resetPipelineState()` runs only from `SubPlan`'s `synchronized reset()` under `restoreLock` | `SubPlan.currentKey` is set from the value written by the execution of the write that returned without an exception. `RetryUtils` re-runs the whole write on a retry, so each retry computes a new value from the persisted one. A best-effort `registerAttempt` follows |
+| Deployment of a task group | `SubPlan.currentKey` at the moment `getTaskGroupImmutableInformation()` generates the `executionId` | The active master's `PhysicalVertex` | The vertex's current deployment `(executionId, key)` |
+| `PhysicalVertex.initStateFuture` during `JobMaster.init` with `restart = true`, vertex in `DEPLOYING`, `RUNNING`, `FAILING` or `CANCELING` | `SubPlan.currentKey`, before the liveness check | The new active master's `PhysicalVertex` | A placeholder deployment `(unknown, key)` |
+| Timestamp array absent | None | Nobody | Key unknown: `attempt` and `attemptStartedAt` are null |
+
+Each new key is derived from the persisted previous key, so no rule compares clocks of different masters. The only ordering comparison is "larger than every key in the attempt table", and keys increase by construction.
+
+### R2. Report resolution
+
+| Report | Resolved key | Result |
+|---|---|---|
+| `executionId` equals the vertex's current deployment | That deployment's key | Record, subject to deduplication |
+| `executionId` equals the vertex's previous deployment | That deployment's key | Record under the previous attempt |
+| `executionId` unknown, and the vertex holds a placeholder in either slot | The placeholder's key | Record. A report from a deployment older than the placeholder's execution cannot be told apart and is attributed to the placeholder |
+| `executionId` unknown, and no placeholder | None | Not recorded. WARN with reason `STALE_EXECUTION`, through the per-job rate limiter |
+| No `executionId` (node loss, master recovery, older worker) and a current deployment or placeholder exists | Its key | Record |
+| No `executionId`, and neither exists | None | No task-group record |
+| Deployment failure before an `executionId` exists | `SubPlan.currentKey` | `DEPLOY` record |
+| Pipeline failure (`CHECKPOINT`, `RESOURCE`, `ENGINE`) | `SubPlan.currentKey` when captured | `PIPELINE` record |
+| Same `(pipelineId, key, taskGroupId)` or `(pipelineId, key, source)` as a retained record | Same key | No-op; no sequence number consumed |
+
+### R3. Dropped operations
+
+An operation is dropped when its `offer` is rejected (queue full, the job's share used up, or the node no longer the active master), or when it exhausts three in-place retries. It is also dropped when the fence rejects it. Rejections by the fence are:
+
+- `NO_ENTRY`: no entry exists;
+- `OWNER_MISMATCH`: the entry has another owner;
+- `TERMINAL`: the entry is terminal. This covers expected late writes.
+
+Every dropped or rejected operation is logged at WARN through the per-job rate limiter, with identifiers and a reason code only. History does not count drops and does not claim completeness. What each drop leaves behind is:
+
+| Dropped operation | What history shows | What REST shows | `/job-info` diagnostics |
+|---|---|---|---|
+| create | No entry. Later operations for the job are rejected as `NO_ENTRY` or, while another owner's entry remains, `OWNER_MISMATCH` | Known running job: empty `failures`. After it finishes: the empty list while its `JobInfo` exists, then the previous incarnation's snapshot, if one remains (Terminal handling) | Unchanged; `JobRuntimeDiagnostics` never reads failure history |
+| adopt (after failover) | The entry keeps its records, but a current key is registered only when one of its records arrives | Existing records; attempt numbers may skip | Unchanged |
+| `registerAttempt` | The execution receives a number only if one of its records arrives before a larger key is registered | An attempt without failures may be missing from `attempts` | Unchanged |
+| append | That failure is absent. Other failures, including later ones of the same task group, are still recorded | The failure is missing | Unchanged |
+| append carrying a suppressed total | `suppressedCount` stays at the last total received | Lower `suppressedCount` | Unchanged |
+| finalization | The running entry stays live until another finalization offer or the sweep applies. The terminal time is still resolved from the sources listed in Terminal handling | Terminal job: its snapshot appears once a finalization applies; until then the empty list | Unchanged |
+
+Restore, task-failure handling and existing job cleanup never wait on the queue, and a drop never changes their outcome.
+
+### R4. History maps and in-memory state
+
+| State | Key | Created by | Mutated by | Fence | Expiry | Cleanup owner | IMap storage |
+|---|---|---|---|---|---|---|---|
+| `engine_runningJobFailureHistory` | `jobId` | The consumer's create operation, offered by `JobMaster.init` right after the plan is built | Adopt, append, `registerAttempt`, `markTerminal`, `removeIfOwner` | Create: an unfinalized entry of another owner is finalized first, then replaced. Adopt: owner matches and not terminal. Append and register: entry exists, owner matches, not terminal. `markTerminal`: owner matches. `removeIfOwner`: owner matches and terminal | None while live. After `markTerminal`: `terminalTime + history-job-expire-minutes` | The consumer's finalization, offered by `cleanJob`, `processPendingJobCleanup`, `cleanupTerminalZombieJob`, `cleanupPendingJobStateForRestore` and the sweep | Excluded by `FileMapStore` |
+| `engine_finishedJobFailureHistory` | `jobId` | Finalization step 2 | Nothing after the write | Written only when no snapshot exists, or the existing snapshot's owner has a smaller `initializationTimestamp` | `terminalTime + history-job-expire-minutes`, set at the write. Operators may add an eviction policy | Its TTL | Excluded by `FileMapStore` |
+| Operation queue, coalescing counters, per-job WARN rate limiter | Per master; per job | `CoordinatorService` | Capture, consumer | The consumer checks it is still the active master before each operation | A job's counters and limiter state are removed when its finalization is offered. The sweep also removes them for jobs without `JobInfo` | `clearCoordinatorService()` discards everything | In memory only |
+| Deployment slots and placeholders | Per `PhysicalVertex` | Deployment, `initStateFuture` during `init` with `restart = true` | Deployment, `reset()` | None needed; master-local | With the `JobMaster` | Discarded with the `JobMaster` | In memory only |
+
+An orphan, as defined in Terminal handling, is removed without writing a snapshot. An example is the entry of a submission whose `init` failed after the create operation. Every other finalization writes a snapshot, even an empty one, and removes the running entry only after that write.
+
+### R5. REST resolution
+
+Checks run top to bottom. The job state is tested for absence before `isEndState()` is called. An absent state is never treated as running. On current `dev` it occurs in two windows:
+- `submitJob` stores `JobInfo` before `init` writes the job state;
+- `cleanupTerminalZombieJob` and `cleanupPendingJobStateForRestore` remove state keys before `JobInfo`.
+
+| `JobInfo` | Job state in `runningJobStateIMap` | Running entry | Finished snapshot | Response |
+|---|---|---|---|---|
+| Present | Present, not an end state | Owner matches `JobInfo`, not terminal | Any | Running records |
+| Present | Present, not an end state | Absent, another owner, or terminal | Any | Empty list |
+| Present | End state, or absent | Any | Owner matches `JobInfo` | That snapshot |
+| Present | End state, or absent | Any | Absent or another owner | Empty list |
+| Absent | Any | Any | Present | That snapshot |
+| Absent | Any | Any | Absent, but a finished job state exists | Empty list |
+| Absent | Any | Any | Absent, and no finished job state | `404` |
+
+A leftover running entry never makes an unknown or expired job appear known.
 
 ## Acceptance Criteria
 
@@ -489,7 +576,7 @@ The history value and its `EntryProcessor` classes are new types. On members tha
 9. Capture for a failing task group is offered before its pipeline can be reset. This is tested with a single-task-group pipeline, where the end callback races the operation thread.
 10. At an active-master change in each row of the crash-window table, attempts are numbered as stated. Retry eligibility and restore timing are unchanged.
 11. A record whose key is not in the attempt table and is smaller than its largest key is stored with `attempt = null`. Attempt-table eviction removes the smallest key and never changes existing numbers or the next-number counter.
-12. `resetPipelineState()` writes a `CREATED` timestamp strictly greater than the previous one, including when the clock steps backward and when the write is retried. The in-memory key equals the last successfully written value. The `rest-api-v2` documentation describes the field accordingly.
+12. `resetPipelineState()` writes a `CREATED` timestamp strictly greater than the previous one, including when the clock steps backward and when the write is retried. The in-memory key equals the value written by the execution of the write that returned without an exception. The `rest-api-v2` documentation describes the field accordingly.
 13. `attemptStartedAt` always equals the attempt key copied at reset or deploy time. It is never read from `runningJobStateTimestampsIMap` after a later restore.
 14. More than 100 records, or more than 1 MiB of retained text, evicts records oldest first until both limits hold. The first record of each attempt is evicted last.
 15. Redaction precedes any truncation, including the worker-side cap. A secret split across a truncation boundary is not stored. Messages over 4 KiB and stack traces over 64 KiB are truncated at valid UTF-8 boundaries, and they expose the truncation flag and the post-redaction, pre-truncation byte length in running and finished history.
@@ -497,15 +584,15 @@ The history value and its `EntryProcessor` classes are new types. On members tha
 17. More than 20 failures in one pipeline attempt submit at most 20 record operations and report the remainder in `attempts[].suppressedCount`. A retried operation does not count twice.
 18. A full queue, and failed, retried and delayed history operations, do not block the capturing thread, do not re-enter failure or restore processing, and do not change the failure, restore or terminal outcome. Capture does no regex work, and the queue stays within its count, byte and per-job bounds.
 19. No WARN or ERROR line produced by failure history contains message, stack-trace or task-name text. A marker secret in a dropped record never appears in any log line.
-20. Append and attempt operations never create an entry. After `markTerminal` or removal they are no-ops, and they never remove or extend the terminal TTL. Captures queued before a finalization are applied before the entry becomes terminal.
+20. Append and attempt operations never create an entry. After `markTerminal` or removal they are no-ops, and they never remove or extend the terminal TTL. Captures accepted into the queue before a finalization are applied before the entry becomes terminal.
 21. No running entry survives finalization. This includes after active-master failover, terminal-zombie recovery, a savepoint start that reuses the job ID, and an orphan found by the sweep. A failed finalization is retried by the sweep. It does not keep a `JobCleanupRecord` pending, delay existing state cleanup, or fail a savepoint-start submission.
-22. A savepoint start that reuses a job ID finalizes the previous incarnation's unfinalized entry and removes its finished snapshot before creating its own entry. In-flight writes of the previous owner do not change the new entry.
+22. A savepoint start that reuses a job ID finalizes the previous incarnation's unfinalized entry before creating its own entry. In-flight writes of the previous owner do not change the new entry.
 23. The terminal time is anchored as specified, and recovery or cleanup retries never extend a deadline. A backup promoted after `markTerminal` keeps the expiry.
 24. With `map.engine*` configured with a `map-store`, neither history map is written to IMap storage.
 25. At REST:
     - a running job returns running records;
     - a terminal job returns only its own finished snapshot, including during `state-cleanup-delay-ms` and after its state keys are removed;
-    - a running savepoint start that reuses the job ID never returns the previous incarnation's history;
+    - a running savepoint start that reuses the job ID never returns the previous incarnation's history, and a finished one returns it only in the two cases stated in Terminal handling;
     - a known job with no records, including after a failed or evicted snapshot, returns an empty list;
     - an unknown or expired job returns `404` even when a leftover entry exists.
 26. Only a raw URI matching the specified grammar serves failure history. Legacy single-ID routes keep their behavior, including malformed-ID `400` responses. Alias failure-history requests, extra segments, trailing slashes, `%`-encoded characters, `;` parameters, dot segments and empty segments receive the controlled `404`.
@@ -513,9 +600,13 @@ The history value and its `EntryProcessor` classes are new types. On members tha
 28. On the new route, absent, empty, repeated, zero, negative, non-numeric, Unicode-digit, signed and overflowing limits, and overflowing job IDs, return the specified responses.
 29. The endpoint uses the same configured REST authentication boundary as existing job-detail endpoints. No history record or response contains a worker-address attribution field.
 30. Every redaction item listed in Security has a positive and a near-miss test. The tests include secrets across a truncation boundary, PEM blocks, escaped quotes and JAAS text with and without its prefix. Each pattern finishes within a fixed budget on adversarial 1 MiB input, and redaction is idempotent.
-31. The `TaskExecutionState` and `TaskDeployState` UID guards and byte fixtures pass in both directions. Existing `errorMsg` clients are unaffected.
+31. The `TaskExecutionState` and `TaskDeployState` UID guards and byte fixtures pass: the first slice asserts identical bytes, and the slice that adds fields adds both old/new directions. Existing `errorMsg` clients are unaffected.
 32. Existing `job.retry.times`, restore eligibility and restore scheduling never read or wait on failure-history state, including after active-master failover.
 33. English and Chinese documentation describe the same contract.
+34. Each row of R2 has a test, including an unknown `executionId` with and without a placeholder, and a duplicate that consumes no sequence number.
+35. Each row of R3 has a test that forces the drop or rejection (full queue, per-job share, exhausted retries, `NO_ENTRY`, `OWNER_MISMATCH`, `TERMINAL`). The test asserts the history and REST result in the table, the WARN reason code, that `/job-info` diagnostics are unchanged, and that restore and cleanup timing are unaffected.
+36. A finished snapshot never replaces a snapshot whose owner has a larger `initializationTimestamp`. Only an orphan, as defined in Terminal handling, is removed without a snapshot. A savepoint start that finished without failures gets an empty snapshot of its own. A running entry is removed only after its snapshot is written.
+37. Each row of R4 and R5 has a test, including an absent job state while `JobInfo` exists, and a savepoint start whose create operation has not yet run.
 
 ## Delivery Plan
 
