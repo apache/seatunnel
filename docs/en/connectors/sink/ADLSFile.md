@@ -62,15 +62,15 @@ the input bytes without interpreting their contents.
 | tenant_id | string | conditional | - | Microsoft Entra tenant ID. |
 | client_id | string | conditional | - | Microsoft Entra application/client ID. |
 | client_secret | string | conditional | - | Microsoft Entra client secret. |
-| authority_host | string | no | `https://login.microsoftonline.com` | Microsoft Entra authority host. |
+| authority_host | string | no | `https://login.microsoftonline.com` | HTTPS authority origin used for OAuth client credentials. |
 | hadoop_adls_properties | map | no | - | Additional Hadoop ABFS properties. |
-| file_format_type | string | no | `csv` | Output format. |
+| file_format_type | enum | no | `csv` | Output format. |
 | tmp_path | string | no | `/tmp/seatunnel` | Staging directory used before commit. |
 | custom_filename | boolean | no | `false` | Generate a configured filename. |
 | file_name_expression | string | no | `${transactionId}` | Filename expression when custom naming is enabled. |
 | filename_time_format | string | no | `yyyy.MM.dd` | Format of `${now}` in custom filenames. |
 | filename_extension | string | no | - | Override the default extension. |
-| field_delimiter | string | no | `\001` | Field delimiter for text and CSV. |
+| field_delimiter | string | no | `\001` | Field delimiter for text output. |
 | row_delimiter | string | no | `\n` | Row delimiter for text, CSV, and JSON. |
 | have_partition | boolean | no | `false` | Write rows into partition directories. |
 | partition_by | array | no | - | Fields used to build partition directories. |
@@ -80,7 +80,7 @@ the input bytes without interpreting their contents.
 | batch_size | int | no | `1000000` | Maximum rows written before rotating a file. |
 | single_file_mode | boolean | no | `false` | Write one file per parallel writer; disables batch-size rotation. |
 | create_empty_file_when_no_data | boolean | no | `false` | Create an output file even when the writer receives no rows. |
-| compress_codec | string | no | `NONE` | Compression codec for the selected format. |
+| compress_codec | enum | no | `NONE` | Compression codec for the selected format. |
 | is_enable_transaction | boolean | no | `true` | Enable transactional file commit. |
 | schema_save_mode | enum | no | `CREATE_SCHEMA_WHEN_NOT_EXIST` | Destination schema handling. |
 | data_save_mode | enum | no | `APPEND_DATA` | `APPEND_DATA`, `DROP_DATA`, or `ERROR_WHEN_DATA_EXISTS`. |

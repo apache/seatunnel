@@ -72,6 +72,7 @@ public class ADLSFileSourceFactory implements TableSourceFactory {
                         ADLSFileSourceOptions.TENANT_ID,
                         ADLSFileSourceOptions.CLIENT_ID,
                         ADLSFileSourceOptions.CLIENT_SECRET)
+                .optional(ADLSFileSourceOptions.AUTHORITY_HOST)
                 .optional(ADLSFileSourceOptions.HADOOP_PROPERTIES)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,

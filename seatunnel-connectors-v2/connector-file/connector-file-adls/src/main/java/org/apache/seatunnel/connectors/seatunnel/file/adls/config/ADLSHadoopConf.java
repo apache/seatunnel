@@ -78,8 +78,7 @@ public class ADLSHadoopConf extends HadoopConf {
                     ADLSRuntimeCompatibility.sharedKeyOptions(
                             account,
                             suffix,
-                            ADLSConfigValidator.required(
-                                    config, ADLSFileBaseOptions.ACCOUNT_KEY)));
+                            ADLSConfigValidator.required(config, ADLSFileBaseOptions.ACCOUNT_KEY)));
         } else {
             options.putAll(
                     ADLSRuntimeCompatibility.clientCredentialsOptions(

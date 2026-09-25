@@ -50,8 +50,7 @@ final class ADLSConfigValidator {
         String container = required(config, ADLSFileBaseOptions.CONTAINER);
         String endpoint = required(config, ADLSFileBaseOptions.ENDPOINT_SUFFIX);
         if (!ACCOUNT.matcher(account).matches()) {
-            throw validationFailure(
-                    "'account_name' must contain 3-24 lowercase letters or digits");
+            throw validationFailure("'account_name' must contain 3-24 lowercase letters or digits");
         }
         if (!CONTAINER.matcher(container).matches()) {
             throw validationFailure(
@@ -138,7 +137,6 @@ final class ADLSConfigValidator {
 
     private static FileConnectorException validationFailure(String message) {
         return FileConnectorException.withParams(
-                CommonErrorCode.VALIDATION_FAILED,
-                Collections.singletonMap("message", message));
+                CommonErrorCode.VALIDATION_FAILED, Collections.singletonMap("message", message));
     }
 }

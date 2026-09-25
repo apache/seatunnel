@@ -47,15 +47,15 @@ ADLS Gen2 存储账户必须启用层级命名空间（HNS），才能保证事�
 | tenant_id | string | 条件必填 | - | Microsoft Entra 租户 ID。 |
 | client_id | string | 条件必填 | - | Microsoft Entra 应用程序 ID。 |
 | client_secret | string | 条件必填 | - | Microsoft Entra 客户端密钥。 |
-| authority_host | string | 否 | `https://login.microsoftonline.com` | Microsoft Entra authority 地址。 |
+| authority_host | string | 否 | `https://login.microsoftonline.com` | OAuth 客户端凭据认证使用的 HTTPS authority 源站。 |
 | hadoop_adls_properties | map | 否 | - | 额外的 Hadoop ABFS 属性。 |
-| file_format_type | string | 否 | `csv` | 输出文件格式。 |
+| file_format_type | enum | 否 | `csv` | 输出文件格式。 |
 | tmp_path | string | 否 | `/tmp/seatunnel` | 提交前使用的临时目录。 |
 | custom_filename | boolean | 否 | `false` | 是否使用自定义文件名。 |
 | file_name_expression | string | 否 | `${transactionId}` | 自定义文件名表达式。 |
 | filename_time_format | string | 否 | `yyyy.MM.dd` | 自定义文件名中 `${now}` 的时间格式。 |
 | filename_extension | string | 否 | - | 覆盖默认文件扩展名。 |
-| field_delimiter | string | 否 | `\001` | text 和 CSV 的字段分隔符。 |
+| field_delimiter | string | 否 | `\001` | text 输出的字段分隔符。 |
 | row_delimiter | string | 否 | `\n` | text、CSV 和 JSON 的行分隔符。 |
 | have_partition | boolean | 否 | `false` | 是否写入分区目录。 |
 | partition_by | array | 否 | - | 用于生成分区目录的字段。 |
@@ -65,7 +65,7 @@ ADLS Gen2 存储账户必须启用层级命名空间（HNS），才能保证事�
 | batch_size | int | 否 | `1000000` | 文件轮换前写入的最大行数。 |
 | single_file_mode | boolean | 否 | `false` | 每个并行写入器只输出一个文件，不按批大小轮换。 |
 | create_empty_file_when_no_data | boolean | 否 | `false` | 没有输入行时仍创建输出文件。 |
-| compress_codec | string | 否 | `NONE` | 文件压缩格式。 |
+| compress_codec | enum | 否 | `NONE` | 文件压缩格式。 |
 | is_enable_transaction | boolean | 否 | `true` | 是否启用事务提交。 |
 | schema_save_mode | enum | 否 | `CREATE_SCHEMA_WHEN_NOT_EXIST` | 目标 Schema 处理模式。 |
 | data_save_mode | enum | 否 | `APPEND_DATA` | `APPEND_DATA`、`DROP_DATA` 或 `ERROR_WHEN_DATA_EXISTS`。 |

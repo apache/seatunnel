@@ -17,9 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
+import org.apache.hadoop.conf.Configuration;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -153,10 +154,12 @@ public final class ADLSRuntimeCompatibility {
         try {
             new URI("abfss://" + value + "@example.dfs.core.windows.net/");
         } catch (URISyntaxException e) {
-            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, name + " is not a valid ABFS label", e);
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED, name + " is not a valid ABFS label", e);
         }
         if (!value.matches("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")) {
-            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, name + " must be a lowercase DNS label");
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED, name + " must be a lowercase DNS label");
         }
     }
 
@@ -169,7 +172,8 @@ public final class ADLSRuntimeCompatibility {
     private static void validateEndpointSuffix(String endpointSuffix) {
         requireNonBlank(endpointSuffix, "endpointSuffix");
         if (!endpointSuffix.matches("[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?")) {
-            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "endpointSuffix must be a DNS suffix");
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED, "endpointSuffix must be a DNS suffix");
         }
     }
 
@@ -178,7 +182,8 @@ public final class ADLSRuntimeCompatibility {
         requireNonBlank(tenantId, "tenantId");
         if (!TENANT_GUID.matcher(tenantId).matches()
                 && !TENANT_DNS_NAME.matcher(tenantId).matches()) {
-            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "tenantId must be a GUID or DNS name");
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED, "tenantId must be a GUID or DNS name");
         }
     }
 
@@ -195,17 +200,20 @@ public final class ADLSRuntimeCompatibility {
                             && !"/".equals(uri.getPath()))
                     || uri.getRawQuery() != null
                     || uri.getRawFragment() != null) {
-                throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "authorityHost must be an HTTPS origin");
+                throw new FileConnectorException(
+                        CommonErrorCode.VALIDATION_FAILED, "authorityHost must be an HTTPS origin");
             }
             return "https://" + uri.getRawAuthority();
         } catch (URISyntaxException e) {
-            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "authorityHost must be an HTTPS origin", e);
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED, "authorityHost must be an HTTPS origin", e);
         }
     }
 
     private static void requireNonBlank(String value, String name) {
         if (value == null || value.trim().isEmpty()) {
-            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, name + " must not be blank");
+            throw new FileConnectorException(
+                    CommonErrorCode.VALIDATION_FAILED, name + " must not be blank");
         }
     }
 }

@@ -48,7 +48,7 @@ as bytes. Markdown and PDF readers expose structured document fields.
 | name | type | required | default value | Description |
 |------|------|----------|---------------|-------------|
 | path | string | yes | - | ADLS path or directory to read. |
-| file_format_type | string | yes | - | Input format. |
+| file_format_type | enum | yes | - | Input format. |
 | account_name | string | yes | - | ADLS storage account name. |
 | container | string | yes | - | ADLS Gen2 filesystem (container) name. |
 | endpoint_suffix | string | yes | `dfs.core.windows.net` | Storage endpoint suffix. |
@@ -57,14 +57,15 @@ as bytes. Markdown and PDF readers expose structured document fields.
 | tenant_id | string | conditional | - | Microsoft Entra tenant ID. |
 | client_id | string | conditional | - | Microsoft Entra application/client ID. |
 | client_secret | string | conditional | - | Microsoft Entra client secret. |
-| authority_host | string | no | `https://login.microsoftonline.com` | Microsoft Entra authority host. |
+| authority_host | string | no | `https://login.microsoftonline.com` | HTTPS authority origin used for OAuth client credentials. |
 | hadoop_adls_properties | map | no | - | Additional Hadoop ABFS properties. |
 | file_filter_pattern | string | no | - | Regular expression used to select files. |
 | recursive_file_scan | boolean | no | `true` | Scan nested directories. |
 | parse_partition_from_path | boolean | no | `true` | Derive partition fields from `key=value` path segments. |
 | read_columns | list | no | - | Project selected columns. |
+| schema | object | conditional | - | Row schema for text, JSON, Excel, CSV, and XML inputs. |
 | field_delimiter | string | no | `\001` | Field delimiter for text formats. |
-| row_delimiter | string | no | `\n` | Row delimiter for text, CSV, and JSON. |
+| row_delimiter | string | no | `\n` | Row delimiter for text input. |
 | skip_header_row_number | long | no | `0` | Number of header rows to skip. |
 | encoding | string | no | `UTF-8` | Input character encoding. |
 | enable_file_split | boolean | no | `false` | Split supported large files for parallel reading. |

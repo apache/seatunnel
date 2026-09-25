@@ -32,7 +32,7 @@ Flink 时，集群需要提供兼容的 Hadoop runtime。本连接器使用 Hado
 | 名称 | 类型 | 必填 | 默认值 | 描述 |
 |------|------|------|--------|------|
 | path | string | 是 | - | 要读取的 ADLS 文件或目录。 |
-| file_format_type | string | 是 | - | 输入文件格式。 |
+| file_format_type | enum | 是 | - | 输入文件格式。 |
 | account_name | string | 是 | - | ADLS 存储账户名称。 |
 | container | string | 是 | - | ADLS Gen2 文件系统（容器）名称。 |
 | endpoint_suffix | string | 是 | `dfs.core.windows.net` | 存储端点后缀。 |
@@ -41,14 +41,15 @@ Flink 时，集群需要提供兼容的 Hadoop runtime。本连接器使用 Hado
 | tenant_id | string | 条件必填 | - | Microsoft Entra 租户 ID。 |
 | client_id | string | 条件必填 | - | Microsoft Entra 应用程序 ID。 |
 | client_secret | string | 条件必填 | - | Microsoft Entra 客户端密钥。 |
-| authority_host | string | 否 | `https://login.microsoftonline.com` | Microsoft Entra authority 地址。 |
+| authority_host | string | 否 | `https://login.microsoftonline.com` | OAuth 客户端凭据认证使用的 HTTPS authority 源站。 |
 | hadoop_adls_properties | map | 否 | - | 额外的 Hadoop ABFS 属性。 |
 | file_filter_pattern | string | 否 | - | 选择文件的正则表达式。 |
 | recursive_file_scan | boolean | 否 | `true` | 是否扫描嵌套目录。 |
 | parse_partition_from_path | boolean | 否 | `true` | 从 `key=value` 路径片段解析分区字段。 |
 | read_columns | list | 否 | - | 要读取的字段列表。 |
+| schema | object | 条件必填 | - | text、JSON、Excel、CSV 和 XML 输入的行 Schema。 |
 | field_delimiter | string | 否 | `\001` | 文本字段分隔符。 |
-| row_delimiter | string | 否 | `\n` | text、CSV、JSON 的行分隔符。 |
+| row_delimiter | string | 否 | `\n` | text 输入的行分隔符。 |
 | skip_header_row_number | long | 否 | `0` | 跳过的表头行数。 |
 | encoding | string | 否 | `UTF-8` | 输入字符编码。 |
 | enable_file_split | boolean | 否 | `false` | 是否拆分支持的超大文件。 |

@@ -62,6 +62,7 @@ public class ADLSFileSinkFactory implements TableSinkFactory {
                         ADLSFileSinkOptions.TENANT_ID,
                         ADLSFileSinkOptions.CLIENT_ID,
                         ADLSFileSinkOptions.CLIENT_SECRET)
+                .optional(ADLSFileSinkOptions.AUTHORITY_HOST)
                 .optional(ADLSFileSinkOptions.HADOOP_PROPERTIES)
                 .optional(FileBaseSinkOptions.FILE_FORMAT_TYPE)
                 .conditional(
