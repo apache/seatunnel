@@ -458,3 +458,12 @@ firebase:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
+websocket:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-websocket/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-websocket-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-!(websocket)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(websocket)-e2e/**'
