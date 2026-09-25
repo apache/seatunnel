@@ -368,7 +368,9 @@ Specifies Whether to process data using the tag attribute format.
 
 :::caution
 
-For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+External resources referenced by XML files (`file_format_type = xml`), such as external DTDs and external entities, are never resolved and are replaced with empty content.
+XML files with a `<!DOCTYPE ...>` declaration are tolerated as long as they do not rely on any external content.
+There is no configuration option to enable external resource resolution.
 
 :::
 
