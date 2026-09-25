@@ -158,17 +158,65 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
 
     @Override
     public void tearDown() throws Exception {
-        if (taskManager != null) {
-            // delete the volume
-            taskManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            taskManager.stop();
+        // Stop both containers even if one of them never started or the volume cleanup fails. A
+        // JobManager left running keeps the "jobmanager" alias on the shared network, and the
+        // TaskManager of the next test case can then register with it instead of its own
+        // JobManager, which leaves that case's job waiting for slots forever. The first failure is
+        // rethrown after every step has run; later ones are added to it as suppressed.
+        Exception failure = null;
+        try {
+            stopContainer(taskManager);
+        } catch (Exception e) {
+            failure = e;
         }
-        if (jobManager != null) {
-            // delete the volume
-            jobManager.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            jobManager.stop();
+        try {
+            stopContainer(jobManager);
+        } catch (Exception e) {
+            failure = addFailure(failure, e);
         }
+        try {
+            deleteHostVolumeMountPath();
+        } catch (Exception e) {
+            failure = addFailure(failure, e);
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    void deleteHostVolumeMountPath() {
         FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
+    }
+
+    private static void stopContainer(GenericContainer<?> container) throws Exception {
+        if (container == null) {
+            return;
+        }
+        Exception failure = null;
+        try {
+            if (container.isRunning()) {
+                // delete the volume
+                container.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
+            }
+        } catch (Exception e) {
+            failure = e;
+        }
+        try {
+            container.stop();
+        } catch (Exception e) {
+            failure = addFailure(failure, e);
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    private static Exception addFailure(Exception first, Exception next) {
+        if (first == null) {
+            return next;
+        }
+        first.addSuppressed(next);
+        return first;
     }
 
     @Override
