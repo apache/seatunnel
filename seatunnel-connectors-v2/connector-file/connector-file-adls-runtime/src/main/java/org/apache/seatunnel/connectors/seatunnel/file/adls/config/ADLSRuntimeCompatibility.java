@@ -18,11 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.seatunnel.common.exception.CommonErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /** Builds and validates the isolated ABFS runtime configuration used by ADLS. */
 public final class ADLSRuntimeCompatibility {
@@ -33,6 +36,13 @@ public final class ADLSRuntimeCompatibility {
     private static final String DEFAULT_AUTHORITY_HOST = "https://login.microsoftonline.com";
     private static final String CLIENT_CREDENTIALS_PROVIDER =
             "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider";
+    private static final Pattern TENANT_GUID =
+            Pattern.compile(
+                    "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}");
+    private static final Pattern TENANT_DNS_NAME =
+            Pattern.compile(
+                    "[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+                            + "(?:\\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+");
 
     private ADLSRuntimeCompatibility() {}
 
@@ -119,7 +129,7 @@ public final class ADLSRuntimeCompatibility {
             String clientSecret) {
         String host = accountHost(accountName, endpointSuffix);
         String normalizedAuthorityHost = normalizeAuthorityHost(authorityHost);
-        requireNonBlank(tenantId, "tenantId");
+        validateTenantId(tenantId);
         requireNonBlank(clientId, "clientId");
         requireNonBlank(clientSecret, "clientSecret");
         Map<String, String> options = new HashMap<>();
@@ -143,10 +153,10 @@ public final class ADLSRuntimeCompatibility {
         try {
             new URI("abfss://" + value + "@example.dfs.core.windows.net/");
         } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(name + " is not a valid ABFS label", e);
+            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, name + " is not a valid ABFS label", e);
         }
         if (!value.matches("[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?")) {
-            throw new IllegalArgumentException(name + " must be a lowercase DNS label");
+            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, name + " must be a lowercase DNS label");
         }
     }
 
@@ -159,22 +169,43 @@ public final class ADLSRuntimeCompatibility {
     private static void validateEndpointSuffix(String endpointSuffix) {
         requireNonBlank(endpointSuffix, "endpointSuffix");
         if (!endpointSuffix.matches("[a-zA-Z0-9](?:[a-zA-Z0-9.-]*[a-zA-Z0-9])?")) {
-            throw new IllegalArgumentException("endpointSuffix must be a DNS suffix");
+            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "endpointSuffix must be a DNS suffix");
         }
     }
 
-    private static String normalizeAuthorityHost(String authorityHost) {
-        requireNonBlank(authorityHost, "authorityHost");
-        String normalized = authorityHost;
-        while (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
+    /** Validates the tenant path segment before adding it to the OAuth token endpoint. */
+    public static void validateTenantId(String tenantId) {
+        requireNonBlank(tenantId, "tenantId");
+        if (!TENANT_GUID.matcher(tenantId).matches()
+                && !TENANT_DNS_NAME.matcher(tenantId).matches()) {
+            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "tenantId must be a GUID or DNS name");
         }
-        return normalized;
+    }
+
+    /** Returns a validated HTTPS authority origin for the OAuth token endpoint. */
+    public static String normalizeAuthorityHost(String authorityHost) {
+        requireNonBlank(authorityHost, "authorityHost");
+        try {
+            URI uri = new URI(authorityHost);
+            if (!"https".equalsIgnoreCase(uri.getScheme())
+                    || uri.getHost() == null
+                    || uri.getUserInfo() != null
+                    || (uri.getPath() != null
+                            && !uri.getPath().isEmpty()
+                            && !"/".equals(uri.getPath()))
+                    || uri.getRawQuery() != null
+                    || uri.getRawFragment() != null) {
+                throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "authorityHost must be an HTTPS origin");
+            }
+            return "https://" + uri.getRawAuthority();
+        } catch (URISyntaxException e) {
+            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, "authorityHost must be an HTTPS origin", e);
+        }
     }
 
     private static void requireNonBlank(String value, String name) {
         if (value == null || value.trim().isEmpty()) {
-            throw new IllegalArgumentException(name + " must not be blank");
+            throw new FileConnectorException(CommonErrorCode.VALIDATION_FAILED, name + " must not be blank");
         }
     }
 }

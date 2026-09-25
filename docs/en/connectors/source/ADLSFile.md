@@ -63,17 +63,64 @@ as bytes. Markdown and PDF readers expose structured document fields.
 | recursive_file_scan | boolean | no | `true` | Scan nested directories. |
 | parse_partition_from_path | boolean | no | `true` | Derive partition fields from `key=value` path segments. |
 | read_columns | list | no | - | Project selected columns. |
-| field_delimiter | string | no | `\001` for text, `,` for CSV | Field delimiter for text formats. |
+| field_delimiter | string | no | `\001` | Field delimiter for text formats. |
 | row_delimiter | string | no | `\n` | Row delimiter for text, CSV, and JSON. |
 | skip_header_row_number | long | no | `0` | Number of header rows to skip. |
 | encoding | string | no | `UTF-8` | Input character encoding. |
 | enable_file_split | boolean | no | `false` | Split supported large files for parallel reading. |
-| file_split_size | long | conditional | - | Split size when file splitting is enabled. |
-| discovery_mode | enum | no | `CONTINUOUS` | File discovery mode. |
-| start_mode | enum | no | - | Starting point for continuous discovery. |
+| file_split_size | long | conditional | `134217728` | Split size in bytes when file splitting is enabled. |
+| discovery_mode | enum | no | `ONCE` | File discovery mode. |
+| scan_interval | duration | no | `10S` | Polling interval in continuous discovery. |
+| start_mode | enum | no | `EARLIEST` | Starting point for continuous discovery. |
 | sync_mode | enum | no | `FULL` | Full or update synchronization mode. |
 | post_sync_action | enum | no | `NONE` | Action after a file is synchronized. |
+| target_path | string | conditional | - | Target path to compare when `sync_mode=UPDATE`. |
+| target_hadoop_conf | map | no | - | Hadoop settings for the update comparison target. |
+| update_strategy | enum | no | `DISTCP` | Update comparison strategy; `DISTCP` or `STRICT`. |
+| compare_mode | enum | no | `LEN_MTIME` | Compare length and modification time, or checksum with `STRICT`. |
+| update_compare_parallelism | int | no | `8` | Parallel target metadata lookups. |
+| update_compare_bulk_threshold | int | no | `0` | Candidate count that triggers directory listing; zero disables it. |
+| backup_path | string | conditional | - | Destination when `post_sync_action=BACKUP`. |
+| retention_max_age | duration | no | - | Maximum age of backed-up files before cleanup. |
+| retention_check_interval | duration | no | `1H` | Backup retention scan interval. |
+| null_format | string | no | - | String representing a null value. |
+| quote_char | string | no | `"` | Character enclosing CSV fields. |
+| escape_char | string | no | - | Escape character for CSV fields. |
+| sheet_name | string | no | - | Excel sheet to read. |
+| excel_engine | enum | no | `POI` | Excel reader, `POI` or `EasyExcel`. |
+| poi_excel_max_file_size | long | no | `52428800` | Maximum Excel file size in bytes for POI. |
+| compress_codec | enum | no | `NONE` | Input compression codec. |
+| archive_compress_codec | enum | no | `NONE` | Archive compression codec. |
+| xml_row_tag | string | conditional | - | Row tag for XML input. |
+| xml_use_attr_format | boolean | conditional | - | Read XML data from attributes. |
+| markdown_rag_metadata_enabled | boolean | no | `false` | Append RAG metadata for Markdown input. |
+| pdf_rag_metadata_enabled | boolean | no | `false` | Append RAG metadata for PDF input. |
+| filename_extension | string | no | - | Filter by filename extension. |
+| date_format | string | no | `yyyy-MM-dd` | Date parsing format. |
+| datetime_format | string | no | `yyyy-MM-dd HH:mm:ss` | Datetime parsing format. |
+| time_format | string | no | `HH:mm:ss` | Time parsing format. |
 | common-options | object | no | - | See [Source Common Options](../common-options/source-common-options.md). |
+
+### ADLS configuration rules
+
+`account_name` must contain 3–24 lowercase letters or digits. `container` must be 3–63
+characters, start and end with a lowercase letter or digit, and contain only lowercase letters,
+digits, and single hyphens. `endpoint_suffix` must be a DNS suffix without a scheme or path.
+
+Authentication modes are exclusive: `SHARED_KEY` requires `account_key` and rejects
+`tenant_id`, `client_id`, and `client_secret`; `OAUTH_CLIENT_CREDENTIALS` requires those three
+OAuth fields and rejects `account_key`. `tenant_id` must be a GUID or DNS name. `authority_host`
+must be an HTTPS origin without a path, query, or fragment (a final `/` is accepted).
+
+`hadoop_adls_properties` is for ABFS tuning. It rejects `fs.defaultFS` and keys beginning with
+`fs.abfs`, `fs.s3`, `fs.azure.account.auth.type`, `fs.azure.account.key`,
+`fs.azure.account.oauth`, `fs.azure.sas.`, `fs.azure.delegation.`,
+`fs.azure.enable.delegation.token`, `fs.azure.identity.`, or `fs.azure.shellkeyprovider.`
+(case-insensitive). These routing, credential, and provider settings are connector-owned.
+
+`account_key` and `client_secret` are automatically masked in parsed-configuration logs. This
+is log masking, not configuration encryption. The `account_key` log-mask keyword is a global
+core-starter default and also applies to other connectors using that option name.
 
 ### Authentication examples
 

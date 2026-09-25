@@ -61,9 +61,9 @@ public class ADLSHadoopConf extends HadoopConf {
      */
     public static ADLSHadoopConf buildWithReadOnlyConfig(ReadonlyConfig config) {
         ADLSConfigValidator.validate(config);
-        String account = config.get(ADLSFileBaseOptions.ACCOUNT_NAME);
-        String container = config.get(ADLSFileBaseOptions.CONTAINER);
-        String suffix = config.get(ADLSFileBaseOptions.ENDPOINT_SUFFIX);
+        String account = ADLSConfigValidator.required(config, ADLSFileBaseOptions.ACCOUNT_NAME);
+        String container = ADLSConfigValidator.required(config, ADLSFileBaseOptions.CONTAINER);
+        String suffix = ADLSConfigValidator.required(config, ADLSFileBaseOptions.ENDPOINT_SUFFIX);
         Map<String, String> options = new HashMap<>();
         // Add the advanced settings first so connector-derived authentication values always win,
         // even if validation is relaxed or bypassed by a future caller.
@@ -76,16 +76,21 @@ public class ADLSHadoopConf extends HadoopConf {
         if (auth == ADLSFileBaseOptions.AuthType.SHARED_KEY) {
             options.putAll(
                     ADLSRuntimeCompatibility.sharedKeyOptions(
-                            account, suffix, config.get(ADLSFileBaseOptions.ACCOUNT_KEY)));
+                            account,
+                            suffix,
+                            ADLSConfigValidator.required(
+                                    config, ADLSFileBaseOptions.ACCOUNT_KEY)));
         } else {
             options.putAll(
                     ADLSRuntimeCompatibility.clientCredentialsOptions(
                             account,
                             suffix,
-                            config.get(ADLSFileBaseOptions.AUTHORITY_HOST),
-                            config.get(ADLSFileBaseOptions.TENANT_ID),
-                            config.get(ADLSFileBaseOptions.CLIENT_ID),
-                            config.get(ADLSFileBaseOptions.CLIENT_SECRET)));
+                            ADLSConfigValidator.required(
+                                    config, ADLSFileBaseOptions.AUTHORITY_HOST),
+                            ADLSConfigValidator.required(config, ADLSFileBaseOptions.TENANT_ID),
+                            ADLSConfigValidator.required(config, ADLSFileBaseOptions.CLIENT_ID),
+                            ADLSConfigValidator.required(
+                                    config, ADLSFileBaseOptions.CLIENT_SECRET)));
         }
         result.setExtraOptions(options);
         return result;

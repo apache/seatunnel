@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
+import java.util.Collections;
 import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
@@ -49,18 +50,15 @@ final class ADLSConfigValidator {
         String container = required(config, ADLSFileBaseOptions.CONTAINER);
         String endpoint = required(config, ADLSFileBaseOptions.ENDPOINT_SUFFIX);
         if (!ACCOUNT.matcher(account).matches()) {
-            throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED,
+            throw validationFailure(
                     "'account_name' must contain 3-24 lowercase letters or digits");
         }
         if (!CONTAINER.matcher(container).matches()) {
-            throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED,
+            throw validationFailure(
                     "'container' must be a valid 3-63 character Azure container name");
         }
         if (!ENDPOINT.matcher(endpoint).matches()) {
-            throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED, "'endpoint_suffix' must be a DNS suffix");
+            throw validationFailure("'endpoint_suffix' must be a DNS suffix");
         }
 
         ADLSFileBaseOptions.AuthType authType = config.get(ADLSFileBaseOptions.AUTH_TYPE);
@@ -72,10 +70,21 @@ final class ADLSConfigValidator {
             rejectPresent(config, ADLSFileBaseOptions.CLIENT_ID);
             rejectPresent(config, ADLSFileBaseOptions.CLIENT_SECRET);
         } else {
-            required(config, ADLSFileBaseOptions.TENANT_ID);
+            String tenant = required(config, ADLSFileBaseOptions.TENANT_ID);
             required(config, ADLSFileBaseOptions.CLIENT_ID);
             required(config, ADLSFileBaseOptions.CLIENT_SECRET);
-            required(config, ADLSFileBaseOptions.AUTHORITY_HOST);
+            String authority = required(config, ADLSFileBaseOptions.AUTHORITY_HOST);
+            try {
+                ADLSRuntimeCompatibility.validateTenantId(tenant);
+            } catch (IllegalArgumentException e) {
+                throw validationFailure("'tenant_id' must be a GUID or DNS name");
+            }
+            try {
+                ADLSRuntimeCompatibility.normalizeAuthorityHost(authority);
+            } catch (IllegalArgumentException e) {
+                throw validationFailure(
+                        "'authority_host' must be an HTTPS origin without a path, query, or fragment");
+            }
             rejectPresent(config, ADLSFileBaseOptions.ACCOUNT_KEY);
         }
 
@@ -87,11 +96,10 @@ final class ADLSConfigValidator {
         properties.forEach(
                 (key, value) -> {
                     if (key == null || key.trim().isEmpty() || value == null) {
-                        throw new FileConnectorException(
-                                CommonErrorCode.VALIDATION_FAILED,
+                        throw validationFailure(
                                 "'hadoop_adls_properties' cannot contain blank keys or null values");
                     }
-                    String normalized = key.toLowerCase(Locale.ROOT);
+                    String normalized = key.trim().toLowerCase(Locale.ROOT);
                     // Routing and credential keys remain connector-owned so the validated account,
                     // endpoint, and auth mode cannot be changed through the advanced escape hatch.
                     if (normalized.equals("fs.defaultfs")
@@ -99,9 +107,13 @@ final class ADLSConfigValidator {
                             || normalized.startsWith("fs.azure.account.auth.type")
                             || normalized.startsWith("fs.azure.account.key")
                             || normalized.startsWith("fs.azure.account.oauth")
+                            || normalized.startsWith("fs.azure.sas.")
+                            || normalized.startsWith("fs.azure.delegation.")
+                            || normalized.startsWith("fs.azure.enable.delegation.token")
+                            || normalized.startsWith("fs.azure.identity.")
+                            || normalized.startsWith("fs.azure.shellkeyprovider.")
                             || normalized.startsWith("fs.s3")) {
-                        throw new FileConnectorException(
-                                CommonErrorCode.VALIDATION_FAILED,
+                        throw validationFailure(
                                 "'hadoop_adls_properties' cannot override connector-owned key '"
                                         + key
                                         + "'");
@@ -109,20 +121,24 @@ final class ADLSConfigValidator {
                 });
     }
 
-    private static String required(ReadonlyConfig config, Option<String> option) {
+    static String required(ReadonlyConfig config, Option<String> option) {
         String value = config.get(option);
         if (value == null || value.trim().isEmpty()) {
-            throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED, "'" + option.key() + "' must not be blank");
+            throw validationFailure("'" + option.key() + "' must not be blank");
         }
         return value.trim();
     }
 
     private static void rejectPresent(ReadonlyConfig config, Option<String> option) {
         if (config.getOptional(option).filter(value -> !value.trim().isEmpty()).isPresent()) {
-            throw new FileConnectorException(
-                    CommonErrorCode.VALIDATION_FAILED,
+            throw validationFailure(
                     "'" + option.key() + "' is not valid for the selected 'auth_type'");
         }
+    }
+
+    private static FileConnectorException validationFailure(String message) {
+        return FileConnectorException.withParams(
+                CommonErrorCode.VALIDATION_FAILED,
+                Collections.singletonMap("message", message));
     }
 }

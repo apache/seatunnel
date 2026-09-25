@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -33,7 +34,7 @@ class ADLSConfigValidatorTest {
         values.put("client_secret", "wrong-mode");
 
         Assertions.assertThrows(
-                IllegalArgumentException.class,
+                FileConnectorException.class,
                 () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)));
     }
 
@@ -45,7 +46,7 @@ class ADLSConfigValidatorTest {
         values.put("hadoop_adls_properties", advanced);
 
         Assertions.assertThrows(
-                IllegalArgumentException.class,
+                FileConnectorException.class,
                 () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)));
     }
 
@@ -58,6 +59,44 @@ class ADLSConfigValidatorTest {
 
         Assertions.assertDoesNotThrow(
                 () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)));
+    }
+
+    @Test
+    void rejectsCredentialAndClassLoadingAdvancedProperties() {
+        String[] keys = {
+            "fs.azure.sas.token.provider.type",
+            " fs.azure.sas.token.provider.type ",
+            "fs.azure.delegation.token.provider.type",
+            "fs.azure.enable.delegation.token",
+            "fs.azure.identity.transformer.class",
+            "fs.azure.shellkeyprovider.script"
+        };
+        for (String key : keys) {
+            Map<String, Object> values = sharedKeyConfig();
+            Map<String, String> advanced = new HashMap<>();
+            advanced.put(key, "override");
+            values.put("hadoop_adls_properties", advanced);
+            Assertions.assertThrows(
+                    FileConnectorException.class,
+                    () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)),
+                    key);
+        }
+    }
+
+    @Test
+    void rejectsTenantIdContainingUrlPathCharacters() {
+        Map<String, Object> values = sharedKeyConfig();
+        values.remove("account_key");
+        values.put("auth_type", "OAUTH_CLIENT_CREDENTIALS");
+        values.put("tenant_id", "example.onmicrosoft.com/other");
+        values.put("client_id", "client");
+        values.put("client_secret", "secret");
+
+        FileConnectorException error =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)));
+        Assertions.assertTrue(error.getMessage().contains("tenant_id"));
     }
 
     private static Map<String, Object> sharedKeyConfig() {

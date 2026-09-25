@@ -82,7 +82,7 @@ class ADLSRuntimeCompatibilityTest {
         Configuration configuration =
                 ADLSRuntimeCompatibility.newConfiguration("examplestorage", "analytics");
         ADLSRuntimeCompatibility.configureClientCredentials(
-                configuration, "examplestorage", "tenant", "client", "secret");
+                configuration, "examplestorage", "example.onmicrosoft.com", "client", "secret");
 
         Assertions.assertEquals(
                 "OAuth",
@@ -93,7 +93,7 @@ class ADLSRuntimeCompatibilityTest {
                 configuration.get(
                         "fs.azure.account.oauth.provider.type.examplestorage.dfs.core.windows.net"));
         Assertions.assertEquals(
-                "https://login.microsoftonline.com/tenant/oauth2/token",
+                "https://login.microsoftonline.com/example.onmicrosoft.com/oauth2/token",
                 configuration.get(
                         "fs.azure.account.oauth2.client.endpoint.examplestorage.dfs.core.windows.net"));
     }
@@ -117,11 +117,11 @@ class ADLSRuntimeCompatibilityTest {
                         "examplestorage",
                         "dfs.example.test",
                         "https://login.example.test/",
-                        "tenant",
+                        "example.onmicrosoft.com",
                         "client",
                         "secret");
         Assertions.assertEquals(
-                "https://login.example.test/tenant/oauth2/token",
+                "https://login.example.test/example.onmicrosoft.com/oauth2/token",
                 oauthOptions.get(
                         "fs.azure.account.oauth2.client.endpoint.examplestorage.dfs.example.test"));
     }
@@ -138,5 +138,30 @@ class ADLSRuntimeCompatibilityTest {
                                 ADLSRuntimeCompatibility.newConfiguration("account", "container"),
                                 "account",
                                 ""));
+    }
+
+    @Test
+    void rejectsInsecureOrRedirectedOAuthEndpoints() {
+        String[] authorities = {
+            "http://login.example.test",
+            "https://login.example.test/other",
+            "https://login.example.test?redirect=1",
+            "https://["
+        };
+        for (String authority : authorities) {
+            Assertions.assertThrows(
+                    IllegalArgumentException.class,
+                    () ->
+                            ADLSRuntimeCompatibility.clientCredentialsOptions(
+                                    "examplestorage",
+                                    "dfs.core.windows.net",
+                                    authority,
+                                    "example.onmicrosoft.com",
+                                    "client",
+                                    "secret"));
+        }
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> ADLSRuntimeCompatibility.validateTenantId("example.onmicrosoft.com/other"));
     }
 }

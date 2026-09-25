@@ -96,9 +96,11 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
         containersFactory =
                 () -> {
                     Map<String, String> environment = new HashMap<>();
-                    environment.put(ACCOUNT_ENV, requiredEnvironment(ACCOUNT_ENV));
-                    environment.put(CONTAINER_ENV, requiredEnvironment(CONTAINER_ENV));
-                    environment.put(ACCOUNT_KEY_ENV, requiredEnvironment(ACCOUNT_KEY_ENV));
+                    // Exercise the connector's normalization of substituted environment values.
+                    environment.put(ACCOUNT_ENV, requiredEnvironment(ACCOUNT_ENV).trim() + " ");
+                    environment.put(CONTAINER_ENV, requiredEnvironment(CONTAINER_ENV).trim() + " ");
+                    environment.put(
+                            ACCOUNT_KEY_ENV, requiredEnvironment(ACCOUNT_KEY_ENV).trim() + " ");
                     environment.put(TEST_ROOT_ENV, testRoot(requiredEnvironment(TEST_PREFIX_ENV)));
                     List<TestContainer> containers = ContainerUtil.discoverTestContainers();
                     containers.forEach(
@@ -112,9 +114,9 @@ public class ADLSFileIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        String account = requiredEnvironment(ACCOUNT_ENV);
-        String storageContainer = requiredEnvironment(CONTAINER_ENV);
-        String accountKey = requiredEnvironment(ACCOUNT_KEY_ENV);
+        String account = requiredEnvironment(ACCOUNT_ENV).trim();
+        String storageContainer = requiredEnvironment(CONTAINER_ENV).trim();
+        String accountKey = requiredEnvironment(ACCOUNT_KEY_ENV).trim();
         testRoot = testRoot(requiredEnvironment(TEST_PREFIX_ENV));
 
         Configuration configuration =

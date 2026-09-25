@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -49,14 +50,33 @@ class ADLSHadoopConfTest {
     }
 
     @Test
+    void usesTrimmedValuesValidatedForSharedKey() {
+        Map<String, Object> values = baseConfig();
+        values.put("account_name", " testaccount\n");
+        values.put("container", " files ");
+        values.put("endpoint_suffix", " dfs.core.windows.net ");
+        values.put("account_key", " secret-key\n");
+
+        ADLSHadoopConf conf =
+                ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(values));
+
+        Assertions.assertEquals(
+                "abfss://files@testaccount.dfs.core.windows.net", conf.getHdfsNameKey());
+        Assertions.assertEquals(
+                "secret-key",
+                conf.getExtraOptions()
+                        .get("fs.azure.account.key.testaccount.dfs.core.windows.net"));
+    }
+
+    @Test
     void configuresOAuthClientCredentials() {
         Map<String, Object> values = baseConfig();
         values.put("auth_type", "OAUTH_CLIENT_CREDENTIALS");
-        values.put("endpoint_suffix", "dfs.example.test");
-        values.put("authority_host", "https://login.example.test/");
-        values.put("tenant_id", "tenant");
-        values.put("client_id", "client");
-        values.put("client_secret", "secret");
+        values.put("endpoint_suffix", " dfs.example.test ");
+        values.put("authority_host", " https://login.example.test/\n");
+        values.put("tenant_id", " example.onmicrosoft.com ");
+        values.put("client_id", " client ");
+        values.put("client_secret", " secret\n");
 
         ADLSHadoopConf conf =
                 ADLSHadoopConf.buildWithReadOnlyConfig(ReadonlyConfig.fromMap(values));
@@ -67,8 +87,32 @@ class ADLSHadoopConfTest {
         Assertions.assertEquals(
                 "OAuth", conf.getExtraOptions().get("fs.azure.account.auth.type." + account));
         Assertions.assertEquals(
-                "https://login.example.test/tenant/oauth2/token",
+                "https://login.example.test/example.onmicrosoft.com/oauth2/token",
                 conf.getExtraOptions().get("fs.azure.account.oauth2.client.endpoint." + account));
+        Assertions.assertEquals(
+                "client",
+                conf.getExtraOptions().get("fs.azure.account.oauth2.client.id." + account));
+        Assertions.assertEquals(
+                "secret",
+                conf.getExtraOptions().get("fs.azure.account.oauth2.client.secret." + account));
+    }
+
+    @Test
+    void rejectsInsecureOAuthAuthorityWithOptionName() {
+        Map<String, Object> values = baseConfig();
+        values.put("auth_type", "OAUTH_CLIENT_CREDENTIALS");
+        values.put("tenant_id", "example.onmicrosoft.com");
+        values.put("client_id", "client");
+        values.put("client_secret", "secret");
+        values.put("authority_host", "http://login.example.test");
+
+        FileConnectorException error =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                ADLSHadoopConf.buildWithReadOnlyConfig(
+                                        ReadonlyConfig.fromMap(values)));
+        Assertions.assertTrue(error.getMessage().contains("authority_host"));
     }
 
     @Test

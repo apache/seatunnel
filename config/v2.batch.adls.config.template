@@ -36,8 +36,8 @@ source {
 sink {
   ADLSFile {
     path = "/incoming/seatunnel"
-    account_name = "replace-with-storage-account"
-    container = "replace-with-container"
+    account_name = "replacewithaccount"
+    container = "replacewithcontainer"
     endpoint_suffix = "dfs.core.windows.net"
     auth_type = "SHARED_KEY"
     account_key = ${?SEATUNNEL_ADLS_ACCOUNT_KEY}
