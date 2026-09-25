@@ -48,7 +48,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | schema_save_mode            | enum    | 否      | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema 保存模式。详见下文。                                                                           |
 | data_save_mode              | enum    | 否      | APPEND_DATA | Data 保存模式。详见下文。                                                                                 |
 | custom_sql                  | string  | 否      | -       | 当 `data_save_mode` 选择 `CUSTOM_PROCESSING` 时，需要填写的自定义 SQL 语句。                                    |
-| multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数。                                                          |
+| multi_table_sink_replica    | int     | 否      | 1       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数。                                                          |
 | common-options              |         | 否      | -       | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                            |
 
 ### 认证参数

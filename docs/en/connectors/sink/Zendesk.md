@@ -37,6 +37,7 @@ URL (e.g., `{"ticket": {...}}` for the tickets endpoint).
 | rate_limit_backoff_ms    | int     | No       | 30000         | Base backoff time in milliseconds when receiving a 429 (rate limit) response. Default 30000ms. Must be `>= 0`. |
 | resource_key             | String  | No       | -             | The JSON wrapping key for the Zendesk API request body (e.g. `"ticket"`, `"user"`, `"organization"`). When set, this value is used directly instead of inferring the key from the URL path. Useful for endpoints whose plural form is not handled by the automatic inference. |
 | rate_limit_max_retries   | int     | No       | 3             | Maximum number of retries after receiving a 429 response. Default 3. Must be `>= 0`. |
+| multi_table_sink_replica | int     | No       | 1             | Replica number for every table writer in multi-table sink mode. |
 | common-options           |         | No       | -             | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Usage Notes
