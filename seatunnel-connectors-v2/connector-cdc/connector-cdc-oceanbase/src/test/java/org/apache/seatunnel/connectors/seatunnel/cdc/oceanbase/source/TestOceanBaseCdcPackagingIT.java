@@ -42,7 +42,7 @@ import java.util.stream.Collectors;
  * Checks the packaged connector jar against connector-cdc-base, which plugin discovery always puts
  * on the classpath next to a CDC connector jar.
  */
-class OceanBaseCdcPackagingIT {
+class TestOceanBaseCdcPackagingIT {
 
     @Test
     void packagedJarDoesNotShadowDebeziumClassesFromCdcBase() throws Exception {
