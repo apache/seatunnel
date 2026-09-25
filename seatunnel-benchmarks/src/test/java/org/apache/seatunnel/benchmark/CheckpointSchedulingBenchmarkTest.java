@@ -23,6 +23,7 @@ import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Threads;
 
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -56,7 +57,7 @@ class CheckpointSchedulingBenchmarkTest {
         fixture.setUp();
         try {
             assertTrue(
-                    CheckpointSchedulingFixture.countSchedulerThreads() > 0,
+                    fixture.countSchedulerThreads() > 0,
                     "the coordinators should be running checkpoint scheduler threads");
             fixture.beginIteration();
             for (int i = 0; i < SAMPLE_COUNT; i++) {
@@ -77,30 +78,46 @@ class CheckpointSchedulingBenchmarkTest {
 
     @Test
     void shouldStopEverySchedulerThreadOnTearDown() throws Exception {
-        CheckpointSchedulingFixture fixture =
-                new CheckpointSchedulingFixture(PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS);
-        fixture.setUp();
+        // Stands in for a scheduler thread another test in this JVM has not finished stopping.
+        CountDownLatch release = new CountDownLatch(1);
+        Thread foreign = new Thread(() -> awaitQuietly(release), "checkpoint-foreign");
+        foreign.setDaemon(true);
+        foreign.start();
+        try {
+            CheckpointSchedulingFixture fixture =
+                    new CheckpointSchedulingFixture(PIPELINE_NUM, CHECKPOINT_INTERVAL_MILLIS);
+            fixture.setUp();
+            fixture.tearDown();
 
-        fixture.tearDown();
+            assertSchedulerThreadsStop(fixture);
+            assertTrue(foreign.isAlive(), "the foreign thread should not have been waited for");
+        } finally {
+            release.countDown();
+        }
+    }
 
+    private static void assertSchedulerThreadsStop(CheckpointSchedulingFixture fixture)
+            throws InterruptedException {
         long deadline = System.nanoTime() + THREAD_STOP_TIMEOUT_NANOS;
-        while (CheckpointSchedulingFixture.countSchedulerThreads() > 0
-                && System.nanoTime() < deadline) {
+        while (fixture.countSchedulerThreads() > 0 && System.nanoTime() < deadline) {
             TimeUnit.MILLISECONDS.sleep(CHECKPOINT_INTERVAL_MILLIS);
         }
         assertEquals(
                 0L,
-                CheckpointSchedulingFixture.countSchedulerThreads(),
+                fixture.countSchedulerThreads(),
                 () ->
                         "still running: "
-                                + Thread.getAllStackTraces().keySet().stream()
+                                + fixture.schedulerThreads().stream()
                                         .map(Thread::getName)
-                                        .filter(
-                                                name ->
-                                                        name.startsWith(
-                                                                CheckpointSchedulingFixture
-                                                                        .SCHEDULER_THREAD_NAME_PREFIX))
                                         .collect(Collectors.toList()));
+    }
+
+    private static void awaitQuietly(CountDownLatch latch) {
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     @Test

@@ -34,13 +34,16 @@ import com.hazelcast.spi.impl.NodeEngine;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.SynchronousQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
 
 /**
  * One real SeaTunnel member running {@code pipelineNum} real checkpoint coordinators, one per job,
@@ -128,6 +131,7 @@ final class CheckpointSchedulingFixture {
     private final long intervalMillis;
     private final long intervalNanos;
     private int probeStride;
+    private Set<Thread> preexistingSchedulerThreads = Collections.emptySet();
 
     private final AtomicReference<Throwable> failure = new AtomicReference<>();
     private final List<FakeTaskCheckpointManager> managers = new ArrayList<>();
@@ -163,6 +167,7 @@ final class CheckpointSchedulingFixture {
     void setUp() throws Exception {
         validateParameters();
         probeStride = probeStride(pipelineNum, intervalNanos);
+        preexistingSchedulerThreads = new HashSet<>(liveSchedulerThreads());
         environment = new SchedulingEnvironmentContext();
         environment.setUp();
         SeaTunnelServer server = environment.getServer();
@@ -170,12 +175,14 @@ final class CheckpointSchedulingFixture {
         coordinatorExecutor = createCoordinatorExecutor(engineConfig);
         createManagers(server, engineConfig.getCheckpointConfig());
         startStaggered();
-        resync();
+        // Every coordinator, not only the probes: once each has triggered, each has armed its
+        // scheduler, so countSchedulerThreads() sees the full thread cost of pipelineNum pipelines.
+        resync(1);
     }
 
     /** Resynchronises the coordinators that were taken out of the rotation, then resets counts. */
     void beginIteration() {
-        resync();
+        resync(probeStride);
         sampled = 0;
         skippedPending = 0;
         skippedCollided = 0;
@@ -339,13 +346,28 @@ final class CheckpointSchedulingFixture {
     }
 
     /**
-     * Counts the live checkpoint scheduler threads by name. This is the cost a shared scheduler
+     * Counts this fixture's live checkpoint scheduler threads. This is the cost a shared scheduler
      * exists to remove, so it is reported rather than derived.
      */
-    static long countSchedulerThreads() {
+    long countSchedulerThreads() {
+        return schedulerThreads().size();
+    }
+
+    /**
+     * Live checkpoint scheduler threads started since this fixture's setup began. Threads that
+     * already existed, such as ones another test in the same JVM has not finished stopping, are not
+     * counted.
+     */
+    List<Thread> schedulerThreads() {
+        return liveSchedulerThreads().stream()
+                .filter(thread -> !preexistingSchedulerThreads.contains(thread))
+                .collect(Collectors.toList());
+    }
+
+    private static List<Thread> liveSchedulerThreads() {
         return Thread.getAllStackTraces().keySet().stream()
                 .filter(thread -> thread.getName().startsWith(SCHEDULER_THREAD_NAME_PREFIX))
-                .count();
+                .collect(Collectors.toList());
     }
 
     private void createManagers(SeaTunnelServer server, CheckpointConfig memberConfig) {
@@ -387,27 +409,30 @@ final class CheckpointSchedulingFixture {
     }
 
     /**
-     * Spins over the probes until each one without a known phase has been seen idle and then
-     * triggering. Probes that already have a phase are refreshed whenever they trigger during the
-     * wait, so they do not fall out of the rotation meanwhile. Not measured; it occupies one core
-     * for up to a few intervals.
+     * Spins over every {@code stride}-th coordinator until each one without a known phase has been
+     * seen idle and then triggering. Those that already have a phase are refreshed whenever they
+     * trigger during the wait, so they do not fall out of the rotation meanwhile. Not measured; it
+     * occupies one core for up to a few intervals.
+     *
+     * @param stride {@code probeStride} to cover the probes, 1 to cover every coordinator
      */
-    private void resync() {
+    private void resync(int stride) {
         boolean[] seenIdle = new boolean[pipelineNum];
         long deadline = System.nanoTime() + RESYNC_INTERVALS * intervalNanos + PENDING_REARM_NANOS;
-        long unsynced = probeCount() - syncedCount();
+        long covered = strideCount(stride);
+        long unsynced = covered - syncedCount(stride);
         while (unsynced > 0) {
             checkFailure();
             if (System.nanoTime() > deadline) {
                 throw new IllegalStateException(
                         unsynced
                                 + " of "
-                                + probeCount()
-                                + " measured checkpoint coordinators did not trigger within "
+                                + covered
+                                + " checkpoint coordinators did not trigger within "
                                 + RESYNC_INTERVALS
                                 + " intervals plus one pending re-arm");
             }
-            for (int i = 0; i < pipelineNum; i += probeStride) {
+            for (int i = 0; i < pipelineNum; i += stride) {
                 if (pendingCounters[i].get() == 0) {
                     seenIdle[i] = true;
                 } else if (seenIdle[i]) {
@@ -427,8 +452,8 @@ final class CheckpointSchedulingFixture {
      * rotation for the rest of the iteration, and with few probes a single skip can leave none.
      */
     private int soonestSynced() {
-        if (syncedCount() * 2 < probeCount()) {
-            resync();
+        if (syncedCount(probeStride) * 2 < probeCount()) {
+            resync(probeStride);
         }
         int soonest = -1;
         for (int i = 0; i < pipelineNum; i += probeStride) {
@@ -441,12 +466,16 @@ final class CheckpointSchedulingFixture {
     }
 
     long probeCount() {
-        return (pipelineNum + probeStride - 1) / probeStride;
+        return strideCount(probeStride);
     }
 
-    private long syncedCount() {
+    private long strideCount(int stride) {
+        return (pipelineNum + stride - 1) / stride;
+    }
+
+    private long syncedCount(int stride) {
         long synced = 0;
-        for (int i = 0; i < pipelineNum; i += probeStride) {
+        for (int i = 0; i < pipelineNum; i += stride) {
             if (lastTriggerNanos[i] != NOT_SYNCED) {
                 synced++;
             }

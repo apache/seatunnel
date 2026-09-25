@@ -57,7 +57,7 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>The checkpoint interval is {@code pipelineNum * triggerSpacingMillis}, so every point of the
  * sweep sees the same rate of due triggers and the same checkpoint load on storage, and only the
- * number of coordinators changes. It is floored at {@link #MIN_CHECKPOINT_INTERVAL_MILLIS}, so the
+ * number of coordinators changes. It is floored at {@link #MIN_MEASURABLE_INTERVAL_MILLIS}, so the
  * smallest pipeline counts sample less often. Each job has one pipeline: many jobs is what "many
  * active pipelines" means on a member, and it keeps per-job checkpoint state from becoming the
  * bottleneck.
@@ -83,9 +83,10 @@ public class CheckpointSchedulingBenchmark extends BenchmarkBase {
     /**
      * Floor for the checkpoint interval. A checkpoint takes a few milliseconds here, and an
      * interval close to that sends triggers down the pending re-arm path instead of measuring them,
-     * which is what a 20 ms interval at one pipeline would do.
+     * which is what a 20 ms interval at one pipeline would do. This is a floor for measuring, above
+     * the lowest interval SeaTunnel accepts, which the fixture enforces separately.
      */
-    static final long MIN_CHECKPOINT_INTERVAL_MILLIS = 200L;
+    static final long MIN_MEASURABLE_INTERVAL_MILLIS = 200L;
 
     public static void main(String[] args) throws RunnerException {
         Options options =
@@ -122,14 +123,12 @@ public class CheckpointSchedulingBenchmark extends BenchmarkBase {
                     new CheckpointSchedulingFixture(
                             pipelineNum,
                             Math.max(
-                                    MIN_CHECKPOINT_INTERVAL_MILLIS,
+                                    MIN_MEASURABLE_INTERVAL_MILLIS,
                                     pipelineNum * triggerSpacingMillis));
             fixture.setUp();
             System.out.printf(
                     "# checkpoint scheduler threads for %d pipelines: %d; measuring %d of them%n",
-                    pipelineNum,
-                    CheckpointSchedulingFixture.countSchedulerThreads(),
-                    fixture.probeCount());
+                    pipelineNum, fixture.countSchedulerThreads(), fixture.probeCount());
         }
 
         @Setup(Level.Iteration)
