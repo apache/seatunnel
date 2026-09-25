@@ -35,6 +35,7 @@ import com.mysql.cj.MysqlType;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -286,6 +287,11 @@ public class MysqlDialect implements JdbcDialect {
 
     @Override
     public boolean supportStringRangeSplit() {
+        return true;
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
         return true;
     }
 

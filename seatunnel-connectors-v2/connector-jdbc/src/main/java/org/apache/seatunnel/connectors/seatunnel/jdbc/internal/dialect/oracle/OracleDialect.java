@@ -42,6 +42,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -326,6 +327,43 @@ public class OracleDialect implements JdbcDialect {
                 }
                 return rs.getObject(1);
             }
+        }
+    }
+
+    @Override
+    public String getLimitClause(int limit) {
+        // FETCH FIRST is available on Oracle 12c Release 1 and later; older releases (11g and
+        // before) do not support it and must use the single-column split fallback.
+        return " FETCH FIRST " + limit + " ROWS ONLY";
+    }
+
+    @Override
+    public String getOffsetLimitClause(int offset, int limit) {
+        return " OFFSET " + offset + " ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
+    public boolean supportCompositeKeySplit(DatabaseMetaData metaData) {
+        // Validated by JdbcOracleSplitIT (official E2E, composite-PK table); requires Oracle 12c+
+        // because the composite boundary queries use the FETCH FIRST/OFFSET pagination syntax,
+        // which older releases (11g and before) do not parse. Gate on the live connection's
+        // version so those releases gracefully fall back to the single-column split.
+        try {
+            int majorVersion = metaData.getDatabaseMajorVersion();
+            if (majorVersion < 12) {
+                log.warn(
+                        "Oracle major version {} < 12, falling back to single-column split; "
+                                + "set partition_column to force a single split key",
+                        majorVersion);
+                return false;
+            }
+            return true;
+        } catch (SQLException e) {
+            log.warn(
+                    "Failed to read the Oracle database version, falling back to single-column "
+                            + "split; set partition_column to force a single split key",
+                    e);
+            return false;
         }
     }
 
