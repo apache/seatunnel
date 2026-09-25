@@ -26,7 +26,9 @@ on:
         default: 'true'
 
 concurrency:
-  group: backend-${{ github.event.pull_request.number || github.ref }}
+  # Include the caller's event so the scheduled run on dev and push builds of dev
+  # do not share a group and cancel each other.
+  group: backend-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 env:
