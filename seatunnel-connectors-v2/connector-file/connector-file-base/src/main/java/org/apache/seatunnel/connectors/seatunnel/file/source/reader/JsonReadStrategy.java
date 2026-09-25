@@ -66,11 +66,13 @@ public class JsonReadStrategy extends AbstractReadStrategy {
     public void setCatalogTable(CatalogTable catalogTable) {
         super.setCatalogTable(catalogTable);
         if (isMergePartition) {
+            // Partition columns are resolved from the file path at read time and are not
+            // present in the catalog table, so they cannot be expressed through the
+            // CatalogTable constructor; keep the row-type-only path here.
             deserializationSchema =
                     new JsonDeserializationSchema(false, false, this.seaTunnelRowTypeWithPartition);
         } else {
-            deserializationSchema =
-                    new JsonDeserializationSchema(false, false, this.seaTunnelRowType);
+            deserializationSchema = new JsonDeserializationSchema(catalogTable, false, false);
         }
     }
 
