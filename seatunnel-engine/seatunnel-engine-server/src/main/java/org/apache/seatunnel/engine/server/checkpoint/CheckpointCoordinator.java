@@ -93,6 +93,9 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 public class CheckpointCoordinator {
     private static final Logger LOG = LoggerFactory.getLogger(CheckpointCoordinator.class);
 
+    /** How often a savepoint re-checks whether the in-flight checkpoint has finished. */
+    private static final long SAVEPOINT_DRAIN_POLL_MILLIS = 500L;
+
     private final long jobId;
 
     private final int pipelineId;
@@ -203,6 +206,19 @@ public class CheckpointCoordinator {
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
+
+    /**
+     * Outcome of the savepoint request that is in progress, shared by every caller of {@link
+     * #startSavepoint()} until it completes. Guarded by {@link #lock}.
+     */
+    private CompletableFuture<CompletedCheckpoint> savepointRequest;
+
+    /**
+     * Set while a savepoint waits, outside {@link #lock}, for the in-flight checkpoint to finish.
+     * No other pending checkpoint may be created while it is set, which keeps the drain finite
+     * without holding the lock across it. Guarded by {@link #lock}.
+     */
+    private boolean savepointDraining;
 
     private final String checkpointStateImapKey;
 
@@ -815,9 +831,11 @@ public class CheckpointCoordinator {
                 return;
             }
 
-            if (pendingCounter.get() > 0) {
+            if (pendingCounter.get() > 0 || savepointDraining) {
                 scheduleTriggerPendingCheckpoint(checkpointType, 500L);
-                LOG.debug("skip trigger checkpoint because there is already a pending checkpoint.");
+                LOG.debug(
+                        "skip trigger checkpoint because there is already a pending checkpoint"
+                                + " or a savepoint waiting for one to finish.");
                 return;
             }
 
@@ -876,7 +894,17 @@ public class CheckpointCoordinator {
                 .collect(Collectors.groupingBy(Tuple2::f0, Collectors.summingInt(tuple -> 1)));
     }
 
-    @SneakyThrows
+    /**
+     * Starts a savepoint once the in-flight checkpoint, if any, has finished.
+     *
+     * <p>The wait for the in-flight checkpoint runs outside {@link #lock}, so that a checkpoint
+     * trigger or a coordinator reset arriving meanwhile is not held up for the length of that
+     * checkpoint. {@link #savepointDraining} stands in for the lock during the wait: while it is
+     * set, {@link #tryTriggerPendingCheckpoint(CheckpointType)} creates nothing and re-arms, so the
+     * wait still ends. Concurrent callers share one request and observe one savepoint.
+     *
+     * @return a future completed with the savepoint, or exceptionally if it could not be taken
+     */
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
         LOG.info("start save point for job id: {}.", jobId);
         if (shutdown || isCompleted()) {
@@ -887,29 +915,97 @@ public class CheckpointCoordinator {
             return completableFutureWithError(
                     CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT);
         }
-        if (savepointPendingCheckpoint != null
-                && !savepointPendingCheckpoint.getCompletableFuture().isDone()) {
-            return savepointPendingCheckpoint.getCompletableFuture();
-        }
-        CompletableFuture<PendingCheckpoint> savepoint;
+        CompletableFuture<CompletedCheckpoint> request;
         synchronized (lock) {
-            while (pendingCounter.get() > 0 && !shutdown) {
-                Thread.sleep(500);
+            if (savepointRequest != null && !savepointRequest.isDone()) {
+                return new PassiveCompletableFuture<>(savepointRequest);
             }
-            if (shutdown || isCompleted()) {
-                return completableFutureWithError(
-                        CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
-            }
-            savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
-            startTriggerPendingCheckpoint(savepoint);
+            request = new CompletableFuture<>();
+            savepointRequest = request;
+            savepointDraining = true;
         }
-        savepointPendingCheckpoint = savepoint.join();
+        return drainAndTriggerSavepoint(request);
+    }
+
+    private PassiveCompletableFuture<CompletedCheckpoint> drainAndTriggerSavepoint(
+            CompletableFuture<CompletedCheckpoint> request) {
+        CompletableFuture<PendingCheckpoint> savepoint = null;
+        while (savepoint == null) {
+            try {
+                while (pendingCounter.get() > 0 && !shutdown && !request.isDone()) {
+                    Thread.sleep(SAVEPOINT_DRAIN_POLL_MILLIS);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                synchronized (lock) {
+                    failDrainingSavepoint(
+                            request,
+                            new CheckpointException(
+                                    CheckpointCloseReason.CHECKPOINT_INSIDE_ERROR, e));
+                }
+                return new PassiveCompletableFuture<>(request);
+            }
+            synchronized (lock) {
+                if (request.isDone()) {
+                    // failed by cleanPendingCheckpoint while this thread was waiting
+                    return new PassiveCompletableFuture<>(request);
+                }
+                if (shutdown || isCompleted()) {
+                    failDrainingSavepoint(
+                            request,
+                            new CheckpointException(
+                                    CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN));
+                    return new PassiveCompletableFuture<>(request);
+                }
+                if (pendingCounter.get() == 0) {
+                    try {
+                        savepoint =
+                                createPendingCheckpoint(
+                                        Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
+                        startTriggerPendingCheckpoint(savepoint);
+                    } catch (Throwable e) {
+                        failDrainingSavepoint(request, e);
+                        throw e;
+                    }
+                    // pendingCounter now counts the savepoint, so the gate is no longer needed
+                    savepointDraining = false;
+                }
+            }
+        }
+        try {
+            savepointPendingCheckpoint = savepoint.join();
+        } catch (Throwable e) {
+            request.completeExceptionally(e);
+            throw e;
+        }
+        savepointPendingCheckpoint
+                .getCompletableFuture()
+                .whenComplete(
+                        (completedCheckpoint, error) -> {
+                            if (error != null) {
+                                request.completeExceptionally(error);
+                            } else {
+                                request.complete(completedCheckpoint);
+                            }
+                        });
         LOG.info(
                 "save point checkpoint is created, job id: {}, pipeline id: {}, checkpoint id: {}.",
                 jobId,
                 pipelineId,
                 savepointPendingCheckpoint.getCheckpointId());
-        return savepointPendingCheckpoint.getCompletableFuture();
+        return new PassiveCompletableFuture<>(request);
+    }
+
+    /**
+     * Fails a savepoint that is still draining and lifts the trigger gate, unless a newer request
+     * already owns it. Callers hold {@link #lock}.
+     */
+    private void failDrainingSavepoint(
+            CompletableFuture<CompletedCheckpoint> request, Throwable cause) {
+        if (savepointRequest == request) {
+            savepointDraining = false;
+        }
+        request.completeExceptionally(cause);
     }
 
     public PassiveCompletableFuture<CheckpointCoordinatorState> startSavepointAndWaitComplete() {
@@ -1241,6 +1337,14 @@ public class CheckpointCoordinator {
             closedIdleTask.clear();
             pendingCounter.set(0);
             schemaChanging.set(false);
+            if (savepointDraining) {
+                // Nothing was started, so report it the way a drain that saw the shutdown does:
+                // JobMaster treats this reason as a savepoint that never began and can be retried.
+                failDrainingSavepoint(
+                        savepointRequest,
+                        new CheckpointException(
+                                CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN));
+            }
             // Only remove the persisted ready-to-close state when the coordinator truly ends
             // (completed/failed/cancelled). During a reset (master failover), the IMap entry
             // must be preserved so restoreCoordinator() can recover from it.
