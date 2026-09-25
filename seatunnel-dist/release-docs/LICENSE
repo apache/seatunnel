@@ -343,6 +343,7 @@ The text of each license is the standard Apache 2.0 license.
       (Apache-2.0) hugegraph-common (org.apache.hugegraph:hugegraph-common:1.5.0 - https://github.com/apache/incubator-hugegraph-commons/tree/master/hugegraph-common)
       (Apache-2.0) jnats (io.nats:jnats:2.24.0 - https://github.com/nats-io/nats.java)
       (Apache-2.0) jspecify (org.jspecify:jspecify:1.0.0 - https://github.com/jspecify/jspecify)
+      (Apache-2.0) openlineage-java (io.openlineage:openlineage-java:1.29.0 - https://github.com/OpenLineage/OpenLineage)
 
 
 ========================================================================
