@@ -43,7 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 import sun.security.krb5.Config;
 import sun.security.krb5.KrbException;
 
+import javax.security.auth.Subject;
+import javax.security.auth.kerberos.KerberosPrincipal;
+
 import java.io.IOException;
+import java.security.AccessController;
+import java.security.PrivilegedAction;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
 import java.util.List;
@@ -161,7 +166,28 @@ public class KuduUtil {
         if (executorService != null) {
             builder.nioExecutor(executorService);
         }
-        return builder.build().syncClient();
+        return buildOutsideUnusedCallerSubject(builder).syncClient();
+    }
+
+    /**
+     * Builds the client outside the caller's Subject when that Subject has no Kerberos principal.
+     *
+     * <p>Kudu ignores such a Subject, but its SecurityContext still calls {@link
+     * Subject#toString()} on it. That method holds the Subject's principal set lock while it
+     * formats the principals, and on JDK 11 the first UnixPrincipal#toString loads a resource
+     * bundle through SubjectDomainCombiner#combine, which needs the combiner lock. Thread creation
+     * under the same Subject takes these two locks in the opposite order, so the call can deadlock.
+     * Flink runs its JobManager and TaskManager inside such a Subject, and the deadlock froze the
+     * whole JobManager. Kudu makes the same choice without a caller Subject, so behavior is
+     * unchanged.
+     */
+    private static AsyncKuduClient buildOutsideUnusedCallerSubject(
+            AsyncKuduClient.AsyncKuduClientBuilder builder) {
+        Subject subject = Subject.getSubject(AccessController.getContext());
+        if (subject == null || !subject.getPrincipals(KerberosPrincipal.class).isEmpty()) {
+            return builder.build();
+        }
+        return Subject.doAs(null, (PrivilegedAction<AsyncKuduClient>) builder::build);
     }
 
     public static List<KuduScanToken> getKuduScanToken(

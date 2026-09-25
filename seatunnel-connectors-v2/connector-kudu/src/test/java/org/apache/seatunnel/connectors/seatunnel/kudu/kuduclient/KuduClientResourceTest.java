@@ -17,6 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kudu.kuduclient;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.config.CommonConfig;
+import org.apache.seatunnel.connectors.seatunnel.kudu.util.KuduUtil;
+
 import org.apache.kudu.client.KuduClient;
 import org.apache.kudu.client.KuduException;
 
@@ -25,8 +29,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InOrder;
 import org.mockito.Mockito;
 
+import javax.security.auth.Subject;
+import javax.security.auth.kerberos.KerberosPrincipal;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.security.Principal;
+import java.security.PrivilegedExceptionAction;
+import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 class KuduClientResourceTest {
 
@@ -78,5 +91,86 @@ class KuduClientResourceTest {
         Assertions.assertSame(closeException, actualException);
         Mockito.verify(executorService).shutdown();
         Mockito.verify(executorService).awaitTermination(20L, TimeUnit.SECONDS);
+    }
+
+    /**
+     * Flink runs its JobManager and TaskManager inside a Subject without Kerberos credentials. Kudu
+     * ignores such a Subject, but it still calls Subject#toString on it while holding the Subject's
+     * principal set lock. On JDK 11 that call can deadlock with any thread being created under the
+     * same Subject, which froze the Flink JobManager in the Kudu E2E tests.
+     */
+    @Test
+    void shouldNotInspectCallerSubjectWithoutKerberosCredentials() throws Exception {
+        AtomicInteger toStringCalls = new AtomicInteger();
+        Principal principal =
+                new Principal() {
+                    @Override
+                    public String getName() {
+                        return "flink";
+                    }
+
+                    @Override
+                    public String toString() {
+                        toStringCalls.incrementAndGet();
+                        return getName();
+                    }
+                };
+        Subject subject =
+                new Subject(
+                        false,
+                        Collections.singleton(principal),
+                        Collections.emptySet(),
+                        Collections.emptySet());
+        CommonConfig config =
+                new CommonConfig(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap("kudu_masters", "localhost:7051")));
+
+        KuduClientResource resource =
+                Subject.doAs(
+                        subject,
+                        (PrivilegedExceptionAction<KuduClientResource>)
+                                () -> KuduUtil.getKuduClientResource(config));
+        resource.close();
+
+        Assertions.assertEquals(0, toStringCalls.get());
+    }
+
+    @Test
+    void shouldPassCallerSubjectWithKerberosPrincipalToKudu() throws Exception {
+        Subject subject =
+                new Subject(
+                        false,
+                        Collections.singleton(new KerberosPrincipal("seatunnel@EXAMPLE.COM")),
+                        Collections.emptySet(),
+                        Collections.emptySet());
+
+        KuduClientResource resource =
+                Subject.doAs(
+                        subject,
+                        (PrivilegedExceptionAction<KuduClientResource>)
+                                () -> KuduUtil.getKuduClientResource(localConfig()));
+        try {
+            Assertions.assertSame(subject, kuduSubject(resource.getClient()));
+        } finally {
+            resource.close();
+        }
+    }
+
+    private static CommonConfig localConfig() {
+        return new CommonConfig(
+                ReadonlyConfig.fromMap(Collections.singletonMap("kudu_masters", "localhost:7051")));
+    }
+
+    private static Subject kuduSubject(KuduClient client) throws Exception {
+        Field asyncClientField = KuduClient.class.getDeclaredField("asyncClient");
+        asyncClientField.setAccessible(true);
+        Object asyncClient = asyncClientField.get(client);
+        Field securityContextField = asyncClient.getClass().getDeclaredField("securityContext");
+        securityContextField.setAccessible(true);
+        Object securityContext = securityContextField.get(asyncClient);
+        Method getSubject = securityContext.getClass().getDeclaredMethod("getSubject");
+        getSubject.setAccessible(true);
+        return (Subject) getSubject.invoke(securityContext);
     }
 }
