@@ -67,6 +67,14 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String ORACLE_TIMESTAMP_WITH_LOCAL_TIME_ZONE =
             ORACLE_TIMESTAMP + " WITH LOCAL TIME ZONE";
 
+    // ------------------------------interval----------------------
+    public static final String ORACLE_INTERVAL = "INTERVAL";
+    public static final String ORACLE_INTERVAL_YEAR = ORACLE_INTERVAL + " YEAR TO MONTH";
+    public static final String ORACLE_INTERVAL_DAY = ORACLE_INTERVAL + " DAY TO SECOND";
+    // Type names returned by the Oracle JDBC driver
+    public static final String ORACLE_INTERVAL_YM = "INTERVALYM";
+    public static final String ORACLE_INTERVAL_DS = "INTERVALDS";
+
     // ------------------------------blob-------------------------
     public static final String ORACLE_BLOB = "BLOB";
     public static final String ORACLE_RAW = "RAW";
@@ -120,6 +128,11 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                         .comment(typeDefine.getComment());
 
         String oracleType = typeDefine.getDataType().toUpperCase();
+        if (oracleType.startsWith(ORACLE_INTERVAL)) {
+            // The JDBC driver may report precision qualifiers in the type name,
+            // e.g. "INTERVAL DAY(2) TO SECOND(6)", strip them for exact matching.
+            oracleType = oracleType.replaceAll("\\s*\\([^)]*\\)", "");
+        }
 
         switch (oracleType) {
             case ORACLE_INTEGER:
@@ -257,6 +270,13 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
                 } else {
                     builder.scale(typeDefine.getScale());
                 }
+                break;
+            case ORACLE_INTERVAL:
+            case ORACLE_INTERVAL_YEAR:
+            case ORACLE_INTERVAL_DAY:
+            case ORACLE_INTERVAL_YM:
+            case ORACLE_INTERVAL_DS:
+                builder.dataType(BasicType.STRING_TYPE);
                 break;
             default:
                 throw CommonError.convertToSeaTunnelTypeError(

@@ -17,25 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.zendesk.source.config;
 
-import org.apache.seatunnel.api.configuration.Option;
-import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
+import org.apache.seatunnel.connectors.seatunnel.zendesk.config.ZendeskConfig;
 
-public class ZendeskSourceOptions extends HttpCommonOptions {
-    public static final String AUTHORIZATION = "Authorization";
-    public static final String BASIC = "Basic ";
-    public static final String ACCEPT = "Accept";
-    public static final String APPLICATION_JSON = "application/json";
-
-    public static final Option<String> EMAIL =
-            Options.key("email")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Zendesk account email used for API token authentication");
-
-    public static final Option<String> API_TOKEN =
-            Options.key("api_token")
-                    .stringType()
-                    .noDefaultValue()
-                    .withDescription("Zendesk API token");
-}
+public class ZendeskSourceOptions extends ZendeskConfig {}

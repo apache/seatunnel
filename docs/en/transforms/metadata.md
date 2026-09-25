@@ -59,9 +59,51 @@ The `Metadata` transform does not generate Knowledge Sync metadata by itself. Th
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
 5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
-6. **Markdown RAG compatibility**: Existing Markdown RAG output currently exposes physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`. This transform does not migrate those physical fields into logical Knowledge Sync metadata, and this change does not rename them.
-7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. Non-sensitive query parameters that are part of the stable resource identity may be retained.
+6. **Markdown RAG compatibility**: With `markdown_rag_metadata_enabled=true`, Markdown declares and emits logical `SourceUri`, `DocumentId`, `DocumentHash`, and `ChunkHash` in addition to its existing physical `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash` columns. The physical names, order, values, formulas, and routing behavior are unchanged.
+7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. The generic Markdown bridge removes the complete query and fragment from hierarchical remote URIs; a source whose identity depends on a query must provide a stable, non-sensitive path.
 8. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
+9. **Projection collisions**: An output name cannot duplicate an existing physical field. Because enabled Markdown already contains physical `source_uri` and `document_id`, project the logical values to aliases such as `ks_source_uri` and `ks_document_id`.
+
+### Markdown Source Bridge
+
+The Markdown source is a Knowledge Sync metadata producer when `file_format_type=markdown` and `markdown_rag_metadata_enabled=true`.
+
+| Logical Key | Markdown Value |
+|:---:|:---|
+| SourceUri | Local paths keep existing normalization. Hierarchical remote URIs keep lowercased scheme and host, explicit port, and path, while user info, query, and fragment are removed. |
+| DocumentId | `doc_` plus lowercase SHA-256 of the UTF-8 logical `SourceUri`. |
+| DocumentHash | Lowercase SHA-256 of the exact source bytes read before UTF-8 decoding and Markdown parsing. |
+| ChunkHash | Lowercase SHA-256 of the immediate emitted row's UTF-8 `text`, treating null as an empty string. It equals physical `content_hash` at the Markdown source boundary. |
+
+The logical identity is separate from the compatibility identity. For a signed or credential-bearing remote URL, logical `SourceUri` and `DocumentId` can differ from physical `source_uri` and `document_id`; the physical values and split-routing formula remain unchanged.
+
+Use aliases for the two colliding identity fields:
+
+```hocon
+source {
+  LocalFile {
+    plugin_output = "markdown_rows"
+    path = "/data/knowledge"
+    file_format_type = "markdown"
+    markdown_rag_metadata_enabled = true
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "markdown_rows"
+    plugin_output = "markdown_rows_with_logical_metadata"
+    metadata_fields = {
+      SourceUri = "ks_source_uri"
+      DocumentId = "ks_document_id"
+      DocumentHash = "document_hash"
+      ChunkHash = "chunk_hash"
+    }
+  }
+}
+```
+
+`ChunkHash` is valid for the immediate Markdown row only. If a downstream transform changes `text` or expands one row into multiple chunks, recompute the final `ChunkHash`, `ChunkId`, and `ChunkIndex` before sending rows to a lifecycle sink. This bridge is producer integration only; it does not implement incremental comparison, writer affinity, stale-chunk deletion, or tombstones.
 
 ## Options
 

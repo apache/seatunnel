@@ -49,6 +49,7 @@ import java.sql.Date;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -61,7 +62,7 @@ import java.util.stream.IntStream;
 
 public class JdbcOracleIT extends AbstractJdbcIT {
 
-    private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
+    private static final String ORACLE_IMAGE = "gvenzl/oracle-free:slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
     private static final String DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 1521;
@@ -101,6 +102,7 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
                     + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
+                    + "    INTERVAL_COL           interval day(2) to second(6),\n"
                     + "    constraint PK_T_COL primary key (INTEGER_COL)"
                     + ")";
 
@@ -124,7 +126,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    DATE_COL                      date,\n"
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
-                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\"\n"
+                    + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
+                    + "    INTERVAL_COL           interval day(2) to second(6)\n"
                     + ")";
 
     private static final String[] fieldNames =
@@ -146,7 +149,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "DATE_COL",
                 "TIMESTAMP_WITH_3_FRAC_SEC_COL",
                 "TIMESTAMP_WITH_LOCAL_TZ",
-                "XML_TYPE_COL"
+                "XML_TYPE_COL",
+                "INTERVAL_COL"
             };
 
     @Test
@@ -300,7 +304,8 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Date.valueOf(LocalDate.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
-                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>"
+                                "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>",
+                                Duration.ofHours(25)
                             });
             rows.add(row);
         }
@@ -310,7 +315,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
     @Override
     GenericContainer<?> initContainer() {
-        DockerImageName imageName = DockerImageName.parse(ORACLE_IMAGE);
+        // gvenzl/oracle-free is a multi-arch (amd64/arm64) substitute for gvenzl/oracle-xe
+        DockerImageName imageName =
+                DockerImageName.parse(ORACLE_IMAGE).asCompatibleSubstituteFor("gvenzl/oracle-xe");
 
         GenericContainer<?> container =
                 new OracleContainer(imageName)

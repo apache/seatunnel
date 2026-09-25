@@ -56,7 +56,7 @@ Read external data source data through JDBC.
 | NUMBER(scale != 0)                                                                                       | DECIMAL(38, 18)     |
 | BINARY_DOUBLE                                                                                            | DOUBLE              |
 | BINARY_FLOAT<br/>REAL                                                                                    | FLOAT               |
-| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/> | STRING              |
+| CHAR<br/>NCHAR<br/>VARCHAR<br/>NVARCHAR2<br/>VARCHAR2<br/>LONG<br/>ROWID<br/>NCLOB<br/>CLOB<br/>XML<br/>INTERVAL | STRING              |
 | DATE                                                                                                     | TIMESTAMP           |
 | TIMESTAMP<br/>TIMESTAMP WITH LOCAL TIME ZONE                                                             | TIMESTAMP           |
 | BLOB<br/>RAW<br/>LONG RAW<br/>BFILE                                                                      | BYTES               |
@@ -74,7 +74,7 @@ Read external data source data through JDBC.
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type,Only support numeric type primary key, and only can config one column.                                                                                                                     |
 | partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                  |
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                  |
-| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. default value is job parallelism                                                                                                                                                                    |
+| partition_num                | Int        | No       | 10              | The number of partition count, only support positive integer. default value is 10                                                                                                                                                                                 |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects,you can configure<br/> the row fetch size used in the query toimprove performance by<br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in Oracle, properties take precedence over the URL.                    |
 | use_regex                    | Boolean    | No       | false           | Control regular expression matching for table_path. When set to `true`, the table_path will be treated as a regular expression pattern. When set to `false` or not specified, the table_path will be treated as an exact path (no regex matching).                 |
@@ -170,7 +170,7 @@ The partition_column min value for scan, if not set SeaTunnel will query databas
 
 > Not recommended for use, The correct approach is to control the number of split through `split.size`
 
-How many splits do we need to split into, only support positive integer. default value is job parallelism.
+How many splits do we need to split into, only support positive integer. default value is 10.
 
 ## tips
 
