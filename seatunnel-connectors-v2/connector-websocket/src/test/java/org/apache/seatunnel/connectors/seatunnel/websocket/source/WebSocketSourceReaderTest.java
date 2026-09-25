@@ -27,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSpl
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
 import org.apache.seatunnel.connectors.seatunnel.websocket.config.WebSocketMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.websocket.config.WebSocketSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.websocket.exception.WebSocketConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.websocket.exception.WebSocketConnectorException;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -56,9 +58,12 @@ import java.util.function.BooleanSupplier;
 class WebSocketSourceReaderTest {
 
     private static final long AWAIT_TIMEOUT_MS = 30_000L;
+    private static final int NORMAL_CLOSURE_STATUS = 1000;
+    private static final String SUBSCRIBE_MESSAGE = "{\"op\":\"subscribe\"}";
 
     private MockWebServer server;
     private final BlockingQueue<String> serverReceived = new LinkedBlockingQueue<>();
+    private final BlockingQueue<String> reconnectedServerReceived = new LinkedBlockingQueue<>();
 
     @AfterEach
     void tearDown() throws IOException {
@@ -197,34 +202,126 @@ class WebSocketSourceReaderTest {
         Assertions.assertEquals("alice", collector.rows.get(0).getField(1));
     }
 
+    /**
+     * A connection dropped by the server must be re-established, and the subscription messages must
+     * be sent again on the new connection: a server that never receives the subscription again
+     * would never push anything to the reconnected client.
+     */
+    @Test
+    void shouldResendOpenMessagesAfterReconnect() throws Exception {
+        String url =
+                startServerWith(
+                        connectionDroppingListener(),
+                        subscriptionDrivenListener("{\"id\":1,\"name\":\"alice\"}"));
+        Map<String, Object> configMap = baseConfig(url);
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), jsonSchema());
+        configMap.put(
+                WebSocketSourceOptions.OPEN_MESSAGES.key(),
+                Collections.singletonList(SUBSCRIBE_MESSAGE));
+        configMap.put(WebSocketSourceOptions.ENABLE_RECONNECT.key(), true);
+        configMap.put(WebSocketSourceOptions.RECONNECT_INTERVAL_MS.key(), 100);
+        configMap.put(WebSocketSourceOptions.MAX_RECORDS.key(), 1);
+
+        SourceReader.Context context = mockContext(Boundedness.BOUNDED);
+        AtomicBoolean noMoreElement = trackNoMoreElement(context);
+        TestCollector collector = new TestCollector();
+        try (AbstractSingleSplitReader<SeaTunnelRow> reader = createReader(configMap, context)) {
+            reader.open();
+            pollUntil(reader, collector, noMoreElement::get);
+        }
+
+        Assertions.assertEquals(
+                SUBSCRIBE_MESSAGE,
+                reconnectedServerReceived.poll(AWAIT_TIMEOUT_MS, TimeUnit.MILLISECONDS),
+                "The subscription must be sent again on the reconnected connection");
+        Assertions.assertEquals(1, collector.rows.size());
+        Assertions.assertEquals("alice", collector.rows.get(0).getField(1));
+    }
+
+    /**
+     * Once the reconnect budget is exhausted the reader must fail the task instead of waiting for
+     * messages that can never arrive.
+     */
+    @Test
+    void shouldFailTheTaskWhenReconnectBudgetIsExhausted() throws Exception {
+        String url = startServerWith(connectionDroppingListener());
+        Map<String, Object> configMap = baseConfig(url);
+        configMap.put(WebSocketSourceOptions.ENABLE_RECONNECT.key(), true);
+        // the very first disconnection already exhausts the budget
+        configMap.put(WebSocketSourceOptions.MAX_RECONNECT_TIMES.key(), 0);
+
+        SourceReader.Context context = mockContext(Boundedness.UNBOUNDED);
+        TestCollector collector = new TestCollector();
+        try (AbstractSingleSplitReader<SeaTunnelRow> reader = createReader(configMap, context)) {
+            reader.open();
+            WebSocketConnectorException exception = awaitPollFailure(reader, collector);
+            Assertions.assertEquals(
+                    WebSocketConnectorErrorCode.CONNECT_FAILED, exception.getSeaTunnelErrorCode());
+        }
+        Mockito.verify(context, Mockito.never()).signalNoMoreElement();
+    }
+
     private String startServer(String... messagesToPush) throws IOException {
+        return startServerWith(
+                new WebSocketListener() {
+                    @Override
+                    public void onOpen(WebSocket webSocket, Response response) {
+                        for (String message : messagesToPush) {
+                            webSocket.send(message);
+                        }
+                    }
+
+                    @Override
+                    public void onMessage(WebSocket webSocket, String text) {
+                        serverReceived.add(text);
+                    }
+
+                    @Override
+                    public void onClosing(WebSocket webSocket, int code, String reason) {
+                        // echo the close frame, otherwise the connection stays half closed
+                        // and the server cannot shut down
+                        webSocket.close(code, reason);
+                    }
+                });
+    }
+
+    /** Serves one enqueued websocket upgrade per listener, in the given order. */
+    private String startServerWith(WebSocketListener... listeners) throws IOException {
         server = new MockWebServer();
-        server.enqueue(
-                new MockResponse()
-                        .withWebSocketUpgrade(
-                                new WebSocketListener() {
-                                    @Override
-                                    public void onOpen(WebSocket webSocket, Response response) {
-                                        for (String message : messagesToPush) {
-                                            webSocket.send(message);
-                                        }
-                                    }
-
-                                    @Override
-                                    public void onMessage(WebSocket webSocket, String text) {
-                                        serverReceived.add(text);
-                                    }
-
-                                    @Override
-                                    public void onClosing(
-                                            WebSocket webSocket, int code, String reason) {
-                                        // echo the close frame, otherwise the connection stays
-                                        // half closed and the server cannot shut down
-                                        webSocket.close(code, reason);
-                                    }
-                                }));
+        for (WebSocketListener listener : listeners) {
+            server.enqueue(new MockResponse().withWebSocketUpgrade(listener));
+        }
         server.start();
         return "ws://" + server.getHostName() + ":" + server.getPort() + "/";
+    }
+
+    /** A server side that drops the connection right after the handshake. */
+    private static WebSocketListener connectionDroppingListener() {
+        return new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, Response response) {
+                webSocket.close(NORMAL_CLOSURE_STATUS, "dropped on purpose");
+            }
+        };
+    }
+
+    /**
+     * A server side that pushes data only in response to a client message, so that the row the
+     * reader ends up with is itself the proof that the subscription was re-sent.
+     */
+    private WebSocketListener subscriptionDrivenListener(String messageToPush) {
+        return new WebSocketListener() {
+            @Override
+            public void onMessage(WebSocket webSocket, String text) {
+                reconnectedServerReceived.add(text);
+                webSocket.send(messageToPush);
+            }
+
+            @Override
+            public void onClosing(WebSocket webSocket, int code, String reason) {
+                webSocket.close(code, reason);
+            }
+        };
     }
 
     private String awaitServerMessage() throws InterruptedException {
@@ -286,6 +383,20 @@ class WebSocketSourceReaderTest {
                     "Timed out waiting for the reader to reach its stop condition");
             reader.pollNext(collector);
         }
+    }
+
+    private static WebSocketConnectorException awaitPollFailure(
+            AbstractSingleSplitReader<SeaTunnelRow> reader, TestCollector collector)
+            throws Exception {
+        long deadline = System.currentTimeMillis() + AWAIT_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                reader.pollNext(collector);
+            } catch (WebSocketConnectorException expected) {
+                return expected;
+            }
+        }
+        return Assertions.fail("Timed out waiting for the reader to fail the task");
     }
 
     private static class TestCollector implements Collector<SeaTunnelRow> {
