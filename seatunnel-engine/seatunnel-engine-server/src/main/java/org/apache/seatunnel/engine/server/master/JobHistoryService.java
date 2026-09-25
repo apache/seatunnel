@@ -167,9 +167,7 @@ public class JobHistoryService {
                                 entry -> {
                                     Long jobId = entry.getKey();
                                     JobImmutableInformation jobImmutableInformation =
-                                            entry.getValue()
-                                                    .getJobMaster()
-                                                    .getJobImmutableInformation();
+                                            entry.getValue().getJobImmutableInformation();
                                     return new JobState(
                                             jobId,
                                             jobImmutableInformation.getJobName(),
@@ -212,7 +210,7 @@ public class JobHistoryService {
         if (pendingJobInfoMap.containsKey(jobId)) {
             // return pending job state
             JobImmutableInformation jobImmutableInformation =
-                    pendingJobInfoMap.get(jobId).getJobMaster().getJobImmutableInformation();
+                    pendingJobInfoMap.get(jobId).getJobImmutableInformation();
             return new JobState(
                     jobId,
                     jobImmutableInformation.getJobName(),
