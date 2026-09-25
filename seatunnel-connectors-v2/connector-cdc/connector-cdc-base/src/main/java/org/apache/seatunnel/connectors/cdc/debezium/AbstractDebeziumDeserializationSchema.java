@@ -26,10 +26,16 @@ import org.apache.kafka.connect.source.SourceRecord;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.HistoryRecord;
 
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.Serializable;
+import java.util.AbstractMap;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.isSchemaChangeEvent;
@@ -45,7 +51,8 @@ import static org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils.i
 public abstract class AbstractDebeziumDeserializationSchema<T>
         implements DebeziumDeserializationSchema<T> {
 
-    protected final Map<TableId, byte[]> tableChangesStructMap = new HashMap<>();
+    // Runtime Debezium TableId may not be Serializable, so write table identifiers as strings.
+    protected final Map<TableId, byte[]> tableChangesStructMap = new TableChangesStructMap();
     protected transient JsonConverter converter;
 
     public AbstractDebeziumDeserializationSchema(Map<TableId, Struct> tableIdTableChangeMap) {
@@ -99,5 +106,48 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
             converter.configure(configs, false);
         }
         return converter.fromConnectData("topic", struct.schema(), struct);
+    }
+
+    /**
+     * Holds table history while replacing runtime Debezium table identifiers during Java
+     * serialization.
+     */
+    private static final class TableChangesStructMap extends AbstractMap<TableId, byte[]>
+            implements Serializable {
+
+        private static final long serialVersionUID = 1L;
+
+        private transient Map<TableId, byte[]> entries = new HashMap<>();
+
+        @Override
+        public byte[] put(TableId tableId, byte[] tableChangesStruct) {
+            return entries.put(tableId, tableChangesStruct);
+        }
+
+        @Override
+        public Set<Entry<TableId, byte[]>> entrySet() {
+            return entries.entrySet();
+        }
+
+        private void writeObject(ObjectOutputStream output) throws IOException {
+            synchronized (this) {
+                output.defaultWriteObject();
+                output.writeInt(entries.size());
+                for (Entry<TableId, byte[]> entry : entries.entrySet()) {
+                    output.writeUTF(entry.getKey().identifier());
+                    output.writeObject(entry.getValue());
+                }
+            }
+        }
+
+        private void readObject(ObjectInputStream input)
+                throws IOException, ClassNotFoundException {
+            input.defaultReadObject();
+            entries = new HashMap<>();
+            int entryCount = input.readInt();
+            for (int index = 0; index < entryCount; index++) {
+                entries.put(TableId.parse(input.readUTF()), (byte[]) input.readObject());
+            }
+        }
     }
 }
