@@ -81,6 +81,29 @@ public class ClientCommandArgsTest {
     }
 
     @Test
+    public void testJsonFormatRequiresValidationCommand() {
+        ClientCommandArgs args =
+                CommandLineUtils.parse(
+                        new String[] {"-c", "app.conf", "--format", "json"},
+                        new ClientCommandArgs(),
+                        "seatunnel-client",
+                        true);
+        Assertions.assertThrows(com.beust.jcommander.ParameterException.class, args::buildCommand);
+    }
+
+    @Test
+    public void testJsonFormatIsAcceptedForCheck() {
+        ClientCommandArgs args =
+                CommandLineUtils.parse(
+                        new String[] {"-c", "app.conf", "--check", "--format", "json"},
+                        new ClientCommandArgs(),
+                        "seatunnel-client",
+                        true);
+        Assertions.assertEquals(
+                org.apache.seatunnel.core.starter.enums.OutputFormat.JSON, args.getOutputFormat());
+    }
+
+    @Test
     public void testConnectDryRunParam() {
         String[] args = {"-c", "app.conf", "--dry-run", "connect"};
         ClientCommandArgs clientCommandArgs =
