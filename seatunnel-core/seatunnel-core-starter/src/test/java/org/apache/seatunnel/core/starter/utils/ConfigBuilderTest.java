@@ -19,9 +19,13 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
@@ -29,6 +33,46 @@ import java.util.List;
 import java.util.Map;
 
 public class ConfigBuilderTest {
+
+    @Test
+    public void testConfigAdapterPreservesInvalidPathKeys() {
+        Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("^t_nova_.*$", "string");
+        fields.put("a\"b\\c", "string");
+        Map<String, Object> schema = new LinkedHashMap<>();
+        schema.put("fields", fields);
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put("schema", schema);
+        Map<String, Object> configMap = new LinkedHashMap<>();
+        configMap.put("source", Arrays.asList(source));
+        configMap.put("sink", Arrays.asList(new LinkedHashMap<>()));
+        configMap.put("env->job.mode", "BATCH");
+
+        ConfigAdapter adapter =
+                new ConfigAdapter() {
+                    @Override
+                    public String[] extensionIdentifiers() {
+                        return new String[] {"sql"};
+                    }
+
+                    @Override
+                    public Map<String, Object> loadConfig(Path configFilePath) {
+                        return configMap;
+                    }
+                };
+
+        Config config = ConfigBuilder.of(adapter, Paths.get("adapter-regex.sql"), null);
+
+        Assertions.assertEquals(
+                fields,
+                config.getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped());
+        Assertions.assertEquals("BATCH", config.getConfig("env").getString("job.mode"));
+    }
 
     @Test
     public void testInvalidPathKeysSurviveConfigShadeRoundTrip() {
