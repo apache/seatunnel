@@ -35,9 +35,22 @@ public class CreateTableParser {
         createTableSql = createTableSql.substring(startIndex + 1);
 
         boolean insideParentheses = false;
+        char quote = 0;
         for (int i = 0; i < createTableSql.length(); i++) {
             char c = createTableSql.charAt(i);
-            if (c == '(') {
+            if (quote != 0) {
+                // Commas and parentheses inside quoted text, such as COMMENT 'low,medium,high',
+                // are part of the column definition and must not end it.
+                columnBuilder.append(c);
+                if (c == '\\' && i + 1 < createTableSql.length()) {
+                    columnBuilder.append(createTableSql.charAt(++i));
+                } else if (c == quote) {
+                    quote = 0;
+                }
+            } else if (c == '\'' || c == '"' || c == '`') {
+                quote = c;
+                columnBuilder.append(c);
+            } else if (c == '(') {
                 insideParentheses = true;
                 columnBuilder.append(c);
             } else if ((c == ',' || c == ')') && !insideParentheses) {
