@@ -525,7 +525,8 @@ jobs:
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
         if: runner.os != 'Windows'
       - name: run all modules unit test (Windows)
-        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
+        # Run only the packaged Spark launcher IT while its reactor dependencies are available.
+        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=false -D"it.test=TestSpark35StarterJarContentIT" -D"it.failIfNoSpecifiedTests=false" -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
