@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-google-ads.md';
+
 # GoogleAds
 
 > Google Ads 源连接器
@@ -177,3 +179,7 @@ source {
 ### 下一版本
 
 - 新增 Google Ads 源连接器，支持 GAQL、schema 自动推导与多表读取
+
+## Changelog
+
+<ChangeLog />

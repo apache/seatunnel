@@ -151,6 +151,7 @@ driver = "org.mariadb.jdbc.Driver"
 Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA。具体要求见 [Exactly-once 前置条件](#exactly-once-前置条件)。
 
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)（仅 Zeta 引擎）
 
 ## Options

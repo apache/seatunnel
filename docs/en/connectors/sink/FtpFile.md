@@ -36,6 +36,7 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] excel
   - [x] xml
   - [x] binary
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 

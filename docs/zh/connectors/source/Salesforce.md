@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-salesforce.md';
+
 # Salesforce
 
 > Salesforce 源连接器
@@ -113,3 +115,7 @@ source {
 ### 下一个版本
 
 - 新增 Salesforce 源连接器，基于 Bulk API 2.0，支持多对象读取
+
+## Changelog
+
+<ChangeLog />
