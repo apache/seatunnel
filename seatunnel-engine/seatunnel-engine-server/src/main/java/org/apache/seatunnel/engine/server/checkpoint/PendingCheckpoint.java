@@ -30,12 +30,19 @@ import com.beust.jcommander.internal.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class PendingCheckpoint implements Checkpoint {
     private static final Logger LOG = LoggerFactory.getLogger(PendingCheckpoint.class);
@@ -56,6 +63,10 @@ public class PendingCheckpoint implements Checkpoint {
     private final Map<ActionStateKey, ActionState> actionStates;
 
     private final CompletableFuture<CompletedCheckpoint> completableFuture;
+
+    /** Finalization state shared by ACK completion and abort paths. */
+    private final AtomicReference<FinalizeState> finalizeState =
+            new AtomicReference<>(FinalizeState.ACTIVE);
 
     @Getter private CheckpointException failureCause;
 
@@ -136,7 +147,10 @@ public class PendingCheckpoint implements Checkpoint {
                 continue;
             }
             stateSize +=
-                    state.getState().stream().filter(Objects::nonNull).map(s -> s.length).count();
+                    state.getState().stream()
+                            .filter(Objects::nonNull)
+                            .mapToLong(bytes -> bytes.length)
+                            .sum();
             actionState.reportState(state.getIndex(), state);
         }
         statistics.reportSubtaskStatistics(
@@ -146,7 +160,8 @@ public class PendingCheckpoint implements Checkpoint {
                         stateSize,
                         subtaskStatus));
 
-        if (isFullyAcknowledged()) {
+        if (isFullyAcknowledged()
+                && finalizeState.compareAndSet(FinalizeState.ACTIVE, FinalizeState.COMPLETED)) {
             LOG.debug("checkpoint is full ack!");
             completableFuture.complete(toCompletedCheckpoint());
         }
@@ -165,10 +180,99 @@ public class PendingCheckpoint implements Checkpoint {
                 checkpointType,
                 System.currentTimeMillis(),
                 actionStates,
-                taskStatistics);
+                taskStatistics,
+                createCheckpointIntent());
+    }
+
+    private CheckpointIntent createCheckpointIntent() {
+        if (!containsDynamicLookupState()) {
+            return CheckpointIntent.normal(jobId, pipelineId, checkpointId);
+        }
+        return CheckpointIntent.dynamicLookupFactPositionAnchor(
+                jobId, pipelineId, checkpointId, digestActionStates());
+    }
+
+    private boolean containsDynamicLookupState() {
+        for (ActionState actionState : actionStates.values()) {
+            if (containsDynamicLookupState(actionState.getCoordinatorState())) {
+                return true;
+            }
+            for (ActionSubtaskState subtaskState : actionState.getSubtaskStates()) {
+                if (containsDynamicLookupState(subtaskState)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean containsDynamicLookupState(ActionSubtaskState subtaskState) {
+        if (subtaskState == null || subtaskState.getState() == null) {
+            return false;
+        }
+        return subtaskState.getState().stream()
+                .anyMatch(DynamicLookupStateEnvelope::hasEnvelopeMagic);
+    }
+
+    private byte[] digestActionStates() {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            List<ActionState> sortedActionStates = new ArrayList<>(actionStates.values());
+            sortedActionStates.sort(
+                    Comparator.comparing(actionState -> actionState.getStateKey().getName()));
+            for (ActionState actionState : sortedActionStates) {
+                updateString(digest, actionState.getStateKey().getName());
+                updateInt(digest, actionState.getParallelism());
+                updateSubtaskState(digest, actionState.getCoordinatorState());
+                for (ActionSubtaskState subtaskState : actionState.getSubtaskStates()) {
+                    updateSubtaskState(digest, subtaskState);
+                }
+            }
+            return digest.digest();
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is required by the Java runtime", e);
+        }
+    }
+
+    private static void updateSubtaskState(MessageDigest digest, ActionSubtaskState subtaskState) {
+        if (subtaskState == null) {
+            updateInt(digest, -1);
+            return;
+        }
+        updateInt(digest, subtaskState.getIndex());
+        if (subtaskState.getState() == null) {
+            updateInt(digest, -1);
+            return;
+        }
+        updateInt(digest, subtaskState.getState().size());
+        for (byte[] stateBytes : subtaskState.getState()) {
+            if (stateBytes == null) {
+                updateInt(digest, -1);
+            } else {
+                updateInt(digest, stateBytes.length);
+                digest.update(stateBytes);
+            }
+        }
+    }
+
+    private static void updateString(MessageDigest digest, String value) {
+        byte[] bytes = value.getBytes(StandardCharsets.UTF_8);
+        updateInt(digest, bytes.length);
+        digest.update(bytes);
+    }
+
+    private static void updateInt(MessageDigest digest, int value) {
+        digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(value).array());
     }
 
     public void abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
+        if (!finalizeState.compareAndSet(FinalizeState.ACTIVE, FinalizeState.ABORTED)) {
+            LOG.debug(
+                    "skip abort checkpoint {} because it is already {}",
+                    getInfo(),
+                    finalizeState.get());
+            return;
+        }
         if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)
                 || closedReason.equals(CheckpointCloseReason.PIPELINE_END)) {
             completableFuture.complete(null);
@@ -204,5 +308,11 @@ public class PendingCheckpoint implements Checkpoint {
 
     public int getTotalSubtasks() {
         return taskStatistics.values().stream().mapToInt(TaskStatistics::getParallelism).sum();
+    }
+
+    private enum FinalizeState {
+        ACTIVE,
+        COMPLETED,
+        ABORTED
     }
 }

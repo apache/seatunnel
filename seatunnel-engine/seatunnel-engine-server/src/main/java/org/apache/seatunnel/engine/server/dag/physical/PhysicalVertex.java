@@ -56,6 +56,8 @@ import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -97,6 +99,9 @@ public class PhysicalVertex {
     // including the storage path of the Jar package on the server.
     private final List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers;
 
+    /** Immutable port-aware deployment metadata; empty for every legacy vertex. */
+    private final List<InputPortDescriptor> inputPorts;
+
     private final IMap<Object, Object> runningJobStateIMap;
 
     /**
@@ -124,6 +129,23 @@ public class PhysicalVertex {
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
 
+    /**
+     * Creates a legacy physical vertex without port-aware deployment metadata.
+     *
+     * @param subTaskGroupIndex subtask-group index
+     * @param parallelism action parallelism
+     * @param taskGroup physical task group
+     * @param flakeIdGenerator cluster ID generator
+     * @param pipelineId pipeline identity
+     * @param totalPipelineNum total pipeline count
+     * @param pluginJarsUrls plugin dependency URLs
+     * @param connectorJarIdentifiers connector plugin dependencies
+     * @param jobImmutableInformation immutable job metadata
+     * @param initializationTimestamp vertex initialization timestamp
+     * @param nodeEngine Hazelcast node engine
+     * @param runningJobStateIMap persisted task state map
+     * @param runningJobStateTimestampsIMap persisted task timestamp map
+     */
     public PhysicalVertex(
             int subTaskGroupIndex,
             int parallelism,
@@ -138,11 +160,62 @@ public class PhysicalVertex {
             @NonNull NodeEngine nodeEngine,
             @NonNull IMap runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap) {
+        this(
+                subTaskGroupIndex,
+                parallelism,
+                taskGroup,
+                flakeIdGenerator,
+                pipelineId,
+                totalPipelineNum,
+                pluginJarsUrls,
+                connectorJarIdentifiers,
+                jobImmutableInformation,
+                initializationTimestamp,
+                nodeEngine,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap,
+                Collections.emptyList());
+    }
+
+    /**
+     * Creates a physical vertex with explicit multi-input deployment metadata.
+     *
+     * @param subTaskGroupIndex subtask-group index
+     * @param parallelism action parallelism
+     * @param taskGroup physical task group
+     * @param flakeIdGenerator cluster ID generator
+     * @param pipelineId pipeline identity
+     * @param totalPipelineNum total pipeline count
+     * @param pluginJarsUrls plugin dependency URLs
+     * @param connectorJarIdentifiers connector plugin dependencies
+     * @param jobImmutableInformation immutable job metadata
+     * @param initializationTimestamp vertex initialization timestamp
+     * @param nodeEngine Hazelcast node engine
+     * @param runningJobStateIMap persisted task state map
+     * @param runningJobStateTimestampsIMap persisted task timestamp map
+     * @param inputPorts explicit immutable input-port descriptors
+     */
+    public PhysicalVertex(
+            int subTaskGroupIndex,
+            int parallelism,
+            @NonNull TaskGroupDefaultImpl taskGroup,
+            @NonNull FlakeIdGenerator flakeIdGenerator,
+            int pipelineId,
+            int totalPipelineNum,
+            List<Set<URL>> pluginJarsUrls,
+            List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers,
+            @NonNull JobImmutableInformation jobImmutableInformation,
+            long initializationTimestamp,
+            @NonNull NodeEngine nodeEngine,
+            @NonNull IMap runningJobStateIMap,
+            @NonNull IMap runningJobStateTimestampsIMap,
+            @NonNull List<InputPortDescriptor> inputPorts) {
         this.taskGroupLocation = taskGroup.getTaskGroupLocation();
         this.taskGroup = taskGroup;
         this.flakeIdGenerator = flakeIdGenerator;
         this.pluginJarsUrls = pluginJarsUrls;
         this.connectorJarIdentifiers = connectorJarIdentifiers;
+        this.inputPorts = Collections.unmodifiableList(new ArrayList<>(inputPorts));
 
         Long[] stateTimestamps = new Long[ExecutionState.values().length];
         if (runningJobStateTimestampsIMap.get(taskGroup.getTaskGroupLocation()) == null) {
@@ -346,6 +419,10 @@ public class PhysicalVertex {
     @VisibleForTesting
     public TaskGroup getTaskGroup() {
         return taskGroup;
+    }
+
+    public List<InputPortDescriptor> getInputPorts() {
+        return inputPorts;
     }
 
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {

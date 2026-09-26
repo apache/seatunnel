@@ -21,7 +21,10 @@ import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.FactSourceGateCapability;
 import org.apache.seatunnel.api.source.SourceEvent;
+import org.apache.seatunnel.api.source.SourceGateCommand;
+import org.apache.seatunnel.api.source.SourceGateState;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
@@ -34,11 +37,16 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
+import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
@@ -55,11 +63,22 @@ import lombok.Setter;
 import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.io.Serializable;
+import java.nio.ByteBuffer;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -97,7 +116,17 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private static final long IDLE_SLEEP_MS = 100L;
     private static final long IDLE_SLEEP_NS = TimeUnit.MILLISECONDS.toNanos(IDLE_SLEEP_MS);
 
+    /** Magic bytes used to fence dynamic lookup fact gate state from legacy split bytes. */
+    private static final int SOURCE_GATE_STATE_MAGIC = 0x53544754;
+
+    /** Current outer envelope version for dynamic lookup fact gate state. */
+    private static final int SOURCE_GATE_STATE_VERSION = 1;
+
+    /** SHA-256 digest length stored in the dynamic lookup fact gate state envelope. */
+    private static final int SOURCE_GATE_STATE_DIGEST_LENGTH = 32;
+
     private final SourceAction<T, SplitT, ?> sourceAction;
+    private final SourceConfig sourceConfig;
     private final TaskLocation enumeratorTaskLocation;
 
     private Address enumeratorTaskAddress;
@@ -124,9 +153,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private final long flushIntervalMs;
 
     private transient volatile ScheduledFuture<?> flushFuture;
+    private transient BlockingQueue<SourceGateCommand> gateCommandQueue;
+    private transient FactSourceGateCapability factGateCapability;
 
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
+            SourceConfig sourceConfig,
             int indexID,
             TaskLocation enumeratorTaskLocation,
             SeaTunnelTask runningTask,
@@ -136,6 +168,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             long flushIntervalMs) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
+        this.sourceConfig = sourceConfig;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
@@ -167,6 +200,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
         this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
         this.reader = sourceAction.getSource().createReader(context);
+        if (sourceConfig.isDynamicLookupFactGate()) {
+            if (!(reader instanceof FactSourceGateCapability)) {
+                throw new TaskRuntimeException(
+                        "Dynamic lookup fact source requires FactSourceGateCapability: "
+                                + sourceAction.getName());
+            }
+            this.factGateCapability = (FactSourceGateCapability) reader;
+            this.factGateCapability.prepareClosedGate();
+        }
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 
@@ -181,6 +223,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void open() throws Exception {
         context.getEventListener().onEvent(new ReaderOpenEvent());
+        if (sourceConfig.isDynamicLookupFactGate()) {
+            this.gateCommandQueue =
+                    openGateCommandQueue(sourceConfig.getDynamicLookupGateCommandQueue());
+        }
         reader.open();
         register();
     }
@@ -264,6 +310,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 return;
             }
 
+            drainGateCommands();
             collector.resetEmptyThisPollNext();
             long startNs = metricsEnabled ? System.nanoTime() : 0L;
             reader.pollNext(collector);
@@ -452,6 +499,40 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         }
     }
 
+    private BlockingQueue<SourceGateCommand> openGateCommandQueue(IntermediateQueueConfig config) {
+        if (config == null) {
+            throw new TaskRuntimeException("Dynamic lookup fact gate command queue is missing");
+        }
+        if (!(runningTask.getTaskGroup() instanceof AbstractTaskGroupWithIntermediateQueue)) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate requires an intermediate-queue task group");
+        }
+        AbstractIntermediateQueue<?> queue =
+                ((AbstractTaskGroupWithIntermediateQueue) runningTask.getTaskGroup())
+                        .getQueueCache(
+                                config.getQueueID(),
+                                config.getCapacity(),
+                                runningTask.getMetricsContext());
+        Object rawQueue = queue.getIntermediateQueue();
+        if (!(rawQueue instanceof BlockingQueue)) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate requires blocking command queue");
+        }
+        @SuppressWarnings("unchecked")
+        BlockingQueue<SourceGateCommand> typedQueue = (BlockingQueue<SourceGateCommand>) rawQueue;
+        return typedQueue;
+    }
+
+    private void drainGateCommands() throws Exception {
+        if (gateCommandQueue == null || factGateCapability == null) {
+            return;
+        }
+        SourceGateCommand command;
+        while ((command = gateCommandQueue.poll()) != null) {
+            factGateCapability.applyGateCommand(command);
+        }
+    }
+
     /**
      * Injects a checkpoint barrier into the record stream.
      *
@@ -483,9 +564,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 this.prepareClose = true;
             }
             if (barrier.snapshot()) {
-                List<byte[]> states =
-                        serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
-                runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
+                runningTask.addState(
+                        barrier,
+                        ActionStateKey.of(sourceAction),
+                        snapshotSourceState(barrier.getId()));
             }
             // ack after #addState
             runningTask.ack(barrier);
@@ -590,6 +672,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         if (actionStateList.isEmpty()) {
             return;
         }
+        if (sourceConfig.isDynamicLookupFactGate()) {
+            restoreFactGateState(actionStateList);
+            return;
+        }
         List<byte[]> splits =
                 actionStateList.stream()
                         .map(ActionSubtaskState::getState)
@@ -606,6 +692,152 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         } catch (InterruptedException | ExecutionException e) {
             log.warn("source request split failed.", e);
             throw new RuntimeException(e);
+        }
+    }
+
+    /**
+     * Snapshots either the native source split state or the dynamic lookup fact gate state.
+     *
+     * <p>A gated fact source keeps prepared splits behind the reader gate. Persisting them through
+     * the regular split list would route restored bytes back through the enumerator and lose the
+     * gate's open/no-more-splits ownership metadata.
+     */
+    private List<byte[]> snapshotSourceState(long checkpointId) throws Exception {
+        if (!sourceConfig.isDynamicLookupFactGate()) {
+            return serializeStates(splitSerializer, reader.snapshotState(checkpointId));
+        }
+        if (factGateCapability == null) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate capability is not initialized: "
+                            + sourceAction.getName());
+        }
+        return Collections.singletonList(
+                serializeSourceGateState(factGateCapability.snapshotGate(checkpointId)));
+    }
+
+    /**
+     * Restores a dynamic lookup fact gate state directly into the reader.
+     *
+     * <p>The restored state must not be delivered to the split enumerator because the reader owns
+     * the prepared split bytes until the lookup task durably opens the gate.
+     */
+    private void restoreFactGateState(List<ActionSubtaskState> actionStateList) throws Exception {
+        if (factGateCapability == null) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate capability is not initialized: "
+                            + sourceAction.getName());
+        }
+        List<byte[]> gateStates =
+                actionStateList.stream()
+                        .map(ActionSubtaskState::getState)
+                        .flatMap(Collection::stream)
+                        .filter(Objects::nonNull)
+                        .collect(Collectors.toList());
+        if (gateStates.size() != 1) {
+            throw new IOException(
+                    "Dynamic lookup fact gate restore expects one SourceGateState envelope, but got "
+                            + gateStates.size());
+        }
+        factGateCapability.restoreGateState(deserializeSourceGateState(gateStates.get(0)));
+    }
+
+    /**
+     * Serializes the fact gate state into a versioned envelope with a SHA-256 payload digest.
+     *
+     * <p>The outer envelope lets restore fail fast when legacy split bytes are accidentally routed
+     * into the dynamic lookup fact-gate path.
+     */
+    private static byte[] serializeSourceGateState(SourceGateState gateState) throws IOException {
+        ByteArrayOutputStream payloadStream = new ByteArrayOutputStream();
+        try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(payloadStream)) {
+            objectOutputStream.writeObject(gateState);
+        }
+        byte[] payload = payloadStream.toByteArray();
+        byte[] digest = sha256(payload);
+        return ByteBuffer.allocate(Integer.BYTES * 3 + payload.length + digest.length)
+                .putInt(SOURCE_GATE_STATE_MAGIC)
+                .putInt(SOURCE_GATE_STATE_VERSION)
+                .putInt(payload.length)
+                .put(payload)
+                .put(digest)
+                .array();
+    }
+
+    /**
+     * Deserializes and validates a fact gate state envelope before handing ownership to the reader.
+     */
+    private static SourceGateState deserializeSourceGateState(byte[] stateBytes)
+            throws IOException, ClassNotFoundException {
+        if (stateBytes == null
+                || stateBytes.length < Integer.BYTES * 3 + SOURCE_GATE_STATE_DIGEST_LENGTH) {
+            throw new IOException("Dynamic lookup fact gate state envelope is truncated");
+        }
+        ByteBuffer envelope = ByteBuffer.wrap(stateBytes);
+        int magic = envelope.getInt();
+        if (magic != SOURCE_GATE_STATE_MAGIC) {
+            throw new IOException("Invalid dynamic lookup fact gate state magic: " + magic);
+        }
+        int version = envelope.getInt();
+        if (version != SOURCE_GATE_STATE_VERSION) {
+            throw new IOException("Unsupported dynamic lookup fact gate state version: " + version);
+        }
+        int payloadLength = envelope.getInt();
+        if (payloadLength < 0
+                || envelope.remaining() != payloadLength + SOURCE_GATE_STATE_DIGEST_LENGTH) {
+            throw new IOException("Invalid dynamic lookup fact gate state payload length");
+        }
+        byte[] payload = new byte[payloadLength];
+        envelope.get(payload);
+        byte[] expectedDigest = new byte[SOURCE_GATE_STATE_DIGEST_LENGTH];
+        envelope.get(expectedDigest);
+        if (!Arrays.equals(expectedDigest, sha256(payload))) {
+            throw new IOException("Dynamic lookup fact gate state SHA-256 digest mismatch");
+        }
+        try (ObjectInputStream objectInputStream =
+                new SourceGateObjectInputStream(new ByteArrayInputStream(payload))) {
+            Object gateState = objectInputStream.readObject();
+            if (!(gateState instanceof SourceGateState)) {
+                throw new IOException(
+                        "Unexpected dynamic lookup fact gate state type: " + gateState);
+            }
+            return (SourceGateState) gateState;
+        }
+    }
+
+    /** Restricts fact-gate checkpoint payloads to the SourceGateState object graph. */
+    private static final class SourceGateObjectInputStream extends ObjectInputStream {
+
+        private SourceGateObjectInputStream(ByteArrayInputStream input) throws IOException {
+            super(input);
+        }
+
+        @Override
+        protected Class<?> resolveClass(ObjectStreamClass descriptor)
+                throws IOException, ClassNotFoundException {
+            String className = descriptor.getName();
+            if (isAllowedClass(className)) {
+                return super.resolveClass(descriptor);
+            }
+            throw new IOException("Rejected dynamic lookup fact gate state class: " + className);
+        }
+
+        private static boolean isAllowedClass(String className) {
+            return className.equals("[B")
+                    || className.equals("java.lang.String")
+                    || className.equals("java.util.ArrayList")
+                    || className.equals("java.util.Collections$UnmodifiableCollection")
+                    || className.equals("java.util.Collections$UnmodifiableList")
+                    || className.equals("java.util.Collections$UnmodifiableRandomAccessList")
+                    || className.equals(SourceGateState.class.getName())
+                    || className.equals(SourceGateState.PreparedSplit.class.getName());
+        }
+    }
+
+    private static byte[] sha256(byte[] payload) throws IOException {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(payload);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 is required by the Java runtime", e);
         }
     }
 
