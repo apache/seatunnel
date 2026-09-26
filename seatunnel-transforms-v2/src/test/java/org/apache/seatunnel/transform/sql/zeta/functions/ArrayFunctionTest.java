@@ -35,7 +35,10 @@ import net.sf.jsqlparser.expression.LongValue;
 import net.sf.jsqlparser.expression.operators.relational.ExpressionList;
 import net.sf.jsqlparser.schema.Column;
 
+import java.math.BigDecimal;
+import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 class ArrayFunctionTest {
@@ -90,6 +93,143 @@ class ArrayFunctionTest {
 
         Assertions.assertEquals(3, max);
         Assertions.assertEquals(1, min);
+    }
+
+    @Test
+    void testArrayExtremaPreserveLongPrecision() {
+        assertExtremaInBothOrders(9007199254740992L, 9007199254740993L);
+        assertExtremaInBothOrders(-9007199254740993L, -9007199254740992L);
+        assertExtremaInBothOrders(Long.MAX_VALUE - 1, Long.MAX_VALUE);
+        assertExtremaInBothOrders(Long.MIN_VALUE, Long.MIN_VALUE + 1);
+        assertExtremaInBothOrders(Long.MIN_VALUE, Long.MAX_VALUE);
+    }
+
+    @Test
+    void testArrayExtremaPreserveDecimalPrecision() {
+        assertExtremaInBothOrders(
+                new BigDecimal("1.00000000000000000001"), new BigDecimal("1.00000000000000000002"));
+        assertExtremaInBothOrders(
+                new BigDecimal("-1.00000000000000000002"),
+                new BigDecimal("-1.00000000000000000001"));
+        assertExtremaInBothOrders(
+                new BigDecimal("1E+30"), new BigDecimal("1E+30").add(BigDecimal.ONE));
+        assertExtremaInBothOrders(new BigDecimal("1E-400"), new BigDecimal("2E-400"));
+        assertExtremaInBothOrders(new BigDecimal("1E+400"), new BigDecimal("2E+400"));
+    }
+
+    @Test
+    void testArrayExtremaPreserveMixedIntegralDecimalPrecision() {
+        Assertions.assertAll(
+                () -> assertExtremaInBothOrders(1L, new BigDecimal("1.00000000000000000001")),
+                () -> assertExtremaInBothOrders(new BigDecimal("-1.00000000000000000001"), -1L),
+                () ->
+                        assertExtremaInBothOrders(
+                                Long.MAX_VALUE, new BigDecimal("9223372036854775807.1")),
+                () ->
+                        assertExtremaInBothOrders(
+                                new BigDecimal("-9223372036854775808.1"), Long.MIN_VALUE),
+                () -> assertExtremaInBothOrders(0L, new BigDecimal("1E-400")),
+                () -> assertExtremaInBothOrders((byte) 1, new BigDecimal("1.00000000000000000001")),
+                () ->
+                        assertExtremaInBothOrders(
+                                (short) 1, new BigDecimal("1.00000000000000000001")),
+                () -> assertExtremaInBothOrders(1, new BigDecimal("1.00000000000000000001")));
+    }
+
+    @Test
+    void testArrayExtremaKeepFirstEqualElement() {
+        BigDecimal first = new BigDecimal("1.00");
+        BigDecimal second = new BigDecimal("1.0");
+        for (Object[] values :
+                new Object[][] {
+                    {null, first, second},
+                    {second, first, null},
+                    {null, 1L, first, 1},
+                    {first, 1, 1L, null},
+                    {null, (byte) 1, (short) 1, 1, 1L}
+                }) {
+            Object expected = values[0] == null ? values[1] : values[0];
+            Assertions.assertSame(
+                    expected, ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    expected, ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    @Test
+    void testArrayExtremaPreserveFloatingPointOrdering() {
+        assertExtremaInBothOrders(-0.0d, 0.0d);
+        assertExtremaInBothOrders(Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY);
+        assertExtremaInBothOrders(Double.POSITIVE_INFINITY, Double.NaN);
+        assertExtremaInBothOrders(-0.0f, 0.0f);
+        assertExtremaInBothOrders(Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY);
+        assertExtremaInBothOrders(Float.POSITIVE_INFINITY, Float.NaN);
+    }
+
+    @Test
+    void testArrayExtremaPreserveIntegralWrappers() {
+        assertExtremaInBothOrders(Byte.MIN_VALUE, Byte.MAX_VALUE);
+        assertExtremaInBothOrders(Short.MIN_VALUE, Short.MAX_VALUE);
+        assertExtremaInBothOrders(Integer.MIN_VALUE, Integer.MAX_VALUE);
+        assertExtremaInBothOrders(1, 9007199254740993L);
+    }
+
+    @Test
+    void testArrayExtremaPreserveMixedFloatingPointComparison() {
+        Long first = 9007199254740992L;
+        Long second = 9007199254740993L;
+        Double floating = 9007199254740992d;
+        for (Object[] values :
+                new Object[][] {
+                    {first, second, floating}, {second, floating, first}, {floating, first, second}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+        BigDecimal decimal = new BigDecimal("1.00000000000000000001");
+        for (Object[] values :
+                new Object[][] {
+                    {decimal, 1d}, {1d, decimal}, {1L, decimal, 1d}, {decimal, 1L, 1d}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    @Test
+    void testArrayExtremaPreserveUnknownNumberComparison() {
+        BigInteger integer = new BigInteger("9007199254740993");
+        BigDecimal decimal = new BigDecimal("9007199254740992");
+        Long integral = 9007199254740992L;
+        for (Object[] values :
+                new Object[][] {
+                    {integer, decimal, integral},
+                    {decimal, integral, integer},
+                    {integral, integer, decimal}
+                }) {
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMax(Collections.singletonList(values)));
+            Assertions.assertSame(
+                    values[0], ArrayFunction.arrayMin(Collections.singletonList(values)));
+        }
+    }
+
+    private void assertExtremaInBothOrders(Number min, Number max) {
+        for (Object[] values : new Object[][] {{null, min, max}, {max, min, null}}) {
+            Object[] original = values.clone();
+            Assertions.assertAll(
+                    () ->
+                            Assertions.assertSame(
+                                    max, ArrayFunction.arrayMax(Collections.singletonList(values))),
+                    () ->
+                            Assertions.assertSame(
+                                    min, ArrayFunction.arrayMin(Collections.singletonList(values))),
+                    () -> Assertions.assertArrayEquals(original, values));
+        }
     }
 
     @Test

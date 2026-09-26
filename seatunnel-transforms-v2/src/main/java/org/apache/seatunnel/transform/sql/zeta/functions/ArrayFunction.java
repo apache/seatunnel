@@ -27,6 +27,7 @@ import org.apache.seatunnel.transform.exception.TransformException;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.Function;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -50,17 +51,9 @@ public class ArrayFunction {
             return null;
         }
         if (firstNonNullValue instanceof String) {
-            return Arrays.stream(dataList)
-                    .filter(Objects::nonNull)
-                    .map(String.class::cast)
-                    .max(String::compareTo)
-                    .orElse(null);
+            return extremum(dataList, String.class, String::compareTo, true);
         } else if (firstNonNullValue instanceof Number) {
-            return Arrays.stream(dataList)
-                    .filter(Objects::nonNull)
-                    .map(Number.class::cast)
-                    .max(Comparator.comparingDouble(Number::doubleValue))
-                    .orElse(null);
+            return extremum(dataList, Number.class, numericComparator(dataList), true);
         }
         Map<String, String> params = new HashMap<>();
         params.put("identifier", "ArrayFunction");
@@ -83,23 +76,66 @@ public class ArrayFunction {
             return null;
         }
         if (firstNonNullValue instanceof String) {
-            return Arrays.stream(dataList)
-                    .filter(Objects::nonNull)
-                    .map(String.class::cast)
-                    .min(String::compareTo)
-                    .orElse(null);
+            return extremum(dataList, String.class, String::compareTo, false);
         } else if (firstNonNullValue instanceof Number) {
-            return Arrays.stream(dataList)
-                    .filter(Objects::nonNull)
-                    .map(Number.class::cast)
-                    .min(Comparator.comparingDouble(Number::doubleValue))
-                    .orElse(null);
+            return extremum(dataList, Number.class, numericComparator(dataList), false);
         }
         Map<String, String> params = new HashMap<>();
         params.put("identifier", "ArrayFunction");
         params.put("dataType", firstNonNullValue.getClass().getName());
         params.put("field", "ARRAY_MIN");
         throw new TransformException(CommonErrorCode.UNSUPPORTED_DATA_TYPE, params);
+    }
+
+    /** Select an original element, retaining the first element when values compare equally. */
+    private static <T> T extremum(
+            Object[] values, Class<T> type, Comparator<T> comparator, boolean maximum) {
+        T result = null;
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            T candidate = type.cast(value);
+            if (result == null) {
+                result = candidate;
+            } else {
+                int comparison = comparator.compare(candidate, result);
+                if (maximum ? comparison > 0 : comparison < 0) {
+                    result = candidate;
+                }
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Select one ordering for the whole array, ignoring nulls: exact long comparison for any mix of
+     * Byte, Short, Integer and Long, exact decimal comparison when those types mix with BigDecimal,
+     * and the existing double comparison if any Float, Double or other Number subtype (including
+     * BigInteger) is present. Whole-array classification avoids mixing inconsistent pairwise
+     * orders.
+     */
+    private static Comparator<Number> numericComparator(Object[] values) {
+        boolean integral = true;
+        for (Object value : values) {
+            if (value == null) {
+                continue;
+            }
+            boolean integralValue =
+                    value instanceof Byte
+                            || value instanceof Short
+                            || value instanceof Integer
+                            || value instanceof Long;
+            if (!integralValue && !(value instanceof BigDecimal)) {
+                return Comparator.comparingDouble(Number::doubleValue);
+            }
+            integral &= integralValue;
+        }
+        if (integral) {
+            return Comparator.comparingLong(Number::longValue);
+        }
+        return (left, right) ->
+                NumericFunction.toBigDecimal(left).compareTo(NumericFunction.toBigDecimal(right));
     }
 
     public static Object[] array(List<Object> args) {
