@@ -106,7 +106,7 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
                         .queueName(SOURCE_QUEUE_NAME)
                         .buildClient();
         sourceQueueClient.createIfNotExists();
-        SeaTunnelContainer.enableAzureQueueReactorThreadExemption();
+        SeaTunnelContainer.enableAzureSdkReactorThreadExemption();
     }
 
     @AfterAll
@@ -117,7 +117,7 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
                 azurite.close();
             }
         } finally {
-            SeaTunnelContainer.disableAzureQueueReactorThreadExemption();
+            SeaTunnelContainer.disableAzureSdkReactorThreadExemption();
         }
     }
 
