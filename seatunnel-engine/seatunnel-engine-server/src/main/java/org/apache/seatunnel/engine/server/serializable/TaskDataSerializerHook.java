@@ -40,11 +40,15 @@ import org.apache.seatunnel.engine.server.task.operation.sink.SinkRegisterOperat
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.ManagedCoordinatorCommandOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.ManagedSourceCommandOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.ManagedSourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceNoMoreElementOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEventOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandAdmissionAck;
 import org.apache.seatunnel.engine.server.telemetry.log.operation.CleanLogOperation;
 
 import com.hazelcast.internal.serialization.DataSerializerHook;
@@ -109,6 +113,14 @@ public class TaskDataSerializerHook implements DataSerializerHook {
     public static final int CLEAN_LOG_OPERATION = 27;
 
     public static final int REPORT_METRICS_OPERATION = 28;
+
+    public static final int MANAGED_SOURCE_COMMAND_OPERATION = 29;
+
+    public static final int MANAGED_SOURCE_REGISTER_OPERATION = 30;
+
+    public static final int MANAGED_COORDINATOR_COMMAND_OPERATION = 31;
+
+    public static final int MANAGED_SOURCE_ADMISSION_ACK = 32;
 
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
@@ -186,6 +198,14 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new CleanLogOperation();
                 case REPORT_METRICS_OPERATION:
                     return new ReportMetricsOperation();
+                case MANAGED_SOURCE_COMMAND_OPERATION:
+                    return new ManagedSourceCommandOperation();
+                case MANAGED_SOURCE_REGISTER_OPERATION:
+                    return new ManagedSourceRegisterOperation();
+                case MANAGED_COORDINATOR_COMMAND_OPERATION:
+                    return new ManagedCoordinatorCommandOperation();
+                case MANAGED_SOURCE_ADMISSION_ACK:
+                    return new SourceCommandAdmissionAck();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }
