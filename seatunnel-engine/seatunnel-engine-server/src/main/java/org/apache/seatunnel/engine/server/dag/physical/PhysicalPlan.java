@@ -39,15 +39,28 @@ import com.hazelcast.map.IMap;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 @Slf4j
 public class PhysicalPlan {
+
+    /**
+     * Job states that have not yet started running. Cancelling or stopping a job in one of these
+     * states moves it straight to {@link JobStatus#CANCELED} instead of going through the {@link
+     * JobStatus#CANCELING} transition, because there is no running work to drain.
+     *
+     * <p>Kept as an explicit status set rather than an ordinal range so that adding a status in the
+     * middle of the enum cannot silently change which states are considered "not started".
+     */
+    private static final Set<JobStatus> NOT_STARTED_STATUSES =
+            EnumSet.of(JobStatus.INITIALIZING, JobStatus.CREATED, JobStatus.PENDING);
 
     private final List<SubPlan> pipelineList;
 
@@ -204,9 +217,8 @@ public class PhysicalPlan {
             return;
         }
 
-        if (((JobStatus) runningJobStateIMap.get(jobId)).ordinal() <= JobStatus.PENDING.ordinal()) {
-            // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
-            // the 'CANCELLED' state because it has not yet started running
+        if (NOT_STARTED_STATUSES.contains(jobStatus)) {
+            // Not started yet: no running work to drain, so go straight to CANCELLED.
             updateJobState(JobStatus.CANCELED);
             jobEndFuture.complete(new JobResult(JobStatus.CANCELED));
         } else {
@@ -251,9 +263,8 @@ public class PhysicalPlan {
             return;
         }
 
-        if (jobStatus.ordinal() <= JobStatus.PENDING.ordinal()) {
-            // Tasks with the status 'INITIALIZING', 'CREATED', 'PENDING' need to be set directly to
-            // the 'CANCELLED' state because it has not yet started running
+        if (NOT_STARTED_STATUSES.contains(jobStatus)) {
+            // Not started yet: no running work to drain, so go straight to CANCELLED.
             updateJobState(JobStatus.CANCELED);
             completeJobEndFuture(new JobResult(JobStatus.CANCELED, null));
         } else if (jobStatus == JobStatus.DOING_SAVEPOINT) {
