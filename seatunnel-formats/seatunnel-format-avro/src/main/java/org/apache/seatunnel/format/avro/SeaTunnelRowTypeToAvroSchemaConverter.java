@@ -58,6 +58,7 @@ public class SeaTunnelRowTypeToAvroSchemaConverter {
 
         switch (seaTunnelDataType.getSqlType()) {
             case STRING:
+            case JSON:
                 return Schema.createUnion(
                         Schema.create(Schema.Type.NULL), Schema.create(Schema.Type.STRING));
             case BYTES:

@@ -73,6 +73,10 @@ public class StarRocksBaseSerializer {
                 return JsonUtils.toJsonString(val);
             case BYTES:
                 return new String((byte[]) val);
+            case JSON:
+                throw new StarRocksConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
+                        "Native JSON columns require JSON Stream Load format");
             default:
                 throw new StarRocksConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,

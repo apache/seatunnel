@@ -163,6 +163,14 @@ public interface JdbcDialect extends Serializable {
     }
 
     /**
+     * Constructs the dialect-specific insert statement using field type information when needed.
+     */
+    default String getInsertIntoStatement(
+            String database, String tableName, TableSchema tableSchema) {
+        return getInsertIntoStatement(database, tableName, tableSchema.getFieldNames());
+    }
+
+    /**
      * Constructs the dialects update statement for a single row with the given condition. The
      * returned string will be used as a {@link java.sql.PreparedStatement}. Fields in the statement
      * must be in the same order as the {@code fieldNames} parameter.
@@ -200,6 +208,23 @@ public interface JdbcDialect extends Serializable {
         return String.format(
                 "UPDATE %s SET %s WHERE %s",
                 tableIdentifier(database, tableName), setClause, conditionClause);
+    }
+
+    /**
+     * Constructs the dialect-specific update statement using field type information when needed.
+     */
+    default String getUpdateStatement(
+            String database,
+            String tableName,
+            TableSchema tableSchema,
+            String[] conditionFields,
+            boolean isPrimaryKeyUpdated) {
+        return getUpdateStatement(
+                database,
+                tableName,
+                tableSchema.getFieldNames(),
+                conditionFields,
+                isPrimaryKeyUpdated);
     }
 
     /**

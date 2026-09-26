@@ -75,6 +75,44 @@ public class JsonPathTransformTest {
                 "1", outputRow.getField(outputTable.getSeaTunnelRowType().indexOf("f1")));
     }
 
+    /**
+     * Verifies that JsonPath accepts the JSON logical type as its structured-text input.
+     *
+     * <p>The extracted value follows the configured destination type while the source remains
+     * native JSON.
+     */
+    @Test
+    public void testJsonLogicalTypeInput() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(
+                JsonPathTransformConfig.COLUMNS.key(),
+                Arrays.asList(
+                        ImmutableMap.of(
+                                JsonPathTransformConfig.SRC_FIELD.key(), "data",
+                                JsonPathTransformConfig.PATH.key(), "$.nested.id",
+                                JsonPathTransformConfig.DEST_FIELD.key(), "id",
+                                JsonPathTransformConfig.DEST_TYPE.key(), "int")));
+        CatalogTable table =
+                CatalogTableUtil.getCatalogTable(
+                        "test",
+                        new SeaTunnelRowType(
+                                new String[] {"data"},
+                                new SeaTunnelDataType[] {BasicType.JSON_TYPE}));
+        JsonPathTransform transform =
+                new JsonPathTransform(
+                        JsonPathTransformConfig.of(ReadonlyConfig.fromMap(configMap), table),
+                        table);
+
+        CatalogTable outputTable = transform.getProducedCatalogTable();
+        SeaTunnelRow outputRow =
+                transform.map(new SeaTunnelRow(new Object[] {"{\"nested\":{\"id\":7}}"}));
+
+        int outputIndex = outputTable.getSeaTunnelRowType().indexOf("id");
+        Assertions.assertEquals(
+                BasicType.INT_TYPE, outputTable.getSeaTunnelRowType().getFieldType(outputIndex));
+        Assertions.assertEquals(7, outputRow.getField(outputIndex));
+    }
+
     @Test
     public void testErrorHandleWay() {
         Map<String, Object> configMap = new HashMap<>();

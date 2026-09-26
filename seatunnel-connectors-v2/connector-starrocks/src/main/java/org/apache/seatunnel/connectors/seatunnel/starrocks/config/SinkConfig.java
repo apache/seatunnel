@@ -28,6 +28,7 @@ import lombok.ToString;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Setter
@@ -94,6 +95,12 @@ public class SinkConfig implements Serializable {
         config.getOptional(StarRocksSinkOptions.COLUMN_SEPARATOR)
                 .ifPresent(sinkConfig::setColumnSeparator);
         sinkConfig.setLoadFormat(config.get(StarRocksSinkOptions.LOAD_FORMAT));
+        Object legacyFormat = sinkConfig.getStreamLoadProps().get("format");
+        if (legacyFormat != null) {
+            sinkConfig.setLoadFormat(
+                    StreamLoadFormat.valueOf(
+                            legacyFormat.toString().trim().toUpperCase(Locale.ROOT)));
+        }
         sinkConfig.setSchemaSaveMode(config.get(StarRocksSinkOptions.SCHEMA_SAVE_MODE));
         sinkConfig.setDataSaveMode(config.get(StarRocksSinkOptions.DATA_SAVE_MODE));
         sinkConfig.setCustomSql(config.get(StarRocksSinkOptions.CUSTOM_SQL));
