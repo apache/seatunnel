@@ -30,6 +30,16 @@ You need to check this document before you upgrade to related version.
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
 
+### FakeSource (connector-fake)
+
+- Declarative option constraints are now enforced at factory validation time instead of
+  silently passing and failing only at runtime. Affected options: `split.num` must be > 0;
+  `vector.dimension` and `binary.vector.dimension` must be > 0; `tinyint.min/max`,
+  `smallint.min/max`, `int.min/max`, `bigint.min/max`, `float.min/max`, `double.min/max`,
+  and `vector.float.min/max` must satisfy min <= max. Note that `row.num = 0` (empty source)
+  is still valid. Existing jobs that set invalid values and previously ran successfully will now
+  fail fast at startup with a validation error.
+
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
@@ -347,3 +357,4 @@ You need to check this document before you upgrade to related version.
 ### Engine Behavior Changes
 
 ### Dependency Upgrades
+
