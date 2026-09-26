@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
@@ -121,8 +122,15 @@ public class PhysicalVertex {
 
     public volatile boolean isRunning = false;
 
-    /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
-    private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
+    /**
+     * The failure recorded for this physical vertex, installed first-write-wins. The failure
+     * message and its coordinator-classified graceful member-removal flag are kept in one immutable
+     * holder so they are always written and read as a single unit: writing them as two independent
+     * atomics allowed a concurrent caller to re-tag another caller's already-recorded failure with
+     * its own classification, logging a genuine failure at the wrong level.
+     */
+    private AtomicReference<FailureClassification> failureClassificationByPhysicalVertex =
+            new AtomicReference<>();
 
     public PhysicalVertex(
             int subTaskGroupIndex,
@@ -209,7 +217,15 @@ public class PhysicalVertex {
         stateProcess();
     }
 
-    private boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
+    /**
+     * Checks whether a task group believed to be running is still executing on its assigned worker
+     * during master-failover restoration. When that worker has already left the cluster, the
+     * failure is classified here, before any membership callback runs, using the same marker rules
+     * as {@link CoordinatorService#failedTaskOnMemberRemoved}. Package-visible so the restore-path
+     * classification can be exercised directly by tests.
+     */
+    @VisibleForTesting
+    boolean checkTaskGroupIsExecuting(TaskGroupLocation taskGroupLocation) {
         IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
         SlotProfile slotProfile =
@@ -225,6 +241,12 @@ public class PhysicalVertex {
                         "The node:{} running the taskGroup {} no longer exists, return false.",
                         worker.toString(),
                         taskGroupLocation);
+                recordMemberRemovedFailure(
+                        failureClassificationByPhysicalVertex,
+                        taskGroupLocation,
+                        worker,
+                        getGracefulMemberRemovalMarker(worker),
+                        System.currentTimeMillis());
                 return false;
             }
             InvocationFuture<Object> invoke =
@@ -246,6 +268,23 @@ public class PhysicalVertex {
             }
         }
         return false;
+    }
+
+    /**
+     * Reads the one-time graceful-removal marker while restoring a task whose worker has already
+     * left the cluster. This recovery path may run before the new master receives its membership
+     * callback, so it must preserve the same classification as the callback path.
+     */
+    private Long getGracefulMemberRemovalMarker(Address lostAddress) {
+        try {
+            return nodeEngine
+                    .getHazelcastInstance()
+                    .<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL)
+                    .get(lostAddress);
+        } catch (Exception e) {
+            log.debug("Unable to read graceful member-removal marker for {}", lostAddress, e);
+            return null;
+        }
     }
 
     private SlotProfile getOwnedSlotProfilesByTaskGroup(
@@ -499,8 +538,8 @@ public class PhysicalVertex {
                         () -> {
                             updateStateTimestamps(ExecutionState.CREATED);
                             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
-                            // reset the errorByPhysicalVertex
-                            errorByPhysicalVertex = new AtomicReference<>();
+                            // reset the recorded failure classification
+                            failureClassificationByPhysicalVertex = new AtomicReference<>();
                             return null;
                         },
                         new RetryUtils.RetryMaterial(
@@ -531,13 +570,25 @@ public class PhysicalVertex {
     }
 
     public void updateStateByExecutionService(TaskExecutionState taskExecutionState) {
+        updateStateByExecutionService(taskExecutionState, false);
+    }
+
+    /**
+     * Receives a coordinator-classified graceful member-removal flag without changing the task
+     * state's serialized payload.
+     */
+    public void updateStateByExecutionService(
+            TaskExecutionState taskExecutionState, boolean gracefulMemberRemovalFailure) {
         if (!taskExecutionState.getExecutionState().isEndState()) {
             throw new SeaTunnelEngineException(
                     String.format(
                             "The state must be end state from ExecutionService, can not be %s",
                             taskExecutionState.getExecutionState()));
         }
-        errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
+        recordFailureClassification(
+                failureClassificationByPhysicalVertex,
+                taskExecutionState.getThrowableMsg(),
+                gracefulMemberRemovalFailure);
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
@@ -610,21 +661,34 @@ public class PhysicalVertex {
                         new TaskExecutionState(
                                 taskGroupLocation,
                                 ExecutionState.CANCELED,
-                                errorByPhysicalVertex.get()));
+                                getRecordedFailureMessage()));
                 return;
             case FAILED:
                 stopPhysicalVertex();
-                log.error(
-                        String.format(
-                                "%s end with state %s and Exception: %s",
-                                this.taskFullName,
-                                ExecutionState.FAILED,
-                                errorByPhysicalVertex.get()));
+                // Read the recorded failure once so the message and its graceful classification
+                // always come from the same write and can never be observed as a torn pair.
+                FailureClassification failureClassification =
+                        failureClassificationByPhysicalVertex.get();
+                String errorMsg =
+                        failureClassification == null
+                                ? null
+                                : failureClassification.getErrorMessage();
+                boolean gracefulMemberRemovalFailure =
+                        failureClassification != null
+                                && failureClassification.isGracefulMemberRemovalFailure();
+                if (shouldLogFailureAsWarn(gracefulMemberRemovalFailure)) {
+                    log.warn(
+                            String.format(
+                                    "%s end with state %s due to node offline: %s",
+                                    this.taskFullName, ExecutionState.FAILED, errorMsg));
+                } else {
+                    log.error(
+                            String.format(
+                                    "%s end with state %s and Exception: %s",
+                                    this.taskFullName, ExecutionState.FAILED, errorMsg));
+                }
                 taskFuture.complete(
-                        new TaskExecutionState(
-                                taskGroupLocation,
-                                ExecutionState.FAILED,
-                                errorByPhysicalVertex.get()));
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, errorMsg));
                 return;
             case FINISHED:
                 stopPhysicalVertex();
@@ -632,7 +696,7 @@ public class PhysicalVertex {
                         new TaskExecutionState(
                                 taskGroupLocation,
                                 ExecutionState.FINISHED,
-                                errorByPhysicalVertex.get()));
+                                getRecordedFailureMessage()));
                 return;
             default:
                 throw new IllegalArgumentException(
@@ -641,7 +705,104 @@ public class PhysicalVertex {
     }
 
     public void makeTaskGroupFailing(Throwable err) {
-        errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(err));
+        recordFailureClassification(
+                failureClassificationByPhysicalVertex, ExceptionUtils.getMessage(err), false);
         updateTaskState(ExecutionState.FAILING);
+    }
+
+    /**
+     * Returns the message of the recorded failure classification, or {@code null} when no failure
+     * has been recorded for this physical vertex.
+     */
+    private String getRecordedFailureMessage() {
+        FailureClassification failureClassification = failureClassificationByPhysicalVertex.get();
+        return failureClassification == null ? null : failureClassification.getErrorMessage();
+    }
+
+    /**
+     * Only coordinator-classified graceful member removals should be downgraded to warn logs. Every
+     * other failure keeps the pre-existing error level, so an unproven departure (crash, kill,
+     * partition) is never hidden as routine scale-down noise.
+     */
+    @VisibleForTesting
+    static boolean shouldLogFailureAsWarn(boolean gracefulMemberRemovalFailure) {
+        return gracefulMemberRemovalFailure;
+    }
+
+    /**
+     * Installs a failure message and its graceful member-removal classification into the slot as
+     * one atomic, first-write-wins unit. Later callers never override an already-recorded failure,
+     * so a concurrent node-offline classification can not re-tag a genuine failure as graceful (or
+     * strip the graceful flag from a recorded offline failure). A {@code null} message never claims
+     * the slot, preserving the pre-existing first-write-wins behavior where a message-less caller
+     * left the slot claimable by a later caller that actually carries a failure message.
+     */
+    @VisibleForTesting
+    static void recordFailureClassification(
+            AtomicReference<FailureClassification> failureClassificationSlot,
+            String errorMessage,
+            boolean gracefulMemberRemovalFailure) {
+        if (errorMessage == null) {
+            return;
+        }
+        failureClassificationSlot.compareAndSet(
+                null, new FailureClassification(errorMessage, gracefulMemberRemovalFailure));
+    }
+
+    /**
+     * Records the same structured member-removal failure emitted after a membership callback. It is
+     * used by the master failover recovery path, where a task can be found on a worker that has
+     * already left before the callback is processed. The message and the TTL rule are deliberately
+     * not re-implemented here: both are delegated to the coordinator's shared helpers so this
+     * second consumer of the graceful-removal marker can never drift from the callback path.
+     */
+    @VisibleForTesting
+    static void recordMemberRemovedFailure(
+            AtomicReference<FailureClassification> failureClassificationSlot,
+            TaskGroupLocation taskGroupLocation,
+            Address lostAddress,
+            Long markedAt,
+            long nowMillis) {
+        recordFailureClassification(
+                failureClassificationSlot,
+                CoordinatorService.buildMemberRemovedOfflineMessage(taskGroupLocation, lostAddress),
+                CoordinatorService.isGracefulMemberRemovalMarkerValid(markedAt, nowMillis));
+    }
+
+    /**
+     * Immutable pairing of a failure message and the coordinator-classified graceful member-removal
+     * flag. The pair must always travel together: keeping them in two independent fields with
+     * mismatched write discipline (first-write-wins message, last-write-wins flag) allowed a
+     * genuine concurrent failure to inherit another caller's classification and be logged at the
+     * wrong level.
+     */
+    @VisibleForTesting
+    static final class FailureClassification {
+
+        /**
+         * The failure message recorded for this physical vertex. It is stored next to its
+         * classification in this immutable holder so a reader can never pair the message of one
+         * write with the graceful flag of another.
+         */
+        private final String errorMessage;
+
+        /**
+         * Whether the coordinator classified the recorded failure as caused by a graceful member
+         * removal, which is the only case that downgrades the failure log level to warn.
+         */
+        private final boolean gracefulMemberRemovalFailure;
+
+        private FailureClassification(String errorMessage, boolean gracefulMemberRemovalFailure) {
+            this.errorMessage = errorMessage;
+            this.gracefulMemberRemovalFailure = gracefulMemberRemovalFailure;
+        }
+
+        String getErrorMessage() {
+            return errorMessage;
+        }
+
+        boolean isGracefulMemberRemovalFailure() {
+            return gracefulMemberRemovalFailure;
+        }
     }
 }
