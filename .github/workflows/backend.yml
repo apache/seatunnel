@@ -164,6 +164,7 @@ jobs:
       helm: ${{ steps.filter.outputs.helm }}
       ut-modules: ${{ steps.ut-modules.outputs.modules || '[]' }}
       it-modules: ${{ steps.it-modules.outputs.modules || '[]' }}
+      updated-it-shards: ${{ steps.updated-it-shards.outputs.shards || '[]' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -413,6 +414,20 @@ jobs:
           modules_json=$(python tools/update_modules_check/update_modules_check.py json "$build_modules")
           echo "modules=$modules_json" >> "$GITHUB_OUTPUT"
 
+      - name: Make updated integration test shards
+        id: updated-it-shards
+        if: ${{ steps.it-modules.outputs.modules != '' && steps.it-modules.outputs.modules != '[]' }}
+        env:
+          IT_MODULES: ${{ steps.it-modules.outputs.modules }}
+        run: |
+          # Only start the updated-modules-integration-test-part-N jobs that have modules to test.
+          if ! shards=$(python tools/update_modules_check/update_modules_check.py sub_update_it_shards "$IT_MODULES" 8); then
+            echo "::warning::Could not compute updated integration test shards; running all shards"
+            shards='["part-1","part-2","part-3","part-4","part-5","part-6","part-7","part-8"]'
+          fi
+          echo "$shards"
+          echo "shards=$shards" >> "$GITHUB_OUTPUT"
+
   dependency-license:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
     name: Dependency licenses
@@ -579,7 +594,7 @@ jobs:
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-1')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -612,7 +627,7 @@ jobs:
 
   updated-modules-integration-test-part-2:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-2')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -645,7 +660,7 @@ jobs:
 
   updated-modules-integration-test-part-3:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-3')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -678,7 +693,7 @@ jobs:
 
   updated-modules-integration-test-part-4:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-4')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -710,7 +725,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-5')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -742,7 +757,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-6')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -774,7 +789,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-7')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -807,7 +822,7 @@ jobs:
 
   updated-modules-integration-test-part-8:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]'
+    if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != '[]' && contains(fromJSON(needs.changes.outputs.updated-it-shards), 'part-8')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
