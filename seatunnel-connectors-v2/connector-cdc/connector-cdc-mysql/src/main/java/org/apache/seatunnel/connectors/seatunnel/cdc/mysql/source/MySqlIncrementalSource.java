@@ -87,6 +87,9 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
         }
 
         validateNoSpecificStartupOffset(config, startupMode);
+        if (StartupMode.SNAPSHOT_ONLY.equals(startupMode)) {
+            validateNoStopModeForSnapshotOnly(config);
+        }
         return new StartupConfig(
                 startupMode,
                 config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
@@ -194,6 +197,16 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                     String.format(
                             "'startup.specific-offset.*' options can only be used when '%s' is 'specific', but current mode is '%s'.",
                             SourceOptions.STARTUP_MODE_KEY, startupMode));
+        }
+    }
+
+    private static void validateNoStopModeForSnapshotOnly(ReadonlyConfig config) {
+        StopMode stopMode = config.get(MySqlIncrementalSourceOptions.STOP_MODE);
+        if (stopMode != StopMode.NEVER) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' cannot be configured when '%s' is 'snapshot-only', but current stop mode is '%s'.",
+                            SourceOptions.STOP_MODE_KEY, SourceOptions.STARTUP_MODE_KEY, stopMode));
         }
     }
 
