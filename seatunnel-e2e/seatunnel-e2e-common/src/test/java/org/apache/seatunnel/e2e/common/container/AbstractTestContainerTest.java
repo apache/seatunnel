@@ -175,6 +175,33 @@ class AbstractTestContainerTest {
         Assertions.assertTrue(container.hostVolumeDeleted);
     }
 
+    /** An interrupt that is only recorded as suppressed must still reach the caller's thread. */
+    @Test
+    void shouldStopAllContainersAndKeepInterruptWhenItIsNotTheFirstFailure() throws Exception {
+        GenericContainer<?> first = stoppedContainer();
+        IllegalStateException stopFailure = new IllegalStateException("stop failed");
+        Mockito.doThrow(stopFailure).when(first).stop();
+        GenericContainer<?> second = runningContainer(0);
+        InterruptedException interrupt = new InterruptedException("interrupted");
+        Mockito.when(second.execInContainer("rm", "-rf", VOLUME)).thenThrow(interrupt);
+        TestSeaTunnelContainer container = new TestSeaTunnelContainer(null);
+
+        try {
+            IllegalStateException thrown =
+                    Assertions.assertThrows(
+                            IllegalStateException.class,
+                            () -> container.stopContainersAndDeleteVolume(first, second));
+
+            Assertions.assertSame(stopFailure, thrown);
+            Assertions.assertSame(interrupt, thrown.getSuppressed()[0]);
+            Assertions.assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+        Mockito.verify(second).stop();
+        Assertions.assertTrue(container.hostVolumeDeleted);
+    }
+
     private static GenericContainer<?> stoppedContainer() {
         GenericContainer<?> container = Mockito.mock(GenericContainer.class);
         Mockito.when(container.isRunning()).thenReturn(false);

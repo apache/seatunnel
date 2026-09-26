@@ -147,7 +147,8 @@ public abstract class AbstractTestContainer implements TestContainer {
      * step runs even if an earlier one fails: a container left running keeps its network alias on
      * the shared network, and the next test case can then talk to it instead of its own container.
      * The first failure is rethrown after all steps have run; later ones are added to it as
-     * suppressed.
+     * suppressed. If an interrupt is only recorded as suppressed, the thread's interrupt flag is
+     * set again before rethrowing.
      *
      * @param containers containers to stop in order; {@code null} entries are skipped
      * @throws Exception the first failure to stop a container or to delete the host path
@@ -168,6 +169,7 @@ public abstract class AbstractTestContainer implements TestContainer {
             failure = addFailure(failure, e);
         }
         if (failure != null) {
+            restoreInterruptIfSuppressed(failure);
             throw failure;
         }
     }
@@ -249,6 +251,23 @@ public abstract class AbstractTestContainer implements TestContainer {
                         + " files left there",
                 path);
         return false;
+    }
+
+    /**
+     * Sets the interrupt flag again if an {@link InterruptedException} was only recorded as
+     * suppressed. Called after every container was stopped, because a set flag can make the
+     * remaining {@code stop()} calls fail.
+     */
+    private static void restoreInterruptIfSuppressed(Exception failure) {
+        if (failure instanceof InterruptedException) {
+            return;
+        }
+        for (Throwable suppressed : failure.getSuppressed()) {
+            if (suppressed instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
     }
 
     private static Exception addFailure(Exception first, Exception next) {
