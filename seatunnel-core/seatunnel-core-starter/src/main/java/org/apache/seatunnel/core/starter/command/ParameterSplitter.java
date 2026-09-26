@@ -16,6 +16,8 @@
  */
 package org.apache.seatunnel.core.starter.command;
 
+import org.apache.seatunnel.common.utils.ConfigValueUtils;
+
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
@@ -25,23 +27,42 @@ public class ParameterSplitter implements IParameterSplitter {
 
     @Override
     public List<String> split(String value) {
-
         List<String> result = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
-        boolean insideBrackets = false;
         boolean insideQuotes = false;
+        int braceDepth = 0;
+        int bracketDepth = 0;
 
-        for (char c : value.toCharArray()) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
 
-            if (c == '[') {
-                insideBrackets = true;
-            } else if (c == ']') {
-                insideBrackets = false;
-            } else if (c == '"') {
-                insideQuotes = !insideQuotes;
+            if (c == '"') {
+                if (ConfigValueUtils.isEscapedQuote(value, i)) {
+                    currentToken.append(c);
+                    continue;
+                }
+                insideQuotes = ConfigValueUtils.updateQuoteState(value, i, insideQuotes);
+                currentToken.append(c);
+                continue;
             }
 
-            if (c == ',' && !insideQuotes && !insideBrackets) {
+            if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}' && braceDepth > 0) {
+                    braceDepth--;
+                } else if (c == '}' && braceDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
+                } else if (c == '[') {
+                    bracketDepth++;
+                } else if (c == ']' && bracketDepth > 0) {
+                    bracketDepth--;
+                } else if (c == ']' && bracketDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
+                }
+            }
+
+            if (c == ',' && !insideQuotes && braceDepth == 0 && bracketDepth == 0) {
                 result.add(currentToken.toString().trim());
                 currentToken = new StringBuilder();
             } else {
