@@ -43,6 +43,7 @@ connector-dingtalk
 connector-doris
 connector-elasticsearch
 connector-email
+connector-file-adls
 connector-file-ftp
 connector-file-cos
 connector-file-hadoop

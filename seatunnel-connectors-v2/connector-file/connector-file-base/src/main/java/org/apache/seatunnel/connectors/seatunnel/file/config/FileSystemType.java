@@ -31,6 +31,7 @@ public enum FileSystemType implements Serializable {
     OBS("ObsFile"),
     BOS("BosFile"),
     GCS("GcsFile"),
+    ADLS("ADLSFile"),
     SMB("SmbFile");
 
     private final String fileSystemPluginName;

@@ -33,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.adaptPathForWin;
@@ -67,6 +68,8 @@ public abstract class AbstractTestContainer implements TestContainer {
 
     protected final String startModuleFullPath;
 
+    private Map<String, String> environmentVariables;
+
     public AbstractTestContainer() {
         this.startModuleName = getStartModuleName();
         this.startModuleFullPath =
@@ -76,6 +79,17 @@ public abstract class AbstractTestContainer implements TestContainer {
                         + File.separator
                         + this.startModuleName;
         ContainerUtil.checkPathExist(startModuleFullPath);
+    }
+
+    /** Sets test-scoped environment variables before the runtime container is started. */
+    public final void setEnvironmentVariables(Map<String, String> environmentVariables) {
+        this.environmentVariables = environmentVariables;
+    }
+
+    protected final void applyEnvironmentVariables(GenericContainer<?> container) {
+        if (environmentVariables != null) {
+            container.withEnv(environmentVariables);
+        }
     }
 
     protected abstract String getDockerImage();
