@@ -15,23 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.autoscale;
 
-import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
+import java.util.concurrent.TimeUnit;
 
-import com.hazelcast.spi.impl.NodeEngine;
+public final class SystemAutoscalerTimeSource implements AutoscalerTimeSource {
 
-public class StandaloneResourceManager extends AbstractResourceManager {
-
-    public StandaloneResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        super(nodeEngine, engineConfig);
+    /**
+     * Returns wall-clock time for timestamps that represent real-world instants and may be compared
+     * by other components.
+     */
+    @Override
+    public long currentTimeMillis() {
+        return System.currentTimeMillis();
     }
 
-    public StandaloneResourceManager(
-            NodeEngine nodeEngine,
-            EngineConfig engineConfig,
-            AutoscalerConfig autoscalerRuntimeConfig) {
-        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
+    /**
+     * Returns monotonic elapsed-time ticks for local duration checks; it is not a calendar time and
+     * is unaffected by wall-clock adjustments.
+     */
+    @Override
+    public long monotonicTimeMillis() {
+        return TimeUnit.NANOSECONDS.toMillis(System.nanoTime());
     }
 }

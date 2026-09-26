@@ -15,23 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.resourcemanager;
+package org.apache.seatunnel.engine.server.autoscale;
 
-import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.server.autoscale.AutoscalerConfig;
+public interface AutoscalerStateStore {
 
-import com.hazelcast.spi.impl.NodeEngine;
+    void updateCurrentSnapshot(AutoscalerMetricsSnapshot snapshot);
 
-public class StandaloneResourceManager extends AbstractResourceManager {
+    void saveEvaluation(AutoscalingEvaluationRecord record);
 
-    public StandaloneResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        super(nodeEngine, engineConfig);
-    }
+    void saveRecommendation(ScalingRecommendation recommendation);
 
-    public StandaloneResourceManager(
-            NodeEngine nodeEngine,
-            EngineConfig engineConfig,
-            AutoscalerConfig autoscalerRuntimeConfig) {
-        super(nodeEngine, engineConfig, autoscalerRuntimeConfig);
-    }
+    void clear();
+
+    AutoscalerView view(
+            boolean enabled,
+            boolean running,
+            long currentMasterEpoch,
+            long nextGeneration,
+            int scaleOutStabilizationSeconds,
+            int scaleInStabilizationSeconds);
 }
