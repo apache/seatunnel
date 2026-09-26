@@ -38,7 +38,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy<ExcelGenerator> {
     }
 
     @Override
-    public void write(SeaTunnelRow seaTunnelRow) {
+    public synchronized void write(SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         ExcelGenerator excelGenerator = getOrCreateOutputStream(filePath);
@@ -46,7 +46,7 @@ public class ExcelWriteStrategy extends AbstractWriteStrategy<ExcelGenerator> {
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {

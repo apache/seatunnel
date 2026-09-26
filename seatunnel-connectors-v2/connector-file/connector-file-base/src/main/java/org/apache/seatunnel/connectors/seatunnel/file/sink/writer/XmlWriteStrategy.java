@@ -45,7 +45,7 @@ public class XmlWriteStrategy extends AbstractWriteStrategy<XmlWriter> {
     }
 
     @Override
-    public void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
+    public synchronized void write(SeaTunnelRow seaTunnelRow) throws FileConnectorException {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         XmlWriter xmlDocWriter = getOrCreateOutputStream(filePath);
@@ -53,7 +53,7 @@ public class XmlWriteStrategy extends AbstractWriteStrategy<XmlWriter> {
     }
 
     @Override
-    public void finishAndCloseFile() {
+    public synchronized void finishAndCloseFile() {
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {
