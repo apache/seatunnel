@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -129,10 +130,10 @@ class ADLSRuntimeCompatibilityTest {
     @Test
     void rejectsInvalidStorageLabelsAndMissingCredentials() {
         Assertions.assertThrows(
-                IllegalArgumentException.class,
+                FileConnectorException.class,
                 () -> ADLSRuntimeCompatibility.newConfiguration("Storage", "analytics"));
         Assertions.assertThrows(
-                IllegalArgumentException.class,
+                FileConnectorException.class,
                 () ->
                         ADLSRuntimeCompatibility.configureSharedKey(
                                 ADLSRuntimeCompatibility.newConfiguration("account", "container"),
@@ -149,19 +150,27 @@ class ADLSRuntimeCompatibilityTest {
             "https://["
         };
         for (String authority : authorities) {
-            Assertions.assertThrows(
-                    IllegalArgumentException.class,
-                    () ->
-                            ADLSRuntimeCompatibility.clientCredentialsOptions(
-                                    "examplestorage",
-                                    "dfs.core.windows.net",
-                                    authority,
-                                    "example.onmicrosoft.com",
-                                    "client",
-                                    "secret"));
+            FileConnectorException error =
+                    Assertions.assertThrows(
+                            FileConnectorException.class,
+                            () ->
+                                    ADLSRuntimeCompatibility.clientCredentialsOptions(
+                                            "examplestorage",
+                                            "dfs.core.windows.net",
+                                            authority,
+                                            "example.onmicrosoft.com",
+                                            "client",
+                                            "secret"));
+            Assertions.assertTrue(
+                    error.getMessage().contains("authorityHost must be an HTTPS origin"),
+                    authority);
         }
-        Assertions.assertThrows(
-                IllegalArgumentException.class,
-                () -> ADLSRuntimeCompatibility.validateTenantId("example.onmicrosoft.com/other"));
+        FileConnectorException error =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                ADLSRuntimeCompatibility.validateTenantId(
+                                        "example.onmicrosoft.com/other"));
+        Assertions.assertTrue(error.getMessage().contains("tenantId must be a GUID or DNS name"));
     }
 }

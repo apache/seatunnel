@@ -96,7 +96,7 @@ class ADLSConfigValidatorTest {
                 Assertions.assertThrows(
                         FileConnectorException.class,
                         () -> ADLSConfigValidator.validate(ReadonlyConfig.fromMap(values)));
-        Assertions.assertTrue(error.getMessage().contains("tenant_id"));
+        Assertions.assertTrue(error.getMessage().contains("tenantId"));
     }
 
     private static Map<String, Object> sharedKeyConfig() {
