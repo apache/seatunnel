@@ -10,8 +10,8 @@ FilterRowKind 转换插件用于按 RowKind 过滤数据。
 
 |      名称       |  类型   | 是否必须 | 默认值 |
 |---------------|-------|------|-----|
-| include_kinds | array | yes  |     |
-| exclude_kinds | array | yes  |     |
+| include_kinds | array | no   |     |
+| exclude_kinds | array | no   |     |
 
 ### include_kinds [array]
 
@@ -21,7 +21,7 @@ FilterRowKind 转换插件用于按 RowKind 过滤数据。
 
 要排除的行类型。
 
-您只能配置 `include_kinds` 和 `exclude_kinds` 中的一个。
+您必须且只能配置 `include_kinds` 和 `exclude_kinds` 中的一个，不能同时配置。
 
 ### common options [string]
 

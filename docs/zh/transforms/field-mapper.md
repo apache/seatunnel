@@ -60,5 +60,5 @@ transform {
 
 ### 新版本
 
-- 添加复制转换连接器
+- 添加 FieldMapper 转换连接器
 

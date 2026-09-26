@@ -42,7 +42,6 @@ or upsert session selected by `insert_strategy`.
 | data_save_mode            | enum    | no       | APPEND_DATA                  | How to handle existing target data before writing, such as `DROP_DATA`, `APPEND_DATA`, or `ERROR_WHEN_DATA_EXISTS`.      |
 | custom_sql                | string  | no       | -                            | Custom SQL to execute before writing when `data_save_mode = CUSTOM_PROCESSING`.                                          |
 | save_mode_create_template | string  | no       | see below                    | DDL template used when the sink creates the target table.                                                                 |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss          | Format string used to convert `LocalDateTime` fields to strings.                                                         |
 | tunnel_endpoint           | string  | no       | -                            | Custom endpoint URL for the MaxCompute Tunnel service. When not set, the endpoint is auto-inferred from the region.       |
 | tunnel_name               | string  | no       | -                            | Tunnel Quota name used for exclusive resource groups. Requires both `endpoint` and `tunnel_endpoint` to be VPC endpoints. |
 | insert_strategy           | string  | no       | upload                       | Insert session strategy: `upload` uses an upload session, `upsert` uses an upsert session and requires a primary key.    |
@@ -150,26 +149,6 @@ Option introduction：
 ### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
-
-### datetime_format [String]
-
-User-defined format string used to convert LocalDateTime fields to strings.
-
-Use this option when you want to specify a custom datetime format that matches one of the predefined values in DateTimeUtils.Formatter (e.g. yyyy-MM-dd HH:mm:ss, yyyyMMddHHmmss, etc.).
-
-Example values:
-
-- `yyyy-MM-dd HH:mm:ss`
-- `yyyy-MM-dd HH:mm:ss.SSSSSS`
-- `yyyy.MM.dd HH:mm:ss`
-- `yyyy/MM/dd HH:mm:ss`
-- `yyyy/M/d HH:mm`
-- `yyyy-M-d HH:mm`
-- `yyyy/M/d HH:mm:ss`
-- `yyyy-M-d HH:mm:ss`
-- `yyyyMMddHHmmss`
-
-Default: `yyyy-MM-dd HH:mm:ss`
 
 ### tunnel_endpoint [String]
 
