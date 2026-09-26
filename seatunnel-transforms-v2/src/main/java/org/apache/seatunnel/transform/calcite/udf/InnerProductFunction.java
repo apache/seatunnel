@@ -49,6 +49,8 @@ public class InnerProductFunction implements CalciteUdf {
                             "Vectors must have the same dimension: %d vs %d",
                             vector1.length, vector2.length));
         }
-        return IntStream.range(0, vector1.length).mapToDouble(i -> vector1[i] * vector2[i]).sum();
+        return IntStream.range(0, vector1.length)
+                .mapToDouble(i -> (double) vector1[i] * vector2[i])
+                .sum();
     }
 }

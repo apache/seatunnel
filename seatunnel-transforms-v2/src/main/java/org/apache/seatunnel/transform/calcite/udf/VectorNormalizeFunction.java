@@ -44,7 +44,7 @@ public class VectorNormalizeFunction implements CalciteUdf {
         double magnitude = 0.0;
         for (Float value : vector) {
             if (value != null) {
-                magnitude += value * value;
+                magnitude += (double) value * value;
             }
         }
         magnitude = Math.sqrt(magnitude);

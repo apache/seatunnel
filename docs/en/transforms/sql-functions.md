@@ -1286,6 +1286,15 @@ SELECT * FROM dual
 
 ## Vector Functions
 
+`VECTOR_NORM`, `INNER_PRODUCT`, `COSINE_DISTANCE`, `L1_DISTANCE`, `L2_DISTANCE` and
+`VECTOR_NORMALIZE` perform intermediate products and differences in double precision
+for float vector elements. This avoids float overflow or underflow for finite large
+or small elements. `VECTOR_NORMALIZE` still returns float elements; rounding and
+underflow in the output representation remain possible. Null inputs and actual zero
+vectors retain their handling. No non-finite input validation or sanitization is
+added; corrected finite intermediates can also affect results when mixed with
+non-finite elements.
+
 ### VECTOR_DIMS
 
 ```VECTOR_DIMS(vector) -> INT```
