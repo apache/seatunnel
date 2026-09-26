@@ -65,3 +65,26 @@ export interface Monitor {
   'client.connection.count': string
   'connection.count': string
 }
+
+export interface WorkerResource {
+  address: string
+  tags?: Record<string, string>
+  totalSlots?: number
+  freeSlots?: number
+  usedSlots?: number
+  dynamicSlot?: boolean
+  totalCpuCores?: number | null
+  availableCpuCores?: number | null
+  totalHeapMemoryBytes?: number | null
+  availableHeapMemoryBytes?: number | null
+  cpuUsage?: number | null
+  memUsage?: number | null
+  // Only the count is displayed: JSON numbers cannot represent every Java long ID.
+  runningJobIds?: unknown[]
+}
+
+export interface WorkerResourceSnapshot {
+  available: boolean
+  collectedAt: number
+  workers: WorkerResource[]
+}
