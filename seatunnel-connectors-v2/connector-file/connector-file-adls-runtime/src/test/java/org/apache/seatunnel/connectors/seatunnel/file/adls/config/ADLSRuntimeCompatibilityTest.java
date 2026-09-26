@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.adls.config;
 
-import org.apache.hadoop.conf.Configuration;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
+import org.apache.hadoop.conf.Configuration;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
