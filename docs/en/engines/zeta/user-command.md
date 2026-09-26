@@ -81,7 +81,7 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Connector | Source | Sink |
 |-----------|--------|------|
 | Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
-| Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | No |
+| Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | Yes ([metadata + local serializer checks](../../connectors/sink/Kafka.md#connectivity-dry-run); dynamic topics have limited checks, Produce/transaction permissions are not checked) |
 | FakeSource | Yes (schema inference only, no external system) | - |
 | S3File | Yes (metadata connectivity + inline schema, single-table text/csv/json/xml; see [supported scope](../../connectors/source/S3File.md#connectivity-dry-run)) | - |
 

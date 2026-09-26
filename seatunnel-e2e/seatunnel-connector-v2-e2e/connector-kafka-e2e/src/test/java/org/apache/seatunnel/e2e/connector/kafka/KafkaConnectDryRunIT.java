@@ -18,16 +18,25 @@
 package org.apache.seatunnel.e2e.connector.kafka;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.kafka.sink.KafkaSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.KafkaSourceFactory;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.ConsumerGroupListing;
+import org.apache.kafka.clients.admin.ListTopicsOptions;
 import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.admin.OffsetSpec;
+import org.apache.kafka.clients.admin.TransactionListing;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.TopicPartition;
@@ -58,6 +67,7 @@ import java.util.stream.Collectors;
 import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -174,6 +184,105 @@ public class KafkaConnectDryRunIT extends TestSuiteBase implements TestResource 
                 new TableSourceFactoryContext(ReadonlyConfig.fromMap(options), classLoader);
         SupportSourceDryRunValidation validation = new KafkaSourceFactory();
         validation.validateConnectionForDryRun(context, validation.inferSchemaForDryRun(context));
+    }
+
+    @Test
+    public void testSinkValidationDoesNotWriteCreateTopicsOrInitializeTransactions()
+            throws Exception {
+        Set<String> topicsBefore = allTopics();
+        Set<String> transactionsBefore = transactions();
+        long earliestBefore = offset(OffsetSpec.earliest());
+        long latestBefore = offset(OffsetSpec.latest());
+
+        validateSink(TOPIC, 0, PASSWORD);
+        validateSink("prefix-${route}", null, PASSWORD);
+        validateSink("prefix-${route}-${unused}", null, PASSWORD);
+
+        assertEquals(topicsBefore, allTopics());
+        assertEquals(transactionsBefore, transactions());
+        assertEquals(earliestBefore, offset(OffsetSpec.earliest()));
+        assertEquals(latestBefore, offset(OffsetSpec.latest()));
+        assertEquals(1L, latestBefore - earliestBefore);
+    }
+
+    @Test
+    public void testSinkMissingTopicAndInvalidPartitionFailWithoutCreation() throws Exception {
+        Set<String> topicsBefore = allTopics();
+        IllegalArgumentException missing =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> validateSink("sink-dry-run-missing", null, PASSWORD));
+        assertTrue(missing.getMessage().contains("target topic does not exist"));
+        IllegalArgumentException outOfRange =
+                assertThrows(
+                        IllegalArgumentException.class, () -> validateSink(TOPIC, 1, PASSWORD));
+        assertEquals(
+                "Kafka sink connect dry-run: partition is outside the target topic's range",
+                outOfRange.getMessage());
+        IllegalArgumentException negative =
+                assertThrows(
+                        IllegalArgumentException.class, () -> validateSink(TOPIC, -1, PASSWORD));
+        assertEquals(
+                "Kafka sink connect dry-run: partition must not be negative",
+                negative.getMessage());
+        assertEquals(topicsBefore, allTopics());
+    }
+
+    @Test
+    public void testSinkIncorrectCredentialsFailWithoutExposingPassword() {
+        IllegalArgumentException failure =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () -> validateSink(TOPIC, null, "incorrect-secret"));
+        assertTrue(failure.getMessage().contains("authentication failed"));
+        assertFalse(failure.getMessage().contains("incorrect-secret"));
+        assertNull(failure.getCause());
+    }
+
+    private void validateSink(String topic, Integer partition, String password) throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put("bootstrap.servers", kafka.getBootstrapServers());
+        options.put("topic", topic);
+        options.put("semantics", "EXACTLY_ONCE");
+        options.put("transaction_prefix", "dry-run-must-not-initialize");
+        options.put("kafka.config", new HashMap<>(clientProperties(password)));
+        if (partition != null) {
+            options.put("partition", partition);
+        }
+        CatalogTable table =
+                CatalogTable.of(
+                        TableIdentifier.of("test", "db", "input"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "route",
+                                                BasicType.STRING_TYPE,
+                                                0,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "");
+        new KafkaSinkFactory()
+                .validateConnectionForDryRun(
+                        new TableSinkFactoryContext(
+                                table,
+                                ReadonlyConfig.fromMap(options),
+                                getClass().getClassLoader()));
+    }
+
+    private Set<String> allTopics() throws Exception {
+        return admin.listTopics(new ListTopicsOptions().listInternal(true))
+                .names()
+                .get(30, TimeUnit.SECONDS);
+    }
+
+    private Set<String> transactions() throws Exception {
+        return admin.listTransactions().all().get(30, TimeUnit.SECONDS).stream()
+                .map(TransactionListing::transactionalId)
+                .collect(Collectors.toSet());
     }
 
     private Properties clientProperties(String password) {
