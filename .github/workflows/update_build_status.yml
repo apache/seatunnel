@@ -238,6 +238,10 @@ jobs:
               ) {
                 return 'failure';
               }
+              // Only a non-blocking job was cancelled: report what the other jobs concluded.
+              if (!jobs.some((job) => job.conclusion === 'cancelled')) {
+                return deriveCompletedConclusion(jobs, 'cancelled');
+              }
 
               // A timed-out job has usually run the longest, so check those first. Past
               // MAX_TIMEOUT_LOOKUPS jobs the run stays `cancelled`.
@@ -334,20 +338,46 @@ jobs:
                 const checkRuns = await github.request(
                   'GET /repos/{owner}/{repo}/commits/{ref}/check-runs',
                   {
+                    // The default filter returns one check run per name. List all Build check
+                    // runs so the one created for a re-run (see below) is always seen.
+                    check_name: 'Build',
+                    filter: 'all',
                     owner: context.repo.owner,
                     repo: context.repo.repo,
                     ref: pr.head.sha,
-                    check_name: 'Build',
-                    // The default filter returns one check run per name. List all of them so
-                    // the Build check created for a re-run (see below) is always seen.
-                    filter: 'all',
                     per_page: 100
                   }
                 );
 
+                const listedCheckRuns = [...checkRuns.data.check_runs];
+                for (let page = 2; listedCheckRuns.length < checkRuns.data.total_count; page += 1) {
+                  const pageCheckRuns = (
+                    await github.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
+                      check_name: 'Build',
+                      filter: 'all',
+                      owner: context.repo.owner,
+                      repo: context.repo.repo,
+                      ref: pr.head.sha,
+                      per_page: 100,
+                      page
+                    })
+                  ).data.check_runs || [];
+                  if (pageCheckRuns.length === 0) {
+                    break;
+                  }
+                  listedCheckRuns.push(...pageCheckRuns);
+                }
+                // Without the newest check a new one would be created on every tick.
+                if (listedCheckRuns.length < checkRuns.data.total_count) {
+                  console.log(
+                    `  Skip PR #${pr.number}: listed ${listedCheckRuns.length} of ${checkRuns.data.total_count} Build check runs`
+                  );
+                  return;
+                }
+
                 // Newest first: a rerun of the fork run adds a new Build check run (see below).
                 // The newest one is the one the PR shows.
-                const buildCheckRuns = checkRuns.data.check_runs
+                const buildCheckRuns = listedCheckRuns
                   .filter((checkRun) => checkRun.name === 'Build')
                   .sort((left, right) => right.id - left.id);
                 const buildCheckRun = buildCheckRuns[0];
