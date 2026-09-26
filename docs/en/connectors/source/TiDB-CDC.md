@@ -70,8 +70,9 @@ Please download and put the MySQL driver and `tikv-client-java` in the directory
 | username                      | String  | Yes      | -        | Username used to connect to the TiDB server.                                                                                                                                                                                                                                                                             |
 | password                      | String  | Yes      | -        | Password used to connect to the TiDB server.                                                                                                                                                                                                                                                                             |
 | pd-addresses                  | String  | Yes      | -        | TiKV placement-driver (PD) endpoints, comma-separated, e.g. `pd0:2379,pd1:2379`.                                                                                                                                                                                                                                          |
-| database-name                 | String  | Yes      | -        | Name of the TiDB database to monitor.                                                                                                                                                                                                                                                                                     |
-| table-name                    | String  | Yes      | -        | Table name to monitor inside `database-name`. Do not include the database name.                                                                                                                                                                                                                                          |
+| database-name                 | String  | No       | -        | Name of the TiDB database to monitor. Used together with `table-name` for single-table capture. Either this pair or `table-names` must be set.                                                                                                                                                                              |
+| table-name                    | String  | No       | -        | Table name to monitor inside `database-name`. Do not include the database name.                                                                                                                                                                                                                                          |
+| table-names                   | List    | No       | -        | Tables to capture in `database.table` format, e.g. `["inventory.products", "inventory.orders"]`, enabling multi-table sync from a single source. Each element is split on the first dot, so table names may themselves contain dots. Takes precedence over `database-name`/`table-name` when both are set.                 |
 | startup.mode                  | Enum    | No       | INITIAL  | Optional startup mode for the TiDB CDC consumer. Valid values are `initial`, `earliest`, `latest`. `initial` snapshots historical data first, then keeps reading incremental changes. `earliest` starts from the earliest available offset. `latest` skips the initial snapshot and only consumes new changes from now on.    |
 | batch-size-per-scan           | Int     | No       | 1000     | Number of rows fetched per scan request against TiKV.                                                                                                                                                                                                                                                                     |
 | tikv.grpc.timeout_in_ms        | Long    | No       | -        | TiKV gRPC client timeout in milliseconds. Increase it when TiKV is slow to respond under load.                                                                                                                                                                                                                            |
@@ -140,9 +141,50 @@ source {
 }
 ```
 
+### Multi-Table Sync
+
+Capture multiple tables with a single source block using `table-names`, and fan them out to matching sink tables with the `${table_name}` placeholder:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  TiDB-CDC {
+    plugin_output = "products_tidb_cdc_multi"
+    url = "jdbc:mysql://tidb0:4000/tidb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    pd-addresses = "pd0:2379"
+    username = "root"
+    password = ""
+    table-names = ["tidb_cdc.products", "tidb_cdc.orders"]
+  }
+}
+
+sink {
+  jdbc {
+    plugin_input = "products_tidb_cdc_multi"
+    url = "jdbc:mysql://tidb0:4000/tidb_cdc_sink"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = ""
+    database = tidb_cdc_sink
+    table = "${table_name}"
+    primary_keys = ["${primary_key}"]
+    generate_sink_sql = true
+  }
+}
+```
+
 ## Notes
 
-- TiDB CDC reads one table per source block. Use multiple `TiDB-CDC` source blocks if one job needs to capture multiple tables.
+- A single `TiDB-CDC` block can capture multiple tables via `table-names`, or one table via `database-name` + `table-name`. Setting neither pair fails job validation.
+- When a job is restored from a savepoint, tables added to `table-names` run a fresh snapshot before joining the incremental stream. Tables removed from `table-names` stop being captured and their checkpoint positions are discarded; if such a table is added back later it runs a fresh snapshot again.
+- Splits are table key ranges assigned to readers round-robin, so a reader usually holds splits of several captured tables. Transaction assembly is isolated per table, so mixing tables on one reader does not affect correctness.
+- Change-event assembly buffers (pre-write/commit staging and the committed-event queue that decouples pulling from writing) are maintained per table inside each reader. When the downstream sink stalls, every captured table fills its own buffers at the same time, so worst-case per-reader memory grows linearly with the number of captured tables — size reader memory accordingly for wide multi-table jobs.
 - `startup.mode = "specific"` is not a valid TiDB CDC option. Use `initial`, `earliest`, or `latest`.
 - Tune `tikv.grpc.*` and `tikv.batch_*_concurrency` only when the default TiKV client settings are not enough for your cluster.
 

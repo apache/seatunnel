@@ -162,11 +162,51 @@ CREATE TABLE tidb_cdc_e2e_source_table_no_primary_key
     `f_year`               year                           DEFAULT NULL
 ) ;
 
+-- ----------------------------------------------------------------------------------------------------------------
+-- Multi-table sync test tables (source side) and their sink copies in tidb_cdc_sink
+-- ----------------------------------------------------------------------------------------------------------------
+DROP DATABASE IF EXISTS `tidb_cdc_sink`;
+CREATE DATABASE `tidb_cdc_sink`;
+
+CREATE TABLE tidb_cdc.tidb_cdc_e2e_source_table_2
+(
+    `id`   bigint         NOT NULL,
+    `name` varchar(100)   DEFAULT NULL,
+    `val`  decimal(10, 2) DEFAULT NULL,
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE tidb_cdc.tidb_cdc_e2e_source_table_3
+(
+    `id`   bigint         NOT NULL,
+    `name` varchar(100)   DEFAULT NULL,
+    `val`  decimal(10, 2) DEFAULT NULL,
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE tidb_cdc_sink.tidb_cdc_e2e_source_table_2
+(
+    `id`   bigint         NOT NULL,
+    `name` varchar(100)   DEFAULT NULL,
+    `val`  decimal(10, 2) DEFAULT NULL,
+    PRIMARY KEY (`id`)
+);
+
+CREATE TABLE tidb_cdc_sink.tidb_cdc_e2e_source_table_3
+(
+    `id`   bigint         NOT NULL,
+    `name` varchar(100)   DEFAULT NULL,
+    `val`  decimal(10, 2) DEFAULT NULL,
+    PRIMARY KEY (`id`)
+);
+
 
 
 truncate table tidb_cdc_e2e_source_table;
 truncate table tidb_cdc_e2e_sink_table;
 truncate table tidb_cdc_e2e_source_table_no_primary_key;
+truncate table tidb_cdc_e2e_source_table_2;
+truncate table tidb_cdc_e2e_source_table_3;
 
 
 INSERT INTO tidb_cdc_e2e_source_table ( id, f_binary, f_blob, f_long_varbinary, f_longblob, f_tinyblob, f_varbinary, f_smallint,
@@ -230,3 +270,7 @@ VALUES ( 1, 0x616263740000000000000000000000000000000000000000000000000000000000
          1, b'0101010101010101010101010101010101010101010101010101010101010101', 'C', 'enum2',
          0x1B000000789C0BC9C82C5600A24485DCD494CCD25C85A49CFC2485B4CCD49C140083FF099A, 'This is a long varchar field', 112.345,
          '14:30:00', -128, 22, '{ "key": "value" }', 2021 );
+
+INSERT INTO tidb_cdc.tidb_cdc_e2e_source_table_2 (id, name, val) VALUES (101, 'seed_a', 1.50), (102, 'seed_b', 2.50);
+
+INSERT INTO tidb_cdc.tidb_cdc_e2e_source_table_3 (id, name, val) VALUES (201, 'seed_c', 3.50), (202, 'seed_d', 4.50);
