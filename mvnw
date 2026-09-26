@@ -234,12 +234,14 @@ else
 
     download_with_retries() {
         attempts=1
+        delay=5
         while [ "$attempts" -le 5 ]; do
             "$@" && return 0
             rm -f "$wrapperJarPath"
             if [ "$attempts" -lt 5 ]; then
-                echo "Maven wrapper download failed, retrying in 5 seconds ..." >&2
-                sleep 5
+                echo "Maven wrapper download failed, retrying in $delay seconds ..." >&2
+                sleep "$delay"
+                delay=`expr "$delay" \* 2`
             fi
             attempts=`expr "$attempts" + 1`
         done
