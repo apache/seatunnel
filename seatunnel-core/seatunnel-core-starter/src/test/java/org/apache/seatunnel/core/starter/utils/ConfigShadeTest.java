@@ -19,6 +19,7 @@ package org.apache.seatunnel.core.starter.utils;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigObject;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
@@ -361,6 +362,72 @@ public class ConfigShadeTest {
                 Assertions.assertFalse(
                         nestedList.get(0).contains("${test_placeholder}"),
                         "Nested list should not contain unreplaced placeholder");
+            }
+        }
+    }
+
+    @Test
+    public void testVariableReplacementWithJsonParams() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+        variables.add(
+                "mysql_properties={"
+                        + "\"useSSL\":\"false\","
+                        + "\"allowPublicKeyRetrieval\":\"true\"}");
+        variables.add(
+                "mysql_tables=[{\"table_path\":\"test.t_*\",\"use_regex\":\"true\"},{\"table_path\":\"test.tt\"}]");
+
+        URL resource = ConfigShadeTest.class.getResource("/config_json_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            if (sourceConfig.hasPath("properties")) {
+                Map<String, Object> mysqlProperties =
+                        sourceConfig.getObject("properties").unwrapped();
+                Assertions.assertTrue(
+                        mysqlProperties.containsKey("allowPublicKeyRetrieval"),
+                        "properties should contain key: 'allowPublicKeyRetrieval'");
+
+                List<? extends ConfigObject> tableList = sourceConfig.getObjectList("table_list");
+                boolean useRegex =
+                        tableList.stream()
+                                .map(tableObject -> tableObject.toConfig().getBoolean("use_regex"))
+                                .findFirst()
+                                .get();
+
+                Assertions.assertTrue(
+                        useRegex,
+                        "useRegex should contain replaced placeholder value: " + useRegex);
+            }
+        }
+    }
+
+    @Test
+    public void testVariableReplacementWithWrongJsonFormatParams() throws URISyntaxException {
+        List<String> variables = new ArrayList<>();
+        // missing closing brace,will be treated as String and throw ConfigException when calling
+        // getObject() as a map type
+        variables.add(
+                "mysql_properties={"
+                        + "\"useSSL\":\"false\","
+                        + "\"allowPublicKeyRetrieval\":\"true\"");
+        variables.add(
+                "mysql_tables=[{\"table_path\":\"test.t_*\",\"use_regex\":\"true\"},{\"table_path\":\"test.tt\"}]");
+
+        URL resource = ConfigShadeTest.class.getResource("/config_json_variables.conf");
+        Assertions.assertNotNull(resource);
+        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+
+        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+        for (ConfigObject configObject : sourceConfigs) {
+            Config sourceConfig = configObject.toConfig();
+
+            if (sourceConfig.hasPath("properties")) {
+                Assertions.assertThrows(
+                        ConfigException.class, () -> sourceConfig.getObject("properties"));
             }
         }
     }
