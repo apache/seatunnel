@@ -145,14 +145,14 @@ services:
       retries: 30
 
   minio:
-    # MinIO's own images are no longer pullable. Same MinIO release, pinned by digest; it has
-    # no /data, so the server uses the image's data volume.
-    image: bitnamilegacy/minio:2024.6.13@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645
+    # minio/minio on Docker Hub and quay.io/minio/minio no longer serve anonymous pulls. Use
+    # the same digest-pinned mirror of MinIO RELEASE.2025-04-22T22-12-26Z as the S3 E2E tests.
+    image: ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     container_name: st-bench-minio
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin
-    command: ["minio", "server", "/bitnami/minio/data", "--console-address", ":9090"]
+    command: ["server", "/data", "--console-address", ":9090"]
     ports:
       - "19000:9000"   # host remapped; in-network stays 9000
       - "19090:9090"
@@ -163,8 +163,8 @@ services:
       retries: 30
 
   minio-init:
-    # The MinIO image above also ships the mc client.
-    image: bitnamilegacy/minio:2024.6.13@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645
+    # minio/mc on Docker Hub no longer serves anonymous pulls; the MinIO image above ships mc.
+    image: ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e
     container_name: st-bench-minio-init
     depends_on:
       minio:

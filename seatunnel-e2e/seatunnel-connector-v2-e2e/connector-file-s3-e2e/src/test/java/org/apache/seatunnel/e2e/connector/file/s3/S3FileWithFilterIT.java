@@ -77,7 +77,10 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
-                        .waitingFor(Wait.forLogMessage(".*", 1));
+                        // MinIO logs its first line before it serves S3 requests, and
+                        // S3Utils.initialize() below calls the bucket API right away. Wait for
+                        // MinIO's readiness endpoint, as S3FileConnectDryRunIT does.
+                        .waitingFor(Wait.forHttp("/minio/health/ready").forPort(S3_PORT));
         s3Container.start();
         S3Utils.initialize(
                 String.format(
