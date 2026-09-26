@@ -1276,7 +1276,8 @@ public class RestApiIT {
                         + "            \"plugin_name\": \"Console\",\n"
                         + "            \"plugin_input\": [\"fake\"]\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    ],\n"
+                        + "    \"^t_nova_.*$\": \"literal\"\n"
                         + "}";
 
         Arrays.asList(node2, node1)
