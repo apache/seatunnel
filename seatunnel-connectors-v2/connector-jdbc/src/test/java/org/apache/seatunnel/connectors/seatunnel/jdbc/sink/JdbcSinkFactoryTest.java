@@ -17,10 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
+import org.apache.seatunnel.api.sink.TablePlaceholderProcessor;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -29,14 +34,21 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Pattern;
 
 class JdbcSinkFactoryTest {
 
@@ -75,6 +87,41 @@ class JdbcSinkFactoryTest {
                 new ArrayList<>(),
                 null,
                 "catalog");
+    }
+
+    private CatalogTable createCatalogTable(String tableName, List<String> primaryKeyColumns) {
+        TableSchema.Builder schemaBuilder =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "DATA_SOURCE",
+                                        BasicType.STRING_TYPE,
+                                        32,
+                                        false,
+                                        null,
+                                        "DATA_SOURCE"));
+        if (primaryKeyColumns != null && !primaryKeyColumns.isEmpty()) {
+            schemaBuilder.primaryKey(PrimaryKey.of("pk_id", primaryKeyColumns));
+        }
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", "ORCL", null, tableName),
+                schemaBuilder.build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                null,
+                "catalog");
+    }
+
+    private ReadonlyConfig multiTableReadonlyConfig(Map<String, Object> primaryKeys) {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+        return ReadonlyConfig.fromMap(cfg);
     }
 
     /**
@@ -241,5 +288,244 @@ class JdbcSinkFactoryTest {
                 "Factory-level validation and createSink should succeed even when "
                         + "CatalogTable has primary keys; the PK + APPEND_VALUES conflict "
                         + "is guarded at runtime by JdbcOutputFormatBuilder.validateOracleInsertMode");
+    }
+
+    @Test
+    void testResolveMultiTablePrimaryKeysMapped() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Optional<List<String>> resolved = factory.resolveMultiTablePrimaryKeys(config, table);
+
+        Assertions.assertTrue(resolved.isPresent());
+        Assertions.assertEquals(Arrays.asList("id", "DATA_SOURCE"), resolved.get());
+    }
+
+    @Test
+    void testResolveMultiTablePrimaryKeysUnmatched() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^OTHER_.*$", Arrays.asList("id_txn_ctrl"));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Assertions.assertFalse(factory.resolveMultiTablePrimaryKeys(config, table).isPresent());
+    }
+
+    @Test
+    void testResolveMultiTablePrimaryKeysMissingPrimaryKeyFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.emptyList());
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> factory.resolveMultiTablePrimaryKeys(config, table));
+    }
+
+    @Test
+    void testResolveMultiTablePrimaryKeysFirstMatchWins() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("id"));
+        primaryKeys.put("^T.*$", Arrays.asList("other"));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Assertions.assertEquals(
+                Collections.singletonList("id"),
+                factory.resolveMultiTablePrimaryKeys(config, table).get());
+    }
+
+    /**
+     * Parses the same option from a real HOCON string (like the engine does) and keeps the pattern
+     * set non-alphabetical on purpose: {@code ^table.*$} is declared last although it matches first
+     * alphabetically, so a map that does not preserve the declaration order makes it win for both
+     * tables and fails this test.
+     */
+    @Test
+    void testResolveMultiTablePrimaryKeysFromHoconFirstMatchWins() {
+        // Shaped like the config file used by the E2E test. The SeaTunnel HOCON parser turns a top
+        // level `sink` block into a list whose entries carry `plugin_name`, hence the list access.
+        Config hoconConfig =
+                ConfigFactory.parseString(
+                        "sink {\n"
+                                + "  Jdbc {\n"
+                                + "    url = \"jdbc:mysql://localhost:3306/seatunnel\"\n"
+                                + "    database = \"sink\"\n"
+                                + "    table = \"${table_name}\"\n"
+                                + "    generate_sink_sql = true\n"
+                                + "    primary_keys = [\"c_bigint\"]\n"
+                                + "    multi_table_config {\n"
+                                + "      primary_keys {\n"
+                                + "        \"^table2$\" = [\"c_mediumint\"]\n"
+                                + "        \"^table1$\" = [\"c_int\", \"c_integer\"]\n"
+                                + "        \"^table.*$\" = [\"c_smallint\"]\n"
+                                + "      }\n"
+                                + "    }\n"
+                                + "  }\n"
+                                + "}");
+        ReadonlyConfig sinkConfig =
+                ReadonlyConfig.fromConfig(hoconConfig.getConfigList("sink").get(0));
+
+        Assertions.assertEquals(
+                Arrays.asList("c_int", "c_integer"),
+                factory.resolveMultiTablePrimaryKeys(
+                                sinkConfig,
+                                createCatalogTable("table1", Collections.singletonList("id")))
+                        .get());
+        Assertions.assertEquals(
+                Collections.singletonList("c_mediumint"),
+                factory.resolveMultiTablePrimaryKeys(
+                                sinkConfig,
+                                createCatalogTable("table2", Collections.singletonList("id")))
+                        .get());
+    }
+
+    @Test
+    void testResolveMultiTablePrimaryKeysStringValue() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", "id, DATA_SOURCE");
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Assertions.assertEquals(
+                Arrays.asList("id", "DATA_SOURCE"),
+                factory.resolveMultiTablePrimaryKeys(config, table).get());
+    }
+
+    @Test
+    void testResolveMultiTablePrimaryKeysInvalidRegexFails() {
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^[unclosed", Arrays.asList("id"));
+        ReadonlyConfig config = multiTableReadonlyConfig(primaryKeys);
+        CatalogTable table = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> factory.resolveMultiTablePrimaryKeys(config, table));
+    }
+
+    @Test
+    void testCompilePatternCachesCompiledPattern() {
+        Pattern first = factory.compilePattern("^TEST_.*$");
+        Pattern second = factory.compilePattern("^TEST_.*$");
+
+        Assertions.assertSame(first, second);
+    }
+
+    @Test
+    void testCompilePatternInvalidFails() {
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> factory.compilePattern("^[unclosed"));
+    }
+
+    @Test
+    void testFactoryContextWithMultiTableConfigInvalidColumnFails() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("id", ""));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    @Test
+    void testFactoryContextWithMultiTableConfigValid() {
+        Map<String, Object> cfg = baseConfig();
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        Assertions.assertDoesNotThrow(() -> createSinkViaFactoryContext(cfg, true));
+    }
+
+    /**
+     * The patterns must match the upstream table name even when the resolved sink table name
+     * differs, e.g. via a static {@code table} remap. Otherwise the mapping silently falls back to
+     * catalog metadata and the wrong key columns end up in the generated SQL.
+     */
+    @Test
+    void testFactoryContextWithMultiTableConfigMatchesUpstreamTableName() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("table", "target_TEST_TABLE");
+
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_TABLE$", Collections.singletonList("id"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        TableSink tableSink = createSinkViaFactoryContext(cfg, false);
+        SeaTunnelSink<?, ?, ?, ?> sink = tableSink.createSink();
+        CatalogTable writeTable = sink.getWriteCatalogTable().get();
+
+        Assertions.assertNotNull(writeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                Collections.singletonList("id"),
+                writeTable.getTableSchema().getPrimaryKey().getColumnNames());
+    }
+
+    /**
+     * Guards the legacy top-level {@code primary_keys} branch: it keeps rebuilding the catalog
+     * primary key without rewriting the option value and without applying the new column
+     * validation, which is what this branch did before {@code multi_table_config} was added.
+     */
+    @Test
+    void testLegacyPrimaryKeysStillRebuildCatalogPrimaryKey() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Collections.singletonList("name"));
+
+        TableSink tableSink = createSinkViaFactoryContext(cfg, false);
+        SeaTunnelSink<?, ?, ?, ?> sink = tableSink.createSink();
+        CatalogTable writeTable = sink.getWriteCatalogTable().get();
+
+        Assertions.assertNotNull(writeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                Collections.singletonList("name"),
+                writeTable.getTableSchema().getPrimaryKey().getColumnNames());
+    }
+
+    /**
+     * Pins the order between the engine-level TablePlaceholder pass and the connector-level
+     * expansion. The engine pass rewrites only top-level {@code String} values and single-element
+     * {@code String} lists, so a top-level {@code primary_keys = ["${primary_key}"]} is expanded
+     * there, while the nested {@code multi_table_config.primary_keys} map reaches the sink
+     * untouched and is expanded afterwards by {@link JdbcSinkFactory#resolveMultiTablePrimaryKeys}.
+     */
+    @Test
+    void testPlaceholderOrderBetweenEngineAndConnectorPasses() {
+        Map<String, Object> cfg = baseConfig();
+        cfg.put("primary_keys", Collections.singletonList("${primary_key}"));
+        Map<String, Object> primaryKeys = new LinkedHashMap<>();
+        primaryKeys.put("^TEST_.*$", Arrays.asList("${primary_key}", "DATA_SOURCE"));
+        Map<String, Object> multiTableConfig = new LinkedHashMap<>();
+        multiTableConfig.put("primary_keys", primaryKeys);
+        cfg.put("multi_table_config", multiTableConfig);
+
+        CatalogTable upstream = createCatalogTable("TEST_TABLE", Collections.singletonList("id"));
+        ReadonlyConfig afterEnginePass =
+                TablePlaceholderProcessor.replaceTablePlaceholder(
+                        ReadonlyConfig.fromMap(cfg), upstream);
+
+        // The engine pass expands the top-level single-element placeholder list ...
+        Assertions.assertEquals(
+                Collections.singletonList("id"), afterEnginePass.get(JdbcSinkOptions.PRIMARY_KEYS));
+        // ... leaves the nested multi_table_config map untouched ...
+        Map<?, ?> nestedPrimaryKeys =
+                (Map<?, ?>)
+                        afterEnginePass.get(JdbcSinkOptions.MULTI_TABLE_CONFIG).get("primary_keys");
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"), nestedPrimaryKeys.get("^TEST_.*$"));
+        // ... and the connector expands it afterwards, per matched table.
+        Assertions.assertEquals(
+                Arrays.asList("id", "DATA_SOURCE"),
+                factory.resolveMultiTablePrimaryKeys(afterEnginePass, upstream).get());
     }
 }

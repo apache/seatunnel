@@ -436,6 +436,65 @@ public class ConfigShadeTest {
                 token, encryptedConfig.getConfigList("sink").get(0).getString("token"));
     }
 
+    @Test
+    public void testDecryptPreservesSpecialCharacterKeys() {
+        Config input =
+                ConfigFactory.parseString(
+                        "source { FakeSource { plugin_output = \"fake\" } }\n"
+                                + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\", "
+                                + "username = \"u\", password = \"p\", "
+                                + "multi_table_config { primary_keys { "
+                                + "\"^t_nova_.*$\" = [\"${primary_key}\", \"DATA_SOURCE\"], "
+                                + "\"^t_tyuen_txn_.*$\" = [\"id_txn_ctrl\", \"DATA_SOURCE\"] "
+                                + "} } } }");
+
+        Config decrypted = ConfigShadeUtils.decryptConfig(input);
+
+        Map<String, Object> primaryKeys =
+                decrypted
+                        .getConfigList("sink")
+                        .get(0)
+                        .getConfig("multi_table_config")
+                        .getConfig("primary_keys")
+                        .root()
+                        .unwrapped();
+
+        Assertions.assertTrue(primaryKeys.containsKey("^t_nova_.*$"));
+        Assertions.assertTrue(primaryKeys.containsKey("^t_tyuen_txn_.*$"));
+        Assertions.assertEquals(
+                Arrays.asList("${primary_key}", "DATA_SOURCE"), primaryKeys.get("^t_nova_.*$"));
+        Assertions.assertEquals(
+                Arrays.asList("id_txn_ctrl", "DATA_SOURCE"), primaryKeys.get("^t_tyuen_txn_.*$"));
+    }
+
+    /**
+     * Guards the other half of the JSON round trip in {@code processConfig}: ordinary config shapes
+     * must survive the rebuild unchanged. The key below is unquoted (so HOCON expands it to a
+     * nested object), {@code dfs.replication} is a quoted literal key inside a nested map, and both
+     * values are numbers.
+     */
+    @Test
+    public void testDecryptPreservesOrdinaryConfigShapes() {
+        Config input =
+                ConfigFactory.parseString(
+                        "env { job.mode = \"BATCH\" }\n"
+                                + "source { FakeSource { plugin_output = \"fake\", "
+                                + "split.size = 8096, \"dfs.replication\" = 3 } }\n"
+                                + "sink { Jdbc { url = \"jdbc:mysql://localhost:3306/db\" } }");
+
+        Config decrypted = ConfigShadeUtils.decryptConfig(input);
+
+        Assertions.assertEquals(
+                input.getConfig("env").root().unwrapped(),
+                decrypted.getConfig("env").root().unwrapped());
+        Assertions.assertEquals(
+                input.getConfigList("source").get(0).root().unwrapped(),
+                decrypted.getConfigList("source").get(0).root().unwrapped());
+        Assertions.assertEquals(
+                input.getConfigList("sink").get(0).root().unwrapped(),
+                decrypted.getConfigList("sink").get(0).root().unwrapped());
+    }
+
     public static class ConfigShadeWithProps implements ConfigShade {
 
         private String suffix;
