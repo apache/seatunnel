@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.common.container.flink;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 
 class AbstractTestFlinkContainerTest {
@@ -34,10 +35,29 @@ class AbstractTestFlinkContainerTest {
         GenericContainer<?> jobManager = runningContainer();
         GenericContainer<?> taskManager = Mockito.mock(GenericContainer.class);
         Mockito.when(taskManager.isRunning()).thenReturn(false);
+        TestFlinkContainer container = new TestFlinkContainer(jobManager, taskManager);
+
+        Assertions.assertDoesNotThrow(container::tearDown);
+
+        Mockito.verify(taskManager, Mockito.never())
+                .execInContainer("rm", "-rf", TestFlinkContainer.VOLUME);
+        Mockito.verify(taskManager).stop();
+        Mockito.verify(jobManager).execInContainer("rm", "-rf", TestFlinkContainer.VOLUME);
+        Mockito.verify(jobManager).stop();
+        Assertions.assertTrue(container.hostVolumeDeleted);
+    }
+
+    /**
+     * The TaskManager can die between {@code isRunning()} and the exec, for example when it runs
+     * out of metaspace. Both containers are still stopped, so the test case must not fail on the
+     * best-effort volume cleanup.
+     */
+    @Test
+    void shouldNotFailWhenTaskManagerStopsBeforeVolumeCleanup() throws Exception {
+        GenericContainer<?> jobManager = runningContainer();
+        GenericContainer<?> taskManager = runningContainer();
         Mockito.when(taskManager.execInContainer("rm", "-rf", TestFlinkContainer.VOLUME))
-                .thenThrow(
-                        new IllegalStateException(
-                                "execInContainer can only be used while the Container is running"));
+                .thenThrow(new IllegalStateException("container is not running"));
         TestFlinkContainer container = new TestFlinkContainer(jobManager, taskManager);
 
         Assertions.assertDoesNotThrow(container::tearDown);
@@ -48,19 +68,36 @@ class AbstractTestFlinkContainerTest {
         Assertions.assertTrue(container.hostVolumeDeleted);
     }
 
+    /** {@code rm -rf} exits with 1 on the bind-mount point itself, even after emptying it. */
     @Test
-    void shouldStopJobManagerWhenCleaningTaskManagerVolumeFails() throws Exception {
+    void shouldNotFailWhenVolumeCleanupExitsWithError() throws Exception {
         GenericContainer<?> jobManager = runningContainer();
         GenericContainer<?> taskManager = runningContainer();
-        IllegalStateException cleanupFailure = new IllegalStateException("exec failed");
+        Container.ExecResult failedResult = execResult(1);
         Mockito.when(taskManager.execInContainer("rm", "-rf", TestFlinkContainer.VOLUME))
-                .thenThrow(cleanupFailure);
+                .thenReturn(failedResult);
         TestFlinkContainer container = new TestFlinkContainer(jobManager, taskManager);
 
-        IllegalStateException thrown =
-                Assertions.assertThrows(IllegalStateException.class, container::tearDown);
+        Assertions.assertDoesNotThrow(container::tearDown);
 
-        Assertions.assertSame(cleanupFailure, thrown);
+        Mockito.verify(taskManager).stop();
+        Mockito.verify(jobManager).stop();
+        Assertions.assertTrue(container.hostVolumeDeleted);
+    }
+
+    @Test
+    void shouldStopJobManagerAndRethrowWhenVolumeCleanupIsInterrupted() throws Exception {
+        GenericContainer<?> jobManager = runningContainer();
+        GenericContainer<?> taskManager = runningContainer();
+        InterruptedException interrupted = new InterruptedException("interrupted");
+        Mockito.when(taskManager.execInContainer("rm", "-rf", TestFlinkContainer.VOLUME))
+                .thenThrow(interrupted);
+        TestFlinkContainer container = new TestFlinkContainer(jobManager, taskManager);
+
+        InterruptedException thrown =
+                Assertions.assertThrows(InterruptedException.class, container::tearDown);
+
+        Assertions.assertSame(interrupted, thrown);
         Mockito.verify(taskManager).stop();
         Mockito.verify(jobManager).stop();
         Assertions.assertTrue(container.hostVolumeDeleted);
@@ -70,26 +107,35 @@ class AbstractTestFlinkContainerTest {
     void shouldKeepFirstFailureAndSuppressLaterOnes() throws Exception {
         GenericContainer<?> jobManager = runningContainer();
         GenericContainer<?> taskManager = runningContainer();
-        IllegalStateException cleanupFailure = new IllegalStateException("exec failed");
-        IllegalStateException stopFailure = new IllegalStateException("stop failed");
-        Mockito.when(taskManager.execInContainer("rm", "-rf", TestFlinkContainer.VOLUME))
-                .thenThrow(cleanupFailure);
-        Mockito.doThrow(stopFailure).when(jobManager).stop();
+        IllegalStateException taskManagerStopFailure = new IllegalStateException("stop failed");
+        IllegalStateException jobManagerStopFailure = new IllegalStateException("stop failed");
+        Mockito.doThrow(taskManagerStopFailure).when(taskManager).stop();
+        Mockito.doThrow(jobManagerStopFailure).when(jobManager).stop();
         TestFlinkContainer container = new TestFlinkContainer(jobManager, taskManager);
 
         IllegalStateException thrown =
                 Assertions.assertThrows(IllegalStateException.class, container::tearDown);
 
-        Assertions.assertSame(cleanupFailure, thrown);
-        Assertions.assertArrayEquals(new Throwable[] {stopFailure}, thrown.getSuppressed());
-        Mockito.verify(taskManager).stop();
+        Assertions.assertSame(taskManagerStopFailure, thrown);
+        Assertions.assertArrayEquals(
+                new Throwable[] {jobManagerStopFailure}, thrown.getSuppressed());
+        Mockito.verify(jobManager).stop();
         Assertions.assertTrue(container.hostVolumeDeleted);
     }
 
-    private static GenericContainer<?> runningContainer() {
+    private static GenericContainer<?> runningContainer() throws Exception {
         GenericContainer<?> container = Mockito.mock(GenericContainer.class);
         Mockito.when(container.isRunning()).thenReturn(true);
+        Container.ExecResult result = execResult(0);
+        Mockito.when(container.execInContainer("rm", "-rf", TestFlinkContainer.VOLUME))
+                .thenReturn(result);
         return container;
+    }
+
+    private static Container.ExecResult execResult(int exitCode) {
+        Container.ExecResult result = Mockito.mock(Container.ExecResult.class);
+        Mockito.when(result.getExitCode()).thenReturn(exitCode);
+        return result;
     }
 
     /** Uses mocked containers and records the host cleanup instead of deleting a real path. */
@@ -105,7 +151,7 @@ class AbstractTestFlinkContainerTest {
         }
 
         @Override
-        void deleteHostVolumeMountPath() {
+        protected void deleteHostVolumeMountPath() {
             hostVolumeDeleted = true;
         }
     }

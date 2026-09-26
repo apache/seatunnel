@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.common.container;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
@@ -139,6 +140,123 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected void copySeaTunnelStarterLoggingToContainer(GenericContainer<?> container) {
         ContainerUtil.copySeaTunnelStarterLoggingToContainer(
                 container, this.startModuleFullPath, SEATUNNEL_HOME);
+    }
+
+    /**
+     * Stops the given engine containers and then deletes {@link #HOST_VOLUME_MOUNT_PATH}. Every
+     * step runs even if an earlier one fails: a container left running keeps its network alias on
+     * the shared network, and the next test case can then talk to it instead of its own container.
+     * The first failure is rethrown after all steps have run; later ones are added to it as
+     * suppressed.
+     *
+     * @param containers containers to stop in order; {@code null} entries are skipped
+     * @throws Exception the first failure to stop a container or to delete the host path
+     */
+    protected void stopContainersAndDeleteVolume(GenericContainer<?>... containers)
+            throws Exception {
+        Exception failure = null;
+        for (GenericContainer<?> container : containers) {
+            try {
+                stopContainer(container);
+            } catch (Exception e) {
+                failure = addFailure(failure, e);
+            }
+        }
+        try {
+            deleteHostVolumeMountPath();
+        } catch (Exception e) {
+            failure = addFailure(failure, e);
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    /**
+     * Removes {@link #CONTAINER_VOLUME_MOUNT_PATH} inside the container, then stops it. The removal
+     * is best effort: if it fails or is skipped, a warning is logged and the container is stopped
+     * anyway.
+     */
+    static void stopContainer(GenericContainer<?> container) throws Exception {
+        if (container == null) {
+            return;
+        }
+        Exception failure = null;
+        try {
+            removeContainerVolumeMountPath(container);
+        } catch (InterruptedException e) {
+            failure = e;
+        }
+        try {
+            container.stop();
+        } catch (Exception e) {
+            failure = addFailure(failure, e);
+        }
+        if (failure != null) {
+            throw failure;
+        }
+    }
+
+    /**
+     * Files the engine writes to the bind-mounted volume can be owned by root, so they are removed
+     * from inside the container before it stops. The exit code is not checked: {@code rm} always
+     * fails on the mount point itself ("Device or resource busy") after removing its contents.
+     * Anything left behind is reported by {@link #deleteHostPath(String)}.
+     *
+     * @return {@code true} if the removal ran, {@code false} if it was skipped or failed; both
+     *     cases are logged
+     */
+    static boolean removeContainerVolumeMountPath(GenericContainer<?> container)
+            throws InterruptedException {
+        try {
+            if (!container.isRunning()) {
+                LOG.warn(
+                        "Container{} {} is not running, skipping the removal of {} inside it",
+                        container.getNetworkAliases(),
+                        container.getContainerId(),
+                        CONTAINER_VOLUME_MOUNT_PATH);
+                return false;
+            }
+            container.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
+            return true;
+        } catch (InterruptedException e) {
+            throw e;
+        } catch (Exception e) {
+            // The container can stop between isRunning() and the exec.
+            LOG.warn(
+                    "Failed to remove {} inside container{} {}",
+                    CONTAINER_VOLUME_MOUNT_PATH,
+                    container.getNetworkAliases(),
+                    container.getContainerId(),
+                    e);
+        }
+        return false;
+    }
+
+    /** Deletes {@link #HOST_VOLUME_MOUNT_PATH} and logs a warning if it could not be deleted. */
+    protected void deleteHostVolumeMountPath() {
+        deleteHostPath(HOST_VOLUME_MOUNT_PATH);
+    }
+
+    /** @return {@code true} if the path no longer exists */
+    static boolean deleteHostPath(String path) {
+        FileUtils.deleteFile(path);
+        if (!new File(path).exists()) {
+            return true;
+        }
+        LOG.warn(
+                "Could not delete {} on the host, the next test case that mounts it will see the"
+                        + " files left there",
+                path);
+        return false;
+    }
+
+    private static Exception addFailure(Exception first, Exception next) {
+        if (first == null) {
+            return next;
+        }
+        first.addSuppressed(next);
+        return first;
     }
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)

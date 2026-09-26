@@ -263,12 +263,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     @Override
     public void tearDown() throws Exception {
-        if (server != null) {
-            // delete the volume
-            server.execInContainer("rm", "-rf", CONTAINER_VOLUME_MOUNT_PATH);
-            server.close();
-        }
-        FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
+        stopContainersAndDeleteVolume(server);
     }
 
     @Override
