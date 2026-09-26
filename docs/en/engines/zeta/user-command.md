@@ -84,6 +84,7 @@ The `--dry-run connect` option runs the static checks first, then uses connector
 | Kafka     | Yes ([topic metadata + runtime output schema](../../connectors/source/Kafka.md#connectivity-dry-run), not consumer/group permissions) | No |
 | FakeSource | Yes (schema inference only, no external system) | - |
 | S3File | Yes (metadata connectivity + inline schema, single-table text/csv/json/xml; see [supported scope](../../connectors/source/S3File.md#connectivity-dry-run)) | - |
+| Redis | Yes ([connectivity + authentication](../../connectors/source/Redis.md#connectivity-dry-run) + configured schema; no key access) | Yes ([connectivity + authentication](../../connectors/sink/Redis.md#connectivity-dry-run); no field compatibility or write permission check) |
 
 Every plugin in the job is reported in a validation summary with one of two statuses:
 
