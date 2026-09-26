@@ -96,6 +96,7 @@ File Sink 写的是文件，因此不使用 `generate_sink_sql`、`query` 或数
 | HdfsFile | 是 | 处理 HDFS 目录和文件。 |
 | FtpFile | 是 | 处理 FTP 目录和文件。 |
 | SftpFile | 是 | 处理 SFTP 目录和文件。 |
+| SmbFile | 是 | 处理 SMB 目录和文件。 |
 | S3File | 是 | 通过 File Sink save mode 流程处理 S3 路径和对象。 |
 | OssFile | 是 | 通过 File Sink save mode 流程处理 OSS 路径和对象。 |
 | ObsFile | 否 | 当前 sink option rule 没有暴露 `schema_save_mode` 或 `data_save_mode`。 |
