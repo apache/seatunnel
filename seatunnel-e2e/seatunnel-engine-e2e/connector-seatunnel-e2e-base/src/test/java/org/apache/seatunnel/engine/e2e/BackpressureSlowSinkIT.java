@@ -53,13 +53,29 @@ import static io.restassured.RestAssured.given;
  * slow sink (Tier 3, item L1 of the Zeta extreme-case gap analysis).
  *
  * <p>The job pairs a {@code FakeSource} that produces as fast as the JVM allows
- * (split.read-interval = 0, a very large row.num) with an {@code InMemory} sink throttled to a
- * fixed ~500 rows/sec via {@code write_delay_ms}. Because the sink's writer thread is also the
- * thread that drains Zeta's bounded source-to-sink intermediate queue (an {@code
- * ArrayBlockingQueue} of fixed capacity, see {@code
- * TaskGroupWithIntermediateBlockingQueue#QUEUE_SIZE}), a slow writer keeps that queue saturated for
- * as long as the job runs, which in turn blocks the source's own enqueue calls. This is exactly the
- * "fast source outruns slow sink" condition the rest of this E2E suite has no coverage for.
+ * (split.read-interval = 0, a large row.num split across many splits, see below) with an {@code
+ * InMemory} sink throttled to a fixed ~500 rows/sec via {@code write_delay_ms}. Because the sink's
+ * writer thread is also the thread that drains Zeta's bounded source-to-sink intermediate queue (an
+ * {@code ArrayBlockingQueue} of fixed capacity, see {@code
+ * TaskGroupWithIntermediateBlockingQueue#QUEUE_SIZE}), a slow writer keeps that queue saturated
+ * across the whole sustained-backpressure window, which in turn blocks the source's own enqueue
+ * calls. This is exactly the "fast source outruns slow sink" condition the rest of this E2E suite
+ * has no coverage for.
+ *
+ * <p><b>Deterministic barrier injection:</b> {@code FakeSourceReader#pollNext} emits each split's
+ * rows while holding the same checkpoint lock that {@code
+ * SourceFlowLifeCycle#triggerBarrier(Barrier)} needs to inject a checkpoint/savepoint barrier. A
+ * split larger than the reader's {@code MAX_ROWS_PER_POLL = 4096} cap gets emitted across multiple
+ * {@code pollNext} calls that re-acquire that lock back-to-back with no deterministic release point
+ * in between (the reader's own inter-poll {@code Thread.sleep(1000L)} is skipped whenever a split
+ * is still in progress), which can starve barrier injection for far longer than {@code
+ * checkpoint.interval}. {@link #CONF_FILE} therefore sizes {@code row.num}/{@code split.num} so
+ * every split (4000 rows) stays under that per-poll cap: each split completes in exactly one {@code
+ * pollNext} call, so the reader always takes its real, uncontended {@code Thread.sleep(1000L)} -
+ * fully outside the checkpoint lock - between splits, giving the barrier thread a guaranteed,
+ * contention-free window once per second. At ~500 rows/sec sink throughput that one-second gap
+ * drains only a quarter of the queue's capacity before the next split refills it, so the queue
+ * never empties and backpressure stays genuinely sustained throughout.
  *
  * <p>What is asserted, and why each assertion is meaningful:
  *
