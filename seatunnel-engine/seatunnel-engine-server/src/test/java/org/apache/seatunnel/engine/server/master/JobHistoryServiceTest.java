@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -33,10 +34,12 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -146,6 +149,63 @@ class JobHistoryServiceTest extends AbstractSeaTunnelServerTest {
                                                         .getJobHistoryService()
                                                         .getJobDetailStateAsString(JOB_3)
                                                         .contains("FINISHED")));
+    }
+
+    @Test
+    public void testShutdownRemovesListeners() {
+        JobHistoryService jobHistoryService = server.getCoordinatorService().getJobHistoryService();
+        Assertions.assertNotNull(jobHistoryService);
+
+        // Verify listener UUIDs were stored during construction
+        UUID stateListenerId =
+                (UUID)
+                        ReflectionUtils.getField(jobHistoryService, "finishedJobStateListenerId")
+                                .orElse(null);
+        UUID metricsListenerId =
+                (UUID)
+                        ReflectionUtils.getField(jobHistoryService, "finishedJobMetricsListenerId")
+                                .orElse(null);
+        UUID dagInfoListenerId =
+                (UUID)
+                        ReflectionUtils.getField(jobHistoryService, "finishedJobDAGInfoListenerId")
+                                .orElse(null);
+        Assertions.assertNotNull(stateListenerId, "finishedJobStateListenerId should not be null");
+        Assertions.assertNotNull(
+                metricsListenerId, "finishedJobMetricsListenerId should not be null");
+        Assertions.assertNotNull(
+                dagInfoListenerId, "finishedJobDAGInfoListenerId should not be null");
+
+        // Get the IMaps so we can verify listeners were removed
+        IMap<?, ?> finishedJobStateImap =
+                (IMap<?, ?>)
+                        ReflectionUtils.getField(jobHistoryService, "finishedJobStateImap")
+                                .orElse(null);
+        IMap<?, ?> finishedJobMetricsImap =
+                (IMap<?, ?>)
+                        ReflectionUtils.getField(jobHistoryService, "finishedJobMetricsImap")
+                                .orElse(null);
+        IMap<?, ?> finishedJobDAGInfoImap =
+                (IMap<?, ?>)
+                        ReflectionUtils.getField(jobHistoryService, "finishedJobDAGInfoImap")
+                                .orElse(null);
+        Assertions.assertNotNull(finishedJobStateImap);
+        Assertions.assertNotNull(finishedJobMetricsImap);
+        Assertions.assertNotNull(finishedJobDAGInfoImap);
+
+        // Call shutdown to remove the listeners
+        jobHistoryService.shutdown();
+
+        // Verify listeners were removed: removeEntryListener returns false when listener
+        // has already been deregistered
+        Assertions.assertFalse(
+                finishedJobStateImap.removeEntryListener(stateListenerId),
+                "finishedJobState listener should have been removed by shutdown()");
+        Assertions.assertFalse(
+                finishedJobMetricsImap.removeEntryListener(metricsListenerId),
+                "finishedJobMetrics listener should have been removed by shutdown()");
+        Assertions.assertFalse(
+                finishedJobDAGInfoImap.removeEntryListener(dagInfoListenerId),
+                "finishedJobDAGInfo listener should have been removed by shutdown()");
     }
 
     private void startJob(Long jobid, String path) {
