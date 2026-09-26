@@ -47,6 +47,8 @@ jobs:
             // such runs are reported as `cancelled` again, as before this check existed.
             const TIMEOUT_ANNOTATION = 'exceeded the maximum execution time';
             const MAX_TIMEOUT_LOOKUPS = 10;
+            // Upper bound on Build check-run pages read per PR and tick; beyond it the PR is skipped.
+            const MAX_CHECK_RUN_PAGES = 10;
             // continue-on-error jobs in backend.yml (called as `Run` by build_main.yml): their
             // result does not decide the run's result.
             const NON_BLOCKING_JOB_NAMES = ['Run / Dead links'];
@@ -239,7 +241,12 @@ jobs:
                 return 'failure';
               }
               // Only a non-blocking job was cancelled: report what the other jobs concluded.
-              if (!jobs.some((job) => job.conclusion === 'cancelled')) {
+              // Only when every blocking job finished, as in the queued-parent path; an unfinished
+              // job has no conclusion yet and must not be skipped into a success.
+              if (
+                jobs.every((job) => job.status === 'completed')
+                && !jobs.some((job) => job.conclusion === 'cancelled')
+              ) {
                 return deriveCompletedConclusion(jobs, 'cancelled');
               }
 
@@ -350,7 +357,11 @@ jobs:
                 );
 
                 const listedCheckRuns = [...checkRuns.data.check_runs];
-                for (let page = 2; listedCheckRuns.length < checkRuns.data.total_count; page += 1) {
+                for (
+                  let page = 2;
+                  page <= MAX_CHECK_RUN_PAGES && listedCheckRuns.length < checkRuns.data.total_count;
+                  page += 1
+                ) {
                   const pageCheckRuns = (
                     await github.request('GET /repos/{owner}/{repo}/commits/{ref}/check-runs', {
                       check_name: 'Build',
