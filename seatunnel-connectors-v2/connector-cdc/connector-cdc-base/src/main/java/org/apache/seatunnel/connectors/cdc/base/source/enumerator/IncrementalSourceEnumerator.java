@@ -84,9 +84,15 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public void addSplitsBack(List<SourceSplitBase> splits, int subtaskId) {
+    public synchronized void addSplitsBack(List<SourceSplitBase> splits, int subtaskId) {
         LOG.debug("Incremental Source Enumerator adds splits back: {}", splits);
         splitAssigner.addSplits(splits);
+        // A restored split may arrive after the reader already sent its split request and is
+        // parked in readersAwaitingSplit; re-run the assignment loop so the waiting reader
+        // receives the restored split immediately instead of stalling until another trigger.
+        if (running) {
+            assignSplits();
+        }
     }
 
     @Override
