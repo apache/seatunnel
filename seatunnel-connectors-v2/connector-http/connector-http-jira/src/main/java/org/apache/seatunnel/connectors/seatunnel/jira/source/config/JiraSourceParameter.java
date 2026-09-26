@@ -29,5 +29,6 @@ public class JiraSourceParameter extends HttpParameter {
         this.headers = this.getHeaders() == null ? new HashMap<>() : this.getHeaders();
         this.headers.put(JiraSourceOptions.AUTHORIZATION, accessToken);
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }
