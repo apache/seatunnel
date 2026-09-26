@@ -30,6 +30,41 @@ import java.util.Map;
 class LsnOffsetTest {
 
     @Test
+    void testEventLsnCanReachBoundaryBeforeCommittedLsn() {
+        Map<String, String> offsetMap = new HashMap<>();
+        offsetMap.put(SourceInfo.LSN_KEY, "200");
+        offsetMap.put(PostgresOffsetContext.LAST_COMMIT_LSN_KEY, "100");
+        LsnOffset event = new LsnOffset(offsetMap);
+        LsnOffset boundary = new LsnOffset(150L, null, null);
+
+        Assertions.assertTrue(event.isAtOrAfter(boundary));
+        Assertions.assertTrue(event.getLsnCommit().compareTo(boundary.getLsn()) < 0);
+    }
+
+    @Test
+    void testSameEventLsnDoesNotOrderTransactionCompletion() {
+        Map<String, String> offsetMap = new HashMap<>();
+        offsetMap.put(SourceInfo.LSN_KEY, "200");
+        offsetMap.put(PostgresOffsetContext.LAST_COMMIT_LSN_KEY, "100");
+        LsnOffset beforeCommit = new LsnOffset(offsetMap);
+        LsnOffset afterCommit = new LsnOffset(200L, null, null);
+
+        Assertions.assertEquals(0, beforeCommit.compareTo(afterCommit));
+        Assertions.assertNotEquals(beforeCommit.getLsnCommit(), afterCommit.getLsnCommit());
+    }
+
+    @Test
+    void testLsnOrderingAcrossSignedLongBoundary() {
+        LsnOffset lower = new LsnOffset(Long.MAX_VALUE, null, null);
+        LsnOffset higher = new LsnOffset(Long.MIN_VALUE, null, null);
+
+        Assertions.assertTrue(lower.isBefore(higher));
+        Assertions.assertTrue(higher.isAfter(lower));
+        Assertions.assertTrue(LsnOffset.NO_STOPPING_OFFSET.isAfter(higher));
+        Assertions.assertFalse(higher.isNeverStop());
+    }
+
+    @Test
     void testNoStoppingOffsetIsNeverStop() {
         Assertions.assertTrue(LsnOffset.NO_STOPPING_OFFSET.isNeverStop());
         Assertions.assertFalse(LsnOffset.INITIAL_OFFSET.isNeverStop());
