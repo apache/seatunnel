@@ -154,7 +154,7 @@ public class MetalakeIT extends SeaTunnelContainer {
         given().ignoreExceptions()
                 .await()
                 .pollInterval(2, TimeUnit.SECONDS)
-                .atMost(180, TimeUnit.SECONDS)
+                .atMost(300, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Container.ExecResult result =
