@@ -31,9 +31,13 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsAckEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
@@ -76,6 +80,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.LockSupport;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -576,6 +581,76 @@ class IncrementalSourceReaderTest {
         }
     }
 
+    @Test
+    void testAckRemovesFinishedSplitsFromUnackedState() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context);
+
+        try {
+            reader.addSplits(Collections.singletonList(finishedSnapshotSplit("snapshot-split-0")));
+
+            Assertions.assertEquals(
+                    Collections.singletonList("snapshot-split-0"),
+                    splitIds(reader.snapshotState(1L)));
+
+            reader.handleSourceEvent(
+                    new CompletedSnapshotSplitsAckEvent(
+                            Collections.singletonList("snapshot-split-0")));
+
+            Assertions.assertTrue(reader.snapshotState(2L).isEmpty());
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testFinishedSplitsAreResentUntilAcknowledged() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        List<CompletedSnapshotSplitsReportEvent> reports = new ArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            reports.add(invocation.getArgument(0));
+                            return null;
+                        })
+                .when(context)
+                .sendSourceEventToEnumerator(Mockito.any());
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context);
+
+        try {
+            reader.addSplits(
+                    Arrays.asList(
+                            finishedSnapshotSplit("snapshot-split-0"),
+                            finishedSnapshotSplit("snapshot-split-1")));
+            reader.addSplits(Collections.singletonList(finishedSnapshotSplit("snapshot-split-2")));
+
+            // no ack received yet, so the latest report still carries the full unacked set
+            Assertions.assertEquals(
+                    Arrays.asList("snapshot-split-0", "snapshot-split-1", "snapshot-split-2"),
+                    reportSplitIds(reports.get(reports.size() - 1)));
+
+            reader.handleSourceEvent(
+                    new CompletedSnapshotSplitsAckEvent(
+                            Arrays.asList(
+                                    "snapshot-split-0", "snapshot-split-1", "snapshot-split-2")));
+            reader.addSplits(Collections.singletonList(finishedSnapshotSplit("snapshot-split-3")));
+
+            // previously acked splits are pruned from the report
+            Assertions.assertEquals(
+                    Collections.singletonList("snapshot-split-3"),
+                    reportSplitIds(reports.get(reports.size() - 1)));
+        } finally {
+            reader.close();
+        }
+    }
+
     private static IncrementalSourceReader<Object, SourceConfig> createReader(
             DataSourceDialect<SourceConfig> dialect,
             SourceConfig sourceConfig,
@@ -636,6 +711,28 @@ class IncrementalSourceReaderTest {
                 Collections.emptyList(),
                 Arrays.asList(catalogTable(KEPT_TABLE), catalogTable(REMOVED_TABLE)),
                 historyTableChanges);
+    }
+
+    private static SnapshotSplit finishedSnapshotSplit(String splitId) {
+        return new SnapshotSplit(
+                splitId,
+                KEPT_TABLE,
+                null,
+                new Object[] {1},
+                new Object[] {2},
+                Mockito.mock(Offset.class),
+                Mockito.mock(Offset.class));
+    }
+
+    private static List<String> splitIds(List<SourceSplitBase> splits) {
+        return splits.stream().map(SourceSplitBase::splitId).collect(Collectors.toList());
+    }
+
+    private static List<String> reportSplitIds(CompletedSnapshotSplitsReportEvent event) {
+        return event.getCompletedSnapshotSplitWatermarks().stream()
+                .map(SnapshotSplitWatermark::getSplitId)
+                .sorted()
+                .collect(Collectors.toList());
     }
 
     private static CatalogTable catalogTable(TableId tableId) {
