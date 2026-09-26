@@ -40,6 +40,12 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 /**
@@ -203,11 +209,85 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
         return executeJob(confFile, Collections.emptyList());
     }
 
+    /**
+     * Upper bound for one SeaTunnel job submitted through {@link #executeJob}. Every green Flink
+     * E2E job finishes within minutes, so a job still running after this long has hung. Letting it
+     * run until the workflow's timeout-minutes kills the whole job discards the only evidence that
+     * explains the hang, the JVM thread dumps, and burns the rest of the job budget.
+     */
+    private static final long JOB_TIMEOUT_MINUTES = 30;
+
     @Override
     public Container.ExecResult executeJob(String confFile, List<String> variables)
             throws IOException, InterruptedException {
         log.info("test in container: {}", identifier());
-        return executeJob(jobManager, confFile, null, variables);
+        ExecutorService executor =
+                Executors.newSingleThreadExecutor(
+                        runnable -> {
+                            Thread thread = new Thread(runnable, "flink-e2e-job-" + identifier());
+                            thread.setDaemon(true);
+                            return thread;
+                        });
+        Future<Container.ExecResult> result =
+                executor.submit(() -> executeJob(jobManager, confFile, null, variables));
+        try {
+            return result.get(JOB_TIMEOUT_MINUTES, TimeUnit.MINUTES);
+        } catch (TimeoutException e) {
+            // Capture the state of both JVMs before anything is torn down; see dumpJvmThreads.
+            dumpJvmThreads("jobmanager", jobManager);
+            dumpJvmThreads("taskmanager", taskManager);
+            result.cancel(true);
+            throw new IllegalStateException(
+                    "SeaTunnel job "
+                            + confFile
+                            + " did not finish within "
+                            + JOB_TIMEOUT_MINUTES
+                            + " minutes on "
+                            + identifier()
+                            + "; thread dumps of the JobManager and TaskManager JVMs were"
+                            + " requested and are in their container logs above",
+                    e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof IOException) {
+                throw (IOException) cause;
+            }
+            if (cause instanceof InterruptedException) {
+                throw (InterruptedException) cause;
+            }
+            if (cause instanceof RuntimeException) {
+                throw (RuntimeException) cause;
+            }
+            throw new IllegalStateException(cause);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    /**
+     * Asks every JVM in the container for a thread dump. SIGQUIT makes HotSpot print the dump to
+     * the process's own stdout, which testcontainers already forwards into the test log, so this
+     * works on images without jstack or jcmd. The JVMs are found through /proc because the Flink
+     * images do not ship pgrep.
+     */
+    private void dumpJvmThreads(String role, GenericContainer<?> container) {
+        try {
+            Container.ExecResult dump =
+                    container.execInContainer(
+                            "bash",
+                            "-c",
+                            "for proc in /proc/[0-9]*; do"
+                                    + " if [ \"$(cat \"$proc/comm\" 2>/dev/null)\" = java ]; then"
+                                    + " kill -QUIT \"${proc#/proc/}\"; fi; done; sleep 5");
+            log.warn(
+                    "Requested thread dumps from the {} JVMs (exit code {}) {}{}",
+                    role,
+                    dump.getExitCode(),
+                    dump.getStdout(),
+                    dump.getStderr());
+        } catch (Exception e) {
+            log.warn("Could not request thread dumps from the {} JVMs", role, e);
+        }
     }
 
     @Override
