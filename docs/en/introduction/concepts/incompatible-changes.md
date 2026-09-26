@@ -5,6 +5,23 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Spark Array Conversion
+
+- **Behavior change: preserve null map elements and typed arrays**
+  - **Affected component**: `seatunnel-translation/seatunnel-translation-spark`
+  - **Description**: A null map element inside an array previously became an empty map (`{}`)
+    on the Spark source conversion path. It now remains `null`; an empty map remains empty.
+    Arrays returned to SeaTunnel transforms from Spark rows now use the declared element
+    class (for example, `String[]` or `Integer[]`) instead of a generic `Object[]`.
+    Empty arrays also retain their declared array class when returned to transforms or sinks.
+  - **Impact**: Custom transforms or connectors that relied on null-to-empty-map coercion,
+    exact `Object[]` class checks, or storing a different element type in a returned array
+    may behave differently after upgrading. Sink writers that iterate map elements without
+    checking for null can now fail with `NullPointerException`.
+  - **Migration Guide**: Handle null map elements separately from empty maps. Use the declared
+    SeaTunnel element type when reading or writing arrays; copy into a new `Object[]` if custom
+    code needs a generic working array. No configuration or checkpoint format changes are required.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
