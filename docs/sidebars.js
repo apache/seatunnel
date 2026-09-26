@@ -26,6 +26,7 @@ const sidebars = {
             "items": [
                 "introduction/about",
                 "introduction/how-it-works",
+                "introduction/rag-data-processing",
                 {
                     "type": "category",
                     "label": "Concepts",
