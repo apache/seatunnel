@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.checkpoint;
 
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
-import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -43,6 +42,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
+import org.apache.seatunnel.engine.server.checkpoint.scheduler.PipelineCheckpointScheduler;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
@@ -69,9 +69,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -162,7 +160,12 @@ public class CheckpointCoordinator {
 
     private final CheckpointConfig coordinatorConfig;
 
-    private transient ScheduledExecutorService scheduler;
+    /**
+     * Timer lease borrowed from the member-wide checkpoint scheduler. Used only to re-arm the
+     * periodic trigger and to arm the checkpoint-timeout watchdog; the heavy barrier work runs on
+     * {@link #executorService}.
+     */
+    private final transient PipelineCheckpointScheduler scheduler;
 
     private final AtomicLong latestTriggerTimestamp = new AtomicLong(0);
 
@@ -236,18 +239,7 @@ public class CheckpointCoordinator {
         this.pendingCheckpoints = new ConcurrentHashMap<>();
         this.completedCheckpointIds =
                 new ArrayDeque<>(coordinatorConfig.getStorage().getMaxRetainedCheckpoints() + 1);
-        this.scheduler =
-                Executors.newScheduledThreadPool(
-                        2,
-                        runnable -> {
-                            Thread thread = new Thread(runnable);
-                            thread.setName(
-                                    String.format(
-                                            "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                            return thread;
-                        });
-        ((ScheduledThreadPoolExecutor) this.scheduler).setRemoveOnCancelPolicy(true);
-        this.scheduler = MDCTracer.tracing(scheduler);
+        this.scheduler = manager.leaseCheckpointScheduler(pipelineId);
         this.serializer = new ProtoStuffSerializer();
         this.pipelineTasks = getPipelineTasks(plan.getPipelineSubtasks());
         this.actionParallelism = getActionParallelism(plan.getSubtaskActions());
@@ -349,6 +341,36 @@ public class CheckpointCoordinator {
     public void handleCoordinatorError(String message, Throwable e, CheckpointCloseReason reason) {
         LOG.error(message, e);
         handleCoordinatorError(reason, e);
+    }
+
+    /**
+     * Fails this coordinator for an expired checkpoint, off the checkpoint timeout watchdog's
+     * thread.
+     *
+     * <p>The watchdog fires on a dispatch thread that the whole member shares, so only its cheap
+     * "is this checkpoint still pending" lookup may run there. Expiry handling itself is not cheap:
+     * {@link #updateStatus(CheckpointCoordinatorStatus)} drives distributed IMap reads and writes
+     * with retries, and {@link #cleanPendingCheckpoint(CheckpointCloseReason)} takes {@link #lock},
+     * which {@code startSavepoint} can hold across its sleep-poll for the length of an in-flight
+     * checkpoint. Running that on the dispatch thread would let one expiring pipeline hold capacity
+     * that unrelated pipelines need for their own triggers and watchdogs.
+     *
+     * <p>The coordinator executor is bounded over a {@code SynchronousQueue} and aborts once
+     * saturated. A dropped expiry would leave the checkpoint pending with nothing left to fail it,
+     * so a rejection falls back to running inline: that restores the coupling for this one
+     * checkpoint, which is the lesser cost.
+     */
+    private void expireCheckpoint() {
+        try {
+            executorService.execute(
+                    () -> handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED, null));
+        } catch (RejectedExecutionException e) {
+            LOG.warn(
+                    "Coordinator executor rejected the expiry of a checkpoint of pipeline {}, handling it on the checkpoint dispatch thread",
+                    pipelineId,
+                    e);
+            handleCoordinatorError(CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
+        }
     }
 
     private void handleCoordinatorError(CheckpointCloseReason reason, Throwable e) {
@@ -954,9 +976,19 @@ public class CheckpointCoordinator {
         return new PassiveCompletableFuture<>(future);
     }
 
+    /**
+     * Registers the body that triggers the checkpoint barrier and waits for every task to ACK.
+     *
+     * <p>The continuation is registered asynchronously on {@link #executorService} rather than with
+     * {@code thenAccept}. A non-async continuation runs inline on whichever thread completes the
+     * future, or on the caller when the future is already complete, and this body blocks on {@code
+     * allOf(...).get()} for a whole barrier round-trip while {@code tryTriggerPendingCheckpoint}
+     * holds {@link #lock}. The caller is a shared checkpoint dispatch thread, so running inline
+     * would hold a member-wide thread, and the coordinator lock, for the length of a checkpoint.
+     */
     private void startTriggerPendingCheckpoint(
             CompletableFuture<PendingCheckpoint> pendingCompletableFuture) {
-        pendingCompletableFuture.thenAccept(
+        pendingCompletableFuture.thenAcceptAsync(
                 pendingCheckpoint -> {
                     LOG.info(
                             "wait checkpoint id: {} completed.",
@@ -1038,15 +1070,14 @@ public class CheckpointCoordinator {
                                                 LOG.info(
                                                         "timeout checkpoint: {}",
                                                         pendingCheckpoint.getInfo());
-                                                handleCoordinatorError(
-                                                        CheckpointCloseReason.CHECKPOINT_EXPIRED,
-                                                        null);
+                                                expireCheckpoint();
                                             }
                                         },
                                         checkpointTimeout,
                                         TimeUnit.MILLISECONDS));
                     }
-                });
+                },
+                executorService);
         pendingCounter.incrementAndGet();
     }
 
@@ -1195,7 +1226,7 @@ public class CheckpointCoordinator {
      *       caused by a coordinator reset)
      *   <li>Clearing all internal tracking structures
      *   <li>Resetting counters and schema change flags
-     *   <li>Stopping and recreating the scheduler thread pool
+     *   <li>Cancelling this pipeline's outstanding scheduler tasks
      * </ul>
      *
      * <p>If the close reason is {@code CHECKPOINT_COORDINATOR_RESET}, the monitor service will
@@ -1247,17 +1278,9 @@ public class CheckpointCoordinator {
             if (closedReason != CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
                 runningJobStateIMap.remove(readyToCloseImapKey);
             }
-            scheduler.shutdownNow();
-            scheduler =
-                    Executors.newScheduledThreadPool(
-                            2,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setName(
-                                        String.format(
-                                                "checkpoint-coordinator-%s/%s", pipelineId, jobId));
-                                return thread;
-                            });
+            // Drops only this pipeline's timers. The lease stays usable, so a coordinator restored
+            // after a master-failover reset can schedule again without rebuilding a thread pool.
+            scheduler.cancelAll();
         }
         if (checkpointMonitorService != null
                 && closedReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET) {
