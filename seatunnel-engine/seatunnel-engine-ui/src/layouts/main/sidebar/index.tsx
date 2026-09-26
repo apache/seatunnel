@@ -19,7 +19,7 @@ import { defineComponent, ref, type PropType, onMounted, h, type Component } fro
 import { NIcon, NLayoutSider, NMenu } from 'naive-ui'
 import { useRoute, RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { DesktopOutline, ListOutline, PeopleOutline, PersonOutline } from '@vicons/ionicons5'
+import { DesktopOutline, ListOutline, PeopleOutline, PersonOutline } from '@/components/icons'
 
 const Sidebar = defineComponent({
   name: 'Sidebar',
