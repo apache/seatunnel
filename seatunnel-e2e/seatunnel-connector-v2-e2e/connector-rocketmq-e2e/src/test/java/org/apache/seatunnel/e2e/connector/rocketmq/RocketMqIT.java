@@ -533,10 +533,10 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                                     Constant.OPERATION_RETRY_SLEEP));
             consumer.assign(queueOffsets.keySet());
             // seek to offset. Retry-wrapped like the offsetTopics lookup above, since both read
-            // broker metadata that can be briefly unavailable. On dev currentOffsets still maps a
-            // failed lookup onto an empty map, so today this is a consistency fix; it becomes load
-            // bearing once #12349 makes that call raise RocketMqConnectorException, which is the
-            // exception this predicate matches.
+            // broker metadata that can be briefly unavailable. #12349 made currentOffsets raise
+            // RocketMqConnectorException on a failed lookup instead of returning an empty map,
+            // and that is the exception this predicate matches, so the retry is load bearing
+            // rather than the consistency fix it was when this was written.
             // shouldThrowException is true here, unlike the lookup above, because RetryUtils
             // returns null once retries are exhausted when it is false, and a null map would
             // surface as a bare NPE on the next line with the real cause discarded.
