@@ -167,7 +167,7 @@ SeaTunnel 提供了一种简单直接的方式来声明基本类型。基本类�
 - 声明decimal类型时，需要设置精度(precision)和小数位数(scale)，类型定义遵循“decimal(precision, scale)”格式。 需要强调的是，十进制类型的声明必须用 `"` 括起来；不能像基本类型一样直接使用类型名称。例如，当声明精度为 10、小数位数为 2 的十进制字段时，您可以指定字段类型为`"decimal(10,2)"`。
 - 声明array类型时，需要指定元素类型，类型定义遵循 `array<T>` 格式，其中 `T` 代表元素类型。元素类型包括`int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` 和 `double`。与十进制类型声明类似，它也用 `"` 括起来。例如，在声明具有整数数组的字段时，将字段类型指定为 `"array<int>"`。
 - 声明map类型时，需要指定键和值类型。map类型定义遵循`map<K,V>`格式，其中`K`表示键类型，`V`表示值类型。 `K`可以是任何基本类型和十进制类型，`V`可以是 SeaTunnel 支持的任何类型。 与之前的类型声明类似，map类型声明必须用双引号引起来。 例如，当声明一个map类型的字段时，键类型为字符串，值类型为整数，则可以将该字段声明为`"map<string, int>"`。
-- 声明row类型时，需要定义一个 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 对象来描述字段及其类型。 字段类型可以是 SeaTunnel 支持的任何类型。 例如，当声明包含整数字段“a”和字符串字段“b”的行类型时，可以将其声明为“{a = int, b = string}”。 将定义作为字符串括在 `"` 中也是可以接受的，因此 `"{a = int, b = string}"` 相当于 `{a = int, c = string}`。由于 HOCON 与 JSON 兼容， `"{\"a\":\"int\", \"b\":\"string\"}"` 等价于 `"{a = int, b = string}"`。
+- 声明row类型时，需要定义一个 [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) 对象来描述字段及其类型。 字段类型可以是 SeaTunnel 支持的任何类型。 例如，当声明包含整数字段“a”和字符串字段“b”的行类型时，可以将其声明为“{a = int, b = string}”。 将定义作为字符串括在 `"` 中也是可以接受的，因此 `"{a = int, b = string}"` 相当于 `{a = int, b = string}`。由于 HOCON 与 JSON 兼容， `"{\"a\":\"int\", \"b\":\"string\"}"` 等价于 `"{a = int, b = string}"`。
 
 以下是复杂类型声明的示例：
 
@@ -205,7 +205,7 @@ primaryKey {
 | 字段      | 是否必须 | 默认值 |   描述    |
 |:--------|:-----|:----|---------|
 | name    | 是    | -   | 主键名称    |
-| columns | 是    | -   | 主键中的列列表 |
+| columnNames | 是    | -   | 主键中的列列表 |
 
 ### 约束键（constraintKeys）
 

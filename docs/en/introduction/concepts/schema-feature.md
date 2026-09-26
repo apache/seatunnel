@@ -167,7 +167,7 @@ When declaring complex types (such as **decimal**, **array**, **map**, and **row
 - When declaring a decimal type, precision and scale settings are required, and the type definition follows the format `decimal(precision, scale)`. It's essential to emphasize that the declaration of the decimal type must be enclosed in `"`; you cannot use the type name directly, as with basic types. For example, when declaring a decimal field with precision 10 and scale 2, you specify the field type as `"decimal(10,2)"`.
 - When declaring an array type, you need to specify the element type, and the type definition follows the format `array<T>`, where `T` represents the element type. The element type includes `int`,`string`,`boolean`,`tinyint`,`smallint`,`bigint`,`float` and `double`. Similar to the decimal type declaration, it also be enclosed in `"`. For example, when declaring a field with an array of integers, you specify the field type as `"array<int>"`.
 - When declaring a map type, you need to specify the key and value types. The map type definition follows the format `map<K,V>`, where `K` represents the key type and `V` represents the value type. `K` can be any basic type and decimal type, and `V` can be any type supported by SeaTunnel. Similar to previous type declarations, the map type declaration must be enclosed in double quotes. For example, when declaring a field with map type, where the key type is string and the value type is integer, you can declare the field as `"map<string, int>"`.
-- When declaring a row type, you need to define a [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) object to describe the fields and their types. The field types can be any type supported by SeaTunnel. For example, when declaring a row type containing an integer field `a` and a string field `b`, you can declare it as `{a = int, b = string}`. Enclosing the definition in `"` as a string is also acceptable, so `"{a = int, b = string}"` is equivalent to `{a = int, c = string}`. Since HOCON is compatible with JSON, `"{\"a\":\"int\", \"b\":\"string\"}"` is equivalent to `"{a = int, b = string}"`.
+- When declaring a row type, you need to define a [HOCON](https://github.com/lightbend/config/blob/main/HOCON.md) object to describe the fields and their types. The field types can be any type supported by SeaTunnel. For example, when declaring a row type containing an integer field `a` and a string field `b`, you can declare it as `{a = int, b = string}`. Enclosing the definition in `"` as a string is also acceptable, so `"{a = int, b = string}"` is equivalent to `{a = int, b = string}`. Since HOCON is compatible with JSON, `"{\"a\":\"int\", \"b\":\"string\"}"` is equivalent to `"{a = int, b = string}"`.
 
 Here is an example of complex type declarations:
 
@@ -205,7 +205,7 @@ primaryKey {
 | Field   | Required | Default Value |            Description            |
 |:--------|:---------|:--------------|-----------------------------------|
 | name    | Yes      | -             | The name of the primaryKey        |
-| columns | Yes      | -             | The column list in the primaryKey |
+| columnNames | Yes      | -             | The column list in the primaryKey |
 
 ### ConstraintKeys
 

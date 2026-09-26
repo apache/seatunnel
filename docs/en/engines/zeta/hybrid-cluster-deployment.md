@@ -441,7 +441,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 ./bin/seatunnel-cluster.sh -d
 ```
 
-The logs will be written to `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
+The logs will be written to `$SEATUNNEL_HOME/logs/` (for example `seatunnel-engine-master.log` and `seatunnel-engine-worker.log`)
 
 ## 8. Submit And Manage Jobs
 

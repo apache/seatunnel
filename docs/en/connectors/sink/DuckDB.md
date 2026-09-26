@@ -51,17 +51,22 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | SeaTunnel Data Type                                                 | DuckDB Data Type |
 |---------------------------------------------------------------------|------------------|
 | BOOLEAN                                                             | BOOLEAN          |
-| TINYINT<br/>SMALLINT<br/>INT                                        | INTEGER          |
+| TINYINT                                                             | TINYINT          |
+| SMALLINT                                                            | SMALLINT         |
+| INT                                                                 | INTEGER          |
 | BIGINT                                                              | BIGINT           |
 | DECIMAL(x,y)(Get the designated column's specified column size.<38) | DECIMAL(x,y)     |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,18)   |
+| DECIMAL(x,y)(Get the designated column's specified column size.>38) | DECIMAL(38,y)    |
 | FLOAT                                                               | FLOAT            |
 | DOUBLE                                                              | DOUBLE           |
 | STRING                                                              | VARCHAR          |
 | DATE                                                                | DATE             |
 | TIME                                                                | TIME             |
 | TIMESTAMP                                                           | TIMESTAMP        |
-| BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
+| TIMESTAMP_TZ                                                        | TIMESTAMP WITH TIME ZONE |
+| BYTES                                                               | BLOB             |
+
+> Complex SeaTunnel types (`ARRAY`, `ROW`, `MAP`) are not supported for writing to DuckDB.
 
 ## Sink Options
 

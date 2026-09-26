@@ -55,7 +55,8 @@ When logs are mixed, use the `ST-JID` value to select one job. For example:
 
 ```shell
 JOB_ID=<job-id>
-grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-server.log" > job.log
+grep -F "[${JOB_ID}]" "$SEATUNNEL_HOME/logs/seatunnel-engine-master.log" \
+  "$SEATUNNEL_HOME/logs/seatunnel-engine-worker.log" > job.log
 ```
 
 If per-job routing is enabled, inspect `job-<job-id>.log`. In a multi-node Zeta cluster, collect
@@ -65,12 +66,12 @@ REST endpoints:
 ```text
 GET http://<master-host>:8080/logs/<job-id>
 GET http://<master-host>:8080/logs?format=json
-GET http://<node-host>:5801/log
+GET http://<node-host>:8080/log
 ```
 
 The first endpoint retrieves matching logs across Zeta nodes. The last endpoint reads logs from
 one node. A configured context path or dynamic HTTP port changes these URLs. See
-[RESTful API V2](rest-api-v2.md#get-logs-from-all-nodes) for the complete behavior.
+[RESTful API V2](rest-api-v2.md#get-log-content-from-a-single-node) for the complete behavior.
 
 For Kubernetes, preserve logs from all relevant master and worker pods. Start with the failure
 window and include previous container logs when a pod restarted:

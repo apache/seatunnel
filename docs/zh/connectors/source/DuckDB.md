@@ -51,20 +51,24 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |----------------------------------------------------------|----------------|
 | BOOLEAN                                                  | BOOLEAN        |
 | TINYINT                                                  | TINYINT        |
-| UTINYINT<br/>SMALLINT                                    | SMALLINT       |
-| USMALLINT<br/>INTEGER                                    | INT            |
-| UINTEGER<br/>BIGINT                                      | BIGINT         |
-| UBIGINT                                                  | DECIMAL(20,0)  |
+| UTINYINT                                                 | TINYINT        |
+| SMALLINT                                                 | SMALLINT       |
+| USMALLINT                                                | SMALLINT       |
+| INTEGER                                                  | INT            |
+| UINTEGER                                                 | INT            |
+| BIGINT<br/>UBIGINT                                       | BIGINT         |
 | HUGEINT                                                  | DECIMAL(38,0)  |
 | FLOAT                                                    | FLOAT          |
 | DOUBLE                                                   | DOUBLE         |
 | DECIMAL(x,y)(获取指定列的指定列大小.<38)                            | DECIMAL(x,y)   |
-| DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,18) |
+| DECIMAL(x,y)(获取指定列的指定列大小.>38)                            | DECIMAL(38,y)  |
 | VARCHAR<br/>CHAR<br/>TEXT<br/>JSON<br/>UUID<br/>INTERVAL | STRING         |
 | DATE                                                     | DATE           |
 | TIME                                                     | TIME           |
-| TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
-| BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
+| TIMESTAMP                                                | TIMESTAMP      |
+| TIMESTAMP WITH TIME ZONE                                 | TIMESTAMP_TZ   |
+| BLOB                                                     | BYTES          |
+| ARRAY<br/>STRUCT<br/>MAP                                 | STRING         |
 
 ## 源选项
 
@@ -74,7 +78,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | driver                       | String     | 是    | -               | 用于连接到远程数据源的 jdbc 类名，<br/> 如果您使用 DuckDB，值为 `org.duckdb.DuckDBDriver`。                                                                                 |
 | username                     | String     | 否    | -               | 连接实例用户名                                                                                                                                              |
 | password                     | String     | 否    | -               | 连接实例密码                                                                                                                                               |
-| query                        | String     | 是    | -               | 查询语句                                                                                                                                                 |
+| query                        | String     | 否    | -               | 查询语句。未配置 `table_path` 或 `table_list` 时必填。                                                                                                                                                 |
 | connection_check_timeout_sec | Int        | 否    | 30              | 等待用于验证连接的数据库操作完成的时间（以秒为单位）                                                                                                                           |
 | partition_column             | String     | 否    | -               | 并行度分区的列名，仅支持数字类型主键，并且只能配置一列。                                                                                                                         |
 | partition_lower_bound        | String     | 否    | -               | 扫描的 partition_column 最小值，如果未设置，SeaTunnel 将查询数据库获取最小值。                                                                                                |

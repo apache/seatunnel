@@ -395,7 +395,7 @@ mkdir -p $SEATUNNEL_HOME/logs
 ./bin/seatunnel-cluster.sh -d
 ```
 
-日志将写入 `$SEATUNNEL_HOME/logs/seatunnel-engine-server.log`
+日志将写入 `$SEATUNNEL_HOME/logs/` 目录（例如 `seatunnel-engine-master.log` 和 `seatunnel-engine-worker.log`）
 
 ## 8. 提交作业和管理作业
 

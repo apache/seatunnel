@@ -288,7 +288,8 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | SqlServer | Tablestore   | Teradata |
 | Vertica   | OceanBase    | XUGU     |
 | IRIS      | Inceptor     | Highgo   |
-| YashanDB  |              |          |
+| OpenGauss | Presto       | Dsql     |
+| DuckDB    | YashanDB     |          |
 
 Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 
