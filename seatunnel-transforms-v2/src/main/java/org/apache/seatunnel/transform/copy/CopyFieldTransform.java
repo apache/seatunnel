@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowAccessor;
@@ -31,6 +32,8 @@ import org.apache.seatunnel.transform.common.MultipleFieldOutputTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 
 import java.lang.reflect.Array;
+import java.nio.Buffer;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -141,12 +144,20 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
             case DATE:
             case TIME:
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 return value;
             case BYTES:
                 byte[] bytes = (byte[]) value;
                 byte[] newBytes = new byte[bytes.length];
                 System.arraycopy(bytes, 0, newBytes, 0, bytes.length);
                 return newBytes;
+            case BINARY_VECTOR:
+            case FLOAT_VECTOR:
+            case FLOAT16_VECTOR:
+            case BFLOAT16_VECTOR:
+                return cloneByteBuffer((ByteBuffer) value);
+            case SPARSE_FLOAT_VECTOR:
+                return new HashMap<>((Map<?, ?>) value);
             case ARRAY:
                 ArrayType arrayType = (ArrayType) dataType;
                 Object[] array = (Object[]) value;
@@ -167,26 +178,53 @@ public class CopyFieldTransform extends MultipleFieldOutputTransform {
                 }
                 return newMap;
             case ROW:
-                SeaTunnelRowType rowType = (SeaTunnelRowType) dataType;
-                SeaTunnelRow row = (SeaTunnelRow) value;
-
-                Object[] newFields = new Object[rowType.getTotalFields()];
-                for (int i = 0; i < rowType.getTotalFields(); i++) {
-                    newFields[i] =
-                            clone(
-                                    rowType.getFieldName(i),
-                                    rowType.getFieldType(i),
-                                    row.getField(i));
-                }
-                SeaTunnelRow newRow = new SeaTunnelRow(newFields);
-                newRow.setRowKind(row.getRowKind());
-                newRow.setTableId(row.getTableId());
-                return newRow;
+                return cloneRow((SeaTunnelRowType) dataType, (SeaTunnelRow) value);
+            case MULTIPLE_ROW:
+                return cloneMultipleRow((MultipleRowType) dataType, (SeaTunnelRow) value);
             case NULL:
                 return null;
             default:
                 throw CommonError.unsupportedDataType(
                         getPluginName(), dataType.getSqlType().toString(), field);
         }
+    }
+
+    private ByteBuffer cloneByteBuffer(ByteBuffer value) {
+        ByteBuffer source = value.duplicate();
+        ByteBuffer clone =
+                value.isDirect()
+                        ? ByteBuffer.allocateDirect(source.remaining())
+                        : ByteBuffer.allocate(source.remaining());
+        clone.order(value.order());
+        clone.put(source);
+        ((Buffer) clone).flip();
+        return clone;
+    }
+
+    private SeaTunnelRow cloneRow(SeaTunnelRowType rowType, SeaTunnelRow row) {
+        Object[] newFields = new Object[rowType.getTotalFields()];
+        for (int i = 0; i < rowType.getTotalFields(); i++) {
+            newFields[i] = clone(rowType.getFieldName(i), rowType.getFieldType(i), row.getField(i));
+        }
+        SeaTunnelRow newRow = new SeaTunnelRow(newFields);
+        newRow.setRowKind(row.getRowKind());
+        newRow.setTableId(row.getTableId());
+        return newRow;
+    }
+
+    private SeaTunnelRow cloneMultipleRow(MultipleRowType multipleRowType, SeaTunnelRow row) {
+        String tableId = row.getTableId();
+        if (tableId == null || tableId.isEmpty()) {
+            throw CommonError.unsupportedDataType(
+                    getPluginName(), multipleRowType.getSqlType().toString(), "tableId");
+        }
+        SeaTunnelRowType rowType = multipleRowType.getRowType(tableId);
+        if (rowType == null) {
+            throw CommonError.unsupportedDataType(
+                    getPluginName(), multipleRowType.getSqlType().toString(), tableId);
+        }
+        SeaTunnelRow newRow = cloneRow(rowType, row);
+        newRow.setTableId(tableId);
+        return newRow;
     }
 }
