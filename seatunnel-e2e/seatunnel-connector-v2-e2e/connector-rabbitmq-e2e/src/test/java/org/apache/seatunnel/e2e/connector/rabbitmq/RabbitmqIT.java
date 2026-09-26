@@ -17,10 +17,18 @@
 
 package org.apache.seatunnel.e2e.connector.rabbitmq;
 
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -33,6 +41,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.client.RabbitmqClient;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.DeliveryMessage;
+import org.apache.seatunnel.core.starter.seatunnel.args.ClientCommandArgs;
+import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -43,7 +54,9 @@ import org.apache.seatunnel.format.protobuf.ProtobufSerializationSchema;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.io.TempDir;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -53,13 +66,17 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.rabbitmq.client.Channel;
 import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
 import com.rabbitmq.client.DefaultConsumer;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -129,6 +146,173 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                     new String(JSON_SERIALIZATION_SCHEMA.serialize(rows.get(1)))
                             .getBytes(StandardCharsets.UTF_8));
         }
+    }
+
+    @Test
+    public void testDryRunLeavesMessagesAndConsumersUnchanged() throws Exception {
+        try (Connection connection = dryRunConnection();
+                Channel channel = connection.createChannel()) {
+            String queue =
+                    channel.queueDeclare(
+                                    "dry-run-" + java.util.UUID.randomUUID(),
+                                    false,
+                                    false,
+                                    false,
+                                    null)
+                            .getQueue();
+            channel.confirmSelect();
+            channel.basicPublish("", queue, null, "unchanged".getBytes(StandardCharsets.UTF_8));
+            channel.waitForConfirmsOrDie(5000);
+            int before = channel.queueDeclarePassive(queue).getMessageCount();
+            Map<String, Object> options = dryRunOptions(queue);
+            // Even passive=false must not use the runtime queue creation path.
+            options.put("passive", false);
+            validateDryRun(options);
+            Assertions.assertEquals(before, channel.queueDeclarePassive(queue).getMessageCount());
+            Assertions.assertEquals(0, channel.queueDeclarePassive(queue).getConsumerCount());
+            Assertions.assertArrayEquals(
+                    "unchanged".getBytes(StandardCharsets.UTF_8),
+                    channel.basicGet(queue, true).getBody());
+        }
+    }
+
+    @Test
+    public void testDryRunMultiQueueAndUriPrecedence() throws Exception {
+        try (Connection connection = dryRunConnection();
+                Channel channel = connection.createChannel()) {
+            String first =
+                    channel.queueDeclare(
+                                    "dry-run-" + java.util.UUID.randomUUID(),
+                                    false,
+                                    false,
+                                    false,
+                                    null)
+                            .getQueue();
+            String second =
+                    channel.queueDeclare(
+                                    "dry-run-" + java.util.UUID.randomUUID(),
+                                    false,
+                                    false,
+                                    false,
+                                    null)
+                            .getQueue();
+            Map<String, Object> options = dryRunOptions(first);
+            Object schema = options.remove("schema");
+            options.remove("queue_name");
+            List<Map<String, Object>> tables = new ArrayList<>();
+            for (String queue : Arrays.asList(first, second)) {
+                Map<String, Object> table = new HashMap<>();
+                table.put("queue_name", queue);
+                table.put("schema", schema);
+                tables.add(table);
+            }
+            options.put("tables_configs", tables);
+            options.put(
+                    "url",
+                    String.format(
+                            "amqp://guest:guest@%s:%s/%%2f",
+                            rabbitmqContainer.getHost(), rabbitmqContainer.getMappedPort(PORT)));
+            options.put("host", "unused.invalid");
+            options.put("port", 1);
+            validateDryRun(options);
+        }
+    }
+
+    @Test
+    public void testDryRunMissingQueueIsNotCreated() throws Exception {
+        String queue = "missing-dry-run-" + java.util.UUID.randomUUID();
+        Assertions.assertThrows(IOException.class, () -> validateDryRun(dryRunOptions(queue)));
+        try (Connection connection = dryRunConnection()) {
+            // A failed passive declaration closes its channel; only the connection needs closing.
+            Channel channel = connection.createChannel();
+            Assertions.assertThrows(IOException.class, () -> channel.queueDeclarePassive(queue));
+        }
+    }
+
+    @Test
+    public void testDryRunRejectsInvalidCredentialsWithoutEchoingThem() {
+        Map<String, Object> options = dryRunOptions("unused");
+        options.put("password", "dry-run-private-password");
+        Exception failure =
+                Assertions.assertThrows(IOException.class, () -> validateDryRun(options));
+        Assertions.assertFalse(failure.toString().contains("dry-run-private-password"));
+        Assertions.assertNull(failure.getCause());
+    }
+
+    private Connection dryRunConnection() throws Exception {
+        ConnectionFactory factory = new ConnectionFactory();
+        factory.setHost(rabbitmqContainer.getHost());
+        factory.setPort(rabbitmqContainer.getMappedPort(PORT));
+        factory.setUsername(USERNAME);
+        factory.setPassword(PASSWORD);
+        return factory.newConnection();
+    }
+
+    private Map<String, Object> dryRunOptions(String queue) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("host", rabbitmqContainer.getHost());
+        options.put("port", rabbitmqContainer.getMappedPort(PORT));
+        options.put("username", USERNAME);
+        options.put("password", PASSWORD);
+        options.put("queue_name", queue);
+        options.put(
+                "schema",
+                Collections.singletonMap("fields", Collections.singletonMap("name", "string")));
+        return options;
+    }
+
+    @Test
+    public void testDryRunCommand(@TempDir Path directory) throws Exception {
+        try (Connection connection = dryRunConnection();
+                Channel channel = connection.createChannel()) {
+            String queue =
+                    channel.queueDeclare(
+                                    "cli-dry-run-" + java.util.UUID.randomUUID(),
+                                    false,
+                                    false,
+                                    false,
+                                    null)
+                            .getQueue();
+            Map<String, Object> options = dryRunOptions(queue);
+            checkDryRunCommand(options, directory);
+            Assertions.assertEquals(0, channel.queueDeclarePassive(queue).getConsumerCount());
+        }
+    }
+
+    private void checkDryRunCommand(Map<String, Object> options, Path directory) throws Exception {
+        options.put("plugin_name", "RabbitMQ");
+        options.put("plugin_output", "preflight");
+        Map<String, Object> sink = new HashMap<>();
+        sink.put("plugin_name", "Console");
+        sink.put("plugin_input", "preflight");
+        Map<String, Object> job = new HashMap<>();
+        job.put("source", Collections.singletonList(options));
+        job.put("sink", Collections.singletonList(sink));
+        Path file = directory.resolve("dry-run.json");
+        Files.write(
+                file,
+                ConfigFactory.parseMap(job)
+                        .root()
+                        .render(ConfigRenderOptions.concise())
+                        .getBytes(StandardCharsets.UTF_8));
+        ClientCommandArgs args =
+                CommandLineUtils.parse(
+                        new String[] {"-c", file.toString(), "--dry-run", "connect"},
+                        new ClientCommandArgs(),
+                        "seatunnel.sh",
+                        true);
+        new SeaTunnelConfValidateCommand(args).execute();
+    }
+
+    private void validateDryRun(Map<String, Object> options) throws Exception {
+        ClassLoader loader = getClass().getClassLoader();
+        TableSourceFactory factory =
+                FactoryUtil.discoverFactory(loader, TableSourceFactory.class, "RabbitMQ");
+        Assertions.assertTrue(factory instanceof SupportSourceDryRunValidation);
+        SupportSourceDryRunValidation validator = (SupportSourceDryRunValidation) factory;
+        TableSourceFactoryContext context =
+                new TableSourceFactoryContext(ReadonlyConfig.fromMap(options), loader);
+        validator.validateConnectionForDryRun(context, validator.inferSchemaForDryRun(context));
     }
 
     private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
