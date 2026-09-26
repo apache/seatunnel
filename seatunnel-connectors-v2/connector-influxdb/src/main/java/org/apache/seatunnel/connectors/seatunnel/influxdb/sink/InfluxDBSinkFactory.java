@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.influxdb.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -46,20 +47,31 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(InfluxDBSinkOptions.URL, InfluxDBSinkOptions.DATABASES)
+                .required(InfluxDBSinkOptions.URL, Conditions.notBlank(InfluxDBSinkOptions.URL))
+                .required(
+                        InfluxDBSinkOptions.DATABASES,
+                        Conditions.notBlank(InfluxDBSinkOptions.DATABASES))
                 .bundled(InfluxDBSinkOptions.USERNAME, InfluxDBSinkOptions.PASSWORD)
                 .optional(
                         InfluxDBSinkOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterThan(InfluxDBSinkOptions.CONNECT_TIMEOUT_MS, 0L))
+                .optional(
+                        InfluxDBSinkOptions.QUERY_TIMEOUT_SEC,
+                        Conditions.greaterThan(InfluxDBSinkOptions.QUERY_TIMEOUT_SEC, 0))
+                .optional(
+                        InfluxDBSinkOptions.BATCH_SIZE,
+                        Conditions.greaterThan(InfluxDBSinkOptions.BATCH_SIZE, 0))
+                .optional(
+                        InfluxDBSinkOptions.WRITE_TIMEOUT,
+                        Conditions.greaterThan(InfluxDBSinkOptions.WRITE_TIMEOUT, 0))
+                .optional(
                         InfluxDBSinkOptions.KEY_MEASUREMENT,
                         InfluxDBSinkOptions.KEY_TAGS,
                         InfluxDBSinkOptions.KEY_TIME,
-                        InfluxDBSinkOptions.BATCH_SIZE,
                         InfluxDBSinkOptions.MAX_RETRIES,
-                        InfluxDBSinkOptions.WRITE_TIMEOUT,
                         InfluxDBSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS,
                         InfluxDBSinkOptions.MAX_RETRY_BACKOFF_MS,
                         InfluxDBSinkOptions.RETENTION_POLICY,
-                        InfluxDBSinkOptions.QUERY_TIMEOUT_SEC,
                         InfluxDBSinkOptions.EPOCH,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
