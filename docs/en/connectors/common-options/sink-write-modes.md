@@ -96,6 +96,7 @@ Current connector support differs by file connector:
 | HdfsFile | Yes | Handles existing HDFS directories and files. |
 | FtpFile | Yes | Handles existing FTP directories and files. |
 | SftpFile | Yes | Handles existing SFTP directories and files. |
+| SmbFile | Yes | Handles existing SMB directories and files. |
 | S3File | Yes | Handles existing S3 paths and objects through the file sink save mode flow. |
 | OssFile | Yes | Handles existing OSS paths and objects through the file sink save mode flow. |
 | ObsFile | No | The current sink option rule does not expose `schema_save_mode` or `data_save_mode`. |
