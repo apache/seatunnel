@@ -23,15 +23,19 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.TestUtils;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.map.IMap;
@@ -45,6 +49,62 @@ import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderSer
 
 @SetEnvironmentVariable(key = SKIP_CHECK_JAR, value = "true")
 class StateTransitionCleanupTest extends AbstractSeaTunnelServerTest {
+
+    /**
+     * A terminal callback can arrive after reset while the vertex is stopped. Resuming pipeline
+     * cancellation must complete the new future even though no further task transition is needed.
+     */
+    @ParameterizedTest
+    @CsvSource({
+        "FAILED, true",
+        "CANCELED, true",
+        "FINISHED, true",
+        "FAILED, false",
+        "CANCELED, false",
+        "FINISHED, false"
+    })
+    void testRestoredCancellationCompletesLateTerminalState(
+            ExecutionState terminalState, boolean callbackBeforeInit) throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        PlanWithStateMaps planWithStateMaps = createPhysicalPlan(jobId);
+        PhysicalVertex vertex =
+                planWithStateMaps
+                        .physicalPlan
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0);
+
+        vertex.startPhysicalVertex();
+        vertex.updateTaskState(ExecutionState.CANCELED);
+        vertex.reset();
+        String error =
+                terminalState == ExecutionState.FAILED ? "Paimon SELECT permission denied" : null;
+        TaskExecutionState lateResult =
+                new TaskExecutionState(vertex.getTaskGroupLocation(), terminalState, error);
+        if (callbackBeforeInit) {
+            vertex.updateStateByExecutionService(lateResult);
+        }
+        PassiveCompletableFuture<TaskExecutionState> restoredFuture = vertex.initStateFuture();
+
+        if (!callbackBeforeInit) {
+            vertex.updateStateByExecutionService(lateResult);
+        }
+        Assertions.assertFalse(restoredFuture.isDone());
+
+        vertex.startPhysicalVertex();
+        vertex.cancel();
+
+        Assertions.assertTrue(
+                restoredFuture.isDone(),
+                "Resumed cancellation must publish the terminal task result");
+        TaskExecutionState result = restoredFuture.get();
+        Assertions.assertEquals(terminalState, result.getExecutionState());
+        Assertions.assertEquals(error, result.getThrowableMsg());
+        Assertions.assertEquals(
+                terminalState,
+                planWithStateMaps.runningJobState.get(vertex.getTaskGroupLocation()));
+    }
 
     @Test
     void testPhysicalVertexIgnoresLateTransitionWhenTaskStateAlreadyTerminal() throws Exception {

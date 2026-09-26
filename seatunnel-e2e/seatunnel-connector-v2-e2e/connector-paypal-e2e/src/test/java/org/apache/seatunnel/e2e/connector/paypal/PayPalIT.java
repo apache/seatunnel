@@ -75,6 +75,7 @@ public class PayPalIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /** Verifies that a bodyless OAuth retry and token expiry refresh preserve all records. */
     @TestTemplate
     public void readsAllRecordsThroughOAuthExpiryRefresh(TestContainer container) throws Exception {
         client.reset();
@@ -90,6 +91,7 @@ public class PayPalIT extends TestSuiteBase implements TestResource {
                                                         "mock-client:mock-secret"
                                                                 .getBytes(StandardCharsets.UTF_8)))
                         .withBody("grant_type=client_credentials");
+        client.when(oauth, Times.exactly(1)).respond(HttpResponse.response().withStatusCode(503));
         client.when(oauth, Times.exactly(1))
                 .respond(
                         HttpResponse.response()
@@ -117,7 +119,7 @@ public class PayPalIT extends TestSuiteBase implements TestResource {
                                 .withBody(report(2, row("T0006"))));
         Container.ExecResult result = container.executeJob("/paypal_to_assert.conf");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
-        client.verify(oauth, VerificationTimes.exactly(2));
+        client.verify(oauth, VerificationTimes.exactly(3));
         client.verify(first, VerificationTimes.exactly(1));
         client.verify(last, VerificationTimes.exactly(1));
         client.verify(

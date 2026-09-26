@@ -46,6 +46,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
@@ -66,9 +68,17 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.SynchronousQueue;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Collections.emptySet;
 import static org.apache.seatunnel.engine.server.execution.ExecutionState.CANCELED;
@@ -103,6 +113,136 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 new ConcurrentHashMap<>(),
                 () -> {},
                 failure -> {});
+    }
+
+    /**
+     * A task can fail or be cancelled while another blocking worker has not yet been scheduled.
+     * Cleanup must let that worker release the startup latch so deployment and the final result
+     * both return.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    public void testBlockingDeploymentCompletesAfterEarlyFailureOrCancellation(
+            boolean cancelDuringStartup) throws Exception {
+        TaskExecutionService service = server.getTaskExecutionService();
+        ExecutorService originalExecutor = getField(service, "executorService");
+        CountDownLatch failFirstTask = new CountDownLatch(1);
+        CountDownLatch firstTaskClosed = new CountDownLatch(1);
+        CountDownLatch startSecondWorker = new CountDownLatch(1);
+        CountDownLatch workersSubmitted = new CountDownLatch(2);
+        AtomicInteger workerNumber = new AtomicInteger();
+        AtomicReference<Thread> deploymentThread = new AtomicReference<>();
+        ExecutorService workers =
+                new ThreadPoolExecutor(
+                        0,
+                        Integer.MAX_VALUE,
+                        60L,
+                        TimeUnit.SECONDS,
+                        new SynchronousQueue<>(),
+                        runnable -> {
+                            int number = workerNumber.incrementAndGet();
+                            Thread thread =
+                                    new Thread(
+                                            () -> {
+                                                try {
+                                                    if (number == 2) {
+                                                        startSecondWorker.await();
+                                                    }
+                                                    runnable.run();
+                                                } catch (InterruptedException e) {
+                                                    Thread.currentThread().interrupt();
+                                                }
+                                            },
+                                            "delayed-blocking-worker-" + number);
+                            thread.setDaemon(true);
+                            return thread;
+                        }) {
+                    @Override
+                    public void execute(Runnable command) {
+                        super.execute(command);
+                        workersSubmitted.countDown();
+                    }
+                };
+        ExecutorService deployer = Executors.newSingleThreadExecutor();
+        TaskGroupLocation location = newTaskGroupLocation();
+        String failureMessage = "Source permission denied during initialization";
+        Task failingTask =
+                new TestTask(new AtomicBoolean(true), 0, false) {
+                    @Override
+                    public void init() throws Exception {
+                        failFirstTask.await();
+                        throw new IllegalStateException(failureMessage);
+                    }
+
+                    @Override
+                    public void close() {
+                        firstTaskClosed.countDown();
+                    }
+                };
+        Task delayedTask = new TestTask(new AtomicBoolean(true), 0, false);
+        TaskGroup group =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "early-startup-failure",
+                        Lists.newArrayList(failingTask, delayedTask));
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        for (Task task : group.getTasks()) {
+            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        }
+
+        ReflectionUtils.setField(service, "executorService", workers);
+        Future<PassiveCompletableFuture<TaskExecutionState>> deployment = null;
+        try {
+            Future<PassiveCompletableFuture<TaskExecutionState>> submittedDeployment =
+                    deployer.submit(
+                            () -> {
+                                deploymentThread.set(Thread.currentThread());
+                                return service.deployLocalTask(
+                                        FLAKE_ID_GENERATOR.newId(),
+                                        group,
+                                        classLoaders,
+                                        new ConcurrentHashMap<>(),
+                                        () -> {},
+                                        failure -> {});
+                            });
+            deployment = submittedDeployment;
+            assertTrue(workersSubmitted.await(10, TimeUnit.SECONDS));
+            // Both executor submissions have returned, so an unfinished deployment can only
+            // be waiting for the delayed worker's startup signal, not submitting a worker.
+            await().atMost(10, TimeUnit.SECONDS)
+                    .until(
+                            () -> {
+                                Thread thread = deploymentThread.get();
+                                return !submittedDeployment.isDone()
+                                        && thread.getState() == Thread.State.WAITING;
+                            });
+            if (cancelDuringStartup) {
+                service.cancelTaskGroup(location);
+            } else {
+                failFirstTask.countDown();
+                assertTrue(firstTaskClosed.await(10, TimeUnit.SECONDS));
+            }
+            startSecondWorker.countDown();
+
+            TaskExecutionState result =
+                    deployment.get(10, TimeUnit.SECONDS).get(10, TimeUnit.SECONDS);
+            assertEquals(cancelDuringStartup ? CANCELED : FAILED, result.getExecutionState());
+            if (!cancelDuringStartup) {
+                assertTrue(result.getThrowableMsg().contains(failureMessage));
+            }
+        } finally {
+            failFirstTask.countDown();
+            startSecondWorker.countDown();
+            if (deployment != null) {
+                deployment.cancel(true);
+            }
+            service.cancelTaskGroup(location);
+            workers.shutdownNow();
+            deployer.shutdownNow();
+            workers.awaitTermination(10, TimeUnit.SECONDS);
+            deployer.awaitTermination(10, TimeUnit.SECONDS);
+            ReflectionUtils.setField(service, "executorService", originalExecutor);
+        }
     }
 
     @Test

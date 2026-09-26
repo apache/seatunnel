@@ -301,6 +301,27 @@ public class CheckpointCoordinator {
         return pipelineId;
     }
 
+    /**
+     * Runs test fault injection between checkpoints without racing checkpoint completion or the
+     * next trigger.
+     *
+     * <p>The pending check and action share the coordinator lock. Tests do not need access to the
+     * lock or the mutable pending counter.
+     *
+     * @param action fault injection to run while no checkpoint is pending
+     * @return whether the action ran; false if a checkpoint is still pending
+     */
+    @VisibleForTesting
+    public boolean runWhenNoCheckpointPending(Runnable action) {
+        synchronized (lock) {
+            if (pendingCounter.get() != 0) {
+                return false;
+            }
+            action.run();
+            return true;
+        }
+    }
+
     // --------------------------------------------------------------------------------------------
     // The start step of the coordinator
     // --------------------------------------------------------------------------------------------
