@@ -5,6 +5,11 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Replace Transform Schema Refresh
+
+- **Behavior change**: Replace resolves `replace_fields` against the refreshed input schema after schema changes and checkpoint restoration. Previously cached positions could replace an unrelated column or leave the configured field unchanged after column positions shifted.
+- **Impact and migration**: If a configured field was dropped or renamed, schema refresh now fails with the existing missing-field error instead of processing subsequent rows with stale positions. Update `replace_fields` to match the source schema before restarting. No option, default, API, or checkpoint format changes are introduced.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
