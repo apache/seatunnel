@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.event.MessageDelayedEvent;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -211,6 +212,12 @@ public class IncrementalSourceRecordEmitter<T>
 
         @Override
         public void collect(SchemaChangeEvent event) {
+            eventListener.onEvent(event);
+            output.collect(event);
+        }
+
+        @Override
+        public void collect(TableOperationEvent event) {
             eventListener.onEvent(event);
             output.collect(event);
         }
