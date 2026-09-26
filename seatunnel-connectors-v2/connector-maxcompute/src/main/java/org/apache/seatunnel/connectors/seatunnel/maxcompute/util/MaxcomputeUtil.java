@@ -33,9 +33,13 @@ import com.aliyun.odps.account.Account;
 import com.aliyun.odps.account.AklessAccount;
 import com.aliyun.odps.account.AliyunAccount;
 import com.aliyun.odps.account.StsAccount;
+import com.aliyun.odps.rest.RestClient;
+import com.aliyun.odps.tunnel.Configuration;
 import com.aliyun.odps.tunnel.TableTunnel;
 import com.aliyun.odps.tunnel.TunnelException;
 import lombok.extern.slf4j.Slf4j;
+
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 
 @Slf4j
 public class MaxcomputeUtil {
@@ -47,6 +51,22 @@ public class MaxcomputeUtil {
     public static TableTunnel getTableTunnel(ReadonlyConfig readonlyConfig) {
         Odps odps = getOdps(readonlyConfig);
         TableTunnel tableTunnel = new TableTunnel(odps);
+        // Tunnel client timeouts / retry (data plane). The tunnel RestClient is built
+        // lazily by Configuration.newRestClient() when a session is created, reading
+        // these socket fields, so setting them before any session is built takes effect.
+        Configuration tunnelConfig = tableTunnel.getConfig();
+        tunnelConfig.setSocketConnectTimeout(
+                toTimeoutSeconds(
+                        readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_CONNECT_TIMEOUT_MS),
+                        "tunnel_connect_timeout_ms"));
+        tunnelConfig.setSocketTimeout(
+                toTimeoutSeconds(
+                        readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_READ_TIMEOUT_MS),
+                        "tunnel_read_timeout_ms"));
+        tunnelConfig.setSocketRetryTimes(
+                toRetryTimes(
+                        readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_RETRY_TIMES),
+                        "tunnel_retry_times"));
         if (StringUtils.isNotEmpty(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT))) {
             tableTunnel.setEndpoint(readonlyConfig.get(MaxcomputeBaseOptions.TUNNEL_ENDPOINT));
         }
@@ -84,7 +104,50 @@ public class MaxcomputeUtil {
         odps.setDefaultProject(readonlyConfig.get(MaxcomputeBaseOptions.PROJECT));
         odps.setCurrentSchema(
                 readonlyConfig.getOptional(MaxcomputeBaseOptions.SCHEMA_NAME).orElse(null));
+        applyRestClientOptions(odps, readonlyConfig);
         return odps;
+    }
+
+    /**
+     * Applies the ODPS REST client timeout/retry options (control plane) to an Odps instance.
+     * Shared by {@link #getOdps(ReadonlyConfig)} and {@code MaxComputeCatalog.getOdps} so that
+     * metadata/catalog calls honor {@code connect_timeout_ms} / {@code read_timeout_ms} / {@code
+     * retry_times}. Values default to the SDK defaults, so omitting them preserves existing
+     * behavior.
+     */
+    public static void applyRestClientOptions(Odps odps, ReadonlyConfig readonlyConfig) {
+        // RestClient stores connect/read timeout in seconds internally.
+        RestClient restClient = odps.getRestClient();
+        restClient.setConnectTimeout(
+                toTimeoutSeconds(
+                        readonlyConfig.get(MaxcomputeBaseOptions.CONNECT_TIMEOUT_MS),
+                        "connect_timeout_ms"));
+        restClient.setReadTimeout(
+                toTimeoutSeconds(
+                        readonlyConfig.get(MaxcomputeBaseOptions.READ_TIMEOUT_MS),
+                        "read_timeout_ms"));
+        restClient.setRetryTimes(
+                toRetryTimes(readonlyConfig.get(MaxcomputeBaseOptions.RETRY_TIMES), "retry_times"));
+    }
+
+    /**
+     * Converts a millisecond timeout to whole seconds, rejecting sub-second / negative values. The
+     * ODPS RestClient and Tunnel Configuration store timeouts in seconds internally, so millisecond
+     * input is divided by 1000; a value below 1000 would silently collapse to 0 or be clamped to 1
+     * second, which is almost never what the user intended.
+     */
+    private static int toTimeoutSeconds(long ms, String optionName) {
+        checkArgument(
+                ms >= 1000,
+                "%s must be >= 1000 (millisecond values are converted to whole seconds). Got: %s",
+                optionName,
+                ms);
+        return Math.toIntExact(ms / 1000);
+    }
+
+    private static int toRetryTimes(int value, String optionName) {
+        checkArgument(value >= 0, "%s must be non-negative. Got: %s", optionName, value);
+        return value;
     }
 
     public static TableTunnel.DownloadSession getDownloadSession(ReadonlyConfig readonlyConfig) {
