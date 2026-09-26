@@ -77,6 +77,8 @@ public class ConfigBuilderTest {
     @Test
     public void testInvalidPathKeysSurviveConfigShadeRoundTrip() {
         Map<String, Object> fields = new LinkedHashMap<>();
+        fields.put("^t_nova_.*$", "string");
+        fields.put("a:b", "long");
         fields.put("a\"b\\c", "string");
         fields.put("${FOO}", "boolean");
         fields.put("", "int");
