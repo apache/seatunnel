@@ -48,6 +48,18 @@ Amazon SQS 写入连接器用于把每条输入的 SeaTunnel 行数据写入一�
 - `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
 - 该写入连接器会把每条 SeaTunnel 行数据发送成一条 SQS 消息，不会把多行数据合并到一次 SQS 请求里。
 
+## 认证
+
+连接器按以下顺序解析 AWS 凭证：
+
+1. 当 `access_key_id` 和 `secret_access_key` 都已配置时，使用这对静态凭证。
+2. 否则，使用 AWS 默认凭证提供链（环境变量、实例角色等）。
+
+如果要在本地对 LocalStack、ElasticMQ 等 SQS 兼容服务做测试，可以把 `url` 指向本地
+服务地址（例如 `http://sqs-host:4566/...`），并配置任意非空的
+`access_key_id` / `secret_access_key`。这类 SQS 兼容测试服务通常不校验请求的
+SigV4 签名，因此任意静态凭证对都会被接受。
+
 ## 任务示例
 
 ### 在本地兼容队列之间复制消息

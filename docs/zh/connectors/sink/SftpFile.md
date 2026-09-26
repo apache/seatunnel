@@ -57,6 +57,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在custom_filename为true时使用                                 |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在custom_filename为true时使用                                 |
 | file_format_type                      | string  | 否    | "csv"                                      |                                                           |
+| filename_extension                    | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。例如：`.xml`、`.json`、`dat`、`.customtype` |
 | field_delimiter                       | string  | 否    | '\001'                                     | 仅当file_format_type为text时使用                                |
 | row_delimiter                         | string  | 否    | "\n"                                       | 仅当file_format_type为 `text`、`csv`、`json` 时使用               |
 | have_partition                        | boolean | 否    | false                                      | 是否需要处理分区。                                                 |
