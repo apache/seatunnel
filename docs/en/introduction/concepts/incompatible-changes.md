@@ -5,6 +5,25 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### JsonPath Transform
+
+- Recognized destination-type conversion failures now honor the existing column
+  and row error policies. Column `SKIP` yields a null field; column `SKIP_ROW` or
+  row `SKIP` (without a column override) drops the row. Explicit column `FAIL`
+  still takes precedence; the default remains `FAIL`.
+- Under `FAIL`, recognized conversion errors now surface as
+  `ErrorDataTransformException` with `JSONPATH_ERROR_CODE-07`, rather than the raw
+  converter exception or its `COMMON-*` code. Source records, extracted values
+  and raw causes are intentionally omitted from these diagnostics and skip logs.
+  Update alerts/runbooks keyed on the old exception text or code. Unsupported
+  conversions and unexpected failures retain their existing behavior; this does
+  not add `ROUTE_TO_TABLE` support or change checkpoint formats.
+- Path-reading error policies are unchanged, but `ErrorDataTransformException`
+  now attaches the path-reading exception as its cause; previously it had no cause.
+  Its diagnostics still include source data and are outside the conversion-error
+  privacy boundary. Update stack-trace parsers and alerts that assumed no nested
+  cause to account for the additional `Caused by` section.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
