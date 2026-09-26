@@ -110,4 +110,5 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 - [运行时执行图](./runtime-execution-graph.md)
 - [实时指标图](./live-metrics-chart.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
+- [任务失败历史设计](./task-failure-history.md)
 - [安全](./security.md)
