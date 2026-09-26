@@ -27,6 +27,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
+import org.apache.seatunnel.common.utils.ConfigValueUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.common.utils.ParserException;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
@@ -37,6 +38,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -250,66 +252,122 @@ public class ConfigBuilder {
     }
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
-        if (variables != null) {
-            variables.stream()
-                    .filter(Objects::nonNull)
-                    .map(variable -> variable.split("=", 2))
-                    .filter(pair -> pair.length == 2)
-                    .peek(
-                            pair -> {
-                                if (TablePlaceholder.isSystemPlaceholder(pair[0])) {
-                                    throw new ConfigCheckException(
-                                            "System placeholders cannot be used. Incorrect config parameter: "
-                                                    + pair[0]);
-                                }
-                            })
-                    .forEach(pair -> System.setProperty(pair[0], pair[1]));
-            Config systemConfig =
-                    Parseable.newProperties(
-                                    System.getProperties(),
-                                    ConfigParseOptions.defaults()
-                                            .setOriginDescription("system properties"))
-                            .parse()
-                            .toConfig();
+        Map<String, String> userConfigMap = extractUserVariables(variables);
+        Config userConfig =
+                ConfigFactory.parseMap(
+                        userConfigMap.entrySet().stream()
+                                .collect(
+                                        Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                entry -> {
+                                                    Object parsedValue =
+                                                            ConfigValueUtils.parseValue(
+                                                                            entry.getValue())
+                                                                    .unwrapped();
+                                                    return parsedValue != null
+                                                            ? parsedValue
+                                                            : "null";
+                                                })));
 
-            Config resolvedConfig =
-                    config.resolveWith(
-                            systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
+        Config systemConfig =
+                Parseable.newProperties(
+                                System.getProperties(),
+                                ConfigParseOptions.defaults()
+                                        .setOriginDescription("system properties"))
+                        .parse()
+                        .toConfig();
 
-            Map<String, Object> configMap = resolvedConfig.root().unwrapped();
+        Map<String, Object> mergedMap = new LinkedHashMap<>(systemConfig.root().unwrapped());
+        mergedMap.putAll(userConfig.root().unwrapped());
+        Config sourceConfig = ConfigFactory.parseMap(mergedMap);
 
-            configMap.forEach(
-                    (key, value) -> {
-                        if (value instanceof Map) {
-                            processVariablesMap((Map<String, Object>) value);
-                        } else if (value instanceof List) {
-                            ((List<Map<String, Object>>) value)
-                                    .forEach(map -> processVariablesMap(map));
-                        }
-                    });
+        Config resolvedConfig =
+                config.resolveWith(
+                        sourceConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
 
-            return ConfigFactory.parseString(
-                            JsonUtils.toJsonString(configMap),
-                            ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON))
-                    .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
-        }
-        return config;
+        Map<String, Object> resolvedConfigMap = resolvedConfig.root().unwrapped();
+
+        Map<String, String> defaultConfigMap = new HashMap<>();
+        processVariablesMap(resolvedConfigMap, userConfigMap, defaultConfigMap);
+
+        return ConfigFactory.parseMap(resolvedConfigMap);
+        /*return ConfigFactory.parseString(
+                JsonUtils.toJsonString(configMap),
+                ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON))
+        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));*/
     }
 
-    private static void processVariablesMap(Map<String, Object> mapValue) {
+    private static Map<String, String> extractUserVariables(List<String> variables) {
+        Map<String, String> userConfigMap = new LinkedHashMap<>();
+
+        if (variables == null || variables.isEmpty()) {
+            return userConfigMap;
+        }
+
+        for (String variable : variables) {
+            if (variable == null) {
+                continue;
+            }
+
+            String[] pair = variable.split("=", 2);
+
+            if (pair.length != 2) {
+                continue;
+            }
+
+            String userKey = getUserKey(pair, userConfigMap);
+            String userValueString = pair[1];
+
+            if (userValueString != null) {
+                userConfigMap.put(userKey, userValueString);
+            } else {
+                userConfigMap.put(userKey, null);
+            }
+        }
+
+        return userConfigMap;
+    }
+
+    private static String getUserKey(String[] pair, Map<String, String> userConfigMap) {
+        String userKey = pair[0];
+
+        if (TablePlaceholder.isSystemPlaceholder(userKey)) {
+            throw new ConfigCheckException(
+                    "System placeholders cannot be used. Incorrect config parameter: " + userKey);
+        }
+
+        if (userConfigMap.containsKey(userKey)) {
+            throw new ConfigCheckException(
+                    "Duplicate -i variable key detected: '"
+                            + userKey
+                            + "'. Please remove duplicate keys.");
+        }
+        return userKey;
+    }
+
+    private static void processVariablesMap(
+            Map<String, Object> mapValue,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
         mapValue.forEach(
                 (innerKey, innerValue) -> {
                     if (innerValue instanceof Map) {
-                        processVariablesMap((Map<String, Object>) innerValue);
+                        processVariablesMap(
+                                (Map<String, Object>) innerValue, userConfigMap, defaultConfigMap);
                     } else if (innerValue instanceof List) {
-                        mapValue.put(innerKey, processVariablesList((List<?>) innerValue));
+                        mapValue.put(
+                                innerKey,
+                                processVariablesList(
+                                        (List<?>) innerValue, userConfigMap, defaultConfigMap));
                     } else {
-                        processVariable(innerKey, innerValue, mapValue);
+                        processVariable(
+                                innerKey, innerValue, mapValue, userConfigMap, defaultConfigMap);
                     }
                 });
     }
 
-    private static List<?> processVariablesList(List<?> list) {
+    private static List<?> processVariablesList(
+            List<?> list, Map<String, String> userConfigMap, Map<String, String> defaultConfigMap) {
         return list.stream()
                 .map(
                         variable -> {
@@ -319,17 +377,26 @@ public class ConfigBuilder {
                                         .reduce(
                                                 variableString,
                                                 (result, placeholder) -> {
+                                                    String value =
+                                                            userConfigMap.containsKey(placeholder)
+                                                                    ? userConfigMap.get(placeholder)
+                                                                    : System.getProperty(
+                                                                            placeholder);
                                                     return replacePlaceholders(
                                                             result,
                                                             placeholder,
-                                                            System.getProperty(placeholder),
-                                                            null);
+                                                            value,
+                                                            defaultConfigMap.get(placeholder));
                                                 });
                             } else if (variable instanceof Map) {
-                                processVariablesMap((Map<String, Object>) variable);
+                                processVariablesMap(
+                                        (Map<String, Object>) variable,
+                                        userConfigMap,
+                                        defaultConfigMap);
                                 return variable;
                             } else if (variable instanceof List) {
-                                return processVariablesList((List<?>) variable);
+                                return processVariablesList(
+                                        (List<?>) variable, userConfigMap, defaultConfigMap);
                             }
                             return variable;
                         })
@@ -337,22 +404,37 @@ public class ConfigBuilder {
     }
 
     private static void processVariable(
-            String variableKey, Object variableValue, Map<String, Object> parentMap) {
+            String variableKey,
+            Object variableValue,
+            Map<String, Object> parentMap,
+            Map<String, String> userConfigMap,
+            Map<String, String> defaultConfigMap) {
         if (Objects.isNull(variableValue)) {
             return;
         }
         String variableString = variableValue.toString();
         List<String> placeholders = extractPlaceholder(variableString);
 
+        String replacedValue = null;
         for (String placeholder : placeholders) {
-            String replacedValue =
+            String value =
+                    userConfigMap.containsKey(placeholder)
+                            ? userConfigMap.get(placeholder)
+                            : System.getProperty(placeholder);
+
+            replacedValue =
                     replacePlaceholders(
-                            variableString, placeholder, System.getProperty(placeholder), null);
+                            variableString, placeholder, value, defaultConfigMap.get(placeholder));
+
             variableString = replacedValue;
         }
 
+        if (replacedValue != null) {
+            variableValue = ConfigValueUtils.parseValue(replacedValue);
+        }
+
         if (!placeholders.isEmpty()) {
-            parentMap.put(variableKey, variableString);
+            parentMap.put(variableKey, variableValue);
         }
     }
 
