@@ -50,6 +50,8 @@ schema before starting the job.
 
 ### host [string]
 
+All configured hosts are passed to the driver as bootstrap contact points. The driver can try another configured host when one is unavailable during initial connection. This does not change consistency levels or guarantee availability when no suitable node is reachable.
+
 `Cassandra` cluster address, the format is `host:port` , allowing multiple `hosts` to be specified. Such as
 `"cassandra1:9042,cassandra2:9042"`.
 
