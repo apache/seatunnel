@@ -63,6 +63,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -189,7 +190,7 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                 BigDecimal.valueOf(11, 1),
                                 "test".getBytes(),
                                 LocalDate.now(),
-                                LocalDateTime.now()
+                                LocalDateTime.now().truncatedTo(ChronoUnit.MICROS)
                             });
             rows.add(row);
         }
