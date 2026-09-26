@@ -235,15 +235,18 @@ public class DatabendIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         this.minioContainer =
-                // MinIO's own images are no longer pullable. bitnamilegacy/minio:2024.6.13 (same
-                // release), pinned by digest; no /data, so the server uses the image's volume.
+                // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated
+                // pulls; use a public mirror of MinIO RELEASE.2025-04-22T22-12-26Z instead.
+                // Pinned to the same release used by the other MinIO containers in this test
+                // suite instead of :latest, so an upstream MinIO release can't silently change
+                // this test's behavior underneath it.
                 new GenericContainer<>(
-                                "bitnamilegacy/minio@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645")
+                                "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("minio")
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
-                        .withCommand("minio", "server", "/bitnami/minio/data")
+                        .withCommand("server", "/data")
                         .withExposedPorts(9000);
 
         this.minioContainer.setWaitStrategy(

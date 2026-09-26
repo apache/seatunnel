@@ -54,11 +54,12 @@ import java.util.concurrent.TimeUnit;
 public class S3FileWithFilterIT extends SeaTunnelContainer {
     private GenericContainer<?> s3Container;
 
-    // MinIO's own images are no longer pullable. bitnamilegacy/minio:2024.6.13 (same MinIO
-    // release), pinned by digest; it has no /data, so the server uses the image's data volume.
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"). The
+    // old quay.io/minio/minio repository is also unavailable. Use a digest-pinned public mirror
+    // of MinIO RELEASE.2025-04-22T22-12-26Z.
     private static final String MINIO_IMAGE =
-            "bitnamilegacy/minio@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645";
-    private static final String MINIO_DATA_DIR = "/bitnami/minio/data";
+            "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
 
     private static final int S3_PORT = 9000;
 
@@ -75,8 +76,8 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
                         .withLogConsumer(new Slf4jLogConsumer(log))
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
-                        .withCommand("minio", "server", MINIO_DATA_DIR)
-                        .waitingFor(Wait.forHttp("/minio/health/ready").forPort(S3_PORT));
+                        .withCommand("server", "/data")
+                        .waitingFor(Wait.forLogMessage(".*", 1));
         s3Container.start();
         S3Utils.initialize(
                 String.format(

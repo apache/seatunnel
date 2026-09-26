@@ -54,11 +54,12 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResource {
 
-    // MinIO's own images are no longer pullable. bitnamilegacy/minio:2024.6.13 (same MinIO
-    // release), pinned by digest; it has no /data, so the server uses the image's data volume.
+    // Docker Hub's minio/minio repository no longer serves anonymous/unauthenticated pulls
+    // ("pull access denied ... repository does not exist or may require 'docker login'"). The
+    // old quay.io/minio/minio repository is also unavailable. Use a digest-pinned public mirror
+    // of MinIO RELEASE.2025-04-22T22-12-26Z.
     private static final String MINIO_DOCKER_IMAGE =
-            "bitnamilegacy/minio@sha256:aa1752895e6d2b420e394d55241d5b2c948960715db0a50bb648f430e447e645";
-    private static final String MINIO_DATA_DIR = "/bitnami/minio/data";
+            "ghcr.io/teableio/minio@sha256:a1ea29fa28355559ef137d71fc570e508a214ec84ff8083e39bc5428980b015e";
     private static final String HOST = "minio";
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_USER_NAME = "minio";
@@ -79,13 +80,11 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
     public void startUp() throws Exception {
         container =
                 // MinIOContainer validates its image name is a recognized substitute for
-                // "minio/minio"; a non-official image needs an explicit compatibility declaration
+                // "minio/minio"; the community mirror needs an explicit compatibility declaration
                 // or Testcontainers rejects it with IllegalStateException at startup.
                 new MinIOContainer(
                                 DockerImageName.parse(MINIO_DOCKER_IMAGE)
                                         .asCompatibleSubstituteFor("minio/minio"))
-                        .withCommand(
-                                "minio", "server", "--console-address", ":9001", MINIO_DATA_DIR)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
                         .withUserName(MINIO_USER_NAME)
