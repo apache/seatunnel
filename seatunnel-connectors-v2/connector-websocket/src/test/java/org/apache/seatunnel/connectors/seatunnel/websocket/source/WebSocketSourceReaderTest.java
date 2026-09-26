@@ -60,6 +60,7 @@ class WebSocketSourceReaderTest {
     private static final long AWAIT_TIMEOUT_MS = 30_000L;
     private static final int NORMAL_CLOSURE_STATUS = 1000;
     private static final String SUBSCRIBE_MESSAGE = "{\"op\":\"subscribe\"}";
+    private static final String SECRET_TOKEN = "super-secret-token";
 
     private MockWebServer server;
     private final BlockingQueue<String> serverReceived = new LinkedBlockingQueue<>();
@@ -240,11 +241,13 @@ class WebSocketSourceReaderTest {
 
     /**
      * Once the reconnect budget is exhausted the reader must fail the task instead of waiting for
-     * messages that can never arrive.
+     * messages that can never arrive. The failure message reaches job logs and alerts, so it must
+     * identify the server without leaking the credentials that such endpoints commonly carry in the
+     * query string of the url.
      */
     @Test
     void shouldFailTheTaskWhenReconnectBudgetIsExhausted() throws Exception {
-        String url = startServerWith(connectionDroppingListener());
+        String url = startServerWith(connectionDroppingListener()) + "?token=" + SECRET_TOKEN;
         Map<String, Object> configMap = baseConfig(url);
         configMap.put(WebSocketSourceOptions.ENABLE_RECONNECT.key(), true);
         // the very first disconnection already exhausts the budget
@@ -257,6 +260,14 @@ class WebSocketSourceReaderTest {
             WebSocketConnectorException exception = awaitPollFailure(reader, collector);
             Assertions.assertEquals(
                     WebSocketConnectorErrorCode.CONNECT_FAILED, exception.getSeaTunnelErrorCode());
+            Assertions.assertFalse(
+                    exception.getMessage().contains(SECRET_TOKEN),
+                    "The failure message must not leak the url credentials: "
+                            + exception.getMessage());
+            Assertions.assertTrue(
+                    exception.getMessage().contains(server.getHostName()),
+                    "The failure message must still identify the server: "
+                            + exception.getMessage());
         }
         Mockito.verify(context, Mockito.never()).signalNoMoreElement();
     }

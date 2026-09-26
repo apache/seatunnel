@@ -176,6 +176,15 @@ Either put the credentials in `headers` so they are sent with the handshake requ
 first entry of `open_messages` when the server expects an application-level login frame. Credentials are
 never written to the logs.
 
+Some servers instead expect a token in the query string of `url`. That works too: every log line and error
+message keeps the parameter names but hides their values, so a url configured as
+`wss://stream.example.com/ws?streams=btcusdt@trade&token=secret` is logged as
+`wss://stream.example.com/ws?streams=***&token=***`. The connection itself is still made with the `url`
+exactly as configured.
+
+A credential placed in the *path* rather than the query string cannot be hidden this way, because the path
+identifies the endpoint. Prefer `headers` or `open_messages` for such credentials.
+
 ### What happens when the connection drops?
 
 By default the connector reconnects up to `max_reconnect_times` times, waiting `reconnect_interval_ms`

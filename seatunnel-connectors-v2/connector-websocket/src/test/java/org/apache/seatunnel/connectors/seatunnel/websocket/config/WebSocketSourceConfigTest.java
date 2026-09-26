@@ -117,6 +117,78 @@ class WebSocketSourceConfigTest {
         Assertions.assertThrows(WebSocketConnectorException.class, () -> of(configMap));
     }
 
+    /**
+     * The masked url is the form that ends up in logs and failure messages. These endpoints
+     * commonly authenticate through the query string, so every parameter value is hidden, while the
+     * parameter names are kept so that one connection can still be told apart from another in a
+     * log.
+     */
+    @Test
+    void testUrlQueryValuesAreMaskedForLogging() {
+        Map<String, Object> configMap = baseConfig();
+        configMap.put(
+                WebSocketSourceOptions.URL.key(),
+                "wss://stream.example.com:9443/ws?streams=btcusdt@trade&token=secret");
+        WebSocketSourceConfig config = of(configMap);
+
+        Assertions.assertEquals(
+                "wss://stream.example.com:9443/ws?streams=***&token=***", config.getMaskedUrl());
+        // the connection itself must still be made with the url exactly as configured
+        Assertions.assertEquals(
+                "wss://stream.example.com:9443/ws?streams=btcusdt@trade&token=secret",
+                config.getUrl());
+    }
+
+    /** A parameter used as a flag has no value to hide, so it stays readable. */
+    @Test
+    void testValuelessQueryParameterIsKept() {
+        Map<String, Object> configMap = baseConfig();
+        configMap.put(
+                WebSocketSourceOptions.URL.key(),
+                "wss://stream.example.com/ws?compress&token=s3cr3t");
+        Assertions.assertEquals(
+                "wss://stream.example.com/ws?compress&token=***", of(configMap).getMaskedUrl());
+    }
+
+    @Test
+    void testUrlWithoutQueryIsNotAltered() {
+        WebSocketSourceConfig config = of(baseConfig());
+        Assertions.assertEquals("ws://localhost:8080/topic", config.getMaskedUrl());
+    }
+
+    @Test
+    void testUrlUserInfoIsMasked() {
+        Map<String, Object> configMap = baseConfig();
+        configMap.put(WebSocketSourceOptions.URL.key(), "wss://user:password@example.com/ws");
+        Assertions.assertEquals("wss://example.com/ws", of(configMap).getMaskedUrl());
+    }
+
+    /** Masking is best effort: an unparseable url must still be masked, never fail the job. */
+    @Test
+    void testUnparseableUrlStillHasItsQueryValuesMasked() {
+        Map<String, Object> configMap = baseConfig();
+        configMap.put(WebSocketSourceOptions.URL.key(), "ws://host name:8080/ws?token=secret");
+        Assertions.assertEquals("ws://host name:8080/ws?token=***", of(configMap).getMaskedUrl());
+    }
+
+    /** The credentials must not reach a log through the generated toString either. */
+    @Test
+    void testToStringHidesCredentials() {
+        Map<String, Object> configMap = baseConfig();
+        configMap.put(WebSocketSourceOptions.URL.key(), "wss://stream.example.com/ws?token=secret");
+        configMap.put(
+                WebSocketSourceOptions.HEADERS.key(),
+                Collections.singletonMap("Authorization", "Bearer token-value"));
+        configMap.put(
+                WebSocketSourceOptions.OPEN_MESSAGES.key(),
+                Collections.singletonList("{\"apiKey\":\"key-value\"}"));
+
+        String description = of(configMap).toString();
+        Assertions.assertFalse(description.contains("secret"), description);
+        Assertions.assertFalse(description.contains("token-value"), description);
+        Assertions.assertFalse(description.contains("key-value"), description);
+    }
+
     @Test
     void testZeroMaxReconnectTimesIsAccepted() {
         Map<String, Object> configMap = baseConfig();

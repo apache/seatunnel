@@ -166,6 +166,13 @@ WebSocket 流没有天然的终点，批作业需要显式的结束条件。请�
 可以把凭证放入 `headers` 随握手请求发送；如果服务端要求应用层登录帧，则把凭证作为 `open_messages` 的第一条消息
 发送。凭证不会被写入日志。
 
+有些服务端要求把 token 放在 `url` 的查询串中，这同样支持：日志与报错信息中会保留参数名、隐藏参数值，即配置为
+`wss://stream.example.com/ws?streams=btcusdt@trade&token=secret` 的 url 在日志中显示为
+`wss://stream.example.com/ws?streams=***&token=***`。实际建立连接时仍使用配置的完整 `url`。
+
+如果凭证位于 url 的 *路径* 而非查询串中，则无法以这种方式隐藏，因为路径标识了端点本身。这类凭证建议改用
+`headers` 或 `open_messages` 传递。
+
 ### 连接断开后会发生什么？
 
 默认情况下连接器最多重连 `max_reconnect_times` 次，每次间隔 `reconnect_interval_ms`，并在每次重连成功后重新发送

@@ -109,7 +109,7 @@ public class WebSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                     String.format(
                             "Deserialize the message received from websocket server [%s] failed. "
                                     + "The incoming data does not match the configured schema or format [%s].",
-                            config.getUrl(), config.getFormat()),
+                            config.getMaskedUrl(), config.getFormat()),
                     deserializeException);
         }
     }
@@ -119,7 +119,7 @@ public class WebSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             log.info(
                     "Reached max_records [{}], stop reading from websocket server [{}]",
                     config.getMaxRecords(),
-                    config.getUrl());
+                    config.getMaskedUrl());
             return true;
         }
         if (config.getReadTimeoutMs() > 0
@@ -127,7 +127,7 @@ public class WebSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
             log.info(
                     "No message received from websocket server [{}] for more than read_timeout_ms [{}], "
                             + "stop reading with [{}] rows emitted",
-                    config.getUrl(),
+                    config.getMaskedUrl(),
                     config.getReadTimeoutMs(),
                     emittedRecords);
             return true;

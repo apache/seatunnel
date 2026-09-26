@@ -118,7 +118,7 @@ public class WebSocketSourceClient {
                 WebSocketConnectorErrorCode.CONNECT_FAILED,
                 String.format(
                         "Connection to websocket server [%s] failed after [%s] reconnect attempts",
-                        config.getUrl(), reconnectTimes.get()),
+                        config.getMaskedUrl(), reconnectTimes.get()),
                 error);
     }
 
@@ -148,12 +148,13 @@ public class WebSocketSourceClient {
         if (closed) {
             return;
         }
+        // the only place that needs the url as configured, everything else logs the masked form
         Request.Builder requestBuilder = new Request.Builder().url(config.getUrl());
         Map<String, String> headers = config.getHeaders();
         if (headers != null) {
             headers.forEach(requestBuilder::addHeader);
         }
-        log.info("Connecting to websocket server, url:[{}]", config.getUrl());
+        log.info("Connecting to websocket server, url:[{}]", config.getMaskedUrl());
         webSocket = httpClient.newWebSocket(requestBuilder.build(), new SourceWebSocketListener());
     }
 
@@ -168,14 +169,14 @@ public class WebSocketSourceClient {
         if (reconnectTimes.get() >= config.getMaxReconnectTimes()) {
             log.error(
                     "Reconnect to websocket server [{}] gave up after [{}] attempts",
-                    config.getUrl(),
+                    config.getMaskedUrl(),
                     reconnectTimes.get());
             fatalError = cause;
             return;
         }
         log.warn(
                 "Websocket connection to [{}] is broken, reconnecting in [{}]ms, attempt [{}/{}]",
-                config.getUrl(),
+                config.getMaskedUrl(),
                 config.getReconnectIntervalMs(),
                 reconnectTimes.incrementAndGet(),
                 config.getMaxReconnectTimes(),
@@ -212,13 +213,13 @@ public class WebSocketSourceClient {
                 log.warn(
                         "Dropping messages received from websocket server [{}] because the reader is"
                                 + " already closed, further drops are not logged",
-                        config.getUrl());
+                        config.getMaskedUrl());
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.warn(
                     "Interrupted while buffering a message from websocket server [{}]",
-                    config.getUrl());
+                    config.getMaskedUrl());
         }
     }
 
@@ -227,7 +228,7 @@ public class WebSocketSourceClient {
         @Override
         public void onOpen(WebSocket webSocket, Response response) {
             reconnectTimes.set(0);
-            log.info("Websocket connection to [{}] is established", config.getUrl());
+            log.info("Websocket connection to [{}] is established", config.getMaskedUrl());
             List<String> openMessages = config.getOpenMessages();
             if (openMessages == null || openMessages.isEmpty()) {
                 return;
@@ -242,11 +243,11 @@ public class WebSocketSourceClient {
                                     WebSocketConnectorErrorCode.SEND_MESSAGE_FAILED,
                                     String.format(
                                             "Failed to send open message at index [%s] to websocket server [%s]",
-                                            i, config.getUrl()));
+                                            i, config.getMaskedUrl()));
                     return;
                 }
             }
-            log.info("Sent [{}] open messages to [{}]", openMessages.size(), config.getUrl());
+            log.info("Sent [{}] open messages to [{}]", openMessages.size(), config.getMaskedUrl());
         }
 
         @Override
@@ -263,7 +264,7 @@ public class WebSocketSourceClient {
         public void onClosing(WebSocket webSocket, int code, String reason) {
             log.info(
                     "Websocket server [{}] is closing the connection, code:[{}], reason:[{}]",
-                    config.getUrl(),
+                    config.getMaskedUrl(),
                     code,
                     reason);
             webSocket.close(NORMAL_CLOSURE_STATUS, null);
