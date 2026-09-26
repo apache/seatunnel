@@ -79,6 +79,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
@@ -121,7 +122,13 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected FlowLifeCycle startFlowLifeCycle;
 
-    protected List<FlowLifeCycle> allCycles;
+    // Volatile and copy-on-write: cancel() iterates this list from the engine cancel thread while
+    // init() may still be filling it on the task thread.
+    protected volatile List<FlowLifeCycle> allCycles;
+
+    // Set by cancel() when it ran before the life cycles were built; init() replays the cancel in
+    // that case so no flow keeps blocking in an external system.
+    private volatile boolean cancelRequested;
 
     protected List<OneInputFlowLifeCycle<Record<?>>> outputs;
 
@@ -182,10 +189,15 @@ public abstract class SeaTunnelTask extends AbstractTask {
         observabilityEnabled = resolveObservabilityEnabled();
         this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
-        allCycles = new ArrayList<>();
+        allCycles = new CopyOnWriteArrayList<>();
         startFlowLifeCycle = convertFlowToActionLifeCycle(executionFlow);
         for (FlowLifeCycle cycle : allCycles) {
             cycle.init();
+        }
+        // A cancel that raced with this init() may have missed cycles that were still being built;
+        // replay it so no reader keeps blocking in an external system after cancellation.
+        if (cancelRequested) {
+            cancel();
         }
         CompletableFuture.allOf(flowFutures.toArray(new CompletableFuture[0]))
                 .whenComplete((s, e) -> closeCalled = true);
@@ -402,6 +414,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
             MetricsContext metricsContext);
 
     protected abstract void collect() throws Exception;
+
+    /**
+     * Cancels external blocking resources owned by every flow life cycle of this task.
+     *
+     * <p>Called from the engine cancel thread, potentially while {@link #init()} is still building
+     * {@code allCycles} on the task thread, so the request is recorded in {@code cancelRequested}
+     * and replayed at the end of {@link #init()}. Must stay cheap, idempotent and lock-free.
+     */
+    @Override
+    public void cancel() {
+        cancelRequested = true;
+        if (allCycles != null) {
+            allCycles.forEach(FlowLifeCycle::cancel);
+        }
+    }
 
     @Override
     public Set<URL> getJarsUrl() {

@@ -45,6 +45,9 @@ public interface Task
         return false;
     }
 
+    /** Request cancellation of external blocking resources owned by this task. */
+    default void cancel() {}
+
     default void close() throws IOException {}
 
     default void setTaskExecutionContext(TaskExecutionContext taskExecutionContext) {}
