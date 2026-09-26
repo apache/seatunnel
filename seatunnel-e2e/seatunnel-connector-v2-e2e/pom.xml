@@ -95,6 +95,7 @@
         <module>connector-milvus-e2e</module>
         <module>connector-activemq-e2e</module>
         <module>connector-prometheus-e2e</module>
+        <module>connector-sentry-e2e</module>
         <module>connector-qdrant-e2e</module>
         <module>connector-sls-e2e</module>
         <module>connector-socket-e2e</module>

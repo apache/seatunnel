@@ -484,3 +484,7 @@ The Google Analytics 4 connector also bundles these components:
 
 The existing CDDL entry for javax.annotation:javax.annotation-api:1.3.2 applies
 to this connector as well. Its license is retained in the connector JAR.
+
+Sentry source HTTP transport:
+     (Apache-2.0) httpclient (org.apache.httpcomponents:httpclient:4.5.13 - https://github.com/apache/httpcomponents-client)
+     (Apache-2.0) httpcore (org.apache.httpcomponents:httpcore:4.4.16 - https://hc.apache.org/)
