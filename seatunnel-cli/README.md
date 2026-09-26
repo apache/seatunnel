@@ -55,9 +55,10 @@ cd seatunnel-cli
 
 # Quick setup (installs all providers + dev tools)
 bash setup.sh
+source .venv/bin/activate
 ```
 
-Then configure your LLM provider:
+The setup script installs into `seatunnel-cli/.venv` and reuses that environment on later runs. Activate it before using `seatunnel`, or call `.venv/bin/seatunnel` directly. It does not install packages into the system Python. Then configure your LLM provider:
 
 ```bash
 seatunnel --init
