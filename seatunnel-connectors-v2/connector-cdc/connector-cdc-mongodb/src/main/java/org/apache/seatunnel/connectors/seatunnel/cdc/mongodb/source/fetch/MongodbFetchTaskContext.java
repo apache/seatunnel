@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.fetch;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
+import org.apache.seatunnel.connectors.cdc.base.source.reader.external.SnapshotStateBuffer;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
@@ -49,10 +50,6 @@ import lombok.extern.slf4j.Slf4j;
 import javax.annotation.Nonnull;
 
 import java.time.Duration;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COLL_FIELD;
@@ -97,13 +94,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     }
 
     public void configure(@Nonnull SourceSplitBase sourceSplitBase) {
-        // If in the snapshot read phase and enable exactly-once, the queue needs to be set to a
-        // maximum size of `Integer.MAX_VALUE` (buffered a current snapshot all data). otherwise,
-        // use the configuration queue size.
-        final int queueSize =
-                sourceSplitBase.isSnapshotSplit() && isExactlyOnce()
-                        ? Integer.MAX_VALUE
-                        : sourceConfig.getBatchSize();
+        final int queueSize = sourceConfig.getBatchSize();
         this.changeEventQueue =
                 new ChangeEventQueue.Builder<DataChangeEvent>()
                         .pollInterval(Duration.ofMillis(sourceConfig.getPollAwaitTimeMillis()))
@@ -208,7 +199,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
 
     @Override
     public void rewriteOutputBuffer(
-            Map<Struct, SourceRecord> outputBuffer, @Nonnull SourceRecord changeRecord) {
+            SnapshotStateBuffer outputBuffer, @Nonnull SourceRecord changeRecord) {
         Struct key = (Struct) changeRecord.key();
         Struct value = (Struct) changeRecord.value();
 
@@ -216,7 +207,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
             OperationType operationType = getOperationType(changeRecord);
             switch (operationType) {
                 case INSERT:
-                    outputBuffer.put(key, changeRecord);
+                    outputBuffer.put(changeRecord);
                     break;
                 case UPDATE:
                 case REPLACE:
@@ -236,7 +227,7 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
                                     changeRecord.keySchema(),
                                     changeRecord.key(),
                                     valueDocument);
-                    outputBuffer.put(key, record);
+                    outputBuffer.put(record);
                     break;
                 case DELETE:
                     outputBuffer.remove(key);
@@ -250,18 +241,13 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
     }
 
     @Override
-    public List<SourceRecord> formatMessageTimestamp(
-            @Nonnull Collection<SourceRecord> snapshotRecords) {
-        return snapshotRecords.stream()
-                .peek(
-                        record -> {
-                            Struct value = (Struct) record.value();
-                            Struct source = new Struct(value.schema().field(SOURCE_FIELD).schema());
-                            source.put(TS_MS_FIELD, 0L);
-                            source.put(SNAPSHOT_FIELD, SNAPSHOT_TRUE);
-                            value.put(SOURCE_FIELD, source);
-                        })
-                .collect(Collectors.toList());
+    public SourceRecord formatMessageTimestamp(@Nonnull SourceRecord record) {
+        Struct value = (Struct) record.value();
+        Struct source = new Struct(value.schema().field(SOURCE_FIELD).schema());
+        source.put(TS_MS_FIELD, 0L);
+        source.put(SNAPSHOT_FIELD, SNAPSHOT_TRUE);
+        value.put(SOURCE_FIELD, source);
+        return record;
     }
 
     private BsonDocument normalizeSnapshotDocument(

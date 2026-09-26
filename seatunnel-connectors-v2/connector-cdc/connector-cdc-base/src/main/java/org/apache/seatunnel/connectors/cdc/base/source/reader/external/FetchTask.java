@@ -20,17 +20,12 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.pipeline.DataChangeEvent;
 import io.debezium.relational.TableId;
 import io.debezium.relational.Tables;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
 
 /** The task to fetching data of a Split. */
 public interface FetchTask<Split> {
@@ -65,9 +60,9 @@ public interface FetchTask<Split> {
 
         boolean isRecordBetween(SourceRecord record, Object[] splitStart, Object[] splitEnd);
 
-        void rewriteOutputBuffer(Map<Struct, SourceRecord> outputBuffer, SourceRecord changeRecord);
+        void rewriteOutputBuffer(SnapshotStateBuffer outputBuffer, SourceRecord changeRecord);
 
-        List<SourceRecord> formatMessageTimestamp(Collection<SourceRecord> snapshotRecords);
+        SourceRecord formatMessageTimestamp(SourceRecord snapshotRecord);
 
         void close();
     }
