@@ -31,6 +31,7 @@ import io.debezium.relational.Column;
 import io.debezium.relational.RelationalDatabaseConnectorConfig;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
 import java.util.Optional;
 
 /** Utilities for converting from MySQL types to SeaTunnel types. */
@@ -152,6 +153,20 @@ public class MySqlTypeUtils {
                     builder.columnType(String.format("TINYINT(%s)", column.length()));
                 }
                 break;
+            case MySqlTypeConverter.MYSQL_ENUM:
+            case MySqlTypeConverter.MYSQL_SET:
+                // Debezium reports a bookkeeping length for these types (options * 2 - 1 for SET,
+                // always 1 for ENUM) rather than the length of the stored value. Forwarding it
+                // makes MySqlTypeConverter produce a column length of 1 for an ENUM and options *
+                // 2 - 1 for a SET, which sinks that rebuild the type from the column length (any
+                // non-MySQL sink, via JdbcDialect#applySchemaChange -> reconvert) turn into an
+                // undersized column. Derive the real length from the option list instead; it is
+                // available on the DDL path and, for completeness, whenever the column carries it.
+                long optionListLength = maxOptionListLength(column);
+                if (optionListLength > 0) {
+                    builder.length(optionListLength).precision(optionListLength);
+                }
+                break;
             default:
                 break;
         }
@@ -161,5 +176,48 @@ public class MySqlTypeUtils {
                 dbzConnectorConfig.getConfig().getBoolean("int_type_narrowing", true);
         return (intTypeNarrowing ? MySqlTypeConverter.DEFAULT_INSTANCE : NO_INT_NARROWING_CONVERTER)
                 .convert(builder.build());
+    }
+
+    /**
+     * Computes the longest value a {@code SET} / {@code ENUM} column can store, in characters: the
+     * longest member for an {@code ENUM}, and the commas plus the sum of all members for a {@code
+     * SET}.
+     *
+     * @param column Debezium column, whose option list is populated on the DDL-parsing path
+     * @return the derived length, or {@code -1} when no option list is available
+     */
+    private static long maxOptionListLength(Column column) {
+        List<String> enumValues = column.enumValues();
+        if (enumValues == null || enumValues.isEmpty()) {
+            return -1L;
+        }
+        boolean isSet = MySqlTypeConverter.MYSQL_SET.equalsIgnoreCase(column.typeName());
+        long totalLength = 0L;
+        long maxLength = 0L;
+        for (String enumValue : enumValues) {
+            long length = unquotedValueLength(enumValue);
+            totalLength += length;
+            maxLength = Math.max(maxLength, length);
+        }
+        return isSet ? totalLength + enumValues.size() - 1L : maxLength;
+    }
+
+    /**
+     * Returns the number of characters of a member of an option list as it appears in the DDL, so
+     * the surrounding quotes and any doubled quote escape are removed before measuring.
+     *
+     * @param enumValue raw option text collected by the DDL parser
+     * @return the stored length of that member
+     */
+    private static long unquotedValueLength(String enumValue) {
+        if (enumValue == null) {
+            return 0L;
+        }
+        if (enumValue.length() >= 2
+                && enumValue.charAt(0) == '\''
+                && enumValue.charAt(enumValue.length() - 1) == '\'') {
+            return enumValue.substring(1, enumValue.length() - 1).replace("''", "'").length();
+        }
+        return enumValue.length();
     }
 }
