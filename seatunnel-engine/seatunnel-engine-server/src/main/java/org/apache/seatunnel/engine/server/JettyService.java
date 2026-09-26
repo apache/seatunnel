@@ -103,32 +103,44 @@ public class JettyService {
 
     private NodeEngineImpl nodeEngine;
     private SeaTunnelConfig seaTunnelConfig;
+    private final ServerConnector httpConnector;
     Server server;
 
     public JettyService(NodeEngineImpl nodeEngine, SeaTunnelConfig seaTunnelConfig) {
         this.nodeEngine = nodeEngine;
         this.seaTunnelConfig = seaTunnelConfig;
-        int port = seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableDynamicPort()) {
-            port =
-                    chooseAppropriatePort(
-                            port, seaTunnelConfig.getEngineConfig().getHttpConfig().getPortRange());
-        }
-        log.info("SeaTunnel REST service will start on port {}", port);
+        HttpConfig httpConfig = seaTunnelConfig.getEngineConfig().getHttpConfig();
         this.server = new Server();
 
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnabled()) {
-            // Enable http
-            ServerConnector httpConnector = new ServerConnector(server);
+        if (httpConfig.isEnabled()) {
+            int port = httpConfig.getPort();
+            if (httpConfig.isEnableDynamicPort()) {
+                port = chooseAppropriatePort(port, httpConfig.getPortRange());
+            }
+            // LogService and LoggerLevelService must resolve each member's own connector:
+            // multiple members can share the same HttpConfig.
+            httpConnector = new ServerConnector(server);
             httpConnector.setPort(port);
             server.addConnector(httpConnector);
+        } else {
+            httpConnector = null;
         }
 
-        if (seaTunnelConfig.getEngineConfig().getHttpConfig().isEnableHttps()) {
+        if (httpConfig.isEnableHttps()) {
             // Enable https
-            log.info("SeaTunnel REST service will start on https port {}", port);
             enableHttps(server, seaTunnelConfig);
         }
+    }
+
+    /**
+     * Returns this node's bound HTTP port. Before binding, or when HTTP is disabled, retains the
+     * configured-port fallback.
+     */
+    public int getHttpPort() {
+        int boundPort = httpConnector == null ? -1 : httpConnector.getLocalPort();
+        return boundPort > 0
+                ? boundPort
+                : seaTunnelConfig.getEngineConfig().getHttpConfig().getPort();
     }
 
     public void enableHttps(Server server, SeaTunnelConfig seaTunnelConfig) {
@@ -278,6 +290,9 @@ public class JettyService {
 
         try {
             server.start();
+            if (httpConnector != null) {
+                log.info("SeaTunnel REST service started on http port {}", getHttpPort());
+            }
         } catch (Exception e) {
             log.error("Jetty server start failed", e);
             throw new RuntimeException(e);

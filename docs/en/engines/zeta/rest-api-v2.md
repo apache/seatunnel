@@ -78,7 +78,7 @@ seatunnel:
 ## Web UI and Port 8080 Troubleshooting
 
 - If `http://<host>:8080/` is unreachable, first check whether `seatunnel.engine.http.enable-http` or `enable-https` is actually enabled. The `network.rest-api.enabled` setting in `hazelcast.yaml` does not replace the Jetty switch.
-- If `enable-dynamic-port = true`, the actual listening port may not be 8080. Jetty will choose the first available port between `port` and `port + port-range`. Use the startup log `SeaTunnel REST service will start on port xxx` as the source of truth.
+- If HTTP and `enable-dynamic-port = true` are enabled, the actual listening port may not be 8080. Jetty chooses the first available port between `port` and `port + port-range`. Use the Jetty startup log `SeaTunnel REST service started on http port xxx` as the source of truth. `/logs` and `/loggers?scope=cluster` resolve and report each member's actual bound HTTP port. The configured `port` remains unchanged, including when members share an HTTP configuration object.
 - If `context-path = /seatunnel`, both the Web UI and REST endpoints move under that prefix. For example, the overview endpoint becomes `/seatunnel/overview`.
 - The Web UI static resources and REST endpoints share the same Jetty service. If Jetty does not start, both are unavailable together.
 
@@ -1543,8 +1543,8 @@ With `?scope=cluster` the answer is one entry per member:
 
 `status` is `SUCCESS` when every member answered, `PARTIAL_FAILURE` when some did not, and `FAILURE`
 when none did; the member that failed carries its own `status` and `error`. A cluster request reaches
-every member on the REST port of its configuration, so it does not reach members that took a
-different port through `enable-dynamic-port`.
+every member on its actual bound REST HTTP port, including members that selected a different
+port through `enable-dynamic-port`. Each member must have HTTP enabled and be reachable.
 
 </details>
 
