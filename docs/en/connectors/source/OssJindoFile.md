@@ -66,7 +66,7 @@ It only supports hadoop version **2.9.X+**.
 | access_secret              | string  | yes      | -                           |
 | endpoint                   | string  | yes      | -                           |
 | read_columns               | list    | no       | -                           |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
+| delimiter/field_delimiter  | string  | no       | \001                        |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
 | date_format                | string  | no       | yyyy-MM-dd                  |
