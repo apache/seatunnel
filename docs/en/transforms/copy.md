@@ -11,10 +11,22 @@ Copy a field to a new field.
 |  name  |  type  | required | default value |
 |--------|--------|----------|---------------|
 | fields | Object | yes      |               |
+| src_field | String | no | |
+| dest_field | String | no | |
 
 ### fields [config]
 
 Specify the field copy relationship between input and output
+
+### src_field [string] (deprecated)
+
+The source field you want to copy. This is a deprecated single-field alternative to `fields`; new configurations should use `fields`.
+
+When `src_field` is used, `dest_field` must also be set, and neither of them can be combined with `fields`.
+
+### dest_field [string] (deprecated)
+
+Copy the `src_field` to this destination field. Required when `src_field` is provided.
 
 ### common options [string]
 

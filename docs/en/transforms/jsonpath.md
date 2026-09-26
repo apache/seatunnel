@@ -23,6 +23,7 @@ This option is used to specify the processing method when an error occurs in the
 
 - FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
 - SKIP: When `SKIP` is selected, data format error will skip this row data.
+- ROUTE_TO_TABLE: When `ROUTE_TO_TABLE` is selected, rows that fail to parse are routed to the error table configured by `row_error_handle_way.error_table`. If no error table is configured, invalid rows are skipped with a warning.
 
 ### columns [array]
 
@@ -190,9 +191,9 @@ transform {
 
 Then the data result table `fake1` will like this
 
-|             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |
-|------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|
-| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] |
+|             data             |    c1_string     | c1_boolean | c1_integer | c1_float | c1_double | c1_decimal |  c1_date   | c1_datetime  |          c1_array           |         c1_map_array         |
+|------------------------------|------------------|------------|------------|----------|-----------|------------|------------|--------------|-----------------------------|------------------------------|
+| too much content not to show | this is a string | true       | 42         | 3.14     | 3.14      | 10.55      | 2023-10-29 | 16:12:43.459 | ["item1", "item2", "item3"] | [{"key1": "value1", "key2": "value2"}] |
 
 ## Read SeatunnelRow Example
 
