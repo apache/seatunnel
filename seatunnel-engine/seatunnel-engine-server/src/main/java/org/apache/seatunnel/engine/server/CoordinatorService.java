@@ -222,7 +222,13 @@ public class CoordinatorService {
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
+    // Admission work only. Existing core/max settings continue to configure this pool.
     private ExecutorService executorService;
+
+    // Lifecycle tasks include blocking job/savepoint/restore waits and the callbacks they need.
+    // Keep direct handoff with an unbounded maximum until those dependencies are removed.
+    private ExecutorService lifecycleExecutor;
+    private ExecutorService pendingJobSchedulerExecutor;
     private final ExecutorService metricsFetchExecutor;
 
     private final SeaTunnelServer seaTunnelServer;
@@ -255,6 +261,8 @@ public class CoordinatorService {
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
+        this.lifecycleExecutor = createLifecycleExecutor();
+        this.pendingJobSchedulerExecutor = createPendingJobSchedulerExecutor();
 
         int metricsFetchThreads =
                 Math.max(1, Math.min(8, Runtime.getRuntime().availableProcessors()));
@@ -297,6 +305,24 @@ public class CoordinatorService {
                 new ThreadPoolStatus.RejectionCountingHandler());
     }
 
+    private ExecutorService createLifecycleExecutor() {
+        return new ThreadPoolExecutor(
+                0,
+                Integer.MAX_VALUE,
+                60L,
+                TimeUnit.SECONDS,
+                new SynchronousQueue<>(),
+                new ThreadFactoryBuilder()
+                        .setNameFormat("seatunnel-coordinator-service-lifecycle-%d")
+                        .build(),
+                new ThreadPoolStatus.RejectionCountingHandler());
+    }
+
+    private ExecutorService createPendingJobSchedulerExecutor() {
+        return Executors.newSingleThreadExecutor(
+                new ThreadFactoryBuilder().setNameFormat("pending-job-schedule-runner-%d").build());
+    }
+
     /**
      * Starts the long-lived single-threaded pending job scheduler.
      *
@@ -309,7 +335,6 @@ public class CoordinatorService {
         long scheduleEpoch = pendingJobScheduleEpoch.get();
         Runnable pendingJobScheduleTask =
                 () -> {
-                    Thread.currentThread().setName("pending-job-schedule-runner");
                     while (isPendingJobSchedulerCurrent(scheduleEpoch)) {
                         try {
                             pendingJobSchedule(scheduleEpoch);
@@ -331,7 +356,7 @@ public class CoordinatorService {
                         }
                     }
                 };
-        executorService.submit(pendingJobScheduleTask);
+        pendingJobSchedulerExecutor.submit(pendingJobScheduleTask);
     }
 
     /**
@@ -471,7 +496,7 @@ public class CoordinatorService {
             runningJobMasterMap.put(jobId, jobMaster);
             pendingJobQueue.remove(pendingJobInfo);
             PendingSourceState pendingSourceState = pendingJobInfo.getPendingSourceState();
-            MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+            MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, lifecycleExecutor);
             mdcExecutorService.submit(
                     () -> {
                         try {
@@ -491,7 +516,7 @@ public class CoordinatorService {
                             jobMaster.run();
                         } finally {
                             if (jobMasterCompletedSuccessfully(jobMaster, pendingSourceState)) {
-                                runningJobMasterMap.remove(jobId);
+                                runningJobMasterMap.remove(jobId, jobMaster);
                             }
                         }
                     });
@@ -658,7 +683,7 @@ public class CoordinatorService {
         restoreAllJobFromMasterNodeSwitchFuture =
                 new PassiveCompletableFuture(
                         CompletableFuture.runAsync(
-                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+                                this::restoreAllRunningJobFromMasterNodeSwitch, lifecycleExecutor));
     }
 
     private void reschedulePendingJobCleanup() {
@@ -1082,7 +1107,8 @@ public class CoordinatorService {
                                                                     "restore job (%s) from master active switch finished",
                                                                     entry.getKey()));
                                                 },
-                                                MDCTracer.tracing(entry.getKey(), executorService)))
+                                                MDCTracer.tracing(
+                                                        entry.getKey(), lifecycleExecutor)))
                         .collect(Collectors.toList());
 
         try {
@@ -1141,7 +1167,7 @@ public class CoordinatorService {
                         jobId,
                         jobInfo.getJobImmutableInformation(),
                         nodeEngine,
-                        MDCTracer.tracing(jobId, executorService),
+                        MDCTracer.tracing(jobId, lifecycleExecutor),
                         getResourceManager(),
                         getJobHistoryService(),
                         runningJobStateIMap,
@@ -1257,6 +1283,13 @@ public class CoordinatorService {
                 if (this.executorService.isShutdown() || this.executorService.isTerminated()) {
                     this.executorService = createCoordinatorExecutor();
                 }
+                if (this.lifecycleExecutor.isShutdown() || this.lifecycleExecutor.isTerminated()) {
+                    this.lifecycleExecutor = createLifecycleExecutor();
+                }
+                if (this.pendingJobSchedulerExecutor.isShutdown()
+                        || this.pendingJobSchedulerExecutor.isTerminated()) {
+                    this.pendingJobSchedulerExecutor = createPendingJobSchedulerExecutor();
+                }
                 initCoordinatorService();
                 pendingJobScheduleEpoch.incrementAndGet();
                 isActive = true;
@@ -1320,20 +1353,14 @@ public class CoordinatorService {
                             jobMaster.interrupt();
                         });
         pendingJobQueue.clear();
+        pendingJobSchedulerExecutor.shutdownNow();
         executorService.shutdownNow();
+        lifecycleExecutor.shutdownNow();
         runningJobMasterMap.clear();
 
-        try {
-            boolean terminated = executorService.awaitTermination(20, TimeUnit.SECONDS);
-            if (!terminated) {
-                logger.warning(
-                        "Coordinator service executorService did not terminate within 20 seconds.");
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.info(
-                    "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
-        }
+        awaitExecutorTermination("admission", executorService);
+        awaitExecutorTermination("lifecycle", lifecycleExecutor);
+        awaitExecutorTermination("pending job scheduler", pendingJobSchedulerExecutor);
 
         ResourceManager manager = resourceManager;
         resourceManager = null;
@@ -1349,6 +1376,18 @@ public class CoordinatorService {
             }
         } catch (Exception e) {
             throw new SeaTunnelEngineException("close event processor error", e);
+        }
+    }
+
+    private void awaitExecutorTermination(String name, ExecutorService executor) {
+        try {
+            if (!executor.awaitTermination(20, TimeUnit.SECONDS)) {
+                logger.warning(
+                        "Coordinator " + name + " executor did not terminate within 20 seconds.");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.info("Interrupted waiting for coordinator " + name + " executor termination.");
         }
     }
 
@@ -1431,7 +1470,7 @@ public class CoordinatorService {
                                         jobId,
                                         jobImmutableInformation,
                                         this.nodeEngine,
-                                        mdcExecutorService,
+                                        MDCTracer.tracing(jobId, lifecycleExecutor),
                                         getResourceManager(),
                                         getJobHistoryService(),
                                         runningJobStateIMap,
@@ -1538,7 +1577,7 @@ public class CoordinatorService {
                                         }
                                         return null;
                                     },
-                                    executorService));
+                                    lifecycleExecutor));
         }
         return new PassiveCompletableFuture<>(voidCompletableFuture);
     }
@@ -1551,7 +1590,7 @@ public class CoordinatorService {
             // Because operations on Imap cannot be performed within Operation.
             CompletableFuture<JobHistoryService.JobState> jobStateFuture =
                     CompletableFuture.supplyAsync(
-                            () -> jobHistoryService.getJobDetailState(jobId), executorService);
+                            () -> jobHistoryService.getJobDetailState(jobId), lifecycleExecutor);
             JobHistoryService.JobState jobState = null;
             try {
                 jobState = jobStateFuture.get();
@@ -1590,7 +1629,7 @@ public class CoordinatorService {
                                 runningJobMaster.cancelJob();
                                 return null;
                             },
-                            executorService));
+                            lifecycleExecutor));
         }
     }
 
@@ -1612,7 +1651,7 @@ public class CoordinatorService {
                                 runningJobMaster.stopJob();
                                 return null;
                             },
-                            executorService));
+                            lifecycleExecutor));
         }
     }
 
@@ -2156,10 +2195,17 @@ public class CoordinatorService {
     }
 
     public void printExecutionInfo() {
-        ThreadPoolStatus threadPoolStatus = getThreadPoolStatusMetrics();
+        printThreadPoolStatus(
+                "CoordinatorService Admission Thread Pool Status", getThreadPoolStatusMetrics());
+        printThreadPoolStatus(
+                "CoordinatorService Lifecycle Thread Pool Status",
+                getLifecycleThreadPoolStatusMetrics());
+    }
+
+    private void printThreadPoolStatus(String title, ThreadPoolStatus threadPoolStatus) {
         logger.info(
                 StringFormatUtils.formatTable(
-                        "CoordinatorService Thread Pool Status",
+                        title,
                         "activeCount",
                         threadPoolStatus.getActiveCount(),
                         "corePoolSize",
@@ -2262,7 +2308,15 @@ public class CoordinatorService {
     }
 
     public ThreadPoolStatus getThreadPoolStatusMetrics() {
-        ThreadPoolExecutor threadPoolExecutor = (ThreadPoolExecutor) executorService;
+        return threadPoolStatus((ThreadPoolExecutor) executorService);
+    }
+
+    /** Reports lifecycle and recovery workers independently of new-job admission. */
+    public ThreadPoolStatus getLifecycleThreadPoolStatusMetrics() {
+        return threadPoolStatus((ThreadPoolExecutor) lifecycleExecutor);
+    }
+
+    private ThreadPoolStatus threadPoolStatus(ThreadPoolExecutor threadPoolExecutor) {
 
         long rejectionCount =
                 ((ThreadPoolStatus.RejectionCountingHandler)
