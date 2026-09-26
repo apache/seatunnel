@@ -57,7 +57,7 @@ import ChangeLog from '../changelog/connector-websocket.md';
 | queue_capacity        | Integer | 否      | 1024    | 缓存收到消息的本地队列容量。队列写满后接收线程阻塞，从而对服务端形成背压。                                        |
 | poll_timeout_ms       | Integer | 否      | 1000    | 本地队列为空时，单次读取在队列上等待的最长时间，单位毫秒。                                                      |
 | max_records           | Long    | 否      | -1      | 已发出的行数达到该值后结束读取，仅在批模式下生效，`-1` 表示不限制。                                             |
-| read_timeout_ms       | Integer | 否      | -1      | 连续该毫秒数没有收到任何消息后结束读取，仅在批模式下生效，`-1` 表示不限制。                                      |
+| read_timeout_ms       | Integer | 否      | -1      | 从连接建立时开始计时，连续该毫秒数没有收到任何消息后结束读取，仅在批模式下生效，`-1` 表示不限制。                    |
 | common-options        |         | 否      | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md) 详见。                        |
 
 :::tip

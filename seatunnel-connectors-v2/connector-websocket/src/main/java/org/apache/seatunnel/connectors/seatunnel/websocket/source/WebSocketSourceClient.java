@@ -65,6 +65,7 @@ public class WebSocketSourceClient {
     private volatile WebSocket webSocket;
     private volatile Throwable fatalError;
     private volatile boolean closed;
+    private volatile long connectedTimestamp;
 
     public WebSocketSourceClient(WebSocketSourceConfig config) {
         this.config = config;
@@ -100,6 +101,19 @@ public class WebSocketSourceClient {
      */
     public String poll() throws InterruptedException {
         return messageQueue.poll(config.getPollTimeoutMs(), TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * When the current connection was established, as the baseline for the idle timeout: time spent
+     * waiting for the handshake is connection setup, governed by {@code connect_timeout_ms}, not
+     * idleness.
+     *
+     * @return the timestamp of the last successful handshake, or {@code 0} while no connection has
+     *     been established yet. A successful reconnect refreshes it, so the connection that
+     *     replaces a broken one is not immediately considered idle either.
+     */
+    public long getConnectedTimestamp() {
+        return connectedTimestamp;
     }
 
     /**
@@ -228,6 +242,7 @@ public class WebSocketSourceClient {
         @Override
         public void onOpen(WebSocket webSocket, Response response) {
             reconnectTimes.set(0);
+            connectedTimestamp = System.currentTimeMillis();
             log.info("Websocket connection to [{}] is established", config.getMaskedUrl());
             List<String> openMessages = config.getOpenMessages();
             if (openMessages == null || openMessages.isEmpty()) {

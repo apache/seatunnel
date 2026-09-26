@@ -60,7 +60,7 @@ When `schema` is **not** configured, the whole message is emitted as one row wit
 | queue_capacity        | Integer | No       | 1024    | Capacity of the local queue buffering received messages. The receiving thread blocks once the queue is full, which back-pressures the server. |
 | poll_timeout_ms       | Integer | No       | 1000    | Maximum time in milliseconds that a single read waits on the local queue when no message is available.                        |
 | max_records           | Long    | No       | -1      | Stop reading after this number of rows has been emitted, only takes effect in batch mode. `-1` means unlimited.               |
-| read_timeout_ms       | Integer | No       | -1      | Stop reading after no message has been received for this many milliseconds, only takes effect in batch mode. `-1` means unlimited. |
+| read_timeout_ms       | Integer | No       | -1      | Stop reading after no message has been received for this many milliseconds, counted from the moment the connection is established, only takes effect in batch mode. `-1` means unlimited. |
 | common-options        |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
 
 :::tip

@@ -61,10 +61,14 @@ public class WebSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                 new WebSocketDeserializationCollector(deserializationSchema);
     }
 
-    /** Opens the connection to the websocket server. Called once before the first read. */
+    /**
+     * Opens the connection to the websocket server. Called once before the first read.
+     *
+     * <p>No idle baseline is taken here: it comes from the established connection instead, see
+     * {@link WebSocketSourceClient#getConnectedTimestamp()}.
+     */
     @Override
     public void open() {
-        this.lastRecordTimestamp = System.currentTimeMillis();
         this.client = new WebSocketSourceClient(config);
         this.client.start();
     }
@@ -122,15 +126,28 @@ public class WebSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
                     config.getMaskedUrl());
             return true;
         }
-        if (config.getReadTimeoutMs() > 0
-                && System.currentTimeMillis() - lastRecordTimestamp > config.getReadTimeoutMs()) {
-            log.info(
-                    "No message received from websocket server [{}] for more than read_timeout_ms [{}], "
-                            + "stop reading with [{}] rows emitted",
-                    config.getMaskedUrl(),
-                    config.getReadTimeoutMs(),
-                    emittedRecords);
-            return true;
+        if (config.getReadTimeoutMs() > 0) {
+            long connectedTimestamp = client.getConnectedTimestamp();
+            // a handshake that is still in flight is not idleness: that phase is bounded by
+            // connect_timeout_ms, and ending the read here would finish a batch job successfully
+            // with zero rows just because the server was slow to accept the connection. Waiting
+            // cannot hang either, a connection that never succeeds ends up in fatalError through
+            // the reconnect budget.
+            if (connectedTimestamp == 0L) {
+                return false;
+            }
+            // whichever happened later starts the idle window: the last row, or the connection the
+            // rows would arrive on
+            long idleSince = Math.max(lastRecordTimestamp, connectedTimestamp);
+            if (System.currentTimeMillis() - idleSince > config.getReadTimeoutMs()) {
+                log.info(
+                        "No message received from websocket server [{}] for more than read_timeout_ms [{}], "
+                                + "stop reading with [{}] rows emitted",
+                        config.getMaskedUrl(),
+                        config.getReadTimeoutMs(),
+                        emittedRecords);
+                return true;
+            }
         }
         return false;
     }

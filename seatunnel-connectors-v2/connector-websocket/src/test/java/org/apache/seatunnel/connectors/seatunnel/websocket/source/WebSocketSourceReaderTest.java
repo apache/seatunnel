@@ -61,6 +61,17 @@ class WebSocketSourceReaderTest {
     private static final int NORMAL_CLOSURE_STATUS = 1000;
     private static final String SUBSCRIBE_MESSAGE = "{\"op\":\"subscribe\"}";
     private static final String SECRET_TOKEN = "super-secret-token";
+    private static final int READ_TIMEOUT_MS = 300;
+    /**
+     * Comfortably longer than {@link #FIRST_MESSAGE_DELAY_MS}, so waiting is the correct outcome.
+     */
+    private static final int PATIENT_READ_TIMEOUT_MS = 2000;
+
+    private static final long FIRST_MESSAGE_DELAY_MS = 500L;
+    /**
+     * Longer than {@link #READ_TIMEOUT_MS}, so a handshake counted as idle time would be caught.
+     */
+    private static final long HANDSHAKE_DELAY_MS = 800L;
 
     private MockWebServer server;
     private final BlockingQueue<String> serverReceived = new LinkedBlockingQueue<>();
@@ -182,24 +193,96 @@ class WebSocketSourceReaderTest {
         }
     }
 
-    /** In batch mode an idle connection must end the read once read_timeout_ms has elapsed. */
+    /**
+     * In batch mode an idle connection must end the read once read_timeout_ms has elapsed, but only
+     * after the data the server did push has been read. The two phases are asserted separately so
+     * that a timeout firing ahead of the data is reported as such instead of as a missing row.
+     */
     @Test
     void shouldStopWhenIdleLongerThanReadTimeout() throws Exception {
         String url = startServer("{\"id\":1,\"name\":\"alice\"}");
         Map<String, Object> configMap = baseConfig(url);
         configMap.put(ConnectorCommonOptions.SCHEMA.key(), jsonSchema());
-        configMap.put(WebSocketSourceOptions.READ_TIMEOUT_MS.key(), 300);
+        configMap.put(WebSocketSourceOptions.READ_TIMEOUT_MS.key(), READ_TIMEOUT_MS);
 
         SourceReader.Context context = mockContext(Boundedness.BOUNDED);
         AtomicBoolean noMoreElement = trackNoMoreElement(context);
         TestCollector collector = new TestCollector();
         try (AbstractSingleSplitReader<SeaTunnelRow> reader = createReader(configMap, context)) {
             reader.open();
+            pollUntil(reader, collector, () -> !collector.rows.isEmpty() || noMoreElement.get());
+            Assertions.assertFalse(
+                    noMoreElement.get(), "The idle timeout must not fire before the pushed data");
+            Assertions.assertEquals("alice", collector.rows.get(0).getField(1));
+
+            // nothing else is pushed, so the connection is now genuinely idle
             pollUntil(reader, collector, noMoreElement::get);
         }
 
         Assertions.assertTrue(noMoreElement.get(), "Idle timeout must end the read");
         Assertions.assertEquals(1, collector.rows.size());
+    }
+
+    /**
+     * Establishing the connection is not idleness: that phase is governed by {@code
+     * connect_timeout_ms}, so a handshake slower than {@code read_timeout_ms} must not end the
+     * read. Otherwise a batch job whose server is simply slow to accept the connection would finish
+     * successfully with zero rows, which is a silent wrong result rather than a failure.
+     */
+    @Test
+    void shouldNotTreatASlowHandshakeAsAnIdleTimeout() throws Exception {
+        String url =
+                startServerWithDelayedUpgrade(
+                        HANDSHAKE_DELAY_MS, pushingListener("{\"id\":1,\"name\":\"alice\"}"));
+        Map<String, Object> configMap = baseConfig(url);
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), jsonSchema());
+        // deliberately shorter than the handshake takes
+        configMap.put(WebSocketSourceOptions.READ_TIMEOUT_MS.key(), READ_TIMEOUT_MS);
+
+        SourceReader.Context context = mockContext(Boundedness.BOUNDED);
+        AtomicBoolean noMoreElement = trackNoMoreElement(context);
+        TestCollector collector = new TestCollector();
+        try (AbstractSingleSplitReader<SeaTunnelRow> reader = createReader(configMap, context)) {
+            reader.open();
+            // stopping on either outcome keeps a regression fast and explicit: a reader that ends
+            // the read during the handshake gets caught by the row assertion below
+            pollUntil(reader, collector, () -> !collector.rows.isEmpty() || noMoreElement.get());
+        }
+
+        Assertions.assertEquals(
+                1,
+                collector.rows.size(),
+                "The row pushed after a slow handshake must still be read");
+        Assertions.assertEquals("alice", collector.rows.get(0).getField(1));
+    }
+
+    /**
+     * The idle window starts when the connection is established, so a server that is slow to push
+     * its first message must still be waited for while it stays within read_timeout_ms. A read that
+     * gave up here would again end a batch job successfully with zero rows.
+     */
+    @Test
+    void shouldWaitForTheFirstMessageUntilReadTimeoutElapses() throws Exception {
+        String url =
+                startServerWith(
+                        delayedPushListener(
+                                FIRST_MESSAGE_DELAY_MS, "{\"id\":1,\"name\":\"alice\"}"));
+        Map<String, Object> configMap = baseConfig(url);
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), jsonSchema());
+        configMap.put(WebSocketSourceOptions.READ_TIMEOUT_MS.key(), PATIENT_READ_TIMEOUT_MS);
+
+        SourceReader.Context context = mockContext(Boundedness.BOUNDED);
+        AtomicBoolean noMoreElement = trackNoMoreElement(context);
+        TestCollector collector = new TestCollector();
+        try (AbstractSingleSplitReader<SeaTunnelRow> reader = createReader(configMap, context)) {
+            reader.open();
+            pollUntil(reader, collector, () -> !collector.rows.isEmpty() || noMoreElement.get());
+        }
+
+        Assertions.assertEquals(
+                1,
+                collector.rows.size(),
+                "The read must not end while read_timeout_ms since connecting has not elapsed");
         Assertions.assertEquals("alice", collector.rows.get(0).getField(1));
     }
 
@@ -273,27 +356,70 @@ class WebSocketSourceReaderTest {
     }
 
     private String startServer(String... messagesToPush) throws IOException {
-        return startServerWith(
-                new WebSocketListener() {
-                    @Override
-                    public void onOpen(WebSocket webSocket, Response response) {
-                        for (String message : messagesToPush) {
-                            webSocket.send(message);
-                        }
-                    }
+        return startServerWith(pushingListener(messagesToPush));
+    }
 
-                    @Override
-                    public void onMessage(WebSocket webSocket, String text) {
-                        serverReceived.add(text);
-                    }
+    /** A server side that pushes the given messages as soon as the handshake succeeds. */
+    private WebSocketListener pushingListener(String... messagesToPush) {
+        return new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, Response response) {
+                for (String message : messagesToPush) {
+                    webSocket.send(message);
+                }
+            }
 
-                    @Override
-                    public void onClosing(WebSocket webSocket, int code, String reason) {
-                        // echo the close frame, otherwise the connection stays half closed
-                        // and the server cannot shut down
-                        webSocket.close(code, reason);
-                    }
-                });
+            @Override
+            public void onMessage(WebSocket webSocket, String text) {
+                serverReceived.add(text);
+            }
+
+            @Override
+            public void onClosing(WebSocket webSocket, int code, String reason) {
+                // echo the close frame, otherwise the connection stays half closed
+                // and the server cannot shut down
+                webSocket.close(code, reason);
+            }
+        };
+    }
+
+    /** A server side that accepts the connection but pushes its only message after a delay. */
+    private WebSocketListener delayedPushListener(long delayMs, String messageToPush) {
+        return new WebSocketListener() {
+            @Override
+            public void onOpen(WebSocket webSocket, Response response) {
+                Thread sender =
+                        new Thread(
+                                () -> {
+                                    try {
+                                        Thread.sleep(delayMs);
+                                        webSocket.send(messageToPush);
+                                    } catch (InterruptedException interrupted) {
+                                        Thread.currentThread().interrupt();
+                                    }
+                                },
+                                "mock-websocket-delayed-push");
+                sender.setDaemon(true);
+                sender.start();
+            }
+
+            @Override
+            public void onClosing(WebSocket webSocket, int code, String reason) {
+                webSocket.close(code, reason);
+            }
+        };
+    }
+
+    /** Serves one websocket upgrade whose response is withheld for the given time. */
+    private String startServerWithDelayedUpgrade(long delayMs, WebSocketListener listener)
+            throws IOException {
+        server = new MockWebServer();
+        server.enqueue(
+                new MockResponse()
+                        .withWebSocketUpgrade(listener)
+                        .setHeadersDelay(delayMs, TimeUnit.MILLISECONDS));
+        server.start();
+        return "ws://" + server.getHostName() + ":" + server.getPort() + "/";
     }
 
     /** Serves one enqueued websocket upgrade per listener, in the given order. */

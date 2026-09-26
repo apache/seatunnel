@@ -138,7 +138,8 @@ public class WebSocketSourceOptions extends WebSocketCommonOptions {
                     .defaultValue(DEFAULT_READ_TIMEOUT_MS)
                     .withDescription(
                             "Stop reading after no message has been received for this many "
-                                    + "milliseconds. Only takes effect in batch mode, value -1 means "
+                                    + "milliseconds, counted from the moment the connection is "
+                                    + "established. Only takes effect in batch mode, value -1 means "
                                     + "unlimited. Default value is "
                                     + DEFAULT_READ_TIMEOUT_MS);
 }
