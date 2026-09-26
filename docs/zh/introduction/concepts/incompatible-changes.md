@@ -307,4 +307,20 @@
 
 ### 引擎行为变更
 
+- **行为变更：REST 日志内容接口默认最多返回 64 MB**
+  - **受影响组件**：`seatunnel-engine-server`，REST v2 接口 `GET /logs/:file`、`GET /log/:file`，
+    以及对应的 REST v1 接口 `GET /hazelcast/rest/maps/logs/:file`、`GET /hazelcast/rest/maps/log/:file`。
+  - **说明**：这些接口原本会把整个日志文件读入内存，且会在堆上生成两份副本，因此对长时间运行的流作业
+    发起一次日志请求就可能耗尽节点内存。新增的 `seatunnel.engine.http.log-response-max-size-mb`
+    选项限制单次读取的大小，默认值为 `64`。超过该限制的文件只返回末尾 `log-response-max-size-mb`
+    的 UTF-8 内容，尽量从完整行开始；超长单行则保留部分末尾内容。响应开头的提示写明实际保留的字节数和文件大小快照。
+  - **影响**：升级后未修改 `seatunnel.yaml` 的集群，对超过 64 MB 的日志文件将只得到末尾内容，
+    HTTP 状态码仍为 `200`。所有通过这些接口归档日志的用法——例如
+    `curl .../logs/<job-id> > job.log`，或 `docs/zh/engines/zeta/log-analysis-with-ai.md`
+    中的日志分析流程——在不调高限制的情况下都只会保存到部分内容。第一行的截断提示可以用来识别
+    响应是否完整。
+  - **迁移指南**：在 `seatunnel.engine.http` 下设置
+    `log-response-max-size-mb: 0` 可恢复此前的不限制读取，也可以把它调高到
+    足以覆盖需要收集的日志大小。建议保留默认值，因为不限制读取意味着多 GB 的日志需要完整放进节点堆内存。
+
 ### 依赖升级

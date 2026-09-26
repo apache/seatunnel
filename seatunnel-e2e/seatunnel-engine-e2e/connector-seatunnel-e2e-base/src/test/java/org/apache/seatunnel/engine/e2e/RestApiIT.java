@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCloseReason;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
+import org.apache.seatunnel.engine.server.rest.service.LogService;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.core.LoggerContext;
@@ -50,6 +51,9 @@ import io.restassured.common.mapper.TypeRef;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Field;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -108,6 +112,7 @@ public class RestApiIT {
         node1Config = ConfigProvider.locateAndGetSeaTunnelConfig();
         node1Config.getEngineConfig().getHttpConfig().setPort(8080);
         node1Config.getEngineConfig().getHttpConfig().setEnabled(true);
+        node1Config.getEngineConfig().getHttpConfig().setLogResponseMaxSizeMb(1);
         node1Config.getHazelcastConfig().setClusterName(testClusterName);
         node1Config.getEngineConfig().getSlotServiceConfig().setDynamicSlot(false);
         node1Config.getEngineConfig().getSlotServiceConfig().setSlotNum(20);
@@ -168,6 +173,49 @@ public class RestApiIT {
         ports.put(
                 node2.getCluster().getLocalMember().getAddress().getPort(),
                 node2Config.getEngineConfig().getHttpConfig().getPort());
+    }
+
+    @Test
+    public void testLogResponseLimitIsAppliedToV1AndV2() throws Exception {
+        Path directory = Paths.get(new LogService(node1.node.getNodeEngine()).getLogPath());
+        Path file = Files.createTempFile(directory, "rest-response-limit-", ".log");
+        StringBuilder content = new StringBuilder("FIRST-RECORD-MUST-BE-TRUNCATED\n");
+        for (int i = 0; i < 40000; i++) {
+            content.append("日志0123456789abcdefghijklmnopqrstuvwxyz\n");
+        }
+        content.append("END-OF-LOG\n");
+        String original = content.toString();
+        int limit = 1024 * 1024;
+        Files.write(file, original.getBytes(StandardCharsets.UTF_8));
+        Assertions.assertTrue(Files.size(file) > limit);
+        String v1 =
+                HOST + node1.getCluster().getLocalMember().getAddress().getPort() + CONTEXT_PATH;
+        String v2 = buildHttpBaseUrl(node1Config.getEngineConfig().getHttpConfig().getPort());
+        try {
+            for (String base : Arrays.asList(v1, v2)) {
+                for (String endpoint :
+                        Arrays.asList(RestConstant.REST_URL_LOG, RestConstant.REST_URL_LOGS)) {
+                    String response =
+                            given().get(base + endpoint + "/" + file.getFileName())
+                                    .then()
+                                    .statusCode(200)
+                                    .extract()
+                                    .asString();
+                    String[] parts = response.split("\n", 2);
+                    Assertions.assertTrue(parts[0].startsWith("[SeaTunnel] Log truncated:"));
+                    Assertions.assertEquals(2, parts.length);
+                    String tail = parts[1];
+                    Assertions.assertTrue(tail.getBytes(StandardCharsets.UTF_8).length <= limit);
+                    Assertions.assertTrue(original.endsWith(tail));
+                    Assertions.assertTrue(tail.endsWith("END-OF-LOG\n"));
+                    Assertions.assertTrue(tail.contains("日志"));
+                    Assertions.assertFalse(tail.contains("\uFFFD"));
+                    Assertions.assertFalse(tail.contains("FIRST-RECORD-MUST-BE-TRUNCATED"));
+                }
+            }
+        } finally {
+            Files.deleteIfExists(file);
+        }
     }
 
     @Test
