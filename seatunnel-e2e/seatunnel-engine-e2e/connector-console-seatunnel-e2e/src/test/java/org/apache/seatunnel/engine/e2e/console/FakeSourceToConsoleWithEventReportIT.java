@@ -31,12 +31,14 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.MountableFile;
 
-import com.squareup.okhttp.mockwebserver.MockResponse;
-import com.squareup.okhttp.mockwebserver.MockWebServer;
-import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.mockwebserver.Dispatcher;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 
 import java.io.IOException;
@@ -44,12 +46,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.awaitility.Awaitility.given;
@@ -65,8 +65,14 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
     @BeforeAll
     public void startUp() throws Exception {
         mockWebServer = new MockWebServer();
+        mockWebServer.setDispatcher(
+                new Dispatcher() {
+                    @Override
+                    public MockResponse dispatch(RecordedRequest request) {
+                        return new MockResponse().setResponseCode(200);
+                    }
+                });
         mockWebServer.start();
-        mockWebServer.enqueue(new MockResponse().setResponseCode(200));
         Testcontainers.exposeHostPorts(mockWebServer.getPort());
 
         super.startUp();
@@ -102,6 +108,51 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(eventReportConfig),
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
+        // This test uses startUp() -> createSeaTunnelServer(), which calls this hook before
+        // start().
+        // Keep the base fixture's readiness condition and timeout; only add failure diagnostics.
+        container.waitingFor(
+                new LogMessageWaitStrategy() {
+                    @Override
+                    protected void waitUntilReady() {
+                        try {
+                            super.waitUntilReady();
+                        } catch (RuntimeException startupFailure) {
+                            logStartupThreads(container);
+                            throw startupFailure;
+                        }
+                    }
+                }.withRegEx(".*received new worker register:.*"));
+    }
+
+    /** Capture the blocked startup before Testcontainers stops the failed container. */
+    private void logStartupThreads(GenericContainer<?> container) {
+        try {
+            Container.ExecResult processes = container.execInContainer("timeout", "10s", "jps");
+            if (processes.getExitCode() != 0) {
+                log.warn("Could not list startup JVMs: {}", processes.getStderr());
+                return;
+            }
+            for (String process : processes.getStdout().split("\\n")) {
+                if (process.contains("SeaTunnelServer")) {
+                    String pid = process.trim().split("\\s+")[0];
+                    Container.ExecResult dump =
+                            container.execInContainer("timeout", "10s", "jstack", pid);
+                    log.error(
+                            "Event-report startup thread dump (exit {}):\n{}\n{}",
+                            dump.getExitCode(),
+                            dump.getStdout(),
+                            dump.getStderr());
+                    return;
+                }
+            }
+            log.warn("No SeaTunnelServer JVM found during startup failure");
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while capturing event-report startup threads", interrupted);
+        } catch (Exception diagnosticFailure) {
+            log.warn("Could not capture event-report startup threads", diagnosticFailure);
+        }
     }
 
     @Test
@@ -109,39 +160,53 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
         Container.ExecResult execResult = executeSeaTunnelJob("/fakesource_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        Thread.sleep(JobEventHttpReportHandler.REPORT_INTERVAL.toMillis());
-        given().ignoreExceptions()
-                .await()
+        Map<String, Integer> expectedEvents = new HashMap<>();
+        expectedEvents.put(EventType.LIFECYCLE_READER_OPEN.name(), 2);
+        expectedEvents.put(EventType.LIFECYCLE_ENUMERATOR_OPEN.name(), 1);
+        expectedEvents.put(EventType.LIFECYCLE_ENUMERATOR_CLOSE.name(), 1);
+        expectedEvents.put(EventType.LIFECYCLE_READER_CLOSE.name(), 2);
+        expectedEvents.put(EventType.LIFECYCLE_WRITER_CLOSE.name(), 2);
+        Map<String, Integer> eventCounts = new HashMap<>();
+        AtomicLong lastRequestTime = new AtomicLong(System.nanoTime());
+        // Require a full quiet report interval after the last request, counting duplicates too.
+        given().await()
                 .atMost(60, TimeUnit.SECONDS)
-                .until(() -> mockWebServer.getRequestCount(), count -> count > 0);
+                .until(
+                        () -> {
+                            if (collectEventReports(eventCounts)) {
+                                lastRequestTime.set(System.nanoTime());
+                            }
+                            return System.nanoTime() - lastRequestTime.get()
+                                            >= JobEventHttpReportHandler.REPORT_INTERVAL.toNanos()
+                                    && expectedEvents.entrySet().stream()
+                                            .allMatch(
+                                                    expected ->
+                                                            eventCounts.getOrDefault(
+                                                                            expected.getKey(), 0)
+                                                                    >= expected.getValue());
+                        });
+        collectEventReports(eventCounts);
+        // Count every received event, including duplicates, before checking exact totals.
+        expectedEvents.forEach(
+                (eventType, count) ->
+                        Assertions.assertEquals(count, eventCounts.get(eventType), eventType));
+    }
 
-        List<JsonNode> events = new ArrayList<>();
-        for (int i = 0; i < mockWebServer.getRequestCount(); i++) {
-            RecordedRequest request = mockWebServer.takeRequest();
+    private boolean collectEventReports(Map<String, Integer> eventCounts)
+            throws IOException, InterruptedException {
+        boolean received = false;
+        RecordedRequest request;
+        while ((request = mockWebServer.takeRequest(0, TimeUnit.SECONDS)) != null) {
+            received = true;
             try (Buffer buffer = request.getBody()) {
-                String body = buffer.readUtf8();
-                ArrayNode arrayNode =
-                        (ArrayNode) JobEventHttpReportHandler.JSON_MAPPER.readTree(body);
-                arrayNode.elements().forEachRemaining(jsonNode -> events.add(jsonNode));
+                ArrayNode events =
+                        (ArrayNode)
+                                JobEventHttpReportHandler.JSON_MAPPER.readTree(buffer.readUtf8());
+                for (JsonNode event : events) {
+                    eventCounts.merge(event.get("eventType").asText(), 1, Integer::sum);
+                }
             }
         }
-        Map<String, Integer> eventMap =
-                events.stream()
-                        .map(e -> e.get("eventType").asText())
-                        .collect(Collectors.groupingBy(e -> e, Collectors.summingInt(e -> 1)));
-        Assertions.assertTrue(
-                eventMap.keySet()
-                        .containsAll(
-                                Arrays.asList(
-                                        EventType.LIFECYCLE_ENUMERATOR_OPEN.name(),
-                                        EventType.LIFECYCLE_ENUMERATOR_CLOSE.name(),
-                                        EventType.LIFECYCLE_READER_OPEN.name(),
-                                        EventType.LIFECYCLE_READER_CLOSE.name(),
-                                        EventType.LIFECYCLE_WRITER_CLOSE.name())));
-        Assertions.assertEquals(2, eventMap.get(EventType.LIFECYCLE_READER_OPEN.name()));
-        Assertions.assertEquals(1, eventMap.get(EventType.LIFECYCLE_ENUMERATOR_OPEN.name()));
-        Assertions.assertEquals(1, eventMap.get(EventType.LIFECYCLE_ENUMERATOR_CLOSE.name()));
-        Assertions.assertEquals(2, eventMap.get(EventType.LIFECYCLE_READER_CLOSE.name()));
-        Assertions.assertEquals(2, eventMap.get(EventType.LIFECYCLE_WRITER_CLOSE.name()));
+        return received;
     }
 }
