@@ -28,7 +28,9 @@ import org.apache.seatunnel.api.configuration.ConfigShade;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
@@ -57,6 +59,16 @@ public class ConfigShadeTest {
 
     private static final String ACCESS_KEY = "access_key";
     private static final String SECRET_KEY = "secret_key";
+
+    @BeforeEach
+    void setUp() {
+        ConfigFactory.invalidateCaches();
+    }
+
+    @AfterEach
+    void tearDown() {
+        ConfigFactory.invalidateCaches();
+    }
 
     @Test
     public void testParseConfig() throws URISyntaxException {
