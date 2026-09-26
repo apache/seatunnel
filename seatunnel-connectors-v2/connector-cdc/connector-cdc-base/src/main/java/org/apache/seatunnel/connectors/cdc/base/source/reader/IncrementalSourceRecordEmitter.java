@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcReaderProgressTracker;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.IncrementalSplitState;
 import org.apache.seatunnel.connectors.cdc.base.source.split.state.SourceSplitStateBase;
@@ -77,6 +78,9 @@ public class IncrementalSourceRecordEmitter<T>
     protected final EventListener eventListener;
     protected final MessageDelayedEventLimiter delayedEventLimiter =
             new MessageDelayedEventLimiter(Duration.ofSeconds(1), 0.5d);
+    private CdcReaderProgressTracker cdcProgressTracker;
+    private Long messageTimestamp;
+    private boolean metricsTimestampAvailable;
 
     public IncrementalSourceRecordEmitter(
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
@@ -91,6 +95,13 @@ public class IncrementalSourceRecordEmitter<T>
         this.eventListener = context.getEventListener();
     }
 
+    /**
+     * Attaches the reader's tracker before emission begins; failed processing is never reported.
+     */
+    public void setCdcProgressTracker(CdcReaderProgressTracker cdcProgressTracker) {
+        this.cdcProgressTracker = cdcProgressTracker;
+    }
+
     @Override
     public void emitRecord(
             SourceRecords sourceRecords, Collector<T> collector, SourceSplitStateBase splitState)
@@ -98,16 +109,34 @@ public class IncrementalSourceRecordEmitter<T>
         final Iterator<SourceRecord> elementIterator = sourceRecords.iterator();
         while (elementIterator.hasNext()) {
             SourceRecord next = elementIterator.next();
+            metricsTimestampAvailable = false;
             reportMetrics(next);
             processElement(next, collector, splitState);
             markEnterPureIncrementPhase(next, splitState);
+            if (cdcProgressTracker != null) {
+                try {
+                    if (cdcProgressTracker.shouldRecordEmission(splitState)) {
+                        cdcProgressTracker.recordEmission(
+                                splitState,
+                                metricsTimestampAvailable
+                                        ? messageTimestamp
+                                        : getMessageTimestamp(next),
+                                System.currentTimeMillis());
+                    }
+                } catch (RuntimeException failure) {
+                    log.debug(
+                            "Unable to publish CDC reader progress: {}",
+                            failure.getClass().getName());
+                }
+            }
         }
     }
 
     protected void reportMetrics(SourceRecord element) {
         long now = System.currentTimeMillis();
         // record the latest process time
-        Long messageTimestamp = getMessageTimestamp(element);
+        messageTimestamp = getMessageTimestamp(element);
+        metricsTimestampAvailable = true;
 
         if (messageTimestamp != null && messageTimestamp > 0L) {
             // report fetch delay

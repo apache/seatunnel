@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
+import org.apache.seatunnel.connectors.cdc.base.source.progress.CdcEnumeratorProgressSource;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 
 import io.debezium.relational.TableId;
@@ -31,7 +33,8 @@ import java.util.List;
 import java.util.Optional;
 
 /** Assigner for bounded snapshot-only CDC jobs. */
-public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitAssigner {
+public class SnapshotOnlySplitAssigner<C extends SourceConfig>
+        implements SplitAssigner, CdcEnumeratorProgressSource {
 
     private final SnapshotSplitAssigner<C> snapshotSplitAssigner;
 
@@ -62,6 +65,12 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
     @Override
     public void open() {
         snapshotSplitAssigner.open();
+    }
+
+    @Override
+    public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
+            String connectorType, String positionType) {
+        return snapshotSplitAssigner.getCdcEnumeratorProgress(connectorType, positionType);
     }
 
     @Override
