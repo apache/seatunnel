@@ -4,15 +4,21 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Write data to Hive.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, CSV, parquet, ORC, JSON) to HDFS (or S3/OSS when configured). By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
 
 :::tip
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
 
-If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, You need put seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
 :::
 
 ## Key features
@@ -33,26 +39,26 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                                  | type    | required | default value  |
-|---------------------------------------|---------|----------|----------------|
-| table_name                            | string  | yes      | -              |
-| metastore_uri                         | string  | yes      | -              |
-| compress_codec                        | string  | no       | none           |
-| hdfs_site_path                        | string  | no       | -              |
-| hive_site_path                        | string  | no       | -              |
-| hive.hadoop.conf                      | Map     | no       | -              |
-| hive.hadoop.conf-path                 | string  | no       | -              |
-| remote_user                           | string  | no       | -              |
-| krb5_path                             | string  | no       | /etc/krb5.conf |
-| kerberos_principal                    | string  | no       | -              |
-| kerberos_keytab_path                  | string  | no       | -              |
-| abort_drop_partition_metadata         | boolean | no       | false          |
-| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
-| overwrite                             | boolean | no       | false          |
-| data_save_mode                        | enum    | no       | APPEND_DATA    |
-| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| save_mode_create_template             | string  | no       | -              |
-| common-options                        |         | no       | -              |
+| name                                  | type    | required | default value  | description |
+|---------------------------------------|---------|----------|----------------|-------------|
+| table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
+| metastore_uri                         | string  | no       | -              | Hive metastore URI. Required unless `hive.metastore.client.factory.class` is configured through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. Comma-separated values enable HA failover. |
+| compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
+| hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
+| hive.hadoop.conf                      | Map     | no       | -              | Inline Hadoop configuration properties. |
+| hive.hadoop.conf-path                 | string  | no       | -              | Directory that contains `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml`. |
+| remote_user                           | string  | no       | -              | Hadoop remote user name used when connecting without Kerberos. |
+| krb5_path                             | string  | no       | /etc/krb5.conf | Path to `krb5.conf` for Kerberos authentication. |
+| kerberos_principal                    | string  | no       | -              | Principal for Kerberos authentication. |
+| kerberos_keytab_path                  | string  | no       | -              | Path to the keytab file paired with `kerberos_principal`. |
+| abort_drop_partition_metadata         | boolean | no       | false          | If true, drop partition metadata from Hive Metastore on abort. The data files in the partition are still removed. |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          | Write Parquet `INT96` from a timestamp. Only valid for parquet output. |
+| overwrite                             | boolean | no       | false          | Replace existing data before commit. Equivalent to `data_save_mode = "DROP_DATA"`. |
+| data_save_mode                        | enum    | no       | APPEND_DATA    | How to handle existing data before writing. `APPEND_DATA` (default), `DROP_DATA`, `CUSTOM_PROCESSING`, `ERROR_WHEN_DATA_EXISTS`. |
+| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table schema before writing. `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
+| save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`. |
+| common-options                        |         | no       | -              | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### table_name [string]
 
@@ -61,6 +67,31 @@ Target Hive table name eg: db1.table1, and if the source is multiple mode, you c
 ### metastore_uri [string]
 
 Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
+
+This option can be omitted when `hive.metastore.client.factory.class` selects an external metastore client through `hive_site_path`, `hive.hadoop.conf-path`, or `hive.hadoop.conf`. SeaTunnel does not fall back to an embedded metastore when neither a URI nor a client factory is configured.
+
+### AWS Glue Data Catalog
+
+AWS Glue Data Catalog can be used through the standard Hive metastore client factory:
+
+```hocon
+sink {
+  Hive {
+    table_name = "default.seatunnel_parquet"
+    hive.hadoop.conf = {
+      "hive.metastore.client.factory.class" = "com.amazonaws.glue.catalog.metastore.AWSGlueDataCatalogHiveClientFactory"
+      # Optional when accessing a catalog in another AWS account
+      # "hive.metastore.glue.catalogid" = "123456789012"
+    }
+  }
+}
+```
+
+The AWS Glue Data Catalog client and a compatible patched Hive runtime must be available on every SeaTunnel process that creates or uses the Hive sink. Amazon EMR distributions that support Glue include these components, but they must still be visible to the SeaTunnel runtime classpath. For other deployments, install a mutually compatible Hive runtime and AWS Glue Data Catalog client.
+
+Authentication is handled by the AWS SDK default credential provider chain. Use the IAM role, web identity, container credentials, instance profile, environment, or shared configuration supported by the runtime instead of placing access keys in the SeaTunnel job configuration.
+
+If the configured factory class or its compatible Hive classes are missing, sink initialization fails without falling back to a local metastore.
 
 ### hdfs_site_path [string]
 

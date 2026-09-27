@@ -160,6 +160,8 @@ seatunnel:
           fs.s3a.aws.credentials.provider: org.apache.hadoop.fs.s3a.InstanceProfileCredentialsProvider
 ```
 
+**容器环境**：检查点存储将 `fs.s3a.*` 配置键直接传递给 Hadoop，没有连接器级别的枚举限制，因此可以使用 classpath 上任何可用的 S3A 凭据提供程序类。这包括面向容器的提供程序，如 `com.amazonaws.auth.ContainerCredentialsProvider`（ECS 任务角色）和 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain`。对于 EKS 部署，推荐使用 EC2 节点实例角色。EKS IRSA（`WebIdentityTokenCredentialsProvider`）在捆绑的 AWS SDK v1.x（1.11.271）中不可用，需要在所有节点的 `${SEATUNNEL_HOME}/lib` 中添加较新的 AWS SDK v1.x JAR。
+
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
 #### HDFS

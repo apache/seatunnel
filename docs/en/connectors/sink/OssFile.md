@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### For SeaTunnel Zeta Engine
 
-1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
+1. You must ensure `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
@@ -108,7 +108,7 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 | filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true.                                                                                                                                         |
 | file_format_type                      | string  | no       | "csv"                                      | File format type, supported: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `canal_json`, `debezium_json`, `maxwell_json`.                                    |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`.                                                          |
-| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv.                                                                                                                                |
+| field_delimiter                       | string  | no       | '\001'                                     | Only used when file_format_type is text and csv.                                                                                                                                |
 | row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`.                                                                                                                    |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
 | partition_by                          | array   | no       | -                                          | Only used when have_partition is true.                                                                                                                                          |

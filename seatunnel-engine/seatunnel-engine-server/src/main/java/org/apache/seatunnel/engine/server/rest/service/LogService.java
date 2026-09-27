@@ -134,7 +134,7 @@ public class LogService extends BaseLogService {
     }
 
     public String allNodeLogFormatHtml(String jobId) {
-        StringBuffer logLink = new StringBuffer();
+        StringBuilder logLink = new StringBuilder();
 
         allLogNameList(jobId)
                 .forEach(tuple -> logLink.append(buildLogLink(tuple._2(), tuple._3())));
@@ -143,7 +143,7 @@ public class LogService extends BaseLogService {
 
     public String currentNodeLog() {
         List<File> logFileList = FileUtils.listFile(getLogPath());
-        StringBuffer logLink = new StringBuffer();
+        StringBuilder logLink = new StringBuilder();
         if (logFileList != null) {
             for (File file : logFileList) {
                 logLink.append(buildLogLink("log/" + file.getName(), file.getName()));

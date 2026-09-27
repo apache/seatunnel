@@ -18,15 +18,14 @@
 package org.apache.seatunnel.connectors.seatunnel.iotdbv2.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
-import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.config.IoTDBv2SinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.iotdbv2.constant.SinkConstants;
-import org.apache.seatunnel.connectors.seatunnel.iotdbv2.exception.IotdbConnectorException;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
@@ -50,6 +49,8 @@ public class IoTDBv2SinkFactory implements TableSinkFactory {
                         IoTDBv2SinkOptions.KEY_DEVICE)
                 .optional(
                         IoTDBv2SinkOptions.SQL_DIALECT,
+                        Conditions.matches(IoTDBv2SinkOptions.SQL_DIALECT, "(?i)^(tree|table)$"))
+                .optional(
                         IoTDBv2SinkOptions.KEY_TIMESTAMP,
                         IoTDBv2SinkOptions.KEY_TAG_FIELDS,
                         IoTDBv2SinkOptions.KEY_ATTRIBUTE_FIELDS,
@@ -69,22 +70,11 @@ public class IoTDBv2SinkFactory implements TableSinkFactory {
     @Override
     public TableSink createSink(TableSinkFactoryContext context) {
         ReadonlyConfig conf = context.getOptions();
-        String targetSqlDialect;
-        if (conf.get(IoTDBv2SinkOptions.SQL_DIALECT) != null) {
-            String sqlDialect = conf.get(IoTDBv2SinkOptions.SQL_DIALECT);
-            if (SinkConstants.TABLE.equalsIgnoreCase(sqlDialect)) {
-                targetSqlDialect = SinkConstants.TABLE;
-            } else {
-                if (SinkConstants.TREE.equalsIgnoreCase(sqlDialect)) {
-                    targetSqlDialect = SinkConstants.TREE;
-                } else {
-                    throw new IotdbConnectorException(
-                            CommonErrorCode.ILLEGAL_ARGUMENT, "Sql dialect not supported");
-                }
-            }
-        } else {
-            targetSqlDialect = SinkConstants.TREE;
-        }
+        String sqlDialect = conf.get(IoTDBv2SinkOptions.SQL_DIALECT);
+        String targetSqlDialect =
+                SinkConstants.TABLE.equalsIgnoreCase(sqlDialect)
+                        ? SinkConstants.TABLE
+                        : SinkConstants.TREE;
         return () ->
                 new IoTDBv2Sink(context.getOptions(), context.getCatalogTable(), targetSqlDialect);
     }

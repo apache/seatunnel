@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.sentry.sink;
 
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -36,7 +37,7 @@ public class SentrySinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(SentrySinkOptions.DSN)
+                .required(SentrySinkOptions.DSN, Conditions.notBlank(SentrySinkOptions.DSN))
                 .optional(
                         SentrySinkOptions.ENV,
                         SentrySinkOptions.CACHE_DIRPATH,

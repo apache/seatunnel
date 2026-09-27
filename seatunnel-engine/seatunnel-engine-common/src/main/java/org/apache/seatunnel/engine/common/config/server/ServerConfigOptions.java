@@ -191,6 +191,15 @@ public class ServerConfigOptions {
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
 
+        public static final Option<Integer> HEALTH_METRICS_TIMEOUT_SECONDS =
+                Options.key("health-metrics-timeout-seconds")
+                        .intType()
+                        .defaultValue(3)
+                        .withDescription(
+                                "The shared deadline (in seconds) for collecting health metrics from all cluster members "
+                                        + "for the system-monitoring-information REST API. Members that do not answer in time "
+                                        + "are reported with a timeout marker instead of blocking the response.");
+
         /////////////////////////////////////////////////
         // The options for checkpoint start
         public static final Option<Integer> CHECKPOINT_INTERVAL =
@@ -373,6 +382,20 @@ public class ServerConfigOptions {
                         .stringType()
                         .defaultValue("admin")
                         .withDescription("The password for basic authentication.");
+
+        public static final Option<Integer> UPLOAD_MAX_FILE_SIZE_MB =
+                Options.key("upload-max-file-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum size in MB of a single file uploaded to the http server. A value <= 0 means unlimited.");
+
+        public static final Option<Integer> UPLOAD_MAX_REQUEST_SIZE_MB =
+                Options.key("upload-max-request-size-mb")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription(
+                                "The maximum total size in MB of a multipart request sent to the http server. A value <= 0 means unlimited.");
 
         public static final Option<HttpConfig> HTTP =
                 Options.key("http")
