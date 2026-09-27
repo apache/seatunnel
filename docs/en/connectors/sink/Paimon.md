@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-paimon.md';
 
 > Paimon sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Sink connector for Apache Paimon. It supports CDC mode and auto-create table.
@@ -730,6 +736,20 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Does Paimon sink support automatic table creation and schema evolution?
+
+Yes. When `paimon.auto-create-table = true` or `schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"`, SeaTunnel automatically initializes the destination Paimon table using upstream table schema and primary key information.
+
+### How does Paimon sink achieve exactly-once writes?
+
+Paimon sink integrates with engine two-phase commit (2PC) checkpoint mechanisms across SeaTunnel Zeta, Flink, and Spark. Data written during a checkpoint interval is committed as a formal Paimon snapshot only after checkpoint barriers are fully acknowledged.
+
+### Which table types (Primary Key vs Append-Only) are supported?
+
+Both table types are supported. If the target table defines primary keys (`paimon.table.primary-keys`), the sink performs upsert/delete operations. If no primary keys are defined, the table operates in append-only mode.
 
 ## Changelog
 

@@ -211,7 +211,7 @@ input:
 
 ### 8. Stable input.id across reinstalls
 
-Omitting id uses a stable source identity as the WAL / position sourceId (see [Identity file](configuration.md#identity-file-edge-agentid)). Set an explicit id for multiple agents or WAL restore; keep edge-agent.id with the WAL database:
+Omitting id uses a stable source identity as the WAL / position sourceId (see [Identity file](configuration.md#identity-file)). Set an explicit id for multiple agents or WAL restore; keep edge-agent.id with the WAL database:
 
 ```yaml
 input:
