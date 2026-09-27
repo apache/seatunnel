@@ -40,17 +40,11 @@ public class TDengineSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        TDengineSinkOptions.URL,
-                        notBlank(TDengineSinkOptions.URL),
-                        TDengineSinkOptions.USERNAME,
-                        notBlank(TDengineSinkOptions.USERNAME),
-                        TDengineSinkOptions.PASSWORD,
-                        notBlank(TDengineSinkOptions.PASSWORD),
-                        TDengineSinkOptions.DATABASE,
-                        notBlank(TDengineSinkOptions.DATABASE),
-                        TDengineSinkOptions.STABLE,
-                        notBlank(TDengineSinkOptions.STABLE))
+                .required(TDengineSinkOptions.URL, notBlank(TDengineSinkOptions.URL))
+                .required(TDengineSinkOptions.USERNAME, notBlank(TDengineSinkOptions.USERNAME))
+                .required(TDengineSinkOptions.PASSWORD, notBlank(TDengineSinkOptions.PASSWORD))
+                .required(TDengineSinkOptions.DATABASE, notBlank(TDengineSinkOptions.DATABASE))
+                .required(TDengineSinkOptions.STABLE, notBlank(TDengineSinkOptions.STABLE))
                 .build();
     }
 
