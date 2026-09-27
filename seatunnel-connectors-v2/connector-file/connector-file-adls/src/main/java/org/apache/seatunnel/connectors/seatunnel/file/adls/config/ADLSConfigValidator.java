@@ -73,8 +73,20 @@ final class ADLSConfigValidator {
             required(config, ADLSFileBaseOptions.CLIENT_ID);
             required(config, ADLSFileBaseOptions.CLIENT_SECRET);
             String authority = required(config, ADLSFileBaseOptions.AUTHORITY_HOST);
-            ADLSRuntimeCompatibility.validateTenantId(tenant);
-            ADLSRuntimeCompatibility.normalizeAuthorityHost(authority);
+            try {
+                ADLSRuntimeCompatibility.validateTenantId(tenant);
+            } catch (FileConnectorException ignored) {
+                throw validationFailure(
+                        "'" + ADLSFileBaseOptions.TENANT_ID.key() + "' must be a GUID or DNS name");
+            }
+            try {
+                ADLSRuntimeCompatibility.normalizeAuthorityHost(authority);
+            } catch (FileConnectorException ignored) {
+                throw validationFailure(
+                        "'"
+                                + ADLSFileBaseOptions.AUTHORITY_HOST.key()
+                                + "' must be an HTTPS origin without a path, query, or fragment");
+            }
             rejectPresent(config, ADLSFileBaseOptions.ACCOUNT_KEY);
         }
 
