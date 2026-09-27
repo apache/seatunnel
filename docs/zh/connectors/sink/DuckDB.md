@@ -30,7 +30,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 写入已挂载的 DuckLake catalog
 
-通过 DuckDB JDBC 驱动的 `session_init_sql_file` URL 参数让每个连接挂载目标湖（已用 DuckDB JDBC 1.3.1 验证）。例如，在每个 Worker 的 `/etc/duckdb/lake-init.sql` 中，把 DuckLake 的 `LOAD` 和 `ATTACH IF NOT EXISTS` 语句放在 `/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */` 标记之后，写法见 [DuckDB Source 文档](../source/DuckDB.md#读取已挂载的-ducklake-catalog)。JDBC Sink 设置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"`、`database = "lake"`、`table = "main.events"` 和 `generate_sink_sql = true`。追加写入前目标表必须已存在。初始化文件以及元数据目录、对象存储凭据须在每个 Worker 上可用，且不要提交到版本库。使用 DuckDB JDBC 1.3.1 时，SQLite 元数据 DuckLake 的并发写入即使在直接 JDBC 复现中也会报事务错误；此组合应使用一个 Sink 写入器。PostgreSQL 元数据 + S3 的双写入器只做过冒烟，不能当作并发保证。此路径提供 JDBC 批量写入，不代表具有基于 XA 的精确一次交付保证。
+通过 DuckDB JDBC 驱动的 `session_init_sql_file` URL 参数让每个连接挂载目标湖（已用 DuckDB JDBC 1.3.1 验证）。例如，在每个 Worker 的 `/etc/duckdb/lake-init.sql` 中，把 DuckLake 的 `LOAD` 和 `ATTACH IF NOT EXISTS` 语句放在 `/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */` 标记之后，写法见 [DuckDB Source 文档](../source/DuckDB.md#读取已挂载的-ducklake-catalog)。JDBC Sink 设置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"`、`database = "lake"`、`table = "main.events"` 和 `generate_sink_sql = true`。这里的 `database` 是已挂载的 DuckLake 别名，**不是** PostgreSQL 元数据数据库；`main.events` 是湖内 schema 和表。Source 文档还给出了如何分别指定 PostgreSQL 元数据数据库和 `METADATA_SCHEMA`。追加写入前目标表必须已存在。初始化文件以及元数据目录、对象存储凭据须在每个 Worker 上可用，且不要提交到版本库。使用 DuckDB JDBC 1.3.1 时，SQLite 元数据 DuckLake 的并发写入即使在直接 JDBC 复现中也会报事务错误；此组合应使用一个 Sink 写入器。PostgreSQL 元数据 + S3 的双写入器只做过冒烟，不能当作并发保证。此路径提供 JDBC 批量写入，不代表具有基于 XA 的精确一次交付保证。
 
 ## 主要功能
 

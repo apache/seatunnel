@@ -42,7 +42,16 @@ LOAD sqlite_scanner;
 ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
 ```
 
-Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. Use `ATTACH IF NOT EXISTS` in the init file because a worker can open multiple connections to the same DuckDB database; a repeated plain `ATTACH` fails. The init file and required extensions must be available to every worker. For a PostgreSQL metadata catalog or object-store data path, use the corresponding `ATTACH IF NOT EXISTS` statement and credentials according to the DuckLake documentation; keep credentials out of job configuration and version control. This is a batch JDBC path and does not add DuckLake-specific CDC or exactly-once guarantees.
+Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. Use `ATTACH IF NOT EXISTS` in the init file because a worker can open multiple connections to the same DuckDB database; a repeated plain `ATTACH` fails. The init file and required extensions must be available to every worker.
+
+For an **existing** DuckLake with PostgreSQL metadata, replace the SQLite lines in the init file with `LOAD postgres` and, for example:
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=lake_catalog host=pg.example.com port=5432'
+    AS lake (METADATA_SCHEMA 'lake_meta');
+```
+
+`lake_catalog` is the PostgreSQL database, `lake_meta` is the PostgreSQL schema holding DuckLake metadata, and `lake.main.events` remains the DuckLake catalog/schema/table path. Create the PostgreSQL database and metadata schema before attaching. When **creating** a lake, also provide `DATA_PATH 's3://bucket/prefix/'`; DuckLake stores that location in its metadata, so a later connection to the existing lake can omit `DATA_PATH` (verified with DuckDB JDBC 1.3.1). PostgreSQL authentication and object-store credentials still have to be available to every worker; the metadata does not supply credentials. See the [DuckLake connection parameters](https://ducklake.select/docs/stable/duckdb/usage/connecting) for credential options, and keep secrets out of job configuration and version control. This is a batch JDBC path and does not add DuckLake-specific CDC or exactly-once guarantees.
 
 ## Key Features
 

@@ -39,7 +39,16 @@ LOAD sqlite_scanner;
 ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
 ```
 
-JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。初始化文件应使用 `ATTACH IF NOT EXISTS`，因为一个 Worker 可能对同一 DuckDB 数据库建立多个连接，重复执行普通 `ATTACH` 会失败。每个 Worker 都需要能读取初始化文件和扩展。若元数据存于 PostgreSQL、数据存于对象存储，应按 DuckLake 文档配置相应的 `ATTACH IF NOT EXISTS` 与凭据，并避免将凭据写入作业配置或版本库。此路径是 JDBC 批量读取，不额外提供 DuckLake CDC 或精确一次保证。
+JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。初始化文件应使用 `ATTACH IF NOT EXISTS`，因为一个 Worker 可能对同一 DuckDB 数据库建立多个连接，重复执行普通 `ATTACH` 会失败。每个 Worker 都需要能读取初始化文件和扩展。
+
+若已有 DuckLake 的元数据存于 PostgreSQL，可将初始化文件中的 SQLite 语句替换为 `LOAD postgres` 和如下挂载语句：
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=lake_catalog host=pg.example.com port=5432'
+    AS lake (METADATA_SCHEMA 'lake_meta');
+```
+
+`lake_catalog` 是 PostgreSQL 数据库名，`lake_meta` 是存放 DuckLake 元数据的 PostgreSQL schema；`lake.main.events` 仍表示 DuckLake catalog、湖内 schema 和表。挂载前先创建 PostgreSQL 数据库及元数据 schema。**首次创建**湖时还需指定 `DATA_PATH 's3://bucket/prefix/'`；DuckLake 会将该路径写入元数据，之后重新连接已有湖可以省略 `DATA_PATH`（已用 DuckDB JDBC 1.3.1 验证）。PostgreSQL 认证和对象存储凭据仍须在每个 Worker 上可用；元数据不会提供这些凭据。凭据配置方式见 [DuckLake 连接参数](https://ducklake.select/docs/stable/duckdb/usage/connecting)，不要将密钥写入作业配置或版本库。此路径是 JDBC 批量读取，不额外提供 DuckLake CDC 或精确一次保证。
 
 ## 主要功能
 
