@@ -164,7 +164,8 @@ public class JdbcSink
                             tableSchema,
                             getDatabaseTableSchema().orElse(null),
                             primaryKeyIndex,
-                            baseConfig);
+                            baseConfig,
+                            jobContext == null || jobContext.isEnableCheckpoint());
         }
         return sinkWriter;
     }

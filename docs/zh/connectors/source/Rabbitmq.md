@@ -46,6 +46,8 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | protobuf_schema            | string  | 否  | -     | 当 format 为 protobuf 时生效，用于解析消息体的 Protobuf Schema                              |
 | protobuf_message_name      | string  | 否  | -     | 当 format 为 protobuf 时生效，指定要解析的 Protobuf Message 名称                            |
 | url                        | string  | 否  | -     | 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机                                   |
+| uri                        | string  | 否  | -     | `url` 的兼容别名                                                               |
+| ssl                        | boolean | 否  | false | 使用 host 和 port 连接时是否启用 SSL/TLS                                      |
 | routing_key                | string  | 否  | -     | RabbitMQ 共享配置中的可选路由键                                                         |
 | exchange                   | string  | 否  | -     | RabbitMQ 共享配置中的可选 exchange                                                     |
 | network_recovery_interval  | int     | 否  | -     | 自动恢复在尝试重新连接之前等待多长时间（毫秒）                                                     |
@@ -61,6 +63,7 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 | durable                    | boolean | 否  | true  | 队列是否在服务器重启时保留                                                               |
 | exclusive                  | boolean | 否  | false | 队列是否仅由当前连接使用                                                                |
 | auto_delete                | boolean | 否  | false | 队列是否在最后一个消费者取消订阅时自动删除                                                       |
+| passive                    | boolean | 否  | false | 是否只校验已有队列而不声明或创建队列                                                    |
 | common-options             |         | 否  | -     | 源插件通用参数                                                                     |
 
 ### host [string]
@@ -88,6 +91,16 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 ### url [string]
 
 便捷方法，用于设置 AMQP URI 中的字段：主机、端口、用户名、密码和虚拟主机
+
+### uri [string]
+
+`url` 的兼容别名。`url` 和 `uri` 只能配置一个。
+
+### ssl [boolean]
+
+使用 `host` 和 `port` 配置连接时启用 SSL/TLS。若 URI 本身提供连接信息，请使用 `amqps://` 开头的 `url`。
+
+当 `url` 使用 `amqps://` 时，将按 JVM 信任库校验 Broker 证书并启用主机名校验。此前依赖隐式信任所有证书、使用自签名或私有 CA 证书的连接，需要将 Broker 证书导入信任库，否则将无法建立连接。
 
 ### queue_name [string]
 
@@ -184,6 +197,11 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 - true：队列将在最后一个消费者取消订阅时自动删除。
 - false：队列不会自动删除。
 
+### passive
+
+- false：按已配置的 durable、exclusive 和 auto_delete 参数声明队列。
+- true：只校验队列已存在，不创建或修改队列。适用于没有队列声明权限的消费者账号。
+
 ## 迁移指南与配置规则
 
 如果您从仅支持单表读取的早期版本升级，您现有的配置无需任何更改即可正常工作。
@@ -195,6 +213,8 @@ RabbitMQ 共享配置中的可选 exchange。普通队列消费不需要配置�
 - 多表模式下，每个队列自己的 `schema` 应放在对应的 `tables_configs` 条目里。
 - 当 `format` 为 `protobuf` 时，需要在队列配置所在层级同时配置 `protobuf_schema` 和 `protobuf_message_name`。
 - 如果配置了 `username`，也必须配置 `password`，反过来也一样。
+- `url` 和 `uri` 只能配置一个。`uri` 为兼容已有配置保留，新配置请使用 `url`。
+- 使用 `host` 和 `port` 连接 AMQPS 端点时，请设置 `ssl = true`。
 - `host` 和 `port` 总是必填。`virtual_host` 是可选项，除非您的 RabbitMQ 环境要求使用非默认虚拟主机。
 
 ## 示例

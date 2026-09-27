@@ -100,7 +100,8 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                         null,
                         // baseConfig only feeds runtime sink-table resolution, which this
                         // schema-change case never reaches. An empty config keeps it non-null.
-                        ReadonlyConfig.fromMap(new LinkedHashMap<>()));
+                        ReadonlyConfig.fromMap(new LinkedHashMap<>()),
+                        true);
         JdbcSinkWriter writerB =
                 new JdbcSinkWriter(
                         SHARED_SINK_TABLE,
@@ -112,7 +113,8 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
                         null,
                         // baseConfig only feeds runtime sink-table resolution, which this
                         // schema-change case never reaches. An empty config keeps it non-null.
-                        ReadonlyConfig.fromMap(new LinkedHashMap<>()));
+                        ReadonlyConfig.fromMap(new LinkedHashMap<>()),
+                        true);
 
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new LinkedHashMap<>();
         writers.put(SinkIdentifier.of(SOURCE_A, 0), writerA);

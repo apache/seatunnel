@@ -72,7 +72,7 @@ It only supports hadoop version **2.9.X+**.
 | access_secret              | string  | yes      | -                   | The access secret of obs file system                                                                                                                                                 |
 | endpoint                   | string  | yes      | -                   | The endpoint of obs file system                                                                                                                                                      |
 | read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
-| delimiter                  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                                                                                         |
+| delimiter/field_delimiter  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files. Default `\001`, the same as hive's default delimiter. **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead.                                                              |
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files.                                                            |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                                                                               |
 | skip_header_row_number     | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv.                                                                                                                              |
@@ -203,13 +203,13 @@ tyrantlucifer#26#male
 |-----------------------|
 | tyrantlucifer#26#male |
 
-> If you assign data schema, you should also assign the option `delimiter` too except CSV file type
+> If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 >
-> you should assign schema and delimiter as the following:
+> you should assign schema and field_delimiter as the following:
 
 ```hocon
 
-delimiter = "#"
+field_delimiter = "#"
 schema {
     fields {
         name = string
@@ -282,7 +282,7 @@ schema {
 
 > The schema of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
 
-#### <span id="schema"> read_columns </span>
+#### <span id="read_columns"> read_columns </span>
 
 > The read column list of the data source, user can use it to implement field projection.
 >
@@ -297,7 +297,7 @@ schema {
 
 > If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured
 
-#### <span id="common_options "> common options </span>
+#### <span id="common_options"> common options </span>
 
 > Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
 
@@ -409,7 +409,7 @@ schema {
     access_secret = "xxxxxxxxxxxxxxxxxxxxxx"
     endpoint = "obs.xxxxxx.myhuaweicloud.com"
     file_format_type = "csv"
-    delimiter = ","
+    field_delimiter = ","
   }
 
 ```
