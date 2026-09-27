@@ -16,10 +16,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Description
 
-Write data to a DuckDB database file through JDBC. Supports batch and streaming modes, supports concurrent
-writing, and supports exactly-once semantics when the underlying JDBC driver exposes an XA datasource
-(set `is_exactly_once = true` and provide `xa_data_source_class_name`). DuckDB runs in-process, so the connector
-works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or an in-memory database.
+Write data to DuckDB through JDBC in batch or streaming jobs. DuckDB runs in-process, so a normal
+DuckDB connection uses a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory
+database. The bundled DuckDB JDBC 1.3.1 driver does not provide an XA datasource; do not configure
+`is_exactly_once = true` with this driver.
 
 ## Using Dependency
 
@@ -78,9 +78,10 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit a failed `executeBatch` call.                                                                                                                                                                                  |
 | batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size` or the time reaches `checkpoint.interval`, the data is flushed into the database.                                                                                  |
+| ducklake_bulk_write                       | Boolean | No       | false                        | For an existing DuckLake table, stage each batch in a DuckDB temporary table and write it to the lake with one `INSERT ... SELECT`. See below.                                                                                                  |
 | is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which uses XA transactions. When enabled, you must also set `xa_data_source_class_name`.                                                                                                              |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate SQL statements based on the database table you want to write to. Requires `database` and `table` (or `table_list`) to be configured.                                                                                                  |
-| xa_data_source_class_name                 | String  | No       | -                            | The XA datasource class name of the database driver. For DuckDB, use `org.duckdb.DuckDBXADataSource`.                                                                                                                                          |
+| xa_data_source_class_name                 | String  | No       | -                            | XA datasource class name, if the selected driver supplies one. DuckDB JDBC 1.3.1 does not supply one.                                                                                                                                         |
 | max_commit_attempts                       | Int     | No       | 3                            | The number of retries for transaction commit failures.                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1                           | The timeout after the transaction is opened, the default is `-1` (never timeout). Note that setting the timeout may affect exactly-once semantics.                                                                                             |
 | auto_commit                               | Boolean | No       | true                         | Whether to enable automatic transaction commit. Set to `false` when `is_exactly_once = true`.                                                                                                                                                 |
@@ -98,6 +99,54 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 
 ## Task Example
+
+### DuckLake bulk append
+
+DuckLake tables can be written through the existing JDBC sink. With the DuckDB JDBC 1.3.1 driver,
+`executeBatch` against a DuckLake table can produce one Parquet file per input row. Enable
+`ducklake_bulk_write` to stage at most `batch_size` rows in a connection-local temporary table and
+insert the batch into DuckLake with one SQL statement. The target table must already exist.
+
+For an attached lake, initialize **every writer connection**, including reconnects, with a DuckDB
+session-init SQL file. For example, `/etc/seatunnel/ducklake-init.sql` can load the matching DuckDB
+extensions, configure the metadata and object-store credentials, and attach the lake:
+
+```sql
+LOAD ducklake;
+LOAD postgres_scanner;
+LOAD httpfs;
+-- Configure PostgreSQL and S3 credentials for this worker without putting them in the job file.
+ATTACH 'ducklake:postgres:dbname=lake_metadata host=metadata.example.com port=5432'
+  AS lake (METADATA_SCHEMA 'lake_catalog', DATA_PATH 's3://my-bucket/ducklake/');
+```
+
+`lake_metadata` is the PostgreSQL **database**; `lake_catalog` is its metadata **schema**. The
+DuckLake table schema, such as `main`, is separate. Use the actual names and credentials for your
+deployment, and make the SQL file and matching extensions available on each worker.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:duckdb:;session_init_sql_file=/etc/seatunnel/ducklake-init.sql"
+    driver = "org.duckdb.DuckDBDriver"
+    database = "lake"
+    table = "main.events"
+    generate_sink_sql = true
+    ducklake_bulk_write = true
+    schema_save_mode = "IGNORE"
+    data_save_mode = "APPEND_DATA"
+    batch_size = 1000
+    auto_commit = true
+    max_retries = 0
+  }
+}
+```
+
+This mode accepts INSERT rows only. It does not support `query`, primary keys/upserts, COPY, XA,
+automatic table creation, or JDBC batch retries. Each successful flush commits one lake insert;
+replaying a job after an uncertain commit can still duplicate rows. The number of Parquet files
+also depends on DuckLake partitioning and file-size policies, so one file per flush is not a
+general guarantee. The regular DuckDB sink behavior is unchanged when the option is false.
 
 ### Simple
 
@@ -163,44 +212,6 @@ sink {
     database = main
     table = "sink_table"
     primary_keys = ["id"]
-  }
-}
-```
-
-### Exactly-Once
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    parallelism = 1
-    row_num = 1000
-    schema = {
-      fields {
-        id = "int"
-        name = "string"
-        age = "int"
-        email = "string"
-      }
-    }
-  }
-}
-
-sink {
-  Jdbc {
-    url = "jdbc:duckdb:/tmp/test.db"
-    driver = "org.duckdb.DuckDBDriver"
-    table = "sink_table"
-    username = ""
-    password = ""
-
-    is_exactly_once = "true"
-
-    xa_data_source_class_name = "org.duckdb.DuckDBXADataSource"
   }
 }
 ```

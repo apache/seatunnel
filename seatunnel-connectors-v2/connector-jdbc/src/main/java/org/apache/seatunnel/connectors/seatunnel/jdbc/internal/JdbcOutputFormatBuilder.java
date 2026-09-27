@@ -27,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcCo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckLakeBulkStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferReducedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.BufferedBatchStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.CopyManagerBatchStatementExecutor;
@@ -76,7 +77,13 @@ public class JdbcOutputFormatBuilder {
         final String table = jdbcSinkConfig.getTable();
         final List<String> primaryKeys = jdbcSinkConfig.getPrimaryKeys();
         validateOracleInsertMode(dialect, jdbcSinkConfig, primaryKeys);
-        if (jdbcSinkConfig.isUseCopyStatement()) {
+        if (jdbcSinkConfig.isDucklakeBulkWrite()) {
+            validateDuckLakeBulkMode(dialect, jdbcSinkConfig, primaryKeys);
+            statementExecutorFactory =
+                    () ->
+                            new DuckLakeBulkStatementExecutor(
+                                    database, table, tableSchema, dialect.getRowConverter());
+        } else if (jdbcSinkConfig.isUseCopyStatement()) {
             statementExecutorFactory =
                     () ->
                             createCopyInBufferStatementExecutor(
@@ -120,6 +127,23 @@ public class JdbcOutputFormatBuilder {
                 jdbcSinkConfig.getJdbcConnectionConfig(),
                 statementExecutorFactory,
                 commitOnFlush);
+    }
+
+    private static void validateDuckLakeBulkMode(
+            JdbcDialect dialect, JdbcSinkConfig config, List<String> primaryKeys) {
+        if (!DatabaseIdentifier.DUCKDB.equals(dialect.dialectName())
+                || StringUtils.isNotBlank(config.getSimpleSql())
+                || config.isExactlyOnce()
+                || !config.getJdbcConnectionConfig().isAutoCommit()
+                || config.isUseCopyStatement()
+                || config.isSupportUpsertByInsertOnly()
+                || config.getJdbcConnectionConfig().getBatchSize() <= 0
+                || config.getJdbcConnectionConfig().getMaxRetries() != 0
+                || (primaryKeys != null && !primaryKeys.isEmpty())) {
+            throw new IllegalArgumentException(
+                    "ducklake_bulk_write requires DuckDB generated INSERT SQL, no primary keys,"
+                            + " XA, COPY, upsert, or retries");
+        }
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(

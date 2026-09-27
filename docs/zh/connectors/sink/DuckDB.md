@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，支持并发写入，在底层 JDBC 驱动提供 XA 数据源时支持精确一次语义（设置 `is_exactly_once = true` 并配置 `xa_data_source_class_name`）。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。
+通过 JDBC 在批处理或流处理任务中写入 DuckDB。DuckDB 是进程内数据库，普通连接使用本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库。项目使用的 DuckDB JDBC 1.3.1 驱动没有提供 XA 数据源，不能使用该驱动配置 `is_exactly_once = true`。
 
 ## 需要的依赖项
 
@@ -73,9 +73,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec | Int     | 否    | 30                           | 等待用于验证连接的数据库操作完成的时间（以秒为单位）。                                                                 |
 | max_retries                  | Int     | 否    | 0                            | 提交失败（executeBatch）的重试次数                                                                     |
 | batch_size                   | Int     | 否    | 1000                         | 对于批量写入，当缓冲记录数达到 `batch_size` 数量或时间达到 `checkpoint.interval`<br/>时，数据将被刷新到数据库中                |
+| ducklake_bulk_write          | Boolean | 否    | false                        | 对已有 DuckLake 表，先将每批数据暂存到 DuckDB 临时表，再用一条 `INSERT ... SELECT` 写入湖表；见下文。                 |
 | is_exactly_once              | Boolean | 否    | false                        | 是否启用精确一次语义，将使用 Xa 事务。如果开启，您需要<br/>设置 `xa_data_source_class_name`。                           |
 | generate_sink_sql            | Boolean | 否    | false                        | 根据您要写入的数据库表生成 sql 语句                                                                        |
-| xa_data_source_class_name    | String  | 否    | -                            | 数据库驱动程序的 xa 数据源类名，例如，DuckDB 是 `org.duckdb.DuckDBXADataSource`，<br/>其他数据源请参考附录               |
+| xa_data_source_class_name    | String  | 否    | -                            | 所选驱动提供的 XA 数据源类名；DuckDB JDBC 1.3.1 不提供。                                                    |
 | max_commit_attempts          | Int     | 否    | 3                            | 事务提交失败的重试次数                                                                                 |
 | transaction_timeout_sec      | Int     | 否    | -1                           | 事务打开后的超时时间，默认为 -1（永不超时）。请注意，设置超时可能会影响<br/>精确一次语义                                            |
 | auto_commit                  | Boolean | 否    | true                         | 默认启用自动事务提交                                                                                  |
@@ -93,6 +94,43 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > 如果未设置 partition_column，它将以单一并发运行，如果设置了 partition_column，它将根据任务的并发度并行执行。
 
 ## 任务示例
+
+### DuckLake 批量追加
+
+已有的 JDBC Sink 可以写入 DuckLake，但 DuckDB JDBC 1.3.1 对湖表执行 `executeBatch` 时可能每行生成一个 Parquet 文件。开启 `ducklake_bulk_write` 后，每批最多 `batch_size` 行先写入连接内的 DuckDB 临时表，再用一条 SQL 写入湖表。目标表必须预先存在。
+
+通过 `session_init_sql_file` 初始化**每个 Worker 的每条连接**，重连时也会重新执行。例如 `/etc/seatunnel/ducklake-init.sql`：
+
+```sql
+LOAD ducklake;
+LOAD postgres_scanner;
+LOAD httpfs;
+-- 在各 Worker 安全配置 PostgreSQL 与 S3 凭据，不要写入作业配置。
+ATTACH 'ducklake:postgres:dbname=lake_metadata host=metadata.example.com port=5432'
+  AS lake (METADATA_SCHEMA 'lake_catalog', DATA_PATH 's3://my-bucket/ducklake/');
+```
+
+`lake_metadata` 是 PostgreSQL **数据库名**，`lake_catalog` 是其元数据 **schema**；DuckLake 表的 `main` schema 是另一层命名。实际部署时按真实实例、schema 和数据地址配置，并确保每个 Worker 都能访问初始化脚本和对应版本的扩展。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:duckdb:;session_init_sql_file=/etc/seatunnel/ducklake-init.sql"
+    driver = "org.duckdb.DuckDBDriver"
+    database = "lake"
+    table = "main.events"
+    generate_sink_sql = true
+    ducklake_bulk_write = true
+    schema_save_mode = "IGNORE"
+    data_save_mode = "APPEND_DATA"
+    batch_size = 1000
+    auto_commit = true
+    max_retries = 0
+  }
+}
+```
+
+该模式仅接受 INSERT 行，不支持 `query`、主键更新、COPY、XA、自动建表或 JDBC 批次自动重试。每次成功 flush 会提交一次湖表写入；如果提交结果不明而作业重放，仍可能出现重复行。Parquet 文件数还受 DuckLake 分区和文件大小策略影响，不能保证任何场景都严格每批一个文件。关闭此选项时，普通 DuckDB 写入保持原样。
 
 
 ### 简单
@@ -159,44 +197,6 @@ sink {
     database = main
     table = "sink_table"
     primary_keys = ["id"]
-  }
-}
-```
-
-### 精确一次
-
-```
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    parallelism = 1
-    row_num = 1000
-    schema = {
-      fields {
-        id = "int"
-        name = "string"
-        age = "int"
-        email = "string"
-      }
-    }
-  }
-}
-
-sink {
-  Jdbc {
-    url = "jdbc:duckdb:/tmp/test.db"
-    driver = "org.duckdb.DuckDBDriver"
-    table = "sink_table"
-    username = ""
-    password = ""
-
-    is_exactly_once = "true"
-
-    xa_data_source_class_name = "org.duckdb.DuckDBXADataSource"
   }
 }
 ```

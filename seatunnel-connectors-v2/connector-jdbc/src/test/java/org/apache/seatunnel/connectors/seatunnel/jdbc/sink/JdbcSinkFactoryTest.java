@@ -96,6 +96,48 @@ class JdbcSinkFactoryTest {
     }
 
     @Test
+    void testDuckLakeBulkWriteValidConfig() {
+        Assertions.assertDoesNotThrow(() -> validate(duckLakeBulkConfig()));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteRejectsUnsafeModes() {
+        Map<String, Object> cfg = duckLakeBulkConfig();
+        cfg.put("max_retries", 1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        cfg.put("max_retries", 0);
+        cfg.put("auto_commit", false);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        cfg.put("auto_commit", true);
+        cfg.put("batch_size", 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        cfg.put("batch_size", 1000);
+        cfg.put("generate_sink_sql", false);
+        cfg.put("query", "INSERT INTO lake.main.events VALUES (?, ?)");
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+    }
+
+    @Test
+    void testDuckLakeBulkWriteRejectsDerivedPrimaryKey() {
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () -> createSinkViaFactoryContext(duckLakeBulkConfig(), true));
+    }
+
+    private Map<String, Object> duckLakeBulkConfig() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("url", "jdbc:duckdb:");
+        cfg.put("driver", "org.duckdb.DuckDBDriver");
+        cfg.put("schema_save_mode", "IGNORE");
+        cfg.put("data_save_mode", "APPEND_DATA");
+        cfg.put("generate_sink_sql", true);
+        cfg.put("database", "lake");
+        cfg.put("table", "main.events");
+        cfg.put("ducklake_bulk_write", true);
+        return cfg;
+    }
+
+    @Test
     void testOracleAppendValuesValidConfig() {
         Map<String, Object> cfg = baseConfig();
         cfg.put("oracle_insert_mode", "APPEND_VALUES");

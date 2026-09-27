@@ -48,6 +48,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorExc
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckLakeBulkStatementExecutor;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -164,6 +165,12 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
         config = ReadonlyConfig.fromMap(new HashMap<>(map));
         final ReadonlyConfig options = config;
         JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
+        if (sinkConfig.isDucklakeBulkWrite()
+                && sinkConfig.getPrimaryKeys() != null
+                && !sinkConfig.getPrimaryKeys().isEmpty()) {
+            throw new OptionValidationException(
+                    "ducklake_bulk_write only supports insert-only tables without primary_keys.");
+        }
         FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
         catalogTable.getOptions().putAll(sinkTableOptions);
         catalogTable
@@ -210,6 +217,11 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         Conditions.extension(
                                 JdbcSinkOptions.IS_EXACTLY_ONCE,
                                 new ExactlyOnceMaxRetriesValidator()))
+                .optional(
+                        JdbcSinkOptions.DUCKLAKE_BULK_WRITE,
+                        Conditions.extension(
+                                JdbcSinkOptions.DUCKLAKE_BULK_WRITE,
+                                new DuckLakeBulkWriteValidator()))
                 .optional(
                         JdbcSinkOptions.CREATE_INDEX,
                         JdbcSinkOptions.USERNAME,
@@ -282,6 +294,27 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                 sinkConfig.getJdbcConnectionConfig().getUrl(),
                 sinkConfig.getJdbcConnectionConfig().getProperties(),
                 dialect.defaultParameter());
+
+        if (sinkConfig.isDucklakeBulkWrite()) {
+            TablePath path =
+                    resolveSinkTablePath(
+                            config, getCatalogOptions(context), context.getCatalogTable());
+            String table =
+                    path.getSchemaName() == null
+                            ? path.getTableName()
+                            : path.getSchemaName() + "." + path.getTableName();
+            try (Connection connection =
+                    dialect.getJdbcConnectionProvider(sinkConfig.getJdbcConnectionConfig())
+                            .getOrEstablishConnection()) {
+                new DuckLakeBulkStatementExecutor(
+                                path.getDatabaseName(),
+                                table,
+                                context.getCatalogTable().getTableSchema(),
+                                dialect.getRowConverter())
+                        .validateTarget(connection);
+            }
+            return;
+        }
 
         Optional<Catalog> optionalCatalog =
                 JdbcCatalogUtils.findCatalog(sinkConfig.getJdbcConnectionConfig(), dialect);
@@ -458,6 +491,50 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                             "JDBC XA sink requires max_retries equal to 0 when is_exactly_once=true, "
                                     + "otherwise it could cause duplicates.");
                 }
+            }
+            return true;
+        }
+    }
+
+    static class DuckLakeBulkWriteValidator implements ConditionExtension<Boolean> {
+        @Override
+        public String description() {
+            return "ducklake_bulk_write requires an existing DuckLake table and insert-only writes";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, Boolean value)
+                throws OptionValidationException {
+            if (!Boolean.TRUE.equals(value)) {
+                return true;
+            }
+            if (!"org.duckdb.DuckDBDriver".equals(config.get(JdbcSinkOptions.DRIVER))) {
+                throw new OptionValidationException(
+                        "ducklake_bulk_write requires the DuckDB JDBC driver.");
+            }
+            if (!config.get(JdbcSinkOptions.GENERATE_SINK_SQL)
+                    || StringUtils.isNotBlank(config.get(JdbcSinkOptions.QUERY))
+                    || StringUtils.isBlank(config.get(JdbcSinkOptions.DATABASE))
+                    || StringUtils.isBlank(config.get(JdbcSinkOptions.TABLE))) {
+                throw new OptionValidationException(
+                        "ducklake_bulk_write requires generate_sink_sql=true, database and table,"
+                                + " without query.");
+            }
+            if (config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE) != SchemaSaveMode.IGNORE
+                    || config.get(JdbcSinkOptions.DATA_SAVE_MODE) != DataSaveMode.APPEND_DATA) {
+                throw new OptionValidationException(
+                        "ducklake_bulk_write requires schema_save_mode=IGNORE and"
+                                + " data_save_mode=APPEND_DATA; the DuckLake table must exist.");
+            }
+            if (config.get(JdbcSinkOptions.IS_EXACTLY_ONCE)
+                    || !config.get(JdbcSinkOptions.AUTO_COMMIT)
+                    || config.get(JdbcSinkOptions.USE_COPY_STATEMENT)
+                    || config.get(JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY)
+                    || config.get(JdbcSinkOptions.MAX_RETRIES) != 0
+                    || config.get(JdbcSinkOptions.BATCH_SIZE) <= 0) {
+                throw new OptionValidationException(
+                        "ducklake_bulk_write requires auto_commit=true and does not support XA,"
+                                + " COPY, upsert, max_retries>0, or batch_size<=0.");
             }
             return true;
         }

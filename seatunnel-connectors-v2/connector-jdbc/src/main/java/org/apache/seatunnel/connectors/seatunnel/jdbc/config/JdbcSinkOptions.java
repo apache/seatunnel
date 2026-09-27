@@ -127,6 +127,14 @@ public class JdbcSinkOptions extends JdbcCommonOptions {
                     .defaultValue(false)
                     .withDescription("support copy in statement (postgresql)");
 
+    public static final Option<Boolean> DUCKLAKE_BULK_WRITE =
+            Options.key("ducklake_bulk_write")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Stage DuckLake rows in a DuckDB temporary table and insert each batch"
+                                    + " into the lake with one statement");
+
     public static final Option<JdbcSinkConfig.OracleInsertMode> ORACLE_INSERT_MODE =
             Options.key("oracle_insert_mode")
                     .enumType(JdbcSinkConfig.OracleInsertMode.class)

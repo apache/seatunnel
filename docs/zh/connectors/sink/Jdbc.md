@@ -180,6 +180,7 @@ Exactly-once 依赖 XA 事务，因此数据库和 JDBC 驱动都必须支持 XA
 | socket_timeout_ms                         | Int     | 否    | 86400000                     |
 | max_retries                               | Int     | 否    | 0                            |
 | batch_size                                | Int     | 否    | 1000                         |
+| ducklake_bulk_write                       | Boolean | 否    | false                        |
 | batch_interval_ms                         | Long    | 否    | 0                            |
 | is_exactly_once                           | Boolean | 否    | false                        |
 | generate_sink_sql                         | Boolean | 否    | false                        |
@@ -314,6 +315,10 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 ### batch_size [int]
 
 每个 batch 最多缓存的行数。达到 `batch_size`、checkpoint 准备提交或 writer 关闭时会执行 flush。增大该值可能提高吞吐，但会占用更多内存，并增加故障后需要重试的数据量。
+
+### ducklake_bulk_write [boolean]
+
+可选的 DuckDB/DuckLake 纯追加批量写入模式：每批先暂存在本地，再通过一条 SQL 写入已有的 DuckLake 表。默认 `false`。配置和交付语义见 [DuckDB Sink](DuckDB.md#ducklake-批量追加)。
 
 ### batch_interval_ms [long]
 
