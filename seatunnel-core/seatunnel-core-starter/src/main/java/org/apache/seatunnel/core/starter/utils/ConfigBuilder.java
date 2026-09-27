@@ -38,7 +38,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -287,14 +286,9 @@ public class ConfigBuilder {
 
         Map<String, Object> resolvedConfigMap = resolvedConfig.root().unwrapped();
 
-        Map<String, String> defaultConfigMap = new HashMap<>();
-        processVariablesMap(resolvedConfigMap, userConfigMap, defaultConfigMap);
+        processVariablesMap(resolvedConfigMap, userConfigMap);
 
         return ConfigFactory.parseMap(resolvedConfigMap);
-        /*return ConfigFactory.parseString(
-                JsonUtils.toJsonString(configMap),
-                ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON))
-        .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));*/
     }
 
     private static Map<String, String> extractUserVariables(List<String> variables) {
@@ -346,28 +340,22 @@ public class ConfigBuilder {
     }
 
     private static void processVariablesMap(
-            Map<String, Object> mapValue,
-            Map<String, String> userConfigMap,
-            Map<String, String> defaultConfigMap) {
+            Map<String, Object> mapValue, Map<String, String> userConfigMap) {
         mapValue.forEach(
                 (innerKey, innerValue) -> {
                     if (innerValue instanceof Map) {
-                        processVariablesMap(
-                                (Map<String, Object>) innerValue, userConfigMap, defaultConfigMap);
+                        processVariablesMap((Map<String, Object>) innerValue, userConfigMap);
                     } else if (innerValue instanceof List) {
                         mapValue.put(
                                 innerKey,
-                                processVariablesList(
-                                        (List<?>) innerValue, userConfigMap, defaultConfigMap));
+                                processVariablesList((List<?>) innerValue, userConfigMap));
                     } else {
-                        processVariable(
-                                innerKey, innerValue, mapValue, userConfigMap, defaultConfigMap);
+                        processVariable(innerKey, innerValue, mapValue, userConfigMap);
                     }
                 });
     }
 
-    private static List<?> processVariablesList(
-            List<?> list, Map<String, String> userConfigMap, Map<String, String> defaultConfigMap) {
+    private static List<?> processVariablesList(List<?> list, Map<String, String> userConfigMap) {
         return list.stream()
                 .map(
                         variable -> {
@@ -383,20 +371,13 @@ public class ConfigBuilder {
                                                                     : System.getProperty(
                                                                             placeholder);
                                                     return replacePlaceholders(
-                                                            result,
-                                                            placeholder,
-                                                            value,
-                                                            defaultConfigMap.get(placeholder));
+                                                            result, placeholder, value, null);
                                                 });
                             } else if (variable instanceof Map) {
-                                processVariablesMap(
-                                        (Map<String, Object>) variable,
-                                        userConfigMap,
-                                        defaultConfigMap);
+                                processVariablesMap((Map<String, Object>) variable, userConfigMap);
                                 return variable;
                             } else if (variable instanceof List) {
-                                return processVariablesList(
-                                        (List<?>) variable, userConfigMap, defaultConfigMap);
+                                return processVariablesList((List<?>) variable, userConfigMap);
                             }
                             return variable;
                         })
@@ -407,8 +388,7 @@ public class ConfigBuilder {
             String variableKey,
             Object variableValue,
             Map<String, Object> parentMap,
-            Map<String, String> userConfigMap,
-            Map<String, String> defaultConfigMap) {
+            Map<String, String> userConfigMap) {
         if (Objects.isNull(variableValue)) {
             return;
         }
@@ -422,15 +402,13 @@ public class ConfigBuilder {
                             ? userConfigMap.get(placeholder)
                             : System.getProperty(placeholder);
 
-            replacedValue =
-                    replacePlaceholders(
-                            variableString, placeholder, value, defaultConfigMap.get(placeholder));
+            replacedValue = replacePlaceholders(variableString, placeholder, value, null);
 
             variableString = replacedValue;
         }
 
         if (replacedValue != null) {
-            variableValue = ConfigValueUtils.parseValue(replacedValue);
+            variableValue = ConfigValueUtils.parseValue(variableString);
         }
 
         if (!placeholders.isEmpty()) {
