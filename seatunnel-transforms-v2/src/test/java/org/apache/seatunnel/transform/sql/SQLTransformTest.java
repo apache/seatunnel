@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public class SQLTransformTest {
@@ -1234,5 +1235,25 @@ public class SQLTransformTest {
         // age = -1 -> ARRAY(-1,1,2) but filtered out by age >= 0
         result = sqlTransform.transformRow(new SeaTunnelRow(new Object[] {-1}));
         Assertions.assertNull(result);
+    }
+
+    @Test
+    public void testEngineOptionValueIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "internal".toUpperCase() is "\u0130NTERNAL", which EngineType.valueOf
+            // rejects.
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            HashMap<String, Object> options = new HashMap<>();
+            options.put("query", "select id, name, age from dual");
+            options.put("engine", "internal");
+
+            SQLTransform sqlTransform =
+                    new SQLTransform(ReadonlyConfig.fromMap(options), getCatalogTable());
+            Assertions.assertNotNull(sqlTransform.transformTableSchema());
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }

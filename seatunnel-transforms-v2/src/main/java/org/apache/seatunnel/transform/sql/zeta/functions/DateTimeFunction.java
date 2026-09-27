@@ -67,7 +67,7 @@ public class DateTimeFunction {
         if (args.size() >= 3) {
             String df = (String) args.get(2);
             if (df != null) {
-                datetimeField = df.toUpperCase();
+                datetimeField = df.toUpperCase(Locale.ROOT);
             }
         }
         switch (datetimeField) {
@@ -182,7 +182,7 @@ public class DateTimeFunction {
         if (args.size() >= 3) {
             String df = (String) args.get(2);
             if (df != null) {
-                datetimeField = df.toUpperCase();
+                datetimeField = df.toUpperCase(Locale.ROOT);
             }
         }
 
@@ -261,7 +261,7 @@ public class DateTimeFunction {
         if (args.size() >= 2) {
             String df = (String) args.get(1);
             if (df != null) {
-                datetimeField = df.toUpperCase();
+                datetimeField = df.toUpperCase(Locale.ROOT);
             }
         }
         int year = datetime.getYear();
@@ -381,7 +381,7 @@ public class DateTimeFunction {
             return null;
         }
         String datetimeField = (String) args.get(1);
-        switch (datetimeField.toUpperCase()) {
+        switch (datetimeField.toUpperCase(Locale.ROOT)) {
             case "YEAR":
                 if (datetime instanceof LocalDate) {
                     return ((LocalDate) datetime).getYear();

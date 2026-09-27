@@ -76,6 +76,7 @@ import java.time.temporal.TemporalAccessor;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static java.util.UUID.randomUUID;
@@ -456,7 +457,7 @@ public class ZetaSQLFunction {
     public Object executeFunctionExpr(
             String functionName, List<Object> args, Expression expression) {
         SeaTunnelDataType<?> targetType = zetaSQLType.getExpressionType(expression);
-        switch (functionName.toUpperCase()) {
+        switch (functionName.toUpperCase(Locale.ROOT)) {
             case ASCII:
                 return StringFunction.ascii(args);
             case BIT_LENGTH:
@@ -684,7 +685,7 @@ public class ZetaSQLFunction {
     }
 
     public Object executeTimeKeyExpr(String timeKeyExpr) {
-        switch (timeKeyExpr.toUpperCase()) {
+        switch (timeKeyExpr.toUpperCase(Locale.ROOT)) {
             case CURRENT_DATE:
             case CURRENT_DATE_P:
                 return DateTimeFunction.currentDate();
@@ -704,7 +705,7 @@ public class ZetaSQLFunction {
         String dataType = castExpression.getColDataType().getDataType();
         List<Object> args = new ArrayList<>(2);
         args.add(arg);
-        args.add(dataType.toUpperCase());
+        args.add(dataType.toUpperCase(Locale.ROOT));
         if (dataType.equalsIgnoreCase("DECIMAL")) {
             List<String> ps = castExpression.getColDataType().getArgumentsStringList();
             args.add(Integer.parseInt(ps.get(0)));

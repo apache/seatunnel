@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 
 import java.nio.ByteBuffer;
 import java.util.HashMap;
+import java.util.Locale;
 
 public class VectorFunctionTest {
 
@@ -266,5 +267,22 @@ public class VectorFunctionTest {
         Assertions.assertSame(zeroBuffer, zeroResult);
 
         Assertions.assertNull(VectorFunction.vectorNormalize(null));
+    }
+
+    @Test
+    public void testVectorReduceMethodIsLocaleIndependent() {
+        Locale original = Locale.getDefault();
+        try {
+            // In tr-TR "random_projection".toUpperCase() is "RANDOM_PROJECT\u0130ON".
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+
+            Float[] source = new Float[] {1.0f, 2.0f, 3.0f, 4.0f};
+            Object reduced =
+                    VectorFunction.vectorReduce(
+                            VectorUtils.toByteBuffer(source), 2, "random_projection");
+            Assertions.assertEquals(2, VectorUtils.toFloatArray((ByteBuffer) reduced).length);
+        } finally {
+            Locale.setDefault(original);
+        }
     }
 }
