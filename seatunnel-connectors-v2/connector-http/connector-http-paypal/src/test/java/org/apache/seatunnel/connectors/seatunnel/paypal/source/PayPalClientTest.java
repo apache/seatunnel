@@ -402,6 +402,7 @@ class PayPalClientTest {
     void closeWakesRetryWait() throws Exception {
         options.put("retry_delay_ms", 60000);
         // The client aborts transient responses after their headers, so avoid a body-write race.
+        // See apache/seatunnel#12444 for the general arrival-latch fix.
         Reply unavailable = new Reply(503, "");
         unavailable.bodyless = true;
         replies.add(unavailable);
