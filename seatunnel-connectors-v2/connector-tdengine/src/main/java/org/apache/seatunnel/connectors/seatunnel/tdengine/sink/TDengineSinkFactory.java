@@ -18,8 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-
-import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
@@ -29,6 +27,8 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkCon
 import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSinkOptions;
 
 import com.google.auto.service.AutoService;
+
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 
 @AutoService(Factory.class)
 public class TDengineSinkFactory implements TableSinkFactory {
