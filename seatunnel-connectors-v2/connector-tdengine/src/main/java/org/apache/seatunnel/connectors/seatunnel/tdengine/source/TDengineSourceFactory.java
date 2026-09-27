@@ -43,21 +43,13 @@ public class TDengineSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        TDengineSourceOptions.URL,
-                        notBlank(TDengineSourceOptions.URL),
-                        TDengineSourceOptions.USERNAME,
-                        notBlank(TDengineSourceOptions.USERNAME),
-                        TDengineSourceOptions.PASSWORD,
-                        notBlank(TDengineSourceOptions.PASSWORD),
-                        TDengineSourceOptions.DATABASE,
-                        notBlank(TDengineSourceOptions.DATABASE),
-                        TDengineSourceOptions.STABLE,
-                        notBlank(TDengineSourceOptions.STABLE),
-                        TDengineSourceOptions.LOWER_BOUND,
-                        notBlank(TDengineSourceOptions.LOWER_BOUND),
-                        TDengineSourceOptions.UPPER_BOUND,
-                        notBlank(TDengineSourceOptions.UPPER_BOUND))
+                .required(TDengineSourceOptions.URL, notBlank(TDengineSourceOptions.URL))
+                .required(TDengineSourceOptions.USERNAME, notBlank(TDengineSourceOptions.USERNAME))
+                .required(TDengineSourceOptions.PASSWORD, notBlank(TDengineSourceOptions.PASSWORD))
+                .required(TDengineSourceOptions.DATABASE, notBlank(TDengineSourceOptions.DATABASE))
+                .required(TDengineSourceOptions.STABLE, notBlank(TDengineSourceOptions.STABLE))
+                .required(TDengineSourceOptions.LOWER_BOUND, notBlank(TDengineSourceOptions.LOWER_BOUND))
+                .required(TDengineSourceOptions.UPPER_BOUND, notBlank(TDengineSourceOptions.UPPER_BOUND))
                 .build();
     }
 
