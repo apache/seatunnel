@@ -82,6 +82,31 @@ class SensorsDataSDKFactoryTest {
         Assertions.assertEquals("batch", config.get(SensorsDataSDKSinkOptions.CONSUMER));
     }
 
+    @Test
+    void testBoundaryBulkSizeAndCacheRowSizeAccepted() {
+        Map<String, Object> config = validConfig();
+        config.put(SensorsDataSDKSinkOptions.BULK_SIZE.key(), 1);
+        config.put(SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE.key(), 0);
+
+        Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    @Test
+    void testNonPositiveBulkSizeRejected() {
+        Map<String, Object> config = validConfig();
+        config.put(SensorsDataSDKSinkOptions.BULK_SIZE.key(), 0);
+
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+    }
+
+    @Test
+    void testNegativeMaxCacheRowSizeRejected() {
+        Map<String, Object> config = validConfig();
+        config.put(SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE.key(), -1);
+
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+    }
+
     private ReadonlyConfig validate(Map<String, Object> config) {
         ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
         ConfigValidator.of(readonlyConfig).validate(OPTION_RULE);

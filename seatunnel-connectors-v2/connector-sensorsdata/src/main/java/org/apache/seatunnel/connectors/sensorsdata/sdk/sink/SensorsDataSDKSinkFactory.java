@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.sensorsdata.sdk.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSink;
@@ -48,7 +49,11 @@ public class SensorsDataSDKSinkFactory implements TableSinkFactory {
                         notBlank(SensorsDataSDKSinkOptions.SERVER_URL))
                 .optional(
                         SensorsDataSDKSinkOptions.BULK_SIZE,
+                        Conditions.greaterThan(SensorsDataSDKSinkOptions.BULK_SIZE, 0))
+                .optional(
                         SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE,
+                        Conditions.greaterOrEqual(SensorsDataSDKSinkOptions.MAX_CACHE_ROW_SIZE, 0))
+                .optional(
                         SensorsDataSDKSinkOptions.CONSUMER,
                         SensorsDataOptions.SKIP_ERROR_RECORD,
                         SensorsDataSDKSinkOptions.INSTANT_EVENT_LIST)
