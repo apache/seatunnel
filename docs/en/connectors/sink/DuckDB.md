@@ -33,12 +33,12 @@ database. The bundled DuckDB JDBC 1.3.1 driver does not provide an XA datasource
 
 ## Key Features
 
-- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+> The JDBC sink requires an XA datasource for exactly-once writes. DuckDB JDBC 1.3.1 does not
+> provide one, so exactly-once is unavailable with this driver.
 
 ## Supported DataSource Info
 

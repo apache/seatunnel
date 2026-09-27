@@ -30,10 +30,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要功能
 
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 
-> 使用 `Xa 事务` 来确保 `精确一次`。因此只支持支持 `Xa 事务` 的数据库的 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。
+> JDBC Sink 需要 XA 数据源才能实现精确一次写入。DuckDB JDBC 1.3.1 未提供 XA 数据源，因此使用该驱动时无法启用精确一次。
 
 ## 支持的数据源信息
 
