@@ -221,7 +221,11 @@ public class SeaTunnelServer
     }
 
     @Override
-    public void reset() {}
+    public void reset() {
+        if (taskExecutionService != null) {
+            taskExecutionService.reset();
+        }
+    }
 
     @Override
     public void shutdown(boolean terminate) {

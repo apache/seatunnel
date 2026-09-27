@@ -1196,14 +1196,61 @@ public class SplitClusterFaultToleranceIT {
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            // shutdown master node
-            masterNode2.shutdown();
+            long jobId = clientJobProxy.getJobId();
+            HazelcastInstanceImpl activeMaster = waitAndFindActiveMaster(masterNode1, masterNode2);
+            HazelcastInstanceImpl standbyMaster =
+                    activeMaster == masterNode1 ? masterNode2 : masterNode1;
+            JobMaster jobMasterBeforeReset = getJobMaster(activeMaster, jobId);
+            Assertions.assertNotNull(jobMasterBeforeReset);
+            int restoreCountBeforeReset =
+                    jobMasterBeforeReset.getPhysicalPlan().getPipelineList().stream()
+                            .mapToInt(SubPlan::getPipelineRestoreNum)
+                            .sum();
+
+            // Hazelcast invokes ManagedService.reset() on members that merge back into a cluster.
+            // Reset both workers to model the losing side's task contexts, then verify the active
+            // coordinator restores them before it fails over as well.
+            SeaTunnelServer workerServer1 =
+                    workerNode1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            SeaTunnelServer workerServer2 =
+                    workerNode2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            workerServer1.reset();
+            workerServer2.reset();
+
+            Awaitility.await()
+                    .atMost(300000, TimeUnit.MILLISECONDS)
+                    .pollInterval(2000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                JobMaster restoredJobMaster = getJobMaster(activeMaster, jobId);
+                                Assertions.assertNotNull(restoredJobMaster);
+                                PhysicalPlan restoredPlan = restoredJobMaster.getPhysicalPlan();
+                                Assertions.assertNotNull(restoredPlan);
+                                Assertions.assertTrue(
+                                        restoredPlan.getPipelineList().stream()
+                                                        .mapToInt(SubPlan::getPipelineRestoreNum)
+                                                        .sum()
+                                                > restoreCountBeforeReset,
+                                        "Reset should cancel the stale worker contexts and restore "
+                                                + "the pipeline");
+                                restoredPlan
+                                        .getPipelineList()
+                                        .forEach(
+                                                SplitClusterFaultToleranceIT
+                                                        ::assertAllVertexRunning);
+                            });
+
+            // Fail over the active master after the worker-side reset and pipeline recovery.
+            activeMaster.shutdown();
             Awaitility.await()
                     .atMost(10000, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
-                                            3, finalNode.getCluster().getMembers().size()));
+                                            3, standbyMaster.getCluster().getMembers().size()));
+            awaitCoordinatorActive(standbyMaster, 30);
 
             Awaitility.await()
                     .atMost(300000, TimeUnit.MILLISECONDS)

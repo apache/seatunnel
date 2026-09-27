@@ -569,6 +569,49 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    public void testResetAllowsRedeployOfTaskGroupAtSameLocation() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+        TaskGroupImmutableInformation firstDeployment =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                        location,
+                        "reset-test",
+                        Collections.singletonList(
+                                nodeEngine.getSerializationService().toData(new BlockTask())),
+                        Collections.singletonList(emptySet()),
+                        Collections.singletonList(emptySet()));
+
+        Data firstData = nodeEngine.getSerializationService().toData(firstDeployment);
+        assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(firstData));
+        TaskGroupContext firstContext = taskExecutionService.getActiveExecutionContext(location);
+
+        server.reset();
+
+        TaskGroupImmutableInformation restoredDeployment =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        2,
+                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                        location,
+                        "reset-test-restored",
+                        Collections.singletonList(
+                                nodeEngine.getSerializationService().toData(new BlockTask())),
+                        Collections.singletonList(emptySet()),
+                        Collections.singletonList(emptySet()));
+        Data restoredData = nodeEngine.getSerializationService().toData(restoredDeployment);
+        assertEquals(TaskDeployState.success(), taskExecutionService.deployTask(restoredData));
+
+        TaskGroupContext restoredContext = taskExecutionService.getActiveExecutionContext(location);
+        Assertions.assertNotSame(firstContext, restoredContext);
+
+        taskExecutionService.cancelTaskGroup(location);
+    }
+
+    @Test
     public void testStaleTaskDoneCleansOnlyOwnedGenerationResources() throws Exception {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation location = newTaskGroupLocation();

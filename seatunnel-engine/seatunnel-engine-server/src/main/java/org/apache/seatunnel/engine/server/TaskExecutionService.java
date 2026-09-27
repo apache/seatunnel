@@ -317,6 +317,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
+     * Cancels active task groups when Hazelcast resets managed services during a cluster merge.
+     * Their normal completion path releases task resources and removes the active contexts.
+     */
+    public synchronized void reset() {
+        for (TaskGroupContext context : executionContexts.values()) {
+            CompletableFuture<Void> cancellationFuture = cancellationFutures.get(context);
+            if (cancellationFuture != null) {
+                cancellationFuture.cancel(false);
+            }
+        }
+    }
+
+    /**
      * Gets the execution context for a task group. First checks active execution contexts, then
      * falls back to finished execution contexts.
      *
@@ -522,25 +535,39 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation(), taskImmutableInfo.getExecutionId()));
 
             synchronized (this) {
-                if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
-                    // Task is actively running (present in executionContexts, not
-                    // finishedExecutionContexts). This happens during master failover: the new
-                    // master restores state and tries to re-deploy tasks that never stopped on
-                    // the worker. Return success so the master reconnects without interrupting
-                    // the running task. The worker will notify the master of the terminal state
-                    // via NotifyTaskStatusOperation when the task eventually completes.
-                    logger.warning(
-                            String.format(
-                                    "TaskGroupLocation %s already exists and is active, "
-                                            + "skipping redeploy for master failover recovery",
-                                    taskGroup.getTaskGroupLocation()));
-                    // Release classloaders acquired during deserialization
-                    for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
-                        classLoaderService.releaseClassLoader(
-                                taskImmutableInfo.getJobId(), entry.getValue());
+                TaskGroupContext activeContext =
+                        executionContexts.get(taskGroup.getTaskGroupLocation());
+                if (activeContext != null) {
+                    CompletableFuture<Void> activeCancellationFuture =
+                            cancellationFutures.get(activeContext);
+                    if (activeCancellationFuture != null
+                            && activeCancellationFuture.isCancelled()) {
+                        logger.info(
+                                String.format(
+                                        "TaskGroupLocation %s is being reset; deploying restored "
+                                                + "execution [%s]",
+                                        taskGroup.getTaskGroupLocation(),
+                                        taskImmutableInfo.getExecutionId()));
+                    } else {
+                        // Task is actively running (present in executionContexts, not
+                        // finishedExecutionContexts). This happens during master failover: the new
+                        // master restores state and tries to re-deploy tasks that never stopped on
+                        // the worker. Return success so the master reconnects without interrupting
+                        // the running task. The worker will notify the master of the terminal state
+                        // via NotifyTaskStatusOperation when the task eventually completes.
+                        logger.warning(
+                                String.format(
+                                        "TaskGroupLocation %s already exists and is active, "
+                                                + "skipping redeploy for master failover recovery",
+                                        taskGroup.getTaskGroupLocation()));
+                        // Release classloaders acquired during deserialization
+                        for (Map.Entry<Long, Collection<URL>> entry : taskJars.entrySet()) {
+                            classLoaderService.releaseClassLoader(
+                                    taskImmutableInfo.getJobId(), entry.getValue());
+                        }
+                        acquiredClassLoaderJars.clear();
+                        return TaskDeployState.success();
                     }
-                    acquiredClassLoaderJars.clear();
-                    return TaskDeployState.success();
                 }
                 AtomicBoolean classLoaderOwnershipTransferred = new AtomicBoolean();
                 deployLocalTask(
