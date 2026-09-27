@@ -310,6 +310,17 @@ sink {
 }
 ```
 
+### DuckLake 快照一致性
+
+JDBC Source 的分片分别发起读取，连接器不会自动为整个作业固定 DuckLake 快照。如果批量抽取需要一致的湖表状态，应先确定一个仍保留的快照 ID，再让所有 Worker 的 Source 初始化脚本使用相同的 `SNAPSHOT_VERSION`：
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=ducklake_catalog host=metadata-host user=reader'
+AS lake (METADATA_SCHEMA 'lake_meta', SNAPSHOT_VERSION 2);
+```
+
+把 `2` 替换为 `SELECT * FROM lake.snapshots()` 返回的有效快照 ID，并在作业及其重试结束前保留该快照。固定快照的 catalog 用于历史读取，写入 Sink 应使用单独的初始化脚本。参见 [DuckLake 时间旅行](https://ducklake.select/docs/stable/duckdb/usage/time_travel)。
+
 ## Changelog
 
 <ChangeLog />

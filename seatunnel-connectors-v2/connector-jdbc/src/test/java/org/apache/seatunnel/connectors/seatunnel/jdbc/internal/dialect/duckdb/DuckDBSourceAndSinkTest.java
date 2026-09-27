@@ -188,6 +188,68 @@ public class DuckDBSourceAndSinkTest {
                 Integer.getInteger("ducklake.s3.parallelism", 1));
     }
 
+    @Test
+    public void testDuckLakePartitionedSnapshotSource() throws Exception {
+        Assumptions.assumeTrue(
+                System.getProperty("ducklake.extension") != null
+                        && System.getProperty("sqlite.scanner.extension") != null);
+        Path data = Files.createDirectory(tempDir.resolve("snapshot-data"));
+        List<String> loads = new ArrayList<>();
+        loads.add("LOAD '" + System.getProperty("ducklake.extension").replace("'", "''") + "'");
+        loads.add(
+                "LOAD '" + System.getProperty("sqlite.scanner.extension").replace("'", "''") + "'");
+        String attach =
+                "ATTACH IF NOT EXISTS 'ducklake:sqlite:"
+                        + tempDir.resolve("snapshot.sqlite").toString().replace("'", "''")
+                        + "' AS lake (DATA_PATH '"
+                        + data.toString().replace("'", "''")
+                        + "/'";
+        long snapshot;
+        try (Connection connection = new DuckDBDriver().connect("jdbc:duckdb:", new Properties());
+                Statement statement = connection.createStatement()) {
+            executeInitStatements(statement, loads);
+            statement.execute(attach + ")");
+            statement.execute("CREATE TABLE lake.main.events (id INTEGER)");
+            statement.execute("INSERT INTO lake.main.events SELECT range::INTEGER FROM range(12)");
+            try (ResultSet result =
+                    statement.executeQuery("SELECT max(snapshot_id) FROM lake.snapshots()")) {
+                result.next();
+                snapshot = result.getLong(1);
+            }
+            statement.execute("INSERT INTO lake.main.events VALUES (99)");
+        }
+        for (boolean pinned : new boolean[] {false, true}) {
+            Path init = tempDir.resolve(pinned ? "pinned.sql" : "current.sql");
+            String sql =
+                    "/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */\n"
+                            + String.join(";\n", loads)
+                            + ";\n"
+                            + attach
+                            + (pinned ? ", SNAPSHOT_VERSION " + snapshot : "")
+                            + ");\n";
+            Files.write(init, sql.getBytes(StandardCharsets.UTF_8));
+            Map<String, Object> options = new HashMap<>();
+            options.put("url", "jdbc:duckdb:;session_init_sql_file=" + init);
+            options.put("driver", "org.duckdb.DuckDBDriver");
+            options.put("table_path", "lake.main.events");
+            options.put("partition_column", "id");
+            options.put("partition_num", 3);
+            options.put("partition_lower_bound", "0");
+            options.put("partition_upper_bound", "12");
+            options.put("split.size", 2);
+            List<SeaTunnelRow> rows =
+                    SourceFlowTestUtils.runParallelSubtasksBatchWithCheckpointDisabled(
+                            ReadonlyConfig.fromMap(options), new JdbcSourceFactory(), 3);
+            int expected = pinned ? 12 : 13;
+            Assertions.assertEquals(expected, rows.size());
+            Assertions.assertEquals(
+                    expected, rows.stream().map(row -> row.getField(0)).distinct().count());
+            Assertions.assertEquals(
+                    !pinned,
+                    rows.stream().anyMatch(row -> Integer.valueOf(99).equals(row.getField(0))));
+        }
+    }
+
     private void runAttachedCatalogSourceAndSink(boolean duckLake) throws Exception {
         runAttachedCatalogSourceAndSink(duckLake, false);
     }

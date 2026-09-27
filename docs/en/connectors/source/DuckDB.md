@@ -312,6 +312,17 @@ sink {
   Console {}
 }
 ```
+### DuckLake snapshot consistency
+
+JDBC source splits use separate reads; the connector does not automatically pin a DuckLake snapshot for the entire job. For a stable batch extraction, resolve a retained snapshot ID once and use the same `SNAPSHOT_VERSION` in the Source initialization script on every Worker:
+
+```sql
+ATTACH IF NOT EXISTS 'ducklake:postgres:dbname=ducklake_catalog host=metadata-host user=reader'
+AS lake (METADATA_SCHEMA 'lake_meta', SNAPSHOT_VERSION 2);
+```
+
+Replace `2` with an existing snapshot ID from `SELECT * FROM lake.snapshots()`. Keep that snapshot available until the job and any retries complete. Use a separate initialization script for a writable Sink; the snapshot-pinned catalog is for historical reads. See [DuckLake time travel](https://ducklake.select/docs/stable/duckdb/usage/time_travel).
+
 ## Change Log
 
 <ChangeLog />
