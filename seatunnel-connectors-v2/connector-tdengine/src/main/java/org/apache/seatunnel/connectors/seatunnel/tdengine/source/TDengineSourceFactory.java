@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -43,12 +45,19 @@ public class TDengineSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(
                         TDengineSourceOptions.URL,
+                        notBlank(TDengineSourceOptions.URL),
                         TDengineSourceOptions.USERNAME,
+                        notBlank(TDengineSourceOptions.USERNAME),
                         TDengineSourceOptions.PASSWORD,
+                        notBlank(TDengineSourceOptions.PASSWORD),
                         TDengineSourceOptions.DATABASE,
+                        notBlank(TDengineSourceOptions.DATABASE),
                         TDengineSourceOptions.STABLE,
+                        notBlank(TDengineSourceOptions.STABLE),
                         TDengineSourceOptions.LOWER_BOUND,
-                        TDengineSourceOptions.UPPER_BOUND)
+                        notBlank(TDengineSourceOptions.LOWER_BOUND),
+                        TDengineSourceOptions.UPPER_BOUND,
+                        notBlank(TDengineSourceOptions.UPPER_BOUND))
                 .build();
     }
 
