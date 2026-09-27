@@ -17,6 +17,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tablestore.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -28,6 +29,9 @@ import org.apache.seatunnel.connectors.seatunnel.tablestore.config.TableStoreSou
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
+import static org.apache.seatunnel.api.configuration.util.Conditions.notEmpty;
 
 @AutoService(Factory.class)
 public class TableStoreSourceFactory implements TableSourceFactory {
@@ -42,11 +46,21 @@ public class TableStoreSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(
                         TableStoreSourceOptions.END_POINT,
+                        notBlank(TableStoreSourceOptions.END_POINT))
+                .required(
                         TableStoreSourceOptions.INSTANCE_NAME,
+                        notBlank(TableStoreSourceOptions.INSTANCE_NAME))
+                .required(
                         TableStoreSourceOptions.ACCESS_KEY_ID,
+                        notBlank(TableStoreSourceOptions.ACCESS_KEY_ID))
+                .required(
                         TableStoreSourceOptions.ACCESS_KEY_SECRET,
-                        TableStoreSourceOptions.TABLE,
-                        TableStoreSourceOptions.PRIMARY_KEYS)
+                        notBlank(TableStoreSourceOptions.ACCESS_KEY_SECRET))
+                .required(TableStoreSourceOptions.TABLE, notBlank(TableStoreSourceOptions.TABLE))
+                .required(
+                        TableStoreSourceOptions.PRIMARY_KEYS,
+                        notEmpty(TableStoreSourceOptions.PRIMARY_KEYS))
+                .required(ConnectorCommonOptions.SCHEMA)
                 .build();
     }
 

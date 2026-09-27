@@ -295,6 +295,54 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
+    public void testSerializeHeterogeneousNumericFields() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"value", "amount"},
+                        new SeaTunnelDataType[] {INT_TYPE, LONG_TYPE});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {"text value", new BigDecimal("123.45")});
+
+        assertEquals(
+                "{\"value\":\"text value\",\"amount\":123.45}",
+                new String(
+                        new JsonSerializationSchema(schema).serialize(row),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void testSerializeCrossNumericRuntimeTypes() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(
+                        new String[] {"c_int", "c_bigint", "c_float", "c_decimal", "c_str"},
+                        new SeaTunnelDataType[] {
+                            INT_TYPE, LONG_TYPE, FLOAT_TYPE, new DecimalType(10, 2), INT_TYPE
+                        });
+        SeaTunnelRow row =
+                new SeaTunnelRow(
+                        new Object[] {10L, Integer.valueOf(20), Double.valueOf(1.5D), 2.5D, "123"});
+
+        assertEquals(
+                "{\"c_int\":10,\"c_bigint\":20,\"c_float\":1.5,\"c_decimal\":2.5,\"c_str\":123}",
+                new String(
+                        new JsonSerializationSchema(schema).serialize(row),
+                        StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void testSerializeNonNumericObjectUnderNumericFieldFails() {
+        SeaTunnelRowType schema =
+                new SeaTunnelRowType(new String[] {"c_int"}, new SeaTunnelDataType[] {INT_TYPE});
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new byte[] {1, 2}});
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> new JsonSerializationSchema(schema).serialize(row));
+        Assertions.assertTrue(exception.getCause() instanceof SeaTunnelJsonFormatException);
+        Assertions.assertTrue(exception.getCause().getMessage().contains("[B"));
+    }
+
+    @Test
     public void testSerDeMultiRowsWithNullValues() throws Exception {
         String[] jsons =
                 new String[] {
