@@ -66,6 +66,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
+无符号整数使用更宽的类型保留完整范围：UTINYINT → SMALLINT、USMALLINT → INT、UINTEGER → BIGINT、UBIGINT → DECIMAL(20,0)。有符号整数的映射保持不变。
+
 ## 源选项
 
 | 名称                           | 类型         | 是否必需 | 默认值             | 描述                                                                                                                                                   |
