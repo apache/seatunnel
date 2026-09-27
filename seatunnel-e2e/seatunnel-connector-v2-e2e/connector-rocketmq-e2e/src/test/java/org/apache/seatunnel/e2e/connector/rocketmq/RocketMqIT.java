@@ -51,12 +51,9 @@ import org.apache.rocketmq.common.admin.TopicOffset;
 import org.apache.rocketmq.common.message.Message;
 import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
-import org.apache.rocketmq.common.protocol.route.QueueData;
-import org.apache.rocketmq.common.protocol.route.TopicRouteData;
 import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
-import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -82,6 +79,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -90,7 +88,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class RocketMqIT extends TestSuiteBase implements TestResource {
@@ -153,12 +150,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
         rocketMqContainer.start();
         log.info("RocketMq container started");
         initProducer();
-        // Unlike the other topics in this file, test_topic_source is written directly via
-        // producer.send(Message, MessageQueue) in generateTestData(), which bypasses the normal
-        // route-resolution path a plain send(Message) would use. Establish and confirm the route
-        // up front so the name server has already published it before any source job (started by
-        // a later @TestTemplate method, sometimes minutes after this write) queries it.
-        waitForTopicRoute("test_topic_source");
         log.info("Write 100 records to topic test_topic_source");
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
@@ -226,36 +217,38 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testSourceRocketMqTextTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = "test_topic_text_tag";
+        final String uniqueSuffix = uniqueTestSuffix();
+        final String topic = "test_topic_text_tag_" + uniqueSuffix;
+        final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueSuffix;
         String tag = "tag_test";
-
-        // delete topic if exist
-        deleteTopicIfExist(topic);
 
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
         generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-source_text_tag_to_console.conf");
+                container.executeJob(
+                        "/rocketmq-source_text_tag_to_console.conf",
+                        Arrays.asList("sourceTopic=" + topic, "consumerGroup=" + consumerGroup));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     @TestTemplate
     public void testSourceRocketMqTextErrorTagToConsole(TestContainer container)
             throws IOException, InterruptedException {
-        String topic = "test_topic_text_error_tag";
+        final String uniqueSuffix = uniqueTestSuffix();
+        final String topic = "test_topic_text_error_tag_" + uniqueSuffix;
+        final String consumerGroup = "SeaTunnel-Consumer-Group-" + uniqueSuffix;
         String tag = "test_error_tag";
-
-        // delete topic if exist
-        deleteTopicIfExist(topic);
 
         DefaultSeaTunnelRowSerializer serializer =
                 new DefaultSeaTunnelRowSerializer(
                         topic, tag, SEATUNNEL_ROW_TYPE, SchemaFormat.TEXT, DEFAULT_FIELD_DELIMITER);
         generateTestData(serializer::serializeRow, topic, 0, 32);
         Container.ExecResult execResult =
-                container.executeJob("/rocketmq-source_text_error_tag_to_console.conf");
+                container.executeJob(
+                        "/rocketmq-source_text_error_tag_to_console.conf",
+                        Arrays.asList("sourceTopic=" + topic, "consumerGroup=" + consumerGroup));
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
@@ -360,6 +353,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqLatestToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_latest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -368,6 +363,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqEarliestToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_earliest_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -376,6 +373,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqSpecificOffsetsToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_specific_offsets_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -384,6 +383,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testRocketMqTimestampToConsole(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic_source");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq/rocketmq_source_timestamp_to_console.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -415,6 +416,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
         String topicName = "test_topic_message_tag";
         String tag = "test_tag";
+        waitForTopicRoute(topicName);
         Map<String, RocketMqConsumerMessage> data = getRocketMqConsumerData(topicName);
         ObjectMapper objectMapper = new ObjectMapper();
         String key = data.keySet().iterator().next();
@@ -442,6 +444,12 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @SneakyThrows
     private void generateTestData(
             ProducerRecordConverter converter, String topic, int start, int end) {
+        // These records are written with producer.send(Message, MessageQueue), which addresses a
+        // queue directly and so bypasses the route resolution a plain send(Message) would do.
+        // Establish and confirm the route first, otherwise the send fails with MQClientException
+        // "No topic route info in name server". Every caller needs this, not just the topic
+        // prepared in startUp().
+        waitForTopicRoute(topic);
         for (int i = start; i < end; i++) {
             SeaTunnelRow row =
                     new SeaTunnelRow(
@@ -486,6 +494,20 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                             Assertions.assertFalse(
                                     producer.fetchPublishMessageQueues(topic).isEmpty(),
                                     "Topic route is not ready: " + topic);
+                            // The producer above may answer from its own route cache, primed by
+                            // createTopic() against the broker, before the name server has
+                            // published the route. The connector resolves routes through a
+                            // fresh admin client (RocketMqAdminUtil#offsetTopics ->
+                            // examineTopicStats), which is exactly what failed with
+                            // "No topic route info in name server" in CI, so require the route
+                            // to be visible on that path too before returning.
+                            Assertions.assertFalse(
+                                    RocketMqAdminUtil.offsetTopics(
+                                                    newConfiguration(),
+                                                    Collections.singletonList(topic))
+                                            .get(0)
+                                            .isEmpty(),
+                                    "Topic route is not visible in the name server: " + topic);
                         });
     }
 
@@ -510,12 +532,26 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                                     exception -> exception instanceof RocketMqConnectorException,
                                     Constant.OPERATION_RETRY_SLEEP));
             consumer.assign(queueOffsets.keySet());
-            // seek to offset
+            // seek to offset. Retry-wrapped like the offsetTopics lookup above, since both read
+            // broker metadata that can be briefly unavailable. On dev currentOffsets still maps a
+            // failed lookup onto an empty map, so today this is a consistency fix; it becomes load
+            // bearing once #12349 makes that call raise RocketMqConnectorException, which is the
+            // exception this predicate matches.
+            // shouldThrowException is true here, unlike the lookup above, because RetryUtils
+            // returns null once retries are exhausted when it is false, and a null map would
+            // surface as a bare NPE on the next line with the real cause discarded.
             Map<MessageQueue, Long> currentOffsets =
-                    RocketMqAdminUtil.currentOffsets(
-                            newConfiguration(),
-                            Lists.newArrayList(topicName),
-                            queueOffsets.keySet());
+                    RetryUtils.retryWithException(
+                            () ->
+                                    RocketMqAdminUtil.currentOffsets(
+                                            newConfiguration(),
+                                            Lists.newArrayList(topicName),
+                                            queueOffsets.keySet()),
+                            new RetryUtils.RetryMaterial(
+                                    Constant.OPERATION_RETRY_TIME,
+                                    true,
+                                    exception -> exception instanceof RocketMqConnectorException,
+                                    Constant.OPERATION_RETRY_SLEEP));
             for (MessageQueue mq : queueOffsets.keySet()) {
                 long currentOffset =
                         currentOffsets.containsKey(mq)
@@ -600,6 +636,16 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     private void checkOffsetNoDiff(String topicName, String consumerGroup) {
         RocketMqBaseConfiguration config = newConfiguration();
         config.setGroupId(consumerGroup);
+        // Confirms the route for the offsetTopics read below. currentOffsets resolves
+        // %RETRY%<group> rather than this topic, which the call does not create or check, but the
+        // name server drops routes per broker rather than per topic, so a resolvable route here
+        // means the broker registration is live and the retry topic's route with it. That topic
+        // exists by this point because the job has already consumed with this group.
+        // This covers a brief gap, not a long one: waitForTopicRoute gives up after a minute, so
+        // the 4m24s outage measured in CI would still fail, just with a route message instead of
+        // an opaque assertion timeout. The 30 second assertion window is deliberately left alone
+        // so a genuine offset mismatch keeps failing fast.
+        waitForTopicRoute(topicName);
         Awaitility.await()
                 .ignoreExceptions()
                 .atMost(30, TimeUnit.SECONDS)
@@ -695,6 +741,9 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 .atMost(1, TimeUnit.MINUTES)
                 .until(() -> true);
 
+        // Direct queue sends again, so the route has to be confirmed here too rather than
+        // relying on the wait before the initial batch.
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 10; i++) {
             Message msg = new Message(sourceTopic, (payload + "_additional_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -729,6 +778,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 firstJobFuture.get().getExitCode(),
                 "First job should exit successfully after savepoint");
 
+        // These sends land after savepointJob(), which is precisely the window the comment
+        // below describes: the name server can briefly drop an auto-created topic route
+        // while the job is stopped. Confirm the route before writing, not only before the
+        // restore that follows.
+        waitForTopicRoute(sourceTopic);
         for (int i = 0; i < 15; i++) {
             Message msg = new Message(sourceTopic, (payload + "_restore_" + i).getBytes());
             producer.send(msg, new MessageQueue(sourceTopic, RocketMqContainer.BROKER_NAME, 0));
@@ -745,8 +799,11 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         + (srcEndAfterAll - srcEndBeforeStart));
 
         // The name server can briefly drop an auto-created topic route while the job is stopped
-        // for a savepoint. Restore only after the dynamic source topic is visible again.
+        // for a savepoint. Restore only after both dynamic topics are visible again: the restored
+        // job's sink publishes to sinkTopic first, and a dropped sink route fails every send with
+        // "No topic route info in name server" until the route is re-published.
         waitForTopicRoute(sourceTopic);
+        waitForTopicRoute(sinkTopic);
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -798,8 +855,26 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                 15, restoreCount, "Expected 15 '_restore_' messages, got: " + restoreCount);
     }
 
+    /**
+     * Reads every message stored in the topic from {@code fromOffset}, counting each stored message
+     * exactly once.
+     *
+     * <p>Messages are keyed by their physical position (broker, queue id, queue offset) because
+     * {@code DefaultLitePullConsumer} in rocketmq-client 4.9.4 can hand the same stored message to
+     * {@code poll()} twice around {@code seek()}: the pull task started by {@code assign()} may
+     * already be past its cancellation check when {@code seek()} cancels it, and once the
+     * replacement task has consumed the seek offset the stale batch (up to {@code pullBatchSize}
+     * messages from the pre-seek position) is still put into the consumer's cache. That made the
+     * restore test report phantom duplicates while the sink topic's max offset proved it held
+     * exactly the expected number of messages. A duplicate really written by the connector occupies
+     * its own queue offset, so it is still counted here.
+     *
+     * @param topicName topic to read
+     * @param fromOffset lowest queue offset to read from, clamped to each queue's min offset
+     * @return message bodies in first-seen order, one entry per stored message
+     */
     private List<String> pollMessagesFromOffset(String topicName, long fromOffset) {
-        List<String> result = new ArrayList<>();
+        Map<String, String> bodyByPosition = new LinkedHashMap<>();
         try {
             DefaultLitePullConsumer consumer =
                     RocketMqAdminUtil.initDefaultLitePullConsumer(newConfiguration(), false);
@@ -828,14 +903,21 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                     break;
                 }
                 for (MessageExt msg : messages) {
-                    result.add(new String(msg.getBody(), StandardCharsets.UTF_8));
+                    String position =
+                            msg.getBrokerName()
+                                    + "#"
+                                    + msg.getQueueId()
+                                    + "#"
+                                    + msg.getQueueOffset();
+                    bodyByPosition.putIfAbsent(
+                            position, new String(msg.getBody(), StandardCharsets.UTF_8));
                 }
             }
             consumer.shutdown();
         } catch (Exception e) {
             log.warn("Failed to poll messages from {}: {}", topicName, e.getMessage(), e);
         }
-        return result;
+        return new ArrayList<>(bodyByPosition.values());
     }
 
     /**
@@ -897,33 +979,5 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
      */
     private String uniqueTestSuffix() {
         return UUID.randomUUID().toString().replace("-", "");
-    }
-
-    private void deleteTopicIfExist(String topicName) {
-        DefaultMQAdminExt admin = new DefaultMQAdminExt();
-        admin.setInstanceName(UUID.randomUUID().toString());
-        try {
-            admin.start();
-            TopicRouteData topicRouteData = admin.examineTopicRouteInfo(topicName);
-            if (topicRouteData != null
-                    && topicRouteData.getQueueDatas() != null
-                    && !topicRouteData.getQueueDatas().isEmpty()) {
-                Set<String> brokerNames =
-                        topicRouteData.getQueueDatas().stream()
-                                .map(QueueData::getBrokerName)
-                                .collect(Collectors.toSet());
-                admin.deleteTopicInBroker(brokerNames, topicName);
-                admin.deleteTopicInNameServer(brokerNames, topicName, "delete_topic");
-                log.info("Deleted topic: {}", topicName);
-            } else {
-                log.info("Topic {} does not exist", topicName);
-            }
-        } catch (Exception e) {
-            log.warn("Failed to delete topic {}: {}", topicName, e.getMessage());
-        } finally {
-            if (admin != null) {
-                admin.shutdown();
-            }
-        }
     }
 }
