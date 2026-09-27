@@ -166,13 +166,15 @@ public class DuckDBSourceAndSinkTest {
                         + s3Endpoint.replace("'", "''")
                         + "', URL_STYLE 'path', USE_SSL false)");
         initStatements.add(
-                "ATTACH 'ducklake:postgres:"
+                "ATTACH IF NOT EXISTS 'ducklake:postgres:"
                         + pgConnection.replace("'", "''")
                         + "' AS lake (DATA_PATH '"
                         + s3DataPath.replace("'", "''")
                         + "')");
         runAttachedCatalogSourceAndSink(
-                initStatements, "route_" + UUID.randomUUID().toString().replace("-", ""));
+                initStatements,
+                "route_" + UUID.randomUUID().toString().replace("-", ""),
+                Integer.getInteger("ducklake.s3.parallelism", 1));
     }
 
     private void runAttachedCatalogSourceAndSink(boolean duckLake) throws Exception {
@@ -187,19 +189,22 @@ public class DuckDBSourceAndSinkTest {
                             + "'");
             Path dataPath = Files.createDirectory(tempDir.resolve("data"));
             initStatements.add(
-                    "ATTACH 'ducklake:sqlite:"
+                    "ATTACH IF NOT EXISTS 'ducklake:sqlite:"
                             + tempDir.resolve("catalog.sqlite").toString().replace("'", "''")
                             + "' AS lake (DATA_PATH '"
                             + dataPath.toString().replace("'", "''")
                             + "')");
         } else {
-            initStatements.add("ATTACH '" + lakePath.toString().replace("'", "''") + "' AS lake");
+            initStatements.add(
+                    "ATTACH IF NOT EXISTS '"
+                            + lakePath.toString().replace("'", "''")
+                            + "' AS lake");
         }
-        runAttachedCatalogSourceAndSink(initStatements, "route");
+        runAttachedCatalogSourceAndSink(initStatements, "route", duckLake ? 1 : 2);
     }
 
-    private void runAttachedCatalogSourceAndSink(List<String> initStatements, String tableName)
-            throws Exception {
+    private void runAttachedCatalogSourceAndSink(
+            List<String> initStatements, String tableName, int parallelism) throws Exception {
         Path localPath = tempDir.resolve("local.db");
         Path initPath = tempDir.resolve("init.sql");
         String localUrl = "jdbc:duckdb:" + localPath;
@@ -246,8 +251,12 @@ public class DuckDBSourceAndSinkTest {
         } finally {
             catalog.close();
         }
-        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
-                catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
+        SinkFlowTestUtils.runParallelSubtasksBatchWithCheckpointDisabled(
+                catalogTable,
+                ReadonlyConfig.fromMap(sinkOptions),
+                new JdbcSinkFactory(),
+                rows,
+                parallelism);
         try (Connection connection = DriverManager.getConnection(localUrl);
                 Statement statement = connection.createStatement()) {
             executeInitStatements(statement, initStatements);
@@ -255,8 +264,8 @@ public class DuckDBSourceAndSinkTest {
                     statement.executeQuery(
                             "SELECT SUM(id), COUNT(*) FROM lake.main." + tableName)) {
                 Assertions.assertTrue(result.next());
-                Assertions.assertEquals(4, result.getInt(1));
-                Assertions.assertEquals(2, result.getInt(2));
+                Assertions.assertEquals(2 * (parallelism + 1), result.getInt(1));
+                Assertions.assertEquals(parallelism + 1, result.getInt(2));
             }
             try (ResultSet result = statement.executeQuery("SELECT id FROM main." + tableName)) {
                 Assertions.assertTrue(result.next());

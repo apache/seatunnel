@@ -39,10 +39,10 @@ DuckLake tables can be read through DuckDB JDBC after every connection attaches 
 /* DUCKDB_CONNECTION_INIT_BELOW_MARKER */
 LOAD ducklake;
 LOAD sqlite_scanner;
-ATTACH 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
+ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
 ```
 
-Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. The init file and required extensions must be available to every worker. For a PostgreSQL metadata catalog or object-store data path, provide the corresponding DuckLake `ATTACH` statement and credentials according to the DuckLake documentation; keep credentials out of job configuration and version control. This is a batch JDBC path and does not add DuckLake-specific CDC or exactly-once guarantees.
+Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. Use `ATTACH IF NOT EXISTS` in the init file because a worker can open multiple connections to the same DuckDB database; a repeated plain `ATTACH` fails. The init file and required extensions must be available to every worker. For a PostgreSQL metadata catalog or object-store data path, use the corresponding `ATTACH IF NOT EXISTS` statement and credentials according to the DuckLake documentation; keep credentials out of job configuration and version control. This is a batch JDBC path and does not add DuckLake-specific CDC or exactly-once guarantees.
 
 ## Key Features
 

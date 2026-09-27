@@ -36,10 +36,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 /* DUCKDB_CONNECTION_INIT_BELOW_MARKER */
 LOAD ducklake;
 LOAD sqlite_scanner;
-ATTACH 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
+ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
 ```
 
-JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。每个 Worker 都需要能读取初始化文件和扩展。若元数据存于 PostgreSQL、数据存于对象存储，应按 DuckLake 文档配置相应的 `ATTACH` 与凭据，并避免将凭据写入作业配置或版本库。此路径是 JDBC 批量读取，不额外提供 DuckLake CDC 或精确一次保证。
+JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。初始化文件应使用 `ATTACH IF NOT EXISTS`，因为一个 Worker 可能对同一 DuckDB 数据库建立多个连接，重复执行普通 `ATTACH` 会失败。每个 Worker 都需要能读取初始化文件和扩展。若元数据存于 PostgreSQL、数据存于对象存储，应按 DuckLake 文档配置相应的 `ATTACH IF NOT EXISTS` 与凭据，并避免将凭据写入作业配置或版本库。此路径是 JDBC 批量读取，不额外提供 DuckLake CDC 或精确一次保证。
 
 ## 主要功能
 
