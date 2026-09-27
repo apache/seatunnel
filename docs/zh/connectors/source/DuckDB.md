@@ -41,6 +41,8 @@ ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake 
 
 JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。初始化文件应使用 `ATTACH IF NOT EXISTS`，因为一个 Worker 可能对同一 DuckDB 数据库建立多个连接，重复执行普通 `ATTACH` 会失败。每个 Worker 都需要能读取初始化文件和扩展。
 
+若作业只访问已挂载的 DuckLake 表，也可使用 `url = "jdbc:duckdb:;session_init_sql_file=/etc/duckdb/lake-init.sql"`，让每个 JDBC 连接使用独立的 DuckDB 内存实例（已用 JDBC 1.3.1 验证 Source/Sink 和重新连接）。湖数据仍持久化在元数据数据库和数据路径中。若使用文件形式的 `work.db`，应让它仅由一个 Worker JVM 使用；不要让多个 Worker 进程以读写模式打开同一文件，也不要为此将文件放到共享卷。原因见 [DuckDB 并发说明](https://duckdb.org/docs/stable/connect/concurrency.html)。
+
 若已有 DuckLake 的元数据存于 PostgreSQL，可将初始化文件中的 SQLite 语句替换为 `LOAD postgres` 和如下挂载语句：
 
 ```sql

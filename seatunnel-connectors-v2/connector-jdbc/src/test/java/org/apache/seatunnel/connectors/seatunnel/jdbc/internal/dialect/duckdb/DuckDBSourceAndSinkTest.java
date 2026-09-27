@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 
+import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Assumptions;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.UUID;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -139,6 +141,15 @@ public class DuckDBSourceAndSinkTest {
 
     @SneakyThrows
     @Test
+    public void testDuckLakeInMemorySourceAndSink() {
+        Assumptions.assumeTrue(
+                System.getProperty("ducklake.extension") != null
+                        && System.getProperty("sqlite.scanner.extension") != null);
+        runAttachedCatalogSourceAndSink(true, true);
+    }
+
+    @SneakyThrows
+    @Test
     public void testPostgresS3DuckLakeSourceAndSink() {
         String duckLakeExtension = System.getProperty("ducklake.extension");
         String pgConnection = System.getProperty("ducklake.pg.connection");
@@ -178,6 +189,11 @@ public class DuckDBSourceAndSinkTest {
     }
 
     private void runAttachedCatalogSourceAndSink(boolean duckLake) throws Exception {
+        runAttachedCatalogSourceAndSink(duckLake, false);
+    }
+
+    private void runAttachedCatalogSourceAndSink(boolean duckLake, boolean inMemory)
+            throws Exception {
         Path lakePath = tempDir.resolve("lake.db");
         List<String> initStatements = new ArrayList<>();
         if (duckLake) {
@@ -200,20 +216,28 @@ public class DuckDBSourceAndSinkTest {
                             + lakePath.toString().replace("'", "''")
                             + "' AS lake");
         }
-        runAttachedCatalogSourceAndSink(initStatements, "route", duckLake ? 1 : 2);
+        runAttachedCatalogSourceAndSink(initStatements, "route", duckLake ? 1 : 2, inMemory);
     }
 
     private void runAttachedCatalogSourceAndSink(
             List<String> initStatements, String tableName, int parallelism) throws Exception {
+        runAttachedCatalogSourceAndSink(initStatements, tableName, parallelism, false);
+    }
+
+    private void runAttachedCatalogSourceAndSink(
+            List<String> initStatements, String tableName, int parallelism, boolean inMemory)
+            throws Exception {
         Path localPath = tempDir.resolve("local.db");
         Path initPath = tempDir.resolve("init.sql");
-        String localUrl = "jdbc:duckdb:" + localPath;
-        try (Connection connection = DriverManager.getConnection(localUrl);
+        String localUrl = inMemory ? "jdbc:duckdb:" : "jdbc:duckdb:" + localPath;
+        try (Connection connection = new DuckDBDriver().connect(localUrl, new Properties());
                 Statement statement = connection.createStatement()) {
             executeInitStatements(statement, initStatements);
-            statement.execute("CREATE TABLE main." + tableName + " (id INTEGER)");
+            if (!inMemory) {
+                statement.execute("CREATE TABLE main." + tableName + " (id INTEGER)");
+                statement.execute("INSERT INTO main." + tableName + " VALUES (1)");
+            }
             statement.execute("CREATE TABLE lake.main." + tableName + " (id INTEGER)");
-            statement.execute("INSERT INTO main." + tableName + " VALUES (1)");
             statement.execute("INSERT INTO lake.main." + tableName + " VALUES (2)");
         }
         Files.write(
@@ -257,7 +281,7 @@ public class DuckDBSourceAndSinkTest {
                 new JdbcSinkFactory(),
                 rows,
                 parallelism);
-        try (Connection connection = DriverManager.getConnection(localUrl);
+        try (Connection connection = new DuckDBDriver().connect(localUrl, new Properties());
                 Statement statement = connection.createStatement()) {
             executeInitStatements(statement, initStatements);
             try (ResultSet result =
@@ -267,10 +291,13 @@ public class DuckDBSourceAndSinkTest {
                 Assertions.assertEquals(2 * (parallelism + 1), result.getInt(1));
                 Assertions.assertEquals(parallelism + 1, result.getInt(2));
             }
-            try (ResultSet result = statement.executeQuery("SELECT id FROM main." + tableName)) {
-                Assertions.assertTrue(result.next());
-                Assertions.assertEquals(1, result.getInt(1));
-                Assertions.assertFalse(result.next());
+            if (!inMemory) {
+                try (ResultSet result =
+                        statement.executeQuery("SELECT id FROM main." + tableName)) {
+                    Assertions.assertTrue(result.next());
+                    Assertions.assertEquals(1, result.getInt(1));
+                    Assertions.assertFalse(result.next());
+                }
             }
         }
     }

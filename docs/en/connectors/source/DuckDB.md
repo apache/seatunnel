@@ -44,6 +44,8 @@ ATTACH IF NOT EXISTS 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake 
 
 Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. Use `ATTACH IF NOT EXISTS` in the init file because a worker can open multiple connections to the same DuckDB database; a repeated plain `ATTACH` fails. The init file and required extensions must be available to every worker.
 
+If the job uses only attached DuckLake tables, `url = "jdbc:duckdb:;session_init_sql_file=/etc/duckdb/lake-init.sql"` can use a connection-private in-memory DuckDB instance instead (Source/Sink and reconnect verified with JDBC 1.3.1). The lake still persists in its metadata database and data path. If you use a file-backed `work.db`, keep it private to one worker JVM; do not open the same file read-write from multiple worker processes or place it on a shared volume for that purpose. See [DuckDB concurrency](https://duckdb.org/docs/stable/connect/concurrency.html).
+
 For an **existing** DuckLake with PostgreSQL metadata, replace the SQLite lines in the init file with `LOAD postgres` and, for example:
 
 ```sql
