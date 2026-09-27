@@ -301,6 +301,27 @@ public class CheckpointCoordinator {
         return pipelineId;
     }
 
+    /**
+     * Returns the id of the most recently completed checkpoint, or {@code -1} if none has completed
+     * yet.
+     *
+     * <p>{@code latestCompletedCheckpoint} is set at the very start of {@link
+     * #completePendingCheckpoint(CompletedCheckpoint)}, strictly before that method calls {@link
+     * #notifyCompleted(CompletedCheckpoint)} (which dispatches the completion notification RPC) and
+     * before it decrements {@code pendingCounter} (which gates the next checkpoint's creation). A
+     * caller that observes a given checkpoint id here is therefore only guaranteed that this
+     * checkpoint's barrier was fully acknowledged by every task; it is not by itself a signal that
+     * this checkpoint's own completion notification has finished. Exists purely for test
+     * observability, in the same spirit as {@link #getReadyToCloseImapKey()}.
+     *
+     * @return the latest completed checkpoint id, or -1 if no checkpoint has completed yet
+     */
+    @VisibleForTesting
+    public long getLatestCompletedCheckpointId() {
+        CompletedCheckpoint completed = latestCompletedCheckpoint;
+        return completed != null ? completed.getCheckpointId() : -1L;
+    }
+
     // --------------------------------------------------------------------------------------------
     // The start step of the coordinator
     // --------------------------------------------------------------------------------------------
