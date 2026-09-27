@@ -11,7 +11,7 @@ title: 常见问题
 
 ### edge-agent.id 是什么？
 
-安装根目录下的身份文件（与 edge-agent.pid 同级）。YAML 中省略 agent.id、input.id、output.id 时，Agent 在此读取或写入；YAML 显式 id 优先。详见 [身份文件](configuration.md#身份文件edge-agentid)。
+安装根目录下的身份文件（与 edge-agent.pid 同级）。YAML 中省略 agent.id、input.id、output.id 时，Agent 在此读取或写入；YAML 显式 id 优先。详见 [身份文件](configuration.md#身份文件)。
 
 ### agent.id、input.id、output.id 各做什么？
 
@@ -46,7 +46,7 @@ input.id。位点存在 WAL 数据库的 edge_agent_source_position 表中，按
 
 ## WAL 持久化
 
-默认路径、磁盘文件（data、-wal、-shm）及表内数据说明见[配置说明 — WAL 持久化文件](configuration.md#sqlite-持久化文件)。console 模式仍会使用该库。
+默认路径、磁盘文件（data、-wal、-shm）及表内数据说明见[配置说明 — WAL 持久化文件](configuration.md#wal-持久化文件)。console 模式仍会使用该库。
 
 ### WAL 状态 DEAD 是什么意思？
 

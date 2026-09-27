@@ -370,7 +370,13 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             }
         } finally {
             if (fileSystem != null) {
-                fileSystem.close();
+                try {
+                    fileSystem.close();
+                } finally {
+                    // Drop the reference so a later getFileSystem() re-initializes instead of
+                    // handing back a closed FileSystem.
+                    fileSystem = null;
+                }
             }
         }
     }
