@@ -50,12 +50,12 @@ class KafkaSinkCommitterTest {
         ClassLoader originalClassLoader = thread.getContextClassLoader();
         ClassLoader engineClassLoader = new ClassLoader(originalClassLoader) {};
         KafkaInternalProducer<?, ?> producer = Mockito.mock(KafkaInternalProducer.class);
-        java.util.concurrent.atomic.AtomicReference<ClassLoader> observedClassLoader =
+        java.util.concurrent.atomic.AtomicReference<ClassLoader> observedOperationClassLoader =
                 new java.util.concurrent.atomic.AtomicReference<>();
         if (commit) {
             Mockito.doAnswer(
                             invocation -> {
-                                observedClassLoader.set(thread.getContextClassLoader());
+                                observedOperationClassLoader.set(thread.getContextClassLoader());
                                 return null;
                             })
                     .when(producer)
@@ -63,15 +63,17 @@ class KafkaSinkCommitterTest {
         } else {
             Mockito.doAnswer(
                             invocation -> {
-                                observedClassLoader.set(thread.getContextClassLoader());
+                                observedOperationClassLoader.set(thread.getContextClassLoader());
                                 return null;
                             })
                     .when(producer)
                     .abortTransaction();
         }
+        java.util.concurrent.atomic.AtomicReference<ClassLoader> observedCloseClassLoader =
+                new java.util.concurrent.atomic.AtomicReference<>();
         Mockito.doAnswer(
                         invocation -> {
-                            observedClassLoader.set(thread.getContextClassLoader());
+                            observedCloseClassLoader.set(thread.getContextClassLoader());
                             return null;
                         })
                 .when(producer)
@@ -92,7 +94,8 @@ class KafkaSinkCommitterTest {
             } else {
                 committer.abort(Collections.singletonList(commitInfo));
             }
-            Assertions.assertSame(connectorClassLoader, observedClassLoader.get());
+            Assertions.assertSame(connectorClassLoader, observedOperationClassLoader.get());
+            Assertions.assertSame(connectorClassLoader, observedCloseClassLoader.get());
             Assertions.assertSame(engineClassLoader, thread.getContextClassLoader());
         } finally {
             thread.setContextClassLoader(originalClassLoader);
