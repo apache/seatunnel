@@ -90,7 +90,7 @@ public class DuckDBCatalogTest {
     @Order(0)
     public void testDatabaseExists() {
         Assertions.assertTrue(catalog.databaseExists(DATABASE_NAME));
-        Assertions.assertTrue(catalog.databaseExists("non_existing_db"));
+        Assertions.assertFalse(catalog.databaseExists("non_existing_db"));
     }
 
     @Test
@@ -209,6 +209,42 @@ public class DuckDBCatalogTest {
         }
         Assertions.assertFalse(catalog.tableExists(tablePath));
         Assertions.assertFalse(catalog.tableExists(copyPath));
+    }
+
+    @Test
+    @Order(8)
+    public void testAttachedDatabaseDoesNotMixTableMetadata() throws Exception {
+        TablePath local = TablePath.of(DATABASE_NAME, SCHEMA_NAME, "same_name");
+        TablePath lake = TablePath.of("lake", SCHEMA_NAME, "same_name");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute("ATTACH ':memory:' AS lake");
+            try {
+                statement.execute("CREATE TABLE main.same_name (local_column INTEGER)");
+                statement.execute("CREATE TABLE lake.main.same_name (lake_column VARCHAR)");
+                Assertions.assertTrue(catalog.databaseExists(DATABASE_NAME));
+                Assertions.assertTrue(catalog.databaseExists("lake"));
+                Assertions.assertFalse(catalog.databaseExists("missing_lake"));
+                Assertions.assertTrue(catalog.listDatabases().contains("lake"));
+                Assertions.assertTrue(catalog.tableExists(local));
+                Assertions.assertTrue(catalog.tableExists(lake));
+                Assertions.assertEquals(
+                        "local_column",
+                        catalog.getTable(local).getTableSchema().getColumns().get(0).getName());
+                Assertions.assertEquals(
+                        "lake_column",
+                        catalog.getTable(lake).getTableSchema().getColumns().get(0).getName());
+                Assertions.assertEquals(
+                        1, catalog.getTable(lake).getTableSchema().getColumns().size());
+                Assertions.assertEquals(
+                        "lake.main.same_name",
+                        catalog.getTable(lake).getOptions().get("table-name"));
+                Assertions.assertEquals(
+                        Collections.singletonList("main.same_name"), catalog.listTables("lake"));
+            } finally {
+                statement.execute("DETACH lake");
+                statement.execute("DROP TABLE main.same_name");
+            }
+        }
     }
 
     private void createTestTable(String tableName) throws Exception {

@@ -33,13 +33,18 @@ import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.SneakyThrows;
 
 import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -51,6 +56,8 @@ import java.util.Map;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DuckDBSourceAndSinkTest {
+
+    @TempDir Path tempDir;
 
     private static final String DATABASE_NAME = "default";
     private static final String SCHEMA_NAME = "main";
@@ -112,6 +119,113 @@ public class DuckDBSourceAndSinkTest {
                 catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
         Assertions.assertEquals(
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
+    }
+
+    @SneakyThrows
+    @Test
+    public void testAttachedCatalogSourceAndSink() {
+        runAttachedCatalogSourceAndSink(false);
+    }
+
+    @SneakyThrows
+    @Test
+    public void testDuckLakeSourceAndSink() {
+        Assumptions.assumeTrue(
+                System.getProperty("ducklake.extension") != null
+                        && System.getProperty("sqlite.scanner.extension") != null);
+        runAttachedCatalogSourceAndSink(true);
+    }
+
+    private void runAttachedCatalogSourceAndSink(boolean duckLake) throws Exception {
+        Path localPath = tempDir.resolve("local.db");
+        Path lakePath = tempDir.resolve("lake.db");
+        Path initPath = tempDir.resolve("init.sql");
+        String localUrl = "jdbc:duckdb:" + localPath;
+        List<String> initStatements = new ArrayList<>();
+        if (duckLake) {
+            initStatements.add(
+                    "LOAD '" + System.getProperty("ducklake.extension").replace("'", "''") + "'");
+            initStatements.add(
+                    "LOAD '"
+                            + System.getProperty("sqlite.scanner.extension").replace("'", "''")
+                            + "'");
+            Path dataPath = Files.createDirectory(tempDir.resolve("data"));
+            initStatements.add(
+                    "ATTACH 'ducklake:sqlite:"
+                            + tempDir.resolve("catalog.sqlite").toString().replace("'", "''")
+                            + "' AS lake (DATA_PATH '"
+                            + dataPath.toString().replace("'", "''")
+                            + "')");
+        } else {
+            initStatements.add("ATTACH '" + lakePath.toString().replace("'", "''") + "' AS lake");
+        }
+        try (Connection connection = DriverManager.getConnection(localUrl);
+                Statement statement = connection.createStatement()) {
+            executeInitStatements(statement, initStatements);
+            statement.execute("CREATE TABLE main.route (id INTEGER)");
+            statement.execute("CREATE TABLE lake.main.route (id INTEGER)");
+            statement.execute("INSERT INTO main.route VALUES (1)");
+            statement.execute("INSERT INTO lake.main.route VALUES (2)");
+        }
+        Files.write(
+                initPath,
+                ("/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */\n"
+                                + String.join(";\n", initStatements)
+                                + ";\n")
+                        .getBytes(StandardCharsets.UTF_8));
+        String attachedUrl = localUrl + ";session_init_sql_file=" + initPath;
+        Map<String, Object> sourceOptions = new HashMap<>();
+        sourceOptions.put("url", attachedUrl);
+        sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sourceOptions.put("table_path", "lake.main.route");
+        List<SeaTunnelRow> rows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+        Assertions.assertEquals(1, rows.size());
+        Assertions.assertEquals(2, rows.get(0).getField(0));
+
+        Map<String, Object> sinkOptions = new HashMap<>();
+        sinkOptions.put("url", attachedUrl);
+        sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
+        sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        sinkOptions.put("database", "lake");
+        sinkOptions.put("table", "main.route");
+        sinkOptions.put("generate_sink_sql", true);
+        sinkOptions.put("query", "");
+        DuckDBCatalog catalog =
+                new DuckDBCatalog(CATALOG_NAME, DuckDBURLParser.parse(attachedUrl), SCHEMA_NAME);
+        catalog.open();
+        CatalogTable catalogTable;
+        try {
+            catalogTable = catalog.getTable(TablePath.of("lake", "main", "route"));
+        } finally {
+            catalog.close();
+        }
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
+        try (Connection connection = DriverManager.getConnection(localUrl);
+                Statement statement = connection.createStatement()) {
+            executeInitStatements(statement, initStatements);
+            try (ResultSet result =
+                    statement.executeQuery("SELECT SUM(id), COUNT(*) FROM lake.main.route")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(4, result.getInt(1));
+                Assertions.assertEquals(2, result.getInt(2));
+            }
+            try (ResultSet result = statement.executeQuery("SELECT id FROM main.route")) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(1, result.getInt(1));
+                Assertions.assertFalse(result.next());
+            }
+        }
+    }
+
+    private void executeInitStatements(Statement statement, List<String> statements)
+            throws Exception {
+        for (String sql : statements) {
+            statement.execute(sql);
+        }
     }
 
     @AfterAll

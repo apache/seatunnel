@@ -95,6 +95,31 @@ public class DuckDBDialectTest {
     }
 
     @Test
+    void testAttachedDatabaseTableIdentifier() throws Exception {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("ATTACH ':memory:' AS lake");
+            try {
+                statement.execute("CREATE TABLE lake.main.dialect_test (id INTEGER, name VARCHAR)");
+                statement.execute("INSERT INTO lake.main.dialect_test VALUES (42, 'lake')");
+                TablePath attached = dialect.parse("lake.main.dialect_test");
+                Assertions.assertEquals(
+                        "\"lake\".\"main\".\"dialect_test\"", dialect.tableIdentifier(attached));
+                Assertions.assertEquals(
+                        "\"lake\".\"main\".\"dialect_test\"",
+                        dialect.tableIdentifier("lake", "main.dialect_test"));
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT id FROM " + dialect.tableIdentifier(attached))) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(42, resultSet.getInt(1));
+                }
+            } finally {
+                statement.execute("DETACH lake");
+            }
+        }
+    }
+
+    @Test
     void testHashModForFieldExecution() throws Exception {
         insertRows(1, 2, 3, 4);
         String hashExpression = dialect.hashModForField("id", 3);

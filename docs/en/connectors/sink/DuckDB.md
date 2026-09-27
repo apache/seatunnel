@@ -31,6 +31,10 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
+## Writing to an attached DuckLake catalog
+
+Attach the lake on every JDBC connection using the driver's `session_init_sql_file` URL option (verified with DuckDB JDBC 1.3.1). For example, put the DuckLake `LOAD` and `ATTACH` statements below the `/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */` marker in `/etc/duckdb/lake-init.sql` on each worker, as shown in the [DuckDB source guide](../source/DuckDB.md#reading-an-attached-ducklake-catalog). Then configure the JDBC sink with `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"`, `database = "lake"`, `table = "main.events"`, and `generate_sink_sql = true`. The target table must exist before an append-only job. Keep the init file and any object-store or metadata-catalog credentials available to each worker but outside version control. DuckLake writes through this path are JDBC batch writes; they do not imply XA-based exactly-once delivery.
+
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)

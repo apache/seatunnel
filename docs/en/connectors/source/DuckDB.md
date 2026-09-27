@@ -31,6 +31,19 @@ and reading multiple tables in one job through `table_list`.
 
 > 1. You need to ensure that the [jdbc driver jar package](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) has been placed in directory `${SEATUNNEL_HOME}/lib/`.
 
+## Reading an attached DuckLake catalog
+
+DuckLake tables can be read through DuckDB JDBC after every connection attaches the lake. With a DuckDB JDBC driver that supports `session_init_sql_file` (verified with 1.3.1), put the following in `/etc/duckdb/lake-init.sql` on each worker:
+
+```sql
+/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */
+LOAD ducklake;
+LOAD sqlite_scanner;
+ATTACH 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
+```
+
+Use `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` and `table_path = "lake.main.events"` in the JDBC source. The three components are the attached catalog, schema, and table. The init file and required extensions must be available to every worker. For a PostgreSQL metadata catalog or object-store data path, provide the corresponding DuckLake `ATTACH` statement and credentials according to the DuckLake documentation; keep credentials out of job configuration and version control. This is a batch JDBC path and does not add DuckLake-specific CDC or exactly-once guarantees.
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)

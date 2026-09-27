@@ -100,6 +100,13 @@ public class DuckDBDialect implements JdbcDialect {
         if (schemaName == null || schemaName.trim().isEmpty()) {
             schemaName = "main";
         }
-        return String.format("\"%s\".\"%s\"", schemaName, tablePath.getTableName());
+        String databaseName = tablePath.getDatabaseName();
+        if (databaseName == null
+                || DEFAULT_DATABASE_NAME.equals(databaseName)
+                || DEFAULT_SCHEMA_NAME.equals(databaseName)) {
+            return String.format("\"%s\".\"%s\"", schemaName, tablePath.getTableName());
+        }
+        return String.format(
+                "\"%s\".\"%s\".\"%s\"", databaseName, schemaName, tablePath.getTableName());
     }
 }

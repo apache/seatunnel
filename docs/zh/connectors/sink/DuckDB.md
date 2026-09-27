@@ -28,6 +28,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) 已放置在目录 `${SEATUNNEL_HOME}/lib/` 中。
 
+## 写入已挂载的 DuckLake catalog
+
+通过 DuckDB JDBC 驱动的 `session_init_sql_file` URL 参数让每个连接挂载目标湖（已用 DuckDB JDBC 1.3.1 验证）。例如，在每个 Worker 的 `/etc/duckdb/lake-init.sql` 中，把 DuckLake 的 `LOAD` 和 `ATTACH` 语句放在 `/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */` 标记之后，写法见 [DuckDB Source 文档](../source/DuckDB.md#读取已挂载的-ducklake-catalog)。JDBC Sink 设置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"`、`database = "lake"`、`table = "main.events"` 和 `generate_sink_sql = true`。追加写入前目标表必须已存在。初始化文件以及元数据目录、对象存储凭据须在每个 Worker 上可用，且不要提交到版本库。此路径提供 JDBC 批量写入，不代表具有基于 XA 的精确一次交付保证。
+
 ## 主要功能
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)

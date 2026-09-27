@@ -28,6 +28,19 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > 1. 您需要确保 [jdbc 驱动程序 jar 包](https://mvnrepository.com/artifact/org.duckdb/duckdb_jdbc) 已放置在目录 `${SEATUNNEL_HOME}/lib/` 中。
 
+## 读取已挂载的 DuckLake catalog
+
+通过 DuckDB JDBC 读取 DuckLake 时，每个连接都必须挂载目标湖。使用支持 `session_init_sql_file` 的 DuckDB JDBC 驱动（已用 1.3.1 验证），在每个 Worker 的 `/etc/duckdb/lake-init.sql` 中放入：
+
+```sql
+/* DUCKDB_CONNECTION_INIT_BELOW_MARKER */
+LOAD ducklake;
+LOAD sqlite_scanner;
+ATTACH 'ducklake:sqlite:/var/lib/ducklake/catalog.sqlite' AS lake (DATA_PATH '/var/lib/ducklake/data/');
+```
+
+JDBC Source 配置 `url = "jdbc:duckdb:/var/lib/duckdb/work.db;session_init_sql_file=/etc/duckdb/lake-init.sql"` 和 `table_path = "lake.main.events"`；三个名称依次是已挂载的 catalog、schema 和表。每个 Worker 都需要能读取初始化文件和扩展。若元数据存于 PostgreSQL、数据存于对象存储，应按 DuckLake 文档配置相应的 `ATTACH` 与凭据，并避免将凭据写入作业配置或版本库。此路径是 JDBC 批量读取，不额外提供 DuckLake CDC 或精确一次保证。
+
 ## 主要功能
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
