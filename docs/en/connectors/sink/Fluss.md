@@ -48,6 +48,12 @@ The target table schema should match the upstream SeaTunnel row schema by field 
 | multi_table_sink_replica | int | no | 1 | Number of writer replicas for multi-table sink mode. |
 | common-options | - | no | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
+### bootstrap.servers
+
+The Fluss coordinator address.
+
+This value must not be empty or contain only whitespace.
+
 ### database
 
 When `database` is not configured, the sink uses the upstream database name from the input table identifier.
