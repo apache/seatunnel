@@ -19,6 +19,8 @@ package org.apache.seatunnel.e2e.connector.fake;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.ReuseTestContainers;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -26,10 +28,14 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 
+@ReuseTestContainers(TestContainerId.SEATUNNEL)
 public class FakeIT extends TestSuiteBase {
     @TestTemplate
     public void testFakeConnector(TestContainer container)
             throws IOException, InterruptedException {
+        if (container.identifier() == TestContainerId.SEATUNNEL) {
+            SharedContainerTestSupport.assertSameContainer(container);
+        }
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_assert.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Container.ExecResult fakeWithRange =
