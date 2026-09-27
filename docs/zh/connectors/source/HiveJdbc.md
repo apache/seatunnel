@@ -50,7 +50,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | Hive 数据类型                                                                                 | SeaTunnel 数据类型    |
 |-------------------------------------------------------------------------------------------|-------------------|
 | BOOLEAN                                                                                   | BOOLEAN           |
-| TINYINT<br/> SMALLINT                                                                     | SHORT             |
+| TINYINT                                                                                    | BYTE           |
+| SMALLINT                                                                                   | SHORT             |
 | INT<br/>INTEGER                                                                           | INT               |
 | BIGINT                                                                                    | LONG              |
 | FLOAT                                                                                     | FLOAT             |
@@ -77,7 +78,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | partition_column             | String     | 否  | -               | 并行分区的列名，仅支持数值类型主键，且只能配置一列。 |
 | partition_lower_bound        | BigDecimal | 否  | -               | 扫描的分区列最小值。如果未设置，SeaTunnel 将查询数据库获取最小值。 |
 | partition_upper_bound        | BigDecimal | 否  | -               | 扫描的分区列最大值。如果未设置，SeaTunnel 将查询数据库获取最大值。 |
-| partition_num                | Int        | 否  | job parallelism | 分区数量，仅支持正整数。默认值是作业并行数。 |
+| partition_num                | Int        | 否  | 10              | 分区数量，仅支持正整数。默认值是 10。 |
 | fetch_size                   | Int        | 否  | 0               | 对于返回大量行的查询，可配置 JDBC 一次获取的行数，通过减少访问数据库的次数来提升性能。`0` 表示使用 JDBC 驱动默认。 |
 | common-options               |            | 否  | -               | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md)。 |
 | use_kerberos                 | Boolean    | 否  | false           | 是否启用 Kerberos 认证。 |
