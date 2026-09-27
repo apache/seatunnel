@@ -48,6 +48,14 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | ARRAY               | Array                                                                                                                                         |
 | MAP                 | Map                                                                                                                                           |
 
+### Timezone-aware timestamps
+
+Scalar `TIMESTAMP_TZ` values can be written to existing `DateTime` and `DateTime64` columns, including nullable columns. The sink preserves the instant represented by the input offset. `DateTime` stores whole seconds; `DateTime64` stores fractional seconds up to the target column's precision. ClickHouse uses a column-level timezone and does not retain the original offset of each row.
+
+The sink uses explicit UTC conversions for these fields, including update and delete conditions. Inserts containing these fields use the driver's SQL-based batching instead of its binary input path. Inserts without these fields retain the existing path.
+
+Create the target table before running the job. Automatic table creation for `TIMESTAMP_TZ` and timezone-aware timestamps inside arrays or maps are not supported by this mapping.
+
 ## Sink Options
 
 |                 Name                  |  Type   | Required | Default |                                                                                                                                                 Description                                                                                                                                                 |
@@ -68,6 +76,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | data_save_mode                       | Enum    | No       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                                                                                                                                                      |
 | custom_sql                           | String  | No       | -                            | Required when `data_save_mode = CUSTOM_PROCESSING`. The SQL is executed before the synchronization task starts.                                                                                                                                                                           |
 | save_mode_create_template            | String  | No       | see below                    | Template used to create the ClickHouse table when schema save mode creates a table.                                                                                                                                                                                                      |
+| server_time_zone                     | String  | No       | JVM system default           | The session time zone of the ClickHouse server. Defaults to the JVM system time zone (`ZoneId.systemDefault()`).                                                                                                                                              |
+| multi_table_sink_replica             | Int     | No       | 1                            | The number of replicas for multi-table write. When `multi_table_sink_replica > 1`, the data is written to multiple tables in parallel.                                                                                                                          |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                                                                |
 
 ### schema_save_mode [Enum]

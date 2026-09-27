@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 `Source: HugeGraph`
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The HugeGraph source connector reads graph data from Apache HugeGraph through the HugeGraph REST API.
@@ -88,6 +94,8 @@ Notes:
 
 ## Example
 
+### Read a vertex label with explicit schema
+
 ```hocon
 source {
   HugeGraph {
@@ -97,6 +105,58 @@ source {
     label = "person"
     label_type = "VERTEX"
     page_size = 1000
+    schema = {
+      fields = {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+```
+
+### Read an edge label
+
+To read edges instead of vertices, set `label_type = "EDGE"` and list the edge
+properties in `schema.fields`. The output also includes the reserved columns
+`~source_id`, `~source_label`, `~target_id`, `~target_label`.
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label = "knows"
+    label_type = "EDGE"
+    schema = {
+      fields = {
+        since = "int"
+      }
+    }
+  }
+}
+```
+
+### Read with a server-side property filter
+
+`filter` requires `parallelism = 1` (the job fails fast if `filter` is combined
+with `parallelism > 1`); with that setting, configure `filter` to push a
+property-equality condition to the server. Only elements whose properties match
+every entry are returned.
+
+```hocon
+source {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    label = "person"
+    label_type = "VERTEX"
+    filter = {
+      country = "US"
+      active = "true"
+    }
     schema = {
       fields = {
         name = "string"

@@ -17,18 +17,22 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
@@ -91,6 +95,40 @@ public class SQLTransformTest {
     }
 
     @Test
+    void testRestoreSchemaEventRebuildsProducedSchema() {
+        CatalogTable initialTable = getCatalogTable();
+        SQLTransform sqlTransform =
+                new SQLTransform(
+                        ReadonlyConfig.fromMap(
+                                Collections.singletonMap("query", "select * from dual")),
+                        initialTable);
+        CatalogTable restoredTable =
+                CatalogTable.of(
+                        initialTable.getTableId(),
+                        TableSchema.builder()
+                                .columns(initialTable.getTableSchema().getColumns())
+                                .column(
+                                        PhysicalColumn.of(
+                                                "email",
+                                                BasicType.STRING_TYPE,
+                                                128L,
+                                                true,
+                                                null,
+                                                null))
+                                .build(),
+                        initialTable.getOptions(),
+                        initialTable.getPartitionKeys(),
+                        initialTable.getComment());
+
+        RestoreTableSchemaEvent event = new RestoreTableSchemaEvent(restoredTable);
+        sqlTransform.mapSchemaChangeEvent(event);
+
+        Assertions.assertEquals(5, event.getChangeAfter().getTableSchema().getColumns().size());
+        Assertions.assertEquals(
+                "email", event.getChangeAfter().getTableSchema().getFieldNames()[4]);
+    }
+
+    @Test
     public void testNotLoseSourceTypeAndOptions() {
         SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
         TableSchema tableSchema = sqlTransform.transformTableSchema();
@@ -105,6 +143,43 @@ public class SQLTransformTest {
                                         "testInSQL", column.getOptions().get("context"));
                             }
                         });
+    }
+
+    @Test
+    public void testClassifyRowError() {
+        SQLTransform sqlTransform = new SQLTransform(READONLY_CONFIG, getCatalogTable());
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "name", 18, null});
+
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.sqlExpressionError(
+                                "select * from dual", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.ROW_ERROR,
+                sqlTransform.classifyRowError(
+                        new RuntimeException(
+                                TransformCommonError.sqlWhereStatementError(
+                                        "id > 0", new RuntimeException("error"))),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.encryptionError("name", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.sqlWhereStatementError(
+                                "id BETWEEN 1 AND 5",
+                                new TransformException(
+                                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                        "Unsupported SQL Expression")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(new RuntimeException("error"), row));
     }
 
     private CatalogTable getCatalogTable() {

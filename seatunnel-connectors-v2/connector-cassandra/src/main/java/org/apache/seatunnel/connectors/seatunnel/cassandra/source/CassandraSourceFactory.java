@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cassandra.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -30,6 +34,8 @@ import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParam
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.Map;
 
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.CONSISTENCY_LEVEL;
 import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraSourceOptions.CQL;
@@ -41,6 +47,10 @@ import static org.apache.seatunnel.connectors.seatunnel.cassandra.config.Cassand
 
 @AutoService(Factory.class)
 public class CassandraSourceFactory implements TableSourceFactory {
+
+    private static final String CONSISTENCY_LEVEL_REGEX =
+            "^(ANY|ONE|TWO|THREE|QUORUM|ALL|LOCAL_QUORUM|EACH_QUORUM|SERIAL|LOCAL_SERIAL|LOCAL_ONE)$";
+
     @Override
     public String factoryIdentifier() {
         return "Cassandra";
@@ -49,11 +59,46 @@ public class CassandraSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(HOST, KEYSPACE)
+                .required(HOST, Conditions.notBlank(HOST))
+                .required(KEYSPACE, Conditions.notBlank(KEYSPACE))
                 .exclusive(CQL, ConnectorCommonOptions.TABLE_CONFIGS)
                 .bundled(USERNAME, PASSWORD)
-                .optional(DATACENTER, CONSISTENCY_LEVEL)
+                .optional(CQL, Conditions.notBlank(CQL))
+                .optional(
+                        ConnectorCommonOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(ConnectorCommonOptions.TABLE_CONFIGS),
+                        Conditions.extension(
+                                ConnectorCommonOptions.TABLE_CONFIGS, new TableConfigsValidator()))
+                .optional(DATACENTER)
+                .optional(
+                        CONSISTENCY_LEVEL,
+                        Conditions.matches(CONSISTENCY_LEVEL, CONSISTENCY_LEVEL_REGEX))
                 .build();
+    }
+
+    static class TableConfigsValidator implements ConditionExtension<List<Map<String, Object>>> {
+
+        @Override
+        public String description() {
+            return "each 'tables_configs' entry must contain a non-blank 'cql'";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> entries)
+                throws OptionValidationException {
+            if (entries == null || entries.isEmpty()) {
+                return true;
+            }
+            for (int i = 0; i < entries.size(); i++) {
+                Map<String, Object> tableConfig = entries.get(i);
+                Object cql = tableConfig == null ? null : tableConfig.get(CQL.key());
+                if (!(cql instanceof String) || ((String) cql).trim().isEmpty()) {
+                    throw new OptionValidationException(
+                            "tables_configs[%d]: 'cql' must not be blank", i);
+                }
+            }
+            return true;
+        }
     }
 
     @Override

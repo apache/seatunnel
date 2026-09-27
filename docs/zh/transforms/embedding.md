@@ -75,7 +75,11 @@ provider 侧副作用。该配置不会改变下游 Sink 的幂等语义。
 运行时会记录 provider、model、batch size、attempt number、error category、retryable flag、elapsed time 等安全诊断上下文。
 日志不会记录 API key、secret key、完整源文本 chunk、二进制 payload 或完整 provider response body。
 
-Bedrock 现在也走统一的 common runtime 路径，因此 retry、timeout、响应解析和返回数量校验在各个 provider 之间保持一致。
+Bedrock 也走统一的 common runtime 路径，因此 retry、响应解析和返回数量校验在各个 provider 之间保持一致。
+
+对于 `AMAZON`，`model_retry_max_attempts` 统计 SeaTunnel 层的尝试次数。AWS SDK 在每次尝试内部仍可能执行 HTTP 重试，
+SDK 的重试策略保持不变。配置的重试和退避选项现在会传递到 Bedrock 运行时，而不再被 Transform 忽略。
+默认仍只执行一次 SeaTunnel 尝试。`model_request_timeout_ms` 目前不应用于 Bedrock SDK 调用；本次修改保留现有的 SDK 超时行为。
 
 运行时也提供了一个 cache 边界。当接入 cache 实现时，key 由 provider、model、输出配置、modality、format、规范化后的 metadata，
 以及规范化输入内容的 SHA-256 摘要组成。默认的生产 wiring 仍然使用 `ModelInvocationCache.NOOP`，因此在接入层显式启用缓存之前，

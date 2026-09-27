@@ -49,7 +49,7 @@ Change Data Capture connectors read real-time change events (INSERT / UPDATE / D
 
 | Connector | Common FAQ Topics |
 |---|---|
-| [JDBC Sink](./sink/Jdbc.md#faq) | Automatic table creation, exactly-once with XA transactions, upsert / primary key configuration, multi-table writing, missing JDBC driver |
+| [JDBC Sink](./sink/Jdbc.md#troubleshooting) | Automatic table creation, exactly-once with XA transactions, upsert / primary key configuration, multi-table writing, missing JDBC driver |
 
 ### Data Lakes / File Systems
 

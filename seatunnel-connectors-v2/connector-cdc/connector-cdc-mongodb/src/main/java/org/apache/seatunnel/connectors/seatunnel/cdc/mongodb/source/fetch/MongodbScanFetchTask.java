@@ -156,7 +156,8 @@ public class MongodbScanFetchTask implements FetchTask<SourceSplitBase> {
                     ILLEGAL_ARGUMENT,
                     String.format(
                             "Execute snapshot read subtask for mongodb split %s fail",
-                            snapshotSplit));
+                            snapshotSplit),
+                    e);
         } finally {
             taskRunning = false;
         }

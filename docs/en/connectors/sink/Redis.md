@@ -58,6 +58,19 @@ downloaded from Maven Central.
 | multi_table_sink_replica | int | No                          | 1       | Writer replica count for multi-table writes. |
 | common-options     | config  | No                          | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
+### Authentication
+
+In both `SINGLE` and `CLUSTER` mode, a nonblank `user` selects Redis ACL authentication
+(`AUTH user auth`, Redis 6 or later). The connector does not create or modify ACL users.
+Create the user and grant its required command and key permissions before starting the job, including
+`INFO` for connector initialization, `SELECT` in `SINGLE` mode, and `CLUSTER SLOTS` for topology
+discovery in `CLUSTER` mode.
+The password is passed unchanged, including whitespace; omitted or empty `auth` is sent as an empty
+password and only works if the ACL user accepts it (for example, a `nopass` user).
+
+If `user` is omitted, empty, or whitespace-only, nonblank `auth` uses password-only authentication
+as the default user. If both options are omitted or blank, no authentication command is sent.
+
 ## Write Rules
 
 ### key
@@ -95,6 +108,25 @@ Replica count for multi-table sink writers. It applies when upstream rows carry 
 
 For multi-table jobs, `key` may include `${table_name}` so rows from different upstream tables are written to separate
 Redis keys, for example `key = "redis-result-${table_name}"`.
+
+## Schema Evolution
+
+Redis Sink supports schema evolution with SeaTunnel Zeta. When the upstream is a CDC source, enable
+`schema-changes.enabled = true` in the source configuration so schema change events are sent to the sink.
+
+Redis is schema-less, so schema evolution does not execute DDL in Redis. Instead, when Redis Sink serializes the whole
+upstream row as JSON or TEXT, it refreshes the serializer after a supported schema change event. Newly added fields are
+included, and dropped fields are no longer written. See
+[Schema Evolution](../../introduction/configuration/schema-evolution.md) for the supported event types.
+
+Schema evolution does not rewrite field names configured in `key`, custom key placeholders, `value_field`,
+`hash_key_field`, or `hash_value_field`. Do not rename or drop a field referenced by these options while the job is
+running. If a configured field no longer exists, Redis Sink applies the missing-field behavior described in
+[Write Rules](#write-rules), which can turn the configured field name into a literal key or value.
+
+Before applying a schema change, Redis Sink flushes rows buffered with the previous schema. It also stores the latest
+schema in checkpoint state and restores that schema after recovery. Restoring a job from a checkpoint taken after a DDL
+while increasing the Redis sink parallelism is not currently supported.
 
 ## Examples
 

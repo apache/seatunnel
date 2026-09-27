@@ -26,7 +26,7 @@ MySQL CDC连接器允许从MySQL数据库读取快照和增量数据. 本文档�
 
 | 数据源 |                                                                  支持的版本                                                                  |          Driver          |               Url                |                                Maven                                 |
 |------------|------------------------------------------------------------------------------------------------------------------------------------|--------------------------|----------------------------------|----------------------------------------------------------------------|
-| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://www.aliyun.com/product/rds/mysql): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
+| MySQL      | <li> [MySQL](https://dev.mysql.com/doc): 5.5, 5.6, 5.7, 8.0.x </li><li> [RDS MySQL](https://help.aliyun.com/zh/rds/apsaradb-rds-for-mysql/): 5.6, 5.7, 8.0.x </li> | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | https://mvnrepository.com/artifact/mysql/mysql-connector-java/8.0.28 |
 
 ## 依赖
 
@@ -204,9 +204,10 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | stop.specific-offset.pos                  | Long     | 否    | -       | 从指定的binlog日志文件位置停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                        |
 | snapshot.split.size                       | Integer  | 否    | 8096    | 表快照的分割大小（行数）,读取表的快照时,被捕获的表会被分割成多个分割块.                                                                                                                                                                                                        |
 | snapshot.fetch.size                       | Integer  | 否    | 1024    | 每次轮询读取表快照时的最大获取大小.                                                                                                                                                                                                                           |
+| incremental.parallelism                   | Integer  | 否    | 1       | 增量（binlog）阶段并行读取器的数量.                                                                                                                                                                                                                       |
 | server-id                                 | String   | 否    | -       | 此 CDC 读取器使用的数字 ID 或数字 ID 范围，例如 `5400` 或 `5400-5408`。每个 ID 在 MySQL 集群中必须唯一。当任务有多个读取并发或并行读取多张表时，请配置足够大的 ID 范围。未配置时 SeaTunnel 会随机生成 ID，但生产环境建议显式配置。 |
-| server-time-zone                          | String   | 否    | UTC     | 数据库服务中的会话时区. 如果没设置, 使用 ZoneId.systemDefault() 来确定服务的时区.                                                                                                                                                                                      |
-| connect.timeout.ms                        | Duration | 否    | 30000   | 连接器在尝试连接数据库服务器后，在超时之前应等待的最长时间.                                                                                                                                                                                                               |
+| server-time-zone                          | String   | 否    | -       | 数据库服务中的会话时区. 如果没设置, 使用 ZoneId.systemDefault() 来确定服务的时区.                                                                                                                                                                                      |
+| connect.timeout.ms                        | Long     | 否    | 30000   | 连接器在尝试连接数据库服务器后，在超时之前应等待的最长时间.                                                                                                                                                                                                               |
 | connect.max-retries                       | Integer  | 否    | 3       | 连接器在构建数据库服务器连接时应重试的最大重试次数.                                                                                                                                                                                                                   |
 | connection.pool.size                      | Integer  | 否    | 20      | jdbc连接池大小.                                                                                                                                                                                                                                   |
 | chunk-key.even-distribution.factor.upper-bound | Double   | 否    | 100     | 块键分布因子的上限. 该因子用于确定表数据是否分布均匀. 如果分布式因子计算结果小于或等于此上限 (即., (MAX(id) - MIN(id) + 1) / row count), 表的分块将被优化以实现均匀分布. 否则, 如果分布因子大于此上限, 该表将被视为分布不均, 并且如果估计的分片数量超过 `sample-sharding.threshold` 所指定的值, 则将使用基于采样的分片策略. 默认值是100.0.                         |
@@ -473,7 +474,10 @@ sink {
 
 ### 读取没有主键的表
 
-对于没有物理主键的表，将 `exactly_once` 设为 `false`，并通过 `table-names-config.primaryKeys` 提供一列作为下游 upsert 所需的稳定行标识。
+根据源表能够提供的保证来选择合适的路径：
+
+- **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一配置主键作为稳定的行标识。
 
 ```hocon
 env {
@@ -489,12 +493,18 @@ source {
     password = "mysqlpw"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
     url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
-    exactly_once = false
+    table-names-config = [
+      {
+        table = "mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
   }
 }
 ```
 
-如果没有可用的主键（无论配置的或物理的），connector 就无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景或下游 sink 行为不依赖行标识时使用此模式。
+上述示例演示的是"逻辑主键"场景：源表本身没有物理主键，但通过 `table-names-config.primaryKeys` 显式声明了一列作为稳定行标识，并启用 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一逻辑主键。只有当被声明的列在源数据中确实保持唯一时，UPDATE/DELETE 才能被正确路由；如果源数据中存在重复值，行为将不再可靠。
 
 ### 从指定 Binlog 位置启动
 
