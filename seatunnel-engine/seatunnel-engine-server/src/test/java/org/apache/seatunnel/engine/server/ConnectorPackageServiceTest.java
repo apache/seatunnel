@@ -48,6 +48,9 @@ import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.core.parse.MultipleTableJobConfigParser;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.task.operation.DeleteConnectorJarInExecutionNode;
+import org.apache.seatunnel.engine.server.task.operation.SendConnectorJarToMemberNodeOperation;
+import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -166,6 +169,65 @@ public class ConnectorPackageServiceTest {
                                             e);
                                 }
                             });
+        } finally {
+            if (instance2 != null && instance2.node.isRunning()) {
+                instance2.shutdown();
+            }
+            if (instance1 != null && instance1.node.isRunning()) {
+                instance1.shutdown();
+            }
+        }
+    }
+
+    @Test
+    public void testConnectorJarOperationsSkipMasterOnlyNode() {
+        SEATUNNEL_CONFIG
+                .getHazelcastConfig()
+                .setClusterName(
+                        TestUtils.getClusterName(
+                                "ConnectorPackageServiceTest_testConnectorJarOperationsSkipMasterOnlyNode"));
+        HazelcastInstanceImpl instance1 = null;
+        HazelcastInstanceImpl instance2 = null;
+        try {
+            instance1 = SeaTunnelServerStarter.createMasterHazelcastInstance(SEATUNNEL_CONFIG);
+            instance2 = SeaTunnelServerStarter.createMasterHazelcastInstance(SEATUNNEL_CONFIG);
+            HazelcastInstanceImpl finalInstance1 = instance1;
+            HazelcastInstanceImpl finalInstance2 = instance2;
+            await().atMost(20000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            2, finalInstance1.getCluster().getMembers().size()));
+
+            SeaTunnelServer masterOnlyServer =
+                    finalInstance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            Assertions.assertNull(masterOnlyServer.getTaskExecutionService());
+
+            ConnectorJar connectorJar =
+                    ConnectorJar.createConnectorJar(
+                            new byte[] {1},
+                            ConnectorJarType.CONNECTOR_PLUGIN_JAR,
+                            new byte[] {1},
+                            "test-connector.jar");
+            ConnectorJarIdentifier connectorJarIdentifier =
+                    ConnectorJarIdentifier.of(connectorJar, "/tmp/test-connector.jar");
+
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            NodeEngineUtil.sendOperationToMemberNode(
+                                            finalInstance1.node.getNodeEngine(),
+                                            new SendConnectorJarToMemberNodeOperation(
+                                                    connectorJar, connectorJarIdentifier),
+                                            finalInstance2.node.getThisAddress())
+                                    .join());
+            Assertions.assertDoesNotThrow(
+                    () ->
+                            NodeEngineUtil.sendOperationToMemberNode(
+                                            finalInstance1.node.getNodeEngine(),
+                                            new DeleteConnectorJarInExecutionNode(
+                                                    connectorJarIdentifier),
+                                            finalInstance2.node.getThisAddress())
+                                    .join());
         } finally {
             if (instance2 != null && instance2.node.isRunning()) {
                 instance2.shutdown();
