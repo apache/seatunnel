@@ -39,6 +39,7 @@ how null values, row keys, WAL, timestamps, and existing data are handled.
 | schema_save_mode         | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing. |
 | data_save_mode           | enum    | no       | APPEND_DATA                  | How to handle existing data before writing. |
 | hbase_extra_config       | config  | no       | -                            | Extra HBase or Hadoop client configuration. |
+| ttl                      | long    | no       | -1                           | Expiration time in milliseconds for written HBase cells; `-1` means cells never expire. |
 | multi_table_sink_replica | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job. |
 | common-options           |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`. |
 
