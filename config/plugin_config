@@ -29,6 +29,7 @@ connector-cassandra
 connector-salesforce
 connector-cdc-db2
 connector-cdc-mysql
+connector-cdc-oceanbase
 connector-cdc-mongodb
 connector-cdc-sqlserver
 connector-cdc-postgres
@@ -51,6 +52,7 @@ connector-file-jindo-oss
 connector-file-s3
 connector-file-gcs
 connector-file-sftp
+connector-file-smb
 connector-file-obs
 connector-file-bos
 connector-fluss
@@ -82,6 +84,7 @@ connector-http-notion
 connector-http-onesignal
 connector-http-persistiq
 connector-http-shopify
+connector-http-splunk
 connector-http-wechat
 connector-http-airtable
 connector-http-zendesk

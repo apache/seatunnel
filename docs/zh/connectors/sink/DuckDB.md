@@ -67,8 +67,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否    | -                            | 连接实例用户名                                                                                     |
 | password                     | String  | 否    | -                            | 连接实例密码                                                                                      |
 | query                        | String  | 否    | -                            | 使用此 sql 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                       |
-| database                     | String  | 否    | main                         | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥且具有更高的优先级。        |
-| table                        | String  | 否    | -                            | 使用数据库和此表名自动生成 sql 并接收上游输入数据写入数据库。<br/>此选项与 `query` 互斥且具有更高的优先级。                             |
+| database                     | String  | 否    | -                            | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准。        |
+| table                        | String  | 否    | -                            | 使用数据库和此表名自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准。                             |
 | primary_keys                 | Array   | 否    | -                            | 此选项用于在自动生成 sql 时支持 `insert`、`delete` 和 `update` 等操作。                                        |
 | connection_check_timeout_sec | Int     | 否    | 30                           | 等待用于验证连接的数据库操作完成的时间（以秒为单位）。                                                                 |
 | max_retries                  | Int     | 否    | 0                            | 提交失败（executeBatch）的重试次数                                                                     |
@@ -86,6 +86,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode               | Enum    | 否    | APPEND_DATA                  | 在同步任务开启之前，针对目标端已有数据选择不同的处理方案。                                                               |
 | custom_sql                   | String  | 否    | -                            | 当 data_save_mode 选择 CUSTOM_PROCESSING 时，应填写 CUSTOM_SQL 参数。此参数通常填写可执行的 SQL。SQL 将在同步任务之前执行。   |
 | enable_upsert                | Boolean | 否    | true                         | 通过 primary_keys 存在启用 upsert，如果任务只有 `insert`，将此参数设置为 `false` 可以加快数据导入速度                      |
+| multi_table_sink_replica     | Int     | 否    | 1                            | 多表写入时的写入器副本数。当 `multi_table_sink_replica > 1` 时，多表并行写入。                                                |
 
 ### 提示
 

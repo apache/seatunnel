@@ -506,7 +506,10 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
-    timeout-minutes: 90
+    # The all-modules unit test build now takes 70-88 minutes on ubuntu-latest and keeps growing
+    # with every new connector; a 90 minute budget left so little headroom that ordinary runner
+    # variance cancelled jobs whose Maven build had already printed BUILD SUCCESS.
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -963,7 +966,9 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 150
+    # A green run of this job takes about 149 minutes on ubuntu-latest, so the previous 150
+    # minute budget cancelled runs that were already on their last test class.
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1276,7 +1281,10 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 120
+    # A green run of this job takes 113-115 minutes on ubuntu-latest (JdbcOracleIT alone is
+    # about 25 minutes), so the previous 120 minute budget left ordinary runner variance no
+    # room and cancelled roughly every other run one or two classes before the end.
+    timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
