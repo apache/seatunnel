@@ -339,6 +339,16 @@ public class RocketMqAdminUtil {
                         && topicRouteAvailable(adminClient, topic)) {
                     // The retry topic is per group, not per topic, so this applies to every topic
                     // in the request and the whole lookup is legitimately empty.
+                    //
+                    // Returning here discards anything consumerOffsets has already collected for
+                    // earlier topics, and topics is a supported multi-topic list
+                    // (RocketMqSourceOptions.TOPICS). That is safe only under the invariant
+                    // above: a group cannot commit an offset for any topic without first
+                    // registering, and registering is what creates the retry topic, so a missing
+                    // retry topic means no topic in the list has committed anything and the map
+                    // is necessarily still empty here. If that ever stops holding, this has to
+                    // become a continue that keeps the earlier offsets, otherwise a later
+                    // cold-start topic silently rewinds the topics already read.
                     log.warn(
                             "Consumer group {} has no retry topic yet, so it has never registered "
                                     + "and has committed nothing. Topic {} still resolves, so this "
