@@ -29,6 +29,7 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 
 import java.io.File;
+import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
@@ -70,6 +71,10 @@ class AbstractTestContainerTest {
 
     @Test
     void shouldReportHostPathThatCannotBeDeleted(@TempDir Path tempDir) throws Exception {
+        // On Windows a read-only directory does not stop its entries from being deleted.
+        Assumptions.assumeTrue(
+                FileSystems.getDefault().supportedFileAttributeViews().contains("posix"),
+                "needs POSIX directory permissions");
         File volume = tempDir.resolve("volume").toFile();
         File readOnlyDir = new File(volume, "written-by-container");
         Assertions.assertTrue(readOnlyDir.mkdirs());
