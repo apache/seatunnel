@@ -73,7 +73,7 @@ seatunnel:
 ## Web UI 与 8080 排查
 
 - 如果 `http://<host>:8080/` 打不开，先检查 `seatunnel.engine.http.enable-http` 或 `enable-https` 是否真的开启；仅配置 `hazelcast.yaml` 中的 `network.rest-api.enabled` 不能替代 Jetty 开关。
-- 如果开启了 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以启动日志 `SeaTunnel REST service will start on port xxx` 为准。
+- 如果同时开启 HTTP 和 `enable-dynamic-port = true`，实际监听端口可能不是 8080，而是 `port` 到 `port + port-range` 之间的第一个空闲端口。以 Jetty 启动日志 `SeaTunnel REST service started on http port xxx` 为准。`/logs` 和 `/loggers?scope=cluster` 会解析并报告各节点实际绑定的 HTTP 端口。配置中的 `port` 保持不变，即使多个节点共享同一个 HTTP 配置对象也不例外。
 - 如果配置了 `context-path = /seatunnel`，Web UI 首页和 REST 路径都会整体前移，例如概览接口会变成 `/seatunnel/overview`。
 - Web UI 静态资源和 REST API 共用同一个 Jetty 服务。只要 Jetty 没启动，两者都会一起不可用。
 
@@ -1519,8 +1519,8 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 ```
 
 所有节点都返回结果时 `status` 为 `SUCCESS`，部分节点失败时为 `PARTIAL_FAILURE`，全部失败时为
-`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点配置中的 REST 端口访问，因此无法
-访问通过 `enable-dynamic-port` 使用了其它端口的节点。
+`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点实际绑定的 REST HTTP 端口访问，
+包括通过 `enable-dynamic-port` 选择了其它端口的节点。各节点都需要启用 HTTP，且其端口可访问。
 
 </details>
 
