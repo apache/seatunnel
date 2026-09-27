@@ -204,6 +204,20 @@ public class CheckpointCoordinator {
     // processed with one savepoint operation in the same time.
     private PendingCheckpoint savepointPendingCheckpoint;
 
+    /**
+     * Shared in-flight savepoint request. Installed under {@link #lock} before the unlocked drain
+     * wait so concurrent {@link #startSavepoint()} callers coalesce onto one future for the whole
+     * drain+create window (before {@link #savepointPendingCheckpoint} exists).
+     */
+    private CompletableFuture<CompletedCheckpoint> savepointRequestFuture;
+
+    /**
+     * Gate that rejects non-savepoint pending-checkpoint creation while a savepoint is draining
+     * outside {@link #lock}. Preserves the exclusion that the previous lock-held sleep provided by
+     * blocking every other {@code synchronized (lock)} create path.
+     */
+    private final AtomicBoolean savepointDraining = new AtomicBoolean(false);
+
     private final String checkpointStateImapKey;
 
     private final String readyToCloseImapKey;
@@ -815,6 +829,14 @@ public class CheckpointCoordinator {
                 return;
             }
 
+            if (savepointDraining.get() && !checkpointType.isSavepoint()) {
+                scheduleTriggerPendingCheckpoint(checkpointType, 500L);
+                LOG.debug(
+                        "skip trigger checkpoint {} because a savepoint is draining in-flight checkpoints.",
+                        checkpointType);
+                return;
+            }
+
             if (pendingCounter.get() > 0) {
                 scheduleTriggerPendingCheckpoint(checkpointType, 500L);
                 LOG.debug("skip trigger checkpoint because there is already a pending checkpoint.");
@@ -876,7 +898,15 @@ public class CheckpointCoordinator {
                 .collect(Collectors.groupingBy(Tuple2::f0, Collectors.summingInt(tuple -> 1)));
     }
 
-    @SneakyThrows
+    /**
+     * Starts a savepoint, waiting for any in-flight checkpoint to drain without holding {@link
+     * #lock} across the sleep-poll.
+     *
+     * <p>Concurrent callers share one {@link #savepointRequestFuture} for the whole drain+create
+     * window. While {@link #savepointDraining} is set, non-savepoint {@link
+     * #tryTriggerPendingCheckpoint(CheckpointType)} calls re-arm instead of creating a new pending
+     * checkpoint, preserving the exclusion that the previous lock-held wait provided.
+     */
     public PassiveCompletableFuture<CompletedCheckpoint> startSavepoint() {
         LOG.info("start save point for job id: {}.", jobId);
         if (shutdown || isCompleted()) {
@@ -887,29 +917,146 @@ public class CheckpointCoordinator {
             return completableFutureWithError(
                     CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT);
         }
-        if (savepointPendingCheckpoint != null
-                && !savepointPendingCheckpoint.getCompletableFuture().isDone()) {
-            return savepointPendingCheckpoint.getCompletableFuture();
-        }
-        CompletableFuture<PendingCheckpoint> savepoint;
+
+        final CompletableFuture<CompletedCheckpoint> sharedFuture;
         synchronized (lock) {
-            while (pendingCounter.get() > 0 && !shutdown) {
-                Thread.sleep(500);
-            }
             if (shutdown || isCompleted()) {
                 return completableFutureWithError(
                         CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
             }
-            savepoint = createPendingCheckpoint(Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
-            startTriggerPendingCheckpoint(savepoint);
+            if (savepointPendingCheckpoint != null
+                    && !savepointPendingCheckpoint.getCompletableFuture().isDone()) {
+                return savepointPendingCheckpoint.getCompletableFuture();
+            }
+            if (savepointRequestFuture != null && !savepointRequestFuture.isDone()) {
+                return new PassiveCompletableFuture<>(savepointRequestFuture);
+            }
+            sharedFuture = new CompletableFuture<>();
+            savepointRequestFuture = sharedFuture;
+            savepointDraining.set(true);
         }
-        savepointPendingCheckpoint = savepoint.join();
-        LOG.info(
-                "save point checkpoint is created, job id: {}, pipeline id: {}, checkpoint id: {}.",
-                jobId,
-                pipelineId,
-                savepointPendingCheckpoint.getCheckpointId());
-        return savepointPendingCheckpoint.getCompletableFuture();
+
+        try {
+            while (!sharedFuture.isDone()) {
+                while (pendingCounter.get() > 0 && !shutdown) {
+                    try {
+                        Thread.sleep(500);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        synchronized (lock) {
+                            failSavepointDrainLocked(
+                                    sharedFuture,
+                                    CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
+                        }
+                        return new PassiveCompletableFuture<>(sharedFuture);
+                    }
+                }
+
+                CompletableFuture<PendingCheckpoint> pendingFuture = null;
+                synchronized (lock) {
+                    if (shutdown || isCompleted()) {
+                        failSavepointDrainLocked(
+                                sharedFuture,
+                                CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN);
+                        break;
+                    }
+                    if (pendingCounter.get() > 0) {
+                        // Another create raced in; keep draining outside the lock.
+                        continue;
+                    }
+                    if (savepointPendingCheckpoint != null
+                            && !savepointPendingCheckpoint.getCompletableFuture().isDone()) {
+                        savepointDraining.set(false);
+                        forwardSavepointCompletion(
+                                sharedFuture, savepointPendingCheckpoint.getCompletableFuture());
+                        break;
+                    }
+                    try {
+                        pendingFuture =
+                                createPendingCheckpoint(
+                                        Instant.now().toEpochMilli(), SAVEPOINT_TYPE);
+                        startTriggerPendingCheckpoint(pendingFuture);
+                        // pendingCounter already accounts for this savepoint; drop the gate.
+                        savepointDraining.set(false);
+                    } catch (Throwable t) {
+                        savepointDraining.set(false);
+                        if (savepointRequestFuture == sharedFuture) {
+                            savepointRequestFuture = null;
+                        }
+                        if (!sharedFuture.isDone()) {
+                            sharedFuture.completeExceptionally(t);
+                        }
+                        break;
+                    }
+                }
+
+                if (pendingFuture == null) {
+                    continue;
+                }
+
+                try {
+                    PendingCheckpoint pendingCheckpoint = pendingFuture.join();
+                    savepointPendingCheckpoint = pendingCheckpoint;
+                    forwardSavepointCompletion(
+                            sharedFuture, pendingCheckpoint.getCompletableFuture());
+                    LOG.info(
+                            "save point checkpoint is created, job id: {}, pipeline id: {}, checkpoint id: {}.",
+                            jobId,
+                            pipelineId,
+                            pendingCheckpoint.getCheckpointId());
+                } catch (Throwable t) {
+                    Throwable cause =
+                            t instanceof CompletionException && t.getCause() != null
+                                    ? t.getCause()
+                                    : t;
+                    synchronized (lock) {
+                        savepointDraining.set(false);
+                        if (savepointRequestFuture == sharedFuture) {
+                            savepointRequestFuture = null;
+                        }
+                        if (!sharedFuture.isDone()) {
+                            sharedFuture.completeExceptionally(cause);
+                        }
+                    }
+                }
+                break;
+            }
+        } catch (Throwable t) {
+            synchronized (lock) {
+                savepointDraining.set(false);
+                if (savepointRequestFuture == sharedFuture) {
+                    savepointRequestFuture = null;
+                }
+                if (!sharedFuture.isDone()) {
+                    sharedFuture.completeExceptionally(t);
+                }
+            }
+        }
+        return new PassiveCompletableFuture<>(sharedFuture);
+    }
+
+    private void forwardSavepointCompletion(
+            CompletableFuture<CompletedCheckpoint> sharedFuture,
+            PassiveCompletableFuture<CompletedCheckpoint> pendingFuture) {
+        pendingFuture.whenComplete(
+                (completed, error) -> {
+                    if (error != null) {
+                        sharedFuture.completeExceptionally(error);
+                    } else {
+                        sharedFuture.complete(completed);
+                    }
+                });
+    }
+
+    private void failSavepointDrainLocked(
+            CompletableFuture<CompletedCheckpoint> sharedFuture, CheckpointCloseReason reason) {
+        savepointDraining.set(false);
+        if (savepointRequestFuture == sharedFuture) {
+            savepointRequestFuture = null;
+        }
+        if (!sharedFuture.isDone()) {
+            sharedFuture.completeExceptionally(new CheckpointException(reason));
+        }
     }
 
     public PassiveCompletableFuture<CheckpointCoordinatorState> startSavepointAndWaitComplete() {
@@ -1053,6 +1200,10 @@ public class CheckpointCoordinator {
     private CompletableFuture<PendingCheckpoint> createPendingCheckpoint(
             long triggerTimestamp, CheckpointType checkpointType) {
         synchronized (lock) {
+            if (savepointDraining.get() && !checkpointType.isSavepoint()) {
+                throw new IllegalStateException(
+                        "Refusing to create non-savepoint pending checkpoint while a savepoint is draining");
+            }
             CompletableFuture<Long> idFuture;
             if (checkpointType.notCompletedCheckpoint()) {
                 idFuture =

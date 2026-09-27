@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointStorageConfig;
+import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -70,6 +71,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.engine.common.Constant.IMAP_RUNNING_JOB_STATE;
@@ -893,8 +895,20 @@ public class CheckpointCoordinatorTest
      * mocked, so the test never touches Hazelcast / Hadoop I/O.
      */
     private CheckpointCoordinator buildMinimalCoordinator(ExecutorService executorService) {
+        CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
+        try {
+            Mockito.when(mockIdCounter.getAndIncrement()).thenReturn(1L);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return buildMinimalCoordinator(executorService, mockIdCounter);
+    }
+
+    private CheckpointCoordinator buildMinimalCoordinator(
+            ExecutorService executorService, CheckpointIDCounter mockIdCounter) {
         CheckpointConfig checkpointConfig = new CheckpointConfig();
         checkpointConfig.setStorage(new CheckpointStorageConfig());
+        checkpointConfig.setCheckpointInterval(10);
 
         TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 1);
         CheckpointPlan plan =
@@ -905,8 +919,10 @@ public class CheckpointCoordinatorTest
                         .build();
 
         CheckpointManager mockManager = Mockito.mock(CheckpointManager.class);
+        Mockito.doReturn(Mockito.mock(InvocationFuture.class))
+                .when(mockManager)
+                .sendOperationToMemberNode(Mockito.any());
         CheckpointStorage mockStorage = Mockito.mock(CheckpointStorage.class);
-        CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
         @SuppressWarnings("unchecked")
         IMap<Object, Object> mockIMap = Mockito.mock(IMap.class);
 
@@ -922,6 +938,439 @@ public class CheckpointCoordinatorTest
                 mockIMap,
                 false,
                 null);
+    }
+
+    /**
+     * Issue #12441 part 1 (same coordinator): while {@code startSavepoint()} is draining an
+     * in-flight checkpoint, {@code tryTriggerPendingCheckpoint} must not block on the coordinator
+     * lock for the full drain. It must return while the drain is still held, create no new pending
+     * checkpoint, and re-arm for general / completed-point / schema-change types.
+     *
+     * <p>Drain lifetime is owned by the test via {@code pendingCounter} (kept {@code > 0} until
+     * assertions finish). Red on current {@code dev}: the trigger thread blocks in {@code
+     * synchronized (lock)} for the whole drain. Green after the unlocked-drain fix: the trigger
+     * returns while {@code pendingCounter} is still held above zero.
+     */
+    @Test
+    void testTryTriggerNotBlockedBySavepointDrain() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        Thread savepointThread = null;
+        try {
+            CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
+            AtomicLong nextId = new AtomicLong(1);
+            Mockito.when(mockIdCounter.getAndIncrement())
+                    .thenAnswer(invocation -> nextId.getAndIncrement());
+
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, mockIdCounter);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doNothing()
+                    .when(spy)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+            Mockito.doReturn(new InvocationFuture[0])
+                    .when(spy)
+                    .triggerCheckpoint(Mockito.any(CheckpointBarrier.class));
+
+            AtomicBoolean isAllTaskReady =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "isAllTaskReady")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "isAllTaskReady field not found"));
+            isAllTaskReady.set(true);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            // Test-owned drain hold: leave > 0 until assertions complete.
+            pendingCounter.set(1);
+
+            CountDownLatch savepointStarted = new CountDownLatch(1);
+            savepointThread =
+                    new Thread(
+                            () -> {
+                                savepointStarted.countDown();
+                                spy.startSavepoint();
+                            },
+                            "savepoint-drain-#12441");
+            savepointThread.start();
+            Assertions.assertTrue(
+                    savepointStarted.await(5, TimeUnit.SECONDS), "savepoint thread should start");
+            awaitThreadState(savepointThread, Thread.State.TIMED_WAITING, 5, TimeUnit.SECONDS);
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            int pendingBefore = pendingCheckpoints.size();
+
+            CheckpointType[] triggerTypes =
+                    new CheckpointType[] {
+                        CheckpointType.CHECKPOINT_TYPE,
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE
+                    };
+
+            CountDownLatch triggersFinished = new CountDownLatch(1);
+            AtomicReference<Throwable> triggerError = new AtomicReference<>();
+            Thread triggerThread =
+                    new Thread(
+                            () -> {
+                                try {
+                                    for (CheckpointType type : triggerTypes) {
+                                        spy.tryTriggerPendingCheckpoint(type);
+                                    }
+                                } catch (Throwable t) {
+                                    triggerError.set(t);
+                                } finally {
+                                    triggersFinished.countDown();
+                                }
+                            },
+                            "trigger-during-savepoint-drain-#12441");
+            triggerThread.start();
+
+            // Green: triggers finish while the test still holds the drain (pendingCounter > 0).
+            // Red on unfixed code: trigger thread stays blocked on the coordinator lock.
+            boolean finishedWhileDraining = triggersFinished.await(2, TimeUnit.SECONDS);
+            Assertions.assertTrue(
+                    finishedWhileDraining,
+                    "tryTriggerPendingCheckpoint must return while savepoint drain is still held "
+                            + "(pendingCounter>0); blocked for the full drain indicates the lock "
+                            + "is held across sleep-poll");
+            Assertions.assertNull(triggerError.get(), "trigger path must not throw");
+            Assertions.assertEquals(
+                    1,
+                    pendingCounter.get(),
+                    "drain hold must still be owned by the test when triggers return");
+            Assertions.assertEquals(
+                    pendingBefore,
+                    pendingCheckpoints.size(),
+                    "no non-savepoint pending checkpoint may be created during drain");
+
+            for (CheckpointType type : triggerTypes) {
+                Mockito.verify(spy, Mockito.atLeastOnce())
+                        .scheduleTriggerPendingCheckpoint(Mockito.eq(type), Mockito.eq(500L));
+            }
+
+            // Release the test-owned drain so the savepoint thread can exit.
+            pendingCounter.set(0);
+            savepointThread.join(10_000);
+            Assertions.assertFalse(
+                    savepointThread.isAlive(),
+                    "savepoint thread should finish after drain release");
+        } finally {
+            if (savepointThread != null && savepointThread.isAlive()) {
+                savepointThread.interrupt();
+                savepointThread.join(5_000);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * While the savepoint drain gate is set, non-savepoint triggers must re-arm even if {@code
+     * pendingCounter} is already 0 (the race window between drain exit and savepoint create).
+     */
+    @Test
+    void testSavepointDrainGateReArmsWhenPendingCounterZero() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doNothing()
+                    .when(spy)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+
+            AtomicBoolean isAllTaskReady =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "isAllTaskReady")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "isAllTaskReady field not found"));
+            isAllTaskReady.set(true);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(0);
+
+            AtomicBoolean savepointDraining =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "savepointDraining")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "savepointDraining field not found"));
+            savepointDraining.set(true);
+
+            @SuppressWarnings("unchecked")
+            ConcurrentHashMap<Long, PendingCheckpoint> pendingCheckpoints =
+                    (ConcurrentHashMap<Long, PendingCheckpoint>)
+                            ReflectionUtils.getField(spy, "pendingCheckpoints")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCheckpoints field not found"));
+            int pendingBefore = pendingCheckpoints.size();
+
+            CheckpointType[] triggerTypes =
+                    new CheckpointType[] {
+                        CheckpointType.CHECKPOINT_TYPE,
+                        CheckpointType.COMPLETED_POINT_TYPE,
+                        CheckpointType.SCHEMA_CHANGE_BEFORE_POINT_TYPE
+                    };
+            for (CheckpointType type : triggerTypes) {
+                spy.tryTriggerPendingCheckpoint(type);
+            }
+
+            Assertions.assertEquals(pendingBefore, pendingCheckpoints.size());
+            Assertions.assertEquals(0, pendingCounter.get());
+            for (CheckpointType type : triggerTypes) {
+                Mockito.verify(spy, Mockito.atLeastOnce())
+                        .scheduleTriggerPendingCheckpoint(Mockito.eq(type), Mockito.eq(500L));
+            }
+
+            // After the gate is cleared, ordinary triggering can create again.
+            savepointDraining.set(false);
+            Mockito.doReturn(new InvocationFuture[0])
+                    .when(spy)
+                    .triggerCheckpoint(Mockito.any(CheckpointBarrier.class));
+            CheckpointIDCounter idCounter =
+                    (CheckpointIDCounter)
+                            ReflectionUtils.getField(spy, "checkpointIdCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "checkpointIdCounter field not found"));
+            Mockito.when(idCounter.getAndIncrement()).thenReturn(42L);
+            spy.tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE);
+            awaitCondition(() -> !pendingCheckpoints.isEmpty(), 5, TimeUnit.SECONDS);
+            Assertions.assertFalse(pendingCheckpoints.isEmpty());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * Concurrent {@code startSavepoint()} calls must share one request future through the draining
+     * phase and create only one savepoint pending checkpoint.
+     */
+    @Test
+    void testConcurrentStartSavepointSharesOneRequest() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointIDCounter mockIdCounter = Mockito.mock(CheckpointIDCounter.class);
+            AtomicLong nextId = new AtomicLong(1);
+            Mockito.when(mockIdCounter.getAndIncrement())
+                    .thenAnswer(invocation -> nextId.getAndIncrement());
+
+            CheckpointCoordinator coordinator =
+                    buildMinimalCoordinator(executorService, mockIdCounter);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doReturn(new InvocationFuture[0])
+                    .when(spy)
+                    .triggerCheckpoint(Mockito.any(CheckpointBarrier.class));
+
+            AtomicBoolean isAllTaskReady =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "isAllTaskReady")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "isAllTaskReady field not found"));
+            isAllTaskReady.set(true);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            CountDownLatch bothStarted = new CountDownLatch(2);
+            Future<PassiveCompletableFuture<CompletedCheckpoint>> first =
+                    executorService.submit(
+                            () -> {
+                                bothStarted.countDown();
+                                bothStarted.await(5, TimeUnit.SECONDS);
+                                return spy.startSavepoint();
+                            });
+            Future<PassiveCompletableFuture<CompletedCheckpoint>> second =
+                    executorService.submit(
+                            () -> {
+                                bothStarted.countDown();
+                                bothStarted.await(5, TimeUnit.SECONDS);
+                                return spy.startSavepoint();
+                            });
+
+            awaitCondition(
+                    () -> getCoordinatorField(spy, "savepointRequestFuture") != null,
+                    5,
+                    TimeUnit.SECONDS);
+
+            Object sharedRequest = getCoordinatorField(spy, "savepointRequestFuture");
+            Assertions.assertNotNull(
+                    sharedRequest, "savepointRequestFuture must be installed during drain");
+
+            pendingCounter.set(0);
+            PassiveCompletableFuture<CompletedCheckpoint> f1 = first.get(15, TimeUnit.SECONDS);
+            PassiveCompletableFuture<CompletedCheckpoint> f2 = second.get(15, TimeUnit.SECONDS);
+            Assertions.assertNotNull(f1);
+            Assertions.assertNotNull(f2);
+            Assertions.assertSame(
+                    sharedRequest,
+                    getCoordinatorField(spy, "savepointRequestFuture"),
+                    "both callers must continue to observe the same shared request future");
+
+            PendingCheckpoint savepointPending =
+                    (PendingCheckpoint) getCoordinatorField(spy, "savepointPendingCheckpoint");
+            Assertions.assertNotNull(savepointPending, "exactly one savepoint must be created");
+            Assertions.assertEquals(
+                    CheckpointType.SAVEPOINT_TYPE, savepointPending.getCheckpointType());
+            Mockito.verify(mockIdCounter, Mockito.times(1)).getAndIncrement();
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    /**
+     * Interrupt during the unlocked drain must clear the drain gate and complete the shared future
+     * exceptionally so ordinary triggering can run again.
+     */
+    @Test
+    void testSavepointDrainInterruptClearsGateAndAllowsTrigger() throws Exception {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        Thread savepointThread = null;
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CheckpointCoordinator spy = Mockito.spy(coordinator);
+            Mockito.doNothing()
+                    .when(spy)
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.any(CheckpointType.class), Mockito.anyLong());
+
+            AtomicBoolean isAllTaskReady =
+                    (AtomicBoolean)
+                            ReflectionUtils.getField(spy, "isAllTaskReady")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "isAllTaskReady field not found"));
+            isAllTaskReady.set(true);
+
+            AtomicInteger pendingCounter =
+                    (AtomicInteger)
+                            ReflectionUtils.getField(spy, "pendingCounter")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "pendingCounter field not found"));
+            pendingCounter.set(1);
+
+            CountDownLatch entered = new CountDownLatch(1);
+            AtomicReference<PassiveCompletableFuture<CompletedCheckpoint>> savepointFutureRef =
+                    new AtomicReference<>();
+            savepointThread =
+                    new Thread(
+                            () -> {
+                                entered.countDown();
+                                savepointFutureRef.set(spy.startSavepoint());
+                            },
+                            "savepoint-interrupt-#12441");
+            savepointThread.start();
+            Assertions.assertTrue(entered.await(5, TimeUnit.SECONDS));
+            awaitThreadState(savepointThread, Thread.State.TIMED_WAITING, 5, TimeUnit.SECONDS);
+
+            savepointThread.interrupt();
+            savepointThread.join(10_000);
+            Assertions.assertFalse(savepointThread.isAlive());
+
+            PassiveCompletableFuture<CompletedCheckpoint> savepointFuture =
+                    savepointFutureRef.get();
+            Assertions.assertNotNull(savepointFuture);
+            Assertions.assertTrue(
+                    savepointFuture.isCompletedExceptionally(),
+                    "interrupted drain must complete the shared savepoint future exceptionally");
+
+            Object draining = getCoordinatorField(spy, "savepointDraining");
+            if (draining instanceof AtomicBoolean) {
+                Assertions.assertFalse(
+                        ((AtomicBoolean) draining).get(), "drain gate must be cleared");
+            } else {
+                Assertions.assertFalse(Boolean.TRUE.equals(draining), "drain gate must be cleared");
+            }
+
+            // Gate cleared: trigger can acquire the lock and re-arm even while pendingCounter > 0.
+            Assertions.assertDoesNotThrow(
+                    () -> spy.tryTriggerPendingCheckpoint(CheckpointType.CHECKPOINT_TYPE));
+            Mockito.verify(spy, Mockito.atLeastOnce())
+                    .scheduleTriggerPendingCheckpoint(
+                            Mockito.eq(CheckpointType.CHECKPOINT_TYPE), Mockito.eq(500L));
+        } finally {
+            if (savepointThread != null && savepointThread.isAlive()) {
+                savepointThread.interrupt();
+                savepointThread.join(5_000);
+            }
+            executorService.shutdownNow();
+        }
+    }
+
+    private static Object getCoordinatorField(Object target, String fieldName) {
+        try {
+            java.lang.reflect.Field field = CheckpointCoordinator.class.getDeclaredField(fieldName);
+            field.setAccessible(true);
+            return field.get(target);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("failed to read field " + fieldName, e);
+        }
+    }
+
+    private static void awaitThreadState(
+            Thread thread, Thread.State expected, long timeout, TimeUnit unit)
+            throws InterruptedException {
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        while (thread.getState() != expected) {
+            if (System.nanoTime() > deadline) {
+                Assertions.fail(
+                        "thread "
+                                + thread.getName()
+                                + " did not reach state "
+                                + expected
+                                + ", last state="
+                                + thread.getState());
+            }
+            Thread.sleep(10);
+        }
+    }
+
+    private static void awaitCondition(
+            java.util.concurrent.Callable<Boolean> condition, long timeout, TimeUnit unit)
+            throws Exception {
+        long deadline = System.nanoTime() + unit.toNanos(timeout);
+        while (!Boolean.TRUE.equals(condition.call())) {
+            if (System.nanoTime() > deadline) {
+                Assertions.fail("condition not met within " + timeout + " " + unit);
+            }
+            Thread.sleep(10);
+        }
     }
 
     @Test
