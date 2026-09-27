@@ -18,8 +18,6 @@
 package org.apache.seatunnel.connectors.seatunnel.tdengine.source;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
-
-import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.connector.TableSource;
@@ -31,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.tdengine.config.TDengineSourceO
 import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
+
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 
 @AutoService(Factory.class)
 public class TDengineSourceFactory implements TableSourceFactory {
@@ -48,8 +48,12 @@ public class TDengineSourceFactory implements TableSourceFactory {
                 .required(TDengineSourceOptions.PASSWORD, notBlank(TDengineSourceOptions.PASSWORD))
                 .required(TDengineSourceOptions.DATABASE, notBlank(TDengineSourceOptions.DATABASE))
                 .required(TDengineSourceOptions.STABLE, notBlank(TDengineSourceOptions.STABLE))
-                .required(TDengineSourceOptions.LOWER_BOUND, notBlank(TDengineSourceOptions.LOWER_BOUND))
-                .required(TDengineSourceOptions.UPPER_BOUND, notBlank(TDengineSourceOptions.UPPER_BOUND))
+                .required(
+                        TDengineSourceOptions.LOWER_BOUND,
+                        notBlank(TDengineSourceOptions.LOWER_BOUND))
+                .required(
+                        TDengineSourceOptions.UPPER_BOUND,
+                        notBlank(TDengineSourceOptions.UPPER_BOUND))
                 .build();
     }
 
