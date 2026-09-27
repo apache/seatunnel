@@ -247,6 +247,7 @@ public class DorisIT extends AbstractDorisIT {
     private void checkAllTypeSinkData() {
         try {
             assertHasData(sourceDB, DUPLICATE_TABLE);
+            awaitSinkRowCountMatchesSource(DUPLICATE_TABLE);
 
             try (PreparedStatement ps =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY)) {
@@ -278,6 +279,7 @@ public class DorisIT extends AbstractDorisIT {
         try {
             assertHasData(sourceDB, UNIQUE_TABLE);
             assertHasData(sinkDB, UNIQUE_TABLE);
+            awaitSinkRowCountMatchesSource(UNIQUE_TABLE);
 
             PreparedStatement sourcePre =
                     conn.prepareStatement(DorisCatalogUtil.TABLE_SCHEMA_QUERY);
@@ -405,6 +407,27 @@ public class DorisIT extends AbstractDorisIT {
             throw new RuntimeException("Failed to check data in Doris server", e);
         }
         return -1;
+    }
+
+    /**
+     * Waits until the sink table holds as many rows as the source table before the row-by-row
+     * comparison runs. The sink jobs commit through 2pc stream loads that Doris publishes
+     * asynchronously and possibly in several transactions, so right after {@code executeJob}
+     * returns the sink can already show its first rows while later transactions are still being
+     * published; a single read then compares a partial sink against the full source (observed on
+     * unrelated PRs as {@code expected: <100> but was: <0>} in {@code
+     * checkSourceAndSinkTableDate}). The comparison that follows still asserts the same row-count
+     * equality and full content match, so this only turns one read into a bounded wait.
+     */
+    private void awaitSinkRowCountMatchesSource(String table) {
+        int sourceRows = tableCount(sourceDB, table);
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                // tableCount() rethrows JDBC failures as RuntimeException; keep polling through
+                // transient query failures while Doris is publishing, as testCustomSql does.
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> Assertions.assertEquals(sourceRows, tableCount(sinkDB, table)));
     }
 
     private void assertHasData(String db, String table) {
