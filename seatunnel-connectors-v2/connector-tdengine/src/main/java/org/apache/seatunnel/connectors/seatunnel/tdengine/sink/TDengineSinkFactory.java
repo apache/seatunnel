@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.tdengine.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -44,6 +45,9 @@ public class TDengineSinkFactory implements TableSinkFactory {
                 .required(TDengineSinkOptions.PASSWORD, notBlank(TDengineSinkOptions.PASSWORD))
                 .required(TDengineSinkOptions.DATABASE, notBlank(TDengineSinkOptions.DATABASE))
                 .required(TDengineSinkOptions.STABLE, notBlank(TDengineSinkOptions.STABLE))
+                .optional(
+                        TDengineSinkOptions.TIMEZONE,
+                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 
