@@ -314,8 +314,6 @@ public class ConfigBuilder {
 
             if (userValueString != null) {
                 userConfigMap.put(userKey, userValueString);
-            } else {
-                userConfigMap.put(userKey, null);
             }
         }
 
