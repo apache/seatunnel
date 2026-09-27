@@ -89,6 +89,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | common-options                   | object  | 否    | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。[提示](#common_options)                                  |
 | max_rows_in_memory               | int     | 否    | -                                          | 当文件格式为Excel时，内存中可以缓存的最大数据项数。仅在file_format_type为excel时使用。                                                                |
 | sheet_name                       | string  | 否    | Sheet${Random number}                      | 标签页。仅在file_format_type为excel时使用。                                                                                          |
+| sheet_max_rows                   | int     | 否    | 1048576                                    | 仅当file_format_type为excel时使用。                                                                                              |
 | merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。     |
 | schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
