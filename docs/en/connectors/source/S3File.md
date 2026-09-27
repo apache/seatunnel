@@ -41,6 +41,46 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 Read data from aws s3 file system.
 
+### Connectivity dry-run
+
+`--dry-run connect` can check a single S3A source before submitting a job. The
+source must use `bucket = "s3a://your-bucket"`, an absolute `path`, an explicit
+inline `schema.fields` or `schema.columns`, and `file_format_type` of `text`,
+`csv`, `json`, or `xml`. Set `parse_partition_from_path = false` and omit
+`read_columns`; file-derived schemas, projection, and partition inference are
+not validated by this metadata-only check. Unsupported configurations fail the
+connect dry-run with an explanation; normal job execution is unchanged.
+
+The check reuses Hadoop S3A endpoint, credential-chain, proxy and path-style
+configuration. It checks object metadata with HEAD, or makes one prefix listing
+with `maxKeys=1` and delimiter `/`. It does not open file contents, recursively
+list files, create readers, upload, delete, or initialize a shared filesystem.
+An exact object does not require listing permission. A prefix requires listing
+permission; a successful empty listing is accepted for `discovery_mode =
+"continuous"`, since files may arrive later. For a batch source, an empty
+virtual prefix without a directory marker fails; an accessible empty bucket
+root is accepted. Missing buckets and denied requests fail in both modes.
+
+Validation-only connection establishment and socket timeouts are capped at
+5 seconds, preserving smaller positive values. SDK request retries are disabled
+for validation, including bucket-specific overrides. These are network timeout
+settings, not a total deadline for DNS, credential-provider initialization, or
+SDK setup. Runtime timeouts and retries are unchanged.
+
+This initial check does not support `tables_configs`, legacy `s3n` buckets,
+SSE-C customer-provided encryption keys, `fs.s3a.security.credential.provider.path`,
+S3Guard, multipart purge, or custom S3 client factories. It does not prove object
+content readability, file-format correctness, schema compatibility with the
+stored data, worker-side credentials, or target/update/post-sync permissions.
+
+Save your job configuration meeting the requirements above as
+`config/s3-to-console.conf` (this is a user-created file, not a bundled template),
+then run from the SeaTunnel installation directory:
+
+```bash
+bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local
+```
+
 ## Supported DataSource Info
 
 | Datasource | Supported versions |

@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSource;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.split.RabbitmqSplit;
@@ -112,6 +113,64 @@ public class RabbitmqSourceTest {
         // In legacy single-table mode without an explicit "table" key, SeaTunnel defaults to
         // "default"
         Assertions.assertEquals("default", tables.get(0).getTableId().getTableName());
+    }
+
+    @Test
+    public void testSingleTableProtobufOptionsArePreserved() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        configMap.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "protobuf_queue");
+        configMap.put(RabbitmqBaseOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
+        configMap.put(RabbitmqBaseOptions.PROTOBUF_SCHEMA.key(), "syntax = \"proto3\";");
+        configMap.put(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME.key(), "TestMessage");
+
+        Map<String, Object> schemaMap = new HashMap<>();
+        schemaMap.put("fields", Collections.singletonMap("id", "int"));
+        configMap.put(ConnectorCommonOptions.SCHEMA.key(), schemaMap);
+
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+        CatalogTable catalogTable = source.getProducedCatalogTables().get(0);
+
+        Assertions.assertEquals(
+                RabbitmqMessageFormat.PROTOBUF.name(),
+                catalogTable.getOptions().get(RabbitmqBaseOptions.FORMAT.key()));
+        Assertions.assertEquals(
+                "syntax = \"proto3\";",
+                catalogTable.getOptions().get(RabbitmqBaseOptions.PROTOBUF_SCHEMA.key()));
+        Assertions.assertEquals(
+                "TestMessage",
+                catalogTable.getOptions().get(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME.key()));
+    }
+
+    @Test
+    public void testMultiTableProtobufOptionsArePreserved() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+
+        Map<String, Object> table = new HashMap<>();
+        table.put(RabbitmqBaseOptions.QUEUE_NAME.key(), "protobuf_queue");
+        table.put(RabbitmqBaseOptions.FORMAT.key(), RabbitmqMessageFormat.PROTOBUF);
+        table.put(RabbitmqBaseOptions.PROTOBUF_SCHEMA.key(), "syntax = \"proto3\";");
+        table.put(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME.key(), "TestMessage");
+
+        Map<String, Object> schemaMap = new HashMap<>();
+        schemaMap.put("fields", Collections.singletonMap("id", "int"));
+        table.put(ConnectorCommonOptions.SCHEMA.key(), schemaMap);
+
+        configMap.put(TableSchemaOptions.TABLE_CONFIGS.key(), Collections.singletonList(table));
+
+        RabbitmqSource source = new RabbitmqSource(ReadonlyConfig.fromMap(configMap));
+        CatalogTable catalogTable = source.getProducedCatalogTables().get(0);
+
+        Assertions.assertEquals(
+                RabbitmqMessageFormat.PROTOBUF.name(),
+                catalogTable.getOptions().get(RabbitmqBaseOptions.FORMAT.key()));
+        Assertions.assertEquals(
+                "syntax = \"proto3\";",
+                catalogTable.getOptions().get(RabbitmqBaseOptions.PROTOBUF_SCHEMA.key()));
+        Assertions.assertEquals(
+                "TestMessage",
+                catalogTable.getOptions().get(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME.key()));
     }
 
     /**

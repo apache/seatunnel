@@ -497,7 +497,7 @@ File discovery mode. Supported values: `once` (default), `continuous`.
 - `once`: enumerate current files once and finish (bounded).
 - `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
 
-In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+For binary files, `discovery_mode=continuous` requires `sync_mode=update`. For append-only text files, use `sync_mode=full`; SeaTunnel checkpoints the last complete row offset and reads only newly appended complete rows.
 
 ### scan_interval [string]
 
@@ -875,7 +875,7 @@ sink {
 
 `discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
 
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+For binary files, continuous discovery requires `sync_mode="update"`; `target_path` should align with the sink `path` on the same filesystem.
 
 ```hocon
 env {
@@ -908,6 +908,46 @@ sink {
     path = "/seatunnel/watch/dst/"
     tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
+  }
+}
+```
+
+Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset with the local file identity and a bounded content anchor. `start_mode="earliest"` reads existing complete rows. `start_mode="latest"` ignores content present during the initial scan, including an incomplete row, and reads new complete rows after that point.
+
+The initial `latest` listing is recorded by stable file identity before content inspection, so renamed files retain their baseline and replacement files do not inherit it. A temporarily unreadable initial file does not cause files discovered later to be skipped. If an initial file's identity cannot be inspected, no baseline is assumed: it is read from the configured header boundary if it becomes readable, which can include existing rows. If an initial file does not yet contain all configured header rows, its baseline is retained across checkpoints until the header boundary is complete; subsequent data rows are then read normally.
+
+This mode has the following operational constraints:
+
+- Only uncompressed UTF-8 text files with `post_sync_action="none"` are supported.
+- Delivery is at least once. A range is committed after the reader reports that the complete range was consumed.
+- A file is read serially. Source parallelism is used across files, not within one file.
+- Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Detected copy-truncate rewrites restart from the configured header boundary.
+- The source filesystem must expose a stable `BasicFileAttributes.fileKey()` for the configured path. The connector rejects tailing at startup when this is unavailable, including on the default Windows file provider, because creation time cannot safely distinguish a replaced file.
+- File keys are filesystem-local identities, not permanent identifiers. Inode reuse after deletion or a filesystem remount can invalidate that identity assumption. Keep the same source filesystem across restores; sampled content anchors detect some replacements but do not guarantee detection of every rewrite or reused inode.
+- The content anchor samples at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect content between those samples. The reader also checks the assigned range's end anchor before and after reading. A stale range detected before reading is discarded without advancing its offset. A change detected after reading starts fails the task without acknowledging the range; already emitted rows cannot be retracted. Concurrent rewrites are not atomic reads, so append-only input remains required for reliable tailing.
+- The source path must expose the same files and file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
+- If an assigned file disappears during the pre-read identity or content checks, the range is discarded without advancing its offset. Other inspection or read I/O failures, including access-denied errors, fail the task rather than silently skipping data. Correct the filesystem or permissions problem before restarting.
+- State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/var/log/application.log"
+    file_format_type = "text"
+    schema {
+      fields {
+        message = "string"
+      }
+    }
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+    sync_mode = "full"
+    encoding = "UTF-8"
   }
 }
 ```
