@@ -154,7 +154,17 @@ Knowledge bases are living systems: documents are edited and database rows chang
 - **Embedding reliability.** Remote embedding APIs are rate-limited and occasionally fail. Set `model_retry_max_attempts` greater than 1 so retryable failures (rate limiting, timeouts) are retried with backoff instead of failing the job. Use `single_vectorized_input_number` to batch multiple inputs into one request when your provider allows it.
 - **Precision.** Embedding vectors are produced in `float32` only; other precisions are converted automatically. Make sure the vector dimension configured on the Embedding transform matches the vector field expected by the target collection.
 - **Primary keys.** TextChunk requires that `output_field` / `chunk_index_field` do not collide with columns participating in a primary or unique key. When upserting into Milvus, remember that upsert requires a primary key in the collection schema.
-- **Metadata filtering.** With `markdown_rag_metadata_enabled = true`, each row carries `document_id`, `chunk_id` and `content_hash`. Use the Metadata transform to project the logical knowledge-sync fields (for example `SourceUri`, `DocumentId`, `ChunkHash`) into application-specific columns for filtering at retrieval time.
+- **Metadata filtering.** With `markdown_rag_metadata_enabled = true`, each row carries `document_id`, `chunk_id` and `content_hash`. Use the Metadata transform to project the logical knowledge-sync fields (for example `SourceUri`, `DocumentId`, `ChunkHash`) into application-specific columns for filtering at retrieval time:
+
+  ```hocon
+  Metadata {
+      metadata_fields = {
+          SourceUri = "ks_source_uri"
+          DocumentId = "ks_document_id"
+          ChunkHash = "chunk_hash"
+      }
+  }
+  ```
 
 ## FAQ
 

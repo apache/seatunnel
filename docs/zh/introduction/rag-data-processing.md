@@ -154,7 +154,17 @@ sink {
 - **向量化的可靠性。** 远程向量化 API 有限流,偶发失败。把 `model_retry_max_attempts` 设为大于 1,让限流、超时这类可重试错误按退避策略自动重试,而不是让作业直接失败。在服务商允许时,用 `single_vectorized_input_number` 把多条输入合并进一次请求。
 - **精度。** 向量目前只产出 `float32`,其他精度会被自动转换。务必保证 Embedding transform 配置的向量维度与目标集合期望的向量字段维度一致。
 - **主键。** TextChunk 要求 `output_field` / `chunk_index_field` 不能与主键或唯一键涉及的列重名。向 Milvus 写入 upsert 时,记住 upsert 要求集合 schema 中有主键。
-- **元数据过滤。** 开启 `markdown_rag_metadata_enabled = true` 后,每行都带有 `document_id`、`chunk_id` 和 `content_hash`。可以用 Metadata transform 把逻辑知识同步字段(如 `SourceUri`、`DocumentId`、`ChunkHash`)投影成应用自己的列,便于检索时过滤。
+- **元数据过滤。** 开启 `markdown_rag_metadata_enabled = true` 后,每行都带有 `document_id`、`chunk_id` 和 `content_hash`。可以用 Metadata transform 把逻辑知识同步字段(如 `SourceUri`、`DocumentId`、`ChunkHash`)投影成应用自己的列,便于检索时过滤:
+
+  ```hocon
+  Metadata {
+      metadata_fields = {
+          SourceUri = "ks_source_uri"
+          DocumentId = "ks_document_id"
+          ChunkHash = "chunk_hash"
+      }
+  }
+  ```
 
 ## FAQ
 
