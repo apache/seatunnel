@@ -60,6 +60,42 @@ class RestUtilTest {
     }
 
     @Test
+    void buildConfigShouldPreserveTopLevelInvalidPathKey() throws IOException {
+        String json =
+                jobConfigJson().substring(0, jobConfigJson().length() - 1)
+                        + ",\"^t_nova_.*$\":\"literal\"}";
+
+        Config config = ConfigShadeUtils.decryptConfig(RestUtil.buildConfig(jsonNode(json)));
+
+        Assertions.assertEquals("literal", config.root().unwrapped().get(REGEX_FIELD));
+        assertJobConfig(config);
+    }
+
+    @Test
+    void buildConfigShouldPreserveEscapedAndReservedKeysThroughConfigShade() throws IOException {
+        String json =
+                "{\"source\":[{\"schema\":{\"fields\":{"
+                        + "\"$\":\"dollar\",\":\":\"colon\",\"${FOO}\":\"substitution\","
+                        + "\"a\\\"b\\\\c\":\"escaped\"}}}],\"sink\":[{}]}";
+
+        Config config =
+                ConfigShadeUtils.decryptConfig(
+                        ConfigShadeUtils.encryptConfig(RestUtil.buildConfig(jsonNode(json))));
+        Map<String, Object> fields =
+                config.getConfigList("source")
+                        .get(0)
+                        .getConfig("schema")
+                        .getConfig("fields")
+                        .root()
+                        .unwrapped();
+
+        Assertions.assertEquals("dollar", fields.get("$"));
+        Assertions.assertEquals("colon", fields.get(":"));
+        Assertions.assertEquals("substitution", fields.get("${FOO}"));
+        Assertions.assertEquals("escaped", fields.get("a\"b\\c"));
+    }
+
+    @Test
     void buildConfigListShouldPreserveRegexKeysFromJson() throws IOException {
         List<Tuple2<Map<String, String>, Config>> configs =
                 RestUtil.buildConfigList(
