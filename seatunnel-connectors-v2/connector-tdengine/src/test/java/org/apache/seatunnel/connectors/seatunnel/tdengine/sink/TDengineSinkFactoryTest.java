@@ -45,7 +45,8 @@ class TDengineSinkFactoryTest {
             for (String invalid : new String[] {"", "   "}) {
                 Map<String, Object> config = validConfig();
                 config.put(key, invalid);
-                Assertions.assertThrows(OptionValidationException.class, () -> validate(config), key);
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validate(config), key);
             }
         }
     }
@@ -57,11 +58,11 @@ class TDengineSinkFactoryTest {
 
     private String[] requiredKeys() {
         return new String[] {
-                TDengineSinkOptions.URL.key(),
-                TDengineSinkOptions.USERNAME.key(),
-                TDengineSinkOptions.PASSWORD.key(),
-                TDengineSinkOptions.DATABASE.key(),
-                TDengineSinkOptions.STABLE.key()
+            TDengineSinkOptions.URL.key(),
+            TDengineSinkOptions.USERNAME.key(),
+            TDengineSinkOptions.PASSWORD.key(),
+            TDengineSinkOptions.DATABASE.key(),
+            TDengineSinkOptions.STABLE.key()
         };
     }
 
