@@ -4,6 +4,17 @@
 
 ## dev
 
+### User Variables
+
+- **`-i` 参数值在 `System.getProperties()`中不可见**
+
+  - 以前参数值通过 `-i` 注入到 `System.getProperties()` 并通过 `System.getProperty()`访问。
+    从这个版本开始,`-i` 参数通过 `Config.resolveWith()` 解析，并且不能通过`System.getProperties()`访问。
+
+- **`-i` 参数不再允许重复key**
+  - `-i` 参数如果有重复key会直接报错，之前重复的key对应的参数值会静默覆盖已有的key,会导致因复制粘贴等问题造成的重复key产生非预期的数据同步错误。
+  - 如有代码生成或者cli输入产生的重复key,请检查后移除不需要的参数配置。
+
 ### Redis 认证
 
 - Redis Source 和 Sink 现在会在 `SINGLE` 和 `CLUSTER` 模式下以非空白的 `user` 指定的用户认证。

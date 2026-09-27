@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### User Variables  
+
+- **`-i` values are no longer visible via `System.getProperties()`**
+
+  - Previously, `-i` parameters were injected into `System.getProperties()` and accessible via `System.getProperty()`. 
+    Starting from this version,`-i` parameters are resolved through `Config.resolveWith()` and are no longer visible via `System.getProperties()`.
+
+- **Duplicate keys via `-i` are no longer supported`**
+  - Duplicate keys passed via `-i` are now rejected with an error.
+    Previously, duplicate keys were silently overridden, which could cause unexpected data sync errors due to mistakes such as copy-paste typo.
+  - If exists duplicated keys from code generating or cli, please remove unused config.
+
 ### Redis Authentication
 
 - Redis sources and sinks now authenticate as the configured nonblank `user` in both `SINGLE` and
