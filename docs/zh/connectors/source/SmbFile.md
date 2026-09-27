@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
 
   使用二进制文件格式可以读写任何格式的文件，如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
@@ -93,6 +93,11 @@ import ChangeLog from '../changelog/connector-file-smb.md';
 | skip_header_row_number     | Long    | 否   | 0                             | 跳过前几行，仅适用于 txt 和 csv                                                           |
 | schema                     | Config  | 否   | -                             | 上游数据的 schema                                                                       |
 | read_columns               | List    | 否   | -                             | 数据源的读取列列表，用户可以用它实现字段投影                                                  |
+| sheet_name                 | String  | 否   | -                             | 读取工作簿中的 sheet，仅在 file_format 为 excel 时使用                                     |
+| xml_row_tag                | String  | 否   | -                             | 指定 XML 文件中数据行的标签名，仅在 file_format 为 xml 时使用                                  |
+| xml_use_attr_format        | Boolean | 否   | -                             | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用                                  |
+| compress_codec             | String  | 否   | None                          | 文件的压缩编解码器                                                                      |
+| encoding                   | String  | 否   | UTF-8                         | 读取文件时使用的编码                                                                      |
 | null_format                | String  | 否   | -                             | 仅在 file_format_type 为 text 时使用。定义哪些字符串可以表示为 null，例如 `\N`                  |
 | filename_extension         | String  | 否   | -                             | 文件扩展名过滤，用于过滤特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`                      |
 | excel_engine               | String  | 否   | POI                           | 仅在 file_format 为 excel 时使用。支持的引擎为 `POI` 和 `EasyExcel`                          |
