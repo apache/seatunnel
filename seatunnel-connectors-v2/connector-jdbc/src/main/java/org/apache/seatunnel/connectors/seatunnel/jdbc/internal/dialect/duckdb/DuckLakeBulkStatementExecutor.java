@@ -36,7 +36,8 @@ import java.util.stream.Collectors;
 
 /**
  * Collects one JDBC batch in a DuckDB temporary table, then inserts it into DuckLake with one SQL
- * statement. DuckLake 1.3.1 writes a separate Parquet file for each row in a JDBC executeBatch.
+ * statement. With DuckDB JDBC 1.3.1, a JDBC executeBatch into DuckLake produced a separate Parquet
+ * file per row in our reproduction.
  */
 public class DuckLakeBulkStatementExecutor implements JdbcBatchStatementExecutor<SeaTunnelRow> {
     private final TableSchema tableSchema;

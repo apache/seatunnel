@@ -18,7 +18,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 Write data to DuckDB through JDBC in batch or streaming jobs. DuckDB runs in-process, so a normal
 DuckDB connection uses a local database file (`jdbc:duckdb:/path/to/database.db`) or an in-memory
-database. The bundled DuckDB JDBC 1.3.1 driver does not provide an XA datasource; do not configure
+database. DuckDB JDBC 1.3.1 does not provide an XA datasource; do not configure
 `is_exactly_once = true` with this driver.
 
 ## Using Dependency

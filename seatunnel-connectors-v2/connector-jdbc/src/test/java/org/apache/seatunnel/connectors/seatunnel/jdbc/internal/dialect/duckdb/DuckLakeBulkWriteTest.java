@@ -38,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -159,17 +160,18 @@ public class DuckLakeBulkWriteTest {
         Path dataPath = Files.createDirectory(tempDir.resolve("data"));
         Path catalogPath = tempDir.resolve("catalog.sqlite");
         Path initFile = tempDir.resolve("init.sql");
-        Files.writeString(
+        Files.write(
                 initFile,
-                "LOAD '"
-                        + duckLakeExtension.replace("'", "''")
-                        + "';\nLOAD '"
-                        + sqliteExtension.replace("'", "''")
-                        + "';\nATTACH 'ducklake:sqlite:"
-                        + catalogPath
-                        + "' AS lake (DATA_PATH '"
-                        + dataPath
-                        + "');\n");
+                ("LOAD '"
+                                + duckLakeExtension.replace("'", "''")
+                                + "';\nLOAD '"
+                                + sqliteExtension.replace("'", "''")
+                                + "';\nATTACH 'ducklake:sqlite:"
+                                + catalogPath
+                                + "' AS lake (DATA_PATH '"
+                                + dataPath
+                                + "');\n")
+                        .getBytes(StandardCharsets.UTF_8));
         String url = "jdbc:duckdb:;session_init_sql_file=" + initFile;
         Properties properties = new Properties();
         properties.setProperty("extension_directory", tempDir.resolve("extensions").toString());
