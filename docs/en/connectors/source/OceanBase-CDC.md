@@ -41,6 +41,9 @@ OceanBase Oracle compatible mode is not supported in this first delivery.
 
 ## Using Dependency
 
+Install `connector-cdc-oceanbase-*.jar` together with `connector-cdc-base-*.jar` from the same
+SeaTunnel release in `${SEATUNNEL_HOME}/connectors/`. CDC base supplies the shared Debezium runtime.
+
 ### Install Jdbc Driver
 
 #### For Flink Engine

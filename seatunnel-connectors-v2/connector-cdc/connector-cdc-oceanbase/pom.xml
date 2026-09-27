@@ -41,6 +41,17 @@
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-mysql</artifactId>
             <version>${project.version}</version>
+            <exclusions>
+                <!-- CDC base supplies the patched Debezium runtime, including serializable TableId. -->
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.debezium</groupId>
+                    <artifactId>debezium-api</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 </project>

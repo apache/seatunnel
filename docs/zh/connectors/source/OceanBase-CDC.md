@@ -41,6 +41,9 @@ OceanBase Binlog Service 提供增量订阅能力。
 
 ## 依赖使用
 
+将同一 SeaTunnel 版本的 `connector-cdc-oceanbase-*.jar` 和 `connector-cdc-base-*.jar`
+一并放入 `${SEATUNNEL_HOME}/connectors/` 目录。CDC base 提供共享的 Debezium 运行时。
+
 ### 安装 JDBC 驱动
 
 #### 对于 Flink 引擎

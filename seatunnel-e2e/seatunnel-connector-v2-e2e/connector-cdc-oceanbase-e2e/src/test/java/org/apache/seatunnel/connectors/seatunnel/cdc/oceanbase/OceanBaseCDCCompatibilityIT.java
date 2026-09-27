@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -36,6 +37,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.ObjectOutputStream;
+import java.net.URL;
+import java.net.URLClassLoader;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -43,6 +49,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
@@ -149,9 +156,11 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
      * events reach the JDBC sink.
      *
      * @param container SeaTunnel engine test container
+     * @throws Exception if the packaged CDC classes cannot be loaded or serialized
      */
     @TestTemplate
-    public void testOceanBaseCdcWrapperRuntimeE2e(TestContainer container) {
+    public void testOceanBaseCdcWrapperRuntimeE2e(TestContainer container) throws Exception {
+        assertPackagedTableIdSerialization();
         recreateTestTables();
 
         CompletableFuture<Void> jobFuture =
@@ -185,6 +194,41 @@ public class OceanBaseCDCCompatibilityIT extends TestSuiteBase implements TestRe
                             Assertions.assertIterableEquals(
                                     queryTable(SOURCE_TABLE), queryTable(SINK_TABLE));
                         });
+    }
+
+    /**
+     * Verifies serialization using the shipped connector jars in either discovery order. An
+     * isolated loader prevents the test classpath from hiding an unpatched Debezium class in a
+     * shaded jar.
+     */
+    private void assertPackagedTableIdSerialization() throws Exception {
+        List<File> connectorJars =
+                ContainerUtil.getConnectorFiles(
+                        new File(ContainerUtil.PROJECT_ROOT_PATH, "seatunnel-connectors-v2"),
+                        Collections.singleton("connector-cdc-oceanbase"),
+                        "connector-");
+        Assertions.assertEquals(
+                2, connectorJars.size(), "Expected OceanBase CDC and CDC base artifacts");
+        assertTableIdSerialization(connectorJars);
+        Collections.reverse(connectorJars);
+        assertTableIdSerialization(connectorJars);
+    }
+
+    private void assertTableIdSerialization(List<File> connectorJars) throws Exception {
+        URL[] urls = new URL[connectorJars.size()];
+        for (int index = 0; index < connectorJars.size(); index++) {
+            urls[index] = connectorJars.get(index).toURI().toURL();
+        }
+        try (URLClassLoader loader = new URLClassLoader(urls, null);
+                ObjectOutputStream output = new ObjectOutputStream(new ByteArrayOutputStream())) {
+            Object tableId =
+                    loader.loadClass("io.debezium.relational.TableId")
+                            .getConstructor(String.class, String.class, String.class)
+                            .newInstance(MYSQL_DATABASE, null, SOURCE_TABLE);
+            Assertions.assertDoesNotThrow(
+                    () -> output.writeObject(tableId),
+                    "Packaged TableId must serialize for connector order: " + connectorJars);
+        }
     }
 
     /** Recreate isolated source and sink tables for deterministic snapshot assertions. */
