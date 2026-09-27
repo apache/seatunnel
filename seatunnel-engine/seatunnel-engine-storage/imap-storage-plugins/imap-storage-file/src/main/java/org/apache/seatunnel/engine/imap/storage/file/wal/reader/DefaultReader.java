@@ -19,18 +19,18 @@
  */
 package org.apache.seatunnel.engine.imap.storage.file.wal.reader;
 
-import org.apache.seatunnel.engine.imap.storage.api.exception.IMapStorageException;
 import org.apache.seatunnel.engine.imap.storage.file.bean.IMapFileData;
 import org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 
-import org.apache.commons.collections.CollectionUtils;
-import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.LocatedFileStatus;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.fs.RemoteIterator;
 
+import java.io.BufferedInputStream;
+import java.io.DataInputStream;
+import java.io.EOFException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -38,7 +38,6 @@ import java.util.List;
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
 public class DefaultReader implements IFileReader<IMapFileData> {
-    private static final int DEFAULT_QUERY_LIST_SIZE = 1024;
     FileSystem fs;
     Serializer serializer;
 
@@ -55,60 +54,61 @@ public class DefaultReader implements IFileReader<IMapFileData> {
 
     @Override
     public List<IMapFileData> readAllData(Path parentPath) throws IOException {
-        List<String> fileNames = getFileNames(parentPath);
-        if (CollectionUtils.isEmpty(fileNames)) {
-            return new ArrayList<>();
-        }
-        List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        for (String fileName : fileNames) {
-            result.addAll(readData(new Path(parentPath, fileName)));
-        }
+        List<IMapFileData> result = new ArrayList<>();
+        forEachData(parentPath, result::add);
         return result;
     }
 
-    private List<String> getFileNames(Path parentPath) {
-        try {
-            if (!fs.exists(parentPath)) {
-                return new ArrayList<>();
+    @Override
+    public void forEachData(Path parentPath, RecordConsumer<IMapFileData> consumer)
+            throws IOException {
+        if (!fs.exists(parentPath)) {
+            return;
+        }
+
+        RemoteIterator<LocatedFileStatus> files = fs.listFiles(parentPath, true);
+        while (files.hasNext()) {
+            LocatedFileStatus file = files.next();
+            if (file.getPath().getName().endsWith("wal.txt")) {
+                readData(file, consumer);
             }
-            RemoteIterator<LocatedFileStatus> fileStatusRemoteIterator =
-                    fs.listFiles(parentPath, true);
-            List<String> fileNames = new ArrayList<>();
-            while (fileStatusRemoteIterator.hasNext()) {
-                LocatedFileStatus fileStatus = fileStatusRemoteIterator.next();
-                if (fileStatus.getPath().getName().endsWith("wal.txt")) {
-                    fileNames.add(fileStatus.getPath().toString());
-                }
-            }
-            return fileNames;
-        } catch (IOException e) {
-            throw new IMapStorageException(e, "get file names error,path is s%", parentPath);
         }
     }
 
-    private List<IMapFileData> readData(Path path) throws IOException {
-        List<IMapFileData> result = new ArrayList<>(DEFAULT_QUERY_LIST_SIZE);
-        long length = fs.getFileStatus(path).getLen();
-        try (FSDataInputStream in = fs.open(path)) {
-            byte[] datas = new byte[(int) length];
-            in.readFully(datas);
-            int startIndex = 0;
-            while (startIndex + WAL_DATA_METADATA_LENGTH < datas.length) {
-
-                byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
-                System.arraycopy(datas, startIndex, metadata, 0, WAL_DATA_METADATA_LENGTH);
-                int dataLength = WALDataUtils.byteArrayToInt(metadata);
-                startIndex += WAL_DATA_METADATA_LENGTH;
-                if (startIndex + dataLength > datas.length) {
+    private void readData(LocatedFileStatus file, RecordConsumer<IMapFileData> consumer)
+            throws IOException {
+        long remainingBytes = file.getLen();
+        byte[] metadata = new byte[WAL_DATA_METADATA_LENGTH];
+        try (DataInputStream input =
+                new DataInputStream(new BufferedInputStream(fs.open(file.getPath())))) {
+            while (remainingBytes >= WAL_DATA_METADATA_LENGTH) {
+                if (!readFully(input, metadata)) {
                     break;
                 }
-                byte[] data = new byte[dataLength];
-                System.arraycopy(datas, startIndex, data, 0, data.length);
-                IMapFileData fileData = serializer.deserialize(data, IMapFileData.class);
-                result.add(fileData);
-                startIndex += data.length;
+                remainingBytes -= WAL_DATA_METADATA_LENGTH;
+
+                int dataLength = WALDataUtils.byteArrayToInt(metadata);
+                if (dataLength > remainingBytes) {
+                    // The writer may have stopped in the middle of its last record.
+                    break;
+                }
+
+                byte[] serializedRecord = new byte[dataLength];
+                if (!readFully(input, serializedRecord)) {
+                    break;
+                }
+                remainingBytes -= dataLength;
+                consumer.accept(serializer.deserialize(serializedRecord, IMapFileData.class));
             }
         }
-        return result;
+    }
+
+    private boolean readFully(DataInputStream input, byte[] target) throws IOException {
+        try {
+            input.readFully(target);
+            return true;
+        } catch (EOFException ignored) {
+            return false;
+        }
     }
 }
