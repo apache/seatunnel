@@ -50,7 +50,7 @@ import ChangeLog from '../changelog/connector-file-gcs.md';
 | hadoop_gcs_properties | map | 否 | - | 额外的 `fs.gs.*` Hadoop 属性。显式连接器配置优先。 |
 | schema | config | 条件必填 | - | `text`、`json`、`excel`、`csv` 和 `xml` 格式需要配置。参见 [Schema 功能](../../introduction/concepts/schema-feature.md)。 |
 | read_columns | list | 否 | - | 从数据源投影的列。 |
-| field_delimiter | string | 否 | text 为 `\001`，CSV 为 `,` | text 和 CSV 的字段分隔符，`delimiter` 是其别名。 |
+| field_delimiter | string | 否 | `\001` | text 和 CSV 的字段分隔符，`delimiter` 是其别名。 |
 | row_delimiter | string | 否 | `\n` | text 文件的行分隔符。 |
 | skip_header_row_number | long | 否 | `0` | 跳过 text 或 CSV 文件开头的行数。 |
 | encoding | string | 否 | `UTF-8` | text、JSON、CSV 和 XML 的字符编码。 |

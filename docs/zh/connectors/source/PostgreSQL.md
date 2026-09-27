@@ -103,7 +103,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | split.even-distribution.factor.upper-bound | Double        | 否   | 100             | 块键分布因子的上限。此因子用于确定表数据是否均匀分布。<br/> 如果计算出的分布因子小于或等于此上限（即 (MAX(id) - MIN(id) + 1) / 行数），则表块将优化为均匀分布。否则，如果分布因子较大，则将视为不均匀分布，当估计的分片数超过 `sample-sharding.threshold` 指定的值时，将使用基于采样的分片策略。默认值为 100.0。 |
 | split.sample-sharding.threshold            | Int         | 否   | 1000            | 此配置指定触发样本分片策略的估计分片数阈值。<br/> 当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围时，且估计的分片数（计算为近似行数 / 块大小）超过此阈值，将使用样本分片策略。这可以帮助更高效地处理大数据集。默认值为 1000 个分片。                                                                                   |
 | split.inverse-sampling.rate                | Int         | 否   | 1000            | 在样本分片策略中使用的采样率的逆数。例如，如果此值设置为 1000，表示在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理非常大的数据集时，较低的采样率尤其有用。默认值为 1000。                                                                                                                                                              |
-|
+| common-options                             |            | 否   | -               | Source 插件通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md) 了解详情 |
 ## 并行读取器
 
 JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些规则来拆分表中的数据，这些数据将交给读取器进行读取。读取器的数量由 `parallelism` 选项确定。

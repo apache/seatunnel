@@ -56,7 +56,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | path                       | string  | yes      | -                                    |
 | file_format_type           | string  | yes      | -                                    |
 | read_columns               | list    | no       | -                                    |
-| delimiter/field_delimiter  | string  | no       | \001 for text and , for csv          |
+| delimiter/field_delimiter  | string  | no       | \001                                 |
 | row_delimiter              | string  | no       | \n                                   |
 | parse_partition_from_path  | boolean | no       | true                                 |
 | date_format                | string  | no       | yyyy-MM-dd                           |
@@ -93,7 +93,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | retention_max_age          | string  | no       | -                                    |
 | retention_check_interval   | string  | no       | 1H                                   |
 | common-options             |         | no       | -                                    |
-| tables_configs             | list    | no       | used to define a multiple table task |
+| tables_configs             | list    | no       | -                                    |
 | file_filter_modified_start | string  | no       | -                                    |
 | file_filter_modified_end   | string  | no       | -                                    | 
 | enable_file_split          | boolean | no       | false                                | 

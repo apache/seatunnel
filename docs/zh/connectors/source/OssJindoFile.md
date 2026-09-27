@@ -66,7 +66,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | access_secret             | string  | 是  | -                           | OSS 文件系统的访问密钥                                                                 |
 | endpoint                  | string  | 是  | -                           | OSS 文件系统的端点                                                                   |
 | read_columns              | list    | 否  | -                           | 数据源的读取列列表                                                                     |
-| delimiter/field_delimiter | string  | 否  | \001 for text and , for csv | 字段分隔符                                                                         |
+| delimiter/field_delimiter | string  | 否  | \001                        | 字段分隔符                                                                         |
 | row_delimiter             | string  | 否  | \n                          | 行分隔符                                                                          |
 | parse_partition_from_path | boolean | 否  | true                        | 控制是否从文件路径解析分区键和值                                                              |
 | date_format               | string  | 否  | yyyy-MM-dd                  | 日期类型格式                                                                        |

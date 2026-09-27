@@ -50,10 +50,10 @@ Transform 类改动如果能同时带上代码、文档和示例，通常更容�
 2. [Transforms 目录](../transforms)
 3. [Transform 通用参数](../transforms/common-options/common-options.md)
 4. [核心 API 设计](../architecture/core-api-design.md)
-5. [seatunnel-transforms-v2 README](../../../seatunnel-transforms-v2/README.zh.md)
+5. [seatunnel-transforms-v2 README](https://github.com/apache/seatunnel/blob/dev/seatunnel-transforms-v2/README.zh.md)
 
 ## 什么时候继续看仓库级指南
 
 如果你需要的是 `seatunnel-transforms-v2` 模块内部的约定、示例或更贴近源码目录的说明，再继续看仓库里的指南：
 
-- [Transform-V2 贡献指南](../../../seatunnel-transforms-v2/README.zh.md)
+- [Transform-V2 贡献指南](https://github.com/apache/seatunnel/blob/dev/seatunnel-transforms-v2/README.zh.md)
