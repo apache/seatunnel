@@ -25,6 +25,8 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqMessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSingleTableValidator;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
@@ -59,9 +61,17 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         Conditions.extension(
                                 RabbitmqSourceOptions.TABLE_CONFIGS,
                                 new RabbitmqTableConfigsValidator()))
+                .optional(RabbitmqSourceOptions.FORMAT)
+                .conditional(
+                        RabbitmqSourceOptions.FORMAT,
+                        RabbitmqMessageFormat.PROTOBUF,
+                        RabbitmqSourceOptions.PROTOBUF_SCHEMA,
+                        RabbitmqSourceOptions.PROTOBUF_MESSAGE_NAME)
                 .optional(
                         RabbitmqSourceOptions.VIRTUAL_HOST,
                         RabbitmqSourceOptions.URL,
+                        RabbitmqBaseOptions.URI,
+                        RabbitmqSourceOptions.SSL,
                         RabbitmqSourceOptions.ROUTING_KEY,
                         RabbitmqSourceOptions.EXCHANGE,
                         RabbitmqSourceOptions.NETWORK_RECOVERY_INTERVAL,
@@ -72,6 +82,7 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
+                        RabbitmqSourceOptions.PASSIVE,
                         RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX,
                         RabbitmqSourceOptions.REQUESTED_FRAME_MAX,
                         RabbitmqSourceOptions.REQUESTED_HEARTBEAT,

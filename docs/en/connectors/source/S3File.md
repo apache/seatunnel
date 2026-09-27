@@ -41,6 +41,46 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 
 Read data from aws s3 file system.
 
+### Connectivity dry-run
+
+`--dry-run connect` can check a single S3A source before submitting a job. The
+source must use `bucket = "s3a://your-bucket"`, an absolute `path`, an explicit
+inline `schema.fields` or `schema.columns`, and `file_format_type` of `text`,
+`csv`, `json`, or `xml`. Set `parse_partition_from_path = false` and omit
+`read_columns`; file-derived schemas, projection, and partition inference are
+not validated by this metadata-only check. Unsupported configurations fail the
+connect dry-run with an explanation; normal job execution is unchanged.
+
+The check reuses Hadoop S3A endpoint, credential-chain, proxy and path-style
+configuration. It checks object metadata with HEAD, or makes one prefix listing
+with `maxKeys=1` and delimiter `/`. It does not open file contents, recursively
+list files, create readers, upload, delete, or initialize a shared filesystem.
+An exact object does not require listing permission. A prefix requires listing
+permission; a successful empty listing is accepted for `discovery_mode =
+"continuous"`, since files may arrive later. For a batch source, an empty
+virtual prefix without a directory marker fails; an accessible empty bucket
+root is accepted. Missing buckets and denied requests fail in both modes.
+
+Validation-only connection establishment and socket timeouts are capped at
+5 seconds, preserving smaller positive values. SDK request retries are disabled
+for validation, including bucket-specific overrides. These are network timeout
+settings, not a total deadline for DNS, credential-provider initialization, or
+SDK setup. Runtime timeouts and retries are unchanged.
+
+This initial check does not support `tables_configs`, legacy `s3n` buckets,
+SSE-C customer-provided encryption keys, `fs.s3a.security.credential.provider.path`,
+S3Guard, multipart purge, or custom S3 client factories. It does not prove object
+content readability, file-format correctness, schema compatibility with the
+stored data, worker-side credentials, or target/update/post-sync permissions.
+
+Save your job configuration meeting the requirements above as
+`config/s3-to-console.conf` (this is a user-created file, not a bundled template),
+then run from the SeaTunnel installation directory:
+
+```bash
+bin/seatunnel.sh --config config/s3-to-console.conf --dry-run connect -e local
+```
+
 ## Supported DataSource Info
 
 | Datasource | Supported versions |
@@ -666,6 +706,105 @@ source {
 ```
 
 The same pattern works for AWS SSO/Profile providers by swapping the provider class (for example `com.amazonaws.auth.profile.ProfileCredentialsProvider` with `fs.s3a.profile` and `fs.s3a.credentialsFile` keys) — pass those provider-specific keys under `hadoop_s3_properties`. See the [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) documentation for the full set of supported `fs.s3a.*` keys.
+
+## Credential Provider in Container Environments
+
+When running SeaTunnel in container environments (Kubernetes, ECS, EKS, Docker), the S3File connector accepts any fully-qualified S3A credentials provider class that implements `com.amazonaws.auth.AWSCredentialsProvider` and is available on the classpath. The `fs.s3a.aws.credentials.provider` option is validated at config-parse time when the class is resolvable on the node building the configuration: the class must implement the AWS credentials provider interface and must not be abstract. When the class cannot be resolved (e.g., the provider JAR is only available on worker nodes), validation is deferred to runtime on the worker actually running S3A.
+
+### Supported Credential Providers
+
+| Provider | Class Name | Typical Use |
+|----------|------------|-------------|
+| Simple AWSCredentials | `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` | Static access key / secret key |
+| Instance Profile | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | EC2 instance role (default) |
+| Container | `com.amazonaws.auth.ContainerCredentialsProvider` | ECS task role |
+| Default Chain | `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` | Multi-source fallback chain |
+| Custom | Any `com.amazonaws.auth.AWSCredentialsProvider` implementation | User-defined provider |
+
+### Kubernetes / EKS Configuration
+
+**EC2 Node Instance Role (Recommended)**: If your EKS worker nodes have an EC2 instance profile with S3 permissions, the default `InstanceProfileCredentialsProvider` resolves credentials from the instance metadata service automatically:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**Static Keys via Kubernetes Secrets (Fallback)**: If instance roles are not available, inject credentials from a Kubernetes Secret:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  access_key = "<from-k8s-secret>"
+  secret_key = "<from-k8s-secret>"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+**DefaultAWSCredentialsProviderChain**: For flexible deployments, the default chain tries multiple credential sources in order (environment variables → system properties → profile → container → instance profile):
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.DefaultAWSCredentialsProviderChain"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### ECS Task Role
+
+When running on ECS with the `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` environment variable set automatically by the ECS agent:
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.ContainerCredentialsProvider"
+  path = "/data/input"
+  file_format_type = "parquet"
+}
+```
+
+### EKS IRSA
+
+EKS IAM Roles for Service Accounts (IRSA) requires the `WebIdentityTokenCredentialsProvider` class. This class is available in newer AWS SDK v1.x releases (e.g. 1.11.5xx+) but is **not included** in the older AWS SDK v1.x (1.11.271) bundled with SeaTunnel. The following alternatives are recommended:
+
+1. **Use the EC2 node instance role** — attach an IAM role to the EKS worker node and keep the default `InstanceProfileCredentialsProvider`.
+2. **Use `SimpleAWSCredentialsProvider`** with credentials injected from a Kubernetes Secret.
+3. **Add a newer AWS SDK JAR** that includes `WebIdentityTokenCredentialsProvider` to `${SEATUNNEL_HOME}/lib` on all cluster nodes.
+
+### Passing Additional Options via `hadoop_s3_properties`
+
+For provider-specific configuration keys (e.g., `fs.s3a.session.token`, `fs.s3a.assumed.role.arn`), use the `hadoop_s3_properties` map:
+
+```hocon
+hadoop_s3_properties {
+  "fs.s3a.session.token" = "<session-token>"
+  "fs.s3a.assumed.role.arn" = "arn:aws:iam::123456789012:role/my-role"
+}
+```
+
+The connector passes these keys directly to the Hadoop S3A configuration. Note: the connector always overwrites the `fs.s3a.aws.credentials.provider` key with the option value, so you cannot override it via `hadoop_s3_properties`.
+
+### Troubleshooting
+
+**You may see a `Factory initialize failed` (or similar classloading) error**: This typically means the credential provider class is not on the classpath. Ensure the provider JAR is present in `${SEATUNNEL_HOME}/lib` on **every** cluster node (not just the submitting node).
+
+**`No AWS Credentials provided by ...`**: The configured credential provider could not resolve credentials. Check:
+- `SimpleAWSCredentialsProvider`: verify `access_key` and `secret_key` are set.
+- `InstanceProfileCredentialsProvider`: verify the EC2 instance has an IAM role attached.
+- `ContainerCredentialsProvider`: verify the `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` environment variable is set.
+
+**`IllegalArgumentException` at config-parse time**: The class name is malformed or the class does not implement `com.amazonaws.auth.AWSCredentialsProvider`. Verify the fully-qualified class name and that the class implements the required interface.
 
 ## Changelog
 

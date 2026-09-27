@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 > Milvus sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 This Milvus sink connector writes data to Milvus or Zilliz Cloud. It can create the target
@@ -405,6 +411,16 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### Does Milvus sink automatically create target collections?
+
+Yes. If the target collection does not exist in Milvus, the sink can automatically create it based on the upstream schema and vector dimension configuration.
+
+### How does upsert work in Milvus sink?
+
+When `enable_upsert` is set to `true`, incoming records with existing primary keys will be updated in Milvus rather than resulting in duplicate key errors.
 
 ## Changelog
 

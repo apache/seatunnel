@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.db2;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -29,9 +30,16 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 public class DB2CatalogTest {
 
@@ -75,5 +83,32 @@ public class DB2CatalogTest {
                 "CREATE TABLE \"E2E\".\"SINK\" (\"C_INT\" INT NOT NULL, "
                         + "\"C_INTEGER\" INT, PRIMARY KEY (\"C_INT\"))",
                 createTableSql);
+    }
+
+    @Test
+    void testBuildColumnReadsDefaultValueAsString() throws SQLException {
+        DB2Catalog catalog =
+                new DB2Catalog(
+                        "db2",
+                        "db2inst1",
+                        "123456",
+                        JdbcUrlUtil.getUrlInfo("jdbc:db2://127.0.0.1:50000/E2E"),
+                        "E2E",
+                        null);
+
+        ResultSet resultSet = mock(ResultSet.class);
+        when(resultSet.getString("COLUMN_NAME")).thenReturn("C_VARCHAR");
+        when(resultSet.getString("DATA_TYPE")).thenReturn("VARCHAR");
+        when(resultSet.getLong("LENGTH")).thenReturn(20L);
+        when(resultSet.getInt("SCALE")).thenReturn(0);
+        when(resultSet.getString("NULLS")).thenReturn("Y");
+        when(resultSet.getString("DEFAULT_VALUE")).thenReturn("'abc'");
+        when(resultSet.getString("COMMENT")).thenReturn("comment");
+
+        Column column = catalog.buildColumn(resultSet);
+
+        Assertions.assertEquals("'abc'", column.getDefaultValue());
+        verify(resultSet).getString("DEFAULT_VALUE");
+        verify(resultSet, never()).getObject("DEFAULT_VALUE");
     }
 }

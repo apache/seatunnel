@@ -572,6 +572,109 @@ sink {
 
 对于 AWS SSO / Profile 角色，把 provider 类换成 `com.amazonaws.auth.profile.ProfileCredentialsProvider`，并把 `fs.s3a.profile`、`fs.s3a.credentialsFile` 等 provider 特定键放在 `hadoop_s3_properties` 里。完整的 `fs.s3a.*` 键集合参见 [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) 文档。
 
+## 容器环境中的凭据提供程序
+
+在容器环境（Kubernetes、ECS、EKS、Docker）中运行 SeaTunnel 时，S3File 连接器接受任何实现 `com.amazonaws.auth.AWSCredentialsProvider` 接口且在 classpath 上可用的全限定 S3A 凭据提供程序类。`fs.s3a.aws.credentials.provider` 选项在配置解析时进行验证（当类在构建配置的节点上可解析时）：类必须实现 AWS 凭据提供程序接口，且不能是抽象类。当类无法解析时（例如，提供程序 JAR 仅在 worker 节点上可用），验证将延迟到实际运行 S3A 的 worker 节点上的运行时进行。
+
+### 支持的凭据提供程序
+
+| 提供程序 | 类名 | 典型场景 |
+|----------|------|----------|
+| Simple AWSCredentials | `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` | 静态 access key / secret key |
+| Instance Profile | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | EC2 实例角色（默认） |
+| Container | `com.amazonaws.auth.ContainerCredentialsProvider` | ECS 任务角色 |
+| Default Chain | `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` | 多源回退链 |
+| 自定义 | 任何 `com.amazonaws.auth.AWSCredentialsProvider` 实现 | 用户自定义提供程序 |
+
+### Kubernetes / EKS 配置
+
+**EC2 节点实例角色（推荐）**：如果您的 EKS 工作节点具有包含 S3 权限的 EC2 实例配置文件，默认的 `InstanceProfileCredentialsProvider` 会自动从实例元数据服务解析凭据：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+**通过 Kubernetes Secret 注入静态密钥（备选方案）**：如果实例角色不可用，从 Kubernetes Secret 注入凭据：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+  access_key = "<from-k8s-secret>"
+  secret_key = "<from-k8s-secret>"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+**DefaultAWSCredentialsProviderChain**：对于需要灵活部署的场景，默认链按顺序尝试多个凭据来源（环境变量 → 系统属性 → profile → 容器 → 实例配置文件）：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.DefaultAWSCredentialsProviderChain"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+### ECS 任务角色
+
+在 ECS 上运行时，ECS 代理会自动设置 `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` 环境变量：
+
+```hocon
+S3File {
+  bucket = "s3a://my-bucket"
+  tmp_path = "/tmp/seatunnel"
+  fs.s3a.endpoint = "s3.amazonaws.com"
+  fs.s3a.aws.credentials.provider = "com.amazonaws.auth.ContainerCredentialsProvider"
+  path = "/data/output"
+  file_format_type = "parquet"
+}
+```
+
+### EKS IRSA
+
+EKS IAM Roles for Service Accounts (IRSA) 需要 `WebIdentityTokenCredentialsProvider` 类。该类在较新的 AWS SDK v1.x 版本（如 1.11.5xx+）中可用，但 **不包含** 在 SeaTunnel 捆绑的旧版 AWS SDK v1.x（1.11.271）中。推荐以下替代方案：
+
+1. **使用 EC2 节点实例角色** — 为 EKS 工作节点附加 IAM 角色，保持默认的 `InstanceProfileCredentialsProvider`。
+2. **使用 `SimpleAWSCredentialsProvider`**，从 Kubernetes Secret 注入凭据。
+3. **在所有集群节点** 的 `${SEATUNNEL_HOME}/lib` 中添加包含 `WebIdentityTokenCredentialsProvider` 的较新 AWS SDK JAR。
+
+### 通过 `hadoop_s3_properties` 传递额外选项
+
+对于 provider 特定的配置键（如 `fs.s3a.session.token`、`fs.s3a.assumed.role.arn`），使用 `hadoop_s3_properties` 映射：
+
+```hocon
+hadoop_s3_properties {
+  "fs.s3a.session.token" = "<session-token>"
+  "fs.s3a.assumed.role.arn" = "arn:aws:iam::123456789012:role/my-role"
+}
+```
+
+连接器将这些键直接传递给 Hadoop S3A 配置。注意：连接器始终会用选项值覆盖 `fs.s3a.aws.credentials.provider` 键，因此无法通过 `hadoop_s3_properties` 覆盖它。
+
+### 故障排查
+
+**您可能会看到 `Factory initialize failed`（或类似的类加载）错误**：这通常意味着凭据提供程序类不在 classpath 上。请确保 provider JAR 存在于 **每个** 集群节点（不仅仅是提交节点）的 `${SEATUNNEL_HOME}/lib` 中。
+
+**`No AWS Credentials provided by ...`**：配置的凭据提供程序无法解析凭据。请检查：
+- `SimpleAWSCredentialsProvider`：验证 `access_key` 和 `secret_key` 已设置。
+- `InstanceProfileCredentialsProvider`：验证 EC2 实例已附加 IAM 角色。
+- `ContainerCredentialsProvider`：验证 `AWS_CONTAINER_CREDENTIALS_RELATIVE_URI` 环境变量已设置。
+
+**配置解析时的 `IllegalArgumentException`**：类名格式错误或类未实现 `com.amazonaws.auth.AWSCredentialsProvider`。请验证全限定类名是否正确，以及类是否实现了所需的接口。
+
 ## 变更日志
 
 <ChangeLog />

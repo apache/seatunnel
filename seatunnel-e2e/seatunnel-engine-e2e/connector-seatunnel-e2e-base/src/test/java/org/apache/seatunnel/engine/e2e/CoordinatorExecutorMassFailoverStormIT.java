@@ -43,6 +43,7 @@ import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -385,6 +386,7 @@ public class CoordinatorExecutorMassFailoverStormIT {
             completeFutures.put(jobId, proxy.doWaitForJobComplete());
         }
 
+        Map<JobStatus, Integer> terminalStatusCounts = new EnumMap<>(JobStatus.class);
         for (Map.Entry<Long, PassiveCompletableFuture<JobResult>> entry :
                 completeFutures.entrySet()) {
             JobResult jobResult;
@@ -396,13 +398,44 @@ public class CoordinatorExecutorMassFailoverStormIT {
                 return;
             }
             JobStatus actual = jobResult.getStatus();
+            terminalStatusCounts.merge(actual, 1, Integer::sum);
+            // Accept every end state here (JobStatus#isEndState(): FAILED, CANCELED, FINISHED,
+            // SAVEPOINT_DONE or UNKNOWABLE), not only CANCELED/FINISHED: the executor-growth
+            // assertions above are the actual property under test, and all this teardown has to
+            // prove is that no job is left non-terminal (nothing leaks past the test). A job
+            // cancelled during this mass-failover storm can legitimately end FAILED instead of
+            // CANCELED; the exact chain was confirmed against a real CI failure and this engine's
+            // current source:
+            //   1. This module's seatunnel.yaml sets checkpoint timeout=100000ms. Under the
+            //      storm, a job's first checkpoint can go unacknowledged for that whole window, so
+            //      its pre-scheduled expiry check (the scheduled task started inside
+            //      CheckpointCoordinator#triggerCheckpoint, CheckpointCoordinator.java:986-996)
+            //      fires, aborts the checkpoint as expired, and marks the CheckpointCoordinator
+            //      FAILED -- which cancels every task in the pipeline.
+            //   2. A task whose BlockingWorker thread was, at that same moment, mid-RPC
+            //      (ReportMetricsOperation) to the master this test kills independently has its
+            //      connection close immediately, but the pending Hazelcast invocation does not
+            //      fail fast -- it only surfaces once the operation-heartbeat-timeout gives up on
+            //      it, up to ~120s later (TaskExecutionService#updateMetricsContextInImap,
+            //      TaskExecutionService.java:880 and 893-901). That task still completes CANCELED
+            //      (it was already flagged for cancellation), just ~120s after its siblings.
+            //   3. Only once every task in the pipeline has completed does
+            //      SubPlan#getPipelineEndState() (SubPlan.java:250-259) make the final call: it
+            //      finds them all CANCELED, but also re-checks the CheckpointCoordinator's own
+            //      status: seeing FAILED from step 1, it overrides the pipeline's terminal state
+            //      to FAILED, and the job then follows CANCELING -> FAILING -> FAILED.
             Assertions.assertTrue(
-                    actual == JobStatus.CANCELED || actual == JobStatus.FINISHED,
+                    actual.isEndState(),
                     "Job "
                             + entry.getKey()
                             + " should have reached a terminal status, was "
                             + actual);
         }
+        log.info(
+                "CoordinatorExecutorMassFailoverStormIT teardown: {} jobs reached a terminal "
+                        + "status, by status: {}",
+                completeFutures.size(),
+                terminalStatusCounts);
     }
 
     private static CoordinatorService getCoordinatorService(HazelcastInstanceImpl node) {
