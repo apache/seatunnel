@@ -95,6 +95,35 @@ public class DuckDBDialectTest {
     }
 
     @Test
+    void testQuotedIdentifiersExecute() throws Exception {
+        TablePath quotedTable = TablePath.of("default", "main", "odd\"table");
+        Assertions.assertEquals(
+                "\"main\".\"odd\"\"table\"", dialect.tableIdentifier("main", "odd\"table"));
+        try (Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE \"main\".\"odd\"\"table\" (\"odd\"\"column\" INTEGER)");
+            try {
+                statement.execute(
+                        "INSERT INTO "
+                                + dialect.tableIdentifier(quotedTable)
+                                + " ("
+                                + dialect.quoteIdentifier("odd\"column")
+                                + ") VALUES (42)");
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT "
+                                        + dialect.quoteIdentifier("odd\"column")
+                                        + " FROM "
+                                        + dialect.tableIdentifier(quotedTable))) {
+                    Assertions.assertTrue(resultSet.next());
+                    Assertions.assertEquals(42, resultSet.getInt(1));
+                }
+            } finally {
+                statement.execute("DROP TABLE \"main\".\"odd\"\"table\"");
+            }
+        }
+    }
+
+    @Test
     void testHashModForFieldExecution() throws Exception {
         insertRows(1, 2, 3, 4);
         String hashExpression = dialect.hashModForField("id", 3);

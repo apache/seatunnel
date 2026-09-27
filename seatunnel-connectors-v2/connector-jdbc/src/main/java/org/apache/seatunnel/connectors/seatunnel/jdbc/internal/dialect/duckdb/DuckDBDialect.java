@@ -66,12 +66,12 @@ public class DuckDBDialect implements JdbcDialect {
 
     @Override
     public String quoteIdentifier(String identifier) {
-        return String.format("\"%s\"", identifier);
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 
     @Override
     public String tableIdentifier(String database, String tableName) {
-        return tableIdentifier(TablePath.of(database + "." + tableName));
+        return tableIdentifier(TablePath.of(DEFAULT_DATABASE_NAME, database, tableName));
     }
 
     /**
@@ -100,6 +100,6 @@ public class DuckDBDialect implements JdbcDialect {
         if (schemaName == null || schemaName.trim().isEmpty()) {
             schemaName = "main";
         }
-        return String.format("\"%s\".\"%s\"", schemaName, tablePath.getTableName());
+        return quoteIdentifier(schemaName) + "." + quoteIdentifier(tablePath.getTableName());
     }
 }

@@ -156,6 +156,27 @@ public class DuckDBCatalogTest {
     }
 
     @Test
+    public void testCreateTableWithQuotedIdentifiers() throws Exception {
+        TablePath source = getMainTablePath("quoted\"source");
+        TablePath target = getMainTablePath("quoted\"target");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute(
+                    "CREATE TABLE \"main\".\"quoted\"\"source\" (\"odd\"\"column\" INTEGER)");
+            try {
+                catalog.createTable(target, catalog.getTable(source), false);
+                try (ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT \"odd\"\"column\" FROM \"main\".\"quoted\"\"target\"")) {
+                    Assertions.assertFalse(resultSet.next());
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS \"main\".\"quoted\"\"target\"");
+                statement.execute("DROP TABLE \"main\".\"quoted\"\"source\"");
+            }
+        }
+    }
+
+    @Test
     @Order(4)
     public void testListTables() {
         List<String> tables = catalog.listTables(DATABASE_NAME);

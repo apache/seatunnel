@@ -206,8 +206,8 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                         .map(column -> quoteIdentifier(column.getColumnName()))
                         .collect(Collectors.joining(", "));
         return String.format(
-                "    CONSTRAINT \"%s\" UNIQUE (%s)",
-                constraintKey.getConstraintName(), columnNamesString);
+                "    CONSTRAINT %s UNIQUE (%s)",
+                quoteIdentifier(constraintKey.getConstraintName()), columnNamesString);
     }
 
     private String buildIndexSql(TablePath tablePath, ConstraintKey constraintKey) {
@@ -216,12 +216,14 @@ public class DuckDBCreateTableSqlBuilder extends AbstractJdbcCreateTableSqlBuild
                         .map(column -> quoteIdentifier(column.getColumnName()))
                         .collect(Collectors.joining(", "));
         return String.format(
-                "CREATE INDEX \"%s\" ON %s (%s)",
-                constraintKey.getConstraintName(), buildTableName(tablePath), columnNamesString);
+                "CREATE INDEX %s ON %s (%s)",
+                quoteIdentifier(constraintKey.getConstraintName()),
+                buildTableName(tablePath),
+                columnNamesString);
     }
 
     private String quoteIdentifier(String identifier) {
-        return "\"" + CatalogUtils.getFieldIde(identifier, fieldIde) + "\"";
+        return "\"" + CatalogUtils.getFieldIde(identifier, fieldIde).replace("\"", "\"\"") + "\"";
     }
 
     private String buildTableName(TablePath tablePath) {
