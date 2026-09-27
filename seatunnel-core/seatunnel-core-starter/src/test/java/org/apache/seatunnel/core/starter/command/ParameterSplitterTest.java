@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ParameterSplitterTest {
 
@@ -109,5 +110,23 @@ public class ParameterSplitterTest {
         String input = "a=1,b=2,c=3";
         String[] expected = {"a=1", "b=2", "c=3"};
         assertArrayEquals(expected, parameterSplitter.split(input).toArray());
+    }
+
+    @Test
+    void testSplitWithUnmatchedBracket() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    parameterSplitter.split("a=1]");
+                });
+    }
+
+    @Test
+    void testSplitWithUnmatchedBrace() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> {
+                    parameterSplitter.split("a=1}");
+                });
     }
 }
