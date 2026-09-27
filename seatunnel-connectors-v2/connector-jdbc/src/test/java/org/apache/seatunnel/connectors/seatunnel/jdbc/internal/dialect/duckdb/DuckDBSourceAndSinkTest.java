@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class DuckDBSourceAndSinkTest {
@@ -136,11 +137,46 @@ public class DuckDBSourceAndSinkTest {
         runAttachedCatalogSourceAndSink(true);
     }
 
+    @SneakyThrows
+    @Test
+    public void testPostgresS3DuckLakeSourceAndSink() {
+        String duckLakeExtension = System.getProperty("ducklake.extension");
+        String pgConnection = System.getProperty("ducklake.pg.connection");
+        String s3DataPath = System.getProperty("ducklake.s3.data_path");
+        String s3Endpoint = System.getProperty("ducklake.s3.endpoint");
+        String s3Key = System.getProperty("ducklake.s3.key");
+        String s3Secret = System.getProperty("ducklake.s3.secret");
+        Assumptions.assumeTrue(
+                duckLakeExtension != null
+                        && pgConnection != null
+                        && s3DataPath != null
+                        && s3Endpoint != null
+                        && s3Key != null
+                        && s3Secret != null);
+        List<String> initStatements = new ArrayList<>();
+        initStatements.add("LOAD '" + duckLakeExtension.replace("'", "''") + "'");
+        initStatements.add("LOAD postgres");
+        initStatements.add("LOAD httpfs");
+        initStatements.add(
+                "CREATE OR REPLACE TEMPORARY SECRET smoke_s3 (TYPE s3, KEY_ID '"
+                        + s3Key.replace("'", "''")
+                        + "', SECRET '"
+                        + s3Secret.replace("'", "''")
+                        + "', ENDPOINT '"
+                        + s3Endpoint.replace("'", "''")
+                        + "', URL_STYLE 'path', USE_SSL false)");
+        initStatements.add(
+                "ATTACH 'ducklake:postgres:"
+                        + pgConnection.replace("'", "''")
+                        + "' AS lake (DATA_PATH '"
+                        + s3DataPath.replace("'", "''")
+                        + "')");
+        runAttachedCatalogSourceAndSink(
+                initStatements, "route_" + UUID.randomUUID().toString().replace("-", ""));
+    }
+
     private void runAttachedCatalogSourceAndSink(boolean duckLake) throws Exception {
-        Path localPath = tempDir.resolve("local.db");
         Path lakePath = tempDir.resolve("lake.db");
-        Path initPath = tempDir.resolve("init.sql");
-        String localUrl = "jdbc:duckdb:" + localPath;
         List<String> initStatements = new ArrayList<>();
         if (duckLake) {
             initStatements.add(
@@ -159,13 +195,21 @@ public class DuckDBSourceAndSinkTest {
         } else {
             initStatements.add("ATTACH '" + lakePath.toString().replace("'", "''") + "' AS lake");
         }
+        runAttachedCatalogSourceAndSink(initStatements, "route");
+    }
+
+    private void runAttachedCatalogSourceAndSink(List<String> initStatements, String tableName)
+            throws Exception {
+        Path localPath = tempDir.resolve("local.db");
+        Path initPath = tempDir.resolve("init.sql");
+        String localUrl = "jdbc:duckdb:" + localPath;
         try (Connection connection = DriverManager.getConnection(localUrl);
                 Statement statement = connection.createStatement()) {
             executeInitStatements(statement, initStatements);
-            statement.execute("CREATE TABLE main.route (id INTEGER)");
-            statement.execute("CREATE TABLE lake.main.route (id INTEGER)");
-            statement.execute("INSERT INTO main.route VALUES (1)");
-            statement.execute("INSERT INTO lake.main.route VALUES (2)");
+            statement.execute("CREATE TABLE main." + tableName + " (id INTEGER)");
+            statement.execute("CREATE TABLE lake.main." + tableName + " (id INTEGER)");
+            statement.execute("INSERT INTO main." + tableName + " VALUES (1)");
+            statement.execute("INSERT INTO lake.main." + tableName + " VALUES (2)");
         }
         Files.write(
                 initPath,
@@ -177,7 +221,7 @@ public class DuckDBSourceAndSinkTest {
         Map<String, Object> sourceOptions = new HashMap<>();
         sourceOptions.put("url", attachedUrl);
         sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
-        sourceOptions.put("table_path", "lake.main.route");
+        sourceOptions.put("table_path", "lake.main." + tableName);
         List<SeaTunnelRow> rows =
                 SourceFlowTestUtils.runBatchWithCheckpointDisabled(
                         ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
@@ -190,7 +234,7 @@ public class DuckDBSourceAndSinkTest {
         sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
         sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
         sinkOptions.put("database", "lake");
-        sinkOptions.put("table", "main.route");
+        sinkOptions.put("table", "main." + tableName);
         sinkOptions.put("generate_sink_sql", true);
         sinkOptions.put("query", "");
         DuckDBCatalog catalog =
@@ -198,7 +242,7 @@ public class DuckDBSourceAndSinkTest {
         catalog.open();
         CatalogTable catalogTable;
         try {
-            catalogTable = catalog.getTable(TablePath.of("lake", "main", "route"));
+            catalogTable = catalog.getTable(TablePath.of("lake", "main", tableName));
         } finally {
             catalog.close();
         }
@@ -208,12 +252,13 @@ public class DuckDBSourceAndSinkTest {
                 Statement statement = connection.createStatement()) {
             executeInitStatements(statement, initStatements);
             try (ResultSet result =
-                    statement.executeQuery("SELECT SUM(id), COUNT(*) FROM lake.main.route")) {
+                    statement.executeQuery(
+                            "SELECT SUM(id), COUNT(*) FROM lake.main." + tableName)) {
                 Assertions.assertTrue(result.next());
                 Assertions.assertEquals(4, result.getInt(1));
                 Assertions.assertEquals(2, result.getInt(2));
             }
-            try (ResultSet result = statement.executeQuery("SELECT id FROM main.route")) {
+            try (ResultSet result = statement.executeQuery("SELECT id FROM main." + tableName)) {
                 Assertions.assertTrue(result.next());
                 Assertions.assertEquals(1, result.getInt(1));
                 Assertions.assertFalse(result.next());
