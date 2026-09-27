@@ -843,9 +843,23 @@ public class CheckpointCoordinator {
                 return;
             }
 
-            CompletableFuture<PendingCheckpoint> pendingCheckpoint =
-                    createPendingCheckpoint(currentTimestamp, checkpointType);
-            startTriggerPendingCheckpoint(pendingCheckpoint);
+            try {
+                CompletableFuture<PendingCheckpoint> pendingCheckpoint =
+                        createPendingCheckpoint(currentTimestamp, checkpointType);
+                startTriggerPendingCheckpoint(pendingCheckpoint);
+            } catch (Throwable t) {
+                // Defensive: createPendingCheckpoint's drain guard (and any future create-time
+                // failure) must not escape a scheduler Runnable as a silent drop that permanently
+                // stops this pipeline's self-rescheduling cadence.
+                LOG.error(
+                        "failed to create/start pending checkpoint type {} for job {} pipeline {}; re-arming trigger",
+                        checkpointType,
+                        jobId,
+                        pipelineId,
+                        t);
+                scheduleTriggerPendingCheckpoint(checkpointType, 500L);
+                return;
+            }
             // if checkpoint type are final type, we don't need to trigger next checkpoint
             if (checkpointType.notFinalCheckpoint() && checkpointType.notSchemaChangeCheckpoint()) {
                 scheduleTriggerPendingCheckpoint(coordinatorConfig.getCheckpointInterval());
@@ -942,7 +956,15 @@ public class CheckpointCoordinator {
                     try {
                         Thread.sleep(500);
                     } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
+                        // Do not re-interrupt: startSavepoint() is invoked via
+                        // CheckpointManager.triggerSavePoints()'s parallelStream() on
+                        // ForkJoinPool.commonPool(). Leaving interrupt status set on a shared-pool
+                        // worker can leak to an unrelated later task on the same thread. The shared
+                        // future already carries the failure to callers.
+                        LOG.warn(
+                                "savepoint drain interrupted for job {} pipeline {}; failing shared savepoint future",
+                                jobId,
+                                pipelineId);
                         synchronized (lock) {
                             failSavepointDrainLocked(
                                     sharedFuture,
@@ -996,7 +1018,9 @@ public class CheckpointCoordinator {
 
                 try {
                     PendingCheckpoint pendingCheckpoint = pendingFuture.join();
-                    savepointPendingCheckpoint = pendingCheckpoint;
+                    synchronized (lock) {
+                        savepointPendingCheckpoint = pendingCheckpoint;
+                    }
                     forwardSavepointCompletion(
                             sharedFuture, pendingCheckpoint.getCompletableFuture());
                     LOG.info(
