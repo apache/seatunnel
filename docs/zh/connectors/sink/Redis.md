@@ -57,6 +57,18 @@ Redis 接收器连接器可以在批处理或流处理作业中把上游数据�
 | multi_table_sink_replica | int | 否                          | 1      | 多表写入时的写入器副本数。 |
 | common-options     | config  | 否                          | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)。 |
 
+### 认证
+
+在 `SINGLE` 和 `CLUSTER` 模式下，非空白的 `user` 使用 Redis ACL 认证
+（`AUTH user auth`，需要 Redis 6 或更新版本）。连接器不会创建或修改 ACL 用户。
+启动作业前，请创建用户并授予所需的命令和键权限，包括初始化连接器所需的 `INFO`，
+`SINGLE` 模式所需的 `SELECT`，以及 `CLUSTER` 模式下拓扑发现所需的 `CLUSTER SLOTS`。
+密码将原样传递，包括空白字符；省略 `auth` 或使用空字符串时将发送空密码，
+仅当该 ACL 用户允许时才能成功认证（例如配置了 `nopass` 的用户）。
+
+若省略 `user`，或其值为空字符串、仅包含空白字符，则非空白的 `auth` 将用于默认用户的密码认证。
+如果两个选项都省略或为空白，则不发送认证命令。
+
 ## 写入规则
 
 ### key
