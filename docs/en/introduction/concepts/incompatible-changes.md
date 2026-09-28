@@ -5,24 +5,6 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
-### Application deployment handles
-
-`ResourceManagerContext` no longer exposes `getApplicationId()`, `getSpecification()` or `getClusterName()`. Pass fixed deployment settings to driver constructors instead; use the context only for `getMasterAddress()`, `onError(...)` and `onWorkerTerminated(...)`. `ResourceManagerDriverFactory.create` now takes `(specification, clusterName)`. The YARN/Kubernetes resource-manager factories take `(applicationId, specification, driver)`, without a cluster-name argument.
-
-The experimental `seatunnel-resource-manager-core` module has been removed. Replace imports of `org.apache.seatunnel.resource.core.spec.ApplicationSpecification` and `WorkerSpecification` with `org.apache.seatunnel.engine.common.config.spec`, and import `ApplicationOptions` from `org.apache.seatunnel.engine.common.config.server`. Replace any direct dependency on the removed artifact with `seatunnel-engine-common`. Existing application option names, defaults and serialized specification keys are unchanged. Application execution uses SeaTunnel's `org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture`.
-
-`ApplicationClusterEntrypoint` has been removed. In-process application launchers prepare configuration and call `SeaTunnelServerStarter.createHazelcastInstance(config, instanceName, jarPathResolver, resourceManagerFactory)`. The caller owns master shutdown. Import `ApplicationJobExecutionEnvironment` from `org.apache.seatunnel.engine.client.job` and construct it with `JobConfig`, resolved/decrypted job `Config`, the local `SeaTunnelServer`, job ID and optional checkpoint source job ID. After `ApplicationResourceManager.awaitWorkerRegistration()`, call `execute(cancellation)` with a caller-owned `CompletableFuture<Void>`. It returns `CompletableFuture<JobResult>`; it no longer performs application cleanup. On interruption or resource failure, complete the cancellation signal and wait for the job result before invoking `finishApplication(result, failure)`. The resource manager publishes terminal state and closes workers/driver; only then shut down the master. Update `ApplicationClusterConfig` imports from `org.apache.seatunnel.resource.core.config` to `org.apache.seatunnel.engine.common.config`.
-
-The experimental deployment API now uses `ClusterDescriptor<ID>` and `ApplicationClusterDescriptorFactory<ID>` in `org.apache.seatunnel.engine.client.deployment`. Replace `ApplicationClusterDescriptors.create(...)` with constructor injection: `new ApplicationClusterDeployer(new ClusterClientServiceLoader()).run(specification)`. The deployer selects a platform factory, deploys with a caller-local descriptor, closes that descriptor and returns the native platform ID: Hadoop `ApplicationId` for YARN or a `String` Job name for Kubernetes. The custom SeaTunnel `ApplicationId` wrapper and shared application-client interface have been removed.
-
-Update deployment imports from `org.apache.seatunnel.resource.core.deployment` to `org.apache.seatunnel.engine.client.deployment` and remove the client type parameter from descriptors and factories. Custom SPI registrations must use the new factory package. `descriptor.retrieve(id)` now discovers the running master and returns a non-generic `SeatunnelClientProvider`; replace direct client retrieval with `descriptor.retrieve(id).getClusterClient()`. Each call creates a new `SeaTunnelClient`, requiring a reachable, running master. Close each created client separately from the descriptor; neither close cancels the application.
-
-Use `descriptor.getApplicationStatus(id)` and `descriptor.cancelApplication(id)` for platform application operations. Convert textual CLI IDs with `factory.parseApplicationId(text)`. CLI `status/cancel` remain application operations using `--id`, without `--job-id`. Runtime contexts use plain platform ID strings.
-
-`ApplicationResult` has been removed. Query `ApplicationStatus` directly instead of `getResult().getStatus()`; platform-native reports retain diagnostics. `ApplicationResourceManager.finishApplication` throws on execution, cancellation or reportable cleanup failure. Callers must handle the exception and ensure a failed application exits unsuccessfully; cleanup failures accompanying an execution failure are attached as suppressed exceptions.
-
-`ApplicationJarPathResolver` has moved from `org.apache.seatunnel.resource.core.classloader` to `org.apache.seatunnel.engine.core.classloader` in engine-core. Update its import and module dependency; its path-resolution behavior is unchanged.
-
 ### Application Worker Entry Point
 
 The experimental `org.apache.seatunnel.engine.server.application.ApplicationWorkerRunner` has been removed.
