@@ -326,3 +326,5 @@ Replace `2` with an existing snapshot ID from `SELECT * FROM lake.snapshots()`. 
 ## Change Log
 
 <ChangeLog />
+
+Catalog discovery with `table_pattern` or a regular-expression `table_path` searches only the current DuckDB catalog. List attached-catalog tables explicitly with three-part `table_path` or `table_names` values, such as `lake.main.events`. Catalog matching is case-insensitive. `main` and `default` are reserved aliases for the current catalog; choose a different alias when attaching a lake.

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -40,6 +41,23 @@ public class JdbcSaveModeHandler extends DefaultSaveModeHandler {
             boolean createIndex) {
         super(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql);
         this.createIndex = createIndex;
+    }
+
+    @Override
+    public void open() {
+        super.open();
+        if (catalog instanceof DuckDBCatalog) {
+            try {
+                ((DuckDBCatalog) catalog).validateDatabase(tablePath.getDatabaseName());
+            } catch (RuntimeException e) {
+                try {
+                    catalog.close();
+                } catch (RuntimeException closeFailure) {
+                    e.addSuppressed(closeFailure);
+                }
+                throw e;
+            }
+        }
     }
 
     @Override

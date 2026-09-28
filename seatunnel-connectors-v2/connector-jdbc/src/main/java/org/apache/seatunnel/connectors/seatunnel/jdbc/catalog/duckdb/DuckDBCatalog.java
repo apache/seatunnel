@@ -45,6 +45,8 @@ import java.util.List;
 import java.util.Properties;
 import java.util.regex.Pattern;
 
+import static org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb.DuckDBDialect.isDefaultDatabaseAlias;
+
 /**
  * Catalog implementation for DuckDB.
  *
@@ -84,7 +86,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
                     + "      AND dc.schema_name = c.table_schema\n"
                     + "      AND dc.table_name  = c.table_name\n"
                     + "      AND dc.column_name = c.column_name\n"
-                    + "WHERE c.table_catalog = %s\n"
+                    + "WHERE lower(c.table_catalog) = lower(%s)\n"
                     + "  AND c.table_schema = '%s'\n"
                     + "  AND c.table_name   = '%s'\n"
                     + "ORDER BY c.ordinal_position;\n";
@@ -92,6 +94,13 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     public DuckDBCatalog(String catalogName, JdbcUrlUtil.UrlInfo urlInfo, String defaultSchema) {
         super(catalogName, "duckdb", "", urlInfo, defaultSchema, "org.duckdb.DuckDBDriver");
         this.typeConverter = new DuckDBTypeConverter();
+    }
+
+    @Override
+    protected Properties getConnectionProperties() {
+        // Embedded DuckDB has no JDBC user/password authentication. The superclass placeholders
+        // would make catalog and writer connections use different database configurations.
+        return new Properties();
     }
 
     @Override
@@ -238,7 +247,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getDatabaseWithConditionSql(String databaseName) {
         return String.format(
-                "SELECT database_name FROM duckdb_databases() WHERE database_name = '%s'",
+                "SELECT database_name FROM duckdb_databases() WHERE lower(database_name) = lower('%s')",
                 escapeSqlLiteral(databaseName));
     }
 
@@ -246,7 +255,7 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     public String getTableWithConditionSql(TablePath tablePath) {
         return String.format(
                 "SELECT table_schema, table_name FROM information_schema.tables "
-                        + "WHERE table_catalog = %s AND table_schema = '%s' AND table_name = '%s'",
+                        + "WHERE lower(table_catalog) = lower(%s) AND table_schema = '%s' AND table_name = '%s'",
                 databaseExpression(tablePath.getDatabaseName()),
                 escapeSqlLiteral(tablePath.getSchemaName()),
                 escapeSqlLiteral(tablePath.getTableName()));
@@ -262,13 +271,33 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
     @Override
     protected String getListTableSql(String databaseName) {
         return "SELECT table_schema, table_name FROM information_schema.tables "
-                + "WHERE table_catalog = "
-                + databaseExpression(databaseName);
+                + "WHERE lower(table_catalog) = lower("
+                + databaseExpression(databaseName)
+                + ")";
     }
 
     @Override
     protected String getUrlFromDatabaseName(String databaseName) {
+        validateDatabase(databaseName);
         return defaultUrl;
+    }
+
+    public void validateDatabase(String databaseName) {
+        if (!isDefaultDatabaseAlias(databaseName) && !databaseExists(databaseName)) {
+            throw unattachedDatabase(databaseName);
+        }
+    }
+
+    @Override
+    protected void createDatabaseInternal(String databaseName) {
+        throw unattachedDatabase(databaseName);
+    }
+
+    private CatalogException unattachedDatabase(String databaseName) {
+        return new CatalogException(
+                String.format(
+                        "DuckDB database '%s' is not an attached catalog; set database to main/default for the current catalog, or attach the requested catalog on every connection.",
+                        databaseName));
     }
 
     @Override
@@ -288,12 +317,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     private String escapeSqlLiteral(String value) {
         return String.valueOf(value).replace("'", "''");
-    }
-
-    private boolean isDefaultDatabaseAlias(String databaseName) {
-        return StringUtils.isBlank(databaseName)
-                || DEFAULT_DATABASE_NAME.equals(databaseName)
-                || DEFAULT_SCHEMA_NAME.equals(databaseName);
     }
 
     private boolean isDuckDBDecimal(String typeName) {

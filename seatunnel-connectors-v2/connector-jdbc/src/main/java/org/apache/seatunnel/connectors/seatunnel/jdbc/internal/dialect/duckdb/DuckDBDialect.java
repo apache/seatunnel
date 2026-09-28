@@ -94,6 +94,14 @@ public class DuckDBDialect implements JdbcDialect {
         return Optional.empty();
     }
 
+    public static boolean isDefaultDatabaseAlias(String databaseName) {
+        // main/default historically select the current catalog, rather than an attached alias.
+        return databaseName == null
+                || databaseName.trim().isEmpty()
+                || DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)
+                || DEFAULT_SCHEMA_NAME.equalsIgnoreCase(databaseName);
+    }
+
     @Override
     public String tableIdentifier(TablePath tablePath) {
         String schemaName = tablePath.getSchemaName();
@@ -101,9 +109,7 @@ public class DuckDBDialect implements JdbcDialect {
             schemaName = "main";
         }
         String databaseName = tablePath.getDatabaseName();
-        if (databaseName == null
-                || DEFAULT_DATABASE_NAME.equals(databaseName)
-                || DEFAULT_SCHEMA_NAME.equals(databaseName)) {
+        if (isDefaultDatabaseAlias(databaseName)) {
             return String.format("\"%s\".\"%s\"", schemaName, tablePath.getTableName());
         }
         return String.format(

@@ -73,7 +73,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | username                     | String  | 否    | -                            | 连接实例用户名                                                                                     |
 | password                     | String  | 否    | -                            | 连接实例密码                                                                                      |
 | query                        | String  | 否    | -                            | 使用此 sql 将上游输入数据写入数据库。例如 `INSERT ...`，`query` 具有更高的优先级                                       |
-| database                     | String  | 否    | -                            | 使用此 `database` 和 `table-name` 自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准。        |
+| database                     | String  | 否    | -                            | 使用 `main` 或 `default` 选择当前 DuckDB catalog，或指定已挂载的 catalog 别名。省略时会继承上游数据库名，该名称必须对应已挂载的 catalog；未知名称会在保存模式处理之前报错。用于自动生成 SQL；显式 `query` 优先。 |
 | table                        | String  | 否    | -                            | 使用数据库和此表名自动生成 sql 并接收上游输入数据写入数据库。<br/>仅当 `generate_sink_sql = true` 时用于自动生成 SQL；设置 `query` 时以 `query` 为准。                             |
 | primary_keys                 | Array   | 否    | -                            | 此选项用于在自动生成 sql 时支持 `insert`、`delete` 和 `update` 等操作。                                        |
 | connection_check_timeout_sec | Int     | 否    | 30                           | 等待用于验证连接的数据库操作完成的时间（以秒为单位）。                                                                 |
@@ -210,3 +210,9 @@ sink {
 ## Changelog
 
 <ChangeLog />
+
+### Catalog 选择与迁移
+
+`main` 和 `default` 是当前 catalog 的兼容别名（不区分大小写），不要将它们用作挂载 catalog 的别名。其他名称表示已挂载的 catalog，也不区分大小写。SeaTunnel 不会自动创建或挂载未知 catalog；请通过连接初始化脚本在每个连接上挂载所需别名。
+
+对于从 MySQL、PostgreSQL 等上游写入 DuckDB 的 Sink，请显式设置 `database = main` 来保留原来写入当前 catalog 的行为，或将 `database` 设为目标挂载别名。此前上游数据库名可能被静默忽略，现在会校验该名称，包括 `schema_save_mode = IGNORE` 的情况。显式 `query` 不使用自动生成的表路由。

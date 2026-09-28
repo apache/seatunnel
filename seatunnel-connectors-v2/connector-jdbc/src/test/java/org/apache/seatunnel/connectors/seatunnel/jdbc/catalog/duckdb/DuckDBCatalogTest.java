@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 
+import org.duckdb.DuckDBDriver;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,6 +46,7 @@ import java.sql.Statement;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -223,6 +225,15 @@ public class DuckDBCatalogTest {
                 statement.execute("CREATE TABLE lake.main.same_name (lake_column VARCHAR)");
                 Assertions.assertTrue(catalog.databaseExists(DATABASE_NAME));
                 Assertions.assertTrue(catalog.databaseExists("lake"));
+                Assertions.assertTrue(catalog.databaseExists("LAKE"));
+                Assertions.assertTrue(catalog.databaseExists("MAIN"));
+                TablePath upperLake = TablePath.of("LAKE", SCHEMA_NAME, "same_name");
+                Assertions.assertTrue(catalog.tableExists(upperLake));
+                Assertions.assertEquals(
+                        "lake_column",
+                        catalog.getTable(upperLake).getTableSchema().getColumns().get(0).getName());
+                Assertions.assertEquals(
+                        Collections.singletonList("main.same_name"), catalog.listTables("LAKE"));
                 Assertions.assertFalse(catalog.databaseExists("missing_lake"));
                 Assertions.assertTrue(catalog.listDatabases().contains("lake"));
                 Assertions.assertTrue(catalog.tableExists(local));
@@ -240,10 +251,27 @@ public class DuckDBCatalogTest {
                         catalog.getTable(lake).getOptions().get("table-name"));
                 Assertions.assertEquals(
                         Collections.singletonList("main.same_name"), catalog.listTables("lake"));
+                TablePath createdLake = TablePath.of("lake", SCHEMA_NAME, "new_lake_table");
+                catalog.createTable(createdLake, catalog.getTable(lake), false);
+                Assertions.assertTrue(catalog.tableExists(createdLake));
+                Assertions.assertFalse(catalog.tableExists(getMainTablePath("new_lake_table")));
             } finally {
+                statement.execute("DROP TABLE IF EXISTS lake.main.new_lake_table");
+                statement.execute("DROP TABLE IF EXISTS main.new_lake_table");
                 statement.execute("DETACH lake");
                 statement.execute("DROP TABLE main.same_name");
             }
+        }
+    }
+
+    @Test
+    public void testCatalogAndWriterConnectionsCanOverlap() throws Exception {
+        Assertions.assertFalse(catalog.getConnection(jdbcUrl).isClosed());
+        try (Connection writer = new DuckDBDriver().connect(jdbcUrl, new Properties());
+                Statement statement = writer.createStatement();
+                ResultSet result = statement.executeQuery("SELECT 1")) {
+            Assertions.assertTrue(result.next());
+            Assertions.assertEquals(1, result.getInt(1));
         }
     }
 

@@ -85,6 +85,15 @@ public class DuckDBDialectTest {
     }
 
     @Test
+    void testCurrentCatalogAliasesAreCaseInsensitive() {
+        Assertions.assertEquals(
+                "\"main\".\"dialect_test\"", dialect.tableIdentifier("MAIN", TABLE_NAME));
+        Assertions.assertEquals(
+                "\"main\".\"dialect_test\"",
+                dialect.tableIdentifier("DEFAULT", "main." + TABLE_NAME));
+    }
+
+    @Test
     void testInsertStatementExecution() throws Exception {
         Assertions.assertEquals(
                 "INSERT INTO \"main\".\"dialect_test\" (\"id\", \"name\") VALUES (:id, :name)",

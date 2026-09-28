@@ -19,13 +19,20 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
@@ -51,6 +58,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -122,6 +130,81 @@ public class DuckDBSourceAndSinkTest {
                 catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
         Assertions.assertEquals(
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
+    }
+
+    @Test
+    public void testSinkWithUnattachedUpstreamDatabaseFailsClearly() throws Exception {
+        CatalogTable upstream =
+                CatalogTable.of(
+                        TableIdentifier.of("mysql", "mydb", "tbl"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.INT_TYPE, 10, false, null, null))
+                                .build(),
+                        new HashMap<>(),
+                        Collections.emptyList(),
+                        null);
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", jdbcUrl);
+        options.put("driver", "org.duckdb.DuckDBDriver");
+        options.put("table", "main.legacy_sink");
+        options.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        List<SeaTunnelRow> rows = Collections.singletonList(new SeaTunnelRow(new Object[] {1}));
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE main.legacy_sink (id INTEGER)");
+            statement.execute("INSERT INTO main.legacy_sink VALUES (42)");
+        }
+        try {
+            for (SchemaSaveMode mode :
+                    new SchemaSaveMode[] {
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, SchemaSaveMode.IGNORE
+                    }) {
+                options.put("schema_save_mode", mode);
+                Exception failure =
+                        Assertions.assertThrows(
+                                Exception.class, () -> prepareSinkSaveMode(upstream, options));
+                Throwable cause = failure;
+                while (cause.getCause() != null) {
+                    cause = cause.getCause();
+                }
+                Assertions.assertEquals(
+                        "ErrorCode:[API-03], ErrorDescription:[Catalog initialize failed] - DuckDB database 'mydb' is not an attached catalog; set database to main/default for the current catalog, or attach the requested catalog on every connection.",
+                        cause.getMessage());
+                Assertions.assertEquals(
+                        1, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, "legacy_sink")));
+            }
+            options.put("database", "main");
+            options.put("schema_save_mode", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST);
+            prepareSinkSaveMode(upstream, options);
+            SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                    upstream, ReadonlyConfig.fromMap(options), new JdbcSinkFactory(), rows);
+            Assertions.assertEquals(
+                    2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, "legacy_sink")));
+        } finally {
+            try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                    Statement statement = connection.createStatement()) {
+                statement.execute("DROP TABLE main.legacy_sink");
+            }
+        }
+    }
+
+    private void prepareSinkSaveMode(CatalogTable upstream, Map<String, Object> options)
+            throws Exception {
+        JdbcSink sink =
+                (JdbcSink)
+                        new JdbcSinkFactory()
+                                .createSink(
+                                        new TableSinkFactoryContext(
+                                                upstream,
+                                                ReadonlyConfig.fromMap(options),
+                                                getClass().getClassLoader()))
+                                .createSink();
+        try (SaveModeHandler handler = sink.getSaveModeHandler().get()) {
+            handler.open();
+            handler.handleSaveMode();
+        }
     }
 
     @SneakyThrows
