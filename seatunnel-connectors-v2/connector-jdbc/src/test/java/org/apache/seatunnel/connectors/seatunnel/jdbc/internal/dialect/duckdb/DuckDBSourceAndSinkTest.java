@@ -19,32 +19,45 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.duckdb;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.duckdb.DuckDBURLParser;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.savemode.JdbcSaveModeHandler;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceFactory;
 import org.apache.seatunnel.connectors.seatunnel.sink.SinkFlowTestUtils;
 import org.apache.seatunnel.connectors.seatunnel.source.SourceFlowTestUtils;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.SneakyThrows;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +125,215 @@ public class DuckDBSourceAndSinkTest {
                 catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
         Assertions.assertEquals(
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
+    }
+
+    @Test
+    public void testDropDataSaveMode() throws Exception {
+        verifySaveMode(
+                "drop_data", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, DataSaveMode.DROP_DATA);
+    }
+
+    @Test
+    public void testRecreateSchemaSaveMode() throws Exception {
+        verifySaveMode("recreate", SchemaSaveMode.RECREATE_SCHEMA, DataSaveMode.APPEND_DATA);
+    }
+
+    @Test
+    public void testAppendDataSaveMode() throws Exception {
+        verifySaveMode(
+                "append", SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST, DataSaveMode.APPEND_DATA);
+    }
+
+    @Test
+    public void testErrorWhenDataExistsSaveMode() throws Exception {
+        String tableName = "save_mode_error";
+        Map<String, Object> options =
+                saveModeOptions(
+                        tableName,
+                        SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST,
+                        DataSaveMode.ERROR_WHEN_DATA_EXISTS);
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE main." + tableName + " (id INTEGER)");
+        }
+        try {
+            prepareSaveMode(options);
+            try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                    Statement statement = connection.createStatement()) {
+                statement.execute("INSERT INTO main." + tableName + " VALUES (99)");
+            }
+            SeaTunnelRuntimeException failure =
+                    Assertions.assertThrows(
+                            SeaTunnelRuntimeException.class, () -> prepareSaveMode(options));
+            Assertions.assertTrue(failure.getMessage().contains("already has data"));
+            Assertions.assertEquals(
+                    1, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, tableName)));
+        } finally {
+            dropSaveModeTable(tableName);
+        }
+    }
+
+    /** Opt-in: executes save-mode operations against the pinned DuckLake extension, not a mock. */
+    @Test
+    public void testDuckLakeSaveModeOperations(@TempDir Path directory) throws Exception {
+        Assumptions.assumeTrue(
+                System.getProperty("ducklake.extension") != null
+                        && System.getProperty("sqlite.scanner.extension") != null);
+        String url = "jdbc:duckdb:" + directory.resolve("lake-host.db");
+        TablePath table = TablePath.of("lake", SCHEMA_NAME, "save_mode_target");
+        try (DuckDBCatalog lakeCatalog =
+                new DuckDBCatalog(CATALOG_NAME, DuckDBURLParser.parse(url), SCHEMA_NAME)) {
+            lakeCatalog.open();
+            try (Statement statement = lakeCatalog.getConnection(url).createStatement();
+                    SaveModeHandler clear =
+                            new JdbcSaveModeHandler(
+                                    SchemaSaveMode.IGNORE,
+                                    DataSaveMode.DROP_DATA,
+                                    lakeCatalog,
+                                    table,
+                                    saveModeInput(),
+                                    null,
+                                    false);
+                    SaveModeHandler reject =
+                            new JdbcSaveModeHandler(
+                                    SchemaSaveMode.IGNORE,
+                                    DataSaveMode.ERROR_WHEN_DATA_EXISTS,
+                                    lakeCatalog,
+                                    table,
+                                    saveModeInput(),
+                                    null,
+                                    false)) {
+                statement.execute(
+                        "LOAD '"
+                                + System.getProperty("ducklake.extension").replace("'", "''")
+                                + "'");
+                statement.execute(
+                        "LOAD '"
+                                + System.getProperty("sqlite.scanner.extension").replace("'", "''")
+                                + "'");
+                statement.execute(
+                        "ATTACH 'ducklake:sqlite:"
+                                + directory.resolve("metadata.sqlite").toString().replace("'", "''")
+                                + "' AS lake (DATA_PATH '"
+                                + directory.resolve("data").toString().replace("'", "''")
+                                + "')");
+                statement.execute("CREATE TABLE main.save_mode_target (id INTEGER)");
+                statement.execute("INSERT INTO main.save_mode_target VALUES (42)");
+                statement.execute("CREATE TABLE lake.main.save_mode_target (id INTEGER)");
+                statement.execute("INSERT INTO lake.main.save_mode_target VALUES (7)");
+                clear.open();
+                clear.handleSaveMode();
+                Assertions.assertFalse(lakeCatalog.isExistsData(table));
+                reject.open();
+                reject.handleSaveMode();
+                statement.execute("INSERT INTO lake.main.save_mode_target VALUES (8)");
+                Assertions.assertThrows(SeaTunnelRuntimeException.class, reject::handleSaveMode);
+                try (ResultSet result =
+                        statement.executeQuery("SELECT id FROM lake.main.save_mode_target")) {
+                    Assertions.assertTrue(result.next());
+                    Assertions.assertEquals(8, result.getInt(1));
+                    Assertions.assertFalse(result.next());
+                }
+                lakeCatalog.dropTable(table, false);
+                try (ResultSet result =
+                        statement.executeQuery(
+                                "SELECT COUNT(*) FROM information_schema.tables WHERE table_catalog = 'lake' AND table_name = 'save_mode_target'")) {
+                    Assertions.assertTrue(result.next());
+                    Assertions.assertEquals(0, result.getInt(1));
+                }
+                try (ResultSet result =
+                        statement.executeQuery("SELECT id FROM main.save_mode_target")) {
+                    Assertions.assertTrue(result.next());
+                    Assertions.assertEquals(42, result.getInt(1));
+                    Assertions.assertFalse(result.next());
+                }
+            }
+        }
+    }
+
+    private void verifySaveMode(String suffix, SchemaSaveMode schemaMode, DataSaveMode dataMode)
+            throws Exception {
+        String tableName = "save_mode_" + suffix;
+        Map<String, Object> options = saveModeOptions(tableName, schemaMode, dataMode);
+        boolean recreate = schemaMode == SchemaSaveMode.RECREATE_SCHEMA;
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute(
+                    "CREATE TABLE main."
+                            + tableName
+                            + " (id INTEGER"
+                            + (recreate ? ", obsolete VARCHAR" : "")
+                            + ")");
+            statement.execute("INSERT INTO main." + tableName + " (id) VALUES (99)");
+        }
+        try {
+            prepareSaveMode(options);
+            boolean retainsOldRow = !recreate && dataMode == DataSaveMode.APPEND_DATA;
+            Assertions.assertEquals(
+                    retainsOldRow ? 1 : 0,
+                    countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, tableName)));
+            try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                    Statement statement = connection.createStatement();
+                    ResultSet result = statement.executeQuery("SELECT * FROM main." + tableName)) {
+                Assertions.assertEquals(1, result.getMetaData().getColumnCount());
+            }
+            SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                    saveModeInput(),
+                    ReadonlyConfig.fromMap(options),
+                    new JdbcSinkFactory(),
+                    Collections.singletonList(new SeaTunnelRow(new Object[] {1})));
+            Assertions.assertEquals(
+                    retainsOldRow ? 2 : 1,
+                    countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, tableName)));
+        } finally {
+            dropSaveModeTable(tableName);
+        }
+    }
+
+    private Map<String, Object> saveModeOptions(
+            String tableName, SchemaSaveMode schemaMode, DataSaveMode dataMode) {
+        Map<String, Object> options = new HashMap<>();
+        options.put("url", jdbcUrl);
+        options.put("driver", "org.duckdb.DuckDBDriver");
+        options.put("database", DATABASE_NAME);
+        options.put("table", SCHEMA_NAME + "." + tableName);
+        options.put("schema_save_mode", schemaMode);
+        options.put("data_save_mode", dataMode);
+        return options;
+    }
+
+    private CatalogTable saveModeInput() {
+        return CatalogTable.of(
+                TableIdentifier.of(CATALOG_NAME, DATABASE_NAME, SCHEMA_NAME, "input"),
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 10, false, null, null))
+                        .build(),
+                new HashMap<>(),
+                Collections.emptyList(),
+                null);
+    }
+
+    private void prepareSaveMode(Map<String, Object> options) throws Exception {
+        JdbcSink sink =
+                (JdbcSink)
+                        new JdbcSinkFactory()
+                                .createSink(
+                                        new TableSinkFactoryContext(
+                                                saveModeInput(),
+                                                ReadonlyConfig.fromMap(options),
+                                                getClass().getClassLoader()))
+                                .createSink();
+        try (SaveModeHandler handler = sink.getSaveModeHandler().get()) {
+            handler.open();
+            handler.handleSaveMode();
+        }
+    }
+
+    private void dropSaveModeTable(String tableName) throws Exception {
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("DROP TABLE IF EXISTS main." + tableName);
+        }
     }
 
     @AfterAll

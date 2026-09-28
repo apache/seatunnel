@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -35,10 +36,12 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
@@ -190,10 +193,7 @@ public class DuckDBCatalogTest {
         TablePath tablePath = getMainTablePath(TABLE_NAME);
         insertRow();
         Assertions.assertTrue(hasData(tablePath));
-        Connection connection = catalog.getConnection(jdbcUrl);
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("TRUNCATE TABLE %s", quoteTable(tablePath)));
-        }
+        catalog.truncateTable(tablePath, false);
         Assertions.assertFalse(hasData(tablePath));
     }
 
@@ -202,13 +202,81 @@ public class DuckDBCatalogTest {
     public void testDropTable() throws Exception {
         TablePath tablePath = getMainTablePath(TABLE_NAME);
         TablePath copyPath = getMainTablePath(TABLE_NAME_COPY);
-        Connection connection = catalog.getConnection(jdbcUrl);
-        try (Statement statement = connection.createStatement()) {
-            statement.execute(String.format("DROP TABLE %s", quoteTable(tablePath)));
-            statement.execute(String.format("DROP TABLE %s", quoteTable(copyPath)));
-        }
+        catalog.dropTable(tablePath, false);
+        catalog.dropTable(copyPath, false);
         Assertions.assertFalse(catalog.tableExists(tablePath));
         Assertions.assertFalse(catalog.tableExists(copyPath));
+    }
+
+    @Test
+    @Order(8)
+    public void testSaveModeOperationsWithQuotedIdentifiers() throws Exception {
+        TablePath tablePath = TablePath.of(DATABASE_NAME, "mode\"schema", "mode\"table");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute("CREATE SCHEMA \"mode\"\"schema\"");
+            statement.execute("CREATE TABLE \"mode\"\"schema\".\"mode\"\"table\" (id INTEGER)");
+            try {
+                Assertions.assertFalse(catalog.isExistsData(tablePath));
+                statement.execute("INSERT INTO \"mode\"\"schema\".\"mode\"\"table\" VALUES (7)");
+                Assertions.assertTrue(catalog.isExistsData(tablePath));
+                catalog.truncateTable(tablePath, false);
+                Assertions.assertTrue(catalog.tableExists(tablePath));
+                Assertions.assertFalse(catalog.isExistsData(tablePath));
+                catalog.dropTable(tablePath, false);
+                Assertions.assertFalse(catalog.tableExists(tablePath));
+                catalog.dropTable(tablePath, true);
+                Assertions.assertThrows(
+                        TableNotExistException.class, () -> catalog.dropTable(tablePath, false));
+                catalog.truncateTable(tablePath, true);
+                Assertions.assertThrows(
+                        TableNotExistException.class,
+                        () -> catalog.truncateTable(tablePath, false));
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS \"mode\"\"schema\".\"mode\"\"table\"");
+                statement.execute("DROP SCHEMA \"mode\"\"schema\"");
+            }
+        }
+    }
+
+    @Test
+    @Order(9)
+    public void testSaveModeOperationsRetainAttachedCatalog(@TempDir Path directory)
+            throws Exception {
+        TablePath tablePath = TablePath.of("lake\"catalog", "main", "save_mode_target");
+        try (Statement statement = catalog.getConnection(jdbcUrl).createStatement()) {
+            statement.execute(
+                    "ATTACH '"
+                            + directory.resolve("attached.db").toString().replace("'", "''")
+                            + "' AS \"lake\"\"catalog\"");
+            try {
+                statement.execute("CREATE TABLE main.save_mode_target (id INTEGER)");
+                statement.execute("INSERT INTO main.save_mode_target VALUES (42)");
+                statement.execute(
+                        "CREATE TABLE \"lake\"\"catalog\".main.save_mode_target (id INTEGER)");
+                Assertions.assertFalse(catalog.isExistsData(tablePath));
+                statement.execute(
+                        "INSERT INTO \"lake\"\"catalog\".main.save_mode_target VALUES (7)");
+                Assertions.assertTrue(catalog.isExistsData(tablePath));
+                catalog.truncateTable(tablePath, false);
+                Assertions.assertFalse(catalog.isExistsData(tablePath));
+                catalog.dropTable(tablePath, false);
+                try (ResultSet rows =
+                        statement.executeQuery("SELECT id FROM main.save_mode_target")) {
+                    Assertions.assertTrue(rows.next());
+                    Assertions.assertEquals(42, rows.getInt(1));
+                    Assertions.assertFalse(rows.next());
+                }
+                try (ResultSet rows =
+                        statement.executeQuery(
+                                "SELECT COUNT(*) FROM information_schema.tables WHERE table_catalog = 'lake\"catalog' AND table_name = 'save_mode_target'")) {
+                    Assertions.assertTrue(rows.next());
+                    Assertions.assertEquals(0, rows.getInt(1));
+                }
+            } finally {
+                statement.execute("DROP TABLE IF EXISTS main.save_mode_target");
+                statement.execute("DETACH \"lake\"\"catalog\"");
+            }
+        }
     }
 
     private void createTestTable(String tableName) throws Exception {

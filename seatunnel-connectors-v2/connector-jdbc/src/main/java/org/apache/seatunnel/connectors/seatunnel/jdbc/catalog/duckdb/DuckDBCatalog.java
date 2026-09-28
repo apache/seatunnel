@@ -253,6 +253,39 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
         return tablePath.getSchemaAndTableName();
     }
 
+    @Override
+    protected String getDropTableSql(TablePath tablePath) {
+        return "DROP TABLE " + saveModeTableIdentifier(tablePath);
+    }
+
+    @Override
+    protected String getTruncateTableSql(TablePath tablePath) {
+        return "TRUNCATE TABLE " + saveModeTableIdentifier(tablePath);
+    }
+
+    @Override
+    protected String getExistDataSql(TablePath tablePath) {
+        return "SELECT 1 FROM " + saveModeTableIdentifier(tablePath) + " LIMIT 1";
+    }
+
+    private String saveModeTableIdentifier(TablePath tablePath) {
+        String schema = StringUtils.defaultIfBlank(tablePath.getSchemaName(), "main");
+        String identifier =
+                quoteIdentifier(schema) + "." + quoteIdentifier(tablePath.getTableName());
+        String database = tablePath.getDatabaseName();
+        // main/default name the current catalog; retain other catalog names for destructive SQL.
+        if (StringUtils.isNotBlank(database)
+                && !"main".equalsIgnoreCase(database)
+                && !DEFAULT_DATABASE_NAME.equalsIgnoreCase(database)) {
+            identifier = quoteIdentifier(database) + "." + identifier;
+        }
+        return identifier;
+    }
+
+    private String quoteIdentifier(String identifier) {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
+    }
+
     private boolean isDuckDBDecimal(String typeName) {
         return typeName.toUpperCase().startsWith(DuckDBTypeConverter.DUCKDB_DECIMAL);
     }

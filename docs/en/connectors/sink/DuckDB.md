@@ -93,6 +93,12 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by `primary_keys`. If the task only has `insert`, setting this parameter to `false` can speed up data import.                                                                                                                   |
 | multi_table_sink_replica                  | Int     | No       | 1                            | The number of replicas for multi-table write. When `multi_table_sink_replica > 1`, the data is written to multiple tables in parallel.                                                                                                       |
 
+### Save modes
+
+Save modes run before the sink starts writing. `RECREATE_SCHEMA` drops an existing target table and creates it from the input schema. `DROP_DATA` removes all existing rows while retaining the table structure. `ERROR_WHEN_DATA_EXISTS` accepts an empty table and rejects a nonempty table without changing its data. The default `APPEND_DATA` keeps existing rows.
+
+Table drops, row clearing, and data-existence checks quote the target catalog, schema, and table identifiers. Recreating a table or clearing its data is destructive; use these modes only when that behavior is intended. Save modes do not change the sink's transaction or checkpoint guarantees.
+
 ### Tips
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.

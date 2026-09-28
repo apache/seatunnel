@@ -88,6 +88,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | enable_upsert                | Boolean | 否    | true                         | 通过 primary_keys 存在启用 upsert，如果任务只有 `insert`，将此参数设置为 `false` 可以加快数据导入速度                      |
 | multi_table_sink_replica     | Int     | 否    | 1                            | 多表写入时的写入器副本数。当 `multi_table_sink_replica > 1` 时，多表并行写入。                                                |
 
+### 保存模式
+
+保存模式在 Sink 开始写入前执行。`RECREATE_SCHEMA` 删除已有目标表并根据输入结构重新建表；`DROP_DATA` 清空已有行但保留表结构；`ERROR_WHEN_DATA_EXISTS` 允许空表，有数据时拒绝执行且不修改原有数据。默认的 `APPEND_DATA` 保留已有行。
+
+删表、清空行和检查数据是否存在时，分别引用目标目录、schema 和表名。重建表和清空数据会删除现有内容，仅在确实需要该行为时使用。保存模式不改变 Sink 的事务或 checkpoint 保证。
+
 ### 提示
 
 > 如果未设置 partition_column，它将以单一并发运行，如果设置了 partition_column，它将根据任务的并发度并行执行。
