@@ -148,7 +148,7 @@ replaying a job after an uncertain commit can still duplicate rows. The number o
 also depends on DuckLake partitioning and file-size policies, so one file per flush is not a
 general guarantee. The regular DuckDB sink behavior is unchanged when the option is false.
 
-This mode writes one configured target table and does not support `table_list` or multi-table
+This mode writes one configured target table and does not support multi-table
 routing. A primary key or UNIQUE key inherited from the upstream table is also rejected, even
 when `primary_keys` is omitted; disabling `enable_upsert` does not remove the inherited key.
 
@@ -157,7 +157,14 @@ than the default 1000 can reduce small files, but rows occupy both the Java buff
 stage during a flush. Checkpoints, the batch interval, and job completion can flush a partial
 batch, so increasing `batch_size` alone does not guarantee large files. Each flush recreates the
 stage to release the previous batch's storage; writer close drops the remaining stage without
-closing a pooled physical connection. This adds per-flush table creation and statement preparation.
+closing a pooled physical connection. This adds per-flush table creation and statement preparation. Large-batch throughput and peak
+memory have not been measured; the small regression fixtures do not establish production capacity.
+
+Parallel writers commit independently to the same target table; a checkpoint does not combine
+those commits into one lake transaction. Each successful flush is a separate commit, so small
+flushes increase metadata work and snapshot creation. The sink does not retry commit failures
+(`max_retries = 0`), including conflicts surfaced by DuckLake. Choose writer parallelism for the
+metadata backend and validate concurrent writes before increasing it.
 
 ### Simple
 
