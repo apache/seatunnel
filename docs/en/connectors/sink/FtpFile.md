@@ -290,7 +290,13 @@ Existing data processing method.
 - APPEND_DATA: preserve dir and data files. For FTP sinks, new rows are appended to
   existing target files only when `data_save_mode = "APPEND_DATA"` is explicitly
   configured in the job config. If this option is omitted and the value only comes from
-  the default, FTP sinks keep the legacy commit path and do not use FTP byte-level append
+  the default, FTP sinks keep the legacy commit path and do not use FTP byte-level append.
+  Byte-level append additionally requires a stable target filename across commits, i.e.
+  `custom_filename = true` with a `file_name_expression` that does not vary per
+  transaction; with the default expression each checkpoint writes a new file, so there is
+  nothing to append to. FTP append is at-least-once: if a checkpoint is aborted while a
+  commit is only partially applied, the rows of that commit can appear twice in the target
+  file, so verify this is acceptable for your target before enabling the mode
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
 
 ### schema_evolution_enabled [boolean]

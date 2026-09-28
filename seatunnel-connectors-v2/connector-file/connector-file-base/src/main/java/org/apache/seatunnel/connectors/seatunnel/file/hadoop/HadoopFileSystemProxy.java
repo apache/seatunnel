@@ -189,6 +189,11 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
      * <p>The move path preserves the normal rename behavior for the first committed file. Later
      * commits record the target length before appending. If a retry sees the expected post-append
      * length, it only cleans the temporary file instead of appending the same bytes again.
+     *
+     * <p>A retry is therefore idempotent only when it replays the same aggregated commit info (for
+     * example a commit re-run after restore). Once abort() has deleted the transaction directory
+     * together with its markers, a later commit re-appends bytes that may already have been
+     * written: FTP append mode is at-least-once in that case, not exactly-once.
      */
     public void appendFile(@NonNull String sourceFilePath, @NonNull String targetFilePath)
             throws IOException {

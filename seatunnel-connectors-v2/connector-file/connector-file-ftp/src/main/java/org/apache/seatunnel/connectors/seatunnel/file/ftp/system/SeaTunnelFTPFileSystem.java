@@ -450,15 +450,10 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
                                             ? (IOException) e
                                             : new IOException(e.getMessage(), e);
                         } finally {
-                            try {
-                                disconnect(client);
-                            } catch (IOException e) {
-                                if (closeException == null) {
-                                    closeException = e;
-                                } else {
-                                    closeException.addSuppressed(e);
-                                }
-                            }
+                            // disconnect() is deliberately lenient: it returns when the client is
+                            // already disconnected and only logs logout failures, so releasing the
+                            // connection here can never mask closeException.
+                            disconnect(client);
                         }
                         if (closeException != null) {
                             throw closeException;

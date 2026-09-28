@@ -45,6 +45,10 @@ public class FileSinkAggregatedCommitter
      * True only for FTP sinks configured with APPEND_DATA. In this mode commits append staged bytes
      * to an existing target and abort must not rename the target back to the transaction directory,
      * because the target may already contain user data that predates this checkpoint.
+     *
+     * <p>Abort also deletes the transaction directory together with the append-length markers, so a
+     * partially applied commit can no longer be detected after restore and its rows are appended
+     * again: after an aborted commit, append mode is at-least-once, not exactly-once.
      */
     private final boolean appendData;
 
