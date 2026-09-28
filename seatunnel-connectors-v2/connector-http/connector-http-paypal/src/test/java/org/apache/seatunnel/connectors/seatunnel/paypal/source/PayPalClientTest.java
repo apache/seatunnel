@@ -116,14 +116,6 @@ class PayPalClientTest {
      */
     private static final long NETWORK_WAIT_SECONDS = 15;
 
-    /**
-     * Upper bound for the first request to reach the embedded server at all (worker thread start
-     * plus the loopback round trip). Unlike the close/cancel bounds above this guards no client
-     * behavior, only test synchronization, so it is far more generous: stalled Windows CI runners
-     * have been observed to exceed {@link #NETWORK_WAIT_SECONDS} before the first request arrives.
-     */
-    private static final long ARRIVAL_WAIT_SECONDS = 60;
-
     private HttpServer server;
     private ExecutorService executor;
     private final Queue<Reply> replies = new ConcurrentLinkedQueue<>();
@@ -407,7 +399,7 @@ class PayPalClientTest {
         PayPalClient transport = client();
         Future<?> result =
                 executor.submit(() -> assertThrows(Exception.class, () -> transport.page(1)));
-        assertTrue(arrived.await(ARRIVAL_WAIT_SECONDS, TimeUnit.SECONDS));
+        assertTrue(arrived.await(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS));
         transport.close();
         result.get(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS);
     }
@@ -428,8 +420,8 @@ class PayPalClientTest {
                             }
                         });
         worker.start();
-        assertTrue(arrived.await(ARRIVAL_WAIT_SECONDS, TimeUnit.SECONDS));
-        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(ARRIVAL_WAIT_SECONDS);
+        assertTrue(arrived.await(NETWORK_WAIT_SECONDS, TimeUnit.SECONDS));
+        long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(NETWORK_WAIT_SECONDS);
         while (worker.getState() != Thread.State.TIMED_WAITING && System.nanoTime() < deadline) {
             Thread.sleep(10);
         }
