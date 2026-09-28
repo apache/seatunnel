@@ -252,21 +252,27 @@ public class ConfigBuilder {
 
     private static Config backfillUserVariables(Config config, List<String> variables) {
         Map<String, String> userConfigMap = extractUserVariables(variables);
+        Config resolvedConfig = substituteUserConfig(config, userConfigMap);
+
+        Map<String, Object> resolvedConfigMap = resolvedConfig.root().unwrapped();
+
+        processVariablesMap(resolvedConfigMap, userConfigMap);
+
+        return ConfigFactory.parseMap(resolvedConfigMap);
+    }
+
+    public static Config substituteUserConfig(
+            Config originalConfig, Map<String, String> userConfigMap) {
         Config userConfig =
                 ConfigFactory.parseMap(
                         userConfigMap.entrySet().stream()
                                 .collect(
                                         Collectors.toMap(
                                                 Map.Entry::getKey,
-                                                entry -> {
-                                                    Object parsedValue =
-                                                            ConfigValueUtils.parseValue(
-                                                                            entry.getValue())
-                                                                    .unwrapped();
-                                                    return parsedValue != null
-                                                            ? parsedValue
-                                                            : "null";
-                                                })));
+                                                entry ->
+                                                        ConfigValueUtils.parseValue(
+                                                                        entry.getValue())
+                                                                .unwrapped())));
 
         Config systemConfig =
                 Parseable.newProperties(
@@ -280,18 +286,11 @@ public class ConfigBuilder {
         mergedMap.putAll(userConfig.root().unwrapped());
         Config sourceConfig = ConfigFactory.parseMap(mergedMap);
 
-        Config resolvedConfig =
-                config.resolveWith(
-                        sourceConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
-
-        Map<String, Object> resolvedConfigMap = resolvedConfig.root().unwrapped();
-
-        processVariablesMap(resolvedConfigMap, userConfigMap);
-
-        return ConfigFactory.parseMap(resolvedConfigMap);
+        return originalConfig.resolveWith(
+                sourceConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
-    private static Map<String, String> extractUserVariables(List<String> variables) {
+    public static Map<String, String> extractUserVariables(List<String> variables) {
         Map<String, String> userConfigMap = new LinkedHashMap<>();
 
         if (variables == null || variables.isEmpty()) {
@@ -309,19 +308,24 @@ public class ConfigBuilder {
                 continue;
             }
 
-            String userKey = getUserKey(pair, userConfigMap);
-            String userValueString = pair[1];
+            String userValueString = pair[1].trim();
 
-            if (userValueString != null) {
-                userConfigMap.put(userKey, userValueString);
-            }
+            String userKey = getUserKey(pair, userConfigMap);
+
+            userConfigMap.put(userKey, userValueString);
         }
 
         return userConfigMap;
     }
 
     private static String getUserKey(String[] pair, Map<String, String> userConfigMap) {
-        String userKey = pair[0];
+        // if user input: -i 'k1= , k2=v2' or ' =v1,k2=v2', will lead to ambiguous semantics,
+        // thus both key and value must be trimmed
+        String userKey = pair[0].trim();
+
+        if (userKey.isEmpty()) {
+            throw new ConfigCheckException("Invalid -i variable: empty key: '" + pair[0] + "'");
+        }
 
         if (TablePlaceholder.isSystemPlaceholder(userKey)) {
             throw new ConfigCheckException(
@@ -393,24 +397,17 @@ public class ConfigBuilder {
         String variableString = variableValue.toString();
         List<String> placeholders = extractPlaceholder(variableString);
 
-        String replacedValue = null;
         for (String placeholder : placeholders) {
             String value =
                     userConfigMap.containsKey(placeholder)
                             ? userConfigMap.get(placeholder)
                             : System.getProperty(placeholder);
 
-            replacedValue = replacePlaceholders(variableString, placeholder, value, null);
-
-            variableString = replacedValue;
-        }
-
-        if (replacedValue != null) {
-            variableValue = ConfigValueUtils.parseValue(variableString);
+            variableString = replacePlaceholders(variableString, placeholder, value, null);
         }
 
         if (!placeholders.isEmpty()) {
-            parentMap.put(variableKey, variableValue);
+            parentMap.put(variableKey, variableString);
         }
     }
 
