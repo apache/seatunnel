@@ -95,8 +95,6 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | binary_chunk_size | int | 否 | 1024 | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。 |
 | binary_complete_file_mode | boolean | 否 | false | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。 |
 | file_filter_pattern | string | 否 | - | 用于过滤文件的模式。 |
-| enable_file_split | boolean | 否 | false | 开启大文件拆分以提升并行度。仅支持 `text`/`csv`/`json`/`parquet` 且非压缩格式。 |
-| file_split_size | long | 否 | 134217728 | `enable_file_split=true` 时生效，单位字节。`text`/`csv`/`json` 的切分结尾会对齐到下一个 `row_delimiter`；`parquet` 以 RowGroup 为切分单位，不会拆开 RowGroup。 |
 | common-options            |         | 否  | -                   | Source 插件通用参数，详见 [Source Common Options](../common-options/source-common-options.md)。 |
 | sheet_name                | string  | 否  | -                   | 读取 Excel 文件时要读取的工作表名称。 |
 | file_filter_modified_start | string | 否  | -                   | 按文件最后修改时间筛选文件的起始时间（包含该时间），格式为 `yyyy-MM-dd HH:mm:ss`。 |
