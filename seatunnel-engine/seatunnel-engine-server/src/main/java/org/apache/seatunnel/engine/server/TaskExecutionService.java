@@ -1461,8 +1461,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 try {
                     // run task
                     myThread.setContextClassLoader(
-                            executionContexts
-                                    .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
+                            taskTracker
+                                    .context
                                     .getClassLoaders()
                                     .get(taskTracker.task.getTaskID()));
                     call = taskTracker.task.call();
