@@ -327,6 +327,8 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 
 为 `true` 时，根据上游 schema 和 RowKind 自动生成写入语句。需要配置 `database`，通常还要配置 `table`，并且不能配置 `query`。默认值为 `false`，此时必须配置 `query`。
 
+自动生成语句按完整的上游字段名绑定命名参数，包括空格、冒号、问号和双引号；目标数据库方言仍须正确引用对应的 SQL 标识符。双引号或反引号引用的标识符、字符串字面量和 SQL 注释中的类似参数文本不会被绑定。自定义 `query` 仍按上游字段顺序绑定 `?` 占位符，请勿混用命名参数和位置参数。
+
 ### xa_data_source_class_name [string]
 
 指数据库驱动的 XA 数据源的类名。以 MySQL 为例，其类名为 com.mysql.cj.jdbc.MysqlXADataSource。了解其他数据库的数据源类名，可以参考文档的附录部分

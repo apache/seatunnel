@@ -327,6 +327,8 @@ Enables exactly-once delivery through XA transactions. This requires `xa_data_so
 
 When `true`, SeaTunnel generates write statements from the upstream schema and row kind. Configure `database` and normally `table`; do not configure `query`. The default is `false`, which means `query` is required.
 
+Generated statements resolve named parameters against the complete upstream field names, including spaces, colons, question marks and double quotes. The target dialect must still quote the corresponding SQL identifiers correctly. Parameter-like text inside double-quoted or backtick-quoted identifiers, string literals and SQL comments is not bound. Custom `query` SQL continues to bind `?` placeholders in upstream field order; do not mix positional and named parameters.
+
 ### xa_data_source_class_name [string]
 
 The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and

@@ -37,6 +37,8 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.FieldNamedPreparedStatement;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcMultiTableResourceManager;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSink;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkFactory;
@@ -64,7 +66,9 @@ import com.mysql.cj.jdbc.ConnectionImpl;
 
 import java.math.BigDecimal;
 import java.sql.Date;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -454,6 +458,61 @@ public class JdbcMysqlIT extends AbstractJdbcIT {
         defaultSinkParametersTest();
         defaultSourceParametersTest();
         defaultMultiSinkParametersTest();
+    }
+
+    @Test
+    public void testGeneratedUpsertWithSpecialFieldNames() throws SQLException {
+        String[] fields = {"id", "field name", "field?question", "field:colon", "field\"quote"};
+        try (Statement ddl = connection.createStatement()) {
+            ddl.execute(
+                    "CREATE TABLE seatunnel.named_parameters (id INT PRIMARY KEY, `field name` INT, `field?question` INT, `field:colon` INT, `field\"quote` INT)");
+            try {
+                String sql =
+                        new MysqlDialect()
+                                .getUpsertStatement(
+                                        MYSQL_DATABASE,
+                                        "named_parameters",
+                                        fields,
+                                        new String[] {"id"})
+                                .get();
+                try (FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(connection, sql, fields)) {
+                    for (int pass = 1; pass <= 2; pass++) {
+                        statement.setInt(1, 1);
+                        for (int i = 1; i < fields.length; i++) {
+                            statement.setInt(i + 1, pass * 10 + i);
+                        }
+                        statement.executeUpdate();
+                    }
+                }
+                try (ResultSet result =
+                        ddl.executeQuery("SELECT * FROM seatunnel.named_parameters")) {
+                    Assertions.assertTrue(result.next());
+                    Assertions.assertEquals(1, result.getInt(1));
+                    for (int i = 1; i < fields.length; i++) {
+                        Assertions.assertEquals(20 + i, result.getInt(i + 1));
+                    }
+                    Assertions.assertFalse(result.next());
+                }
+            } finally {
+                ddl.execute("DROP TABLE seatunnel.named_parameters");
+            }
+        }
+    }
+
+    @Test
+    public void testConfiguredPositionalSqlWithEscapedLiterals() throws SQLException {
+        try (FieldNamedPreparedStatement statement =
+                FieldNamedPreparedStatement.prepareStatementForCustomSql(
+                        connection, "SELECT 'can\\'t:ignored', ?, 'tail'", new String[] {"id"})) {
+            statement.setInt(1, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals("can't:ignored", result.getString(1));
+                Assertions.assertEquals(42, result.getInt(2));
+                Assertions.assertEquals("tail", result.getString(3));
+            }
+        }
     }
 
     @Test

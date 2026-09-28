@@ -40,6 +40,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -132,6 +134,45 @@ public class JdbcOutputFormatBuilderTest {
 
         Assertions.assertEquals("databasewith.dot", database.getValue());
         Assertions.assertEquals("dbo.tableName", table.getValue());
+    }
+
+    @Test
+    public void testConfiguredPositionalSqlKeepsDialectSpecificLiteralEscaping() throws Exception {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 22L, false, null, "id"))
+                        .build();
+        // A generic quote scanner cannot infer a database's backslash-escaping mode.
+        String sql = "INSERT INTO target VALUES ('can\\'t:ignored', ?, 'tail')";
+        Map<String, Object> config = new HashMap<>();
+        config.put("database", "seatunnel");
+        config.put("table", "target");
+        config.put("query", sql);
+        Connection connection = Mockito.mock(Connection.class);
+        PreparedStatement statement = Mockito.mock(PreparedStatement.class);
+        Mockito.when(connection.prepareStatement(sql)).thenReturn(statement);
+        Mockito.when(connection.getAutoCommit()).thenReturn(true);
+        SimpleJdbcConnectionProvider provider = Mockito.mock(SimpleJdbcConnectionProvider.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        JdbcOutputFormat outputFormat =
+                new JdbcOutputFormatBuilder(
+                                new MysqlDialect(),
+                                provider,
+                                JdbcSinkConfig.of(ReadonlyConfig.fromMap(config)),
+                                schema,
+                                schema)
+                        .build();
+        try {
+            outputFormat.open();
+            outputFormat.writeRecord(new SeaTunnelRow(new Object[] {42}));
+            outputFormat.flush();
+            Mockito.verify(connection).prepareStatement(sql);
+            Mockito.verify(statement).setInt(1, 42);
+            Mockito.verify(statement).executeBatch();
+        } finally {
+            outputFormat.close();
+        }
     }
 
     @Test

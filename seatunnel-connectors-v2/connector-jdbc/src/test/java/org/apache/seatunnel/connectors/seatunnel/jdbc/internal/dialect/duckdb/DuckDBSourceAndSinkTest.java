@@ -114,6 +114,56 @@ public class DuckDBSourceAndSinkTest {
                 2, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, SINK_TABLE_NAME)));
     }
 
+    @Test
+    public void testGeneratedSinkSqlWithSpecialFieldNames() throws Exception {
+        String columns =
+                "id INTEGER, \"field name\" INTEGER, \"field?question\" INTEGER, \"field:colon\" INTEGER";
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE main.named_source (" + columns + ")");
+            statement.execute("CREATE TABLE main.named_sink (" + columns + ")");
+            statement.execute(
+                    "INSERT INTO main.named_source VALUES (1, 7, 42, 99), (2, 8, 43, 100)");
+        }
+        Map<String, Object> sourceOptions = new HashMap<>();
+        sourceOptions.put("url", jdbcUrl);
+        sourceOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sourceOptions.put("table_path", "main.named_source");
+        List<SeaTunnelRow> rows =
+                SourceFlowTestUtils.runBatchWithCheckpointDisabled(
+                        ReadonlyConfig.fromMap(sourceOptions), new JdbcSourceFactory());
+        Assertions.assertEquals(2, rows.size());
+        Map<String, Object> sinkOptions = new HashMap<>();
+        sinkOptions.put("url", jdbcUrl);
+        sinkOptions.put("driver", "org.duckdb.DuckDBDriver");
+        sinkOptions.put("schema_save_mode", SchemaSaveMode.IGNORE);
+        sinkOptions.put("data_save_mode", DataSaveMode.APPEND_DATA);
+        sinkOptions.put("database", SCHEMA_NAME);
+        sinkOptions.put("table", "named_sink");
+        sinkOptions.put("generate_sink_sql", true);
+        CatalogTable catalogTable;
+        try (DuckDBCatalog catalog =
+                new DuckDBCatalog(CATALOG_NAME, DuckDBURLParser.parse(jdbcUrl), SCHEMA_NAME)) {
+            catalog.open();
+            catalogTable = catalog.getTable(TablePath.of(DATABASE_NAME, SCHEMA_NAME, "named_sink"));
+        }
+        SinkFlowTestUtils.runBatchWithCheckpointDisabled(
+                catalogTable, ReadonlyConfig.fromMap(sinkOptions), new JdbcSinkFactory(), rows);
+        try (Connection connection = DriverManager.getConnection(jdbcUrl);
+                Statement statement = connection.createStatement();
+                ResultSet result =
+                        statement.executeQuery("SELECT * FROM main.named_sink ORDER BY id")) {
+            for (int id = 1; id <= 2; id++) {
+                Assertions.assertTrue(result.next());
+                Assertions.assertEquals(id, result.getInt(1));
+                Assertions.assertEquals(id + 6, result.getInt(2));
+                Assertions.assertEquals(id + 41, result.getInt(3));
+                Assertions.assertEquals(id + 98, result.getInt(4));
+            }
+            Assertions.assertFalse(result.next());
+        }
+    }
+
     @AfterAll
     public void tearDown() {
         // Delete database file

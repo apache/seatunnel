@@ -18,15 +18,28 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class FieldNamedPreparedStatementTest {
+
+    @TempDir private Path tempDir;
 
     private static final String[] SPECIAL_FIELDNAMES =
             new String[] {
@@ -92,5 +105,193 @@ public class FieldNamedPreparedStatementTest {
 
         assertEquals(expectedSQL, actualSQL);
         assertTrue(paramMap.isEmpty());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"field?question", "field name", "field:colon", "field\"quote"})
+    public void testPrepareAndExecuteWithSpecialFieldName(String fieldName) throws Exception {
+        String column = "\"" + fieldName.replace("\"", "\"\"") + "\"";
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                Statement ddl = connection.createStatement()) {
+            ddl.execute("CREATE TABLE target (" + column + " INTEGER)");
+            try (FieldNamedPreparedStatement statement =
+                    FieldNamedPreparedStatement.prepareStatement(
+                            connection,
+                            "INSERT INTO target (" + column + ") VALUES (:" + fieldName + ")",
+                            new String[] {fieldName})) {
+                statement.setInt(1, 42);
+                statement.executeUpdate();
+            }
+            try (ResultSet result = ddl.executeQuery("SELECT " + column + " FROM target")) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+                assertFalse(result.next());
+            }
+        }
+    }
+
+    @Test
+    public void testPrepareRepeatedReorderedAndUnusedFields() throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection,
+                                "SELECT :left name, :right?value, :left name",
+                                new String[] {"unused", "right?value", "left name"})) {
+            statement.setInt(1, 999);
+            statement.setInt(2, 7);
+            statement.setInt(3, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+                assertEquals(7, result.getInt(2));
+                assertEquals(42, result.getInt(3));
+            }
+        }
+    }
+
+    @Test
+    public void testPrepareIgnoresQuotedTextAndComments() throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection,
+                                "SELECT ':missing?''text', :id AS \"alias:missing?\" /* :missing ? */ -- :missing ?\n",
+                                new String[] {"id"})) {
+            statement.setInt(1, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(":missing?'text", result.getString(1));
+                assertEquals(42, result.getInt(2));
+            }
+        }
+    }
+
+    @Test
+    public void testPreparePreservesPositionalSql() throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection,
+                                "SELECT ?, ':missing?', ? AS \"alias?\"",
+                                new String[] {"second", "first"})) {
+            statement.setInt(1, 7);
+            statement.setInt(2, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(7, result.getInt(1));
+                assertEquals(":missing?", result.getString(2));
+                assertEquals(42, result.getInt(3));
+            }
+        }
+    }
+
+    @Test
+    public void testPrepareDoesNotTruncateUnknownParameter() throws Exception {
+        try (Connection connection =
+                DriverManager.getConnection("jdbc:duckdb:" + tempDir.resolve("parameters.db"))) {
+            IllegalArgumentException error =
+                    assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    FieldNamedPreparedStatement.prepareStatement(
+                                            connection, "SELECT :id2", new String[] {"id"}));
+            assertTrue(error.getMessage().contains("[id2] not in source columns"));
+        }
+    }
+
+    @Test
+    public void testPrepareNamedParameterBeforeCast() throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection, "SELECT :id::INTEGER", new String[] {"id"})) {
+            statement.setInt(1, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    public void testPrepareChoosesCompleteNameAndPreservesDollarQuotedText() throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection,
+                                "SELECT :id2, :id, $tag$:missing?$tag$, $$:other?$$",
+                                new String[] {"id", "id2"})) {
+            statement.setInt(1, 7);
+            statement.setInt(2, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+                assertEquals(7, result.getInt(2));
+                assertEquals(":missing?", result.getString(3));
+                assertEquals(":other?", result.getString(4));
+            }
+        }
+    }
+
+    @Test
+    public void testPrepareDoesNotRewriteMixedParameterStyles() throws Exception {
+        try (Connection connection =
+                DriverManager.getConnection("jdbc:duckdb:" + tempDir.resolve("parameters.db"))) {
+            assertThrows(
+                    SQLException.class,
+                    () ->
+                            FieldNamedPreparedStatement.prepareStatement(
+                                    connection, "SELECT :id, ?", new String[] {"id"}));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {":id", "?"})
+    public void testPrepareBindsParametersInArrayExpressions(String placeholder) throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatement(
+                                connection,
+                                "SELECT list_extract([" + placeholder + "], 1)",
+                                new String[] {"id"})) {
+            statement.setInt(1, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+            }
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"?", ":id"})
+    public void testConfiguredSqlPreservesExistingBindingStyles(String placeholder)
+            throws Exception {
+        try (Connection connection =
+                        DriverManager.getConnection(
+                                "jdbc:duckdb:" + tempDir.resolve("parameters.db"));
+                FieldNamedPreparedStatement statement =
+                        FieldNamedPreparedStatement.prepareStatementForCustomSql(
+                                connection, "SELECT " + placeholder, new String[] {"id"})) {
+            statement.setInt(1, 42);
+            try (ResultSet result = statement.executeQuery()) {
+                assertTrue(result.next());
+                assertEquals(42, result.getInt(1));
+            }
+        }
     }
 }

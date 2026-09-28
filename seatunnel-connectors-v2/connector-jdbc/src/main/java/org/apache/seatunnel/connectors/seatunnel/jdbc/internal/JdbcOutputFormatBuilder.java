@@ -89,7 +89,8 @@ public class JdbcOutputFormatBuilder {
                                     jdbcSinkConfig.getSimpleSql(),
                                     tableSchema,
                                     databaseTableSchema,
-                                    dialect.getRowConverter());
+                                    dialect.getRowConverter(),
+                                    true);
         } else if (primaryKeys == null || primaryKeys.isEmpty()) {
             statementExecutorFactory =
                     () ->
@@ -133,16 +134,25 @@ public class JdbcOutputFormatBuilder {
                 dialect.getInsertIntoStatement(database, table, tableSchema.getFieldNames());
         insertSQL = applyOracleAppendValuesHintIfNeeded(jdbcSinkConfig, insertSQL);
         return createSimpleBufferedExecutor(
-                insertSQL, tableSchema, databaseTableSchema, dialect.getRowConverter());
+                insertSQL, tableSchema, databaseTableSchema, dialect.getRowConverter(), false);
     }
 
     private static JdbcBatchStatementExecutor<SeaTunnelRow> createSimpleBufferedExecutor(
             String sql,
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
-            JdbcRowConverter rowConverter) {
+            JdbcRowConverter rowConverter,
+            boolean customSql) {
         JdbcBatchStatementExecutor<SeaTunnelRow> simpleRowExecutor =
-                createSimpleExecutor(sql, tableSchema, databaseTableSchema, rowConverter);
+                customSql
+                        ? new SimpleBatchStatementExecutor(
+                                connection ->
+                                        FieldNamedPreparedStatement.prepareStatementForCustomSql(
+                                                connection, sql, tableSchema.getFieldNames()),
+                                tableSchema,
+                                databaseTableSchema,
+                                rowConverter)
+                        : createSimpleExecutor(sql, tableSchema, databaseTableSchema, rowConverter);
         return new BufferedBatchStatementExecutor(simpleRowExecutor, Function.identity());
     }
 
