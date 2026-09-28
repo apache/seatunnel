@@ -209,6 +209,12 @@
   - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
+- **行为变更：ClickhouseFile Sink 在选项规则校验阶段校验 `file_fields_delimiter`**
+  - **影响范围**：`seatunnel-connectors-v2/connector-clickhouse`（`ClickhouseFileSinkFactory`）
+  - **变更说明**：`file_fields_delimiter` 必须正好为一个字符，因为 ClickhouseFile 临时写数据时将其用作 CSV 分隔符。此前该约束由 `createSink` 中的命令式校验实现，只有作业真正启动 Sink 写入器时才会触发。现在该约束通过 `Conditions.extension(...)` 声明在 `optionRule()` 中，会在配置校验阶段执行。
+  - **影响**：`file_fields_delimiter` 长度大于一个字符的作业，现在会在 `--check` / `--dry-run` 阶段就因选项校验失败，而不再等到运行时。未设置该选项或使用单字符值的作业不受影响。
+  - **迁移指南**：合法配置无需改动。如果存在长度大于一个字符的值，请在升级前将其改为单个字符。
+
 ### 转换变更
 
 - **行为变更：AMAZON 向量化遵循重试选项**

@@ -102,7 +102,7 @@ clickhouse服务器节点的访问密码。
 
 ### file_fields_delimiter [string]
 
-ClickHouseFile使用CSV格式来临时保存数据。但如果数据中包含CSV的分隔符，可能会导致程序异常。使用此配置可以避免该情况。配置的值必须正好为一个字符的长度。
+ClickHouseFile使用CSV格式来临时保存数据。但如果数据中包含CSV的分隔符，可能会导致程序异常。使用此配置可以避免该情况。配置的值必须正好为一个字符的长度。该约束在选项规则校验阶段生效，因此长度大于一个字符的值会在作业提交（`--check`）时被拒绝，而不是等到运行时。
 
 ### file_temp_path [string]
 

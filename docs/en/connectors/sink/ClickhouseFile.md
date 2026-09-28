@@ -110,7 +110,9 @@ you need to use this mode to take other ways to realize the `--path` parameter f
 
 ClickhouseFile uses csv format to temporarily save data. If the data in the row contains the delimiter value
 of csv, it may cause program exceptions.
-Avoid this with this configuration. Value string has to be an exactly one character long
+Avoid this with this configuration. Value string has to be an exactly one character long.
+This is validated during option-rule checking, so a value longer than one character is rejected at
+job submission (`--check`) instead of at runtime.
 
 ### file_temp_path [string]
 
