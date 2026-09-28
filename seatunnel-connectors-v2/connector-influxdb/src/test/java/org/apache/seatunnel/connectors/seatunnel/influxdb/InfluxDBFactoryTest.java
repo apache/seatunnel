@@ -119,9 +119,48 @@ class InfluxDBFactoryTest {
     }
 
     @Test
-    void nonPositiveWriteTimeoutIsRejected() {
+    void writeTimeoutIsNotConstrained() {
+        // write_timeout is declared but never read at runtime, so no value constraint is applied
         Map<String, Object> map = validSinkConfig();
         map.put("write_timeout", 0);
+        validateSink(map);
+    }
+
+    @Test
+    void negativeOptionalValuesAreRejected() {
+        Map<String, Object> map = validSinkConfig();
+        map.put("connect_timeout_ms", -1L);
         Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+        map = validSinkConfig();
+        map.put("query_timeout_sec", -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+        map = validSinkConfig();
+        map.put("batch_size", -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validateSink(map));
+    }
+
+    @Test
+    void missingUrlAndDatabaseReportBothKeys() {
+        OptionValidationException ex =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSink(new HashMap<>()));
+        String message = ex.getMessage();
+        Assertions.assertTrue(message.contains("url"), () -> "missing url in: " + message);
+        Assertions.assertTrue(message.contains("database"), () -> "missing database in: " + message);
+    }
+
+    @Test
+    void bundledUsernamePasswordPassValidation() {
+        Map<String, Object> map = validSinkConfig();
+        map.put("username", "user");
+        map.put("password", "pass");
+        validateSink(map);
+    }
+
+    @Test
+    void multiTableSinkReplicaPassesValidation() {
+        Map<String, Object> map = validSinkConfig();
+        map.put("multi_table_sink_replica", 2);
+        validateSink(map);
     }
 }

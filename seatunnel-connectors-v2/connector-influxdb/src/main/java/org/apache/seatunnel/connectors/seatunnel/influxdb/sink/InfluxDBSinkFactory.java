@@ -63,8 +63,6 @@ public class InfluxDBSinkFactory implements TableSinkFactory {
                         Conditions.greaterThan(InfluxDBSinkOptions.BATCH_SIZE, 0))
                 .optional(
                         InfluxDBSinkOptions.WRITE_TIMEOUT,
-                        Conditions.greaterThan(InfluxDBSinkOptions.WRITE_TIMEOUT, 0))
-                .optional(
                         InfluxDBSinkOptions.KEY_MEASUREMENT,
                         InfluxDBSinkOptions.KEY_TAGS,
                         InfluxDBSinkOptions.KEY_TIME,

@@ -18,6 +18,21 @@ You need to check this document before you upgrade to related version.
     trust store of the SeaTunnel runtime, or switch to the `host`/`port` + `ssl = true`
     configuration with a properly configured trust store.
 
+### InfluxDB Sink
+
+- **Behavior change: `batch_size <= 0` is now rejected at config-validation time**
+  - **Affected component**: `seatunnel-connectors-v2/connector-influxdb` (sink)
+  - **Description**: `InfluxDB` previously accepted a non-positive `batch_size`. Setting
+    `batch_size = 0` disabled buffered flushing and made the sink flush only at each checkpoint or
+    when the writer closed. The option is now validated with `batch_size > 0`, so a job that
+    relied on that "flush only on checkpoint/close" mode will fail at submission with an
+    `OptionValidationException` instead of running.
+  - **Impact**: Jobs that explicitly set `batch_size` to `0` or a negative value can no longer be
+    submitted. The default (`1024`) and any positive value are unaffected.
+  - **Migration Guide**: Set `batch_size` to a positive value (for example the default `1024`).
+    To reduce flush frequency, increase `batch_size` and/or `checkpoint.interval` instead of
+    disabling buffering.
+
 ### Zeta REST Pagination Parameter Validation
 
 - **Behavior change: `page` and `rows` are validated on paginated endpoints**
