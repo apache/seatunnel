@@ -55,7 +55,7 @@ You need to check this document before you upgrade to related version.
   - **Migration Guide**: Rename the existing UDF, or switch to the built-in functions. To stay
     wire-compatible with the `FieldEncrypt` `AesCbcEncryptor`, supply the key with the `base64:`
     prefix (a bare key is derived as a passphrase via SHA-256 and is **not** interchangeable with
-    `FieldEncrypt`). See [SQL Functions](transforms/sql-functions.md) for the full contract.
+    `FieldEncrypt`). See [SQL Functions](../../transforms/sql-functions.md) for the full contract.
 
 ### RabbitMQ Connector
 

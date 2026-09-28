@@ -30,9 +30,10 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Built-in AES crypto functions for the Zeta SQL transform.
@@ -68,11 +69,20 @@ public class CryptoFunction {
     private static final int IV_SIZE = 16;
     private static final String BASE64_PREFIX = "base64:";
 
-    // Bounded cache for derived keys, keyed by the key string. A constant key (the common case)
-    // is derived once instead of on every row.
+    // Bounded access-ordered LRU cache for derived keys, keyed by the key string. A constant key
+    // (the common case) is derived once instead of on every row. Eviction removes only the
+    // least-recently-used entry, so a workload that exceeds the cap no longer triggers the full
+    // clear-and-rebuild thrash of a plain map, and residency stays at most KEY_CACHE_MAX_SIZE.
     private static final int KEY_CACHE_MAX_SIZE = 64;
-    private static final ConcurrentHashMap<String, SecretKeySpec> KEY_CACHE =
-            new ConcurrentHashMap<>();
+    private static final Map<String, SecretKeySpec> KEY_CACHE =
+            Collections.synchronizedMap(
+                    new LinkedHashMap<String, SecretKeySpec>(KEY_CACHE_MAX_SIZE, 0.75f, true) {
+                        @Override
+                        protected boolean removeEldestEntry(
+                                Map.Entry<String, SecretKeySpec> eldest) {
+                            return size() > KEY_CACHE_MAX_SIZE;
+                        }
+                    });
 
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
@@ -270,19 +280,16 @@ public class CryptoFunction {
     }
 
     private static SecretKeySpec cachedKey(String key, String operation) {
-        SecretKeySpec cached = KEY_CACHE.get(key);
-        if (cached != null) {
-            return cached;
+        // Compound get-then-put must be atomic against concurrent callers; synchronize on the
+        // wrapper, which is also required for access-order mutation under synchronizedMap.
+        synchronized (KEY_CACHE) {
+            SecretKeySpec cached = KEY_CACHE.get(key);
+            if (cached != null) {
+                return cached;
+            }
+            SecretKeySpec derived = buildKey(key, operation);
+            KEY_CACHE.put(key, derived);
+            return derived;
         }
-        SecretKeySpec derived = buildKey(key, operation);
-        SecretKeySpec prior = KEY_CACHE.putIfAbsent(key, derived);
-        if (prior != null) {
-            return prior;
-        }
-        if (KEY_CACHE.size() > KEY_CACHE_MAX_SIZE) {
-            KEY_CACHE.clear();
-            KEY_CACHE.putIfAbsent(key, derived);
-        }
-        return derived;
     }
 }
