@@ -49,6 +49,8 @@
 
 如果 pipeline 恢复尝试无法申请到足够的 Worker slot，则不会使用上一轮执行的 slot 部署任务。资源申请失败也会消耗该重试次数；请确保替代 Worker 能在配置的重试窗口内就绪。
 
+恢复等待或资源申请期间取消的作业保持取消语义。Master 切换后，从未启动的 pipeline 直接使用调度器已预留的资源，不额外消耗 pipeline 重试次数。
+
 ### job.retry.interval.seconds
 
 用于控制作业失败时的默认重试间隔。默认值为3秒，并且仅适用于Zeta引擎。

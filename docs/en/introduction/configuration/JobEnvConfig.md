@@ -49,6 +49,8 @@ This counter accumulates for the life of the pipeline; an intermediate successfu
 
 If a pipeline recovery attempt cannot allocate enough worker slots, it does not deploy tasks using slots from the previous execution. Resource-allocation failures consume this retry budget; ensure that replacement workers can become available within the configured retry period.
 
+A job canceled while waiting for recovery resources remains canceled. After a Master switch, a pipeline that has never started uses the resources reserved by the scheduler without consuming a pipeline retry.
+
 ### job.retry.interval.seconds
 
 Used to control the default retry interval when a job fails. The default value is 3 seconds, and it only works in the Zeta engine.
