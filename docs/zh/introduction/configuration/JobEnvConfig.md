@@ -25,6 +25,12 @@
 
 在`STREAMING`模式下，检查点是必须的，如果不设置，将从应用程序配置文件`seatunnel.yaml`中获取。 在`BATCH`模式下，您可以通过不设置此参数来禁用检查点。在Zeta `STREAMING`模式下，默认值为30000毫秒。
 
+:::note
+
+在 **Spark 引擎**上，SeaTunnel env 中的检查点相关配置（例如 `checkpoint.interval`）**不会被 Spark starter 应用**。对于 Spark Structured Streaming sink，请在 connector 支持的情况下使用 Spark 原生的检查点配置（例如 `checkpointLocation`）。
+
+:::
+
 ### checkpoint.timeout
 
 检查点的超时时间(毫秒)。如果检查点在超时之前没有完成，作业将失败。在Zeta中，默认值为30000毫秒。

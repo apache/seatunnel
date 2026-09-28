@@ -96,6 +96,7 @@
         <flink.1.20.1.version>1.20.1</flink.1.20.1.version>
         <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
         <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
+        <spark.4.1.2.version>4.1.2</spark.4.1.2.version>
         <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
         <commons.beanutils.version>1.9.4</commons.beanutils.version>
         <commons.cli.version>1.4</commons.cli.version>
@@ -1196,6 +1197,24 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+        </profile>
+        <!-- Spark 4.x requires JDK 17+ -->
+        <profile>
+            <id>jdk17</id>
+            <activation>
+                <jdk>[17,)</jdk>
+            </activation>
+            <modules>
+                <module>seatunnel-translation/seatunnel-translation-spark/seatunnel-translation-spark-4.1</module>
+                <module>seatunnel-core/seatunnel-spark-starter/seatunnel-spark-4.1-starter</module>
+            </modules>
+        </profile>
+        <!-- Include seatunnel-dist in CI builds that only activate -Pci -->
+        <profile>
+            <id>spark41-dist</id>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
         </profile>
         <profile>
             <id>benchmark</id>

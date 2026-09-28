@@ -25,6 +25,12 @@ Gets the interval (milliseconds) in which checkpoints are periodically scheduled
 
 In `STREAMING` mode, checkpoints is required, if you do not set it, it will be obtained from the application configuration file `seatunnel.yaml`. In `BATCH` mode, you can disable checkpoints by not setting this parameter. In Zeta `STREAMING` mode, the default value is 30000 milliseconds.
 
+:::note
+
+On the **Spark engine**, SeaTunnel env checkpoint settings such as `checkpoint.interval` are **not applied** by the Spark starter. For Spark structured streaming sinks, configure Spark-native checkpoint options (for example `checkpointLocation`) where supported by the connector.
+
+:::
+
 ### checkpoint.timeout
 
 The timeout (in milliseconds) for a checkpoint. If the checkpoint is not completed before the timeout, the job will fail. In Zeta, the default value is 30000 milliseconds.
