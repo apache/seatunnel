@@ -17,20 +17,26 @@
 
 package org.apache.seatunnel.core.starter.seatunnel;
 
+import org.apache.seatunnel.common.constants.EngineType;
+import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.seatunnel.args.ApplicationCommandArgs;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
+
 /** User-facing entrypoint for native Zeta application deployment and management. */
 public final class SeaTunnelApplication {
-    private SeaTunnelApplication() {}
 
     public static void main(String[] args) {
-        int exitCode;
+        ApplicationCommandArgs applicationCommandArgs =
+                CommandLineUtils.parse(
+                        args,
+                        new ApplicationCommandArgs(),
+                        EngineType.SEATUNNEL_APPLICATION.getStarterShellName(),
+                        false);
         try {
-            exitCode = ApplicationCommandLine.execute(args, System.out);
+            SeaTunnel.run(applicationCommandArgs.buildCommand());
         } catch (Exception e) {
             System.err.println("Application command failed: " + e.getMessage());
-            exitCode = 1;
-        }
-        if (exitCode != 0) {
-            System.exit(exitCode);
+            System.exit(1);
         }
     }
 }

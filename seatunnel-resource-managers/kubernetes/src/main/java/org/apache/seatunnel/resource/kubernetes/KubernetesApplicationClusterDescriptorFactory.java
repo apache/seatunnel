@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.client;
+package org.apache.seatunnel.resource.kubernetes;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployerFactory;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptorFactory;
+import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
+
+import com.google.auto.service.AutoService;
 
 import java.util.Map;
 
 /** Discovers the Kubernetes application deployment target. */
-public final class KubernetesApplicationDeployerFactory implements ApplicationDeployerFactory {
+@AutoService(ApplicationClusterDescriptorFactory.class)
+public final class KubernetesApplicationClusterDescriptorFactory
+        implements ApplicationClusterDescriptorFactory {
+
     /** @return the Kubernetes deployment target advertised by this SPI provider */
     @Override
     public DeployType getDeployType() {
@@ -39,7 +45,8 @@ public final class KubernetesApplicationDeployerFactory implements ApplicationDe
      * @throws Exception if Kubernetes credentials or configuration cannot be loaded
      */
     @Override
-    public ApplicationDeployer create(Map<String, String> options) throws Exception {
-        return new KubernetesApplicationDeployer(KubernetesClientFactory.create(options, false));
+    public ApplicationClusterDescriptor create(Map<String, String> options) throws Exception {
+        KubernetesClient kubernetesClient = KubernetesClientFactory.create(options, false);
+        return new KubernetesApplicationClusterDescriptor(kubernetesClient);
     }
 }

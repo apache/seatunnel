@@ -151,14 +151,14 @@ The shared resource-manager core defines platform-independent value objects and 
 
 | Interface | Responsibility |
 | --- | --- |
-| `ApplicationDeployerFactory` | Discovers a provider and creates its client-side deployer. |
-| `ApplicationDeployer` | Submits a new platform application or retrieves an existing one. |
+| `ApplicationClusterDescriptorFactory` | Discovers a provider and creates its client-side deployer. |
+| `ApplicationClusterDescriptor` | Submits a new platform application or retrieves an existing one. |
 | `ApplicationClient` | Reads status and result, or cancels an application. |
 | `ResourceManagerDriverFactory` | Creates the Worker resource driver inside the Zeta Master. |
 | `ResourceManagerDriver` | Requests, releases, and stops platform Worker resources. |
 | `JarPathResolver` | Maps localized Master-side JAR paths to Worker-side paths. |
 
-### `ApplicationDeployerFactory`
+### `ApplicationClusterDescriptorFactory`
 
 ```java
 public interface ApplicationDeployerFactory {
@@ -170,7 +170,7 @@ public interface ApplicationDeployerFactory {
 
 Providers are discovered with Java `ServiceLoader`. A factory performs local validation and creates a deployer; discovery itself must not create remote resources.
 
-### `ApplicationDeployer`
+### `ApplicationClusterDescriptor`
 
 ```java
 public interface ApplicationDeployer extends AutoCloseable {

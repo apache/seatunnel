@@ -21,13 +21,13 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptors;
 import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployers;
 
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
@@ -85,7 +85,7 @@ public class YarnApplicationIT extends TestSuiteBase {
     private MiniDFSCluster hdfs;
     private MiniYARNCluster yarn;
     private Configuration configuration;
-    private ApplicationDeployer deployer;
+    private ApplicationClusterDescriptor deployer;
     private String distribution;
     private File distributionHome;
 
@@ -126,7 +126,7 @@ public class YarnApplicationIT extends TestSuiteBase {
             configuration.writeXml(output);
         }
         deployer =
-                ApplicationDeployers.create(
+                ApplicationClusterDescriptors.create(
                         DeployType.YARN,
                         Collections.singletonMap(
                                 "yarn.config-dir", hadoopDirectory.getAbsolutePath()));

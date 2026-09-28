@@ -23,6 +23,7 @@ import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
+import org.apache.seatunnel.resource.kubernetes.KubernetesApplicationClusterDescriptor;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
@@ -72,7 +73,8 @@ class KubernetesApplicationTest {
         when(api.getJob(anyString())).thenReturn(job(new V1JobStatus().active(1)));
         when(api.listPods(anyString()))
                 .thenReturn(Collections.singletonList(pod("master", "Running")));
-        ApplicationClient client = new KubernetesApplicationDeployer(api).deploy(specification());
+        ApplicationClient client =
+                new KubernetesApplicationClusterDescriptor(api).deploy(specification());
         assertEquals(DeployType.KUBERNETES, client.getApplicationId().getDeployType());
         InOrder order = inOrder(api);
         order.verify(api).getConfigMap("seatunnel-runtime");
@@ -92,13 +94,15 @@ class KubernetesApplicationTest {
         doThrow(new ApiException(403, "denied")).when(api).createService(any());
         assertThrows(
                 ApiException.class,
-                () -> new KubernetesApplicationDeployer(api).deploy(specification()));
+                () -> new KubernetesApplicationClusterDescriptor(api).deploy(specification()));
         verify(api).deleteApplication(anyString());
         KubernetesClient interrupted = mock(KubernetesClient.class);
         when(interrupted.createJob(any())).thenThrow(new ApiException(0, "connection interrupted"));
         assertThrows(
                 ApiException.class,
-                () -> new KubernetesApplicationDeployer(interrupted).deploy(specification()));
+                () ->
+                        new KubernetesApplicationClusterDescriptor(interrupted)
+                                .deploy(specification()));
         verify(interrupted).deleteApplication(anyString());
     }
 
@@ -115,7 +119,7 @@ class KubernetesApplicationTest {
                 ApplicationSpecification.fromOptions(DeployType.KUBERNETES, "env {}", options);
         assertThrows(
                 TimeoutException.class,
-                () -> new KubernetesApplicationDeployer(api).deploy(specification));
+                () -> new KubernetesApplicationClusterDescriptor(api).deploy(specification));
         verify(api).deleteApplication(anyString());
     }
 
@@ -160,7 +164,7 @@ class KubernetesApplicationTest {
         KubernetesClient api = mock(KubernetesClient.class);
         assertThrows(
                 IllegalArgumentException.class,
-                () -> new KubernetesApplicationDeployer(api).deploy(specification));
+                () -> new KubernetesApplicationClusterDescriptor(api).deploy(specification));
         verify(api, never()).createJob(any());
         for (String name :
                 Arrays.asList(

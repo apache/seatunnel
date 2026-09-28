@@ -44,7 +44,7 @@ public final class KubernetesClientFactory {
      */
     public static KubernetesClient create(Map<String, String> options, boolean inCluster)
             throws IOException {
-        ReadonlyConfig config = ReadonlyConfig.fromMap(new HashMap<String, Object>(options));
+        ReadonlyConfig config = ReadonlyConfig.fromMap(new HashMap<>(options));
         String kubeconfig = config.get(KubernetesOptions.KUBE_CONFIG);
         ApiClient client =
                 inCluster

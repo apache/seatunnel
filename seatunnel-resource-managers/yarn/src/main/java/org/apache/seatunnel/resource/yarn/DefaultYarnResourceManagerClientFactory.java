@@ -15,14 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cluster;
+package org.apache.seatunnel.resource.yarn;
 
-import org.apache.hadoop.yarn.client.api.NMClient;
+import org.apache.hadoop.yarn.client.api.AMRMClient;
 
-/** Default NodeManager client factory backed by the Hadoop YARN SDK. */
-final class DefaultYarnNodeManagerClientFactory implements YarnNodeManagerClientFactory {
+/** Default ResourceManager client factory backed by the Hadoop YARN SDK. */
+public final class DefaultYarnResourceManagerClientFactory
+        implements YarnResourceManagerClientFactory {
+
     @Override
-    public NMClient create() {
-        return NMClient.createNMClient();
+    public AMRMClient<AMRMClient.ContainerRequest> create() {
+        return AMRMClient.createAMRMClient();
     }
 }

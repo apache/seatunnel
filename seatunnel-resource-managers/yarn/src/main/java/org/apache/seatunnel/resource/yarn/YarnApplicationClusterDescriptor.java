@@ -15,15 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.client;
+package org.apache.seatunnel.resource.yarn;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
 import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
+import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
+import org.apache.seatunnel.resource.yarn.client.YarnApplicationStatusMonitor;
 import org.apache.seatunnel.resource.yarn.config.YarnApplicationConfiguration;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.config.YarnDeploymentTarget;
@@ -51,7 +53,7 @@ import java.util.function.Supplier;
 import static org.apache.hadoop.yarn.api.records.ApplicationId.fromString;
 
 /** Submits one distribution and one job as a private, single-attempt YARN application. */
-final class YarnApplicationDeployer implements ApplicationDeployer {
+final class YarnApplicationClusterDescriptor implements ApplicationClusterDescriptor {
     /** YARN application type shown by the ResourceManager UI and CLI. */
     private static final String APPLICATION_TYPE = "SeaTunnel";
 
@@ -66,11 +68,11 @@ final class YarnApplicationDeployer implements ApplicationDeployer {
     private final boolean allowLocalStaging;
 
     /** Uses the submitting user's Hadoop configuration for YARN RPCs and shared staging. */
-    YarnApplicationDeployer(Configuration configuration) {
+    YarnApplicationClusterDescriptor(Configuration configuration) {
         this(configuration, YarnClient::createYarnClient, false);
     }
 
-    YarnApplicationDeployer(
+    YarnApplicationClusterDescriptor(
             Configuration configuration,
             Supplier<YarnClient> clientFactory,
             boolean allowLocalStaging) {

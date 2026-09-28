@@ -22,6 +22,7 @@ import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
+import org.apache.seatunnel.resource.yarn.YarnApplicationClusterDescriptor;
 import org.apache.seatunnel.resource.yarn.YarnApplicationMaster;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
@@ -78,7 +79,7 @@ class YarnApplicationTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
-                                new YarnApplicationDeployer(
+                                new YarnApplicationClusterDescriptor(
                                                 localConfiguration(), () -> client, false)
                                         .deploy(specification()));
         assertTrue(failure.getMessage().contains("shared filesystem"));
@@ -100,7 +101,8 @@ class YarnApplicationTest {
         assertThrows(
                 TimeoutException.class,
                 () ->
-                        new YarnApplicationDeployer(localConfiguration(), () -> client, true)
+                        new YarnApplicationClusterDescriptor(
+                                        localConfiguration(), () -> client, true)
                                 .deploy(specification));
         verify(client).killApplication(ApplicationId.newInstance(1, 1));
         assertFalse(Files.exists(temporary.toPath().resolve("application_1_0001")));
@@ -115,7 +117,7 @@ class YarnApplicationTest {
                 assertThrows(
                         IllegalArgumentException.class,
                         () ->
-                                new YarnApplicationDeployer(localConfiguration())
+                                new YarnApplicationClusterDescriptor(localConfiguration())
                                         .deploy(specification));
         assertEquals("Required option yarn.distribution is missing", failure.getMessage());
     }
@@ -140,7 +142,7 @@ class YarnApplicationTest {
         YarnClient client = client();
         ApplicationSpecification specification = specification();
         try (ApplicationClient deployed =
-                new YarnApplicationDeployer(configuration, () -> client, true)
+                new YarnApplicationClusterDescriptor(configuration, () -> client, true)
                         .deploy(specification)) {
             ArgumentCaptor<ApplicationSubmissionContext> context =
                     ArgumentCaptor.forClass(ApplicationSubmissionContext.class);
@@ -186,7 +188,8 @@ class YarnApplicationTest {
         assertThrows(
                 IOException.class,
                 () ->
-                        new YarnApplicationDeployer(localConfiguration(), () -> client, true)
+                        new YarnApplicationClusterDescriptor(
+                                        localConfiguration(), () -> client, true)
                                 .deploy(specification()));
         verify(client).killApplication(ApplicationId.newInstance(1, 1));
         assertFalse(Files.exists(temporary.toPath().resolve("application_1_0001")));
@@ -201,7 +204,8 @@ class YarnApplicationTest {
         assertThrows(
                 IllegalStateException.class,
                 () ->
-                        new YarnApplicationDeployer(localConfiguration(), () -> client, true)
+                        new YarnApplicationClusterDescriptor(
+                                        localConfiguration(), () -> client, true)
                                 .deploy(specification()));
         assertTrue(Files.exists(existing.toPath().resolve("preserve")));
         verify(client, never()).killApplication(any());
@@ -245,7 +249,8 @@ class YarnApplicationTest {
         Configuration configuration = localConfiguration();
         configuration.set("hadoop.security.authentication", "kerberos");
         assertThrows(
-                IllegalArgumentException.class, () -> new YarnApplicationDeployer(configuration));
+                IllegalArgumentException.class,
+                () -> new YarnApplicationClusterDescriptor(configuration));
     }
 
     private Configuration localConfiguration() {

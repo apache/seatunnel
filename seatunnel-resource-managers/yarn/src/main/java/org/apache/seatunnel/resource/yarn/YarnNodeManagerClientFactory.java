@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cluster;
+package org.apache.seatunnel.resource.yarn;
 
-import org.apache.hadoop.yarn.client.api.AMRMClient;
+import org.apache.hadoop.yarn.client.api.NMClient;
 
-/** Creates the YARN ResourceManager client used by one ApplicationMaster. */
-interface YarnResourceManagerClientFactory {
-    /** @return a new, uninitialized ResourceManager client owned by the driver */
-    AMRMClient<AMRMClient.ContainerRequest> create();
+/** Creates the YARN NodeManager client used to start and stop worker containers. */
+public interface YarnNodeManagerClientFactory {
+
+    /** @return a new, uninitialized NodeManager client owned by the driver */
+    NMClient create();
 }

@@ -24,7 +24,6 @@ import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.kubernetes.cluster.KubernetesResourceManagerDriverFactory;
 
 import java.nio.file.Paths;
 

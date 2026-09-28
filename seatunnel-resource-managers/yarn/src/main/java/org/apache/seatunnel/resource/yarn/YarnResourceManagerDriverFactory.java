@@ -15,9 +15,8 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cluster;
+package org.apache.seatunnel.resource.yarn;
 
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriverFactory;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
@@ -26,12 +25,11 @@ import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;
 
+import com.google.auto.service.AutoService;
+
 /** Creates the ApplicationMaster allocation driver through the resource-manager SPI. */
+@AutoService(ResourceManagerDriverFactory.class)
 public final class YarnResourceManagerDriverFactory implements ResourceManagerDriverFactory {
-    @Override
-    public DeployType getDeployType() {
-        return DeployType.YARN;
-    }
 
     @Override
     public ResourceManagerDriver create(ApplicationSpecification specification) throws Exception {

@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.cluster;
+package org.apache.seatunnel.resource.kubernetes;
 
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriverFactory;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClientFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
 
+import com.google.auto.service.AutoService;
+
 /** Creates in-cluster workers using only the application pod's service account. */
+@AutoService(ResourceManagerDriverFactory.class)
 public final class KubernetesResourceManagerDriverFactory implements ResourceManagerDriverFactory {
-    /** @return the Kubernetes deployment target advertised by this SPI provider */
-    @Override
-    public DeployType getDeployType() {
-        return DeployType.KUBERNETES;
-    }
+
     /**
      * Uses only the running master's service account, never the submitter's kubeconfig.
      *

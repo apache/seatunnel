@@ -22,12 +22,12 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
-import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationDeployerFactory;
+import org.apache.seatunnel.resource.kubernetes.KubernetesApplicationClusterDescriptorFactory;
 import org.apache.seatunnel.resource.kubernetes.config.KubernetesOptions;
 
 import org.codehaus.plexus.util.FileUtils;
@@ -106,7 +106,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
             "seatunnel-app-it-" + UUID.randomUUID().toString().substring(0, 8);
     private CoreV1Api core;
     private BatchV1Api batch;
-    private ApplicationDeployer deployer;
+    private ApplicationClusterDescriptor deployer;
     private Map<String, String> options;
     private boolean namespaceCreated;
     private ApiClient apiClient;
@@ -235,7 +235,7 @@ public class KubernetesApplicationIT extends TestSuiteBase {
         options.put(ApplicationOptions.WORKER_MEMORY_MB.key(), "768");
         options.put(ApplicationOptions.MASTER_MEMORY_MB.key(), "768");
         options.put(ApplicationOptions.STARTUP_TIMEOUT_MILLIS.key(), "180000");
-        deployer = new KubernetesApplicationDeployerFactory().create(options);
+        deployer = new KubernetesApplicationClusterDescriptorFactory().create(options);
     }
 
     @AfterAll

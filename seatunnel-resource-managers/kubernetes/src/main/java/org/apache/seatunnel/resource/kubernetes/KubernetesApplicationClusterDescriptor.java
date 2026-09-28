@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.kubernetes.client;
+package org.apache.seatunnel.resource.kubernetes;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
+import org.apache.seatunnel.resource.core.ApplicationClusterDescriptor;
 import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
+import org.apache.seatunnel.resource.kubernetes.client.KubernetesApplicationClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.KubernetesClient;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.factory.KubernetesResourceFactory;
 import org.apache.seatunnel.resource.kubernetes.kubeclient.parameters.KubernetesApplicationParameters;
@@ -35,10 +36,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Deploys a suspended owner Job, localizes configuration, then starts its control plane. */
-final class KubernetesApplicationDeployer implements ApplicationDeployer {
+final class KubernetesApplicationClusterDescriptor implements ApplicationClusterDescriptor {
+
     private final KubernetesClient api;
 
-    KubernetesApplicationDeployer(KubernetesClient api) {
+    KubernetesApplicationClusterDescriptor(KubernetesClient api) {
         this.api = api;
     }
 

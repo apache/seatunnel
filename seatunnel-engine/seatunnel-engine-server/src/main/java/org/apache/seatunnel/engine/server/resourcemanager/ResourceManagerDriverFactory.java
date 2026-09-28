@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.server.resourcemanager;
 
-import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 
 /**
@@ -29,9 +28,6 @@ import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
  * state.
  */
 public interface ResourceManagerDriverFactory {
-
-    /** @return the single deployment platform implemented by this provider */
-    DeployType getDeployType();
 
     /**
      * Creates the worker driver without registering an application or allocating workers.

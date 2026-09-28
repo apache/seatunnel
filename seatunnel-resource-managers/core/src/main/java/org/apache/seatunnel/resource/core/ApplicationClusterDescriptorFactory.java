@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.core.client;
+package org.apache.seatunnel.resource.core;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 
@@ -29,9 +29,11 @@ import java.util.Map;
  * Factories need a public no-argument constructor and should not create remote resources during
  * discovery. Exactly one factory may advertise a given deployment type on the selected classpath.
  */
-public interface ApplicationDeployerFactory {
+public interface ApplicationClusterDescriptorFactory {
+
     /** @return the external resource platform handled by this provider */
     DeployType getDeployType();
+
     /**
      * Creates the locally owned deployer for subsequent submit or retrieve operations.
      *
@@ -39,5 +41,5 @@ public interface ApplicationDeployerFactory {
      * @return a deployer whose lifetime is owned by the caller
      * @throws Exception if configuration or local platform-client initialization fails
      */
-    ApplicationDeployer create(Map<String, String> options) throws Exception;
+    ApplicationClusterDescriptor create(Map<String, String> options) throws Exception;
 }

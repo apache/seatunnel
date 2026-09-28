@@ -24,7 +24,9 @@ public enum EngineType {
     FLINK13("flink", "seatunnel-flink-13-starter.jar", "start-seatunnel-flink-13-connector-v2.sh"),
     FLINK15("flink", "seatunnel-flink-15-starter.jar", "start-seatunnel-flink-15-connector-v2.sh"),
     FLINK20("flink", "seatunnel-flink-20-starter.jar", "start-seatunnel-flink-20-connector-v2.sh"),
-    SEATUNNEL("seatunnel", "seatunnel-starter.jar", "seatunnel.sh");
+    SEATUNNEL("seatunnel", "seatunnel-starter.jar", "seatunnel.sh"),
+    SEATUNNEL_APPLICATION("seatunnel", "seatunnel-starter.jar", "seatunnel-application.sh");
+    ;
 
     private final String engine;
     private final String starterJarName;

@@ -15,10 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.core.client;
+package org.apache.seatunnel.resource.core;
 
 import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.resource.core.client.ApplicationClient;
 
 import java.util.Map;
 
@@ -33,7 +34,8 @@ import java.util.Map;
  * <p>The caller owns this deployer and all returned clients. Close clients before their deployer;
  * neither close operation may implicitly cancel an application. Concurrent calls are not required.
  */
-public interface ApplicationDeployer extends AutoCloseable {
+public interface ApplicationClusterDescriptor extends AutoCloseable {
+
     /**
      * Submits exactly one job and returns after the external platform accepts the application.
      *
@@ -46,6 +48,7 @@ public interface ApplicationDeployer extends AutoCloseable {
      * @throws Exception if validation, artifact staging or platform submission fails
      */
     ApplicationClient deploy(ApplicationSpecification specification) throws Exception;
+
     /**
      * Creates a handle for an existing application without creating a master or any workers.
      *
@@ -56,6 +59,7 @@ public interface ApplicationDeployer extends AutoCloseable {
      */
     ApplicationClient retrieve(ApplicationId applicationId, Map<String, String> options)
             throws Exception;
+
     /**
      * Releases deployment-client resources while leaving submitted applications running.
      *

@@ -23,7 +23,6 @@ import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
-import org.apache.seatunnel.resource.yarn.cluster.YarnResourceManagerDriverFactory;
 import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 import org.apache.seatunnel.resource.yarn.launch.YarnStagingDirectory;

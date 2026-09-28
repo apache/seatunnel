@@ -102,10 +102,7 @@ public final class ApplicationSpecification {
             int workerCount,
             WorkerSpecification workerSpecification,
             Map<String, String> options) {
-        this.deployType = Objects.requireNonNull(deployType, "deployType");
-        if (deployType == DeployType.STANDALONE) {
-            throw new IllegalArgumentException("Application mode requires YARN or KUBERNETES");
-        }
+        this.deployType = deployType;
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Application name must not be empty");
         }

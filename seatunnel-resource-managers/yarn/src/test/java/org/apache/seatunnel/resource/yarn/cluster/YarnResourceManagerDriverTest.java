@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
+import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriver;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;

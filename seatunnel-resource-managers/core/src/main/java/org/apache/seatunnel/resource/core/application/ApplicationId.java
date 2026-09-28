@@ -22,8 +22,6 @@ import org.apache.seatunnel.engine.common.runtime.DeployType;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
-import java.util.Objects;
-
 /** Identity assigned by the external resource platform. */
 @Getter
 @EqualsAndHashCode
@@ -40,7 +38,7 @@ public final class ApplicationId {
      * @throws IllegalArgumentException if the external identifier is empty
      */
     public ApplicationId(DeployType deployType, String id) {
-        this.deployType = Objects.requireNonNull(deployType, "deployType");
+        this.deployType = deployType;
         if (id == null || id.trim().isEmpty()) {
             throw new IllegalArgumentException("Application ID must not be empty");
         }

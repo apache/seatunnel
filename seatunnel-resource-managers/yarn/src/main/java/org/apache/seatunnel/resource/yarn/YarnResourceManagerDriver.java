@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cluster;
+package org.apache.seatunnel.resource.yarn;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
@@ -29,26 +29,10 @@ import org.apache.seatunnel.resource.yarn.launch.YarnContainerLaunchContextFacto
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.yarn.api.protocolrecords.AllocateResponse;
-import org.apache.hadoop.yarn.api.records.Container;
-import org.apache.hadoop.yarn.api.records.ContainerStatus;
-import org.apache.hadoop.yarn.api.records.FinalApplicationStatus;
-import org.apache.hadoop.yarn.api.records.Priority;
-import org.apache.hadoop.yarn.api.records.Resource;
 import org.apache.hadoop.yarn.client.api.AMRMClient;
 import org.apache.hadoop.yarn.client.api.NMClient;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /** Fixed worker allocation: a lost container fails the application, without replacement or HA. */
 final class YarnResourceManagerDriver implements ResourceManagerDriver {
@@ -75,10 +59,6 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     private boolean finished;
     private boolean nodeManagerInitialized;
 
-    YarnResourceManagerDriver(Configuration configuration, Path staging) {
-        this(configuration, staging, null);
-    }
-
     YarnResourceManagerDriver(Configuration configuration, Path staging, String workerNodeLabel) {
         this(
                 configuration,
@@ -86,14 +66,6 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                 workerNodeLabel,
                 new DefaultYarnResourceManagerClientFactory().create(),
                 new DefaultYarnNodeManagerClientFactory().create());
-    }
-
-    YarnResourceManagerDriver(
-            Configuration configuration,
-            Path staging,
-            AMRMClient<AMRMClient.ContainerRequest> resourceManager,
-            NMClient nodeManager) {
-        this(configuration, staging, null, resourceManager, nodeManager);
     }
 
     YarnResourceManagerDriver(

@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.core.client;
+package org.apache.seatunnel.resource.core;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 
@@ -23,8 +23,10 @@ import java.util.Map;
 import java.util.ServiceLoader;
 
 /** Resolves one unambiguous platform provider from the application class path. */
-public final class ApplicationDeployers {
-    private ApplicationDeployers() {}
+public final class ApplicationClusterDescriptors {
+
+    private ApplicationClusterDescriptors() {}
+
     /**
      * Discovers the unique provider using the current thread's context classloader.
      *
@@ -33,25 +35,25 @@ public final class ApplicationDeployers {
      * @return a caller-owned deployer
      * @throws Exception if no unique provider exists or provider initialization fails
      */
-    public static ApplicationDeployer create(DeployType type, Map<String, String> options)
+    public static ApplicationClusterDescriptor create(DeployType type, Map<String, String> options)
             throws Exception {
-        ApplicationDeployerFactory selected = null;
-        for (ApplicationDeployerFactory factory :
-                ServiceLoader.load(ApplicationDeployerFactory.class)) {
+        ApplicationClusterDescriptorFactory deployerFactory = null;
+        for (ApplicationClusterDescriptorFactory factory :
+                ServiceLoader.load(ApplicationClusterDescriptorFactory.class)) {
             if (factory.getDeployType() == type) {
-                if (selected != null) {
+                if (deployerFactory != null) {
                     throw new IllegalStateException(
                             "Multiple application deployment providers for " + type);
                 }
-                selected = factory;
+                deployerFactory = factory;
             }
         }
-        if (selected == null) {
+        if (deployerFactory == null) {
             throw new IllegalArgumentException(
                     "No application deployment provider for "
                             + type
                             + "; install its jars under resource-managers/ in the SeaTunnel distribution");
         }
-        return selected.create(options);
+        return deployerFactory.create(options);
     }
 }

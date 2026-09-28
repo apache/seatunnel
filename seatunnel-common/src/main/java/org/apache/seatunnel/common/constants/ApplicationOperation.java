@@ -15,24 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.client;
+package org.apache.seatunnel.common.constants;
 
-import org.apache.seatunnel.engine.common.runtime.DeployType;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployer;
-import org.apache.seatunnel.resource.core.client.ApplicationDeployerFactory;
-import org.apache.seatunnel.resource.yarn.config.YarnConfigurationUtils;
+public enum ApplicationOperation {
+    /** Submit a new application. */
+    SUBMIT("submit"),
 
-import java.util.Map;
+    /** Cancel an existing application. */
+    CANCEL("cancel"),
 
-/** Discovers YARN submission support through the platform deployment SPI. */
-public final class YarnApplicationDeployerFactory implements ApplicationDeployerFactory {
-    @Override
-    public DeployType getDeployType() {
-        return DeployType.YARN;
+    /** Query an existing application. */
+    STATUS("status");
+
+    private final String operation;
+
+    ApplicationOperation(String operation) {
+        this.operation = operation;
     }
 
-    @Override
-    public ApplicationDeployer create(Map<String, String> options) throws Exception {
-        return new YarnApplicationDeployer(YarnConfigurationUtils.load(options));
+    public String getOperation() {
+        return operation;
     }
 }

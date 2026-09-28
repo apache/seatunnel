@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cluster;
+package org.apache.seatunnel.resource.yarn;
 
 import org.apache.hadoop.yarn.api.records.Container;
 import org.apache.hadoop.yarn.api.records.ContainerId;
@@ -24,30 +24,30 @@ import org.apache.hadoop.yarn.api.records.NodeId;
 import java.util.Objects;
 
 /** Allocated YARN worker container with stable identity used by the resource-manager driver. */
-final class YarnWorkerNode {
+public final class YarnWorkerNode {
     private final Container container;
 
-    YarnWorkerNode(Container container) {
+    public YarnWorkerNode(Container container) {
         this.container = Objects.requireNonNull(container, "container");
     }
 
     /** @return worker identifier exposed to the Zeta resource manager */
-    String getWorkerId() {
+    public String getWorkerId() {
         return container.getId().toString();
     }
 
     /** @return native container descriptor used only for NodeManager launch */
-    Container getContainer() {
+    public Container getContainer() {
         return container;
     }
 
     /** @return native container identifier used for stop and release operations */
-    ContainerId getContainerId() {
+    public ContainerId getContainerId() {
         return container.getId();
     }
 
     /** @return NodeManager identity hosting this worker */
-    NodeId getNodeId() {
+    public NodeId getNodeId() {
         return container.getNodeId();
     }
 }
