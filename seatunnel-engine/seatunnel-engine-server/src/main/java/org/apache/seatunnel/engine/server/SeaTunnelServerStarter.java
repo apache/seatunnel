@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.telemetry.metrics.ExportsInstanceInitializer;
 
 import com.hazelcast.instance.impl.HazelcastInstanceFactory;
@@ -66,7 +68,18 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             String customInstanceName,
             @NonNull JarPathResolver jarPathResolver) {
+        return initializeHazelcastInstance(
+                seaTunnelConfig,
+                customInstanceName,
+                jarPathResolver,
+                new StandaloneResourceManagerFactory());
+    }
 
+    private static HazelcastInstanceImpl initializeHazelcastInstance(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            String customInstanceName,
+            @NonNull JarPathResolver jarPathResolver,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
 
@@ -82,7 +95,10 @@ public class SeaTunnelServerStarter {
                                 HazelcastInstanceFactory.newHazelcastInstance(
                                         seaTunnelConfig.getHazelcastConfig(),
                                         instanceName,
-                                        new SeaTunnelNodeContext(seaTunnelConfig, jarPathResolver)))
+                                        new SeaTunnelNodeContext(
+                                                seaTunnelConfig,
+                                                jarPathResolver,
+                                                resourceManagerFactory)))
                         .getOriginal();
         // init telemetry instance
         if (condition) {
@@ -104,6 +120,14 @@ public class SeaTunnelServerStarter {
             @NonNull SeaTunnelConfig seaTunnelConfig) {
         seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
         return initializeHazelcastInstance(seaTunnelConfig, null);
+    }
+
+    public static HazelcastInstanceImpl createMasterHazelcastInstance(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
+        seaTunnelConfig.getEngineConfig().setClusterRole(EngineConfig.ClusterRole.MASTER);
+        return initializeHazelcastInstance(
+                seaTunnelConfig, null, JarPathResolver.identity(), resourceManagerFactory);
     }
 
     /**

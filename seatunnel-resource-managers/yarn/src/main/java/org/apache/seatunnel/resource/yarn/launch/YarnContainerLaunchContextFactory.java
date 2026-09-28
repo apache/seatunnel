@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.resource.yarn.launch;
 
-import org.apache.seatunnel.core.starter.seatunnel.application.ApplicationWorker;
+import org.apache.seatunnel.engine.server.application.ApplicationWorkerRunner;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 import org.apache.seatunnel.resource.yarn.YarnApplicationMaster;
 
@@ -74,7 +74,7 @@ public final class YarnContainerLaunchContextFactory {
                 configuration,
                 staging,
                 specification.getMemoryMb(),
-                ApplicationWorker.class.getName(),
+                ApplicationWorkerRunner.class.getName(),
                 Arrays.asList(
                         clusterName,
                         masterAddress,

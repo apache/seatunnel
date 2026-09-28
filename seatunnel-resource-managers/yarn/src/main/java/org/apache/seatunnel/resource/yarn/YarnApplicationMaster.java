@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.resource.yarn;
 
-import org.apache.seatunnel.core.starter.seatunnel.application.ApplicationRuntime;
+import org.apache.seatunnel.engine.client.application.ApplicationClusterEntrypoint;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.core.application.ApplicationId;
 import org.apache.seatunnel.resource.core.application.ApplicationResult;
@@ -77,7 +77,7 @@ public final class YarnApplicationMaster {
                     ApplicationSpecification.read(
                             Paths.get(YarnConstants.LOCALIZED_SPECIFICATION_NAME));
             result =
-                    ApplicationRuntime.run(
+                    ApplicationClusterEntrypoint.run(
                             id,
                             specification,
                             new YarnResourceManagerDriverFactory().create(specification));

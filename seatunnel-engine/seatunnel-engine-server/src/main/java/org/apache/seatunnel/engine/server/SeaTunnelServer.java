@@ -38,6 +38,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
@@ -108,6 +110,7 @@ public class SeaTunnelServer
 
     private final SeaTunnelConfig seaTunnelConfig;
     private final JarPathResolver jarPathResolver;
+    private final ResourceManagerFactory resourceManagerFactory;
 
     private volatile boolean isRunning = true;
 
@@ -119,7 +122,7 @@ public class SeaTunnelServer
      * @param seaTunnelConfig Engine and cluster configuration retained for initialization
      */
     public SeaTunnelServer(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, JarPathResolver.identity());
+        this(seaTunnelConfig, JarPathResolver.identity(), new StandaloneResourceManagerFactory());
     }
 
     /**
@@ -135,10 +138,21 @@ public class SeaTunnelServer
      */
     public SeaTunnelServer(
             @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
+        this(seaTunnelConfig, jarPathResolver, new StandaloneResourceManagerFactory());
+    }
+
+    public SeaTunnelServer(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull JarPathResolver jarPathResolver,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
         this.liveOperationRegistry = new LiveOperationRegistry();
         this.seaTunnelConfig = seaTunnelConfig;
         this.jarPathResolver = jarPathResolver;
-        LOGGER.info("SeaTunnel server start...");
+        this.resourceManagerFactory = resourceManagerFactory;
+        LOGGER.info(
+                "SeaTunnel server uses "
+                        + resourceManagerFactory.getDeployType()
+                        + " resource manager");
     }
 
     /** Lazy load for Slot Service */
@@ -229,7 +243,11 @@ public class SeaTunnelServer
         monitorService = Executors.newSingleThreadScheduledExecutor();
         coordinatorService =
                 new CoordinatorService(
-                        nodeEngine, this, engineContext, seaTunnelConfig.getEngineConfig());
+                        nodeEngine,
+                        this,
+                        engineContext,
+                        seaTunnelConfig.getEngineConfig(),
+                        resourceManagerFactory);
         monitorService.scheduleAtFixedRate(
                 this::printExecutionInfo,
                 0,

@@ -35,7 +35,13 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-starter</artifactId>
+            <artifactId>seatunnel-engine-client</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-server</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>
         </dependency>

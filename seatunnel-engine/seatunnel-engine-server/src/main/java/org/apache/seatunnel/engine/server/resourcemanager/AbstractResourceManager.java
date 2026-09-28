@@ -97,13 +97,40 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public void init() {
+    public synchronized void init() {
+        if (!isRunning) {
+            throw new IllegalStateException("Resource manager has already been closed");
+        }
         log.info("Init ResourceManager");
-        initWorker();
+        try {
+            syncExistingWorkerProfiles();
+            initializeResourceManager();
+        } catch (Exception e) {
+            IllegalStateException initializationFailure =
+                    new IllegalStateException("Could not initialize resource manager", e);
+            try {
+                close();
+            } catch (RuntimeException cleanupFailure) {
+                initializationFailure.addSuppressed(cleanupFailure);
+            }
+            throw initializationFailure;
+        }
     }
 
-    private void initWorker() {
-        log.info("initWorker... ");
+    /** Adds deployment-specific initialization after the common worker registry is synchronized. */
+    protected void initializeResourceManager() throws Exception {}
+
+    /**
+     * Synchronizes profiles from Engine workers that are already cluster members when this resource
+     * manager starts.
+     *
+     * <p>This method does not request or create worker processes. Kubernetes and YARN resource
+     * managers launch those processes through their platform drivers. Newly joined workers register
+     * later through the normal worker heartbeat path; this startup synchronization only prevents an
+     * existing member from being absent from the master-side registry until its next heartbeat.
+     */
+    private void syncExistingWorkerProfiles() {
+        log.info("Synchronizing existing worker profiles");
         List<Address> aliveNode =
                 nodeEngine.getClusterService().getMembers().stream()
                         .map(Member::getAddress)
@@ -203,9 +230,20 @@ public abstract class AbstractResourceManager implements ResourceManager {
     }
 
     @Override
-    public void close() {
+    public final synchronized void close() {
+        if (!isRunning) {
+            return;
+        }
         isRunning = false;
+        try {
+            closeResourceManager();
+        } catch (Exception e) {
+            throw new IllegalStateException("Could not close resource manager", e);
+        }
     }
+
+    /** Adds deployment-specific cleanup to the common idempotent close lifecycle. */
+    protected void closeResourceManager() throws Exception {}
 
     protected <E> CompletableFuture<E> sendToMember(Operation operation, Address address) {
         return new CompletableFuture<>(

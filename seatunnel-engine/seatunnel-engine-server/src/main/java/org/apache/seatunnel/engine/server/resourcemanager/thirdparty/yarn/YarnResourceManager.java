@@ -19,26 +19,44 @@ package org.apache.seatunnel.engine.server.resourcemanager.thirdparty.yarn;
 
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.server.resourcemanager.AbstractResourceManager;
-import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
-import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.CreateWorkerResult;
+import org.apache.seatunnel.engine.server.resourcemanager.ApplicationResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.engine.server.resourcemanager.thirdparty.ThirdPartyResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
+import org.apache.seatunnel.resource.core.application.ApplicationId;
+import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
+import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.spi.impl.NodeEngine;
 
-public class YarnResourceManager extends AbstractResourceManager
+public class YarnResourceManager extends ApplicationResourceManager
         implements ThirdPartyResourceManager {
-    public YarnResourceManager(NodeEngine nodeEngine, EngineConfig engineConfig) {
-        super(nodeEngine, engineConfig);
+    public YarnResourceManager(
+            NodeEngine nodeEngine,
+            EngineConfig engineConfig,
+            ApplicationId applicationId,
+            ApplicationSpecification specification,
+            String clusterName,
+            Address masterAddress,
+            ResourceManagerDriver driver) {
+        super(
+                nodeEngine,
+                engineConfig,
+                applicationId,
+                specification,
+                clusterName,
+                masterAddress,
+                driver);
     }
 
     @Override
-    public CompletableFuture<CreateWorkerResult> createNewWorker(ResourceProfile resourceProfile) {
-        return null;
+    public CompletableFuture<WorkerRegistration> requestWorker(WorkerSpecification specification) {
+        return getDriver().requestWorker(specification);
     }
 
     @Override
-    public CompletableFuture<Void> releaseWorker(String workerID) {
-        return null;
+    public CompletableFuture<Void> releaseWorker(WorkerRegistration worker) {
+        return getDriver().releaseWorker(worker);
     }
 }

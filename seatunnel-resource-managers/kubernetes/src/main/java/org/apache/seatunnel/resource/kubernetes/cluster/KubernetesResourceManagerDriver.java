@@ -154,10 +154,11 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
      * Removes a worker and stops tracking it only after the API acknowledges deletion.
      *
      * @param worker previously allocated worker
-     * @throws Exception when deletion fails; close will retry tracked workers
+     * @return completion of the Pod deletion; close will retry workers whose deletion fails
      */
     @Override
-    public void releaseWorker(WorkerRegistration worker) throws Exception {
+    public CompletableFuture<Void> releaseWorker(WorkerRegistration worker) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
         String name = worker.getWorkerId();
         synchronized (this) {
             releasing.add(name);
@@ -167,11 +168,15 @@ final class KubernetesResourceManagerDriver implements ResourceManagerDriver {
             synchronized (this) {
                 workers.remove(name);
             }
+            result.complete(null);
+        } catch (Exception e) {
+            result.completeExceptionally(e);
         } finally {
             synchronized (this) {
                 releasing.remove(name);
             }
         }
+        return result;
     }
 
     void checkWorkers() {

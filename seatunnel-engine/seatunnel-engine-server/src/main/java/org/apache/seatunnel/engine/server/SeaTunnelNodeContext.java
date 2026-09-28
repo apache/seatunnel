@@ -22,6 +22,8 @@ import org.apache.seatunnel.engine.core.classloader.JarPathResolver;
 import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutDiscoveryJoiner;
 import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutMulticastJoiner;
 import org.apache.seatunnel.engine.server.joiner.LiteNodeDropOutTcpIpJoiner;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.instance.impl.DefaultNodeContext;
@@ -39,6 +41,7 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
 
     private final SeaTunnelConfig seaTunnelConfig;
     private final JarPathResolver jarPathResolver;
+    private final ResourceManagerFactory resourceManagerFactory;
 
     /**
      * Creates a node context preserving the existing jar-path behavior.
@@ -46,7 +49,7 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
      * @param seaTunnelConfig node configuration retained for node initialization
      */
     public SeaTunnelNodeContext(@NonNull SeaTunnelConfig seaTunnelConfig) {
-        this(seaTunnelConfig, JarPathResolver.identity());
+        this(seaTunnelConfig, JarPathResolver.identity(), new StandaloneResourceManagerFactory());
     }
 
     /**
@@ -58,8 +61,16 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
      */
     public SeaTunnelNodeContext(
             @NonNull SeaTunnelConfig seaTunnelConfig, @NonNull JarPathResolver jarPathResolver) {
+        this(seaTunnelConfig, jarPathResolver, new StandaloneResourceManagerFactory());
+    }
+
+    public SeaTunnelNodeContext(
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull JarPathResolver jarPathResolver,
+            @NonNull ResourceManagerFactory resourceManagerFactory) {
         this.seaTunnelConfig = seaTunnelConfig;
         this.jarPathResolver = jarPathResolver;
+        this.resourceManagerFactory = resourceManagerFactory;
     }
 
     /**
@@ -70,7 +81,7 @@ public class SeaTunnelNodeContext extends DefaultNodeContext {
      */
     @Override
     public com.hazelcast.instance.impl.NodeExtension createNodeExtension(@NonNull Node node) {
-        return new NodeExtension(node, seaTunnelConfig, jarPathResolver);
+        return new NodeExtension(node, seaTunnelConfig, jarPathResolver, resourceManagerFactory);
     }
 
     @Override

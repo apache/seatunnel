@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes.kubeclient.factory;
 
-import org.apache.seatunnel.core.starter.seatunnel.application.ApplicationWorker;
+import org.apache.seatunnel.engine.server.application.ApplicationWorkerRunner;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 import org.apache.seatunnel.resource.core.config.ApplicationOptions;
@@ -144,7 +144,7 @@ final class KubernetesPodFactory {
                 command(
                         parameters,
                         resources.getMemoryMb(),
-                        ApplicationWorker.class.getName(),
+                        ApplicationWorkerRunner.class.getName(),
                         clusterName,
                         masterAddress,
                         Integer.toString(resources.getSlots())));

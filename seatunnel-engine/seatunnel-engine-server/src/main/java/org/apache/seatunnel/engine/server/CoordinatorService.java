@@ -80,6 +80,7 @@ import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceExcept
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.standalone.StandaloneResourceManagerFactory;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
@@ -233,6 +234,8 @@ public class CoordinatorService {
 
     private final EngineConfig engineConfig;
 
+    private final ResourceManagerFactory resourceManagerFactory;
+
     private ConnectorPackageService connectorPackageService;
 
     private EventProcessor eventProcessor;
@@ -250,9 +253,24 @@ public class CoordinatorService {
             @NonNull SeaTunnelServer seaTunnelServer,
             @NonNull SeaTunnelEngineContext engineContext,
             EngineConfig engineConfig) {
+        this(
+                nodeEngine,
+                seaTunnelServer,
+                engineContext,
+                engineConfig,
+                new StandaloneResourceManagerFactory());
+    }
+
+    public CoordinatorService(
+            @NonNull NodeEngineImpl nodeEngine,
+            @NonNull SeaTunnelServer seaTunnelServer,
+            @NonNull SeaTunnelEngineContext engineContext,
+            EngineConfig engineConfig,
+            ResourceManagerFactory resourceManagerFactory) {
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
+        this.resourceManagerFactory = resourceManagerFactory;
         this.logger = nodeEngine.getLogger(getClass());
         this.executorService = createCoordinatorExecutor();
 
@@ -1358,8 +1376,7 @@ public class CoordinatorService {
             synchronized (this) {
                 if (resourceManager == null) {
                     ResourceManager manager =
-                            new ResourceManagerFactory(nodeEngine, engineConfig)
-                                    .getResourceManager();
+                            resourceManagerFactory.createResourceManager(nodeEngine, engineConfig);
                     manager.init();
                     resourceManager = manager;
                 }

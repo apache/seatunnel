@@ -61,7 +61,7 @@ public interface ResourceManagerDriver extends AutoCloseable {
      * @param worker registration returned by a successful requestWorker call
      * @throws Exception if release cannot be confirmed; close must retry outstanding cleanup
      */
-    void releaseWorker(WorkerRegistration worker) throws Exception;
+    CompletableFuture<Void> releaseWorker(WorkerRegistration worker);
 
     /**
      * Quiesces allocation and reclaims resources that cannot be handled by explicit worker release.

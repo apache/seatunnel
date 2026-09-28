@@ -247,19 +247,27 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
     }
 
     @Override
-    public void releaseWorker(WorkerRegistration registration) throws Exception {
+    public CompletableFuture<Void> releaseWorker(WorkerRegistration registration) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
         YarnWorkerNode worker;
         synchronized (this) {
             worker = workers.remove(registration.getWorkerId());
         }
-        if (worker != null) {
-            // Remove first, so the expected completed-container event cannot fail the application.
-            try {
-                nodeManager.stopContainer(worker.getContainerId(), worker.getNodeId());
-            } finally {
-                resourceManager.releaseAssignedContainer(worker.getContainerId());
+        try {
+            if (worker != null) {
+                // Remove first, so the expected completed-container event cannot fail the
+                // application.
+                try {
+                    nodeManager.stopContainer(worker.getContainerId(), worker.getNodeId());
+                } finally {
+                    resourceManager.releaseAssignedContainer(worker.getContainerId());
+                }
             }
+            result.complete(null);
+        } catch (Exception e) {
+            result.completeExceptionally(e);
         }
+        return result;
     }
 
     /** Reports the job's terminal state; the runtime releases workers before finishing. */
@@ -322,7 +330,7 @@ final class YarnResourceManagerDriver implements ResourceManagerDriver {
                     stopping.add(
                             releases.submit(
                                     () -> {
-                                        releaseWorker(new WorkerRegistration(worker));
+                                        releaseWorker(new WorkerRegistration(worker)).get();
                                         return null;
                                     }));
                 }

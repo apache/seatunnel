@@ -54,7 +54,7 @@ class SeaTunnelApplicationTest {
                                 ApplicationStatus.UNKNOWN,
                                 "Job no longer exists"));
         ByteArrayOutputStream output = new ByteArrayOutputStream();
-        assertEquals(1, SeaTunnelApplication.printResult(client, true, new PrintStream(output)));
+        assertEquals(1, ApplicationCommandLine.printResult(client, true, new PrintStream(output)));
         assertTrue(output.toString("UTF-8").contains("Job no longer exists"));
         verify(client, times(1)).getResult();
     }
@@ -67,14 +67,14 @@ class SeaTunnelApplicationTest {
                 ("application { worker-count = 3 }\nyarn.queue = batch\n"
                                 + "\"application.master.memory-mb\" = 2048\n")
                         .getBytes(StandardCharsets.UTF_8));
-        Map<String, String> options = SeaTunnelApplication.loadOptions(config.toString());
+        Map<String, String> options = ApplicationCommandLine.loadOptions(config.toString());
         assertEquals("3", options.get("application.worker-count"));
         assertEquals("batch", options.get("yarn.queue"));
         assertEquals("2048", options.get("application.master.memory-mb"));
         Files.write(config, "yarn.queue = [batch]".getBytes(StandardCharsets.UTF_8));
         assertThrows(
                 IllegalArgumentException.class,
-                () -> SeaTunnelApplication.loadOptions(config.toString()));
+                () -> ApplicationCommandLine.loadOptions(config.toString()));
     }
 
     @Test
@@ -83,28 +83,28 @@ class SeaTunnelApplicationTest {
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        SeaTunnelApplication.execute(
+                        ApplicationCommandLine.execute(
                                 new String[] {"cancel", "--target", "yarn"}, out));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        SeaTunnelApplication.execute(
+                        ApplicationCommandLine.execute(
                                 new String[] {"submit", "--target", "kubernetes"}, out));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        SeaTunnelApplication.execute(
+                        ApplicationCommandLine.execute(
                                 new String[] {"status", "--target", "standalone", "--id", "test"},
                                 out));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        SeaTunnelApplication.execute(
+                        ApplicationCommandLine.execute(
                                 new String[] {"delete", "--target", "yarn", "--id", "test"}, out));
         assertThrows(
                 IllegalArgumentException.class,
                 () ->
-                        SeaTunnelApplication.execute(
+                        ApplicationCommandLine.execute(
                                 new String[] {
                                     "status",
                                     "--target",
@@ -117,7 +117,7 @@ class SeaTunnelApplicationTest {
                                 out));
         ByteArrayOutputStream help = new ByteArrayOutputStream();
         assertEquals(
-                0, SeaTunnelApplication.execute(new String[] {"--help"}, new PrintStream(help)));
+                0, ApplicationCommandLine.execute(new String[] {"--help"}, new PrintStream(help)));
         assertTrue(help.toString("UTF-8").contains("--deployment-config"));
         assertTrue(help.toString("UTF-8").contains("--restore-from-checkpoint"));
     }

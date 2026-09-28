@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.resource.kubernetes;
 
-import org.apache.seatunnel.core.starter.seatunnel.application.ApplicationRuntime;
+import org.apache.seatunnel.engine.client.application.ApplicationClusterEntrypoint;
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerDriver;
 import org.apache.seatunnel.resource.core.application.ApplicationId;
@@ -46,7 +46,7 @@ public final class KubernetesApplicationEntrypoint {
         ApplicationSpecification specification = ApplicationSpecification.read(Paths.get(args[1]));
         ResourceManagerDriver driver =
                 new KubernetesResourceManagerDriverFactory().create(specification);
-        ApplicationResult result = ApplicationRuntime.run(id, specification, driver);
+        ApplicationResult result = ApplicationClusterEntrypoint.run(id, specification, driver);
         // Kubernetes observes the process code and persists Complete or Failed on the owner Job.
         if (result.getStatus() != ApplicationStatus.SUCCEEDED) {
             System.exit(1);
