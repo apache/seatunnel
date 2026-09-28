@@ -59,7 +59,6 @@ public class DuckDBCatalog extends AbstractJdbcCatalog {
 
     private final DuckDBTypeConverter typeConverter;
     private static final String DEFAULT_DATABASE_NAME = "default";
-    private static final String DEFAULT_SCHEMA_NAME = "main";
     private static final String SELECT_COLUMNS_SQL_TEMPLATE =
             "SELECT\n"
                     + "    c.column_name AS column_name,\n"

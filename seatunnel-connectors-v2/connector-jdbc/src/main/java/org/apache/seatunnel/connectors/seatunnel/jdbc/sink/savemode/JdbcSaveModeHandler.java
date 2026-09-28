@@ -46,6 +46,7 @@ public class JdbcSaveModeHandler extends DefaultSaveModeHandler {
     @Override
     public void open() {
         super.open();
+        // Validate the target before any schema save mode, including IGNORE, can modify data.
         if (catalog instanceof DuckDBCatalog) {
             try {
                 ((DuckDBCatalog) catalog).validateDatabase(tablePath.getDatabaseName());

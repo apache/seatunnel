@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -169,9 +170,10 @@ public class DuckDBSourceAndSinkTest {
                 while (cause.getCause() != null) {
                     cause = cause.getCause();
                 }
-                Assertions.assertEquals(
-                        "ErrorCode:[API-03], ErrorDescription:[Catalog initialize failed] - DuckDB database 'mydb' is not an attached catalog; set database to main/default for the current catalog, or attach the requested catalog on every connection.",
-                        cause.getMessage());
+                Assertions.assertInstanceOf(CatalogException.class, cause);
+                Assertions.assertTrue(
+                        cause.getMessage().contains("database 'mydb' is not an attached catalog"));
+                Assertions.assertTrue(cause.getMessage().contains("set database to main/default"));
                 Assertions.assertEquals(
                         1, countRows(TablePath.of(DATABASE_NAME, SCHEMA_NAME, "legacy_sink")));
             }

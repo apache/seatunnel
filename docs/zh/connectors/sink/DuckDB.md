@@ -207,12 +207,12 @@ sink {
 }
 ```
 
-## Changelog
-
-<ChangeLog />
-
 ### Catalog 选择与迁移
 
 `main` 和 `default` 是当前 catalog 的兼容别名（不区分大小写），不要将它们用作挂载 catalog 的别名。其他名称表示已挂载的 catalog，也不区分大小写。SeaTunnel 不会自动创建或挂载未知 catalog；请通过连接初始化脚本在每个连接上挂载所需别名。
 
 对于从 MySQL、PostgreSQL 等上游写入 DuckDB 的 Sink，请显式设置 `database = main` 来保留原来写入当前 catalog 的行为，或将 `database` 设为目标挂载别名。此前上游数据库名可能被静默忽略，现在会校验该名称，包括 `schema_save_mode = IGNORE` 的情况。显式 `query` 不使用自动生成的表路由。
+
+## Changelog
+
+<ChangeLog />

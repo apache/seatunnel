@@ -321,8 +321,8 @@ AS lake (METADATA_SCHEMA 'lake_meta', SNAPSHOT_VERSION 2);
 
 把 `2` 替换为 `SELECT * FROM lake.snapshots()` 返回的有效快照 ID，并在作业及其重试结束前保留该快照。固定快照的 catalog 用于历史读取，写入 Sink 应使用单独的初始化脚本。参见 [DuckLake 时间旅行](https://ducklake.select/docs/stable/duckdb/usage/time_travel)。
 
+`table_pattern` 或正则形式的 `table_path` 只搜索当前 DuckDB catalog。读取挂载 catalog 时，请通过三段式 `table_path` 或 `table_names` 显式列出表，例如 `lake.main.events`。Catalog 名称匹配不区分大小写；`main` 和 `default` 是当前 catalog 的保留别名，挂载湖时请使用其他别名。
+
 ## Changelog
 
 <ChangeLog />
-
-`table_pattern` 或正则形式的 `table_path` 只搜索当前 DuckDB catalog。读取挂载 catalog 时，请通过三段式 `table_path` 或 `table_names` 显式列出表，例如 `lake.main.events`。Catalog 名称匹配不区分大小写；`main` 和 `default` 是当前 catalog 的保留别名，挂载湖时请使用其他别名。

@@ -211,12 +211,12 @@ sink {
 }
 ```
 
-## Changelog
-
-<ChangeLog />
-
 ### Catalog selection and migration
 
 `main` and `default` are reserved compatibility aliases for the current catalog (case-insensitive); do not use them as attached catalog aliases. Other names identify attached catalogs and are matched case-insensitively. SeaTunnel does not create or attach an unknown catalog automatically. Attach the requested alias on every connection through the initialization script.
 
 For a DuckDB Sink fed by MySQL, PostgreSQL or another upstream, explicitly set `database = main` to retain the previous current-catalog target, or set `database` to the intended attached alias. Previously the upstream database name could be silently ignored; it is now validated, including when `schema_save_mode = IGNORE`. An explicit `query` bypasses generated table routing.
+
+## Changelog
+
+<ChangeLog />
