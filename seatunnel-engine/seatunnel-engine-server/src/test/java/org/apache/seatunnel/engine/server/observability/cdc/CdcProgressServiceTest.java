@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.observability.cdc;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressAccuracy;
 import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
 import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
@@ -28,11 +29,28 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.stream.Stream;
 
 class CdcProgressServiceTest {
+
+    @Test
+    void removedPipelineCannotBeResurrectedByLateReports() {
+        CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
+        CdcProgressEnvelope<CdcReaderProgressReport> report =
+                readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "late");
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertEquals(1, service.getReaderReports(1L, 2, 10L).size());
+        service.removePipeline(new PipelineLocation(1L, 2));
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertTrue(service.getReaderReports(1L, 2, 10L).isEmpty());
+    }
 
     @Test
     void testEnvelopeRejectsMismatchedOwnerAndPayload() {
@@ -52,28 +70,53 @@ class CdcProgressServiceTest {
     @Test
     void testRejectsStaleSequenceAndPreviousExecutionAttempt() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
 
         service.updateReports(
                 Arrays.asList(
                         readerEnvelope(taskLocation, 10L, 100L, 2L, "newer-sequence"),
                         readerEnvelope(taskLocation, 10L, 100L, 1L, "stale-sequence")));
+        CdcProgressEnvelope<CdcReaderProgressReport> stored =
+                service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals("newer-sequence", stored.getReport().getActiveSplitId());
+
+        service.updateReports(
+                Collections.singletonList(
+                        readerEnvelope(taskLocation, 10L, 100L, 2L, "duplicate-sequence")));
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals("newer-sequence", stored.getReport().getActiveSplitId());
+
+        service.updateReports(
+                Collections.singletonList(
+                        readerEnvelope(taskLocation, 10L, 100L, 3L, "next-sequence")));
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(3L, stored.getReportSequence());
+        Assertions.assertEquals("next-sequence", stored.getReport().getActiveSplitId());
+
         service.updateReports(
                 Collections.singletonList(
                         readerEnvelope(taskLocation, 10L, 101L, 1L, "new-attempt")));
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
+        Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
+        Assertions.assertEquals("new-attempt", stored.getReport().getActiveSplitId());
+
         service.updateReports(
                 Collections.singletonList(
                         readerEnvelope(taskLocation, 10L, 100L, 3L, "old-attempt")));
-
-        CdcProgressEnvelope<CdcReaderProgressReport> stored =
-                service.getReaderReports(1L, 2, 10L).get(0);
+        stored = service.getReaderReports(1L, 2, 10L).get(0);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
         Assertions.assertEquals("new-attempt", stored.getReport().getActiveSplitId());
     }
 
     @Test
     void testKeepsSourceVerticesAndReaderIndexesSeparate() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
 
         service.updateReports(
                 Arrays.asList(
@@ -88,19 +131,40 @@ class CdcProgressServiceTest {
     @Test
     void testRejectsStaleEnumeratorReports() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
 
         service.updateReports(
                 Arrays.asList(
                         enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 1_000L),
                         enumeratorEnvelope(taskLocation, 10L, 100L, 1L, 2_000L)));
-        service.updateReports(
-                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1L, 1_000L)));
-        service.updateReports(
-                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 3_000L)));
-
         CdcProgressEnvelope<CdcEnumeratorProgressReport> stored =
                 service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals(1_000L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 3_000L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(2L, stored.getReportSequence());
+        Assertions.assertEquals(1_000L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 500L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(3L, stored.getReportSequence());
+        Assertions.assertEquals(500L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1L, 1_000L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(101L, stored.getExecutionAttemptId());
+        Assertions.assertEquals(1L, stored.getReportSequence());
+        Assertions.assertEquals(1_000L, stored.getObservedAt());
+
+        service.updateReports(
+                Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 3_000L)));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
         Assertions.assertEquals(1L, stored.getReportSequence());
         Assertions.assertEquals(1_000L, stored.getObservedAt());
@@ -109,6 +173,8 @@ class CdcProgressServiceTest {
     @Test
     void testPipelineCleanupRemovesOnlyMatchingReports() {
         CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
+        service.registerPipeline(new PipelineLocation(1L, 3));
         service.updateReports(
                 Arrays.asList(
                         readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "removed"),
@@ -124,6 +190,89 @@ class CdcProgressServiceTest {
         Assertions.assertEquals(1, service.getReaderReports(1L, 3, 10L).size());
         Assertions.assertNull(service.getEnumeratorReport(1L, 2, 10L));
         Assertions.assertNotNull(service.getEnumeratorReport(1L, 3, 10L));
+    }
+
+    @ParameterizedTest
+    @MethodSource("newerNonExactReports")
+    void testReportOrderingDoesNotPreferExactValues(
+            long executionAttemptId, long sequence, CdcProgressValue<Integer> value) {
+        CdcProgressService service = new CdcProgressService();
+        service.registerPipeline(new PipelineLocation(1L, 2));
+        TaskLocation taskLocation = taskLocation(1L, 2, 0);
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> older =
+                enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 1_000L, CdcProgressValue.exact(9));
+        service.updateReports(Collections.singletonList(older));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT,
+                service.getEnumeratorReport(1L, 2, 10L)
+                        .getReport()
+                        .getRemainingUnchunkedTableCount()
+                        .getAccuracy());
+
+        service.updateReports(
+                Collections.singletonList(
+                        enumeratorEnvelope(
+                                taskLocation, 10L, executionAttemptId, sequence, 2_000L, value)));
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> stored =
+                service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(executionAttemptId, stored.getExecutionAttemptId());
+        Assertions.assertEquals(sequence, stored.getReportSequence());
+        Assertions.assertEquals(2_000L, stored.getObservedAt());
+        Assertions.assertEquals(
+                value.getAccuracy(),
+                stored.getReport().getRemainingUnchunkedTableCount().getAccuracy());
+        Assertions.assertEquals(
+                value.getValue(), stored.getReport().getRemainingUnchunkedTableCount().getValue());
+
+        // Neither a later observation time nor exact quality can override ordering identity.
+        service.updateReports(
+                Collections.singletonList(
+                        enumeratorEnvelope(
+                                taskLocation, 10L, 100L, 2L, 3_000L, CdcProgressValue.exact(9))));
+        stored = service.getEnumeratorReport(1L, 2, 10L);
+        Assertions.assertEquals(executionAttemptId, stored.getExecutionAttemptId());
+        Assertions.assertEquals(sequence, stored.getReportSequence());
+        Assertions.assertEquals(2_000L, stored.getObservedAt());
+        Assertions.assertEquals(
+                value.getAccuracy(),
+                stored.getReport().getRemainingUnchunkedTableCount().getAccuracy());
+        Assertions.assertEquals(
+                value.getValue(), stored.getReport().getRemainingUnchunkedTableCount().getValue());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT,
+                older.getReport().getRemainingUnchunkedTableCount().getAccuracy());
+    }
+
+    @Test
+    void masterCleanupRejectsLateReportsUntilPipelineIsRegisteredAgain() {
+        CdcProgressService service = new CdcProgressService();
+        PipelineLocation pipeline = new PipelineLocation(1L, 2);
+        CdcProgressEnvelope<CdcReaderProgressReport> report =
+                readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "old");
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertTrue(service.getReaderReports(1L, 2, 10L).isEmpty());
+        service.registerPipeline(pipeline);
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertEquals(1, service.getReaderReports(1L, 2, 10L).size());
+        service.clear();
+        service.updateReports(Collections.singletonList(report));
+        Assertions.assertTrue(service.getReaderReports(1L, 2, 10L).isEmpty());
+        service.activate();
+        service.registerPipeline(pipeline);
+        service.updateReports(
+                Collections.singletonList(
+                        readerEnvelope(taskLocation(1L, 2, 0), 10L, 101L, 1L, "restored")));
+        Assertions.assertEquals(
+                "restored",
+                service.getReaderReports(1L, 2, 10L).get(0).getReport().getActiveSplitId());
+    }
+
+    private static Stream<Arguments> newerNonExactReports() {
+        return Stream.of(
+                Arguments.of(100L, 3L, CdcProgressValue.bestEffort(7)),
+                Arguments.of(100L, 3L, CdcProgressValue.unsupported()),
+                Arguments.of(101L, 1L, CdcProgressValue.bestEffort(7)),
+                Arguments.of(101L, 1L, CdcProgressValue.unsupported()));
     }
 
     private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(
@@ -161,6 +310,22 @@ class CdcProgressServiceTest {
             long executionAttemptId,
             long sequence,
             long observedAt) {
+        return enumeratorEnvelope(
+                taskLocation,
+                sourceVertexId,
+                executionAttemptId,
+                sequence,
+                observedAt,
+                CdcProgressValue.exact(0));
+    }
+
+    private CdcProgressEnvelope<CdcEnumeratorProgressReport> enumeratorEnvelope(
+            TaskLocation taskLocation,
+            long sourceVertexId,
+            long executionAttemptId,
+            long sequence,
+            long observedAt,
+            CdcProgressValue<Integer> remainingUnchunkedTableCount) {
         CdcEnumeratorProgressReport report =
                 new CdcEnumeratorProgressReport(
                         "MySQL-CDC",
@@ -169,7 +334,7 @@ class CdcProgressServiceTest {
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(0),
-                        CdcProgressValue.exact(0),
+                        remainingUnchunkedTableCount,
                         Collections.emptyList());
         return new CdcProgressEnvelope<>(
                 CdcProgressOwner.ENUMERATOR,

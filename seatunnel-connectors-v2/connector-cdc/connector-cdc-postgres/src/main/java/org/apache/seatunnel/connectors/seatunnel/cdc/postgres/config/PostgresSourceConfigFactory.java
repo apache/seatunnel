@@ -80,8 +80,6 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         props.setProperty("database.history.refer.ddl", String.valueOf(true));
 
         props.setProperty("database.tcpKeepAlive", String.valueOf(true));
-        props.setProperty("include.schema.changes", String.valueOf(false));
-
         if (schemaList != null) {
             props.setProperty("schema.include.list", String.join(",", schemaList));
         }
@@ -111,6 +109,10 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         if (dbzProperties != null) {
             props.putAll(dbzProperties);
         }
+        // Debezium PostgreSQL does not emit DDL records, but SeaTunnel uses this flag to enable
+        // synthetic schema records produced from pgoutput RELATION messages. Apply it after the
+        // Debezium pass-through properties so the SeaTunnel option remains authoritative.
+        props.setProperty("include.schema.changes", String.valueOf(schemaChangeEnabled));
         if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
             props.setProperty("snapshot.mode", "initial_only");
         } else if (startupConfig != null

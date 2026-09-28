@@ -19,8 +19,11 @@ package org.apache.seatunnel.connectors.cdc.base.source.progress;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 
-/** Internal bridge from mutable split-assigner state to an immutable enumerator report. */
+/** Internal bridge exposing a completed, immutable split-assigner transition without I/O. */
 public interface CdcEnumeratorProgressSource {
 
+    /**
+     * Must not acquire mutation locks or read live collections, including during chunk generation.
+     */
     CdcEnumeratorProgressReport getCdcEnumeratorProgress(String connectorType, String positionType);
 }

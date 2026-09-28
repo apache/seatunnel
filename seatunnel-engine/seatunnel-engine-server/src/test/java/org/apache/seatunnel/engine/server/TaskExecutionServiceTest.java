@@ -20,12 +20,28 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
+import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
@@ -43,21 +59,30 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
+import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.mockito.InOrder;
 import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.File;
@@ -66,10 +91,13 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -103,7 +131,111 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
         classLoaders.put(taskId, Thread.currentThread().getContextClassLoader());
         return taskExecutionService.deployLocalTask(
-                taskGroup, classLoaders, new ConcurrentHashMap<>());
+                FLAKE_ID_GENERATOR.newId(),
+                taskGroup,
+                classLoaders,
+                new ConcurrentHashMap<>(),
+                () -> {},
+                failure -> {});
+    }
+
+    @ParameterizedTest
+    @CsvSource({"false, false", "false, true", "true, false", "true, true"})
+    void testRealSourceTaskCdcProviderThroughInitRestoreAndOpen(boolean restore, boolean cdc)
+            throws Exception {
+        SeaTunnelSource source = Mockito.mock(SeaTunnelSource.class);
+        SourceReader reader =
+                cdc
+                        ? Mockito.mock(
+                                SourceReader.class,
+                                Mockito.withSettings().extraInterfaces(CdcProgressProvider.class))
+                        : Mockito.mock(SourceReader.class);
+        CdcReaderProgressReport report =
+                new CdcReaderProgressReport(
+                        "test",
+                        CdcProgressLifecycle.SNAPSHOT,
+                        "snapshot-1",
+                        CdcProgressValue.unavailable(),
+                        CdcProgressValue.unsupported(),
+                        CdcProgressValue.unsupported(),
+                        1L,
+                        null);
+        if (cdc) {
+            Mockito.doReturn(report).when((CdcProgressProvider<?>) reader).getCdcProgress();
+        }
+        Mockito.when(source.getBoundedness()).thenReturn(Boundedness.BOUNDED);
+        DefaultSerializer<SourceSplit> splitSerializer = new DefaultSerializer<>();
+        Mockito.when(source.getSplitSerializer()).thenReturn(splitSerializer);
+        SourceSplit restoredSplit = () -> "restored-split";
+        Mockito.when(source.getProducedCatalogTables())
+                .thenThrow(UnsupportedOperationException.class);
+        Mockito.when(source.getProducedType())
+                .thenReturn(
+                        new SeaTunnelRowType(
+                                new String[] {"id"}, new BasicType[] {BasicType.INT_TYPE}));
+        SourceAction action = new SourceAction<>(41L, "source", source, emptySet(), emptySet());
+        PhysicalExecutionFlow<SourceAction, SourceConfig> flow =
+                new PhysicalExecutionFlow<>(action);
+        TaskLocation location = new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 1L, 0);
+        SourceConfig config = new SourceConfig();
+        config.setEnumeratorTask(new TaskLocation(new TaskGroupLocation(1L, 1, 2L), 2L, 0));
+        flow.setConfig(config);
+        SourceSeaTunnelTask task =
+                new SourceSeaTunnelTask<>(1L, location, 0, flow, Collections.emptyMap());
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        TaskExecutionService service = Mockito.mock(TaskExecutionService.class);
+        Mockito.when(service.getSeaTunnelConfig())
+                .thenReturn(server.getTaskExecutionService().getSeaTunnelConfig());
+        Mockito.when(context.getTaskExecutionService()).thenReturn(service);
+        Mockito.when(context.getOrCreateMetricsContext(location))
+                .thenReturn(new SeaTunnelMetricsContext());
+        Address address = Address.createUnresolvedAddress("localhost", 5701);
+        InvocationFuture future = Mockito.mock(InvocationFuture.class);
+        Mockito.when(future.get()).thenReturn(address);
+        Mockito.when(context.sendToMaster(Mockito.any())).thenReturn(future);
+        Mockito.when(context.sendToMember(Mockito.any(), Mockito.eq(address))).thenReturn(future);
+        task.setTaskExecutionContext(context);
+        Mockito.when(source.createReader(Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            Assertions.assertNull(task.getCdcProgressReport());
+                            return reader;
+                        });
+        Assertions.assertNull(task.getCdcProgressReport());
+        task.init();
+        try {
+            // Reader creation occurs during init, unlike the enumerator's restore/open publication.
+            Assertions.assertSame(cdc ? report : null, task.getCdcProgressReport());
+            Mockito.verify(reader, Mockito.never()).open();
+            task.restoreState(
+                    restore
+                            ? Collections.singletonList(
+                                    new ActionSubtaskState(
+                                            ActionStateKey.of(action),
+                                            0,
+                                            Collections.singletonList(
+                                                    splitSerializer.serialize(restoredSplit))))
+                            : Collections.emptyList());
+            Mockito.verify(context, Mockito.times(restore ? 1 : 0))
+                    .sendToMember(Mockito.isA(RestoredSplitOperation.class), Mockito.eq(address));
+            task.call(); // INIT -> WAITING_RESTORE
+            task.call(); // Opens the actual SourceFlowLifeCycle after restore has completed.
+            Mockito.verify(source).createReader(Mockito.any());
+            InOrder opening = Mockito.inOrder(context, reader);
+            if (restore) {
+                opening.verify(context)
+                        .sendToMember(
+                                Mockito.isA(RestoredSplitOperation.class), Mockito.eq(address));
+            }
+            opening.verify(reader).open();
+            opening.verify(context)
+                    .sendToMember(Mockito.isA(SourceRegisterOperation.class), Mockito.eq(address));
+            Assertions.assertSame(cdc ? report : null, task.getCdcProgressReport());
+            Assertions.assertEquals(41L, task.getCdcProgressSourceVertexId());
+        } finally {
+            task.close();
+        }
+        Mockito.verify(reader).close();
     }
 
     @Test
@@ -121,45 +253,62 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
         CompletableFuture<TaskExecutionState> taskFuture =
                 taskExecutionService.deployLocalTask(
-                        taskGroup, classLoaders, new ConcurrentHashMap<>(), 7L);
+                        7L,
+                        taskGroup,
+                        classLoaders,
+                        new ConcurrentHashMap<>(),
+                        () -> {},
+                        failure -> {});
 
-        List<CdcProgressEnvelope<?>> reports =
-                taskExecutionService.collectEnumeratorCdcProgress(
-                        Collections.singletonList(groupLocation));
-        Assertions.assertEquals(1, reports.size());
-        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, reports.get(0).getOwner());
-        Assertions.assertEquals(7L, reports.get(0).getExecutionAttemptId());
-        Assertions.assertEquals(41L, reports.get(0).getSourceVertexId());
+        server.getCdcProgressService().registerPipeline(new PipelineLocation(jobId, pipeLineId));
+        try {
+            List<CdcProgressEnvelope<?>> reports =
+                    taskExecutionService.collectEnumeratorCdcProgress(
+                            Collections.singletonList(groupLocation));
+            Assertions.assertEquals(1, reports.size());
+            Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, reports.get(0).getOwner());
+            Assertions.assertEquals(7L, reports.get(0).getExecutionAttemptId());
+            Assertions.assertEquals(41L, reports.get(0).getSourceVertexId());
 
-        CdcProgressReportBatch batch =
-                (CdcProgressReportBatch)
-                        nodeEngine
-                                .getOperationService()
-                                .createInvocationBuilder(
-                                        SeaTunnelServer.SERVICE_NAME,
-                                        new CollectCdcEnumeratorProgressOperation(
-                                                Collections.singletonList(groupLocation)),
-                                        nodeEngine.getThisAddress())
-                                .invoke()
-                                .get();
-        server.getCdcProgressService().updateReports(batch.getReports());
-        Assertions.assertNotNull(
-                server.getCdcProgressService()
-                        .getEnumeratorReport(
-                                jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+            CdcProgressReportBatch batch =
+                    (CdcProgressReportBatch)
+                            nodeEngine
+                                    .getOperationService()
+                                    .createInvocationBuilder(
+                                            SeaTunnelServer.SERVICE_NAME,
+                                            new CollectCdcEnumeratorProgressOperation(
+                                                    Collections.singletonList(groupLocation)),
+                                            nodeEngine.getThisAddress())
+                                    .invoke()
+                                    .get();
+            server.getCdcProgressService().updateReports(batch.getReports());
+            Assertions.assertNotNull(
+                    server.getCdcProgressService()
+                            .getEnumeratorReport(
+                                    jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
 
-        stop.set(true);
-        await().atMost(10, TimeUnit.SECONDS).until(taskFuture::isDone);
-        Assertions.assertTrue(
-                taskExecutionService
-                        .collectEnumeratorCdcProgress(Collections.singletonList(groupLocation))
-                        .isEmpty());
+            stop.set(true);
+            await().atMost(10, TimeUnit.SECONDS).until(taskFuture::isDone);
+            Assertions.assertTrue(
+                    taskExecutionService
+                            .collectEnumeratorCdcProgress(Collections.singletonList(groupLocation))
+                            .isEmpty());
 
-        server.removeMetrics(new PipelineLocation(jobId, pipeLineId));
-        Assertions.assertNull(
-                server.getCdcProgressService()
-                        .getEnumeratorReport(
-                                jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+            server.removeMetrics(new PipelineLocation(jobId, pipeLineId));
+            Assertions.assertNotNull(
+                    server.getCdcProgressService()
+                            .getEnumeratorReport(
+                                    jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+            server.getCdcProgressService().removePipeline(new PipelineLocation(jobId, pipeLineId));
+            Assertions.assertNull(
+                    server.getCdcProgressService()
+                            .getEnumeratorReport(
+                                    jobId, pipeLineId, task.getCdcProgressSourceVertexId()));
+        } finally {
+            stop.set(true);
+            taskExecutionService.cancelTaskGroup(groupLocation);
+            server.getCdcProgressService().removePipeline(new PipelineLocation(jobId, pipeLineId));
+        }
     }
 
     @Test
@@ -686,6 +835,223 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.cancelTaskGroup(location);
     }
 
+    @Test
+    public void testStaleTaskDoneCleansOnlyOwnedGenerationResources() throws Exception {
+        assertStaleGenerationCleanup(false);
+    }
+
+    @Test
+    public void testStaleCancellationCleansOnlyOwnedGenerationResources() throws Exception {
+        assertStaleGenerationCleanup(true);
+    }
+
+    private void assertStaleGenerationCleanup(boolean cancel) throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task oldTask = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup oldTaskGroup =
+                new TaskGroupDefaultImpl(location, "old-generation", Lists.newArrayList(oldTask));
+        Task newTask = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup newTaskGroup =
+                new TaskGroupDefaultImpl(location, "new-generation", Lists.newArrayList(newTask));
+        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        CompletableFuture<Void> oldCancellationFuture = Mockito.spy(new CompletableFuture<>());
+        CompletableFuture<Void> newCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker oldTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(oldCancellationFuture, oldContext, oldResultFuture);
+
+        CompletableFuture<?> oldAsyncFuture = new CompletableFuture<>();
+        CompletableFuture<?> newAsyncFuture = new CompletableFuture<>();
+        Map<String, CompletableFuture<?>> oldAsyncFutures = new ConcurrentHashMap<>();
+        Map<String, CompletableFuture<?>> newAsyncFutures = new ConcurrentHashMap<>();
+        oldAsyncFutures.put("old-generation-async", oldAsyncFuture);
+        newAsyncFutures.put("new-generation-async", newAsyncFuture);
+        TaskLocation oldTaskLocation = new TaskLocation(location, oldTask.getTaskID(), 0);
+        TaskLocation newTaskLocation =
+                new TaskLocation(
+                        location, newTaskGroup.getTasks().iterator().next().getTaskID(), 0);
+        ScheduledFuture<?> oldTimerFlushFuture = newPendingScheduledFuture();
+        ScheduledFuture<?> newTimerFlushFuture = newPendingScheduledFuture();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> oldTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> newTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        oldTimerFlushFutures.put(oldTaskLocation, oldTimerFlushFuture);
+        newTimerFlushFutures.put(newTaskLocation, newTimerFlushFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> finishedExecutionContexts =
+                getField(taskExecutionService, "finishedExecutionContexts");
+        ConcurrentMap<TaskGroupContext, CompletableFuture<Void>> cancellationFutures =
+                getField(taskExecutionService, "cancellationFutures");
+        ConcurrentMap<TaskGroupContext, Map<String, CompletableFuture<?>>> asyncFutures =
+                getField(taskExecutionService, "taskAsyncFunctionFuture");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        executionContexts.put(location, cancel ? oldContext : newContext);
+        cancellationFutures.put(oldContext, oldCancellationFuture);
+        cancellationFutures.put(newContext, newCancellationFuture);
+        asyncFutures.put(oldContext, oldAsyncFutures);
+        asyncFutures.put(newContext, newAsyncFutures);
+        timerFlushFutures.put(oldContext, oldTimerFlushFutures);
+        timerFlushFutures.put(newContext, newTimerFlushFutures);
+
+        try {
+            if (cancel) {
+                // Publish the replacement after cancelTaskGroup captures the old future.
+                Mockito.doAnswer(
+                                invocation -> {
+                                    executionContexts.put(location, newContext);
+                                    return invocation.callRealMethod();
+                                })
+                        .when(oldCancellationFuture)
+                        .cancel(false);
+                taskExecutionService.cancelTaskGroup(location);
+                Assertions.assertTrue(oldCancellationFuture.isCancelled());
+                Assertions.assertFalse(oldResultFuture.isDone());
+            } else {
+                oldTracker.taskDone(oldTask);
+            }
+
+            Assertions.assertSame(newContext, executionContexts.get(location));
+            Assertions.assertFalse(finishedExecutionContexts.containsKey(location));
+            assertEquals(1L, oldContext.getExecutionId());
+            assertEquals(2L, newContext.getExecutionId());
+            if (cancel) {
+                Assertions.assertNotNull(oldContext.getClassLoaders());
+                Assertions.assertSame(oldCancellationFuture, cancellationFutures.get(oldContext));
+            } else {
+                Assertions.assertNull(oldContext.getClassLoaders());
+                Assertions.assertFalse(cancellationFutures.containsKey(oldContext));
+            }
+            Assertions.assertNotNull(newContext.getClassLoaders());
+            Assertions.assertTrue(oldAsyncFuture.isCancelled());
+            Mockito.verify(oldTimerFlushFuture).cancel(false);
+            Assertions.assertFalse(newCancellationFuture.isDone());
+            Assertions.assertSame(newCancellationFuture, cancellationFutures.get(newContext));
+            Assertions.assertFalse(newAsyncFuture.isCancelled());
+            Mockito.verify(newTimerFlushFuture, Mockito.never()).cancel(false);
+            if (cancel) {
+                oldTracker.taskDone(oldTask);
+            }
+            Assertions.assertSame(newContext, executionContexts.get(location));
+            assertEquals(cancel ? CANCELED : FINISHED, oldResultFuture.get().getExecutionState());
+        } finally {
+            executionContexts.remove(location);
+            cancellationFutures.remove(oldContext);
+            cancellationFutures.remove(newContext);
+            asyncFutures.remove(oldContext);
+            asyncFutures.remove(newContext);
+            timerFlushFutures.remove(oldContext);
+            timerFlushFutures.remove(newContext);
+            oldAsyncFuture.cancel(true);
+            newAsyncFuture.cancel(true);
+        }
+    }
+
+    @Test
+    public void testTaskGroupContextEqualityUsesExecutionId() {
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(
+                        newTaskGroupLocation(), "same-fields", Collections.emptyList());
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+        TaskGroupContext first = new TaskGroupContext(1L, taskGroup, classLoaders, jars);
+        TaskGroupContext sameExecution = new TaskGroupContext(1L, taskGroup, classLoaders, jars);
+        // Long.hashCode(1L) and Long.hashCode(1L << 32) are both 1. Different executions must
+        // remain distinct even when their hash codes collide.
+        TaskGroupContext differentExecution =
+                new TaskGroupContext(1L << 32, taskGroup, classLoaders, jars);
+        Map<TaskGroupContext, String> contexts = new ConcurrentHashMap<>();
+        contexts.put(first, "first");
+        contexts.put(sameExecution, "same-execution");
+        contexts.put(differentExecution, "different-execution");
+
+        assertEquals(first, sameExecution);
+        assertEquals(first.hashCode(), sameExecution.hashCode());
+        Assertions.assertNotEquals(first, differentExecution);
+        assertEquals(first.hashCode(), differentExecution.hashCode());
+        assertEquals(2, contexts.size());
+        assertEquals("same-execution", contexts.get(first));
+        assertEquals("different-execution", contexts.get(differentExecution));
+    }
+
+    @Test
+    public void testStaleFailedTaskDoneCleansOnlyOwnedGenerationResources() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location = newTaskGroupLocation();
+        Task oldTask1 = new TestTask(new AtomicBoolean(true), 0, true);
+        Task oldTask2 = new TestTask(new AtomicBoolean(true), 0, true);
+        TaskGroup oldTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location, "old-generation", Lists.newArrayList(oldTask1, oldTask2));
+        TaskGroup newTaskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "new-generation",
+                        Lists.newArrayList(new TestTask(new AtomicBoolean(true), 0, true)));
+        TaskGroupContext oldContext = newTaskGroupContext(1L, oldTaskGroup);
+        TaskGroupContext newContext = newTaskGroupContext(2L, newTaskGroup);
+        CompletableFuture<Void> oldCancellationFuture = new CompletableFuture<>();
+        CompletableFuture<TaskExecutionState> oldResultFuture = new CompletableFuture<>();
+        TaskExecutionService.TaskGroupExecutionTracker oldTracker =
+                taskExecutionService
+                .new TaskGroupExecutionTracker(oldCancellationFuture, oldContext, oldResultFuture);
+
+        CompletableFuture<?> oldAsyncFuture = new CompletableFuture<>();
+        CompletableFuture<?> newAsyncFuture = new CompletableFuture<>();
+        Map<String, CompletableFuture<?>> oldAsyncFutures = new ConcurrentHashMap<>();
+        Map<String, CompletableFuture<?>> newAsyncFutures = new ConcurrentHashMap<>();
+        oldAsyncFutures.put("old-generation-async", oldAsyncFuture);
+        newAsyncFutures.put("new-generation-async", newAsyncFuture);
+        ScheduledFuture<?> oldTimerFlushFuture = newPendingScheduledFuture();
+        ScheduledFuture<?> newTimerFlushFuture = newPendingScheduledFuture();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> oldTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        ConcurrentMap<TaskLocation, ScheduledFuture<?>> newTimerFlushFutures =
+                new ConcurrentHashMap<>();
+        oldTimerFlushFutures.put(
+                new TaskLocation(location, oldTask1.getTaskID(), 0), oldTimerFlushFuture);
+        newTimerFlushFutures.put(
+                new TaskLocation(
+                        location, newTaskGroup.getTasks().iterator().next().getTaskID(), 0),
+                newTimerFlushFuture);
+
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, Map<String, CompletableFuture<?>>> asyncFutures =
+                getField(taskExecutionService, "taskAsyncFunctionFuture");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        executionContexts.put(location, newContext);
+        asyncFutures.put(oldContext, oldAsyncFutures);
+        asyncFutures.put(newContext, newAsyncFutures);
+        timerFlushFutures.put(oldContext, oldTimerFlushFutures);
+        timerFlushFutures.put(newContext, newTimerFlushFutures);
+
+        try {
+            oldTracker.exception(new RuntimeException("stale generation task failed"));
+            oldTracker.taskDone(oldTask1);
+
+            Assertions.assertSame(newContext, executionContexts.get(location));
+            Assertions.assertTrue(oldAsyncFuture.isCancelled());
+            Mockito.verify(oldTimerFlushFuture).cancel(false);
+            Assertions.assertFalse(newAsyncFuture.isCancelled());
+            Mockito.verify(newTimerFlushFuture, Mockito.never()).cancel(false);
+            Assertions.assertFalse(oldResultFuture.isDone());
+        } finally {
+            executionContexts.remove(location);
+            oldTracker.taskDone(oldTask2);
+            asyncFutures.remove(newContext);
+            timerFlushFutures.remove(newContext);
+            newAsyncFuture.cancel(true);
+        }
+    }
+
     public List<Task> buildFixedTestTask(
             long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();
@@ -694,6 +1060,42 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                     new FixedCallTestTimeTask(callTime, callTime + "t" + i, stopMart, lagList));
         }
         return taskQueue;
+    }
+
+    private TaskGroupLocation newTaskGroupLocation() {
+        return new TaskGroupLocation(
+                System.currentTimeMillis(), pipeLineId, FLAKE_ID_GENERATOR.newId());
+    }
+
+    private static TaskGroupContext newTaskGroupContext(long executionId, TaskGroup taskGroup) {
+        ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
+        ConcurrentHashMap<Long, Collection<URL>> jars = new ConcurrentHashMap<>();
+        taskGroup
+                .getTasks()
+                .forEach(
+                        task -> {
+                            classLoaders.put(
+                                    task.getTaskID(),
+                                    Thread.currentThread().getContextClassLoader());
+                            jars.put(task.getTaskID(), Collections.emptyList());
+                        });
+        return new TaskGroupContext(executionId, taskGroup, classLoaders, jars);
+    }
+
+    private static ScheduledFuture<?> newPendingScheduledFuture() {
+        ScheduledFuture<?> future = Mockito.mock(ScheduledFuture.class);
+        Mockito.when(future.isDone()).thenReturn(false);
+        return future;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T getField(Object target, String fieldName) {
+        return (T)
+                ReflectionUtils.getField(target, fieldName)
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Field " + fieldName + " not found on " + target));
     }
 
     public List<Task> buildStopTestTask(
@@ -727,17 +1129,30 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 201L);
         TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+        TaskGroupContext context = installTestContext(taskExecutionService, groupLocation);
 
-        ScheduledFuture<?> future =
-                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
-        Assertions.assertNotNull(future);
-        Assertions.assertFalse(future.isCancelled());
+        try {
+            ScheduledFuture<?> future =
+                    taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+            Assertions.assertNotNull(future);
+            Assertions.assertFalse(future.isCancelled());
 
-        taskExecutionService.closeTimerFlushTask(taskLocation);
-        Assertions.assertTrue(future.isCancelled());
+            taskExecutionService.closeTimerFlushTask(taskLocation);
+            Assertions.assertTrue(future.isCancelled());
 
-        // closing again is idempotent
-        Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(taskLocation));
+            // Closing the last timer must not detach the deployment-level bucket. The owning
+            // tracker is the only component allowed to remove that bucket during final cleanup.
+            ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                    timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+            Assertions.assertTrue(timerFlushFutures.containsKey(context));
+            Assertions.assertTrue(timerFlushFutures.get(context).isEmpty());
+
+            // closing again is idempotent
+            Assertions.assertDoesNotThrow(
+                    () -> taskExecutionService.closeTimerFlushTask(taskLocation));
+        } finally {
+            removeTestContext(taskExecutionService, groupLocation, context);
+        }
     }
 
     @Test
@@ -745,18 +1160,23 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 202L);
         TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+        TaskGroupContext context = installTestContext(taskExecutionService, groupLocation);
 
-        ScheduledFuture<?> first =
-                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
-        ScheduledFuture<?> second =
-                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 2_000L);
+        try {
+            ScheduledFuture<?> first =
+                    taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+            ScheduledFuture<?> second =
+                    taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 2_000L);
 
-        Assertions.assertNotSame(first, second);
-        Assertions.assertTrue(
-                first.isCancelled(), "previous future must be cancelled on re-register");
-        Assertions.assertFalse(second.isCancelled(), "new future must remain active");
+            Assertions.assertNotSame(first, second);
+            Assertions.assertTrue(
+                    first.isCancelled(), "previous future must be cancelled on re-register");
+            Assertions.assertFalse(second.isCancelled(), "new future must remain active");
 
-        taskExecutionService.closeTimerFlushTask(taskLocation);
+            taskExecutionService.closeTimerFlushTask(taskLocation);
+        } finally {
+            removeTestContext(taskExecutionService, groupLocation, context);
+        }
     }
 
     @Test
@@ -766,6 +1186,37 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         TaskLocation unknown = new TaskLocation(groupLocation, 1L, 99);
 
         Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(unknown));
+    }
+
+    private static TaskGroupContext installTestContext(
+            TaskExecutionService taskExecutionService, TaskGroupLocation location) {
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(location, "timer-test", Collections.emptyList());
+        TaskGroupContext context =
+                new TaskGroupContext(
+                        FLAKE_ID_GENERATOR.newId(),
+                        taskGroup,
+                        new ConcurrentHashMap<>(),
+                        new ConcurrentHashMap<>());
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        timerFlushFutures.put(context, new ConcurrentHashMap<>());
+        executionContexts.put(location, context);
+        return context;
+    }
+
+    private static void removeTestContext(
+            TaskExecutionService taskExecutionService,
+            TaskGroupLocation location,
+            TaskGroupContext context) {
+        ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
+                getField(taskExecutionService, "executionContexts");
+        ConcurrentMap<TaskGroupContext, ConcurrentMap<TaskLocation, ScheduledFuture<?>>>
+                timerFlushFutures = getField(taskExecutionService, "timerFlushFutures");
+        executionContexts.remove(location, context);
+        timerFlushFutures.remove(context);
     }
 
     private static class ContextInitializationFailureTask implements Task {

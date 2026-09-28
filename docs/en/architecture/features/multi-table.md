@@ -306,10 +306,9 @@ public class MultiTableSinkWriter
             Object object = element.getField(primaryKey.get());
             int index = 0;
             if (object != null) {
-                // Known issue: Math.abs(Integer.MIN_VALUE) returns Integer.MIN_VALUE
-                // unchanged (still negative), so a key hashing to it yields a negative
-                // queue index. See section 5.3.
-                index = Math.abs(object.hashCode()) % blockingQueues.size();
+                // Clear the sign bit rather than using Math.abs: Math.abs(Integer.MIN_VALUE)
+                // returns Integer.MIN_VALUE unchanged, which would yield a negative index.
+                index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
             }
             offerRowElement(index, element);
         }
@@ -403,17 +402,17 @@ Both strategies select a queue index in `[0, blockingQueues.size())`. See
 which is what preserves ordering for that key:
 
 ```java
-int index = Math.abs(object.hashCode()) % blockingQueues.size();
+int index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
 ```
 
-:::caution Known issue
+:::note
 
-`Math.abs(Integer.MIN_VALUE)` returns `Integer.MIN_VALUE`, which is still negative, so a
-key whose hash is exactly `Integer.MIN_VALUE` produces a negative index whenever the queue
-count is not a power of two, and the subsequent `blockingQueues.get(index)` throws
-`IndexOutOfBoundsException`. This page documents the behaviour currently on `dev`; the
-defect is tracked in [#11720](https://github.com/apache/seatunnel/issues/11720), and this
-section should be updated when a fix lands.
+The sign bit is cleared with `& Integer.MAX_VALUE` rather than with `Math.abs`, because
+`Math.abs(Integer.MIN_VALUE)` returns `Integer.MIN_VALUE` unchanged — still negative. A key
+whose hash is exactly `Integer.MIN_VALUE` would otherwise produce a negative index whenever
+the queue count is not a power of two, and the subsequent `blockingQueues.get(index)` would
+throw `IndexOutOfBoundsException`. Masking is branch-free and correct for every input.
+Tracked as [#11720](https://github.com/apache/seatunnel/issues/11720).
 
 :::
 
@@ -425,7 +424,7 @@ int index = random.nextInt(blockingQueues.size());
 
 `random.nextInt(bound)` is used rather than a time-derived expression such as
 `System.nanoTime() % n`. `System.nanoTime()` is documented as possibly negative, so that
-expression can produce a negative index for exactly the same reason `Math.abs` can above.
+expression can produce a negative index for the same reason the hash is masked above.
 
 ## 6. Schema Management in Multi-Table
 

@@ -37,6 +37,10 @@ public class RabbitmqTableConfigsValidator
     private static final String TABLE_CONFIGS_KEY = RabbitmqBaseOptions.TABLE_CONFIGS.key();
     private static final String QUEUE_NAME_KEY = RabbitmqBaseOptions.QUEUE_NAME.key();
     private static final String SCHEMA_KEY = RabbitmqBaseOptions.SCHEMA.key();
+    private static final String FORMAT_KEY = RabbitmqBaseOptions.FORMAT.key();
+    private static final String PROTOBUF_SCHEMA_KEY = RabbitmqBaseOptions.PROTOBUF_SCHEMA.key();
+    private static final String PROTOBUF_MESSAGE_NAME_KEY =
+            RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME.key();
 
     @Override
     public String description() {
@@ -68,6 +72,19 @@ public class RabbitmqTableConfigsValidator
             if (!entry.getOptional(RabbitmqBaseOptions.SCHEMA).isPresent()) {
                 throw new OptionValidationException(
                         "%s[%d]: '%s' must be configured", TABLE_CONFIGS_KEY, i, SCHEMA_KEY);
+            }
+
+            if (entry.get(RabbitmqBaseOptions.FORMAT) == RabbitmqMessageFormat.PROTOBUF) {
+                if (!entry.getOptional(RabbitmqBaseOptions.PROTOBUF_SCHEMA).isPresent()) {
+                    throw new OptionValidationException(
+                            "%s[%d]: '%s' must be configured when '%s' is PROTOBUF",
+                            TABLE_CONFIGS_KEY, i, PROTOBUF_SCHEMA_KEY, FORMAT_KEY);
+                }
+                if (!entry.getOptional(RabbitmqBaseOptions.PROTOBUF_MESSAGE_NAME).isPresent()) {
+                    throw new OptionValidationException(
+                            "%s[%d]: '%s' must be configured when '%s' is PROTOBUF",
+                            TABLE_CONFIGS_KEY, i, PROTOBUF_MESSAGE_NAME_KEY, FORMAT_KEY);
+                }
             }
         }
 

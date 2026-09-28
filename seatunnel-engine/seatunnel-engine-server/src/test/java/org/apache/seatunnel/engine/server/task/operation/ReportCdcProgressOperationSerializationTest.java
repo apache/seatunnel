@@ -42,6 +42,7 @@ import com.hazelcast.internal.serialization.InternalSerializationService;
 import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -102,7 +103,7 @@ class ReportCdcProgressOperationSerializationTest {
                                                 CdcProgressValue.unavailable())),
                                 true));
         ReportCdcProgressOperation original =
-                new ReportCdcProgressOperation(java.util.Arrays.asList(reader, enumerator));
+                new ReportCdcProgressOperation(Arrays.asList(reader, enumerator));
 
         Data data = serializationService.toData(original);
         ReportCdcProgressOperation restored = serializationService.toObject(data);
@@ -148,12 +149,96 @@ class ReportCdcProgressOperationSerializationTest {
                         .isActiveSplitsTruncated());
 
         CdcProgressReportBatch batch =
-                new CdcProgressReportBatch(java.util.Arrays.asList(reader, enumerator));
+                new CdcProgressReportBatch(Arrays.asList(reader, enumerator));
         CdcProgressReportBatch restoredBatch =
                 serializationService.toObject(serializationService.toData(batch));
         Assertions.assertEquals(2, restoredBatch.getReports().size());
         Assertions.assertEquals(
                 CdcProgressOwner.ENUMERATOR, restoredBatch.getReports().get(1).getOwner());
+    }
+
+    @Test
+    void testReaderNamedWireFixtureAndWriterOutput() throws IOException {
+        BufferObjectDataOutput fixture = serializationService.createObjectDataOutput();
+        writeNamedFixtureHeader(fixture, "READER");
+        fixture.writeString("MySQL-CDC");
+        fixture.writeString("INCREMENTAL");
+        fixture.writeString("incremental-split");
+        fixture.writeString("BEST_EFFORT");
+        fixture.writeString("MYSQL_BINLOG");
+        fixture.writeInt(1);
+        fixture.writeInt(1);
+        fixture.writeString("file");
+        fixture.writeString("mysql-bin.000001");
+        fixture.writeString("UNAVAILABLE");
+        fixture.writeString("UNAVAILABLE");
+        fixture.writeLong(9L);
+        fixture.writeBoolean(false);
+
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(fixture.toByteArray());
+        CdcProgressEnvelope<?> envelope = CdcProgressReportSerializer.readEnvelope(input);
+        Assertions.assertEquals(CdcProgressOwner.READER, envelope.getOwner());
+        CdcReaderProgressReport report = (CdcReaderProgressReport) envelope.getReport();
+        Assertions.assertEquals(CdcProgressLifecycle.INCREMENTAL, report.getLifecycle());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.BEST_EFFORT, report.getCurrentConsumedPosition().getAccuracy());
+        Assertions.assertEquals(
+                "mysql-bin.000001",
+                report.getCurrentConsumedPosition().getValue().getValues().get("file"));
+        Assertions.assertEquals(
+                CdcProgressAccuracy.UNAVAILABLE, report.getRestoredPosition().getAccuracy());
+        Assertions.assertEquals(fixture.toByteArray().length, input.position());
+
+        BufferObjectDataOutput actual = serializationService.createObjectDataOutput();
+        CdcProgressReportSerializer.writeEnvelope(
+                actual,
+                readerEnvelope(
+                        CdcProgressLifecycle.INCREMENTAL, value(CdcProgressAccuracy.BEST_EFFORT)));
+        Assertions.assertArrayEquals(fixture.toByteArray(), actual.toByteArray());
+    }
+
+    @Test
+    void testEnumeratorNamedWireFixtureAndWriterOutput() throws IOException {
+        BufferObjectDataOutput fixture = serializationService.createObjectDataOutput();
+        writeNamedFixtureHeader(fixture, "ENUMERATOR");
+        fixture.writeString("MySQL-CDC");
+        fixture.writeString("ASSIGNING");
+        for (int i = 0; i < 5; i++) {
+            fixture.writeString("EXACT");
+            fixture.writeInt(0);
+        }
+        fixture.writeBoolean(false);
+        fixture.writeInt(0);
+
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(fixture.toByteArray());
+        CdcProgressEnvelope<?> envelope = CdcProgressReportSerializer.readEnvelope(input);
+        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, envelope.getOwner());
+        CdcEnumeratorProgressReport report = (CdcEnumeratorProgressReport) envelope.getReport();
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.ASSIGNING, report.getSnapshotAssignmentStatus());
+        Assertions.assertEquals(
+                CdcProgressAccuracy.EXACT, report.getAssignedSplitCount().getAccuracy());
+        Assertions.assertEquals(0, report.getAssignedSplitCount().getValue());
+        Assertions.assertTrue(report.getActiveSplits().isEmpty());
+        Assertions.assertEquals(fixture.toByteArray().length, input.position());
+
+        BufferObjectDataOutput actual = serializationService.createObjectDataOutput();
+        CdcProgressReportSerializer.writeEnvelope(
+                actual, enumeratorEnvelope(CdcSnapshotAssignmentStatus.ASSIGNING));
+        Assertions.assertArrayEquals(fixture.toByteArray(), actual.toByteArray());
+    }
+
+    private void writeNamedFixtureHeader(BufferObjectDataOutput output, String owner)
+            throws IOException {
+        // Literal names above pin the wire contract independently of both production codec halves.
+        output.writeString(owner);
+        output.writeObject(taskLocation());
+        output.writeLong(5L);
+        output.writeLong(6L);
+        output.writeLong(7L);
+        output.writeLong(8L);
     }
 
     @Test
@@ -231,9 +316,10 @@ class ReportCdcProgressOperationSerializationTest {
 
     @Test
     void testEnumeratorCollectionRequestIsPreservedAfterSerialization() {
-        TaskGroupLocation location = new TaskGroupLocation(1L, 2, 3L);
+        List<TaskGroupLocation> locations =
+                Arrays.asList(new TaskGroupLocation(1L, 2, 3L), new TaskGroupLocation(4L, 5, 6L));
         CollectCdcEnumeratorProgressOperation original =
-                new CollectCdcEnumeratorProgressOperation(Collections.singletonList(location));
+                new CollectCdcEnumeratorProgressOperation(locations);
 
         Data data = serializationService.toData(original);
         CollectCdcEnumeratorProgressOperation restored = serializationService.toObject(data);
@@ -242,7 +328,33 @@ class ReportCdcProgressOperationSerializationTest {
                 ReflectionUtils.getField(restored, "taskGroupLocations")
                         .map(field -> (List<?>) field)
                         .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field"));
-        Assertions.assertEquals(Collections.singletonList(location), taskGroupLocations);
+        Assertions.assertEquals(locations, taskGroupLocations);
+    }
+
+    @Test
+    void testEmptyEnumeratorCollectionRequestIsPreservedAfterSerialization() {
+        CollectCdcEnumeratorProgressOperation original =
+                new CollectCdcEnumeratorProgressOperation(Collections.emptyList());
+        CollectCdcEnumeratorProgressOperation restored =
+                serializationService.toObject(serializationService.toData(original));
+
+        Assertions.assertEquals(
+                Collections.emptyList(),
+                ReflectionUtils.getField(restored, "taskGroupLocations")
+                        .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field")));
+    }
+
+    @Test
+    void testEnumeratorCollectionRequestRejectsWrongLocationType() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(1);
+        output.writeObject("not a task group location");
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(output.toByteArray());
+
+        Assertions.assertThrows(
+                ClassCastException.class,
+                () -> new CollectCdcEnumeratorProgressOperation().readInternal(input));
     }
 
     @Test
@@ -271,7 +383,84 @@ class ReportCdcProgressOperationSerializationTest {
                 Assertions.assertThrows(
                         IOException.class, () -> CdcProgressReportSerializer.readEnvelope(input));
 
-        Assertions.assertEquals("Unknown CDC progress owner: UNKNOWN", exception.getMessage());
+        Assertions.assertEquals("Invalid CDC progress CdcProgressOwner", exception.getMessage());
+    }
+
+    @Test
+    void testRejectsUnknownAndNullPayloadEnums() throws IOException {
+        for (String invalid : new String[] {"untrusted-value", null}) {
+            for (int field = 0; field < 3; field++) {
+                BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+                writeEnvelopeHeader(
+                        output, field == 2 ? CdcProgressOwner.ENUMERATOR : CdcProgressOwner.READER);
+                output.writeString("test");
+                if (field == 1) {
+                    output.writeString("INCREMENTAL");
+                    output.writeString("split");
+                }
+                output.writeString(invalid);
+                BufferObjectDataInput input =
+                        serializationService.createObjectDataInput(output.toByteArray());
+                IOException error =
+                        Assertions.assertThrows(
+                                IOException.class,
+                                () -> CdcProgressReportSerializer.readEnvelope(input));
+                Assertions.assertTrue(error.getMessage().startsWith("Invalid CDC progress Cdc"));
+                Assertions.assertFalse(error.getMessage().contains("untrusted-value"));
+            }
+        }
+    }
+
+    @Test
+    void testRejectsOversizedCountsBeforeAllocatingPayloads() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeInt(Integer.MAX_VALUE);
+        BufferObjectDataInput batch =
+                serializationService.createObjectDataInput(output.toByteArray());
+        Assertions.assertThrows(
+                IOException.class, () -> new CdcProgressReportBatch().readData(batch));
+
+        output = serializationService.createObjectDataOutput();
+        writeEnvelopeHeader(output, CdcProgressOwner.ENUMERATOR);
+        output.writeString("test");
+        output.writeString("ASSIGNING");
+        for (int i = 0; i < 5; i++) {
+            output.writeString("UNSUPPORTED");
+        }
+        output.writeBoolean(false);
+        output.writeInt(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS + 1);
+        BufferObjectDataInput splits =
+                serializationService.createObjectDataInput(output.toByteArray());
+        IOException splitError =
+                Assertions.assertThrows(
+                        IOException.class, () -> CdcProgressReportSerializer.readEnvelope(splits));
+        Assertions.assertTrue(splitError.getMessage().contains("active split count"));
+
+        output = serializationService.createObjectDataOutput();
+        writeEnvelopeHeader(output, CdcProgressOwner.READER);
+        output.writeString("test");
+        output.writeString("INCREMENTAL");
+        output.writeString("split");
+        output.writeString("EXACT");
+        output.writeString("offset");
+        output.writeInt(1);
+        output.writeInt(CdcProgressReportSerializer.MAX_POSITION_FIELDS + 1);
+        BufferObjectDataInput position =
+                serializationService.createObjectDataInput(output.toByteArray());
+        IOException positionError =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> CdcProgressReportSerializer.readEnvelope(position));
+        Assertions.assertTrue(positionError.getMessage().contains("position field count"));
+    }
+
+    private void writeEnvelopeHeader(BufferObjectDataOutput output, CdcProgressOwner owner)
+            throws IOException {
+        output.writeString(owner.name());
+        output.writeObject(taskLocation());
+        for (int i = 0; i < 4; i++) {
+            output.writeLong(1L);
+        }
     }
 
     private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(

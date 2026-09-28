@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.cdc.base.source.progress;
 import org.apache.seatunnel.api.cdc.CdcProgressPosition;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
-import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Converts connector offsets into immutable experimental progress positions. */
@@ -29,17 +28,15 @@ public final class CdcProgressPositions {
     private CdcProgressPositions() {}
 
     public static CdcProgressPosition fromOffset(String positionType, Offset offset) {
-        if (offset == null || offset.getOffset() == null || offset.getOffset().isEmpty()) {
+        if (offset == null) {
             return null;
         }
-        Map<String, String> values = new LinkedHashMap<>();
-        offset.getOffset()
-                .forEach(
-                        (key, value) -> {
-                            if (value != null) {
-                                values.put(key, String.valueOf(value));
-                            }
-                        });
-        return values.isEmpty() ? null : new CdcProgressPosition(positionType, 1, values);
+        Map<String, String> values = offset.getOffset();
+        if (values == null || values.isEmpty()) {
+            return null;
+        }
+        CdcProgressPosition position =
+                CdcProgressPosition.copyOfNonNullValues(positionType, 1, values);
+        return position.getValues().isEmpty() ? null : position;
     }
 }

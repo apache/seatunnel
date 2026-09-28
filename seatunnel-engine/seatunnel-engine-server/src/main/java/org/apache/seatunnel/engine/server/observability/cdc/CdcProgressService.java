@@ -24,61 +24,174 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 
 /** Coordinator-side latest-only store for experimental CDC progress reports. */
 public class CdcProgressService {
 
-    private final ConcurrentMap<ReportKey, CdcProgressEnvelope<?>> reports =
-            new ConcurrentHashMap<>();
+    private final Map<PipelineLocation, PipelineReports> pipelines = new HashMap<>();
+    private volatile Generation generation = new Generation();
+    private final Owner directOwner = new Owner(0L);
+    private long nextOwnerSequence;
 
-    public void updateReports(Collection<? extends CdcProgressEnvelope<?>> candidates) {
-        candidates.forEach(
-                report ->
-                        reports.compute(
-                                ReportKey.from(report),
-                                (key, current) -> newerReport(current, report)));
+    /** Opaque coordinator ownership identity, captured before scheduling asynchronous work. */
+    public static final class Generation {
+        private boolean closed;
+
+        private Generation() {}
     }
 
-    public List<CdcProgressEnvelope<CdcReaderProgressReport>> getReaderReports(
+    /** Coordinator-local submission order; an older initializer cannot replace a newer owner. */
+    public static final class Owner {
+        private final long sequence;
+
+        private Owner(long sequence) {
+            this.sequence = sequence;
+        }
+    }
+
+    /** Reserves ownership before asynchronous initialization is submitted. */
+    public synchronized Owner newOwner() {
+        return new Owner(++nextOwnerSequence);
+    }
+
+    /** Captures the current identity; a cleared identity can never become active again. */
+    public Generation getGeneration() {
+        return generation;
+    }
+
+    /** Opens a new generation before restoring jobs on coordinator activation. */
+    public synchronized void activate() {
+        if (generation.closed) {
+            generation = new Generation();
+        }
+    }
+
+    /**
+     * Opens an observation scope before deploying a pipeline; reports cannot open one themselves.
+     */
+    public void registerPipeline(PipelineLocation pipelineLocation) {
+        registerPipeline(generation, pipelineLocation, directOwner);
+    }
+
+    /**
+     * Registers only for the captured generation and keeps repeated owner registration idempotent.
+     */
+    public synchronized void registerPipeline(
+            Generation expected, PipelineLocation pipelineLocation, Owner owner) {
+        if (expected != generation || generation.closed) {
+            return;
+        }
+        PipelineReports current = pipelines.get(pipelineLocation);
+        if (current == null || current.owner.sequence < owner.sequence) {
+            pipelines.put(pipelineLocation, new PipelineReports(owner));
+        }
+    }
+
+    /** Accepts latest reports only while their pipeline observation scope remains open. */
+    public void updateReports(Collection<? extends CdcProgressEnvelope<?>> candidates) {
+        updateReports(generation, candidates);
+    }
+
+    /** Checks ownership and publishes under the same monitor used by clear and registration. */
+    public synchronized void updateReports(
+            Generation expected, Collection<? extends CdcProgressEnvelope<?>> candidates) {
+        if (expected != generation || generation.closed) {
+            return;
+        }
+        candidates.forEach(
+                report ->
+                        pipelines.computeIfPresent(
+                                new PipelineLocation(
+                                        report.getTaskLocation().getJobId(),
+                                        report.getTaskLocation().getPipelineId()),
+                                (pipeline, reports) -> {
+                                    reports.values.compute(
+                                            ReportKey.from(report),
+                                            (key, current) -> newerReport(current, report));
+                                    return reports;
+                                }));
+    }
+
+    /** Returns the independently sampled readers for one source vertex, without aggregation. */
+    public synchronized List<CdcProgressEnvelope<CdcReaderProgressReport>> getReaderReports(
             long jobId, int pipelineId, long sourceVertexId) {
         List<CdcProgressEnvelope<CdcReaderProgressReport>> result = new ArrayList<>();
-        reports.forEach(
-                (key, value) -> {
-                    if (key.owner == CdcProgressOwner.READER
-                            && key.matches(jobId, pipelineId, sourceVertexId)) {
-                        result.add(readerEnvelope(value));
-                    }
-                });
+        pipelineReports(jobId, pipelineId)
+                .forEach(
+                        (key, value) -> {
+                            if (key.owner == CdcProgressOwner.READER
+                                    && key.matches(jobId, pipelineId, sourceVertexId)) {
+                                result.add(readerEnvelope(value));
+                            }
+                        });
         return Collections.unmodifiableList(result);
     }
 
-    public CdcProgressEnvelope<CdcEnumeratorProgressReport> getEnumeratorReport(
+    /** Returns the latest assignment report, or null before collection or after cleanup. */
+    public synchronized CdcProgressEnvelope<CdcEnumeratorProgressReport> getEnumeratorReport(
             long jobId, int pipelineId, long sourceVertexId) {
         CdcProgressEnvelope<?> report =
-                reports.get(
-                        new ReportKey(
-                                CdcProgressOwner.ENUMERATOR,
-                                jobId,
-                                pipelineId,
-                                sourceVertexId,
-                                -1));
+                pipelineReports(jobId, pipelineId)
+                        .get(
+                                new ReportKey(
+                                        CdcProgressOwner.ENUMERATOR,
+                                        jobId,
+                                        pipelineId,
+                                        sourceVertexId,
+                                        -1));
         return report == null ? null : enumeratorEnvelope(report);
     }
 
-    public void removePipeline(PipelineLocation pipelineLocation) {
-        reports.keySet()
-                .removeIf(
-                        key ->
-                                key.jobId == pipelineLocation.getJobId()
-                                        && key.pipelineId == pipelineLocation.getPipelineId());
+    /** Closes the scope atomically with report insertion; delayed reports cannot reopen it. */
+    public synchronized void removePipeline(PipelineLocation pipelineLocation) {
+        pipelines.remove(pipelineLocation);
+    }
+
+    /** Removes only a scope still owned by this job master. */
+    public synchronized void removePipeline(
+            Generation expected, PipelineLocation pipelineLocation, Owner owner) {
+        if (expected == generation) {
+            PipelineReports current = pipelines.get(pipelineLocation);
+            if (current != null && current.owner == owner) {
+                pipelines.remove(pipelineLocation);
+            }
+        }
+    }
+
+    /** Rolls back all scopes opened by an unsuccessful initialization or submission. */
+    public synchronized void removePipelines(Generation expected, Owner owner) {
+        if (expected == generation) {
+            pipelines.values().removeIf(reports -> reports.owner == owner);
+        }
+    }
+
+    /** Drops coordinator-local observation state on master deactivation. */
+    public synchronized void clear() {
+        generation.closed = true;
+        pipelines.clear();
+    }
+
+    private Map<ReportKey, CdcProgressEnvelope<?>> pipelineReports(long jobId, int pipelineId) {
+        PipelineReports reports = pipelines.get(new PipelineLocation(jobId, pipelineId));
+        return reports == null ? Collections.emptyMap() : reports.values;
+    }
+
+    private static final class PipelineReports {
+        private final Owner owner;
+        private final Map<ReportKey, CdcProgressEnvelope<?>> values = new HashMap<>();
+
+        private PipelineReports(Owner owner) {
+            this.owner = owner;
+        }
     }
 
     private CdcProgressEnvelope<?> newerReport(
             CdcProgressEnvelope<?> current, CdcProgressEnvelope<?> candidate) {
+        // Attempts supersede sequences; wall-clock observation time never orders reports.
         if (current == null
                 || candidate.getExecutionAttemptId() > current.getExecutionAttemptId()
                 || (candidate.getExecutionAttemptId() == current.getExecutionAttemptId()

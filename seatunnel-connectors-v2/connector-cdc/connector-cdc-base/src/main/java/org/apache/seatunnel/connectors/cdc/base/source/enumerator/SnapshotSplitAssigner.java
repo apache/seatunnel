@@ -39,19 +39,18 @@ import org.slf4j.LoggerFactory;
 
 import io.debezium.relational.TableId;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
+import java.util.TreeMap;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
@@ -79,6 +78,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
 
     private Long checkpointIdToFinish;
     private final DataSourceDialect<C> dialect;
+
+    // Mutations use this assigner's monitor, but discovery/chunking and progress reads never do.
+    private boolean discoveringTables;
+    private boolean chunkingTable;
+    private volatile CdcEnumeratorProgressReport latestProgress;
 
     SnapshotSplitAssigner(
             SplitAssigner.Context<C> context,
@@ -135,16 +139,18 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
         this.sourceConfig = context.getSourceConfig();
         this.currentParallelism = currentParallelism;
         this.alreadyProcessedTables = Collections.synchronizedList(alreadyProcessedTables);
-        this.remainingSplits = new ConcurrentLinkedQueue(remainingSplits);
+        this.remainingSplits = new ArrayDeque<>(remainingSplits);
         this.assignedSplits = new ConcurrentHashMap<>(assignedSplits);
         this.splitCompletedOffsets = new ConcurrentHashMap<>(splitCompletedOffsets);
-        this.activeSplits = new ConcurrentHashMap<>(assignedSplits);
+        this.activeSplits = new TreeMap<>(assignedSplits);
         this.splitCompletedOffsets.keySet().forEach(this.activeSplits::remove);
         this.assignerCompleted = assignerCompleted;
-        this.remainingTables = new ConcurrentLinkedDeque<>(remainingTables);
+        this.remainingTables = new ArrayDeque<>(remainingTables);
         this.isRemainingTablesCheckpointed = isRemainingTablesCheckpointed;
         this.isTableIdCaseSensitive = isTableIdCaseSensitive;
         this.dialect = dialect;
+        this.discoveringTables = !isRemainingTablesCheckpointed && !assignerCompleted;
+        publishProgress();
 
         LOG.info("SnapshotSplitAssigner created with remaining tables: {}", this.remainingTables);
         LOG.info(
@@ -159,7 +165,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
 
     @Override
     public void open() {
-        chunkSplitter = dialect.createChunkSplitter(sourceConfig);
+        ChunkSplitter openedSplitter = dialect.createChunkSplitter(sourceConfig);
 
         // the legacy state didn't snapshot remaining tables, discovery remaining table here
         if (!isRemainingTablesCheckpointed && !assignerCompleted) {
@@ -167,76 +173,114 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
                 final List<TableId> discoverTables = dialect.discoverDataCollections(sourceConfig);
                 context.getCapturedTables().addAll(discoverTables);
                 discoverTables.removeAll(alreadyProcessedTables);
-                this.remainingTables.addAll(discoverTables);
-                this.isTableIdCaseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                boolean caseSensitive = dialect.isDataCollectionIdCaseSensitive(sourceConfig);
+                synchronized (this) {
+                    this.remainingTables.addAll(discoverTables);
+                    this.isTableIdCaseSensitive = caseSensitive;
+                    this.discoveringTables = false;
+                    publishProgress();
+                }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to discover remaining tables to capture", e);
             }
+        }
+        synchronized (this) {
+            chunkSplitter = openedSplitter;
         }
     }
 
     @Override
     public Optional<SourceSplitBase> getNext() {
-        if (chunkSplitter == null) {
-            return Optional.empty();
-        }
-        if (!remainingSplits.isEmpty()) {
-            // return remaining splits firstly
-            Iterator<SnapshotSplit> iterator = remainingSplits.iterator();
-            SnapshotSplit split = iterator.next();
-            iterator.remove();
-            assignedSplits.put(split.splitId(), split);
-            activeSplits.put(split.splitId(), split);
-            context.getAssignedSnapshotSplit().put(split.splitId(), split);
-            return Optional.of(split);
-        } else {
-            // it's turn for new table
-            TableId nextTable = remainingTables.pollFirst();
-            if (nextTable != null) {
-                // split the given table into chunks (snapshot splits)
-                Collection<SnapshotSplit> splits = chunkSplitter.generateSplits(nextTable);
+        while (true) {
+            final TableId nextTable;
+            final ChunkSplitter splitter;
+            synchronized (this) {
+                if (chunkSplitter == null) {
+                    return Optional.empty();
+                }
+                SnapshotSplit split = remainingSplits.poll();
+                if (split != null) {
+                    assignedSplits.put(split.splitId(), split);
+                    if (!splitCompletedOffsets.containsKey(split.splitId())) {
+                        activeSplits.put(split.splitId(), split);
+                    }
+                    context.getAssignedSnapshotSplit().put(split.splitId(), split);
+                    publishProgress();
+                    return Optional.of(split);
+                }
+                if (chunkingTable || remainingTables.isEmpty()) {
+                    return Optional.empty();
+                }
+                nextTable = remainingTables.pollFirst();
+                splitter = chunkSplitter;
+                chunkingTable = true;
+                publishProgress();
+            }
+            final Collection<SnapshotSplit> splits;
+            try {
+                splits = splitter.generateSplits(nextTable);
+            } catch (RuntimeException | Error failure) {
+                synchronized (this) {
+                    chunkingTable = false;
+                    publishProgress();
+                }
+                throw failure;
+            }
+            synchronized (this) {
                 remainingSplits.addAll(splits);
                 alreadyProcessedTables.add(nextTable);
-                return getNext();
-            } else {
-                return Optional.empty();
+                chunkingTable = false;
+                publishProgress();
             }
         }
     }
 
     @Override
-    public boolean waitingForCompletedSplits() {
+    public synchronized boolean waitingForCompletedSplits() {
         return !allSplitsCompleted();
     }
 
     @Override
-    public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
+    public synchronized void onCompletedSplits(
+            List<SnapshotSplitWatermark> completedSplitWatermarks) {
         completedSplitWatermarks.forEach(
                 watermark -> {
-                    this.splitCompletedOffsets.put(watermark.getSplitId(), watermark);
+                    String splitId = watermark.getSplitId();
+                    this.splitCompletedOffsets.put(splitId, watermark);
                     this.activeSplits.remove(watermark.getSplitId());
                 });
         if (allSplitsCompleted()) {
-            // Skip the waiting checkpoint when current parallelism is 1 which means we do not need
-            // to care about the global output data order of snapshot splits and incremental split.
             if (currentParallelism == 1) {
+                // A single-reader job completes immediately. Zeta disables checkpointing
+                // entirely for batch jobs without 'checkpoint.interval', so waiting for
+                // notifyCheckpointComplete would hang such a job forever. The failover risk
+                // of skipping the checkpoint wait is covered by the durable finished-unacked
+                // splits in the reader's own checkpoint, whose re-report on restore and the
+                // back-fill in restoreCompletedSnapshotSplit reconstruct the completion state
+                // without replaying the splits.
                 assignerCompleted = true;
                 LOG.info(
-                        "Snapshot split assigner received all splits completed and the job parallelism is 1, snapshot split assigner is turn into completed status.");
+                        "Snapshot split assigner received all splits completed at parallelism 1, snapshot split assigner is turn into completed status.");
             } else {
+                // Multi-reader jobs must wait for a complete checkpoint before switching to
+                // the incremental phase, so that all records of snapshot splits are completely
+                // processed in the pipeline and no incremental record can overtake a snapshot
+                // record of the same key.
                 LOG.info(
-                        "Snapshot split assigner received all splits completed, waiting for a complete checkpoint to mark the assigner completed.");
+                        "Snapshot split assigner received all splits completed at parallelism {}, waiting for a complete checkpoint to mark the assigner completed.",
+                        currentParallelism);
             }
         }
+        publishProgress();
     }
 
     @Override
-    public void addSplits(Collection<SourceSplitBase> splits) {
+    public synchronized void addSplits(Collection<SourceSplitBase> splits) {
         for (SourceSplitBase split : splits) {
             SnapshotSplit snapshotSplit = split.asSnapshotSplit();
-            if (hasCheckpointedCompletionState(snapshotSplit)) {
+            if (restoreCompletedSnapshotSplit(snapshotSplit)) {
                 LOG.info(
-                        "Ignore add-back for completed snapshot split {}, keep checkpointed completion state",
+                        "Restore completed snapshot split {} from checkpoint without replaying it",
                         snapshotSplit.splitId());
                 continue;
             }
@@ -247,18 +291,21 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
             splitCompletedOffsets.remove(snapshotSplit.splitId());
             activeSplits.remove(snapshotSplit.splitId());
         }
+        publishProgress();
     }
 
     @Override
-    public SnapshotPhaseState snapshotState(long checkpointId) {
+    public synchronized SnapshotPhaseState snapshotState(long checkpointId) {
+        // Engine serialization holds enumeratorContext, but add-back uses task/assigner monitors.
+        // Detach collections so later add-back cannot mutate the state being serialized.
         SnapshotPhaseState state =
                 new SnapshotPhaseState(
-                        alreadyProcessedTables,
+                        new ArrayList<>(alreadyProcessedTables),
                         remainingSplits.isEmpty()
                                 ? new ArrayList<>()
                                 : new ArrayList<>(remainingSplits),
-                        assignedSplits,
-                        splitCompletedOffsets,
+                        new HashMap<>(assignedSplits),
+                        new HashMap<>(splitCompletedOffsets),
                         assignerCompleted,
                         remainingTables.isEmpty()
                                 ? new ArrayList<>()
@@ -274,7 +321,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     }
 
     @Override
-    public void notifyCheckpointComplete(long checkpointId) {
+    public synchronized void notifyCheckpointComplete(long checkpointId) {
         // we have waited for at-least one complete checkpoint after all snapshot-splits are
         // completed, then we can mark snapshot assigner as completed.
         if (checkpointIdToFinish != null && !assignerCompleted && allSplitsCompleted()) {
@@ -284,7 +331,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     }
 
     /** Indicates there is no more splits available in this assigner. */
-    public boolean noMoreSplits() {
+    public synchronized boolean noMoreSplits() {
         return remainingTables.isEmpty() && remainingSplits.isEmpty();
     }
 
@@ -292,34 +339,107 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
      * Returns whether the snapshot split assigner is completed, which indicates there is no more
      * splits and all records of splits have been completely processed in the pipeline.
      */
-    public boolean isCompleted() {
+    public synchronized boolean isCompleted() {
         return assignerCompleted;
     }
 
     @Override
     public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
             String connectorType, String positionType) {
-        int activeSplitCount = activeSplits.size();
-        List<CdcSnapshotSplitProgress> activeSplitProgress =
-                activeSplits.entrySet().stream()
-                        .sorted(Map.Entry.comparingByKey())
-                        .limit(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS)
-                        .map(entry -> activeSplitProgress(entry.getValue(), positionType))
+        CdcEnumeratorProgressReport snapshot = latestProgress;
+        List<CdcSnapshotSplitProgress> details =
+                snapshot.getActiveSplits().stream()
+                        .map(
+                                split ->
+                                        new CdcSnapshotSplitProgress(
+                                                split.getSplitId(),
+                                                split.getTablePath(),
+                                                positionType(split.getLowWatermark(), positionType),
+                                                positionType(
+                                                        split.getHighWatermark(), positionType)))
                         .collect(Collectors.toList());
         return new CdcEnumeratorProgressReport(
                 connectorType,
+                snapshot.getSnapshotAssignmentStatus(),
+                snapshot.getAssignedSplitCount(),
+                snapshot.getCompletedSplitCount(),
+                snapshot.getRunningSplitCount(),
+                snapshot.getPreparedRemainingSplitCount(),
+                snapshot.getRemainingUnchunkedTableCount(),
+                details,
+                snapshot.isActiveSplitsTruncated());
+    }
+
+    private CdcProgressValue<CdcProgressPosition> positionType(
+            CdcProgressValue<CdcProgressPosition> position, String positionType) {
+        return position.getValue() == null
+                ? position
+                : CdcProgressValue.exact(
+                        new CdcProgressPosition(
+                                positionType,
+                                position.getValue().getSchemaVersion(),
+                                position.getValue().getValues()));
+    }
+
+    /** Publishes one complete transition; readers never traverse mutable assigner state. */
+    private void publishProgress() {
+        try {
+            latestProgress = buildProgress();
+        } catch (RuntimeException failure) {
+            // Observation must not fail assignment or restore. Do not log native positions.
+            LOG.debug(
+                    "Unable to publish CDC assignment progress: {}", failure.getClass().getName());
+            latestProgress =
+                    new CdcEnumeratorProgressReport(
+                            "UNKNOWN",
+                            snapshotAssignmentStatus(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            CdcProgressValue.unavailable(),
+                            Collections.emptyList(),
+                            !activeSplits.isEmpty());
+        }
+    }
+
+    private CdcEnumeratorProgressReport buildProgress() {
+        int assignedCount = assignedSplits.size();
+        int completedCount = splitCompletedOffsets.size();
+        int activeSplitCount = activeSplits.size();
+        boolean consistent = (long) assignedCount == (long) completedCount + activeSplitCount;
+        if (!consistent) {
+            LOG.debug(
+                    "CDC assignment counts are best effort: assigned={}, completed={}, running={}",
+                    assignedCount,
+                    completedCount,
+                    activeSplitCount);
+        }
+        List<CdcSnapshotSplitProgress> activeSplitProgress =
+                activeSplits.entrySet().stream()
+                        .limit(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS)
+                        .map(entry -> activeSplitProgress(entry.getValue(), "UNKNOWN"))
+                        .collect(Collectors.toList());
+        return new CdcEnumeratorProgressReport(
+                "UNKNOWN",
                 snapshotAssignmentStatus(),
-                CdcProgressValue.exact(assignedSplits.size()),
-                CdcProgressValue.exact(splitCompletedOffsets.size()),
-                CdcProgressValue.exact(activeSplitCount),
+                consistent
+                        ? CdcProgressValue.exact(assignedCount)
+                        : CdcProgressValue.bestEffort(assignedCount),
+                consistent
+                        ? CdcProgressValue.exact(completedCount)
+                        : CdcProgressValue.bestEffort(completedCount),
+                consistent
+                        ? CdcProgressValue.exact(activeSplitCount)
+                        : CdcProgressValue.bestEffort(activeSplitCount),
                 CdcProgressValue.exact(remainingSplits.size()),
-                CdcProgressValue.exact(remainingTables.size()),
+                CdcProgressValue.exact(remainingTables.size() + (chunkingTable ? 1 : 0)),
                 activeSplitProgress,
                 activeSplitCount > activeSplitProgress.size());
     }
 
     private CdcSnapshotAssignmentStatus snapshotAssignmentStatus() {
-        if (!remainingTables.isEmpty()) {
+        if (discoveringTables || chunkingTable || !remainingTables.isEmpty()) {
             return CdcSnapshotAssignmentStatus.DISCOVERING;
         }
         if (!remainingSplits.isEmpty()) {
@@ -355,16 +475,32 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     }
 
     /**
-     * Returns whether the restored split already has durable completion state in the checkpoint.
+     * Returns whether the restored split already has durable completion state in the checkpoint,
+     * and back-fills any missing completion watermark from the split itself.
      *
-     * <p>We can safely skip add-back only when the checkpoint persisted both the original
-     * assignment and the finished watermark. If either side is missing, the split still needs to be
-     * replayed after restore so the enumerator can rebuild the missing completion state.
+     * <p>A finished reader that never reported its watermark before failover (for example because
+     * the reader crashed immediately after marking the split as snapshot-read-finished but before
+     * its next CompletedSnapshotSplitsReportEvent went out) can show up after restore as a finished
+     * split whose watermark has not yet been checkpointed. Without back-fill, the enumerator would
+     * re-enqueue the split and the snapshot phase would never finish.
+     *
+     * <p>The split is skipped on add-back in that case, and the missing watermark is reconstructed
+     * from the split's own low/high watermark. If the split was not finished before the failover we
+     * still re-enqueue it so the reader can replay it from its persisted state.
      */
-    private boolean hasCheckpointedCompletionState(SnapshotSplit snapshotSplit) {
-        return snapshotSplit.isSnapshotReadFinished()
-                && assignedSplits.containsKey(snapshotSplit.splitId())
-                && splitCompletedOffsets.containsKey(snapshotSplit.splitId());
+    private boolean restoreCompletedSnapshotSplit(SnapshotSplit snapshotSplit) {
+        if (!snapshotSplit.isSnapshotReadFinished()
+                || !assignedSplits.containsKey(snapshotSplit.splitId())) {
+            return false;
+        }
+        splitCompletedOffsets.putIfAbsent(
+                snapshotSplit.splitId(),
+                new SnapshotSplitWatermark(
+                        snapshotSplit.splitId(),
+                        snapshotSplit.getLowWatermark(),
+                        snapshotSplit.getHighWatermark()));
+        activeSplits.remove(snapshotSplit.splitId());
+        return true;
     }
 
     @VisibleForTesting
@@ -377,7 +513,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
         return splitCompletedOffsets;
     }
 
-    public boolean completedSnapshotPhase(List<TableId> tableIds) {
+    public synchronized boolean completedSnapshotPhase(List<TableId> tableIds) {
         checkArgument(isCompleted() && allSplitsCompleted());
 
         for (String splitKey : new ArrayList<>(assignedSplits.keySet())) {
@@ -389,6 +525,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
             }
         }
 
+        publishProgress();
         return assignedSplits.isEmpty() && splitCompletedOffsets.isEmpty();
     }
 }

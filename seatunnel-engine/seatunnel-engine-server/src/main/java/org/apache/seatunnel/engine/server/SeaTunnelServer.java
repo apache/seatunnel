@@ -68,6 +68,7 @@ import java.util.Properties;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 
 @Slf4j
 public class SeaTunnelServer
@@ -102,7 +103,7 @@ public class SeaTunnelServer
     @Getter private ScheduledExecutorService monitorService;
     private volatile RealtimeMetricsService realtimeMetricsService;
     @Getter private final CdcProgressService cdcProgressService;
-    private JettyService jettyService;
+    private volatile JettyService jettyService;
     private TaskLogManagerService taskLogManagerService;
 
     @Getter private SeaTunnelHealthMonitor seaTunnelHealthMonitor;
@@ -385,8 +386,21 @@ public class SeaTunnelServer
     private void printExecutionInfo() {
         coordinatorService.printExecutionInfo();
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
-            coordinatorService.collectCdcEnumeratorProgress();
+            collectCdcProgressSafely(
+                    coordinatorService::collectCdcEnumeratorProgress,
+                    error ->
+                            LOGGER.warning(
+                                    "CDC progress collection failed: "
+                                            + error.getClass().getName()));
             coordinatorService.printJobDetailInfo();
+        }
+    }
+
+    static void collectCdcProgressSafely(Runnable collect, Consumer<Exception> onFailure) {
+        try {
+            collect.run();
+        } catch (Exception error) {
+            onFailure.accept(error);
         }
     }
 
@@ -400,7 +414,6 @@ public class SeaTunnelServer
         MetricsSnapshotStateStore metricsSnapshotStateStore =
                 engineContext.getStateStores().metricsSnapshotStore();
         metricsSnapshotStateStore.removePipeline(pipelineLocation);
-        cdcProgressService.removePipeline(pipelineLocation);
     }
 
     public boolean isCoordinatorActive() {
@@ -409,6 +422,14 @@ public class SeaTunnelServer
 
     public SeaTunnelConfig getSeaTunnelConfig() {
         return seaTunnelConfig;
+    }
+
+    /** Returns this member's bound HTTP port, or the configured port before Jetty is available. */
+    public int getHttpPort() {
+        JettyService service = jettyService;
+        return service == null
+                ? seaTunnelConfig.getEngineConfig().getHttpConfig().getPort()
+                : service.getHttpPort();
     }
 
     public NodeEngineImpl getNodeEngine() {

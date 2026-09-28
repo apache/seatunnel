@@ -29,6 +29,25 @@ import java.util.Map;
 class CdcProgressModelTest {
 
     @Test
+    void filteredPositionCopiesOnceAndPreservesConstructorNullSemantics() {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("pos", "10");
+        values.put("optional", null);
+        CdcProgressPosition filtered = CdcProgressPosition.copyOfNonNullValues("TEST", 1, values);
+        CdcProgressPosition ordinary = new CdcProgressPosition("TEST", 1, values);
+        values.put("pos", "20");
+        Assertions.assertEquals(Collections.singletonMap("pos", "10"), filtered.getValues());
+        Assertions.assertTrue(ordinary.getValues().containsKey("optional"));
+        Assertions.assertThrows(
+                UnsupportedOperationException.class, () -> filtered.getValues().clear());
+        Assertions.assertTrue(
+                CdcProgressPosition.copyOfNonNullValues(
+                                "TEST", 1, Collections.singletonMap("optional", null))
+                        .getValues()
+                        .isEmpty());
+    }
+
+    @Test
     void testPositionDefensivelyCopiesValues() {
         Map<String, String> values = new LinkedHashMap<>();
         values.put("file", "mysql-bin.000001");
@@ -65,6 +84,65 @@ class CdcProgressModelTest {
         activeSplits.clear();
 
         Assertions.assertEquals(1, report.getActiveSplits().size());
+        Assertions.assertThrows(
+                UnsupportedOperationException.class, () -> report.getActiveSplits().clear());
+    }
+
+    @Test
+    void testEnumeratorReportActiveSplitWatermarksAreDeeplyImmutable() {
+        Map<String, String> lowValues = new LinkedHashMap<>();
+        lowValues.put("pos", "100");
+        Map<String, String> highValues = new LinkedHashMap<>();
+        highValues.put("pos", "200");
+        List<CdcSnapshotSplitProgress> activeSplits = new ArrayList<>();
+        activeSplits.add(
+                new CdcSnapshotSplitProgress(
+                        "split-1",
+                        "inventory.orders",
+                        CdcProgressValue.exact(
+                                new CdcProgressPosition("MYSQL_BINLOG", 1, lowValues)),
+                        CdcProgressValue.exact(
+                                new CdcProgressPosition("MYSQL_BINLOG", 1, highValues))));
+
+        CdcEnumeratorProgressReport report =
+                new CdcEnumeratorProgressReport(
+                        "MySQL-CDC",
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        activeSplits);
+        lowValues.put("pos", "300");
+        highValues.clear();
+        activeSplits.clear();
+
+        Assertions.assertEquals(1, report.getActiveSplits().size());
+        CdcSnapshotSplitProgress split = report.getActiveSplits().get(0);
+        Assertions.assertEquals("split-1", split.getSplitId());
+        Assertions.assertEquals("inventory.orders", split.getTablePath());
+        Assertions.assertEquals(CdcProgressAccuracy.EXACT, split.getLowWatermark().getAccuracy());
+        Assertions.assertEquals(CdcProgressAccuracy.EXACT, split.getHighWatermark().getAccuracy());
+        Assertions.assertEquals(
+                Collections.singletonMap("pos", "100"),
+                split.getLowWatermark().getValue().getValues());
+        Assertions.assertEquals(
+                Collections.singletonMap("pos", "200"),
+                split.getHighWatermark().getValue().getValues());
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () -> split.getLowWatermark().getValue().getValues().put("pos", "400"));
+        Assertions.assertThrows(
+                UnsupportedOperationException.class,
+                () ->
+                        split.getHighWatermark()
+                                .getValue()
+                                .getValues()
+                                .entrySet()
+                                .iterator()
+                                .next()
+                                .setValue("400"));
         Assertions.assertThrows(
                 UnsupportedOperationException.class, () -> report.getActiveSplits().clear());
     }
@@ -118,6 +196,35 @@ class CdcProgressModelTest {
                                 CdcProgressValue.exact(0),
                                 CdcProgressValue.exact(0),
                                 Collections.singletonList(activeSplit("split-1"))));
+    }
+
+    @Test
+    void testEnumeratorReportRejectsEachNegativeCountIndependently() {
+        String[] countNames = {
+            "assignedSplitCount",
+            "completedSplitCount",
+            "runningSplitCount",
+            "preparedRemainingSplitCount",
+            "remainingUnchunkedTableCount"
+        };
+        for (int i = 0; i < countNames.length; i++) {
+            int[] counts = new int[countNames.length];
+            counts[i] = -1;
+            IllegalArgumentException error =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () ->
+                                    new CdcEnumeratorProgressReport(
+                                            "MySQL-CDC",
+                                            CdcSnapshotAssignmentStatus.ASSIGNING,
+                                            CdcProgressValue.exact(counts[0]),
+                                            CdcProgressValue.exact(counts[1]),
+                                            CdcProgressValue.exact(counts[2]),
+                                            CdcProgressValue.exact(counts[3]),
+                                            CdcProgressValue.exact(counts[4]),
+                                            Collections.emptyList()));
+            Assertions.assertEquals(countNames[i] + " must not be negative", error.getMessage());
+        }
     }
 
     @Test

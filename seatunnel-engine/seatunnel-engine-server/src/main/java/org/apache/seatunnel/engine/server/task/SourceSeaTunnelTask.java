@@ -62,6 +62,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     private transient Object checkpointLock;
     private transient AtomicLong cdcProgressSequence;
+    private transient volatile SourceFlowLifeCycle<T, SplitT> cdcProgressFlow;
     @Getter private transient Serializer<SplitT> splitSerializer;
     private final Map<String, Object> envOption;
     private final PhysicalExecutionFlow<SourceAction, SourceConfig> sourceFlow;
@@ -125,6 +126,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                                     ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
                                             .signalNoMoreElement());
             ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).setCollector(collector);
+            cdcProgressFlow = (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         }
     }
 
@@ -178,7 +180,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
 
     @Override
     public CdcReaderProgressReport getCdcProgressReport() {
-        return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).getCdcReaderProgress();
+        SourceFlowLifeCycle<T, SplitT> flow = cdcProgressFlow;
+        return flow == null ? null : flow.getCdcReaderProgress();
     }
 
     @Override

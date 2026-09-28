@@ -195,15 +195,15 @@ sink {
 
 要点:
 - 以主键（或业务唯一键）做哈希，将同一键稳定映射到同一副本
-- 当前实现: $replica = \mathrm{Math.abs}(hash(pk)) \bmod replicaNum$
+- 当前实现: $replica = (hash(pk) \mathbin{\&} \mathrm{Integer.MAX\_VALUE}) \bmod replicaNum$
 
-:::caution 已知问题
+:::note
 
-`Math.abs(Integer.MIN_VALUE)` 仍返回 `Integer.MIN_VALUE`（负数），因此当主键哈希恰好为
-`Integer.MIN_VALUE` 且副本数不是 2 的幂时会得到负的下标，随后的
-`blockingQueues.get(index)` 会抛出 `IndexOutOfBoundsException`。本页描述的是 `dev`
-分支当前的实际行为；该缺陷记录在
-[#11720](https://github.com/apache/seatunnel/issues/11720)，修复合入后需同步更新本节。
+这里用 `& Integer.MAX_VALUE` 清除符号位，而不是用 `Math.abs`：`Math.abs(Integer.MIN_VALUE)`
+仍返回 `Integer.MIN_VALUE`（负数）。否则当主键哈希恰好为 `Integer.MIN_VALUE` 且副本数不是
+2 的幂时会得到负的下标，随后的 `blockingQueues.get(index)` 会抛出
+`IndexOutOfBoundsException`。掩码写法无分支，且对任意输入都成立。相关记录见
+[#11720](https://github.com/apache/seatunnel/issues/11720)。
 
 :::
 
@@ -212,7 +212,7 @@ sink {
 要点:
 - 当记录缺少主键字段信息时，无法提供稳定落点
 - 使用 `Random.nextInt(blockingQueues.size())` 在副本间扩散压力，但不保证同一键的顺序性
-- 不使用 `System.nanoTime() % replicaNum` 之类的写法：`nanoTime()` 可能为负，同样会产生负下标
+- 不使用 `System.nanoTime() % replicaNum` 之类的写法：`nanoTime()` 可能为负，会产生负下标，原因与上面哈希需要掩码相同
 
 ## 6. 多表中的模式管理
 

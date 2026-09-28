@@ -68,8 +68,10 @@ public class IMapDagStorageBenchmark extends BenchmarkBase {
      * <p>The workload builds a real {@code JobDAGInfo} containing 1, 10, or 100 source-to-sink
      * pipelines before measurement and starts with 0 or 100 retained DAGs. The timed phase writes
      * that payload under 100 unique job IDs using the production history TTL, exercising IMap
-     * serialization, FileMapStore, and WAL append. Fixture construction, durable sample reloads,
-     * and deletion of the measured phase are not timed.
+     * serialization, FileMapStore, and WAL append. Fixture construction, sample checks, and
+     * deletion of the measured phase are not timed. Intermediate iterations check cached values;
+     * only the final measurement reloads samples from MapStore, avoiding full-WAL verification
+     * scans between measurements. This read-back checks persisted contents, not crash durability.
      *
      * <p>{@link Mode#SingleShotTime} fixes each growth phase at 100 DAGs. {@link
      * OperationsPerInvocation} normalizes the phase duration to one persisted DAG and prevents a

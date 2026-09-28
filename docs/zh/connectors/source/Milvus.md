@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-milvus.md';
 
 > Milvus 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读取一个集合，
@@ -229,6 +235,20 @@ sink {
   Console {}
 }
 ```
+
+## 常见问题
+
+### Milvus Source 能否一次性读取数据库中的所有 Collection？
+
+可以。如果省略 `collection` 参数或将其留空，Milvus 源连接器将读取配置的 `database` 下的所有集合。
+
+### 支持哪些向量数据类型？
+
+连接器支持 `FLOAT_VECTOR`、`BINARY_VECTOR`、`FLOAT16_VECTOR`、`BFLOAT16_VECTOR` 以及 `SPARSE_FLOAT_VECTOR`，并可将分区与索引元数据透传给下游连接器。
+
+### Source 如何处理 gRPC 消息限制或限流错误？
+
+可以通过调整 `batch_size` 和 `rate_limit` 参数来控制读取吞吐。当遇到集群限流或 gRPC 限制时，连接器内置了自动重试与退避机制。
 
 ## 变更日志
 

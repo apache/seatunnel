@@ -148,7 +148,8 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(60)
                         .withDescription(
-                                "The interval (in seconds) between two consecutive executions of the print execution info task.");
+                                "The interval (in seconds) between two consecutive executions of the print execution info task. "
+                                        + "Also controls coordinator polling of enumerator progress for sources that support CDC progress.");
 
         public static final Option<Integer> PRINT_JOB_METRICS_INFO_INTERVAL =
                 Options.key("print-job-metrics-info-interval")
@@ -190,6 +191,15 @@ public class ServerConfigOptions {
                                         + "This delay allows late asynchronous callbacks to observe a terminal tombstone instead of a missing state entry.");
         // The options about Hazelcast IMAP store end
         /////////////////////////////////////////////////
+
+        public static final Option<Integer> HEALTH_METRICS_TIMEOUT_SECONDS =
+                Options.key("health-metrics-timeout-seconds")
+                        .intType()
+                        .defaultValue(3)
+                        .withDescription(
+                                "The shared deadline (in seconds) for collecting health metrics from all cluster members "
+                                        + "for the system-monitoring-information REST API. Members that do not answer in time "
+                                        + "are reported with a timeout marker instead of blocking the response.");
 
         /////////////////////////////////////////////////
         // The options for checkpoint start

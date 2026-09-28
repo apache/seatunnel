@@ -36,7 +36,7 @@ export default defineComponent({
       default: 'No metrics'
     },
     height: {
-      type: Number,
+      type: [Number, String] as PropType<number | string>,
       default: 220
     },
     unitTitles: {
@@ -50,29 +50,41 @@ export default defineComponent({
     }
   },
   setup(props) {
+    // A pinned metric stays visible even before realtime samples arrive. Removing an empty
+    // group would make the layout jump and would make a successful pin look like it was ignored.
     const groups = computed(() => groupSeriesByUnit(props.series || []))
 
     return () => {
       if (!groups.value.length) {
-        return <div class="text-sm text-gray-400 py-2 text-center leading-6">{props.emptyText}</div>
+        return (
+          <div class="live-metrics-board-empty text-sm text-gray-400 py-2 text-center leading-6">
+            {props.emptyText}
+          </div>
+        )
       }
-      const n = groups.value.length
-      const gridClass =
+      const gridClass = props.layout === 'row' ? 'grid gap-2' : 'flex flex-col gap-3'
+      const gridStyle =
         props.layout === 'row'
-          ? n >= 3
-            ? 'grid grid-cols-3 gap-2'
-            : n === 2
-              ? 'grid grid-cols-2 gap-2'
-              : 'grid grid-cols-1 gap-2'
-          : 'flex flex-col gap-3'
+          ? {
+              gridTemplateColumns:
+                groups.value.length === 1
+                  ? 'minmax(0, calc((100% - 8px) / 2))'
+                  : 'repeat(auto-fit, minmax(min(320px, 100%), 1fr))'
+            }
+          : undefined
       return (
-        <div class={gridClass}>
+        <div
+          class={`${gridClass} live-metrics-board ${
+            groups.value.length === 1 ? 'live-metrics-board-single' : ''
+          }`}
+          style={gridStyle}
+        >
           {groups.value.map((group) => (
-            <div key={group.unit} class="min-w-0">
+            <div key={group.unit} class="live-metrics-group min-w-0">
               <div class="text-xs text-gray-500 mb-1 leading-4">
                 {props.unitTitles[group.unit] || group.unit}
               </div>
-              <div class="bg-white rounded border border-gray-100 overflow-hidden">
+              <div class="live-metrics-chart-container bg-white rounded border border-gray-100 overflow-hidden">
                 <LiveLineChart
                   series={group.series}
                   windowMs={props.windowMs}
