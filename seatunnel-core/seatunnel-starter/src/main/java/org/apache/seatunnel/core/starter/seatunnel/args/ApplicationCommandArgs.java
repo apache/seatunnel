@@ -88,7 +88,7 @@ public class ApplicationCommandArgs extends CommandArgs {
         validateCommandOptions();
         return new ApplicationExecuteCommand(this);
     }
-    
+
     public void validateCommandOptions() {
         if (!Files.isRegularFile(Paths.get(deploymentConfig))) {
             throw new IllegalArgumentException(
