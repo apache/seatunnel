@@ -317,12 +317,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     }
 
     /**
-     * Cancels active task groups when Hazelcast resets managed services during a cluster merge.
-     * Their normal completion path releases task resources and removes the active contexts.
+     * Suppresses terminal notifications from this node's old task generations and cancels active
+     * task groups when Hazelcast resets managed services during a cluster merge.
      */
     public void reset() {
         List<CompletableFuture<Void>> cancellations = new ArrayList<>();
         synchronized (this) {
+            for (TaskGroupContext context : finishedExecutionContexts.values()) {
+                context.setResetRequested(true);
+            }
             for (TaskGroupContext context : executionContexts.values()) {
                 context.setResetRequested(true);
                 CompletableFuture<Void> cancellationFuture = cancellationFutures.get(context);
