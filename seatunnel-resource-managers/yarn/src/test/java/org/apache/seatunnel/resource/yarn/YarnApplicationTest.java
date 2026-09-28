@@ -15,15 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.client;
+package org.apache.seatunnel.resource.yarn;
 
 import org.apache.seatunnel.engine.common.runtime.DeployType;
 import org.apache.seatunnel.resource.core.application.ApplicationSpecification;
 import org.apache.seatunnel.resource.core.application.ApplicationStatus;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
 import org.apache.seatunnel.resource.core.client.ApplicationClient;
-import org.apache.seatunnel.resource.yarn.YarnApplicationClusterDescriptor;
-import org.apache.seatunnel.resource.yarn.YarnApplicationMaster;
+import org.apache.seatunnel.resource.yarn.client.YarnApplicationClient;
 import org.apache.seatunnel.resource.yarn.config.YarnOptions;
 import org.apache.seatunnel.resource.yarn.launch.YarnConstants;
 
@@ -123,17 +122,25 @@ class YarnApplicationTest {
     }
 
     @Test
-    void terminalStatusUsesTheFinalJobResult() {
+    void terminalStatusUsesTheFinalJobResult() throws Exception {
+        YarnClient client = mock(YarnClient.class);
         ApplicationReport report = Records.newRecord(ApplicationReport.class);
+        when(client.getApplicationReport(any())).thenReturn(report);
+        YarnApplicationClient application =
+                new YarnApplicationClient(
+                        client,
+                        localConfiguration(),
+                        ApplicationId.newInstance(1, 1).toString(),
+                        new Path(new Path(temporary.toURI()), "terminal"));
         report.setYarnApplicationState(YarnApplicationState.FINISHED);
         report.setFinalApplicationStatus(FinalApplicationStatus.FAILED);
-        assertEquals(ApplicationStatus.FAILED, YarnApplicationClient.status(report));
+        assertEquals(ApplicationStatus.FAILED, application.getStatus());
         report.setFinalApplicationStatus(FinalApplicationStatus.SUCCEEDED);
-        assertEquals(ApplicationStatus.SUCCEEDED, YarnApplicationClient.status(report));
+        assertEquals(ApplicationStatus.SUCCEEDED, application.getStatus());
         report.setYarnApplicationState(YarnApplicationState.KILLED);
-        assertEquals(ApplicationStatus.CANCELED, YarnApplicationClient.status(report));
+        assertEquals(ApplicationStatus.CANCELED, application.getStatus());
         report.setYarnApplicationState(YarnApplicationState.ACCEPTED);
-        assertEquals(ApplicationStatus.DEPLOYING, YarnApplicationClient.status(report));
+        assertEquals(ApplicationStatus.DEPLOYING, application.getStatus());
     }
 
     @Test

@@ -99,11 +99,14 @@ class ApplicationSpecificationTest {
                                 DeployType.KUBERNETES,
                                 "source {}",
                                 Collections.singletonMap("application.master.port", "65536")));
-        assertThrows(
-                IllegalArgumentException.class,
-                () ->
-                        ApplicationSpecification.fromOptions(
-                                DeployType.STANDALONE, "source {}", Collections.emptyMap()));
+    }
+
+    @Test
+    void preservesDeployTypeWithoutPlatformValidation() {
+        ApplicationSpecification specification =
+                ApplicationSpecification.fromOptions(
+                        DeployType.STANDALONE, "source {}", Collections.emptyMap());
+        assertEquals(DeployType.STANDALONE, specification.getDeployType());
     }
 
     @Test

@@ -29,12 +29,12 @@ import org.apache.seatunnel.resource.kubernetes.kubeclient.resources.KubernetesP
 import io.kubernetes.client.openapi.ApiException;
 
 /** Reads durable Kubernetes Job state without connecting to the application master. */
-final class KubernetesApplicationClient implements ApplicationClient {
+public final class KubernetesApplicationClient implements ApplicationClient {
     private final KubernetesClient api;
     private final ApplicationId applicationId;
     private volatile boolean canceled;
 
-    KubernetesApplicationClient(KubernetesClient api, ApplicationId applicationId) {
+    public KubernetesApplicationClient(KubernetesClient api, ApplicationId applicationId) {
         this.api = api;
         this.applicationId = applicationId;
     }

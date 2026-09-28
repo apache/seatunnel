@@ -32,13 +32,13 @@ import org.apache.hadoop.yarn.client.api.YarnClient;
 import static org.apache.hadoop.yarn.api.records.ApplicationId.fromString;
 
 /** Closing a client leaves a detached application running; cancel explicitly stops it. */
-final class YarnApplicationClient implements ApplicationClient {
+public final class YarnApplicationClient implements ApplicationClient {
     private final YarnClient client;
     private final Configuration configuration;
     private final String yarnId;
     private final Path staging;
 
-    YarnApplicationClient(
+    public YarnApplicationClient(
             YarnClient client, Configuration configuration, String yarnId, Path staging) {
         this.client = client;
         this.configuration = configuration;

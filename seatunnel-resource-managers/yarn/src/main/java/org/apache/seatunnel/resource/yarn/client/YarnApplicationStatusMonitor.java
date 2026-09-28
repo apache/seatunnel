@@ -26,12 +26,12 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 
 /** Observes YARN application startup without mixing polling policy into submission code. */
-final class YarnApplicationStatusMonitor {
+public final class YarnApplicationStatusMonitor {
     private static final long STATUS_POLL_INTERVAL_MILLIS = 500;
 
     private final YarnClient client;
 
-    YarnApplicationStatusMonitor(YarnClient client) {
+    public YarnApplicationStatusMonitor(YarnClient client) {
         this.client = client;
     }
 
@@ -42,7 +42,7 @@ final class YarnApplicationStatusMonitor {
      * @param timeoutMillis maximum startup wait
      * @throws Exception when status retrieval fails or the startup deadline expires
      */
-    void awaitRunning(ApplicationId applicationId, long timeoutMillis) throws Exception {
+    public void awaitRunning(ApplicationId applicationId, long timeoutMillis) throws Exception {
         long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
         while (true) {
             ApplicationReport report = client.getApplicationReport(applicationId);

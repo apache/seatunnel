@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.resource.yarn.cluster;
+package org.apache.seatunnel.resource.yarn;
 
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerContext;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerRegistration;
 import org.apache.seatunnel.resource.core.application.WorkerSpecification;
-import org.apache.seatunnel.resource.yarn.YarnResourceManagerDriver;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -66,6 +65,7 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        null,
                         resourceManager,
                         nodeManager);
         assertThrows(
@@ -89,6 +89,7 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        null,
                         resourceManager,
                         nodeManager);
         driver.initialize(context);
@@ -143,6 +144,7 @@ class YarnResourceManagerDriverTest {
                 new YarnResourceManagerDriver(
                         localConfiguration(),
                         new Path(temporary.toURI()),
+                        null,
                         resourceManager,
                         nodeManager);
         driver.initialize(context);

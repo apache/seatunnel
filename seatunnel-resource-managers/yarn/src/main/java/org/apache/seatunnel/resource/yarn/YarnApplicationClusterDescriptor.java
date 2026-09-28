@@ -171,7 +171,7 @@ final class YarnApplicationClusterDescriptor implements ApplicationClusterDescri
                     .awaitRunning(fromString(yarnId), specification.getStartupTimeoutMillis());
             return new YarnApplicationClient(client, configuration, yarnId, staging);
         } catch (Exception failure) {
-            if (submitted && yarnId != null) {
+            if (submitted) {
                 try {
                     client.killApplication(fromString(yarnId));
                 } catch (Exception cleanup) {
