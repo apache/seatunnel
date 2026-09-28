@@ -63,6 +63,8 @@ works against a local database file path (`jdbc:duckdb:/path/to/database.db`) or
 | TIMESTAMP                                                           | TIMESTAMP        |
 | BYTES<br/>ARRAY<br/>ROW<br/>MAP                                     | BLOB             |
 
+DuckDB `TIME` values preserve microsecond precision when read or written through the JDBC connector. They represent a local time of day without a time zone.
+
 ## Sink Options
 
 |                   Name                    |  Type   | Required |           Default            |                                                                                                                  Description                                                                                                                   |

@@ -66,6 +66,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | TIMESTAMP<br/>TIMESTAMP WITH TIME ZONE                   | TIMESTAMP      |
 | BLOB<br/>ARRAY<br/>STRUCT<br/>MAP                        | BYTES          |
 
+JDBC 连接器读取和写入 DuckDB `TIME` 时保留微秒精度。该类型表示不带时区的本地时刻。
+
 ## 源选项
 
 | 名称                           | 类型         | 是否必需 | 默认值             | 描述                                                                                                                                                   |
