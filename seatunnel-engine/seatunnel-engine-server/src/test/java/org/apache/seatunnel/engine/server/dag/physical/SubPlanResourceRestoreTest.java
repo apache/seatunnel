@@ -21,7 +21,6 @@ import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.master.JobMaster;
-import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -29,11 +28,10 @@ import org.mockito.Mockito;
 
 import com.hazelcast.map.IMap;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 class SubPlanResourceRestoreTest {
     @Test
@@ -41,11 +39,38 @@ class SubPlanResourceRestoreTest {
         JobMaster master = Mockito.mock(JobMaster.class, Mockito.RETURNS_DEEP_STUBS);
         SubPlan plan = failedPipeline(master);
         Mockito.when(master.preApplyResources(plan)).thenReturn(false);
-        InvocationTargetException error =
-                Assertions.assertThrows(InvocationTargetException.class, () -> processState(plan));
-        Assertions.assertInstanceOf(NoEnoughResourceException.class, error.getCause());
+        Assertions.assertDoesNotThrow(plan::startSubPlanStateProcess);
+        Assertions.assertEquals(PipelineStatus.FAILING, plan.getPipelineState());
+        Assertions.assertEquals(1, plan.getPipelineRestoreNum());
         Mockito.verify(plan, Mockito.never()).restorePipeline();
         Mockito.verify(master).releasePipelineResource(plan);
+    }
+
+    @Test
+    void masterFailoverAllocationFailureMustNotAbortRemainingPipelines() {
+        JobMaster master = Mockito.mock(JobMaster.class, Mockito.RETURNS_DEEP_STUBS);
+        SubPlan failed = failedPipeline(master);
+        SubPlan canceled = failedPipeline(master, PipelineStatus.CANCELED);
+        Mockito.when(master.preApplyResources(failed)).thenReturn(false, true);
+        Mockito.when(master.preApplyResources(canceled)).thenReturn(false);
+
+        Assertions.assertDoesNotThrow(
+                () -> {
+                    failed.restorePipelineState();
+                    canceled.restorePipelineState();
+                });
+        Assertions.assertEquals(PipelineStatus.FAILING, failed.getPipelineState());
+        Assertions.assertEquals(PipelineStatus.FAILING, canceled.getPipelineState());
+        Assertions.assertEquals(1, failed.getPipelineRestoreNum());
+        Assertions.assertEquals(1, canceled.getPipelineRestoreNum());
+        Mockito.verify(failed, Mockito.never()).restorePipeline();
+        Mockito.verify(canceled, Mockito.never()).restorePipeline();
+        Mockito.verify(master).preApplyResources(canceled);
+
+        // Retry after cancellation completes and replacement capacity becomes available.
+        failed.updatePipelineState(PipelineStatus.FAILED);
+        Assertions.assertEquals(2, failed.getPipelineRestoreNum());
+        Mockito.verify(failed).restorePipeline();
     }
 
     @Test
@@ -53,7 +78,7 @@ class SubPlanResourceRestoreTest {
         JobMaster master = Mockito.mock(JobMaster.class, Mockito.RETURNS_DEEP_STUBS);
         SubPlan plan = failedPipeline(master);
         Mockito.when(master.preApplyResources(plan)).thenReturn(true);
-        processState(plan);
+        plan.startSubPlanStateProcess();
         Mockito.verify(plan).restorePipeline();
     }
 
@@ -62,15 +87,19 @@ class SubPlanResourceRestoreTest {
         JobMaster master = Mockito.mock(JobMaster.class, Mockito.RETURNS_DEEP_STUBS);
         SubPlan plan = failedPipeline(master);
         plan.setPipelineRestoreNum(new AtomicInteger(plan.getPipelineMaxRestoreNum()));
-        processState(plan);
+        plan.startSubPlanStateProcess();
         Mockito.verify(master, Mockito.never()).preApplyResources(plan);
         Mockito.verify(plan, Mockito.never()).restorePipeline();
         Assertions.assertTrue(plan.getPipelineFuture().isDone());
         Assertions.assertEquals(PipelineStatus.FAILED, plan.getPipelineState());
     }
 
-    @SuppressWarnings("unchecked")
     private SubPlan failedPipeline(JobMaster master) {
+        return failedPipeline(master, PipelineStatus.FAILED);
+    }
+
+    @SuppressWarnings("unchecked")
+    private SubPlan failedPipeline(JobMaster master, PipelineStatus initialState) {
         JobConfig config = new JobConfig();
         config.setName("resource-restore");
         config.getEnvOptions().put("job.retry.interval.seconds", 0);
@@ -78,7 +107,15 @@ class SubPlanResourceRestoreTest {
         Mockito.when(info.getJobConfig()).thenReturn(config);
         Mockito.when(info.getJobId()).thenReturn(1L);
         IMap<Object, Object> states = Mockito.mock(IMap.class);
-        Mockito.when(states.get(Mockito.any())).thenReturn(PipelineStatus.FAILED);
+        AtomicReference<PipelineStatus> currentState = new AtomicReference<>(initialState);
+        Mockito.when(states.get(Mockito.any())).thenAnswer(invocation -> currentState.get());
+        Mockito.doAnswer(
+                        invocation -> {
+                            currentState.set(invocation.getArgument(1));
+                            return null;
+                        })
+                .when(states)
+                .set(Mockito.any(), Mockito.any());
         IMap<Object, Long[]> timestamps = Mockito.mock(IMap.class);
         Mockito.when(timestamps.get(Mockito.any()))
                 .thenReturn(new Long[PipelineStatus.values().length]);
@@ -100,11 +137,5 @@ class SubPlanResourceRestoreTest {
         Mockito.when(master.isNeedRestore()).thenReturn(true);
         Mockito.doNothing().when(plan).restorePipeline();
         return plan;
-    }
-
-    private void processState(SubPlan plan) throws Exception {
-        Method method = SubPlan.class.getDeclaredMethod("stateProcess");
-        method.setAccessible(true);
-        method.invoke(plan);
     }
 }

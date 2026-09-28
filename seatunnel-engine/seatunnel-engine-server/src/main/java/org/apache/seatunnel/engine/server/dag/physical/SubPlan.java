@@ -740,8 +740,16 @@ public class SubPlan {
                 if (checkNeedRestore(state) && prepareRestorePipeline()) {
                     jobMaster.releasePipelineResource(this);
                     if (!jobMaster.preApplyResources(this)) {
-                        throw new NoEnoughResourceException(
-                                "Not enough resources to restore " + pipelineFullName);
+                        // Failed allocation leaves the previous futures unchanged; never deploy
+                        // them.
+                        makePipelineFailing(
+                                new NoEnoughResourceException(
+                                        "Not enough resources to restore "
+                                                + pipelineFullName
+                                                + "; required task-group slots: "
+                                                + (coordinatorVertexList.size()
+                                                        + physicalVertexList.size())));
+                        return;
                     }
                     restorePipeline();
                     return;
