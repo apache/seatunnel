@@ -53,8 +53,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 ## Options
 
-| name                       | type    | required | default value               |
-|----------------------------|---------|----------|-----------------------------|
+| name                       | type    | required | default value               | Description |
+|----------------------------|---------|----------|-----------------------------|-------------|
 | path                       | string  | yes      | -                           |
 | file_format_type           | string  | yes      | -                           |
 | bucket                     | string  | yes      | -                           |
@@ -78,7 +78,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | xml_use_attr_format        | boolean | no       | -                           |
 | csv_use_header_line        | boolean | no       | false                       |
 | file_filter_pattern        | string  | no       | -                           |
-| filename_extension         | string  | no       | -                           |
+| filename_extension         | string  | no       | -                           | Filter files by the specified file extension, e.g. `csv`, `.txt`, `json`, or `.xml`. |
 | compress_codec             | string  | no       | none                        |
 | archive_compress_codec     | string  | no       | none                        |
 | encoding                   | string  | no       | UTF-8                       |
@@ -90,7 +90,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | quote_char                 | string  | no       | "                           |
 | escape_char                | string  | no       | -                           |
 | recursive_file_scan        | boolean | no       | true                        |
-| sort_files_by_modification_time | boolean | no       | false                       |
+| sort_files_by_modification_time | boolean | no       | false                       | Whether to sort files by modification time in descending order. When enabled, schema inference uses the latest file when reading evolving schemas. |
 
 ### path [string]
 
