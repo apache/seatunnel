@@ -23,7 +23,7 @@ This option is used to specify the processing method when an error occurs in the
 
 - FAIL: When `FAIL` is selected, data format error will block and an exception will be thrown.
 - SKIP: When `SKIP` is selected, data format error will skip this row data.
-- ROUTE_TO_TABLE: When `ROUTE_TO_TABLE` is selected, rows that fail to parse are routed to the error table configured by `row_error_handle_way.error_table`. If no error table is configured, invalid rows are skipped with a warning.
+- ROUTE_TO_TABLE: not implemented by the JsonPath transform yet. The value can be configured, but its actual behavior is identical to `FAIL`: rows that fail to parse make the job fail and are not routed to an error table.
 
 ### columns [array]
 

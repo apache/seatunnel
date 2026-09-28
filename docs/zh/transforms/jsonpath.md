@@ -23,7 +23,7 @@ JsonPath 转换插件支持使用 JSONPath 选择数据。
 
 - FAIL：选择`FAIL`时，数据格式错误会阻塞并抛出异常。
 - SKIP：选择`SKIP`时，数据格式错误会跳过该行数据。
-- ROUTE_TO_TABLE：选择`ROUTE_TO_TABLE`时，解析失败的行会被路由到 `row_error_handle_way.error_table` 配置的错误表中。如果未配置错误表，无效行将被跳过并输出警告日志。
+- ROUTE_TO_TABLE：JsonPath 转换尚未实现该处理方式。该值目前可以配置，但实际行为与 `FAIL` 完全相同：解析失败的行会直接使作业失败，不会被路由到错误表。
 
 ### columns [array]
 
